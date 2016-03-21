@@ -106,6 +106,11 @@ public final class SessionPropertyManager
         allSessionProperties.put(value.getFullyQualifiedName(), value);
     }
 
+    public boolean containsSessionProperty(String name)
+    {
+        return allSessionProperties.containsKey(name);
+    }
+
     public PropertyMetadata<?> getSessionPropertyMetadata(String name)
     {
         requireNonNull(name, "name is null");

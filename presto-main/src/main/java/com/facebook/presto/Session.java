@@ -336,7 +336,14 @@ public final class Session
 
     public ConnectorSession toConnectorSession()
     {
-        return new FullConnectorSession(queryId.toString(), identity, timeZoneKey, locale, startTime);
+        return new FullConnectorSession(
+                queryId.toString(),
+                identity,
+                timeZoneKey,
+                locale,
+                startTime,
+                systemProperties,
+                sessionPropertyManager);
     }
 
     public ConnectorSession toConnectorSession(String catalog)
@@ -348,9 +355,10 @@ public final class Session
                 timeZoneKey,
                 locale,
                 startTime,
+                systemProperties,
+                sessionPropertyManager,
                 catalogProperties.getOrDefault(catalog, ImmutableMap.of()),
-                catalog,
-                sessionPropertyManager);
+                catalog);
     }
 
     public ClientSession toClientSession(URI server, boolean debug, Duration clientRequestTimeout)

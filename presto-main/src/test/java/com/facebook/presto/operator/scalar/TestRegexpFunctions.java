@@ -13,26 +13,52 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.SqlType;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Factory;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.SystemSessionProperties.REGEX_LIBRARY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 public class TestRegexpFunctions
         extends AbstractTestFunctions
 {
+    private static final Session JONI_SESSION = testSessionBuilder()
+            .setSystemProperties(ImmutableMap.of(REGEX_LIBRARY, "JONI"))
+            .build();
+
+    private static final Session RE2J_SESSION = testSessionBuilder()
+            .setSystemProperties(ImmutableMap.of(REGEX_LIBRARY, "RE2J"))
+            .build();
+
     {
         registerScalar(TestRegexpFunctions.class);
+    }
+
+    @Factory(dataProvider = "sessions")
+    public TestRegexpFunctions(Session session)
+    {
+        super(session);
+    }
+
+    @DataProvider(name = "sessions")
+    public static Object[][] sessionsProvider()
+    {
+        return new Object[][] {new Object[] {JONI_SESSION}, new Object[] {RE2J_SESSION}};
     }
 
     @ScalarFunction(deterministic = false) // if not non-deterministic, constant folding code accidentally fix invalid characters
@@ -49,7 +75,7 @@ public class TestRegexpFunctions
     @Test
     public void testRegexpLike()
     {
-        assertFunction("REGEXP_LIKE(invalid_utf8(), invalid_utf8())", BOOLEAN, true); // can potentially cause infinite loop
+        functionAssertions.tryEvaluate("REGEXP_LIKE(invalid_utf8(), invalid_utf8())", BOOLEAN); // can potentially cause infinite loop
 
         assertFunction("REGEXP_LIKE('Stephen', 'Ste(v|ph)en')", BOOLEAN, true);
         assertFunction("REGEXP_LIKE('Stevens', 'Ste(v|ph)en')", BOOLEAN, true);

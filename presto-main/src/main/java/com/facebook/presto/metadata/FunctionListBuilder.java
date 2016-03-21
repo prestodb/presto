@@ -18,6 +18,7 @@ import com.facebook.presto.operator.aggregation.GenericAggregationFunctionFactor
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.scalar.JsonPath;
 import com.facebook.presto.operator.scalar.ReflectionParametricScalar;
+import com.facebook.presto.operator.scalar.RegexpGenericPattern;
 import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.operator.window.ReflectionWindowFunctionSupplier;
@@ -38,7 +39,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Primitives;
-import io.airlift.joni.Regex;
 
 import javax.annotation.Nullable;
 
@@ -74,7 +74,7 @@ public class FunctionListBuilder
             long.class,
             double.class,
             boolean.class,
-            Regex.class,
+            RegexpGenericPattern.class,
             JsonPath.class);
 
     private final List<SqlFunction> functions = new ArrayList<>();
