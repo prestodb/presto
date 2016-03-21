@@ -34,6 +34,8 @@ import java.util.UUID;
 @RegisterMapperFactory(UuidMapperFactory.class)
 public interface ShardDao
 {
+    int CLEANABLE_SHARDS_BATCH_SIZE = 1000;
+
     @SqlUpdate("INSERT INTO nodes (node_identifier) VALUES (:nodeIdentifier)")
     @GetGeneratedKeys
     int insertNode(@Bind("nodeIdentifier") String nodeIdentifier);
@@ -166,8 +168,8 @@ public interface ShardDao
     @SqlQuery("SELECT shard_uuid\n" +
             "FROM deleted_shards\n" +
             "WHERE delete_time < :maxDeleteTime\n" +
-            "LIMIT 1000")
-    List<UUID> getCleanableShardsBatch(@Bind("maxDeleteTime") Timestamp maxDeleteTime);
+            "LIMIT " + CLEANABLE_SHARDS_BATCH_SIZE)
+    Set<UUID> getCleanableShardsBatch(@Bind("maxDeleteTime") Timestamp maxDeleteTime);
 
     @SqlBatch("DELETE FROM deleted_shards WHERE shard_uuid = :shardUuid")
     void deleteCleanedShards(@Bind("shardUuid") Iterable<UUID> shardUuids);
