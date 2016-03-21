@@ -38,10 +38,8 @@ import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.security.UserGroupInformation;
 
 import java.io.IOException;
-import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
@@ -66,7 +64,6 @@ import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.HiveUtil.isSplittable;
 import static com.facebook.presto.hive.UnpartitionedPartition.isUnpartitioned;
 import static com.google.common.base.Preconditions.checkState;
-import static java.util.Objects.requireNonNull;
 
 public class BackgroundHiveSplitLoader
         implements HiveSplitLoader
@@ -142,18 +139,7 @@ public class BackgroundHiveSplitLoader
     {
         this.hiveSplitSource = splitSource;
         for (int i = 0; i < maxPartitionBatchSize; i++) {
-            UserGroupInformation currentHdfsUser = getCurrentHdfsUser();
-            ResumableTasks.submit(executor, new HiveSplitLoaderTask(currentHdfsUser));
-        }
-    }
-
-    private UserGroupInformation getCurrentHdfsUser()
-    {
-        try {
-            return UserGroupInformation.getCurrentUser();
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
+            ResumableTasks.submit(executor, new HiveSplitLoaderTask());
         }
     }
 
@@ -166,13 +152,6 @@ public class BackgroundHiveSplitLoader
     private class HiveSplitLoaderTask
             implements ResumableTask
     {
-        private final UserGroupInformation currentHdfsUser;
-
-        private HiveSplitLoaderTask(UserGroupInformation currentHdfsUser)
-        {
-            this.currentHdfsUser = requireNonNull(currentHdfsUser);
-        }
-
         @Override
         public TaskStatus process()
         {
@@ -184,8 +163,7 @@ public class BackgroundHiveSplitLoader
                     CompletableFuture<?> future;
                     taskExecutionLock.readLock().lock();
                     try {
-                        future = currentHdfsUser.doAs((PrivilegedExceptionAction<CompletableFuture<?>>)
-                                BackgroundHiveSplitLoader.this::loadSplits);
+                        future = loadSplits();
                     }
                     finally {
                         taskExecutionLock.readLock().unlock();
