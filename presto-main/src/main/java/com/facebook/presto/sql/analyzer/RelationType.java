@@ -25,11 +25,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkElementIndex;
 import static com.google.common.base.Predicates.not;
@@ -113,19 +111,6 @@ public class RelationType
     public int getAllFieldCount()
     {
         return allFields.size();
-    }
-
-    /**
-     * Returns all unique relations in this tuple.
-     * For detecting duplicate relations in a Join.
-     */
-    public Set<QualifiedName> getRelationAliases()
-    {
-        return allFields.stream()
-                .map(Field::getRelationAlias)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .collect(toImmutableSet());
     }
 
     /**
