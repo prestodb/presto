@@ -16,8 +16,10 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import io.airlift.units.Duration;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public interface QueryManager
 {
@@ -37,4 +39,9 @@ public interface QueryManager
     void cancelQuery(QueryId queryId);
 
     void cancelStage(StageId stageId);
+
+    /**
+     * @return Exchange URIs for the root stage, empty if root stage buffers are not yet added
+     */
+    Optional<Set<URI>> getRootExchangeLocations(QueryId queryId);
 }

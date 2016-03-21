@@ -28,6 +28,8 @@ import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -130,6 +132,12 @@ public class DataDefinitionExecution<T extends Statement>
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
     {
         stateMachine.addStateChangeListener(stateChangeListener);
+    }
+
+    @Override
+    public Optional<Set<URI>> getRootExchangeLocations()
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override

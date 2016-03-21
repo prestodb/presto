@@ -15,6 +15,7 @@ package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.BufferInfo;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryState;
@@ -25,6 +26,7 @@ import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
+import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.scheduler.OutputBufferManager.OutputBuffer;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
@@ -38,8 +40,11 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.units.Duration;
+
+import javax.annotation.concurrent.GuardedBy;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -53,14 +58,17 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 import static com.facebook.presto.execution.StageState.ABORTED;
 import static com.facebook.presto.execution.StageState.CANCELED;
 import static com.facebook.presto.execution.StageState.FAILED;
 import static com.facebook.presto.execution.StageState.FINISHED;
+import static com.facebook.presto.execution.StageState.PLANNED;
 import static com.facebook.presto.execution.StageState.RUNNING;
 import static com.facebook.presto.execution.StageState.SCHEDULED;
+import static com.facebook.presto.execution.StageState.SCHEDULING;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
@@ -71,8 +79,10 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.firstCompletedFuture;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -87,6 +97,9 @@ public class SqlQueryScheduler
     private final Map<StageId, StageScheduler> stageSchedulers;
     private final Map<StageId, StageLinkage> stageLinkages;
     private final AtomicBoolean started = new AtomicBoolean();
+
+    @GuardedBy("this")
+    private final AtomicReference<Set<URI>> rootExchangeLocations = new AtomicReference<>();
 
     public SqlQueryScheduler(QueryStateMachine queryStateMachine,
             LocationFactory locationFactory,
@@ -139,6 +152,9 @@ public class SqlQueryScheduler
         this.executor = executor;
 
         rootStage.addStateChangeListener(state -> {
+            if (state != PLANNED && state != SCHEDULING) {
+                updateRootExchangeLocations(rootStage);
+            }
             if (state == FINISHED) {
                 queryStateMachine.transitionToFinishing();
             }
@@ -167,6 +183,29 @@ public class SqlQueryScheduler
                     }
                 }
             });
+        }
+    }
+
+    private void updateRootExchangeLocations(SqlStageExecution rootStage)
+    {
+        ImmutableSet.Builder<URI> uris = ImmutableSet.<URI>builder();
+        List<TaskInfo> tasks = rootStage.getStageInfo().getTasks();
+        boolean canAddBuffers = tasks.stream().allMatch(task -> task.getOutputBuffers().getState().canAddBuffers());
+        if (canAddBuffers) {
+            return;
+        }
+
+        // We need all the exchange locations for the root stage to be available in one shot.
+        // If the stage is past the PLANNING and SCHEDULING state, all tasks are added and
+        // there won't be any new locations.
+        for (TaskInfo taskInfo : tasks) {
+            List<BufferInfo> buffers = taskInfo.getOutputBuffers().getBuffers();
+            checkState(buffers.size() == 1, "Expected a single output buffer for task %s, but found %s", taskInfo.getTaskId(), buffers);
+            BufferInfo buffer = Iterables.getOnlyElement(buffers);
+            uris.add(uriBuilderFrom(taskInfo.getSelf()).appendPath("results").appendPath(buffer.getBufferId().toString()).build());
+        }
+        synchronized (this) {
+            rootExchangeLocations.set(uris.build());
         }
     }
 
@@ -403,6 +442,11 @@ public class SqlQueryScheduler
             stages.values().stream()
                     .forEach(SqlStageExecution::abort);
         }
+    }
+
+    public synchronized Optional<Set<URI>> getRootExchangeLocations()
+    {
+        return rootExchangeLocations.get() != null ? Optional.of(rootExchangeLocations.get()) : Optional.empty();
     }
 
     private static class StageLinkage
