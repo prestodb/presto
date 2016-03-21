@@ -13,52 +13,83 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.facebook.presto.hive.ForHiveMetastore;
 import com.facebook.presto.hive.HiveClientConfig;
-import com.facebook.presto.hive.auth.HadoopAuthentication;
-import com.facebook.presto.hive.auth.HadoopKerberosAuthentication;
+import com.facebook.presto.hive.auth.HadoopKerberosImpersonatingAuthentication;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
+import com.google.inject.Binder;
 import com.google.inject.Inject;
-import com.google.inject.PrivateModule;
-import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import com.google.inject.Singleton;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.thrift.client.TUGIAssumingTransport;
 import org.apache.hadoop.security.SaslRpcServer;
 import org.apache.thrift.transport.TSaslClientTransport;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
 
-import javax.security.sasl.Sasl;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
+import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getMetaStoreSaslProperties;
 import static org.apache.hadoop.security.SaslRpcServer.AuthMethod.KERBEROS;
 import static org.apache.hadoop.security.SecurityUtil.getServerPrincipal;
 
 public class HiveMetastoreAuthenticationKerberos
         implements HiveMetastoreAuthentication
 {
-    private final String hiveMetastorePrincipal;
-    private final HadoopAuthentication authentication;
-
-    @Inject
-    public HiveMetastoreAuthenticationKerberos(HiveClientConfig hiveClientConfig, @ForHiveMetastore  HadoopAuthentication authentication)
+    public static class Module
+            implements com.google.inject.Module
     {
-        this(hiveClientConfig.getHiveMetastorePrincipal(), authentication);
+        @Override
+        public void configure(Binder binder)
+        {
+            binder.bind(HiveMetastoreAuthentication.class)
+                    .to(HiveMetastoreAuthenticationKerberos.class)
+                    .in(Scopes.SINGLETON);
+        }
     }
 
-    public HiveMetastoreAuthenticationKerberos(String hiveMetastorePrincipal, HadoopAuthentication authentication)
+    private final String hiveMetastorePrincipal;
+    private final HadoopKerberosImpersonatingAuthentication metastoreUserAuthentication;
+    private final HiveConf hiveConf;
+
+    @Inject
+    public HiveMetastoreAuthenticationKerberos(HiveClientConfig hiveClientConfig)
     {
+        this(hiveClientConfig.getHiveMetastorePrincipal(),
+                hiveClientConfig.getHiveMetastorePrestoPrincipal(),
+                hiveClientConfig.getHiveMetastorePrestoKeytab(),
+                firstNonNull(hiveClientConfig.getResourceConfigFiles(), ImmutableList.of()));
+    }
+
+    public HiveMetastoreAuthenticationKerberos(String hiveMetastorePrincipal,
+            String hiveMetastorePrestoPrincipal,
+            String hiveMetastorePrestoKeytab,
+            List<String> configurationFiles)
+    {
+        requireNonNull(hiveMetastorePrestoPrincipal, "hiveMetastorePrestoPrincipal is null");
+        requireNonNull(hiveMetastorePrestoKeytab, "hiveMetastorePrestoKeytab is null");
+        requireNonNull(configurationFiles, "configurationFiles is null");
+        Configuration configuration = createConfiguration(configurationFiles);
+        this.hiveConf = new HiveConf(configuration, HiveMetastoreAuthenticationKerberos.class);
         this.hiveMetastorePrincipal = requireNonNull(hiveMetastorePrincipal, "hiveMetastorePrincipal is null");
-        this.authentication = requireNonNull(authentication, "hadoopAuthentication is null");
+        this.metastoreUserAuthentication = new HadoopKerberosImpersonatingAuthentication(
+                hiveMetastorePrestoPrincipal, hiveMetastorePrestoKeytab, configuration
+        );
+        this.metastoreUserAuthentication.authenticate();
+    }
+
+    private static Configuration createConfiguration(List<String> configurationFiles)
+    {
+        Configuration configuration = new Configuration();
+        configurationFiles.forEach(filePath -> configuration.addResource(new Path(filePath)));
+        return configuration;
     }
 
     @Override
@@ -70,11 +101,7 @@ public class HiveMetastoreAuthenticationKerberos
             String[] names = SaslRpcServer.splitKerberosName(serverPrincipal);
             checkState(names.length == 3,
                     "Kerberos principal name does NOT have the expected hostname part: %s", serverPrincipal);
-
-            Map<String, String> saslProps = ImmutableMap.of(
-                    Sasl.QOP, "auth",
-                    Sasl.SERVER_AUTH, "true"
-            );
+            Map<String, String> saslProps = getMetaStoreSaslProperties(hiveConf);
 
             TTransport saslTransport = new TSaslClientTransport(
                     KERBEROS.getMechanismName(),
@@ -85,47 +112,11 @@ public class HiveMetastoreAuthenticationKerberos
                     null,
                     rawTransport);
 
-            return new TUGIAssumingTransport(saslTransport, authentication.getUserGroupInformation());
+            return new TUGIAssumingTransport(saslTransport, metastoreUserAuthentication.getUserGroupInformation());
         }
         catch (IOException e) {
             throw Throwables.propagate(e);
         }
     }
 
-    public static class Module
-            extends PrivateModule
-    {
-        @Override
-        public void configure()
-        {
-            bind(HiveMetastoreAuthentication.class)
-                    .to(HiveMetastoreAuthenticationKerberos.class)
-                    .in(Scopes.SINGLETON);
-            expose(HiveMetastoreAuthentication.class);
-        }
-
-        @Inject
-        @Provides
-        @Singleton
-        @ForHiveMetastore
-        HadoopAuthentication getHadoopAuthentication(HiveClientConfig hiveClientConfig)
-        {
-            String principal = hiveClientConfig.getHiveMetastorePrestoPrincipal();
-            String keytab = hiveClientConfig.getHiveMetastorePrestoKeytab();
-            Configuration configuration = createConfiguration(hiveClientConfig);
-            HadoopAuthentication authentication = new HadoopKerberosAuthentication(principal, keytab, configuration);
-            authentication.authenticate();
-            return authentication;
-        }
-
-        private Configuration createConfiguration(HiveClientConfig hiveClientConfig)
-        {
-            Configuration configuration = new Configuration();
-            List<String> configurationFiles = hiveClientConfig.getResourceConfigFiles();
-            if (configurationFiles != null) {
-                configurationFiles.forEach(filePath -> configuration.addResource(new Path(filePath)));
-            }
-            return configuration;
-        }
-    }
 }
