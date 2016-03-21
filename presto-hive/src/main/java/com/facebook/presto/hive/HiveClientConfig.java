@@ -125,7 +125,6 @@ public class HiveClientConfig
     private String hdfsPrestoPrincipal;
     private String hdfsPrestoKeytab;
     private HdfsAuthenticationType hdfsAuthenticationType = HdfsAuthenticationType.SIMPLE;
-    private boolean hdfsImpersonation;
     private String hdfsTemporaryDirectoryTemplate = "/tmp";
 
     public int getMaxInitialSplits()
@@ -947,7 +946,9 @@ public class HiveClientConfig
     public enum HdfsAuthenticationType
     {
         SIMPLE,
+        SIMPLE_IMPERSONATION,
         KERBEROS,
+        KERBEROS_IMPERSONATION
     }
 
     public HdfsAuthenticationType getHdfsAuthenticationType()
@@ -956,23 +957,10 @@ public class HiveClientConfig
     }
 
     @Config("hive.hdfs.authentication.type")
-    @ConfigDescription("HDFS authentication type. Possible values are: SIMPLE and KERBEROS. Defaults to: SIMPLE")
+    @ConfigDescription("HDFS authentication type. Possible values are: SIMPLE, SIMPLE_IMPERSONATION, KERBEROS, KERBEROS_IMPERSONATION. Defaults to: SIMPLE")
     public HiveClientConfig setHdfsAuthenticationType(HdfsAuthenticationType hdfsAuthenticationType)
     {
         this.hdfsAuthenticationType = hdfsAuthenticationType;
-        return this;
-    }
-
-    public boolean getHdfsImpersonation()
-    {
-        return hdfsImpersonation;
-    }
-
-    @Config("hive.hdfs.impersonation")
-    @ConfigDescription("Should Presto user be impersonated when communicating with HDFS")
-    public HiveClientConfig setHdfsImpersonation(boolean hdfsImpersonation)
-    {
-        this.hdfsImpersonation = hdfsImpersonation;
         return this;
     }
 
