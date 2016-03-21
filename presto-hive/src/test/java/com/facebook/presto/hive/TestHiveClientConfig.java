@@ -99,8 +99,7 @@ public class TestHiveClientConfig
                 .setHiveMetastorePrestoKeytab(null)
                 .setHdfsAuthenticationType(HiveClientConfig.HdfsAuthenticationType.SIMPLE)
                 .setHdfsPrestoPrincipal(null)
-                .setHdfsPrestoKeytab(null)
-                .setHdfsTemporaryDirectoryTemplate("/tmp"));
+                .setHdfsPrestoKeytab(null));
     }
 
     @Test
@@ -171,7 +170,6 @@ public class TestHiveClientConfig
                 .put("hive.hdfs.authentication.type", "KERBEROS")
                 .put("hive.hdfs.presto.principal", "hdfs@EXAMPLE.COM")
                 .put("hive.hdfs.presto.keytab", "/tmp/hdfs.keytab")
-                .put("hive.hdfs.temporary.directory", "/example/temporary/dir")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -238,8 +236,7 @@ public class TestHiveClientConfig
                 .setHiveMetastorePrestoKeytab("/tmp/metastore.keytab")
                 .setHdfsAuthenticationType(HiveClientConfig.HdfsAuthenticationType.KERBEROS)
                 .setHdfsPrestoPrincipal("hdfs@EXAMPLE.COM")
-                .setHdfsPrestoKeytab("/tmp/hdfs.keytab")
-                .setHdfsTemporaryDirectoryTemplate("/example/temporary/dir");
+                .setHdfsPrestoKeytab("/tmp/hdfs.keytab");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
