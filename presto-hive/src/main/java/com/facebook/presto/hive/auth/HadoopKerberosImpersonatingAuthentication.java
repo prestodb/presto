@@ -18,7 +18,6 @@
 package com.facebook.presto.hive.auth;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.security.UserGroupInformation;
 
 public class HadoopKerberosImpersonatingAuthentication
         extends HadoopKerberosBaseAuthentication
@@ -26,11 +25,5 @@ public class HadoopKerberosImpersonatingAuthentication
     public HadoopKerberosImpersonatingAuthentication(String principal, String keytab, Configuration configuration)
     {
         super(principal, keytab, configuration);
-    }
-
-    @Override
-    public UserGroupInformation getUserGroupInformation(String user)
-    {
-        return UserGroupInformation.createProxyUser(user, getUserGroupInformation());
     }
 }
