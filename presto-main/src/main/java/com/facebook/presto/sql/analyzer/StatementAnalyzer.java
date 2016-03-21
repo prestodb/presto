@@ -116,7 +116,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
-import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
 
 import java.util.ArrayList;
@@ -1111,12 +1110,6 @@ class StatementAnalyzer
         RelationType left = process(node.getLeft(), context);
         leftContext.setLateralTupleDescriptor(left);
         RelationType right = process(node.getRight(), leftContext);
-
-        // todo this check should be inside of TupleDescriptor.join and then remove the public getRelationAlias method, but the exception needs the node object
-        Sets.SetView<QualifiedName> duplicateAliases = Sets.intersection(left.getRelationAliases(), right.getRelationAliases());
-        if (!duplicateAliases.isEmpty()) {
-            throw new SemanticException(DUPLICATE_RELATION, node, "Relations appear more than once: %s", duplicateAliases);
-        }
 
         RelationType output = left.joinWith(right);
 

@@ -103,14 +103,6 @@ public class TestAnalyzer
     private Metadata metadata;
 
     @Test
-    public void testDuplicateRelation()
-            throws Exception
-    {
-        assertFails(DUPLICATE_RELATION, "SELECT * FROM t1 JOIN t1 USING (a)");
-        assertFails(DUPLICATE_RELATION, "SELECT * FROM t1 x JOIN t2 x USING (a)");
-    }
-
-    @Test
     public void testNonComparableGroupBy()
             throws Exception
     {
