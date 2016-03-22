@@ -57,6 +57,7 @@ public final class SystemSessionProperties
     public static final String INITIAL_SPLITS_PER_NODE = "initial_splits_per_node";
     public static final String SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL = "split_concurrency_adjustment_interval";
     public static final String OPTIMIZE_METADATA_QUERIES = "optimize_metadata_queries";
+    public static final String QUERY_LOG_ENABLED = "query_log_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -201,6 +202,11 @@ public final class SystemSessionProperties
                         PLAN_WITH_TABLE_NODE_PARTITIONING,
                         "Experimental: Adapt plan to pre-partitioned tables",
                         true,
+                        false),
+                booleanSessionProperty(
+                        QUERY_LOG_ENABLED,
+                        "Should queries be logged to log file upon completion",
+                        false,
                         false));
     }
 
@@ -327,5 +333,10 @@ public final class SystemSessionProperties
     public static Duration getSplitConcurrencyAdjustmentInterval(Session session)
     {
         return session.getProperty(SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL, Duration.class);
+    }
+
+    public static boolean isQueryLogEnabled(Session session)
+    {
+        return session.getProperty(QUERY_LOG_ENABLED, Boolean.class);
     }
 }
