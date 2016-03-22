@@ -92,7 +92,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 
 public class DatabaseShardManager
-        implements ShardManager, ShardRecorder
+        implements ShardManager
 {
     private static final Logger log = Logger.get(DatabaseShardManager.class);
 
@@ -502,12 +502,6 @@ public class DatabaseShardManager
             throw new PrestoException(TRANSACTION_CONFLICT, "Transaction commit failed. Please retry the operation.");
         }
         return true;
-    }
-
-    @Override
-    public void recordCreatedShard(long transactionId, UUID shardUuid)
-    {
-        dao.insertCreatedShard(shardUuid, transactionId);
     }
 
     @Override
