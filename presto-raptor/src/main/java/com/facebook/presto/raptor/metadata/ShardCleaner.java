@@ -53,7 +53,6 @@ import static com.facebook.presto.raptor.metadata.ShardDao.CLEANABLE_SHARDS_BATC
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.units.Duration.nanosSince;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.runAsync;
@@ -320,6 +319,9 @@ public class ShardCleaner
                 .filter(entry -> entry.getValue() < threshold)
                 .map(Map.Entry::getKey)
                 .collect(toSet());
+        if (deletions.isEmpty()) {
+            return;
+        }
 
         for (UUID uuid : deletions) {
             deleteFile(storageService.getStorageFile(uuid));
@@ -335,7 +337,6 @@ public class ShardCleaner
     {
         Set<UUID> processing = newConcurrentHashSet();
         BlockingQueue<UUID> completed = new LinkedBlockingQueue<>();
-        long start = System.nanoTime();
         boolean fill = true;
 
         while (!Thread.currentThread().isInterrupted()) {
@@ -377,8 +378,6 @@ public class ShardCleaner
             processing.removeAll(done);
             dao.deleteCleanedShards(done);
             backupShardsCleaned.update(done.size());
-            log.info("Cleaned %s backup shards in %s", done.size(), nanosSince(start));
-            start = System.nanoTime();
             fill = true;
         }
     }
