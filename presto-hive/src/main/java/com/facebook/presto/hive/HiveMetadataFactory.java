@@ -31,10 +31,6 @@ public class HiveMetadataFactory
     private static final Logger log = Logger.get(HiveMetadataFactory.class);
 
     private final String connectorId;
-    private final boolean allowDropTable;
-    private final boolean allowRenameTable;
-    private final boolean allowAddColumn;
-    private final boolean allowRenameColumn;
     private final boolean allowCorruptWritesForTesting;
     private final boolean respectTableFormat;
     private final HiveStorageFormat defaultStorageFormat;
@@ -68,10 +64,6 @@ public class HiveMetadataFactory
                 partitionManager,
                 hiveClientConfig.getDateTimeZone(),
                 hiveClientConfig.getMaxConcurrentFileRenames(),
-                hiveClientConfig.getAllowDropTable(),
-                hiveClientConfig.getAllowRenameTable(),
-                hiveClientConfig.getAllowAddColumn(),
-                hiveClientConfig.getAllowRenameColumn(),
                 hiveClientConfig.getAllowCorruptWritesForTesting(),
                 hiveClientConfig.isRespectTableFormat(),
                 hiveClientConfig.getHiveStorageFormat(),
@@ -89,10 +81,6 @@ public class HiveMetadataFactory
             HivePartitionManager partitionManager,
             DateTimeZone timeZone,
             int maxConcurrentFileRenames,
-            boolean allowDropTable,
-            boolean allowRenameTable,
-            boolean allowAddColumn,
-            boolean allowRenameColumn,
             boolean allowCorruptWritesForTesting,
             boolean respectTableFormat,
             HiveStorageFormat defaultStorageFormat,
@@ -104,10 +92,6 @@ public class HiveMetadataFactory
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
 
-        this.allowDropTable = allowDropTable;
-        this.allowRenameTable = allowRenameTable;
-        this.allowAddColumn = allowAddColumn;
-        this.allowRenameColumn = allowRenameColumn;
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
         this.respectTableFormat = respectTableFormat;
         this.defaultStorageFormat = requireNonNull(defaultStorageFormat, "defaultStorageFormat is null");
@@ -139,10 +123,6 @@ public class HiveMetadataFactory
                 hdfsEnvironment,
                 partitionManager,
                 timeZone,
-                allowDropTable,
-                allowRenameTable,
-                allowAddColumn,
-                allowRenameColumn,
                 allowCorruptWritesForTesting,
                 respectTableFormat,
                 defaultStorageFormat,
