@@ -537,6 +537,7 @@ public class TestMathFunctions
 
     @Test
     public void testWidthBucket()
+            throws Exception
     {
         assertFunction("width_bucket(3.14, 0, 4, 3)", BIGINT, 3);
         assertFunction("width_bucket(2, 0, 4, 3)", BIGINT, 2);
@@ -572,5 +573,31 @@ public class TestMathFunctions
             throws Exception
     {
         functionAssertions.tryEvaluate("width_bucket(infinity(), 4, 0, " + Long.MAX_VALUE + ")", DOUBLE);
+    }
+
+    @Test
+    public void testWidthBucketArray()
+            throws Exception
+    {
+        assertFunction("width_bucket(3.14, array[0.0, 2.0, 4.0])", BIGINT, 2);
+        assertFunction("width_bucket(infinity(), array[0.0, 2.0, 4.0])", BIGINT, 3);
+        assertFunction("width_bucket(-1, array[0.0, 1.2, 3.3, 4.5])", BIGINT, 0);
+
+        // edge case of only a single bin
+        assertFunction("width_bucket(3.145, array[0.0])", BIGINT, 1);
+        assertFunction("width_bucket(-3.145, array[0.0])", BIGINT, 0);
+
+        // failure modes
+        assertInvalidFunction("width_bucket(3.14, array[])", "Bins cannot be an empty array");
+        assertInvalidFunction("width_bucket(nan(), array[1.0, 2.0, 3.0])", "Operand cannot be NaN");
+        assertInvalidFunction("width_bucket(3.14, array[0.0, infinity()])", "Bin value must be finite, got Infinity");
+
+        // fail if we aren't sorted
+        assertInvalidFunction("width_bucket(3.145, array[1.0, 0.0])", "Bin values are not sorted in ascending order");
+        assertInvalidFunction("width_bucket(3.145, array[1.0, 0.0, -1.0])", "Bin values are not sorted in ascending order");
+        assertInvalidFunction("width_bucket(3.145, array[1.0, 0.3, 0.0, -1.0])", "Bin values are not sorted in ascending order");
+
+        // this is a case that we can't catch because we are using binary search to bisect the bins array
+        assertFunction("width_bucket(1.5, array[1.0, 2.3, 2.0])", BIGINT, 1);
     }
 }

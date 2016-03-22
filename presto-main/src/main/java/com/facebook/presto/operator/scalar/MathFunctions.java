@@ -15,6 +15,8 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 import com.google.common.primitives.Doubles;
@@ -437,5 +439,42 @@ public final class MathFunctions
         }
 
         return result;
+    }
+
+    @Description("The bucket number of a value given an array of bins")
+    @ScalarFunction("width_bucket")
+    @SqlType(StandardTypes.BIGINT)
+    public static long widthBucket(@SqlType(StandardTypes.DOUBLE) double operand, @SqlType("array(double)") Block bins)
+    {
+        int numberOfBins = bins.getPositionCount();
+
+        checkCondition(numberOfBins > 0, INVALID_FUNCTION_ARGUMENT, "Bins cannot be an empty array");
+        checkCondition(!isNaN(operand), INVALID_FUNCTION_ARGUMENT, "Operand cannot be NaN");
+
+        int lower = 0;
+        int upper = numberOfBins;
+
+        int index;
+        double bin;
+
+        while (lower < upper) {
+            if (DoubleType.DOUBLE.getDouble(bins, lower) > DoubleType.DOUBLE.getDouble(bins, upper - 1)) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Bin values are not sorted in ascending order");
+            }
+
+            index = (lower + upper) / 2;
+            bin = DoubleType.DOUBLE.getDouble(bins, index);
+
+            checkCondition(isFinite(bin), INVALID_FUNCTION_ARGUMENT, format("Bin value must be finite, got %s", bin));
+
+            if (operand < bin) {
+                upper = index;
+            }
+            else {
+                lower = index + 1;
+            }
+        }
+
+        return lower;
     }
 }
