@@ -96,7 +96,11 @@ public class TestHiveClientConfig
                 .setHiveMetastoreAuthenticationType(HiveClientConfig.HiveMetastoreAuthenticationType.NONE)
                 .setHiveMetastoreServicePrincipal(null)
                 .setHiveMetastoreClientPrincipal(null)
-                .setHiveMetastoreClientKeytab(null));
+                .setHiveMetastoreClientKeytab(null)
+                .setHdfsAuthenticationType(HiveClientConfig.HdfsAuthenticationType.NONE)
+                .setHdfsImpersonationEnabled(false)
+                .setHdfsPrestoPrincipal(null)
+                .setHdfsPrestoKeytab(null));
     }
 
     @Test
@@ -164,6 +168,10 @@ public class TestHiveClientConfig
                 .put("hive.metastore.service.principal", "hive/_HOST@EXAMPLE.COM")
                 .put("hive.metastore.client.principal", "metastore@EXAMPLE.COM")
                 .put("hive.metastore.client.keytab", "/tmp/metastore.keytab")
+                .put("hive.hdfs.authentication.type", "KERBEROS")
+                .put("hive.hdfs.impersonation.enabled", "true")
+                .put("hive.hdfs.presto.principal", "presto@EXAMPLE.COM")
+                .put("hive.hdfs.presto.keytab", "/tmp/presto.keytab")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -227,7 +235,11 @@ public class TestHiveClientConfig
                 .setHiveMetastoreAuthenticationType(HiveClientConfig.HiveMetastoreAuthenticationType.KERBEROS)
                 .setHiveMetastoreServicePrincipal("hive/_HOST@EXAMPLE.COM")
                 .setHiveMetastoreClientPrincipal("metastore@EXAMPLE.COM")
-                .setHiveMetastoreClientKeytab("/tmp/metastore.keytab");
+                .setHiveMetastoreClientKeytab("/tmp/metastore.keytab")
+                .setHdfsAuthenticationType(HiveClientConfig.HdfsAuthenticationType.KERBEROS)
+                .setHdfsImpersonationEnabled(true)
+                .setHdfsPrestoPrincipal("presto@EXAMPLE.COM")
+                .setHdfsPrestoKeytab("/tmp/presto.keytab");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
