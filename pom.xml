@@ -286,7 +286,7 @@
             <dependency>
                 <groupId>com.facebook.presto.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>0.16</version>
+                <version>0.17</version>
             </dependency>
 
             <dependency>
