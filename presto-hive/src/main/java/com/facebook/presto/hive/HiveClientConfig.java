@@ -122,6 +122,11 @@ public class HiveClientConfig
     private String hiveMetastoreClientPrincipal;
     private String hiveMetastoreClientKeytab;
 
+    private HdfsAuthenticationType hdfsAuthenticationType = HdfsAuthenticationType.NONE;
+    private boolean hdfsImpersonationEnabled;
+    private String hdfsPrestoPrincipal;
+    private String hdfsPrestoKeytab;
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -935,6 +940,64 @@ public class HiveClientConfig
     public HiveClientConfig setHiveMetastoreClientKeytab(String hiveMetastoreClientKeytab)
     {
         this.hiveMetastoreClientKeytab = hiveMetastoreClientKeytab;
+        return this;
+    }
+
+    public enum HdfsAuthenticationType
+    {
+        NONE,
+        KERBEROS,
+    }
+
+    public HdfsAuthenticationType getHdfsAuthenticationType()
+    {
+        return hdfsAuthenticationType;
+    }
+
+    @Config("hive.hdfs.authentication.type")
+    @ConfigDescription("HDFS authentication type")
+    public HiveClientConfig setHdfsAuthenticationType(HdfsAuthenticationType hdfsAuthenticationType)
+    {
+        this.hdfsAuthenticationType = hdfsAuthenticationType;
+        return this;
+    }
+
+    public boolean isHdfsImpersonationEnabled()
+    {
+        return hdfsImpersonationEnabled;
+    }
+
+    @Config("hive.hdfs.impersonation.enabled")
+    @ConfigDescription("Should Presto user be impersonated when communicating with HDFS")
+    public HiveClientConfig setHdfsImpersonationEnabled(boolean hdfsImpersonationEnabled)
+    {
+        this.hdfsImpersonationEnabled = hdfsImpersonationEnabled;
+        return this;
+    }
+
+    public String getHdfsPrestoPrincipal()
+    {
+        return hdfsPrestoPrincipal;
+    }
+
+    @Config("hive.hdfs.presto.principal")
+    @ConfigDescription("Presto principal used to access HDFS")
+    public HiveClientConfig setHdfsPrestoPrincipal(String hdfsPrestoPrincipal)
+    {
+        this.hdfsPrestoPrincipal = hdfsPrestoPrincipal;
+        return this;
+    }
+
+    public String getHdfsPrestoKeytab()
+    {
+        return hdfsPrestoKeytab;
+    }
+
+    @Config("hive.hdfs.presto.keytab")
+    @ConfigDescription("Presto keytab used to access HDFS")
+    public HiveClientConfig setHdfsPrestoKeytab(String hdfsPrestoKeytab)
+    {
+        this.hdfsPrestoKeytab = hdfsPrestoKeytab;
         return this;
     }
 }
