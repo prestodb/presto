@@ -298,6 +298,17 @@ public class DatabaseShardManager
         }
     }
 
+    private static boolean commitTransaction(ShardDao dao, long transactionId)
+    {
+        if (dao.finalizeTransaction(transactionId, true) != 1) {
+            if (TRUE.equals(dao.transactionSuccessful(transactionId))) {
+                return false;
+            }
+            throw new PrestoException(TRANSACTION_CONFLICT, "Transaction commit failed. Please retry the operation.");
+        }
+        return true;
+    }
+
     private void deleteShardsAndIndex(long tableId, Set<UUID> shardUuids, Handle handle)
             throws SQLException
     {
@@ -493,17 +504,6 @@ public class DatabaseShardManager
     public void rollbackTransaction(long transactionId)
     {
         dao.finalizeTransaction(transactionId, false);
-    }
-
-    private static boolean commitTransaction(ShardDao dao, long transactionId)
-    {
-        if (dao.finalizeTransaction(transactionId, true) != 1) {
-            if (TRUE.equals(dao.transactionSuccessful(transactionId))) {
-                return false;
-            }
-            throw new PrestoException(TRANSACTION_CONFLICT, "Transaction commit failed. Please retry the operation.");
-        }
-        return true;
     }
 
     @Override
