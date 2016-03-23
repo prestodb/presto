@@ -402,7 +402,7 @@ public class ParquetHiveRecordCursor
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
             dataSource = buildHdfsParquetDataSource(fileSystem, path, start, length);
-            ParquetMetadata parquetMetadata = ParquetFileReader.readFooter(configuration, path, NO_FILTER);
+            ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(sessionUser, () -> ParquetFileReader.readFooter(configuration, path, NO_FILTER));
             List<BlockMetaData> blocks = parquetMetadata.getBlocks();
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
@@ -442,9 +442,12 @@ public class ParquetHiveRecordCursor
             ParquetInputSplit split = new ParquetInputSplit(path, start, start + length, length, null, offsets);
 
             TaskAttemptContext taskContext = ContextUtil.newTaskAttemptContext(configuration, new TaskAttemptID());
-            ParquetRecordReader<FakeParquetRecord> realReader = new PrestoParquetRecordReader(readSupport);
-            realReader.initialize(split, taskContext);
-            return realReader;
+
+            return hdfsEnvironment.doAs(sessionUser, () -> {
+                ParquetRecordReader<FakeParquetRecord> realReader = new PrestoParquetRecordReader(readSupport);
+                realReader.initialize(split, taskContext);
+                return realReader;
+            });
         }
         catch (Exception e) {
             if (dataSource != null) {
