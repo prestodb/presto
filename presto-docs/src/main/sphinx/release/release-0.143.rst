@@ -6,6 +6,7 @@ General Changes
 ---------------
 
 * Add config option ``query.max-cpu-time`` to limit CPU time used by a query.
+* Add loading indicator and error message to query detail page in UI.
 
 Hive Changes
 ------------

@@ -66,13 +66,20 @@
             word-wrap: normal;
             overflow-y: hidden;
         }
+
+        #main {
+            display: none;
+        }
     </style>
 </head>
 
 <body>
 
+<div id="loading" class="container">
+    <h1 id="loading-message">Loading...</h1>
+</div>
 
-<div class="container">
+<div id="main" class="container">
     <div class="page-header">
         <h1>Presto :: Query <span id="queryId"></span></h1>
     </div>
@@ -187,8 +194,16 @@
 
 <script>
 
+var queryId = window.location.search.substring(1);
+d3.json('/v1/query/' + queryId, function (query) {
+    if (!query) {
+        d3.select('#loading-message').text('Query not found: ' + queryId);
+    }
+    else {
+        d3.select('#loading').style('display', 'none');
+        d3.select('#main').style('display', 'block');
+    }
 
-d3.json('/v1/query/' + window.location.search.substring(1), function (query) {
     d3.select('#query').text(query.query);
     d3.select('#queryId').text(query.queryId);
     if (query.queryStats.fullyBlocked && query.state == "RUNNING") {
