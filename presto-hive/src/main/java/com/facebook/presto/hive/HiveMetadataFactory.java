@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.metastore.HiveMetastore;
+import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
@@ -36,7 +36,7 @@ public class HiveMetadataFactory
     private final boolean bucketExecutionEnabled;
     private final boolean bucketWritingEnabled;
     private final HiveStorageFormat defaultStorageFormat;
-    private final HiveMetastore metastore;
+    private final ExtendedHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
     private final DateTimeZone timeZone;
@@ -52,7 +52,7 @@ public class HiveMetadataFactory
     public HiveMetadataFactory(
             HiveConnectorId connectorId,
             HiveClientConfig hiveClientConfig,
-            HiveMetastore metastore,
+            ExtendedHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
             @ForHiveClient ExecutorService executorService,
@@ -83,7 +83,7 @@ public class HiveMetadataFactory
 
     public HiveMetadataFactory(
             HiveConnectorId connectorId,
-            HiveMetastore metastore,
+            ExtendedHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
             DateTimeZone timeZone,
