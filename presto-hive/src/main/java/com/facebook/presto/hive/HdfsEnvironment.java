@@ -57,8 +57,14 @@ public class HdfsEnvironment
     public FileSystem getFileSystem(String user, Path path)
             throws IOException
     {
+        return getFileSystem(user, path, getConfiguration(path));
+    }
+
+    public FileSystem getFileSystem(String user, Path path, Configuration configuration)
+            throws IOException
+    {
         return hdfsAuthentication.doAs(user, () -> {
-            FileSystem fileSystem = path.getFileSystem(getConfiguration(path));
+            FileSystem fileSystem = path.getFileSystem(configuration);
             fileSystem.setVerifyChecksum(verifyChecksum);
             return fileSystem;
         });
