@@ -19,3 +19,6 @@ Hive Changes
 ------------
 
 * Fix native memory leak when reading or writing gzip compressed data.
+* Fix data corruption in :doc:`/sql/create-table-as` when
+  ``hive.respect-table-format`` config is set to false and user-specified
+  storage format does not match default.
