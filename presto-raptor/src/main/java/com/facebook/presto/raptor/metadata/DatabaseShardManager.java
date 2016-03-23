@@ -38,6 +38,7 @@ import org.h2.jdbc.JdbcConnection;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.ResultIterator;
+import org.skife.jdbi.v2.exceptions.CallbackFailedException;
 import org.skife.jdbi.v2.exceptions.DBIException;
 import org.skife.jdbi.v2.tweak.HandleConsumer;
 import org.skife.jdbi.v2.util.ByteArrayMapper;
@@ -281,8 +282,8 @@ public class DatabaseShardManager
                 });
             }
             catch (DBIException e) {
-                propagateIfInstanceOf(e.getCause(), PrestoException.class);
-                if (attempt == maxAttempts) {
+                if (!isDatabaseError(e) || (attempt == maxAttempts)) {
+                    propagateIfInstanceOf(e.getCause(), PrestoException.class);
                     throw metadataError(e);
                 }
                 log.warn(e, "Failed to commit shards on attempt %d, will retry.", attempt);
@@ -294,6 +295,12 @@ public class DatabaseShardManager
                 }
             }
         }
+    }
+
+    private static boolean isDatabaseError(Throwable throwable)
+    {
+        return Throwables.getCausalChain(throwable).stream()
+                .anyMatch(t -> (t instanceof DBIException) && !(t instanceof CallbackFailedException));
     }
 
     private void deleteShardsAndIndex(long tableId, Set<UUID> shardUuids, Handle handle)
