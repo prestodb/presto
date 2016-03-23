@@ -1,0 +1,21 @@
+Java Cryptography Extension Policy Files
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Java Runtime Environment is shipped with policy files that limit the
+strengh of the cryptographic keys that can be used. Kerberos, by default, uses
+keys that are larger than those supported by the included policy files. There
+are two possible solutions to the problem:
+
+  * Update the :abbr:`JCE (Java Cryptograhy Extension)` policy files.
+  * Configure Kerberos to use reduced-strength keys.
+
+Of the two options, updating the JCE policy files is recommended. The JCE
+policy files can be downloaded from Oracle. Note that the JCE policy files vary
+based on the major version of Java you are running. Java 6 policy files will
+not work with Java 8, for example.
+
+The Java 8 policy files are available `here
+<http://www.oracle.com/technetwork/java/javase/downloads/jce8-download-2133166.html>`_.
+Instructions for installing the policy files are included in a ``README`` file in
+the ZIP archive. You will need administrative access to install the policy
+files if you are installing them in a system JRE.
