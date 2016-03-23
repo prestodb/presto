@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.metastore.HiveMetastore;
+import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.Partition;
+import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.PrestoException;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.metastore.api.Partition;
-import org.apache.hadoop.hive.metastore.api.Table;
 
 import javax.inject.Inject;
 
@@ -34,11 +34,11 @@ import static java.util.Objects.requireNonNull;
 public class HiveLocationService
         implements LocationService
 {
-    private final HiveMetastore metastore;
+    private final ExtendedHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
 
     @Inject
-    public HiveLocationService(HiveMetastore metastore, HdfsEnvironment hdfsEnvironment)
+    public HiveLocationService(ExtendedHiveMetastore metastore, HdfsEnvironment hdfsEnvironment)
     {
         this.metastore = requireNonNull(metastore);
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment);
@@ -68,7 +68,7 @@ public class HiveLocationService
     @Override
     public LocationHandle forExistingTable(String user, String queryId, Table table)
     {
-        Path targetPath = new Path(table.getSd().getLocation());
+        Path targetPath = new Path(table.getStorage().getLocation());
 
         Optional<Path> writePath;
         if (shouldUseTemporaryDirectory(user, targetPath)) {
@@ -90,7 +90,7 @@ public class HiveLocationService
     @Override
     public Path targetPath(LocationHandle locationHandle, Partition partition, String partitionName)
     {
-        return new Path(partition.getSd().getLocation());
+        return new Path(partition.getStorage().getLocation());
     }
 
     @Override

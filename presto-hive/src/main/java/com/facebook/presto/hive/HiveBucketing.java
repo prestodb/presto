@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
@@ -24,7 +25,6 @@ import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.ql.io.DefaultHivePartitioner;
 import org.apache.hadoop.hive.ql.io.HiveKey;
 import org.apache.hadoop.hive.ql.metadata.HiveException;
@@ -184,7 +184,7 @@ final class HiveBucketing
 
     public static Optional<HiveBucketHandle> getHiveBucketHandle(String connectorId, Table table)
     {
-        Optional<HiveBucketProperty> hiveBucketProperty = HiveBucketProperty.fromStorageDescriptor(table.getSd(), table.getTableName());
+        Optional<HiveBucketProperty> hiveBucketProperty = table.getStorage().getBucketProperty();
         if (!hiveBucketProperty.isPresent()) {
             return Optional.empty();
         }
@@ -201,13 +201,11 @@ final class HiveBucketing
 
     public static Optional<HiveBucket> getHiveBucket(Table table, Map<ColumnHandle, NullableValue> bindings)
     {
-        if (!table.getSd().isSetBucketCols() || table.getSd().getBucketCols().isEmpty() ||
-                !table.getSd().isSetNumBuckets() || (table.getSd().getNumBuckets() <= 0) ||
-                bindings.isEmpty()) {
+        if (!table.getStorage().getBucketProperty().isPresent() || bindings.isEmpty()) {
             return Optional.empty();
         }
 
-        List<String> bucketColumns = table.getSd().getBucketCols();
+        List<String> bucketColumns = table.getStorage().getBucketProperty().get().getBucketedBy();
         Map<String, ObjectInspector> objectInspectors = new HashMap<>();
 
         // Get column name to object inspector mapping
@@ -246,7 +244,7 @@ final class HiveBucketing
             columnBindings.add(immutableEntry(objectInspectors.get(column), bucketBindings.get(column)));
         }
 
-        return getHiveBucket(columnBindings.build(), table.getSd().getNumBuckets());
+        return getHiveBucket(columnBindings.build(), table.getStorage().getBucketProperty().get().getBucketCount());
     }
 
     public static Optional<HiveBucket> getHiveBucket(List<Entry<ObjectInspector, Object>> columnBindings, int bucketCount)

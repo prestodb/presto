@@ -15,8 +15,10 @@ package com.facebook.presto.hive.metastore;
 
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
@@ -28,6 +30,8 @@ import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
 import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.Role;
+import org.apache.hadoop.hive.metastore.api.SerDeInfo;
+import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.thrift.TException;
 
@@ -42,6 +46,9 @@ public class MockHiveMetastoreClient
     static final String TEST_TABLE = "testtbl";
     static final String TEST_PARTITION1 = "key=testpartition1";
     static final String TEST_PARTITION2 = "key=testpartition2";
+
+    private static final StorageDescriptor DEFAULT_STORAGE_DESCRIPTOR =
+            new StorageDescriptor(ImmutableList.of(), "", null, null, false, 0, new SerDeInfo(TEST_TABLE, null, ImmutableMap.of()), null, null, ImmutableMap.of());
 
     private final AtomicInteger accessCount = new AtomicInteger();
     private boolean throwException;
@@ -106,7 +113,19 @@ public class MockHiveMetastoreClient
         if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE)) {
             throw new NoSuchObjectException();
         }
-        return new Table(TEST_TABLE, TEST_DATABASE, "", 0, 0, 0, null, ImmutableList.of(new FieldSchema("key", "String", null)), null, "", "", "");
+        return new Table(
+                TEST_TABLE,
+                TEST_DATABASE,
+                "",
+                0,
+                0,
+                0,
+                DEFAULT_STORAGE_DESCRIPTOR,
+                ImmutableList.of(new FieldSchema("key", "string", null)),
+                null,
+                "",
+                "",
+                TableType.MANAGED_TABLE.name());
     }
 
     @Override
@@ -154,7 +173,7 @@ public class MockHiveMetastoreClient
         if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE) || !ImmutableSet.of(TEST_PARTITION1, TEST_PARTITION2).contains(partName)) {
             throw new NoSuchObjectException();
         }
-        return new Partition(null, TEST_DATABASE, TEST_TABLE, 0, 0, null, null);
+        return new Partition(null, TEST_DATABASE, TEST_TABLE, 0, 0, DEFAULT_STORAGE_DESCRIPTOR, ImmutableMap.of());
     }
 
     @Override
@@ -170,7 +189,7 @@ public class MockHiveMetastoreClient
         }
         return Lists.transform(names, name -> {
             try {
-                return new Partition(ImmutableList.copyOf(Warehouse.getPartValuesFromPartName(name)), TEST_DATABASE, TEST_TABLE, 0, 0, null, null);
+                return new Partition(ImmutableList.copyOf(Warehouse.getPartValuesFromPartName(name)), TEST_DATABASE, TEST_TABLE, 0, 0, DEFAULT_STORAGE_DESCRIPTOR, ImmutableMap.of());
             }
             catch (MetaException e) {
                 throw Throwables.propagate(e);

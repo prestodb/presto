@@ -13,16 +13,18 @@
  */
 package com.facebook.presto.hive;
 
-import org.apache.hadoop.hive.metastore.api.Partition;
+import com.facebook.presto.hive.metastore.Partition;
+
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public class HivePartitionMetadata
 {
-    private final Partition partition;
+    private final Optional<Partition> partition;
     private final HivePartition hivePartition;
 
-    HivePartitionMetadata(HivePartition hivePartition, Partition partition)
+    HivePartitionMetadata(HivePartition hivePartition, Optional<Partition> partition)
     {
         this.partition = requireNonNull(partition, "partition is null");
         this.hivePartition = requireNonNull(hivePartition, "hivePartition is null");
@@ -33,7 +35,10 @@ public class HivePartitionMetadata
         return hivePartition;
     }
 
-    public Partition getPartition()
+    /**
+     * @return empty if this HivePartitionMetadata represents an unpartitioned table
+     */
+    public Optional<Partition> getPartition()
     {
         return partition;
     }

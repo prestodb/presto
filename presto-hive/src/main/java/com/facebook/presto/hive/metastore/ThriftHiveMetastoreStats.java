@@ -16,7 +16,7 @@ package com.facebook.presto.hive.metastore;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
-public class CachingHiveMetastoreStats
+public class ThriftHiveMetastoreStats
 {
     private final HiveMetastoreApiStats getAllDatabases = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getDatabase = new HiveMetastoreApiStats();

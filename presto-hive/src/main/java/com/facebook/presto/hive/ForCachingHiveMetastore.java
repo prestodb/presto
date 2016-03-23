@@ -11,29 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.presto.hive;
 
-import org.apache.hadoop.hive.metastore.api.Partition;
+import javax.inject.Qualifier;
 
-final class UnpartitionedPartition
-        extends Partition
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
+
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+@Retention(RUNTIME)
+@Target({FIELD, PARAMETER, METHOD})
+@Qualifier
+public @interface ForCachingHiveMetastore
 {
-    static final Partition UNPARTITIONED_PARTITION = new UnpartitionedPartition();
-
-    private UnpartitionedPartition()
-    {
-    }
-
-    @Override
-    public UnpartitionedPartition clone()
-            throws CloneNotSupportedException
-    {
-        throw new CloneNotSupportedException();
-    }
-
-    @SuppressWarnings("ObjectEquality")
-    static boolean isUnpartitioned(Partition partition)
-    {
-        return partition == UNPARTITIONED_PARTITION;
-    }
 }
