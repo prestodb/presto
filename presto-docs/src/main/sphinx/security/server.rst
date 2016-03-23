@@ -184,6 +184,19 @@ Property                                                Description
                                                         password you specified when creating the keystore.
 ======================================================= ======================================================
 
+.. note::
+
+  Monitor CPU usage on the Presto coordinator after enabling HTTPS. Java will
+  choose CPU-intensive cipher suites by default. If the CPU usage is
+  unacceptably high after enabling HTTPS, you can configure JAVA to use
+  specific cipher suites by setting the ``http-server.https.included-cipher``
+  property.
+
+  ``http-server.https.included-cipher=TLS_RSA_WITH_AES_128_CBC_SHA,TLS_RSA_WITH_AES_128_CBC_SHA256``
+
+  The Java documentation lists the `supported cipher suites
+  <http://docs.oracle.com/javase/8/docs/technotes/guides/security/SunProviders.html#SupportedCipherSuites>`_.
+
 access-controls.properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
