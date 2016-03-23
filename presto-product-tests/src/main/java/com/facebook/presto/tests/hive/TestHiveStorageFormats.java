@@ -48,7 +48,7 @@ public class TestHiveStorageFormats
         return new StorageFormat[][] {
                 {storageFormat("ORC")},
                 {storageFormat("DWRF")},
-                //{storageFormat("PARQUET")},
+                {storageFormat("PARQUET")},
                 {storageFormat("PARQUET", ImmutableMap.of("hive.parquet_optimized_reader_enabled", "true"))},
                 //{storageFormat("RCBINARY")},
                 //{storageFormat("RCTEXT")},
