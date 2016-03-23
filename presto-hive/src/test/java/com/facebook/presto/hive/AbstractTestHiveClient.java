@@ -1169,7 +1169,7 @@ public abstract class AbstractTestHiveClient
         ConnectorPageSourceProvider pageSourceProvider = new HivePageSourceProvider(
                 new HiveClientConfig().setTimeZone(timeZone.getID()),
                 hdfsEnvironment,
-                ImmutableSet.<HiveRecordCursorProvider>of(new ColumnarTextHiveRecordCursorProvider()),
+                ImmutableSet.<HiveRecordCursorProvider>of(new ColumnarTextHiveRecordCursorProvider(hdfsEnvironment)),
                 ImmutableSet.<HivePageSourceFactory>of(),
                 TYPE_MANAGER);
 
@@ -1203,7 +1203,7 @@ public abstract class AbstractTestHiveClient
         ConnectorPageSourceProvider pageSourceProvider = new HivePageSourceProvider(
                 new HiveClientConfig().setTimeZone(timeZone.getID()),
                 hdfsEnvironment,
-                ImmutableSet.<HiveRecordCursorProvider>of(new ColumnarBinaryHiveRecordCursorProvider()),
+                ImmutableSet.<HiveRecordCursorProvider>of(new ColumnarBinaryHiveRecordCursorProvider(hdfsEnvironment)),
                 ImmutableSet.<HivePageSourceFactory>of(),
                 TYPE_MANAGER);
 

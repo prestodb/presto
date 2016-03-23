@@ -50,8 +50,8 @@ public class TestHiveStorageFormats
                 {storageFormat("DWRF")},
                 {storageFormat("PARQUET")},
                 {storageFormat("PARQUET", ImmutableMap.of("hive.parquet_optimized_reader_enabled", "true"))},
-                //{storageFormat("RCBINARY")},
-                //{storageFormat("RCTEXT")},
+                {storageFormat("RCBINARY")},
+                {storageFormat("RCTEXT")},
                 //{storageFormat("SEQUENCEFILE")},
                 //{storageFormat("TEXTFILE")}
         };
