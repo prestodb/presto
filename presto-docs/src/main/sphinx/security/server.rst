@@ -100,35 +100,12 @@ confirms the information is correct.
           (RETURN if same as keystore password):
 
 
-.. _server_access_controller:
+SystemAccessControl Plugin
+--------------------------
 
-Access Controller Implementation
---------------------------------
-
-Presto separates the concept of the principal who authenticates to the
-coordinator from the username that is responsible for running queries. When
-running the Presto CLI, for example, the Presto username can be specified using
-the --user option.
-
-By default, the Presto coordinator allows any principal to run queries as any
-Presto user. In a secure environment, this is probably not desirable behavior.
-
-This behavior can be customized by implementing the
-``SystemAccessControlFactory`` and ``SystemAccessControl`` interfaces.
-
-``SystemAccessControlFactory`` is responsible for creating a
-``SystemAccessControl`` instance. It also defines a ``SystemAccessControl``
-name which is used by the administrator in a Presto configuration.
-
-``SystemAccessControl`` implementations have two responsibilities:
- * Verifying whether or not a given Kerberos principal is authorized to execute
-   queries as a specific user.
- * Determining whether or not a given user can alter values for a given system
-   property.
-
-The implementation of ``SystemAccessControl`` and
-``SystemAccessControlFactory`` must be wrapped as a plugin and installed on the
-Presto cluster.
+A Presto coordinator with Kerberos enabled will probably need a
+:doc:`SystemAccessControl plugin </develop/system-access-control>` to achieve
+the desired level of security.
 
 Presto Coordinator Node Configuration
 -------------------------------------
@@ -142,13 +119,13 @@ configuration files.
  * :ref:`server_kerberos_configuration`
  * :ref:`server_kerberos_principals`
  * :ref:`server_java_keystore`
- * :ref:`server_access_controller`
+ * :doc:`SystemAccessControl Plugin </develop/system-access-control>`
 
 config.properties
 ^^^^^^^^^^^^^^^^^
 
 Kerberos authentication is configured in the coordinator node's
-config.properties file. The entries that need to be added are listed below.
+:file:`config.properties` file. The entries that need to be added are listed below.
 
 .. code-block:: none
 
@@ -200,22 +177,11 @@ Property                                                Description
 access-controls.properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Once a plugin that implements ``SystemAccessControl`` and
-``SystemAccessControlFactory`` has been installed on the coordinator, it is
-configured using an access-controls.properties file. All of the properties
-other than access-control.name are specific to the ``SystemAccessControl``
-plugin.
-
-.. code-block:: none
-
-  access-control.name=custom-access-control
-  custom-property1=custom-value1
-  custom-property2=custom-value2
-  ...
-
-The ``access-control.name`` property is used by Presto to find a registered
-``SystemAccessControlFactory``. The remaining properties are passed as a map to
-``SystemAccessControlFactory.create(Map<String, String> config)``.
+At a minimum, an :file:`access-control.properties` file must contain an
+``access-control.name`` property.  All other configuration for a
+SystemAccessControl plugin is implementation dependent.  The Developer Guide
+has :ref:`general information <system-access-control-configuration>` about how
+SystemAccessControl plugins are configured.
 
 .. _coordinator-troubleshooting:
 
