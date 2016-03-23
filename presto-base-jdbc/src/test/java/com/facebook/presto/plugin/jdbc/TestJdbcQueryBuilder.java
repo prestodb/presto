@@ -24,9 +24,6 @@ import com.facebook.presto.spi.type.DoubleType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import org.skife.jdbi.v2.DBI;
-import org.skife.jdbi.v2.Handle;
-import org.skife.jdbi.v2.IDBI;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -43,17 +40,19 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestJdbcQueryBuilder
 {
-    private IDBI dbi;
-    private Handle dummyHandle;
+    private TestingDatabase database;
+    private JdbcClient jdbcClient;
+
     private List<JdbcColumnHandle> cols = new ArrayList<>();
 
     @BeforeMethod
     public void setup()
             throws SQLException
     {
-        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
-        dummyHandle = dbi.open();
-        Connection connection = dummyHandle.getConnection();
+        database = new TestingDatabase();
+        jdbcClient = database.getJdbcClient();
+
+        Connection connection = database.getConnection();
         PreparedStatement preparedStatement = connection.prepareStatement("create table \"test_table\" (" + "" +
                 "\"col_0\" BIGINT, " +
                 "\"col_1\" DOUBLE, " +
@@ -78,8 +77,9 @@ public class TestJdbcQueryBuilder
 
     @AfterMethod
     public void teardown()
+            throws Exception
     {
-        dummyHandle.close();
+        database.close();
     }
 
     @Test
@@ -109,9 +109,9 @@ public class TestJdbcQueryBuilder
                         ImmutableList.of(Range.equal(BooleanType.BOOLEAN, true))),
                         false)
         ));
-        Connection connection = dummyHandle.getConnection();
+        Connection connection = database.getConnection();
 
-        PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(connection, "", "", "test_table", cols, tupleDomain);
+        PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", cols, tupleDomain);
 
         ResultSet res = preparedStatement.executeQuery();
 
@@ -130,9 +130,9 @@ public class TestJdbcQueryBuilder
                 cols.get(0), Domain.all(BigintType.BIGINT),
                 cols.get(1), Domain.onlyNull(DoubleType.DOUBLE)
         ));
-        Connection connection = dummyHandle.getConnection();
+        Connection connection = database.getConnection();
 
-        PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(connection, "", "", "test_table", cols, tupleDomain);
+        PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", cols, tupleDomain);
 
         ResultSet res = preparedStatement.executeQuery();
         assertEquals(res.next(), false);
