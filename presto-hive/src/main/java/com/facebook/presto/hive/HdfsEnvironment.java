@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hadoop.HadoopFileSystemCache;
 import com.facebook.presto.hadoop.HadoopNative;
+import com.facebook.presto.hive.authentication.HdfsAuthentication;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -33,13 +34,18 @@ public class HdfsEnvironment
     }
 
     private final HdfsConfiguration hdfsConfiguration;
+    private final HdfsAuthentication hdfsAuthentication;
     private final boolean verifyChecksum;
 
     @Inject
-    public HdfsEnvironment(HdfsConfiguration hdfsConfiguration, HiveClientConfig config)
+    public HdfsEnvironment(
+            HdfsConfiguration hdfsConfiguration,
+            HiveClientConfig config,
+            HdfsAuthentication hdfsAuthentication)
     {
         this.hdfsConfiguration = requireNonNull(hdfsConfiguration, "hdfsConfiguration is null");
         this.verifyChecksum = requireNonNull(config, "config is null").isVerifyChecksum();
+        this.hdfsAuthentication = requireNonNull(hdfsAuthentication, "hdfsAuthentication is null");
     }
 
     public Configuration getConfiguration(Path path)
@@ -47,12 +53,13 @@ public class HdfsEnvironment
         return hdfsConfiguration.getConfiguration(path.toUri());
     }
 
-    public FileSystem getFileSystem(Path path)
+    public FileSystem getFileSystem(String user, Path path)
             throws IOException
     {
-        FileSystem fileSystem = path.getFileSystem(getConfiguration(path));
-        fileSystem.setVerifyChecksum(verifyChecksum);
-
-        return fileSystem;
+        return hdfsAuthentication.doAs(user, () -> {
+            FileSystem fileSystem = path.getFileSystem(getConfiguration(path));
+            fileSystem.setVerifyChecksum(verifyChecksum);
+            return fileSystem;
+        });
     }
 }
