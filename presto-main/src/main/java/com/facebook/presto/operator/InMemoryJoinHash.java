@@ -25,6 +25,7 @@ import java.util.Arrays;
 
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
+import static com.facebook.presto.util.HashCollisionsEstimator.estimateNumberOfHashCollisions;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfBooleanArray;
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
@@ -43,6 +44,9 @@ public final class InMemoryJoinHash
     private final int[] positionLinks;
     private final long size;
     private final boolean filterFunctionPresent;
+
+    private long hashCollisions;
+    private double expectedHashCollisions;
 
     public InMemoryJoinHash(LongArrayList addresses, PagesHashStrategy pagesHashStrategy)
     {
@@ -80,10 +84,13 @@ public final class InMemoryJoinHash
                 }
                 // increment position and mask to handler wrap around
                 pos = (pos + 1) & mask;
+                hashCollisions++;
             }
 
             key[pos] = position;
         }
+
+        expectedHashCollisions = estimateNumberOfHashCollisions(addresses.size(), hashSize);
     }
 
     @Override
@@ -102,6 +109,18 @@ public final class InMemoryJoinHash
     public long getInMemorySizeInBytes()
     {
         return size;
+    }
+
+    @Override
+    public long getHashCollisions()
+    {
+        return hashCollisions;
+    }
+
+    @Override
+    public double getExpectedHashCollisions()
+    {
+        return expectedHashCollisions;
     }
 
     @Override

@@ -168,6 +168,7 @@ public class HashBuilderOperator
         // After this point the LookupSource will take over our memory reservation, and ours will be zero
         LookupSource lookupSource = pagesIndex.createLookupSource(hashChannels, hashChannel, filterFunction);
         lookupSourceSupplier.setLookupSource(lookupSource, operatorContext);
+        operatorContext.recordHashCollision(lookupSource.getHashCollisions(), lookupSource.getExpectedHashCollisions());
         finished = true;
     }
 

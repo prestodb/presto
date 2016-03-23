@@ -272,6 +272,9 @@ public class HashAggregationOperator
         private final OperatorContext operatorContext;
         private final boolean partial;
 
+        private long lastHashCollisions;
+        private double lastExpectedHashCollisions;
+
         private GroupByHashAggregationBuilder(
                 List<AccumulatorFactory> accumulatorFactories,
                 Step step,
@@ -299,6 +302,7 @@ public class HashAggregationOperator
         {
             if (aggregators.isEmpty()) {
                 groupByHash.addPage(page);
+                recordHashCollisions();
                 return;
             }
 
@@ -307,6 +311,19 @@ public class HashAggregationOperator
             for (Aggregator aggregator : aggregators) {
                 aggregator.processPage(groupIds, page);
             }
+
+            recordHashCollisions();
+        }
+
+        private void recordHashCollisions()
+        {
+            long newHashCollisions = groupByHash.getHashCollisions();
+            double newExpectedHashCollisions = groupByHash.getExpectedHashCollisions();
+
+            operatorContext.recordHashCollision(newHashCollisions - lastHashCollisions, newExpectedHashCollisions - lastExpectedHashCollisions);
+
+            lastHashCollisions = newHashCollisions;
+            lastExpectedHashCollisions = newExpectedHashCollisions;
         }
 
         public boolean isFull()

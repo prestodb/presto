@@ -60,6 +60,17 @@ public final class OuterLookupSource
         return lookupSource.getJoinPosition(position, hashChannelsPage, allChannelsPage, rawHash);
     }
 
+    public long getHashCollisions()
+    {
+        return lookupSource.getHashCollisions();
+    }
+
+    @Override
+    public double getExpectedHashCollisions()
+    {
+        return lookupSource.getExpectedHashCollisions();
+    }
+
     @Override
     public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage)
     {

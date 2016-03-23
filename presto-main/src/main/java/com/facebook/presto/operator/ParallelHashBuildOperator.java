@@ -176,6 +176,7 @@ public class ParallelHashBuildOperator
         // After this point the SharedLookupSource will take over our memory reservation, and ours will be zero
         LookupSource lookupSource = index.createLookupSource(hashChannels, preComputedHashChannel, filterFunction);
         lookupSourceSupplier.setLookupSource(partitionIndex, lookupSource, operatorContext);
+        operatorContext.recordHashCollision(lookupSource.getHashCollisions(), lookupSource.getExpectedHashCollisions());
     }
 
     @Override

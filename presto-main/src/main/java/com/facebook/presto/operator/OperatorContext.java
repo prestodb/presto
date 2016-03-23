@@ -18,6 +18,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.memory.AbstractAggregatedMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.util.concurrent.AtomicDouble;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -82,6 +83,9 @@ public class OperatorContext
     private final AtomicLong finishWallNanos = new AtomicLong();
     private final AtomicLong finishCpuNanos = new AtomicLong();
     private final AtomicLong finishUserNanos = new AtomicLong();
+
+    private final AtomicLong hashCollisions = new AtomicLong();
+    private final AtomicDouble expectedHashCollisions = new AtomicDouble();
 
     private final AtomicLong memoryReservation = new AtomicLong();
     private final OperatorSystemMemoryContext systemMemoryContext;
@@ -209,6 +213,12 @@ public class OperatorContext
         finishWallNanos.getAndAdd(nanosBetween(intervalWallStart.get(), System.nanoTime()));
         finishCpuNanos.getAndAdd(nanosBetween(intervalCpuStart.get(), currentThreadCpuTime()));
         finishUserNanos.getAndAdd(nanosBetween(intervalUserStart.get(), currentThreadUserTime()));
+    }
+
+    public void recordHashCollision(long hashCollisions, double expectedHashCollisions)
+    {
+        this.hashCollisions.addAndGet(hashCollisions);
+        this.expectedHashCollisions.addAndGet(expectedHashCollisions);
     }
 
     public ListenableFuture<?> isWaitingForMemory()
@@ -382,17 +392,27 @@ public class OperatorContext
             info = infoSupplier.get();
         }
 
+        long inputPositionsCount = inputPositions.getTotalCount();
+        double hashCollisionsCount = hashCollisions.get();
+
+        double weightedHashCollisions = hashCollisionsCount * inputPositionsCount;
+        double weightedHashCollisionsSquared = hashCollisionsCount * hashCollisionsCount * inputPositionsCount;
+        double weightedExpectedHashCollisions = expectedHashCollisions.get() * inputPositionsCount;
+
         return new OperatorStats(
                 operatorId,
                 planNodeId,
                 operatorType,
+
+                1,
 
                 addInputCalls.get(),
                 new Duration(addInputWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputCpuNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputUserNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new DataSize(inputDataSize.getTotalCount(), BYTE).convertToMostSuccinctDataSize(),
-                inputPositions.getTotalCount(),
+                inputPositionsCount,
+                (double) inputPositionsCount * inputPositionsCount,
 
                 getOutputCalls.get(),
                 new Duration(getOutputWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
@@ -407,6 +427,10 @@ public class OperatorContext
                 new Duration(finishWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(finishCpuNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(finishUserNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
+
+                weightedHashCollisions,
+                weightedHashCollisionsSquared,
+                weightedExpectedHashCollisions,
 
                 new DataSize(memoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),
                 new DataSize(systemMemoryContext.getReservedBytes(), BYTE).convertToMostSuccinctDataSize(),
