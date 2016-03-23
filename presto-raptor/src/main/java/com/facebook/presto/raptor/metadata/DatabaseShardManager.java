@@ -274,7 +274,8 @@ public class DatabaseShardManager
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
                 dbi.useTransaction((handle, status) -> {
-                    if (commitTransaction(shardDaoSupplier.attach(handle), transactionId)) {
+                    ShardDao dao = shardDaoSupplier.attach(handle);
+                    if (commitTransaction(dao, transactionId)) {
                         callback.useHandle(handle);
                         dao.deleteCreatedShards(transactionId);
                     }
