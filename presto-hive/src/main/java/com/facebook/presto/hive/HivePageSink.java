@@ -284,6 +284,13 @@ public class HivePageSink
     @Override
     public Collection<Slice> finish()
     {
+        // Must be wrapped in doAs entirely
+        // Implicit FileSystem initializations are possible in HiveRecordWriter#commit -> RecordWriter#close
+        return hdfsEnvironment.doAs(session.getUser(), this::doFinish);
+    }
+
+    private ImmutableList<Slice> doFinish()
+    {
         ImmutableList.Builder<Slice> partitionUpdates = ImmutableList.builder();
         if (!bucketCount.isPresent()) {
             for (HiveRecordWriter writer : writers) {
@@ -308,6 +315,13 @@ public class HivePageSink
 
     @Override
     public void abort()
+    {
+        // Must be wrapped in doAs entirely
+        // Implicit FileSystem initializations are possible in HiveRecordWriter#rollback -> RecordWriter#close
+        hdfsEnvironment.doAs(session.getUser(), this::doAbort);
+    }
+
+    private void doAbort()
     {
         if (!bucketCount.isPresent()) {
             for (HiveRecordWriter writer : writers) {
@@ -340,6 +354,13 @@ public class HivePageSink
             throw new PrestoException(HIVE_TOO_MANY_OPEN_PARTITIONS, "Too many open partitions");
         }
 
+        // Must be wrapped in doAs entirely
+        // Implicit FileSystem initializations are possible in HiveRecordWriter#addRow or #createWriter
+        return hdfsEnvironment.doAs(session.getUser(), () -> doAppend(page, dataBlocks, partitionBlocks, indexes));
+    }
+
+    private CompletableFuture<?> doAppend(Page page, Block[] dataBlocks, Block[] partitionBlocks, int[] indexes)
+    {
         if (!bucketCount.isPresent()) {
             if (pageIndexer.getMaxIndex() >= writers.length) {
                 writers = Arrays.copyOf(writers, pageIndexer.getMaxIndex() + 1);
