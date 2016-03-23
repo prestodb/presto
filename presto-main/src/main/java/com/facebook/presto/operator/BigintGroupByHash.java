@@ -62,6 +62,7 @@ public class BigintGroupByHash
     private final LongBigArray valuesByGroupId;
 
     private int nextGroupId;
+    private long hashCollisions;
 
     public BigintGroupByHash(int hashChannel, Optional<Integer> maskChannel, boolean outputRawHash, int expectedSize)
     {
@@ -91,6 +92,12 @@ public class BigintGroupByHash
         return groupIds.sizeOf() +
                 values.sizeOf() +
                 valuesByGroupId.sizeOf();
+    }
+
+    @Override
+    public long getHashCollisions()
+    {
+        return hashCollisions;
     }
 
     @Override
@@ -242,6 +249,7 @@ public class BigintGroupByHash
 
             // increment position and mask to handle wrap around
             hashPosition = (hashPosition + 1) & mask;
+            hashCollisions++;
         }
 
         return addNewGroup(hashPosition, value);
@@ -287,6 +295,7 @@ public class BigintGroupByHash
             int hashPosition = getHashPosition(value, newMask);
             while (newGroupIds.get(hashPosition) != -1) {
                 hashPosition = (hashPosition + 1) & newMask;
+                hashCollisions++;
             }
 
             // record the mapping

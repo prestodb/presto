@@ -25,6 +25,8 @@ public interface LookupSource
 
     long getInMemorySizeInBytes();
 
+    long getHashCollisions();
+
     int getJoinPositionCount();
 
     long getJoinPosition(int position, Page page, int rawHash);

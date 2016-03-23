@@ -143,7 +143,7 @@ public class ParallelHashBuilder
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, ParallelHashBuilder.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, ParallelHashCollectOperator.class.getSimpleName());
             return new ParallelHashCollectOperator(
                     operatorContext,
                     partitionFutures,
@@ -326,7 +326,7 @@ public class ParallelHashBuilder
             checkState(!closed, "Factory is already closed");
             checkState(partition < lookupSourceFutures.size(), "All operators already created");
 
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, ParallelHashBuilder.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, ParallelHashBuilderOperator.class.getSimpleName());
             ParallelHashBuilderOperator parallelHashBuilderOperator = new ParallelHashBuilderOperator(
                     operatorContext,
                     types,
@@ -413,6 +413,8 @@ public class ParallelHashBuilder
             PagesIndex pagesIndex = Futures.getUnchecked(pagesIndexFuture);
             // After this point the SharedLookupSource will take over our memory reservation, and ours will be zero
             SharedLookupSource sharedLookupSource = new SharedLookupSource(pagesIndex.createLookupSource(hashChannels, hashChannel), operatorContext);
+            operatorContext.recordHashCollision(sharedLookupSource.getHashCollisions());
+            operatorContext.recordGeneratedInput(0L, pagesIndex.getPositionCount());
 
             if (!lookupSourceFuture.set(sharedLookupSource)) {
                 sharedLookupSource.freeMemory();

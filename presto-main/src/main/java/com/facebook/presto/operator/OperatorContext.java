@@ -83,6 +83,8 @@ public class OperatorContext
     private final AtomicLong finishCpuNanos = new AtomicLong();
     private final AtomicLong finishUserNanos = new AtomicLong();
 
+    private final AtomicLong hashCollisions = new AtomicLong();
+
     private final AtomicLong memoryReservation = new AtomicLong();
     private final OperatorSystemMemoryContext systemMemoryContext;
     private final long maxMemoryReservation;
@@ -209,6 +211,11 @@ public class OperatorContext
         finishWallNanos.getAndAdd(nanosBetween(intervalWallStart.get(), System.nanoTime()));
         finishCpuNanos.getAndAdd(nanosBetween(intervalCpuStart.get(), currentThreadCpuTime()));
         finishUserNanos.getAndAdd(nanosBetween(intervalUserStart.get(), currentThreadUserTime()));
+    }
+
+    public void recordHashCollision(long hashCollisions)
+    {
+        this.hashCollisions.getAndAdd(hashCollisions);
     }
 
     public ListenableFuture<?> isWaitingForMemory()
@@ -382,17 +389,26 @@ public class OperatorContext
             info = infoSupplier.get();
         }
 
+        long inputPositionsCount = inputPositions.getTotalCount();
+        double hashCollisionsCount = hashCollisions.get();
+
+        double weightedHashCollisions = hashCollisionsCount * inputPositions.getTotalCount();
+        double weightedHashCollisionsSquared = hashCollisionsCount * hashCollisionsCount * inputPositions.getTotalCount();
+
         return new OperatorStats(
                 operatorId,
                 planNodeId,
                 operatorType,
+
+                1,
 
                 addInputCalls.get(),
                 new Duration(addInputWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputCpuNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputUserNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new DataSize(inputDataSize.getTotalCount(), BYTE).convertToMostSuccinctDataSize(),
-                inputPositions.getTotalCount(),
+                inputPositionsCount,
+                (double) inputPositionsCount * inputPositionsCount,
 
                 getOutputCalls.get(),
                 new Duration(getOutputWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
@@ -407,6 +423,9 @@ public class OperatorContext
                 new Duration(finishWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(finishCpuNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(finishUserNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
+
+                weightedHashCollisions,
+                weightedHashCollisionsSquared,
 
                 new DataSize(memoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),
                 new DataSize(systemMemoryContext.getReservedBytes(), BYTE).convertToMostSuccinctDataSize(),

@@ -34,9 +34,12 @@ Examples
         Output partitioning: SINGLE []
         - Aggregate(FINAL)[regionkey] => [regionkey:bigint, count:bigint]
                 Cost: 50.00%, Output: 5 lines (90B)
+                HashAggregationOperator := Drivers: 1, Input avg.: 5.00 lines, Input std.dev.: 0.00%
+                TaskOutputOperator := Drivers: 1, Input avg.: 5.00 lines, Input std.dev.: 0.00%
                 count := "count"("count_8")
             - RemoteSource[2] => [regionkey:bigint, count_8:bigint]
                     Cost: 50.00%, Output: 5 lines (90B)
+                    ExchangeOperator := Drivers: 1, Input avg.: 5.00 lines, Input std.dev.: 0.00%
 
     Fragment 2 [SOURCE]
         Cost: CPU 3.21s, Input: 25 lines (225B), Output: 5 lines (90B)
@@ -44,8 +47,11 @@ Examples
         Output partitioning: HASH [regionkey]
         - Aggregate(PARTIAL)[regionkey] => [regionkey:bigint, count_8:bigint]
                 Cost: 78.26%, Output: 5 lines (90B)
+                HashAggregationOperator := Drivers: 4, Input avg.: 6.25 lines, Input std.dev.: 173.21%
+                PartitionedOutputOperator := Drivers: 4, Input avg.: 1.25 lines, Input std.dev.: 173.21%
                 count_8 := "count"(*)
-            - TableScan[tpch:tpch:nation:sf0.1, originalConstraint = true] => [regionkey:bigint]
+         - TableScan[tpch:tpch:nation:sf1.0, originalConstraint = true] => [regionkey:bigint]
                     Cost: 21.74%, Output: 25 lines (225B)
+                    TableScanOperator := Drivers: 4, Input avg.: 6.25 lines, Input std.dev.: 173.21%
                     regionkey := tpch:regionkey
 

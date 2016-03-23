@@ -50,6 +50,8 @@ public final class InMemoryJoinHash
     // and there is no performance gain from storing full hashes
     private final byte[] positionToHashes;
 
+    private long hashCollisions;
+
     public InMemoryJoinHash(LongArrayList addresses, PagesHashStrategy pagesHashStrategy, int hashBuildConcurrency, List<List<Block>> channels, List<Integer> joinChannels)
     {
         this.addresses = requireNonNull(addresses, "addresses is null");
@@ -107,6 +109,7 @@ public final class InMemoryJoinHash
                     }
                     // increment position and mask to handler wrap around
                     pos = (pos + 1) & mask;
+                    hashCollisions++;
                 }
 
                 key[pos] = realPosition;
@@ -133,6 +136,12 @@ public final class InMemoryJoinHash
     public long getInMemorySizeInBytes()
     {
         return size;
+    }
+
+    @Override
+    public long getHashCollisions()
+    {
+        return hashCollisions;
     }
 
     @Override

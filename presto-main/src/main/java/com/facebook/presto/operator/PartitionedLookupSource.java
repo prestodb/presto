@@ -63,6 +63,12 @@ public class PartitionedLookupSource
     }
 
     @Override
+    public long getHashCollisions()
+    {
+        return Arrays.stream(lookupSources).mapToLong(LookupSource::getHashCollisions).sum();
+    }
+
+    @Override
     public long getJoinPosition(int position, Page page)
     {
         return getJoinPosition(position, page, hashGenerator.hashPosition(position, page));

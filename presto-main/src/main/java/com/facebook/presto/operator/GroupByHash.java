@@ -53,6 +53,8 @@ public interface GroupByHash
 
     long getEstimatedSize();
 
+    long getHashCollisions();
+
     List<Type> getTypes();
 
     int getGroupCount();

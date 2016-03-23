@@ -76,6 +76,7 @@ public class MultiChannelGroupByHash
 
     private int nextGroupId;
     private DictionaryLookBack dictionaryLookBack;
+    private long hashCollisions;
 
     public MultiChannelGroupByHash(
             List<? extends Type> hashTypes,
@@ -146,6 +147,12 @@ public class MultiChannelGroupByHash
                 sizeOf(groupIdsByHash) +
                 groupAddressByGroupId.sizeOf() +
                 sizeOf(rawHashByHashPosition);
+    }
+
+    @Override
+    public long getHashCollisions()
+    {
+        return hashCollisions;
     }
 
     @Override
@@ -271,6 +278,7 @@ public class MultiChannelGroupByHash
             }
             // increment position and mask to handle wrap around
             hashPosition = (hashPosition + 1) & mask;
+            hashCollisions++;
         }
 
         // did we find an existing group?
@@ -357,6 +365,7 @@ public class MultiChannelGroupByHash
             int pos = getHashPosition(rawHash, newMask);
             while (newKey[pos] != -1) {
                 pos = (pos + 1) & newMask;
+                hashCollisions++;
             }
 
             // record the mapping

@@ -47,6 +47,8 @@ public final class BigintInMemoryJoinHash
     private final long[] values;
     private Optional<BitSet> nullsMask = Optional.empty(); // lazy initialized
 
+    private long hashCollisions;
+
     public BigintInMemoryJoinHash(LongArrayList addresses, PagesHashStrategy pagesHashStrategy, int hashBuildConcurrency, List<List<Block>> channels, List<Integer> joinChannels)
     {
         checkState(requireNonNull(joinChannels, "joinChannels is null").size() == 1, "Only single channel joins are supported");
@@ -88,13 +90,14 @@ public final class BigintInMemoryJoinHash
                 }
                 hashPos = (hashPos + 1) & mask;
                 currentKey = key[hashPos];
+                hashCollisions++;
             }
 
             key[hashPos] = position;
         }
 
         totalMemoryUsage = sizeOf(key) + sizeOf(values)
-                +  sizeOf(addresses.elements()) + pagesHashStrategy.getSizeInBytes() / hashBuildConcurrency
+                + sizeOf(addresses.elements()) + pagesHashStrategy.getSizeInBytes() / hashBuildConcurrency
                 + (positionLinks.isPresent() ? sizeOf(positionLinks.get()) : 0)
                 + (nullsMask.isPresent() ? nullsMask.get().size() / 8 : 0);
     }
@@ -147,6 +150,12 @@ public final class BigintInMemoryJoinHash
     public long getInMemorySizeInBytes()
     {
         return totalMemoryUsage;
+    }
+
+    @Override
+    public long getHashCollisions()
+    {
+        return hashCollisions;
     }
 
     @Override

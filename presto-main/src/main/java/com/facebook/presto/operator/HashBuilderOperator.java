@@ -146,7 +146,9 @@ public class HashBuilderOperator
         }
 
         // After this point the SharedLookupSource will take over our memory reservation, and ours will be zero
-        lookupSourceSupplier.setLookupSource(new SharedLookupSource(pagesIndex.createLookupSource(hashChannels, hashChannel), operatorContext));
+        SharedLookupSource sharedLookupSource = new SharedLookupSource(pagesIndex.createLookupSource(hashChannels, hashChannel), operatorContext);
+        lookupSourceSupplier.setLookupSource(sharedLookupSource);
+        operatorContext.recordHashCollision(sharedLookupSource.getHashCollisions());
         finished = true;
     }
 

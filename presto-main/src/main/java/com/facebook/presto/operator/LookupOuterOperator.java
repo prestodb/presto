@@ -358,6 +358,12 @@ public class LookupOuterOperator
         }
 
         @Override
+        public long getHashCollisions()
+        {
+            return lookupSource.getHashCollisions();
+        }
+
+        @Override
         public long getNextJoinPosition(long currentPosition)
         {
             return lookupSource.getNextJoinPosition(currentPosition);
