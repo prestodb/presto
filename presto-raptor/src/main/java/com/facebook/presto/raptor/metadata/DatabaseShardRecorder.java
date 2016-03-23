@@ -46,6 +46,7 @@ public class DatabaseShardRecorder
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
                 runIgnoringConstraintViolation(() -> dao.insertCreatedShard(shardUuid, transactionId));
+                return;
             }
             catch (PrestoException e) {
                 if (attempt == maxAttempts) {

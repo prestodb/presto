@@ -280,6 +280,7 @@ public class DatabaseShardManager
                         dao.deleteCreatedShards(transactionId);
                     }
                 });
+                return;
             }
             catch (DBIException e) {
                 propagateIfInstanceOf(e.getCause(), PrestoException.class);
