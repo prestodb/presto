@@ -19,26 +19,38 @@ import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.TimeType;
+import com.facebook.presto.spi.type.TimeWithTimeZoneType;
+import com.facebook.presto.spi.type.TimestampType;
+import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import org.joda.time.DateTimeZone;
 
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.stream.Collectors.joining;
+import static org.joda.time.DateTimeZone.UTC;
 
 public class QueryBuilder
 {
@@ -109,13 +121,29 @@ public class QueryBuilder
         for (int i = 0; i < accumulator.size(); i++) {
             TypeAndValue typeAndValue = accumulator.get(i);
             if (typeAndValue.getType().equals(BigintType.BIGINT)) {
-                statement.setLong(i + 1, (Long) typeAndValue.getValue());
+                statement.setLong(i + 1, (long) typeAndValue.getValue());
             }
             else if (typeAndValue.getType().equals(DoubleType.DOUBLE)) {
-                statement.setDouble(i + 1, (Double) typeAndValue.getValue());
+                statement.setDouble(i + 1, (double) typeAndValue.getValue());
             }
             else if (typeAndValue.getType().equals(BooleanType.BOOLEAN)) {
-                statement.setBoolean(i + 1, (Boolean) typeAndValue.getValue());
+                statement.setBoolean(i + 1, (boolean) typeAndValue.getValue());
+            }
+            else if (typeAndValue.getType().equals(DateType.DATE)) {
+                long millis = DAYS.toMillis((long) typeAndValue.getValue());
+                statement.setDate(i + 1, new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millis)));
+            }
+            else if (typeAndValue.getType().equals(TimeType.TIME)) {
+                statement.setTime(i + 1, new Time((long) typeAndValue.getValue()));
+            }
+            else if (typeAndValue.getType().equals(TimeWithTimeZoneType.TIME_WITH_TIME_ZONE)) {
+                statement.setTime(i + 1, new Time(unpackMillisUtc((long) typeAndValue.getValue())));
+            }
+            else if (typeAndValue.getType().equals(TimestampType.TIMESTAMP)) {
+                statement.setTimestamp(i + 1, new Timestamp((long) typeAndValue.getValue()));
+            }
+            else if (typeAndValue.getType().equals(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE)) {
+                statement.setTimestamp(i + 1, new Timestamp(unpackMillisUtc((long) typeAndValue.getValue())));
             }
             else if (typeAndValue.getType() instanceof VarcharType) {
                 statement.setString(i + 1, ((Slice) typeAndValue.getValue()).toStringUtf8());
@@ -134,6 +162,11 @@ public class QueryBuilder
         return validType.equals(BigintType.BIGINT) ||
                 validType.equals(DoubleType.DOUBLE) ||
                 validType.equals(BooleanType.BOOLEAN) ||
+                validType.equals(DateType.DATE) ||
+                validType.equals(TimeType.TIME) ||
+                validType.equals(TimeWithTimeZoneType.TIME_WITH_TIME_ZONE) ||
+                validType.equals(TimestampType.TIMESTAMP) ||
+                validType.equals(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE) ||
                 validType instanceof VarcharType;
     }
 

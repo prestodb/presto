@@ -26,17 +26,26 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
+import static java.time.temporal.ChronoUnit.DAYS;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -58,7 +67,10 @@ public class TestJdbcQueryBuilder
                 new JdbcColumnHandle("test_id", "col_0", BIGINT),
                 new JdbcColumnHandle("test_id", "col_1", DOUBLE),
                 new JdbcColumnHandle("test_id", "col_2", BOOLEAN),
-                new JdbcColumnHandle("test_id", "col_3", VARCHAR));
+                new JdbcColumnHandle("test_id", "col_3", VARCHAR),
+                new JdbcColumnHandle("test_id", "col_4", DATE),
+                new JdbcColumnHandle("test_id", "col_5", TIME),
+                new JdbcColumnHandle("test_id", "col_6", TIMESTAMP));
 
         Connection connection = database.getConnection();
         try (PreparedStatement preparedStatement = connection.prepareStatement("create table \"test_table\" (" + "" +
@@ -66,12 +78,25 @@ public class TestJdbcQueryBuilder
                 "\"col_1\" DOUBLE, " +
                 "\"col_2\" BOOLEAN, " +
                 "\"col_3\" VARCHAR(128), " +
+                "\"col_4\" DATE, " +
+                "\"col_5\" TIME, " +
+                "\"col_6\" TIMESTAMP, " +
                 ")")) {
             preparedStatement.execute();
             StringBuilder stringBuilder = new StringBuilder("insert into \"test_table\" values ");
             int len = 1000;
+            LocalDateTime dateTime = LocalDateTime.of(2016, 3, 23, 12, 23, 37);
             for (int i = 0; i < len; i++) {
-                stringBuilder.append(format("(%d, %f, %b, 'test_str_%d')", i, (200000.0 + i / 2.0), i % 2 == 0, i));
+                stringBuilder.append(format(
+                        "(%d, %f, %b, 'test_str_%d', '%s', '%s', '%s')",
+                        i,
+                        200000.0 + i / 2.0,
+                        i % 2 == 0,
+                        i,
+                        Date.valueOf(dateTime.toLocalDate()),
+                        Time.valueOf(dateTime.toLocalTime()),
+                        Timestamp.valueOf(dateTime)));
+                dateTime = dateTime.plusHours(26);
                 if (i != len - 1) {
                     stringBuilder.append(",");
                 }
@@ -153,6 +178,67 @@ public class TestJdbcQueryBuilder
     }
 
     @Test
+    public void testBuildSqlWithDateTime()
+            throws SQLException
+    {
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+                columns.get(4), Domain.create(SortedRangeSet.copyOf(DATE,
+                        ImmutableList.of(
+                                Range.range(DATE, toDays(2016, 6, 7), true, toDays(2016, 6, 17), false),
+                                Range.equal(DATE, toDays(2016, 6, 3)),
+                                Range.equal(DATE, toDays(2016, 10, 21)))),
+                        false),
+                columns.get(5), Domain.create(SortedRangeSet.copyOf(TIME,
+                        ImmutableList.of(
+                                Range.range(TIME, toTime(2016, 6, 7, 6, 12, 23).getTime(), false, toTime(2016, 6, 7, 8, 23, 37).getTime(), true),
+                                Range.equal(TIME, toTime(2016, 6, 1, 2, 3, 4).getTime()),
+                                Range.equal(TIME, toTime(2016, 10, 21, 20, 23, 37).getTime()))),
+                        false)
+        ));
+
+        Connection connection = database.getConnection();
+        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", columns, tupleDomain);
+                ResultSet resultSet = preparedStatement.executeQuery()) {
+            ImmutableSet.Builder<Date> dateBuilder = ImmutableSet.builder();
+            ImmutableSet.Builder<Time> timeBuilder = ImmutableSet.builder();
+            while (resultSet.next()) {
+                dateBuilder.add((Date) resultSet.getObject("col_4"));
+                timeBuilder.add((Time) resultSet.getObject("col_5"));
+            }
+            assertEquals(dateBuilder.build(), ImmutableSet.of(toDate(2016, 6, 7), toDate(2016, 6, 13), toDate(2016, 10, 21)));
+            assertEquals(timeBuilder.build(), ImmutableSet.of(toTime(2016, 6, 7, 8, 23, 37), toTime(2016, 10, 21, 20, 23, 37)));
+        }
+    }
+
+    @Test
+    public void testBuildSqlWithTimestamp()
+            throws SQLException
+    {
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+                columns.get(6), Domain.create(SortedRangeSet.copyOf(TIMESTAMP,
+                        ImmutableList.of(
+                                Range.equal(TIMESTAMP, toTimestamp(2016, 6, 3, 0, 23, 37).getTime()),
+                                Range.equal(TIMESTAMP, toTimestamp(2016, 10, 19, 16, 23, 37).getTime()),
+                                Range.range(TIMESTAMP, toTimestamp(2016, 6, 7, 8, 23, 37).getTime(), false, toTimestamp(2016, 6, 9, 12, 23, 37).getTime(), true))),
+                        false)
+        ));
+
+        Connection connection = database.getConnection();
+        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", columns, tupleDomain);
+                ResultSet resultSet = preparedStatement.executeQuery()) {
+            ImmutableSet.Builder<Timestamp> builder = ImmutableSet.builder();
+            while (resultSet.next()) {
+                builder.add((Timestamp) resultSet.getObject("col_6"));
+            }
+            assertEquals(builder.build(), ImmutableSet.of(
+                    toTimestamp(2016, 6, 3, 0, 23, 37),
+                    toTimestamp(2016, 6, 8, 10, 23, 37),
+                    toTimestamp(2016, 6, 9, 12, 23, 37),
+                    toTimestamp(2016, 10, 19, 16, 23, 37)));
+        }
+    }
+
+    @Test
     public void testEmptyBuildSql()
             throws SQLException
     {
@@ -166,5 +252,25 @@ public class TestJdbcQueryBuilder
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             assertEquals(resultSet.next(), false);
         }
+    }
+
+    private static Timestamp toTimestamp(int year, int month, int day, int hour, int minute, int second)
+    {
+        return Timestamp.valueOf(LocalDateTime.of(year, month, day, hour, minute, second));
+    }
+
+    private static long toDays(int year, int month, int day)
+    {
+        return DAYS.between(LocalDate.of(1970, 1, 1), LocalDate.of(year, month, day));
+    }
+
+    private static Date toDate(int year, int month, int day)
+    {
+        return Date.valueOf(format("%d-%d-%d", year, month, day));
+    }
+
+    private static Time toTime(int year, int month, int day, int hour, int minute, int second)
+    {
+        return Time.valueOf(LocalDateTime.of(year, month, day, hour, minute, second).toLocalTime());
     }
 }
