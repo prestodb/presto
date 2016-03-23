@@ -46,18 +46,18 @@ public class HiveLocationService
     }
 
     @Override
-    public LocationHandle forNewTable(String queryId, String schemaName, String tableName)
+    public LocationHandle forNewTable(String user, String queryId, String schemaName, String tableName)
     {
-        Path targetPath = getTableDefaultLocation(metastore, hdfsEnvironment, schemaName, tableName);
+        Path targetPath = getTableDefaultLocation(user, metastore, hdfsEnvironment, schemaName, tableName);
 
         // verify the target directory for the table
-        if (pathExists(hdfsEnvironment, targetPath)) {
+        if (pathExists(user, hdfsEnvironment, targetPath)) {
             throw new PrestoException(HIVE_PATH_ALREADY_EXISTS, format("Target directory for table '%s.%s' already exists: %s", schemaName, tableName, targetPath));
         }
 
         Path writePath;
-        if (shouldUseTemporaryDirectory(targetPath)) {
-            writePath = createTemporaryPath(hdfsEnvironment, targetPath);
+        if (shouldUseTemporaryDirectory(user, targetPath)) {
+            writePath = createTemporaryPath(user, hdfsEnvironment, targetPath);
         }
         else {
             writePath = targetPath;
@@ -67,13 +67,13 @@ public class HiveLocationService
     }
 
     @Override
-    public LocationHandle forExistingTable(String queryId, Table table)
+    public LocationHandle forExistingTable(String user, String queryId, Table table)
     {
         Path targetPath = new Path(table.getSd().getLocation());
 
         Optional<Path> writePath;
-        if (shouldUseTemporaryDirectory(targetPath)) {
-            writePath = Optional.of(createTemporaryPath(hdfsEnvironment, targetPath));
+        if (shouldUseTemporaryDirectory(user, targetPath)) {
+            writePath = Optional.of(createTemporaryPath(user, hdfsEnvironment, targetPath));
         }
         else {
             writePath = Optional.empty();
@@ -82,11 +82,11 @@ public class HiveLocationService
         return new LocationHandle(targetPath, writePath, true);
     }
 
-    private boolean shouldUseTemporaryDirectory(Path path)
+    private boolean shouldUseTemporaryDirectory(String user, Path path)
     {
         try {
             // skip using temporary directory for S3
-            return !(hdfsEnvironment.getFileSystem(path) instanceof PrestoS3FileSystem);
+            return !(hdfsEnvironment.getFileSystem(user, path) instanceof PrestoS3FileSystem);
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);

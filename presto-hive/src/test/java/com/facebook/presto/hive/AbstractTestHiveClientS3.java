@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.GroupByHashPageIndexerFactory;
+import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveMetastoreClient;
 import com.facebook.presto.spi.ColumnHandle;
@@ -148,7 +149,7 @@ public abstract class AbstractTestHiveClientS3
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveClientConfig));
         HivePartitionManager hivePartitionManager = new HivePartitionManager(connectorId, TYPE_MANAGER, hiveClientConfig);
 
-        hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig);
+        hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig, new NoHdfsAuthentication());
         metastoreClient = new TestingHiveMetastore(hiveCluster, executor, hiveClientConfig, writableBucket, hdfsEnvironment);
         locationService = new HiveLocationService(metastoreClient, hdfsEnvironment);
         TypeRegistry typeManager = new TypeRegistry();
@@ -213,7 +214,7 @@ public abstract class AbstractTestHiveClientS3
         Path basePath = new Path("s3://presto-test-hive/");
         Path tablePath = new Path(basePath, "presto_test_s3");
         Path filePath = new Path(tablePath, "test1.csv");
-        FileSystem fs = hdfsEnvironment.getFileSystem(basePath);
+        FileSystem fs = hdfsEnvironment.getFileSystem("user", basePath);
 
         assertTrue(isDirectory(fs.getFileStatus(basePath)));
         assertTrue(isDirectory(fs.getFileStatus(tablePath)));
@@ -226,7 +227,7 @@ public abstract class AbstractTestHiveClientS3
             throws Exception
     {
         Path basePath = new Path(format("s3://%s/rename/%s/", writableBucket, UUID.randomUUID()));
-        FileSystem fs = hdfsEnvironment.getFileSystem(basePath);
+        FileSystem fs = hdfsEnvironment.getFileSystem("user", basePath);
         assertFalse(fs.exists(basePath));
 
         // create file foo.txt
@@ -448,7 +449,7 @@ public abstract class AbstractTestHiveClientS3
                 // drop data
                 for (String location : locations) {
                     Path path = new Path(location);
-                    hdfsEnvironment.getFileSystem(path).delete(path, true);
+                    hdfsEnvironment.getFileSystem("user", path).delete(path, true);
                 }
             }
             catch (Exception e) {
