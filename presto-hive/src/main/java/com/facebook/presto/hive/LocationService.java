@@ -21,9 +21,9 @@ import java.util.Optional;
 
 public interface LocationService
 {
-    LocationHandle forNewTable(String queryId, String schemaName, String tableName);
+    LocationHandle forNewTable(String user, String queryId, String schemaName, String tableName);
 
-    LocationHandle forExistingTable(String queryId, Table table);
+    LocationHandle forExistingTable(String user, String queryId, Table table);
 
     /**
      * Target path for the specified existing partition.
