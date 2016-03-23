@@ -59,7 +59,7 @@ public final class HiveTestUtils
                 .add(new ParquetRecordCursorProvider(hiveClientConfig, testHdfsEnvironment))
                 .add(new ColumnarTextHiveRecordCursorProvider(testHdfsEnvironment))
                 .add(new ColumnarBinaryHiveRecordCursorProvider(testHdfsEnvironment))
-                .add(new GenericHiveRecordCursorProvider())
+                .add(new GenericHiveRecordCursorProvider(testHdfsEnvironment))
                 .build();
     }
 

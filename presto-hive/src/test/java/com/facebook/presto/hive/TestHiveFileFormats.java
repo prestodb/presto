@@ -126,7 +126,7 @@ public class TestHiveFileFormats
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
                 .isReadableByRecordCursor(new ColumnarTextHiveRecordCursorProvider(HDFS_ENVIRONMENT))
-                .isReadableByRecordCursor(new GenericHiveRecordCursorProvider());
+                .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
     }
 
     @Test(enabled = false, dataProvider = "rowCount")
@@ -153,7 +153,7 @@ public class TestHiveFileFormats
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
                 .isReadableByRecordCursor(new ColumnarBinaryHiveRecordCursorProvider(HDFS_ENVIRONMENT))
-                .isReadableByRecordCursor(new GenericHiveRecordCursorProvider());
+                .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
     }
 
     @Test(enabled = false, dataProvider = "rowCount")
@@ -329,13 +329,13 @@ public class TestHiveFileFormats
                 .withWriteColumns(ImmutableList.of(writeColumn))
                 .withReadColumns(ImmutableList.of(readColumn))
                 .isReadableByRecordCursor(new ColumnarTextHiveRecordCursorProvider(HDFS_ENVIRONMENT))
-                .isReadableByRecordCursor(new GenericHiveRecordCursorProvider());
+                .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
 
         assertThatFileFormat(RCBINARY)
                 .withWriteColumns(ImmutableList.of(writeColumn))
                 .withReadColumns(ImmutableList.of(readColumn))
                 .isReadableByRecordCursor(new ColumnarBinaryHiveRecordCursorProvider(HDFS_ENVIRONMENT))
-                .isReadableByRecordCursor(new GenericHiveRecordCursorProvider());
+                .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
 
         assertThatFileFormat(ORC)
                 .withWriteColumns(ImmutableList.of(writeColumn))
@@ -358,12 +358,12 @@ public class TestHiveFileFormats
         assertThatFileFormat(SEQUENCEFILE)
                 .withWriteColumns(ImmutableList.of(writeColumn))
                 .withReadColumns(ImmutableList.of(readColumn))
-                .isReadableByRecordCursor(new GenericHiveRecordCursorProvider());
+                .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
 
         assertThatFileFormat(TEXTFILE)
                 .withWriteColumns(ImmutableList.of(writeColumn))
                 .withReadColumns(ImmutableList.of(readColumn))
-                .isReadableByRecordCursor(new GenericHiveRecordCursorProvider());
+                .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
     }
 
     @Test
@@ -381,12 +381,12 @@ public class TestHiveFileFormats
         assertThatFileFormat(RCTEXT)
                 .withColumns(columns)
                 .isFailingForRecordCursor(new ColumnarTextHiveRecordCursorProvider(HDFS_ENVIRONMENT), expectedErrorCode, expectedMessage)
-                .isFailingForRecordCursor(new GenericHiveRecordCursorProvider(), expectedErrorCode, expectedMessage);
+                .isFailingForRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT), expectedErrorCode, expectedMessage);
 
         assertThatFileFormat(RCBINARY)
                 .withColumns(columns)
                 .isFailingForRecordCursor(new ColumnarBinaryHiveRecordCursorProvider(HDFS_ENVIRONMENT), expectedErrorCode, expectedMessage)
-                .isFailingForRecordCursor(new GenericHiveRecordCursorProvider(), expectedErrorCode, expectedMessage);
+                .isFailingForRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT), expectedErrorCode, expectedMessage);
 
         assertThatFileFormat(ORC)
                 .withColumns(columns)
@@ -405,11 +405,11 @@ public class TestHiveFileFormats
 
         assertThatFileFormat(SEQUENCEFILE)
                 .withColumns(columns)
-                .isFailingForRecordCursor(new GenericHiveRecordCursorProvider(), expectedErrorCode, expectedMessage);
+                .isFailingForRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT), expectedErrorCode, expectedMessage);
 
         assertThatFileFormat(TEXTFILE)
                 .withColumns(columns)
-                .isFailingForRecordCursor(new GenericHiveRecordCursorProvider(), expectedErrorCode, expectedMessage);
+                .isFailingForRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT), expectedErrorCode, expectedMessage);
     }
 
     private void testCursorProvider(HiveRecordCursorProvider cursorProvider,
