@@ -24,8 +24,8 @@ import org.postgresql.Driver;
 import javax.inject.Inject;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.Collection;
 
 public class PostgreSqlClient
@@ -57,12 +57,12 @@ public class PostgreSqlClient
     }
 
     @Override
-    public Statement getStatement(Connection connection)
+    public PreparedStatement getPreparedStatement(Connection connection, String sql)
             throws SQLException
     {
         connection.setAutoCommit(false);
-        Statement statement = connection.createStatement();
-        statement.setFetchSize(1000);
-        return statement;
+        PreparedStatement preparedStatement = connection.prepareStatement(sql);
+        preparedStatement.setFetchSize(1000);
+        return preparedStatement;
     }
 }
