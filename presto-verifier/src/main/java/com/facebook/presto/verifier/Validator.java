@@ -614,6 +614,12 @@ public class Validator
     private static Comparator<Object> columnComparator(int precision)
     {
         return (a, b) -> {
+            if (a == null || b == null) {
+                if (a == null && b == null) {
+                    return 0;
+                }
+                return a == null ? -1 : 1;
+            }
             if (a instanceof Number && b instanceof Number) {
                 Number x = (Number) a;
                 Number y = (Number) b;
@@ -631,16 +637,47 @@ public class Validator
                 throw new TypesDoNotMatchException(format("item types do not match: %s vs %s", a.getClass().getName(), b.getClass().getName()));
             }
             if ((a.getClass().isArray() && b.getClass().isArray())) {
-                if (Arrays.deepEquals((Object[]) a, (Object[]) b)) {
-                    return 0;
+                Object[] aArray = (Object[]) a;
+                Object[] bArray = (Object[]) b;
+
+                if (aArray.length != bArray.length) {
+                    return Arrays.hashCode((Object[]) a) < Arrays.hashCode((Object[]) b) ? -1 : 1;
                 }
-                return Arrays.hashCode((Object[]) a) < Arrays.hashCode((Object[]) b) ? -1 : 1;
+
+                for (int i = 0; i < aArray.length; i++) {
+                    int compareResult = columnComparator(precision).compare(aArray[i], bArray[i]);
+                    if (compareResult != 0) {
+                        return compareResult;
+                    }
+                }
+
+                return 0;
             }
-            if ((a instanceof Map && b instanceof Map)) {
-                if (a.equals(b)) {
-                    return 0;
+            if (a instanceof Map && b instanceof Map) {
+                Map aMap = (Map) a;
+                Map bMap = (Map) b;
+
+                if (aMap.size() != bMap.size()) {
+                    return a.hashCode() < b.hashCode() ? -1 : 1;
                 }
-                return a.hashCode() < b.hashCode() ? -1 : 1;
+
+                for (Object aKey : aMap.keySet()) {
+                    boolean foundMatchingKey = false;
+                    for (Object bKey : bMap.keySet()) {
+                        if (columnComparator(precision).compare(aKey, bKey) == 0) {
+                            int compareResult = columnComparator(precision).compare(aMap.get(aKey), bMap.get(bKey));
+                            if (compareResult != 0) {
+                                return compareResult;
+                            }
+                            foundMatchingKey = true;
+                        }
+                    }
+                    if (!foundMatchingKey) {
+                        return a.hashCode() < b.hashCode() ? -1 : 1;
+                    }
+                }
+
+                return 0;
             }
             checkArgument(a instanceof Comparable, "item is not Comparable: %s", a.getClass().getName());
             return ((Comparable<Object>) a).compareTo(b);
