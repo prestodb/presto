@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.SqlOperator;
@@ -36,9 +37,8 @@ import io.airlift.slice.Slices;
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -51,14 +51,14 @@ public class ArrayToJsonCast
 
     private ArrayToJsonCast()
     {
-        super(OperatorType.CAST, ImmutableList.of(typeParameter("T")), StandardTypes.JSON, ImmutableList.of("array(T)"));
+        super(OperatorType.CAST, ImmutableList.of(typeVariable("T")), ImmutableList.of(), StandardTypes.JSON, ImmutableList.of("array(T)"));
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         checkArgument(arity == 1, "Expected arity to be 1");
-        Type type = types.get("T");
+        Type type = boundVariables.getTypeVariable("T");
         Type arrayType = typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(type.getTypeSignature()), ImmutableList.of());
 
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(arrayType);

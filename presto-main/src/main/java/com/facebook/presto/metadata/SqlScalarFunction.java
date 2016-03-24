@@ -14,7 +14,6 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.util.ImmutableCollectors;
@@ -23,7 +22,6 @@ import com.google.common.collect.ImmutableSet;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -68,48 +66,62 @@ public abstract class SqlScalarFunction
                 name,
                 SCALAR,
                 ImmutableList.of(),
+                ImmutableList.of(),
                 returnType,
                 ImmutableList.copyOf(argumentTypes),
                 false
         );
     }
 
-    protected SqlScalarFunction(String name, List<TypeParameterRequirement> typeParameterRequirements, String returnType, List<String> argumentTypes)
+    protected SqlScalarFunction(String name,
+            List<TypeVariableConstraint> typeVariableConstraints,
+            List<LongVariableConstraint> longVariableConstraints,
+            String returnType,
+            List<String> argumentTypes)
     {
-        this(name, typeParameterRequirements, returnType, argumentTypes, false, ImmutableSet.of());
+        this(name, typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, false, ImmutableSet.of());
     }
 
     protected SqlScalarFunction(
             String name,
-            List<TypeParameterRequirement> typeParameterRequirements,
+            List<TypeVariableConstraint> typeParameterConstraints,
+            List<LongVariableConstraint> longVariableConstraints,
             String returnType,
             List<String> argumentTypes,
             boolean variableArity)
     {
-        this(name, typeParameterRequirements, returnType, argumentTypes, variableArity, ImmutableSet.of());
+        this(name, typeParameterConstraints, longVariableConstraints, returnType, argumentTypes, variableArity, ImmutableSet.of());
     }
 
     protected SqlScalarFunction(
             String name,
-            List<TypeParameterRequirement> typeParameterRequirements,
+            List<TypeVariableConstraint> typeParameterConstraints,
+            List<LongVariableConstraint> longVariableConstraints,
             String returnType,
             List<String> argumentTypes,
             boolean variableArity,
             Set<String> literalParameters)
     {
         requireNonNull(name, "name is null");
-        requireNonNull(typeParameterRequirements, "typeParameters is null");
+        requireNonNull(typeParameterConstraints, "typeVariableConstraints is null");
         requireNonNull(returnType, "returnType is null");
         requireNonNull(argumentTypes, "argumentTypes is null");
         requireNonNull(literalParameters, "literalParameters is null");
         this.signature = new Signature(
                 name,
                 SCALAR,
-                ImmutableList.copyOf(typeParameterRequirements),
+                ImmutableList.copyOf(typeParameterConstraints),
+                ImmutableList.copyOf(longVariableConstraints),
                 returnType,
                 ImmutableList.copyOf(argumentTypes),
                 variableArity,
                 literalParameters);
+    }
+
+    protected SqlScalarFunction(Signature signature)
+    {
+        this.signature = requireNonNull(signature, "signature is null");
+        checkArgument(signature.getKind() == SCALAR, "function kind must be SCALAR");
     }
 
     @Override
@@ -118,7 +130,12 @@ public abstract class SqlScalarFunction
         return signature;
     }
 
-    public abstract ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry);
+    public abstract ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry);
+
+    public static SqlScalarFunctionBuilder builder(Class<?> clazz)
+    {
+        return new SqlScalarFunctionBuilder(clazz);
+    }
 
     private static class SimpleSqlScalarFunction
             extends SqlScalarFunction
@@ -144,13 +161,14 @@ public abstract class SqlScalarFunction
         {
             super(signature.getName(),
                     ImmutableList.of(),
+                    ImmutableList.of(),
                     signature.getReturnType().toString(),
                     signature.getArgumentTypes().stream()
                             .map(TypeSignature::toString)
                             .collect(ImmutableCollectors.toImmutableList()),
                     false,
                     literalParameters);
-            checkArgument(signature.getTypeParameterRequirements().isEmpty(), "%s is parametric", signature);
+            checkArgument(signature.getTypeVariableConstraints().isEmpty(), "%s is parametric", signature);
             this.description = description;
             this.hidden = hidden;
             this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
@@ -179,7 +197,7 @@ public abstract class SqlScalarFunction
         }
 
         @Override
-        public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+        public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
         {
             return new ScalarFunctionImplementation(nullable, nullableArguments, methodHandle, instanceFactory, isDeterministic());
         }

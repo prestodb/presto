@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.block.Block;
@@ -51,7 +52,7 @@ public class RowFieldReference
 
     public RowFieldReference(RowType type, Type returnType, int index, String fieldName)
     {
-        super(mangleFieldReference(fieldName), ImmutableList.of(), returnType.getTypeSignature().toString(), ImmutableList.of(type.getTypeSignature().toString()));
+        super(mangleFieldReference(fieldName), ImmutableList.of(), ImmutableList.of(), returnType.getTypeSignature().toString(), ImmutableList.of(type.getTypeSignature().toString()));
 
         String stackType = returnType.getJavaType().getSimpleName().toLowerCase();
         MethodHandle methodHandle;
@@ -83,7 +84,7 @@ public class RowFieldReference
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         requireNonNull(methodHandle, "methodHandle is null");
         return new ScalarFunctionImplementation(true, ImmutableList.of(false), methodHandle, isDeterministic());

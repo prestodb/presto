@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.block.Block;
@@ -23,9 +24,8 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Map;
 
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -37,7 +37,7 @@ public class MapKeys
 
     public MapKeys()
     {
-        super("map_keys", ImmutableList.of(typeParameter("K"), typeParameter("V")), "array(K)", ImmutableList.of("map(K,V)"));
+        super("map_keys", ImmutableList.of(typeVariable("K"), typeVariable("V")), ImmutableList.of(), "array(K)", ImmutableList.of("map(K,V)"));
     }
 
     @Override
@@ -59,10 +59,10 @@ public class MapKeys
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         checkArgument(arity == 1, "map_keys expects only one argument");
-        Type keyType = types.get("K");
+        Type keyType = boundVariables.getTypeVariable("K");
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(keyType);
         return new ScalarFunctionImplementation(true, ImmutableList.of(false), methodHandle, isDeterministic());
     }
