@@ -26,6 +26,7 @@ public final class TestGroups
     public static final String SYSTEM_CONNECTOR = "system";
     public static final String JMX_CONNECTOR = "jmx";
     public static final String BLACKHOLE_CONNECTOR = "blackhole";
+    public static final String S3_CONNECTOR = "s3_connector";
     public static final String SMOKE = "smoke";
     public static final String JDBC = "jdbc";
     public static final String MYSQL = "mysql";
