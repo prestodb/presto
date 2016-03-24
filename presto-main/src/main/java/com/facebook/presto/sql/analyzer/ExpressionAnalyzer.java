@@ -33,6 +33,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
+import com.facebook.presto.sql.tree.AtTimeZone;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BinaryLiteral;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -314,7 +315,7 @@ public class ExpressionAnalyzer
 
             Type rowFieldType = null;
             for (RowField rowField : rowType.getFields()) {
-                if (rowField.getName().equals(Optional.of(node.getFieldName()))) {
+                if (node.getFieldName().equalsIgnoreCase(rowField.getName().orElse(null))) {
                     rowFieldType = rowField.getType();
                     break;
                 }
@@ -739,6 +740,26 @@ public class ExpressionAnalyzer
             expressionTypes.put(node, type);
 
             return type;
+        }
+
+        @Override
+        protected Type visitAtTimeZone(AtTimeZone node, StackableAstVisitorContext<AnalysisContext> context)
+        {
+            Type valueType = process(node.getValue(), context);
+            process(node.getTimeZone(), context);
+            if (!valueType.equals(TIME_WITH_TIME_ZONE) && !valueType.equals(TIMESTAMP_WITH_TIME_ZONE) && !valueType.equals(TIME) && !valueType.equals(TIMESTAMP)) {
+                throw new SemanticException(TYPE_MISMATCH, node.getValue(), "Type of value must be a time or timestamp with or without time zone (actual %s)", valueType);
+            }
+            Type resultType = valueType;
+            if (valueType.equals(TIME)) {
+                resultType = TIME_WITH_TIME_ZONE;
+            }
+            else if (valueType.equals(TIMESTAMP)) {
+                resultType = TIMESTAMP_WITH_TIME_ZONE;
+            }
+            expressionTypes.put(node, resultType);
+
+            return resultType;
         }
 
         @Override

@@ -502,4 +502,160 @@ public abstract class AbstractTestIndexedQueries
                 "ON a.orderkey = b.orderkey\n" +
                 "GROUP BY 1, 2");
     }
+
+    @Test
+    public void testIndexJoinThroughWindow()
+            throws Exception
+    {
+        assertQuery("" +
+                        "SELECT *\n" +
+                        "FROM (\n" +
+                        "  SELECT *\n" +
+                        "  FROM lineitem\n" +
+                        "  WHERE partkey % 16 = 0) l\n" +
+                        "JOIN (\n" +
+                        "  SELECT *, COUNT(*) OVER (PARTITION BY orderkey)\n" +
+                        "  FROM orders) o\n" +
+                        "  ON l.orderkey = o.orderkey",
+                "" +
+                        "SELECT *\n" +
+                        "FROM (\n" +
+                        "  SELECT *\n" +
+                        "  FROM lineitem\n" +
+                        "  WHERE partkey % 16 = 0) l\n" +
+                        "JOIN (\n" +
+                        "  SELECT *, 1\n" +
+                        "  FROM orders) o\n" +
+                        "  ON l.orderkey = o.orderkey");
+    }
+
+    @Test
+    public void testIndexJoinThroughWindowDoubleAggregation()
+            throws Exception
+    {
+        assertQuery("" +
+                        "SELECT *\n" +
+                        "FROM (\n" +
+                        "  SELECT *\n" +
+                        "  FROM lineitem\n" +
+                        "  WHERE partkey % 16 = 0) l\n" +
+                        "JOIN (\n" +
+                        "  SELECT *, COUNT(*) OVER (PARTITION BY orderkey), SUM(orderkey) OVER (PARTITION BY orderkey)\n" +
+                        "  FROM orders) o\n" +
+                        "  ON l.orderkey = o.orderkey",
+                "" +
+                        "SELECT *\n" +
+                        "FROM (\n" +
+                        "  SELECT *\n" +
+                        "  FROM lineitem\n" +
+                        "  WHERE partkey % 16 = 0) l\n" +
+                        "JOIN (\n" +
+                        "  SELECT *, 1, orderkey as o\n" +
+                        "  FROM orders) o\n" +
+                        "  ON l.orderkey = o.orderkey");
+    }
+
+    @Test
+    public void testIndexJoinThroughWindowPartialPartition()
+            throws Exception
+    {
+        assertQuery("" +
+                        "SELECT *\n" +
+                        "FROM (\n" +
+                        "  SELECT *\n" +
+                        "  FROM lineitem\n" +
+                        "  WHERE partkey % 16 = 0) l\n" +
+                        "JOIN (\n" +
+                        "  SELECT *, COUNT(*) OVER (PARTITION BY orderkey, custkey)\n" +
+                        "  FROM orders) o\n" +
+                        "  ON l.orderkey = o.orderkey",
+                "" +
+                        "SELECT *\n" +
+                        "FROM (\n" +
+                        "  SELECT *\n" +
+                        "  FROM lineitem\n" +
+                        "  WHERE partkey % 16 = 0) l\n" +
+                        "JOIN (\n" +
+                        "  SELECT *, 1\n" +
+                        "  FROM orders) o\n" +
+                        "  ON l.orderkey = o.orderkey");
+    }
+
+    @Test
+    public void testNoIndexJoinThroughWindowWithRowNumberFunction()
+            throws Exception
+    {
+        assertQuery("" +
+                        "SELECT *\n" +
+                        "FROM (\n" +
+                        "  SELECT *\n" +
+                        "  FROM lineitem\n" +
+                        "  WHERE partkey % 16 = 0) l\n" +
+                        "JOIN (\n" +
+                        "  SELECT *, row_number() OVER (PARTITION BY orderkey)\n" +
+                        "  FROM orders) o\n" +
+                        "  ON l.orderkey = o.orderkey",
+                "" +
+                        "SELECT *\n" +
+                        "FROM (\n" +
+                        "  SELECT *\n" +
+                        "  FROM lineitem\n" +
+                        "  WHERE partkey % 16 = 0) l\n" +
+                        "JOIN (\n" +
+                        "  SELECT *, 1\n" +
+                        "  FROM orders) o\n" +
+                        "  ON l.orderkey = o.orderkey");
+    }
+
+    @Test
+    public void testNoIndexJoinThroughWindowWithOrderBy()
+            throws Exception
+    {
+        assertQuery("" +
+                        "SELECT *\n" +
+                        "FROM (\n" +
+                        "  SELECT *\n" +
+                        "  FROM lineitem\n" +
+                        "  WHERE partkey % 16 = 0) l\n" +
+                        "JOIN (\n" +
+                        "  SELECT *, COUNT(*) OVER (PARTITION BY orderkey ORDER BY custkey)\n" +
+                        "  FROM orders) o\n" +
+                        "  ON l.orderkey = o.orderkey",
+                "" +
+                        "SELECT *\n" +
+                        "FROM (\n" +
+                        "  SELECT *\n" +
+                        "  FROM lineitem\n" +
+                        "  WHERE partkey % 16 = 0) l\n" +
+                        "JOIN (\n" +
+                        "  SELECT *, 1\n" +
+                        "  FROM orders) o\n" +
+                        "  ON l.orderkey = o.orderkey");
+    }
+
+    @Test
+    public void testNoIndexJoinThroughWindowWithRowFrame()
+            throws Exception
+    {
+        assertQuery("" +
+                        "SELECT l.orderkey, o.c\n" +
+                        "FROM (\n" +
+                        "  SELECT *\n" +
+                        "  FROM lineitem\n" +
+                        "  WHERE partkey % 16 = 0) l\n" +
+                        "JOIN (\n" +
+                        "  SELECT *, COUNT(*) OVER (PARTITION BY orderkey ROWS 1 PRECEDING) as c\n" +
+                        "  FROM orders) o\n" +
+                        "  ON l.orderkey = o.orderkey",
+                "" +
+                        "SELECT l.orderkey, o.c\n" +
+                        "FROM (\n" +
+                        "  SELECT *\n" +
+                        "  FROM lineitem\n" +
+                        "  WHERE partkey % 16 = 0) l\n" +
+                        "JOIN (\n" +
+                        "  SELECT *, 1 as c\n" +
+                        "  FROM orders) o\n" +
+                        "  ON l.orderkey = o.orderkey");
+    }
 }

@@ -92,7 +92,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 
 public class DatabaseShardManager
-        implements ShardManager, ShardRecorder
+        implements ShardManager
 {
     private static final Logger log = Logger.get(DatabaseShardManager.class);
 
@@ -274,10 +274,13 @@ public class DatabaseShardManager
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
                 dbi.useTransaction((handle, status) -> {
-                    if (commitTransaction(shardDaoSupplier.attach(handle), transactionId)) {
+                    ShardDao dao = shardDaoSupplier.attach(handle);
+                    if (commitTransaction(dao, transactionId)) {
                         callback.useHandle(handle);
+                        dao.deleteCreatedShards(transactionId);
                     }
                 });
+                return;
             }
             catch (DBIException e) {
                 propagateIfInstanceOf(e.getCause(), PrestoException.class);
@@ -293,6 +296,17 @@ public class DatabaseShardManager
                 }
             }
         }
+    }
+
+    private static boolean commitTransaction(ShardDao dao, long transactionId)
+    {
+        if (dao.finalizeTransaction(transactionId, true) != 1) {
+            if (TRUE.equals(dao.transactionSuccessful(transactionId))) {
+                return false;
+            }
+            throw new PrestoException(TRANSACTION_CONFLICT, "Transaction commit failed. Please retry the operation.");
+        }
+        return true;
     }
 
     private void deleteShardsAndIndex(long tableId, Set<UUID> shardUuids, Handle handle)
@@ -490,24 +504,6 @@ public class DatabaseShardManager
     public void rollbackTransaction(long transactionId)
     {
         dao.finalizeTransaction(transactionId, false);
-    }
-
-    private static boolean commitTransaction(ShardDao dao, long transactionId)
-    {
-        if (dao.finalizeTransaction(transactionId, true) != 1) {
-            if (TRUE.equals(dao.transactionSuccessful(transactionId))) {
-                return false;
-            }
-            throw new PrestoException(TRANSACTION_CONFLICT, "Transaction commit failed. Please retry the operation.");
-        }
-        dao.deleteCreatedShards(transactionId);
-        return true;
-    }
-
-    @Override
-    public void recordCreatedShard(long transactionId, UUID shardUuid)
-    {
-        dao.insertCreatedShard(shardUuid, transactionId);
     }
 
     @Override

@@ -32,6 +32,7 @@ import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.util.FinalizerService;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Multimap;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -98,7 +99,9 @@ public class BenchmarkNodeScheduler
             Multimap<Node, Split> assignments = data.getNodeSelector().computeAssignments(batch, remoteTasks);
             for (Node node : assignments.keySet()) {
                 MockRemoteTaskFactory.MockRemoteTask remoteTask = data.getTaskMap().get(node);
-                remoteTask.addSplits(new PlanNodeId("sourceId"), assignments.get(node));
+                remoteTask.addSplits(ImmutableMultimap.<PlanNodeId, Split>builder()
+                        .putAll(new PlanNodeId("sourceId"), assignments.get(node))
+                        .build());
                 remoteTask.startSplits(MAX_SPLITS_PER_NODE);
             }
             if (assignments.size() == batch.size()) {

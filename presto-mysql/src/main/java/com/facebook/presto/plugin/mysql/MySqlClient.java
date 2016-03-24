@@ -21,14 +21,15 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import com.mysql.jdbc.Driver;
+import com.mysql.jdbc.Statement;
 
 import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.Set;
 
 import static java.util.Locale.ENGLISH;
@@ -73,12 +74,12 @@ public class MySqlClient
     }
 
     @Override
-    public Statement getStatement(Connection connection)
+    public PreparedStatement getPreparedStatement(Connection connection, String sql)
             throws SQLException
     {
-        Statement statement = connection.createStatement();
-        if (statement.isWrapperFor(com.mysql.jdbc.Statement.class)) {
-            statement.unwrap(com.mysql.jdbc.Statement.class).enableStreamingResults();
+        PreparedStatement statement = connection.prepareStatement(sql);
+        if (statement.isWrapperFor(Statement.class)) {
+            statement.unwrap(Statement.class).enableStreamingResults();
         }
         return statement;
     }

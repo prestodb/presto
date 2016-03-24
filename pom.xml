@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.142-SNAPSHOT</version>
+    <version>0.143-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -45,10 +45,17 @@
         <air.java.version>1.8.0-40</air.java.version>
 
         <dep.antlr.version>4.5.1</dep.antlr.version>
-        <dep.airlift.version>0.124</dep.airlift.version>
+        <dep.airlift.version>0.125</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.19</dep.slice.version>
         <dep.aws-sdk.version>1.9.40</dep.aws-sdk.version>
+
+        <!--
+        Versions newer than 6.9 appear to have an issue where the @BeforeClass method in
+        children of AbstractTestHiveClient doesn't always get called.
+        TODO: remove once we can upgrade to a version that fixes it
+        -->
+        <dep.testng.version>6.8.21</dep.testng.version>
 
         <cli.skip-execute>true</cli.skip-execute>
         <cli.main-class>None</cli.main-class>
@@ -279,7 +286,7 @@
             <dependency>
                 <groupId>com.facebook.presto.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>0.16</version>
+                <version>0.17</version>
             </dependency>
 
             <dependency>
@@ -708,13 +715,13 @@
             <dependency>
                 <groupId>com.teradata.tempto</groupId>
                 <artifactId>tempto-core</artifactId>
-                <version>1.0.39</version>
+                <version>1.4</version>
             </dependency>
 
             <dependency>
                 <groupId>com.teradata.tempto</groupId>
                 <artifactId>tempto-runner</artifactId>
-                <version>1.0.39</version>
+                <version>1.4</version>
             </dependency>
 
             <dependency>

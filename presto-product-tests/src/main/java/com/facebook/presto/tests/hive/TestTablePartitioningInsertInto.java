@@ -22,6 +22,7 @@ import com.teradata.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
+import static com.facebook.presto.tests.TestGroups.QUARANTINE;
 import static com.facebook.presto.tests.TestGroups.SMOKE;
 import static com.teradata.tempto.Requirements.compose;
 import static com.teradata.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
@@ -40,8 +41,7 @@ public class TestTablePartitioningInsertInto
     private static final int NUMBER_OF_LINES_PER_SPLIT = 5;
     private static final String DATA_REVISION = "1";
     private static final HiveTableDefinition PARTITIONED_NATION =
-            HiveTableDefinition.builder()
-                    .setName(PARTITIONED_NATION_NAME)
+            HiveTableDefinition.builder(PARTITIONED_NATION_NAME)
                     .setCreateTableDDLTemplate("" +
                             "CREATE EXTERNAL TABLE %NAME%(" +
                             "   p_nationkey     INT," +
@@ -55,8 +55,7 @@ public class TestTablePartitioningInsertInto
                     .build();
 
     private static final HiveTableDefinition TARGET_NATION =
-            HiveTableDefinition.builder()
-                    .setName(TARGET_NATION_NAME)
+            HiveTableDefinition.builder(TARGET_NATION_NAME)
                     .setCreateTableDDLTemplate("" +
                             "CREATE EXTERNAL TABLE %NAME%(" +
                             "   p_nationkey     INT," +
@@ -81,7 +80,7 @@ public class TestTablePartitioningInsertInto
                 MutableTableRequirement.builder(TARGET_NATION).build());
     }
 
-    @Test(groups = {HIVE_CONNECTOR, SMOKE})
+    @Test(groups = {HIVE_CONNECTOR, QUARANTINE, SMOKE})
     public void selectFromPartitionedNation()
             throws Exception
     {

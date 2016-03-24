@@ -22,10 +22,10 @@ import com.facebook.presto.execution.QueryStateMachine;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.RemoteTaskFactory;
 import com.facebook.presto.execution.SqlStageExecution;
-import com.facebook.presto.execution.SqlStageExecution.ExchangeLocation;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
+import com.facebook.presto.execution.scheduler.OutputBufferManager.OutputBuffer;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.split.SplitSource;
@@ -39,7 +39,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.concurrent.SetThreadName;
+import io.airlift.units.Duration;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -300,6 +302,14 @@ public class SqlQueryScheduler
                 .sum();
     }
 
+    public Duration getTotalCpuTime()
+    {
+        long millis = stages.values().stream()
+                .mapToLong(stage -> stage.getTotalCpuTime().toMillis())
+                .sum();
+        return new Duration(millis, MILLISECONDS);
+    }
+
     public void start()
     {
         if (started.compareAndSet(false, true)) {
@@ -429,15 +439,7 @@ public class SqlQueryScheduler
 
         public void processScheduleResults(StageState newState, Set<RemoteTask> newTasks)
         {
-            for (RemoteTask remoteTask : newTasks) {
-                if (parent.isPresent()) {
-                    // when a task is created, add an exchange location to the parent stage
-                    parent.get().addExchangeLocation(new ExchangeLocation(currentStageFragmentId, remoteTask.getTaskInfo().getSelf()));
-                }
-                // when a task is created, add an output buffer to the child stages
-                childOutputBufferManagers.forEach(child -> child.addOutputBuffer(remoteTask.getTaskId(), remoteTask.getPartition()));
-            }
-
+            boolean noMoreTasks = false;
             switch (newState) {
                 case PLANNED:
                 case SCHEDULING:
@@ -449,16 +451,31 @@ public class SqlQueryScheduler
                 case FINISHED:
                 case CANCELED:
                     // no more workers will be added to the query
-                    if (parent.isPresent()) {
-                        parent.get().noMoreExchangeLocationsFor(currentStageFragmentId);
-                    }
-                    childOutputBufferManagers.forEach(OutputBufferManager::noMoreOutputBuffers);
+                    noMoreTasks = true;
                 case ABORTED:
                 case FAILED:
                     // DO NOT complete a FAILED or ABORTED stage.  This will cause the
                     // stage above to finish normally, which will result in a query
                     // completing successfully when it should fail..
                     break;
+            }
+
+            if (parent.isPresent()) {
+                // Add an exchange location to the parent stage for each new task
+                Set<URI> newExchangeLocations = newTasks.stream()
+                        .map(task -> task.getTaskInfo().getSelf())
+                        .collect(toImmutableSet());
+                parent.get().addExchangeLocations(currentStageFragmentId, newExchangeLocations, noMoreTasks);
+            }
+
+            if (!childOutputBufferManagers.isEmpty()) {
+                // Add an output buffer to the child stages for each new task
+                List<OutputBuffer> newOutputBuffers = newTasks.stream()
+                        .map(task -> new OutputBuffer(task.getTaskId(), task.getPartition()))
+                        .collect(toImmutableList());
+                for (OutputBufferManager child : childOutputBufferManagers) {
+                    child.addOutputBuffers(newOutputBuffers, noMoreTasks);
+                }
             }
         }
     }

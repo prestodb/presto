@@ -103,14 +103,6 @@ public class TestAnalyzer
     private Metadata metadata;
 
     @Test
-    public void testDuplicateRelation()
-            throws Exception
-    {
-        assertFails(DUPLICATE_RELATION, "SELECT * FROM t1 JOIN t1 USING (a)");
-        assertFails(DUPLICATE_RELATION, "SELECT * FROM t1 x JOIN t2 x USING (a)");
-    }
-
-    @Test
     public void testNonComparableGroupBy()
             throws Exception
     {
@@ -927,6 +919,13 @@ public class TestAnalyzer
                 .build();
         assertFails(session, SCHEMA_NOT_SPECIFIED, "SHOW TABLES");
         assertMissingInformationSchema(session, "SHOW TABLES FROM s2");
+    }
+
+    @Test
+    public void testInvalidAtTimeZone()
+            throws Exception
+    {
+        assertFails(TYPE_MISMATCH, "SELECT 'abc' AT TIME ZONE 'America/Los_Angeles'");
     }
 
     private void assertMissingInformationSchema(Session session, @Language("SQL") String query)

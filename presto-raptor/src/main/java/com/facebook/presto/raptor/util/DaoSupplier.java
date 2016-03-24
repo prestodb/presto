@@ -21,10 +21,10 @@ import static java.util.Objects.requireNonNull;
 
 public class DaoSupplier<T>
 {
-    private final Class<T> type;
+    private final Class<? extends T> type;
     private final T dao;
 
-    public DaoSupplier(IDBI dbi, Class<T> type)
+    public <X extends T> DaoSupplier(IDBI dbi, Class<X> type)
     {
         requireNonNull(dbi, "dbi is null");
         requireNonNull(type, "type is null");

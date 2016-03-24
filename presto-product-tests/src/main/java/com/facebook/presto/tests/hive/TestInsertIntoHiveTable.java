@@ -128,7 +128,7 @@ public class TestInsertIntoHiveTable
                         "kot binarny".getBytes()));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, SMOKE})
+    @Test(groups = {HIVE_CONNECTOR, SMOKE, QUARANTINE})
     @Requires(AllSimpleTypesKnownToPrestoTables.class)
     public void testInsertIntoValuesToHiveTableAllHiveSimpleTypesKnownToPresto()
     {
@@ -167,7 +167,7 @@ public class TestInsertIntoHiveTable
                         "kot binarny".getBytes()));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, SMOKE})
+    @Test(groups = {HIVE_CONNECTOR, SMOKE, QUARANTINE})
     @Requires(AllSimpleTypesKnownToPrestoTables.class)
     public void testInsertIntoSelectToHiveTableAllHiveSimpleTypesKnownToPresto()
     {

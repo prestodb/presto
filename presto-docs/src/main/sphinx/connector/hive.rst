@@ -88,6 +88,8 @@ Property Name                                      Description                  
 
 ``hive.storage-format``                            The default file format used when creating new tables.       ``RCBINARY``
 
+``hive.compression-codec``                         The compression codec to use when writing files.             ``GZIP``
+
 ``hive.force-local-scheduling``                    Force splits to be scheduled on the same node as the Hadoop  ``false``
                                                    DataNode process serving the split data.  This is useful for
                                                    installations where Presto is collocated with every

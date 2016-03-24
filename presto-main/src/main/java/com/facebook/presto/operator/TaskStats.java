@@ -36,6 +36,7 @@ public class TaskStats
     private final DateTime createTime;
     private final DateTime firstStartTime;
     private final DateTime lastStartTime;
+    private final DateTime lastEndTime;
     private final DateTime endTime;
 
     private final Duration elapsedTime;
@@ -75,6 +76,7 @@ public class TaskStats
         this(createTime,
                 null,
                 null,
+                null,
                 endTime,
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
@@ -107,6 +109,7 @@ public class TaskStats
             @JsonProperty("createTime") DateTime createTime,
             @JsonProperty("firstStartTime") DateTime firstStartTime,
             @JsonProperty("lastStartTime") DateTime lastStartTime,
+            @JsonProperty("lastEndTime") DateTime lastEndTime,
             @JsonProperty("endTime") DateTime endTime,
             @JsonProperty("elapsedTime") Duration elapsedTime,
             @JsonProperty("queuedTime") Duration queuedTime,
@@ -143,6 +146,7 @@ public class TaskStats
         this.createTime = requireNonNull(createTime, "createTime is null");
         this.firstStartTime = firstStartTime;
         this.lastStartTime = lastStartTime;
+        this.lastEndTime = lastEndTime;
         this.endTime = endTime;
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
@@ -206,6 +210,13 @@ public class TaskStats
     public DateTime getLastStartTime()
     {
         return lastStartTime;
+    }
+
+    @Nullable
+    @JsonProperty
+    public DateTime getLastEndTime()
+    {
+        return lastEndTime;
     }
 
     @Nullable
@@ -365,6 +376,7 @@ public class TaskStats
                 createTime,
                 firstStartTime,
                 lastStartTime,
+                lastEndTime,
                 endTime,
                 elapsedTime,
                 queuedTime,

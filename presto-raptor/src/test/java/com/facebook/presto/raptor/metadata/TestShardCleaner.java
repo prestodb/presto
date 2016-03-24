@@ -51,7 +51,6 @@ import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.airlift.testing.FileUtils.deleteRecursively;
 import static java.util.Arrays.asList;
 import static java.util.UUID.randomUUID;
-import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
@@ -90,7 +89,7 @@ public class TestShardCleaner
 
         ShardCleanerConfig config = new ShardCleanerConfig();
         cleaner = new ShardCleaner(
-                new DaoSupplier<>(dbi, ShardDao.class),
+                new DaoSupplier<>(dbi, H2ShardDao.class),
                 "node1",
                 true,
                 ticker,
@@ -102,7 +101,6 @@ public class TestShardCleaner
                 config.getLocalCleanTime(),
                 config.getBackupCleanerInterval(),
                 config.getBackupCleanTime(),
-                config.getBackupPurgeTime(),
                 config.getBackupDeletionThreads());
     }
 
@@ -289,47 +287,6 @@ public class TestShardCleaner
         assertFalse(shardBackupExists(shard2));
         assertTrue(shardBackupExists(shard3));
 
-        assertQuery("SELECT shard_uuid, clean_time IS NULL FROM deleted_shards",
-                row(shard1, false),
-                row(shard2, false),
-                row(shard3, true));
-    }
-
-    @Test
-    public void testPurgeBackupShards()
-            throws Exception
-    {
-        assertEquals(cleaner.getBackupShardsPurged().getTotalCount(), 0);
-
-        TestingDao dao = dbi.onDemand(TestingDao.class);
-
-        UUID shard1 = randomUUID();
-        UUID shard2 = randomUUID();
-        UUID shard3 = randomUUID();
-
-        long now = System.currentTimeMillis();
-        Timestamp time1 = new Timestamp(now - DAYS.toMillis(4));
-        Timestamp time2 = new Timestamp(now - DAYS.toMillis(2));
-
-        // shard 1: should be purged
-        dao.insertCleanedDeletedShard(shard1, time1);
-
-        // shard 2: should be purged
-        dao.insertCleanedDeletedShard(shard2, time1);
-
-        // shard 3: cleaned too recently
-        dao.insertCleanedDeletedShard(shard3, time2);
-
-        createShardBackups(shard1, shard2, shard3);
-
-        cleaner.purgeBackupShards();
-
-        assertEquals(cleaner.getBackupShardsPurged().getTotalCount(), 2);
-
-        assertFalse(shardBackupExists(shard1));
-        assertFalse(shardBackupExists(shard2));
-        assertTrue(shardBackupExists(shard3));
-
         assertQuery("SELECT shard_uuid FROM deleted_shards",
                 row(shard3));
     }
@@ -405,11 +362,5 @@ public class TestShardCleaner
         void insertDeletedShard(
                 @Bind("shardUuid") UUID shardUuid,
                 @Bind("deleteTime") Timestamp deleteTime);
-
-        @SqlUpdate("INSERT INTO deleted_shards (shard_uuid, delete_time, clean_time)\n" +
-                "VALUES (:shardUuid, :cleanTime, :cleanTime)")
-        void insertCleanedDeletedShard(
-                @Bind("shardUuid") UUID shardUuid,
-                @Bind("cleanTime") Timestamp cleanTime);
     }
 }

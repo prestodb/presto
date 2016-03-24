@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.142-SNAPSHOT</version>
+        <version>0.143-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-hive-hadoop1</artifactId>
@@ -15,31 +15,6 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
     </properties>
-
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <!--
-                Versions newer than 6.9 appear to have an issue where the @BeforeClass method in
-                children of AbstractTestHiveClient doesn't always get called.
-                TODO: remove once we can upgrade to a version that fixes it
-                -->
-                <groupId>org.testng</groupId>
-                <artifactId>testng</artifactId>
-                <version>6.8.21</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>junit</groupId>
-                        <artifactId>junit</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>com.google.inject</groupId>
-                        <artifactId>guice</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
 
     <dependencies>
         <dependency>

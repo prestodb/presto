@@ -28,7 +28,8 @@ public class HiveWritableTableHandle
     private final List<HiveColumnHandle> inputColumns;
     private final String filePrefix;
     private final LocationHandle locationHandle;
-    private final HiveStorageFormat hiveStorageFormat;
+    private final HiveStorageFormat tableStorageFormat;
+    private final HiveStorageFormat partitionStorageFormat;
 
     public HiveWritableTableHandle(
             String clientId,
@@ -37,7 +38,8 @@ public class HiveWritableTableHandle
             List<HiveColumnHandle> inputColumns,
             String filePrefix,
             LocationHandle locationHandle,
-            HiveStorageFormat hiveStorageFormat)
+            HiveStorageFormat tableStorageFormat,
+            HiveStorageFormat partitionStorageFormat)
     {
         this.clientId = requireNonNull(clientId, "clientId is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -45,7 +47,8 @@ public class HiveWritableTableHandle
         this.inputColumns = ImmutableList.copyOf(requireNonNull(inputColumns, "inputColumns is null"));
         this.filePrefix = requireNonNull(filePrefix, "filePrefix is null");
         this.locationHandle = requireNonNull(locationHandle, "locationHandle is null");
-        this.hiveStorageFormat = requireNonNull(hiveStorageFormat, "hiveStorageFormat is null");
+        this.tableStorageFormat = requireNonNull(tableStorageFormat, "tableStorageFormat is null");
+        this.partitionStorageFormat = requireNonNull(partitionStorageFormat, "partitionStorageFormat is null");
     }
 
     @JsonProperty
@@ -85,9 +88,15 @@ public class HiveWritableTableHandle
     }
 
     @JsonProperty
-    public HiveStorageFormat getHiveStorageFormat()
+    public HiveStorageFormat getTableStorageFormat()
     {
-        return hiveStorageFormat;
+        return tableStorageFormat;
+    }
+
+    @JsonProperty
+    public HiveStorageFormat getPartitionStorageFormat()
+    {
+        return partitionStorageFormat;
     }
 
     @Override

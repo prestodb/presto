@@ -71,6 +71,7 @@ public enum StandardErrorCode
     QUERY_QUEUE_FULL(0x0002_0002),
     EXCEEDED_TIME_LIMIT(0x0002_0003),
     CLUSTER_OUT_OF_MEMORY(0x0002_0004),
+    EXCEEDED_CPU_LIMIT(0x0002_0005),
 
     // Connectors can use error codes starting at EXTERNAL
     EXTERNAL(0x0100_0000);

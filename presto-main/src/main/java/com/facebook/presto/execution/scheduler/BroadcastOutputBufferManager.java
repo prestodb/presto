@@ -14,11 +14,11 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.execution.TaskId;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.List;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.OutputBuffers.BROADCAST_PARTITION_ID;
@@ -40,9 +40,8 @@ class BroadcastOutputBufferManager
     }
 
     @Override
-    public void addOutputBuffer(TaskId bufferId, int partition)
+    public void addOutputBuffers(List<OutputBuffer> newBuffers, boolean noMoreBuffers)
     {
-        OutputBuffers newOutputBuffers;
         synchronized (this) {
             if (outputBuffers.isNoMoreBufferIds()) {
                 // a stage can move to a final state (e.g., failed) while scheduling, so ignore
@@ -50,27 +49,22 @@ class BroadcastOutputBufferManager
                 return;
             }
 
-            // Note: it does not matter which partition id the task is using, in broadcast all tasks read from the same partition
-            newOutputBuffers = outputBuffers.withBuffer(bufferId, BROADCAST_PARTITION_ID);
-            if (newOutputBuffers == outputBuffers) {
-                return;
-            }
-            outputBuffers = newOutputBuffers;
-        }
-        outputBufferTarget.accept(newOutputBuffers);
-    }
+            OutputBuffers originalOutputBuffers = outputBuffers;
 
-    @Override
-    public void noMoreOutputBuffers()
-    {
-        OutputBuffers newOutputBuffers;
-        synchronized (this) {
-            newOutputBuffers = outputBuffers.withNoMoreBufferIds();
-            if (newOutputBuffers == outputBuffers) {
+            // Note: it does not matter which partition id the task is using, in broadcast all tasks read from the same partition
+            for (OutputBuffer newBuffer : newBuffers) {
+                outputBuffers = outputBuffers.withBuffer(newBuffer.getBufferId(), BROADCAST_PARTITION_ID);
+            }
+
+            if (noMoreBuffers) {
+                outputBuffers = outputBuffers.withNoMoreBufferIds();
+            }
+
+            // don't update if nothing changed
+            if (outputBuffers == originalOutputBuffers) {
                 return;
             }
-            outputBuffers = newOutputBuffers;
         }
-        outputBufferTarget.accept(newOutputBuffers);
+        outputBufferTarget.accept(outputBuffers);
     }
 }

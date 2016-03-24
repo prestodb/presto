@@ -5,7 +5,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.142-SNAPSHOT</version>
+        <version>0.143-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-product-tests</artifactId>
@@ -14,6 +14,15 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <main-class>com.facebook.presto.tests.TemptoProductTestRunner</main-class>
+
+        <!--
+        Versions newer than 6.9 appear to have an issue where the @BeforeClass method in
+        children of AbstractTestHiveClient doesn't always get called. Therefore, an older
+        version is used for other artifacts in Presto. This artifact overrides it with a
+        newer version because it is required for Tempto
+        TODO: remove once we can upgrade to a version that fixes it
+        -->
+        <dep.testng.version>6.9.6</dep.testng.version>
     </properties>
 
     <dependencies>
@@ -81,6 +90,12 @@
     </dependencies>
 
     <build>
+        <resources>
+            <resource>
+                <directory>${project.basedir}/src/main/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

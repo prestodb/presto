@@ -14,7 +14,7 @@ execution by the previous queue. A slot for the query is reserved in all queues.
 The query is rejected if no slot is available in any of the queues.
 
 Rules are processed sequentially and the first one that matches will be used.
-In the example configuration below, there are five queue templates.
+In the example configuration below, there are four queue templates.
 In the ``user.${USER}`` queue, ``${USER}`` will be expanded to the name of the
 user that submitted the query. ``${SOURCE}`` is also supported, which expands
 to the source submitting the query. The source name can be set as follows:
@@ -23,7 +23,7 @@ to the source submitting the query. The source name can be set as follows:
 
   * JDBC: set the ``ApplicationName`` client info property on the ``Connection`` instance.
 
-There are also five rules that define which queries go into which queues:
+There are three rules that define which queries go into which queues:
 
   * The first rule makes ``bob`` an admin.
 

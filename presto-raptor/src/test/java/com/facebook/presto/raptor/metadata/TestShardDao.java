@@ -50,7 +50,7 @@ public class TestShardDao
     {
         dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();
-        dao = dbi.onDemand(ShardDao.class);
+        dao = dbi.onDemand(H2ShardDao.class);
         createTablesWithRetry(dbi);
     }
 

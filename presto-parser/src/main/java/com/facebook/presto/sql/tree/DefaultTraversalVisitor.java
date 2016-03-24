@@ -58,6 +58,15 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitAtTimeZone(AtTimeZone node, C context)
+    {
+        process(node.getValue(), context);
+        process(node.getTimeZone(), context);
+
+        return null;
+    }
+
+    @Override
     protected R visitArrayConstructor(ArrayConstructor node, C context)
     {
         for (Expression expression : node.getValues()) {

@@ -251,6 +251,7 @@ public class BaseJdbcClient
             throws SQLException
     {
         return new QueryBuilder(identifierQuote).buildSql(
+                this,
                 getConnection(split),
                 split.getCatalogName(),
                 split.getSchemaName(),
@@ -372,10 +373,10 @@ public class BaseJdbcClient
     }
 
     @Override
-    public Statement getStatement(Connection connection)
+    public PreparedStatement getPreparedStatement(Connection connection, String sql)
             throws SQLException
     {
-        return connection.createStatement();
+        return connection.prepareStatement(sql);
     }
 
     protected ResultSet getTables(Connection connection, String schemaName, String tableName)

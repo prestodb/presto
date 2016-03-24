@@ -19,7 +19,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.client.PrestoHeaders;
 import com.facebook.presto.execution.BufferInfo;
-import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import com.facebook.presto.execution.PageBufferInfo;
 import com.facebook.presto.execution.RemoteTask;
@@ -66,6 +65,7 @@ import java.io.EOFException;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
@@ -228,9 +228,9 @@ public final class HttpRemoteTask
                     location,
                     DateTime.now(),
                     new SharedBufferInfo(BufferState.OPEN, true, true, 0, 0, 0, 0, bufferStates),
-                    ImmutableSet.<PlanNodeId>of(),
+                    ImmutableSet.of(),
                     taskStats,
-                    ImmutableList.<ExecutionFailureInfo>of(),
+                    ImmutableList.of(),
                     true));
 
             long timeout = minErrorDuration.toMillis() / 3;
@@ -278,15 +278,22 @@ public final class HttpRemoteTask
     }
 
     @Override
-    public synchronized void addSplits(PlanNodeId sourceId, Iterable<Split> splits)
+    public synchronized void addSplits(Multimap<PlanNodeId, Split> splitsBySource)
     {
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
-            requireNonNull(sourceId, "sourceId is null");
-            requireNonNull(splits, "splits is null");
-            checkState(!noMoreSplits.contains(sourceId), "noMoreSplits has already been set for %s", sourceId);
+            requireNonNull(splitsBySource, "splitsBySource is null");
 
             // only add pending split if not done
-            if (!getTaskInfo().getState().isDone()) {
+            if (getTaskInfo().getState().isDone()) {
+                return;
+            }
+
+            for (Entry<PlanNodeId, Collection<Split>> entry : splitsBySource.asMap().entrySet()) {
+                PlanNodeId sourceId = entry.getKey();
+                Collection<Split> splits = entry.getValue();
+
+                checkState(!noMoreSplits.contains(sourceId), "noMoreSplits has already been set for %s", sourceId);
+                checkState(!noMoreSplits.contains(sourceId), "noMoreSplits has already been set for %s", sourceId);
                 int added = 0;
                 for (Split split : splits) {
                     if (pendingSplits.put(sourceId, new ScheduledSplit(nextSplitId.getAndIncrement(), split))) {
@@ -334,7 +341,7 @@ public final class HttpRemoteTask
         if (taskInfo.getState().isDone()) {
             return 0;
         }
-        return pendingSourceSplitCount + taskInfo.getStats().getQueuedPartitionedDrivers() + taskInfo.getStats().getRunningPartitionedDrivers();
+        return getPendingSourceSplitCount() + taskInfo.getStats().getQueuedPartitionedDrivers() + taskInfo.getStats().getRunningPartitionedDrivers();
     }
 
     @Override
@@ -344,7 +351,13 @@ public final class HttpRemoteTask
         if (taskInfo.getState().isDone()) {
             return 0;
         }
-        return pendingSourceSplitCount + taskInfo.getStats().getQueuedPartitionedDrivers();
+        return getPendingSourceSplitCount() + taskInfo.getStats().getQueuedPartitionedDrivers();
+    }
+
+    @SuppressWarnings("FieldAccessNotGuarded")
+    private int getPendingSourceSplitCount()
+    {
+        return pendingSourceSplitCount;
     }
 
     @Override
@@ -387,11 +400,8 @@ public final class HttpRemoteTask
                 // never update if the task has reached a terminal state
                 return false;
             }
-            if (newValue.getVersion() < oldValue.getVersion()) {
-                // don't update to an older version (same version is ok)
-                return false;
-            }
-            return true;
+            // don't update to an older version (same version is ok)
+            return newValue.getVersion() >= oldValue.getVersion();
         });
 
         if (taskMismatch.get()) {
@@ -416,7 +426,12 @@ public final class HttpRemoteTask
         partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
     }
 
-    private synchronized void scheduleUpdate()
+    private void scheduleUpdate()
+    {
+        executor.execute(this::sendUpdate);
+    }
+
+    private synchronized void sendUpdate()
     {
         // don't update if the task hasn't been started yet or if it is already finished
         if (!needsUpdate.get() || taskInfo.get().getState().isDone()) {
@@ -439,7 +454,7 @@ public final class HttpRemoteTask
         // if throttled due to error, asynchronously wait for timeout and try again
         ListenableFuture<?> errorRateLimit = updateErrorTracker.acquireRequestPermit();
         if (!errorRateLimit.isDone()) {
-            errorRateLimit.addListener(this::scheduleUpdate, executor);
+            errorRateLimit.addListener(this::sendUpdate, executor);
             return;
         }
 
@@ -483,7 +498,7 @@ public final class HttpRemoteTask
                 .collect(toImmutableList());
     }
 
-    private TaskSource getSource(PlanNodeId planNodeId)
+    private synchronized TaskSource getSource(PlanNodeId planNodeId)
     {
         Set<ScheduledSplit> splits = pendingSplits.get(planNodeId);
         boolean noMoreSplits = this.noMoreSplits.contains(planNodeId);
@@ -545,7 +560,7 @@ public final class HttpRemoteTask
                     taskInfo.getOutputBuffers(),
                     taskInfo.getNoMoreSplits(),
                     taskInfo.getStats(),
-                    ImmutableList.<ExecutionFailureInfo>of(),
+                    ImmutableList.of(),
                     taskInfo.isNeedsPlan()));
 
             // send abort to task and ignore response
@@ -645,7 +660,7 @@ public final class HttpRemoteTask
                     updateErrorTracker.requestSucceeded();
                 }
                 finally {
-                    scheduleUpdate();
+                    sendUpdate();
                 }
             }
         }
@@ -678,7 +693,7 @@ public final class HttpRemoteTask
                     abort();
                 }
                 finally {
-                    scheduleUpdate();
+                    sendUpdate();
                 }
             }
         }
@@ -776,7 +791,7 @@ public final class HttpRemoteTask
                 }
 
                 try {
-                    updateTaskInfo(value, ImmutableList.<TaskSource>of());
+                    updateTaskInfo(value, ImmutableList.of());
                     getErrorTracker.requestSucceeded();
                 }
                 finally {

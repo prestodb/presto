@@ -172,6 +172,13 @@ public final class TestingRowConstructor
         return toStackRepresentation(ImmutableList.of(TIMESTAMP), arg1);
     }
 
+    @ScalarFunction("test_non_lowercase_row")
+    @SqlType("row<bigint>('Col0')")
+    public static Block testNonLowercaseRowBigint(@Nullable @SqlType(StandardTypes.BIGINT) Long arg1)
+    {
+        return toStackRepresentation(ImmutableList.of(BIGINT), arg1);
+    }
+
     public static Block toStackRepresentation(List<Type> parameterTypes, Object... values)
     {
         checkArgument(parameterTypes.size() == values.length, "parameterTypes.size(" + parameterTypes.size() + ") does not equal to values.length(" + values.length + ")");

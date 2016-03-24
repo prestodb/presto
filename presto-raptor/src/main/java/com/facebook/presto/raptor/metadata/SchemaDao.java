@@ -116,9 +116,8 @@ public interface SchemaDao
     void createTableCreatedShards();
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS deleted_shards (\n" +
-            "  shard_uuid BINARY(16) NOT NULL,\n" +
-            "  delete_time DATETIME NOT NULL,\n" +
-            "  clean_time DATETIME\n" +
+            "  shard_uuid BINARY(16) PRIMARY KEY,\n" +
+            "  delete_time DATETIME NOT NULL\n" +
             ")")
     void createTableDeletedShards();
 

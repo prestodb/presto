@@ -118,6 +118,10 @@ Mathematical Functions
 
     Returns the base-``radix`` representation of ``x``.
 
+.. function:: truncate(x) -> double
+
+    Returns ``x`` rounded to integer by dropping digits after decimal point.
+
 Trigonometric Functions
 -----------------------
 
@@ -182,3 +186,8 @@ Floating Point Functions
 .. function:: nan() -> double
 
     Returns the constant representing not-a-number.
+
+.. function:: width_bucket(x, bound1, bound2, n) -> bigint
+
+    Returns the bin number of ``x`` in an equi-width histogram with the
+    specified ``bound1`` and ``bound2`` bounds and ``n`` number of buckets.

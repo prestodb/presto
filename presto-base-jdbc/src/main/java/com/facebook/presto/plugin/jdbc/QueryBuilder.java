@@ -34,8 +34,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.Iterables.transform;
+import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class QueryBuilder
 {
@@ -43,8 +44,8 @@ public class QueryBuilder
 
     private static class TypeAndValue
     {
-        public final Type type;
-        public final Object value;
+        private final Type type;
+        private final Object value;
 
         public TypeAndValue(Type type, Object value)
         {
@@ -68,13 +69,18 @@ public class QueryBuilder
         this.quote = requireNonNull(quote, "quote is null");
     }
 
-    public PreparedStatement buildSql(Connection connection, String catalog, String schema, String table, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain)
+    public PreparedStatement buildSql(JdbcClient client, Connection connection, String catalog, String schema, String table, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain)
             throws SQLException
     {
         StringBuilder sql = new StringBuilder();
 
+        String columnNames = columns.stream()
+                .map(JdbcColumnHandle::getColumnName)
+                .map(this::quote)
+                .collect(joining(", "));
+
         sql.append("SELECT ");
-        Joiner.on(", ").appendTo(sql, transform(columns, column -> quote(column.getColumnName())));
+        sql.append(columnNames);
         if (columns.isEmpty()) {
             sql.append("null");
         }
@@ -96,7 +102,7 @@ public class QueryBuilder
                     .append(Joiner.on(" AND ").join(clauses));
         }
 
-        PreparedStatement statement = connection.prepareStatement(sql.toString());
+        PreparedStatement statement = client.getPreparedStatement(connection, sql.toString());
 
         for (int i = 0; i < accumulator.size(); i++) {
             TypeAndValue typeAndValue = accumulator.get(i);
@@ -168,7 +174,7 @@ public class QueryBuilder
                             rangeConjuncts.add(toPredicate(columnName, ">=", range.getLow().getValue(), type, accumulator));
                             break;
                         case BELOW:
-                            throw new IllegalArgumentException("Low Marker should never use BELOW bound: " + range);
+                            throw new IllegalArgumentException("Low marker should never use BELOW bound");
                         default:
                             throw new AssertionError("Unhandled bound: " + range.getLow().getBound());
                     }
@@ -176,7 +182,7 @@ public class QueryBuilder
                 if (!range.getHigh().isUpperUnbounded()) {
                     switch (range.getHigh().getBound()) {
                         case ABOVE:
-                            throw new IllegalArgumentException("High Marker should never use ABOVE bound: " + range);
+                            throw new IllegalArgumentException("High marker should never use ABOVE bound");
                         case EXACTLY:
                             rangeConjuncts.add(toPredicate(columnName, "<=", range.getHigh().getValue(), type, accumulator));
                             break;
@@ -198,7 +204,11 @@ public class QueryBuilder
             disjuncts.add(toPredicate(columnName, "=", getOnlyElement(singleValues), type, accumulator));
         }
         else if (singleValues.size() > 1) {
-            disjuncts.add(quote(columnName) + " IN (" + Joiner.on(",").join(transform(singleValues, value -> bindValue(value, type, accumulator))) + ")");
+            for (Object value : singleValues) {
+                bindValue(value, type, accumulator);
+            }
+            String values = Joiner.on(",").join(nCopies(singleValues.size(), "?"));
+            disjuncts.add(quote(columnName) + " IN (" + values + ")");
         }
 
         // Add nullability disjuncts
@@ -212,7 +222,8 @@ public class QueryBuilder
 
     private String toPredicate(String columnName, String operator, Object value, Type type, List<TypeAndValue> accumulator)
     {
-        return quote(columnName) + " " + operator + " " + bindValue(value, type, accumulator);
+        bindValue(value, type, accumulator);
+        return quote(columnName) + " " + operator + " ?";
     }
 
     private String quote(String name)
@@ -221,10 +232,9 @@ public class QueryBuilder
         return quote + name + quote;
     }
 
-    private static String bindValue(Object value, Type type, List<TypeAndValue> accumulator)
+    private static void bindValue(Object value, Type type, List<TypeAndValue> accumulator)
     {
         checkArgument(isAcceptedType(type), "Can't handle type: %s", type);
         accumulator.add(new TypeAndValue(type, value));
-        return "?";
     }
 }

@@ -21,9 +21,11 @@ import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableList;
@@ -49,6 +51,7 @@ import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -59,10 +62,25 @@ import static org.testng.Assert.fail;
 public class TestHiveIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
+    private final String catalog;
+
+    @SuppressWarnings("unused")
     public TestHiveIntegrationSmokeTest()
             throws Exception
     {
-        super(createQueryRunner(ORDERS), createSampledSession());
+        this(createQueryRunner(ORDERS), createSampledSession(), HIVE_CATALOG);
+    }
+
+    protected TestHiveIntegrationSmokeTest(QueryRunner queryRunner, Session sampledSession, String catalog)
+            throws Exception
+    {
+        super(queryRunner, sampledSession);
+        this.catalog = requireNonNull(catalog, "catalog is null");
+    }
+
+    protected List<?> getPartitions(ConnectorTableLayoutHandle tableLayoutHandle)
+    {
+        return ((HiveTableLayoutHandle) tableLayoutHandle).getPartitions().get();
     }
 
     @Test
@@ -72,7 +90,7 @@ public class TestHiveIntegrationSmokeTest
         @Language("SQL") String actual = "" +
                 "SELECT lower(table_name) " +
                 "FROM information_schema.tables " +
-                "WHERE table_catalog = 'hive' AND table_schema LIKE 'tpch' AND table_name LIKE '%orders'";
+                "WHERE table_catalog = '" + catalog + "' AND table_schema LIKE 'tpch' AND table_name LIKE '%orders'";
 
         @Language("SQL") String expected = "" +
                 "SELECT lower(table_name) " +
@@ -89,7 +107,7 @@ public class TestHiveIntegrationSmokeTest
         @Language("SQL") String actual = "" +
                 "SELECT lower(table_name), lower(column_name) " +
                 "FROM information_schema.columns " +
-                "WHERE table_catalog = 'hive' AND table_schema = 'tpch' AND table_name LIKE '%orders%'";
+                "WHERE table_catalog = '" + catalog + "' AND table_schema = 'tpch' AND table_name LIKE '%orders%'";
 
         @Language("SQL") String expected = "" +
                 "SELECT lower(table_name), lower(column_name) " +
@@ -244,7 +262,7 @@ public class TestHiveIntegrationSmokeTest
             assertEquals(columnMetadata.getComment(), annotateColumnComment(null, partitionKey));
         }
 
-        List<HivePartition> partitions = getPartitions("test_create_partitioned_table_as");
+        List<?> partitions = getPartitions("test_create_partitioned_table_as");
         assertEquals(partitions.size(), 3);
 
         assertQuery("SELECT * from test_create_partitioned_table_as", "SELECT orderkey, shippriority, orderstatus FROM orders");
@@ -385,7 +403,7 @@ public class TestHiveIntegrationSmokeTest
                 "SELECT count(*) from orders");
 
         // verify the partitions
-        List<HivePartition> partitions = getPartitions("test_insert_partitioned_table");
+        List<?> partitions = getPartitions("test_insert_partitioned_table");
         assertEquals(partitions.size(), 3);
 
         assertQuery("SELECT * from test_insert_partitioned_table", "SELECT orderkey, shippriority, orderstatus FROM orders");
@@ -487,13 +505,13 @@ public class TestHiveIntegrationSmokeTest
         return transaction(queryRunner.getTransactionManager())
                 .readOnly()
                 .execute(session, transactionSession -> {
-                    Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, new QualifiedObjectName(HIVE_CATALOG, TPCH_SCHEMA, tableName));
+                    Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName));
                     assertTrue(tableHandle.isPresent());
                     return metadata.getTableMetadata(transactionSession, tableHandle.get());
                 });
     }
 
-    private List<HivePartition> getPartitions(String tableName)
+    private List<?> getPartitions(String tableName)
     {
         Session session = getSession();
         Metadata metadata = ((DistributedQueryRunner) queryRunner).getCoordinator().getMetadata();
@@ -501,12 +519,12 @@ public class TestHiveIntegrationSmokeTest
         return transaction(queryRunner.getTransactionManager())
                 .readOnly()
                 .execute(session, transactionSession -> {
-                    Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, new QualifiedObjectName(HIVE_CATALOG, TPCH_SCHEMA, tableName));
+                    Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName));
                     assertTrue(tableHandle.isPresent());
 
                     List<TableLayoutResult> layouts = metadata.getLayouts(transactionSession, tableHandle.get(), Constraint.alwaysTrue(), Optional.empty());
                     TableLayout layout = Iterables.getOnlyElement(layouts).getLayout();
-                    return ((HiveTableLayoutHandle) layout.getHandle().getConnectorHandle()).getPartitions().get();
+                    return getPartitions(layout.getHandle().getConnectorHandle());
                 });
     }
 

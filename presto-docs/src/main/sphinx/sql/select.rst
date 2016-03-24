@@ -122,6 +122,8 @@ When a ``GROUP BY`` clause is used in a ``SELECT`` statement all output
 expression must be either aggregate functions or columns present in
 the ``GROUP BY`` clause.
 
+.. _complex_grouping_operations:
+
 **Complex Grouping Operations**
 
 Presto also supports complex aggregations using the ``GROUPING SETS``, ``CUBE``
