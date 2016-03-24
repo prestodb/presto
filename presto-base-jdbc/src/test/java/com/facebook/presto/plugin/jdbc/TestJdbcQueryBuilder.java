@@ -44,6 +44,7 @@ import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.testing.Assertions.assertContains;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.DAYS;
 import static org.testng.Assert.assertEquals;
@@ -174,6 +175,10 @@ public class TestJdbcQueryBuilder
                 builder.add((String) resultSet.getObject("col_3"));
             }
             assertEquals(builder.build(), ImmutableSet.of("test_str_700", "test_str_701", "test_str_180", "test_str_196"));
+
+            assertContains(preparedStatement.toString(), "\"col_3\" >= ?");
+            assertContains(preparedStatement.toString(), "\"col_3\" < ?");
+            assertContains(preparedStatement.toString(), "\"col_3\" IN (?,?)");
         }
     }
 
@@ -207,6 +212,13 @@ public class TestJdbcQueryBuilder
             }
             assertEquals(dateBuilder.build(), ImmutableSet.of(toDate(2016, 6, 7), toDate(2016, 6, 13), toDate(2016, 10, 21)));
             assertEquals(timeBuilder.build(), ImmutableSet.of(toTime(2016, 6, 7, 8, 23, 37), toTime(2016, 10, 21, 20, 23, 37)));
+
+            assertContains(preparedStatement.toString(), "\"col_4\" >= ?");
+            assertContains(preparedStatement.toString(), "\"col_4\" < ?");
+            assertContains(preparedStatement.toString(), "\"col_4\" IN (?,?)");
+            assertContains(preparedStatement.toString(), "\"col_5\" > ?");
+            assertContains(preparedStatement.toString(), "\"col_5\" <= ?");
+            assertContains(preparedStatement.toString(), "\"col_5\" IN (?,?)");
         }
     }
 
@@ -235,6 +247,10 @@ public class TestJdbcQueryBuilder
                     toTimestamp(2016, 6, 8, 10, 23, 37),
                     toTimestamp(2016, 6, 9, 12, 23, 37),
                     toTimestamp(2016, 10, 19, 16, 23, 37)));
+
+            assertContains(preparedStatement.toString(), "\"col_6\" > ?");
+            assertContains(preparedStatement.toString(), "\"col_6\" <= ?");
+            assertContains(preparedStatement.toString(), "\"col_6\" IN (?,?)");
         }
     }
 
