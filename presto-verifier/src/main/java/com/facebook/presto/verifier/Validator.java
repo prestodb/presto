@@ -394,6 +394,9 @@ public class Validator
                                 timeout.toMillis() - stopwatch.elapsed(TimeUnit.MILLISECONDS),
                                 TimeUnit.MILLISECONDS, true);
                     }
+                    else {
+                        results = ImmutableList.of(ImmutableList.of(limitedStatement.getLargeUpdateCount()));
+                    }
                     prestoStatement.clearProgressMonitor();
                     QueryStats queryStats = progressMonitor.getFinalQueryStats();
                     if (queryStats == null) {
