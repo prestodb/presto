@@ -19,14 +19,25 @@ import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.TimeType;
+import com.facebook.presto.spi.type.TimeWithTimeZoneType;
+import com.facebook.presto.spi.type.TimestampType;
+import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
+import io.airlift.slice.Slice;
+
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -115,6 +126,26 @@ public class QueryBuilder
             else if (typeAndValue.getType().equals(BooleanType.BOOLEAN)) {
                 statement.setBoolean(i + 1, (Boolean) typeAndValue.getValue());
             }
+            else if (typeAndValue.getType().equals(TimestampType.TIMESTAMP) || typeAndValue.getType().equals(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE)) {
+                Timestamp timestamp = new Timestamp((long) typeAndValue.getValue());
+                statement.setTimestamp(i + 1, timestamp);
+            }
+            else if (typeAndValue.getType().equals(TimeType.TIME) || typeAndValue.getType().equals(TimeWithTimeZoneType.TIME_WITH_TIME_ZONE)) {
+                Time time = new Time((long) typeAndValue.getValue());
+                statement.setTime(i + 1, time);
+            }
+            else if (typeAndValue.getType().equals(DateType.DATE)) {
+                Date date = new Date((long) typeAndValue.getValue() * 86400 * 1000);
+                statement.setDate(i + 1, date);
+            }
+            else if (typeAndValue.getType().equals(VarcharType.VARCHAR)) {
+                if (typeAndValue.getValue() instanceof Slice) {
+                    statement.setString(i + 1, ((Slice) typeAndValue.getValue()).toStringUtf8());
+                }
+                if (typeAndValue.getValue() instanceof String) {
+                    statement.setString(i + 1, typeAndValue.getValue().toString());
+                }
+            }
             else {
                 throw new UnsupportedOperationException("Can't handle type: " + typeAndValue.getType());
             }
@@ -126,7 +157,10 @@ public class QueryBuilder
     private static boolean isAcceptedType(Type type)
     {
         Type validType = requireNonNull(type, "type is null");
-        return validType.equals(BigintType.BIGINT) || validType.equals(DoubleType.DOUBLE) || validType.equals(BooleanType.BOOLEAN);
+        return validType.equals(BigintType.BIGINT) || validType.equals(DoubleType.DOUBLE) || validType.equals(BooleanType.BOOLEAN) ||
+                validType.equals(VarcharType.VARCHAR) || validType.equals(DateType.DATE) || validType.equals(TimestampType.TIMESTAMP) ||
+                validType.equals(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE) || validType.equals(TimeType.TIME) ||
+                validType.equals(TimeWithTimeZoneType.TIME_WITH_TIME_ZONE);
     }
 
     private List<String> toConjuncts(List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain, List<TypeAndValue> accumulator)
