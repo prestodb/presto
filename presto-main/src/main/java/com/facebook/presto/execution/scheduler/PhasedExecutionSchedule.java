@@ -153,7 +153,12 @@ public class PhasedExecutionSchedule
         for (DefaultEdge edge : graph.edgeSet()) {
             PlanFragmentId source = graph.getEdgeSource(edge);
             PlanFragmentId target = graph.getEdgeTarget(edge);
-            componentGraph.addEdge(componentMembership.get(source), componentMembership.get(target));
+
+            Set<PlanFragmentId> from = componentMembership.get(source);
+            Set<PlanFragmentId> to = componentMembership.get(target);
+            if (!from.equals(to)) { // the topological order iterator below doesn't include vertices that have self-edges, so don't add them
+                componentGraph.addEdge(from, to);
+            }
         }
 
         List<Set<PlanFragmentId>> schedulePhases = ImmutableList.copyOf(new TopologicalOrderIterator<>(componentGraph));
@@ -274,7 +279,7 @@ public class PhasedExecutionSchedule
         {
             List<PlanNode> sources = node.getSources();
             if (sources.isEmpty()) {
-                return ImmutableSet.of();
+                return ImmutableSet.of(currentFragmentId);
             }
             if (sources.size() == 1) {
                 return sources.get(0).accept(this, currentFragmentId);

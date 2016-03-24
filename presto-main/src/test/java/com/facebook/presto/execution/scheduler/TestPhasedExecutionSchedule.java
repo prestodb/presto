@@ -95,6 +95,17 @@ public class TestPhasedExecutionSchedule
     }
 
     @Test
+    public void testBroadcastJoin()
+            throws Exception
+    {
+        PlanFragment buildFragment = createTableScanPlanFragment("build");
+        PlanFragment joinFragment = createBroadcastJoinPlanFragment("join", buildFragment);
+
+        List<Set<PlanFragmentId>> phases = PhasedExecutionSchedule.extractPhases(ImmutableList.of(joinFragment, buildFragment));
+        assertEquals(phases, ImmutableList.of(ImmutableSet.of(joinFragment.getId(), buildFragment.getId())));
+    }
+
+    @Test
     public void testJoinWithDeepSources()
             throws Exception
     {
@@ -148,6 +159,30 @@ public class TestPhasedExecutionSchedule
                 ImmutableList.of());
 
         return createFragment(planNode);
+    }
+
+    private static PlanFragment createBroadcastJoinPlanFragment(String name, PlanFragment buildFragment)
+    {
+        Symbol symbol = new Symbol("column");
+        PlanNode tableScan = new TableScanNode(
+                new PlanNodeId(name),
+                new TableHandle("test", new TestingTableHandle()),
+                ImmutableList.of(symbol),
+                ImmutableMap.of(symbol, new TestingColumnHandle("column")),
+                Optional.empty(),
+                TupleDomain.all(),
+                null);
+
+        PlanNode join = new JoinNode(
+                new PlanNodeId(name + "_id"),
+                INNER,
+                tableScan,
+                new RemoteSourceNode(new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of()),
+                ImmutableList.of(),
+                Optional.<Symbol>empty(),
+                Optional.<Symbol>empty());
+
+        return createFragment(join);
     }
 
     private static PlanFragment createJoinPlanFragment(String name, PlanFragment buildFragment, PlanFragment probeFragment)
