@@ -26,6 +26,7 @@ public class PageBufferClientStatus
     private final URI uri;
     private final String state;
     private final DateTime lastUpdate;
+    private final long rowsReceived;
     private final int pagesReceived;
     private final int requestsScheduled;
     private final int requestsCompleted;
@@ -36,6 +37,7 @@ public class PageBufferClientStatus
     public PageBufferClientStatus(@JsonProperty("uri") URI uri,
             @JsonProperty("state") String state,
             @JsonProperty("lastUpdate") DateTime lastUpdate,
+            @JsonProperty("rowsReceived")long rowsReceived,
             @JsonProperty("pagesReceived") int pagesReceived,
             @JsonProperty("requestsScheduled") int requestsScheduled,
             @JsonProperty("requestsCompleted") int requestsCompleted,
@@ -45,6 +47,7 @@ public class PageBufferClientStatus
         this.uri = uri;
         this.state = state;
         this.lastUpdate = lastUpdate;
+        this.rowsReceived = rowsReceived;
         this.pagesReceived = pagesReceived;
         this.requestsScheduled = requestsScheduled;
         this.requestsCompleted = requestsCompleted;
@@ -68,6 +71,12 @@ public class PageBufferClientStatus
     public DateTime getLastUpdate()
     {
         return lastUpdate;
+    }
+
+    @JsonProperty
+    public long getRowsReceived()
+    {
+        return rowsReceived;
     }
 
     @JsonProperty
@@ -107,6 +116,7 @@ public class PageBufferClientStatus
                 .add("uri", uri)
                 .add("state", state)
                 .add("lastUpdate", lastUpdate)
+                .add("rowsReceived", rowsReceived)
                 .add("pagesReceived", pagesReceived)
                 .add("httpRequestState", httpRequestState)
                 .toString();
