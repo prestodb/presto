@@ -316,7 +316,7 @@ public final class HttpPageBufferClient
                     }
                 }
                 catch (PrestoException e) {
-                    handleFailure(e);
+                    handleFailure(e, resultFuture);
                     return;
                 }
 
@@ -331,9 +331,11 @@ public final class HttpPageBufferClient
                     if (result.isClientComplete()) {
                         completed = true;
                     }
-                    future = null;
+                    if (future == resultFuture) {
+                        future = null;
+                        errorDelayMillis = 0;
+                    }
                     lastUpdate = DateTime.now();
-                    errorDelayMillis = 0;
                 }
                 requestsCompleted.incrementAndGet();
                 clientCallback.requestComplete(HttpPageBufferClient.this);
@@ -352,7 +354,7 @@ public final class HttpPageBufferClient
                     String message = format("%s (%s - requests failed for %s)", WORKER_NODE_ERROR, uri, errorDuration);
                     t = new PageTransportTimeoutException(message, t);
                 }
-                handleFailure(t);
+                handleFailure(t, resultFuture);
             }
         }, executor);
     }
@@ -369,9 +371,11 @@ public final class HttpPageBufferClient
                 checkNotHoldsLock();
                 synchronized (HttpPageBufferClient.this) {
                     closed = true;
-                    future = null;
+                    if (future == resultFuture) {
+                        future = null;
+                        errorDelayMillis = 0;
+                    }
                     lastUpdate = DateTime.now();
-                    errorDelayMillis = 0;
                 }
                 requestsCompleted.incrementAndGet();
                 clientCallback.clientFinished(HttpPageBufferClient.this);
@@ -388,7 +392,7 @@ public final class HttpPageBufferClient
                     String message = format("Error closing remote buffer (%s - requests failed for %s)", location, errorDuration);
                     t = new PrestoException(REMOTE_BUFFER_CLOSE_FAILED, message, t);
                 }
-                handleFailure(t);
+                handleFailure(t, resultFuture);
             }
         }, executor);
     }
@@ -400,7 +404,7 @@ public final class HttpPageBufferClient
         }
     }
 
-    private void handleFailure(Throwable t)
+    private void handleFailure(Throwable t, HttpResponseFuture<?> expectedFuture)
     {
         // Can not delegate to other callback while holding a lock on this
         checkNotHoldsLock();
@@ -414,7 +418,9 @@ public final class HttpPageBufferClient
 
         synchronized (HttpPageBufferClient.this) {
             increaseErrorDelay();
-            future = null;
+            if (future == expectedFuture) {
+                future = null;
+            }
             lastUpdate = DateTime.now();
         }
         clientCallback.requestComplete(HttpPageBufferClient.this);
