@@ -97,7 +97,7 @@ public final class HttpPageBufferClient
      */
     public interface ClientCallback
     {
-        void addPage(HttpPageBufferClient client, Page page);
+        boolean addPages(HttpPageBufferClient client, List<Page> pages);
 
         void requestComplete(HttpPageBufferClient client);
 
@@ -326,10 +326,9 @@ public final class HttpPageBufferClient
                 }
 
                 // add pages
-                for (Page page : pages) {
-                    pagesReceived.incrementAndGet();
-                    rowsReceived.addAndGet(page.getPositionCount());
-                    clientCallback.addPage(HttpPageBufferClient.this, page);
+                if (clientCallback.addPages(HttpPageBufferClient.this, pages)) {
+                    pagesReceived.addAndGet(pages.size());
+                    rowsReceived.addAndGet(pages.stream().mapToLong(Page::getPositionCount).sum());
                 }
 
                 synchronized (HttpPageBufferClient.this) {
