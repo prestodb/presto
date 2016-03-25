@@ -20,6 +20,8 @@ import com.facebook.presto.transaction.TransactionManager;
 import io.airlift.units.Duration;
 
 import java.net.URI;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
@@ -106,6 +108,12 @@ public class FailedQueryExecution
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
     {
         stateChangeListener.stateChanged(QueryState.FAILED);
+    }
+
+    @Override
+    public Optional<Set<URI>> getRootExchangeLocations()
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override

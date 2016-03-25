@@ -19,6 +19,10 @@ import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.sql.tree.Statement;
 import io.airlift.units.Duration;
 
+import java.net.URI;
+import java.util.Optional;
+import java.util.Set;
+
 public interface QueryExecution
 {
     QueryId getQueryId();
@@ -52,6 +56,11 @@ public interface QueryExecution
     void pruneInfo();
 
     void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener);
+
+    /**
+     * @return Exchange URIs for the root stage, empty if root stage buffers are not yet added
+     */
+    Optional<Set<URI>> getRootExchangeLocations();
 
     interface QueryExecutionFactory<T extends QueryExecution>
     {

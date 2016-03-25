@@ -42,6 +42,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
@@ -346,6 +347,16 @@ public class SqlQueryManager
         if (query != null) {
             query.cancelStage(stageId);
         }
+    }
+
+    @Override
+    public Optional<Set<URI>> getRootExchangeLocations(QueryId queryId)
+    {
+        QueryExecution queryExecution = queries.get(queryId);
+        if (queryExecution != null) {
+            return queryExecution.getRootExchangeLocations();
+        }
+        return Optional.empty();
     }
 
     @Managed

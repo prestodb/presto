@@ -21,17 +21,13 @@ import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StageStats;
 import com.facebook.presto.client.StatementStats;
-import com.facebook.presto.execution.BufferInfo;
 import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStats;
-import com.facebook.presto.execution.SharedBufferInfo;
 import com.facebook.presto.execution.StageInfo;
-import com.facebook.presto.execution.StageState;
-import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.ExchangeClient;
@@ -45,7 +41,6 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.transaction.TransactionId;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -102,7 +97,6 @@ import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.concurrent.Threads.threadsNamed;
-import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -488,46 +482,12 @@ public class StatementResource
         {
             // add any additional output locations
             if (!outputStage.getState().isDone()) {
-                for (TaskInfo taskInfo : outputStage.getTasks()) {
-                    SharedBufferInfo outputBuffers = taskInfo.getOutputBuffers();
-                    List<BufferInfo> buffers = outputBuffers.getBuffers();
-                    if (buffers.isEmpty() || outputBuffers.getState().canAddBuffers()) {
-                        // output buffer has not been created yet
-                        continue;
-                    }
-                    Preconditions.checkState(buffers.size() == 1,
-                            "Expected a single output buffer for task %s, but found %s",
-                            taskInfo.getTaskId(),
-                            buffers);
-
-                    TaskId bufferId = Iterables.getOnlyElement(buffers).getBufferId();
-                    URI uri = uriBuilderFrom(taskInfo.getSelf()).appendPath("results").appendPath(bufferId.toString()).build();
-                    exchangeClient.addLocation(uri);
+                Optional<Set<URI>> uris = queryManager.getRootExchangeLocations(queryId);
+                if (uris.isPresent()) {
+                    uris.get().forEach(exchangeClient::addLocation);
+                    exchangeClient.noMoreLocations();
                 }
             }
-
-            if (allOutputBuffersCreated(outputStage)) {
-                exchangeClient.noMoreLocations();
-            }
-        }
-
-        private static boolean allOutputBuffersCreated(StageInfo outputStage)
-        {
-            StageState stageState = outputStage.getState();
-
-            // if the stage is already done, then there will be no more buffers
-            if (stageState.isDone()) {
-                return true;
-            }
-
-            // have all stage tasks been scheduled?
-            if (stageState == StageState.PLANNED || stageState == StageState.SCHEDULING) {
-                return false;
-            }
-
-            // have all tasks finished adding buffers
-            return outputStage.getTasks().stream()
-                    .allMatch(taskInfo -> !taskInfo.getOutputBuffers().getState().canAddBuffers());
         }
 
         private synchronized URI createNextResultsUri(UriInfo uriInfo)

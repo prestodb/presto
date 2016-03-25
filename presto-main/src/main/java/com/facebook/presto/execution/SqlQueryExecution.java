@@ -54,6 +54,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -247,6 +248,15 @@ public final class SqlQueryExecution
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             stateMachine.addStateChangeListener(stateChangeListener);
         }
+    }
+
+    @Override
+    public Optional<Set<URI>> getRootExchangeLocations()
+    {
+        if (queryScheduler.get() != null) {
+            return queryScheduler.get().getRootExchangeLocations();
+        }
+        return Optional.empty();
     }
 
     private SubPlan analyzeQuery()
