@@ -13,14 +13,15 @@ services:
 
   presto-master:
     hostname: presto-master
-    build: 'presto-dev-env'
-    image: 'teradatalabs/presto-dev-env-singlenode'
+    image: 'teradatalabs/centos6-java8-oracle'
     ports: 
       - '8080:8080'
     depends_on:
       - 'hadoop-master'
-    command: /presto-launcher-wrapper.sh run
+    command: /files/presto-launcher-wrapper.sh singlenode run
     volumes:
-      - ../../../presto-server/target/:/presto-server/target:ro
+      - ../../../../presto-server/target/:/presto-server/target:ro
+      - ../../presto/etc/:/etc/presto:ro
+      - ../files/:/files:ro
     env_file:
-      - ../../target/classes/presto.env
+      - ../../../target/classes/presto.env
