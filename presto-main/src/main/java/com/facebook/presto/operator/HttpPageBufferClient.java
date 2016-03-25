@@ -275,9 +275,9 @@ public final class HttpPageBufferClient
         lastUpdate = DateTime.now();
     }
 
-    private void sendGetResults()
+    private synchronized void sendGetResults()
     {
-        final URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(token)).build();
+        URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(token)).build();
         HttpResponseFuture<PagesResponse> resultFuture = httpClient.executeAsync(
                 prepareGet()
                         .setHeader(PRESTO_MAX_SIZE, maxResponseSize.toString())
@@ -359,7 +359,7 @@ public final class HttpPageBufferClient
         }, executor);
     }
 
-    private void sendDelete()
+    private synchronized void sendDelete()
     {
         HttpResponseFuture<StatusResponse> resultFuture = httpClient.executeAsync(prepareDelete().setUri(location).build(), createStatusResponseHandler());
         future = resultFuture;
