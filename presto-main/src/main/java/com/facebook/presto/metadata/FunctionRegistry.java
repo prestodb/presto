@@ -201,6 +201,7 @@ import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
@@ -239,6 +240,8 @@ public class FunctionRegistry
 
     // hack: java classes for types that can be used with magic literals
     private static final Set<Class<?>> SUPPORTED_LITERAL_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class);
+    // TODO: add TINYINT and SMALLINT when those types are added
+    private static final Set<Type> AMBIGUOUS_INTEGRAL_COERCION_SOURCES = ImmutableSet.of(INTEGER);
 
     private final TypeManager typeManager;
     private final BlockEncodingSerde blockEncodingSerde;
@@ -497,7 +500,8 @@ public class FunctionRegistry
             return match.resolveCalculatedTypes(parameterTypes);
         }
 
-        // search for coerced match
+        // search for coerced matches
+        List<Signature> coercedMatches = new ArrayList<>();
         for (SqlFunction function : candidates) {
             Map<String, Type> boundTypeVariables = function.getSignature().bindTypeVariables(resolvedTypes, true, typeManager);
             if (boundTypeVariables == null) {
@@ -505,10 +509,25 @@ public class FunctionRegistry
             }
             Signature signature = bindSignature(function.getSignature(), boundTypeVariables, resolvedTypes.size());
             if (signature != null) {
-                // TODO: This should also check for ambiguities
-                match = signature;
-                break;
+                coercedMatches.add(signature);
             }
+        }
+
+        // TODO: remove when we move to a lattice-based type coercion system
+        if (coercedMatches.size() == 2) {
+            for (int i = 0; i < resolvedTypes.size(); i++) {
+                if (AMBIGUOUS_INTEGRAL_COERCION_SOURCES.contains(resolvedTypes.get(i)) &&
+                        typeManager.getType(coercedMatches.get(0).getArgumentTypes().get(i)).equals(DOUBLE) &&
+                        typeManager.getType(coercedMatches.get(1).getArgumentTypes().get(i)).equals(BIGINT)) {
+                    coercedMatches = ImmutableList.of(coercedMatches.get(1));
+                    break;
+                }
+            }
+        }
+
+        if (!coercedMatches.isEmpty()) {
+            // TODO: This should also check for ambiguities
+            match = coercedMatches.get(0);
         }
 
         if (match != null) {
