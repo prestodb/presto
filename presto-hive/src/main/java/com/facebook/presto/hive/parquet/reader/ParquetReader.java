@@ -78,8 +78,12 @@ public class ParquetReader
     public void close()
             throws IOException
     {
-        dataSource.close();
-        codecFactory.release();
+        try {
+            dataSource.close();
+        }
+        finally {
+            codecFactory.release();
+        }
     }
 
     public float getProgress()
