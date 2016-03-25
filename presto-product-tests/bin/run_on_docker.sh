@@ -1,5 +1,10 @@
 #!/bin/bash -ex
 
+# http://stackoverflow.com/questions/3572030/bash-script-absolute-path-with-osx
+function absolutepath() {
+    [[ $1 = /* ]] && echo "$1" || echo "$PWD/${1#./}"
+}
+
 ENVIRONMENT=$1
 
 if [[ "$ENVIRONMENT" != "singlenode" && "$ENVIRONMENT" != "distributed" ]]; then
@@ -9,7 +14,7 @@ fi
 
 shift 1
 
-SCRIPT_DIR=$(dirname $(readlink -f "$0"))
+SCRIPT_DIR=$(dirname $(absolutepath "$0"))
 PRODUCT_TESTS_ROOT="${SCRIPT_DIR}/.."
 PROJECT_ROOT="${PRODUCT_TESTS_ROOT}/.."
 DOCKER_COMPOSE_LOCATION="${PRODUCT_TESTS_ROOT}/conf/docker/${ENVIRONMENT}/docker-compose.yml"
