@@ -195,9 +195,19 @@ public class SharedBuffer
         long totalBufferedBytes = partitionBuffers.values().stream().mapToLong(PartitionBuffer::getBufferedBytes).sum();
         long totalBufferedPages = partitionBuffers.values().stream().mapToLong(PartitionBuffer::getBufferedPageCount).sum();
         long totalQueuedPages = partitionBuffers.values().stream().mapToLong(PartitionBuffer::getQueuedPageCount).sum();
+        long totalRowsSent = partitionBuffers.values().stream().mapToLong(PartitionBuffer::getRowCount).sum();
         long totalPagesSent = partitionBuffers.values().stream().mapToLong(PartitionBuffer::getPageCount).sum();
 
-        return new SharedBufferInfo(state, state.canAddBuffers(), state.canAddPages(), totalBufferedBytes, totalBufferedPages, totalQueuedPages, totalPagesSent, infos.build());
+        return new SharedBufferInfo(
+                state,
+                state.canAddBuffers(),
+                state.canAddPages(),
+                totalBufferedBytes,
+                totalBufferedPages,
+                totalQueuedPages,
+                totalRowsSent,
+                totalPagesSent,
+                infos.build());
     }
 
     public synchronized void setOutputBuffers(OutputBuffers newOutputBuffers)

@@ -879,13 +879,30 @@ public class TestSharedBuffer
         assertTrue(sharedBuffer.enqueue(partition, page).isDone());
     }
 
-    private static void assertQueueState(SharedBuffer sharedBuffer, TaskId queueId, int partition, int bufferedPages, int pagesSent, int pageBufferBufferedPages, int pageBufferPagesSent, int pageBufferQueuedPages)
+    private static void assertQueueState(
+            SharedBuffer sharedBuffer,
+            TaskId queueId,
+            int partition,
+            int bufferedPages,
+            int pagesSent,
+            int pageBufferBufferedPages,
+            int pageBufferPagesSent,
+            int pageBufferQueuedPages)
     {
         assertEquals(
                 getBufferInfo(sharedBuffer, queueId),
-                new BufferInfo(queueId,
-                        false, bufferedPages, pagesSent, new PageBufferInfo(partition,
-                        pageBufferBufferedPages, pageBufferQueuedPages, sizeOfPages(pageBufferBufferedPages).toBytes(), pageBufferPagesSent)));
+                new BufferInfo(
+                        queueId,
+                        false,
+                        bufferedPages,
+                        pagesSent,
+                        new PageBufferInfo(
+                                partition,
+                                pageBufferBufferedPages,
+                                pageBufferQueuedPages,
+                                sizeOfPages(pageBufferBufferedPages).toBytes(),
+                                pageBufferPagesSent, // every page has one row
+                                pageBufferPagesSent)));
     }
 
     @SuppressWarnings("ConstantConditions")

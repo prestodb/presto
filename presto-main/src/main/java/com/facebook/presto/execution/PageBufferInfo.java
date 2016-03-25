@@ -26,6 +26,7 @@ public class PageBufferInfo
     private final long bufferedPages;
     private final long queuedPages;
     private final long bufferedBytes;
+    private final long rowsAdded;
     private final long pagesAdded;
 
     @JsonCreator
@@ -34,12 +35,14 @@ public class PageBufferInfo
             @JsonProperty("bufferedPages") long bufferedPages,
             @JsonProperty("queuedPages") long queuedPages,
             @JsonProperty("bufferedBytes") long bufferedBytes,
+            @JsonProperty("rowsAdded") long rowsAdded,
             @JsonProperty("pagesAdded") long pagesAdded)
     {
         this.partition = partition;
         this.bufferedPages = bufferedPages;
         this.queuedPages = queuedPages;
         this.bufferedBytes = bufferedBytes;
+        this.rowsAdded = rowsAdded;
         this.pagesAdded = pagesAdded;
     }
 
@@ -68,6 +71,12 @@ public class PageBufferInfo
     }
 
     @JsonProperty
+    public long getRowsAdded()
+    {
+        return rowsAdded;
+    }
+
+    @JsonProperty
     public long getPagesAdded()
     {
         return pagesAdded;
@@ -87,13 +96,14 @@ public class PageBufferInfo
                 Objects.equals(bufferedPages, that.bufferedPages) &&
                 Objects.equals(queuedPages, that.queuedPages) &&
                 Objects.equals(bufferedBytes, that.bufferedBytes) &&
+                Objects.equals(rowsAdded, that.rowsAdded) &&
                 Objects.equals(pagesAdded, that.pagesAdded);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(partition, bufferedPages, queuedPages, bufferedBytes, pagesAdded);
+        return Objects.hash(partition, bufferedPages, queuedPages, bufferedBytes, rowsAdded, pagesAdded);
     }
 
     @Override
@@ -104,12 +114,13 @@ public class PageBufferInfo
                 .add("bufferedPages", bufferedPages)
                 .add("queuedPages", queuedPages)
                 .add("bufferedBytes", bufferedBytes)
+                .add("rowsAdded", rowsAdded)
                 .add("pagesAdded", pagesAdded)
                 .toString();
     }
 
     public static PageBufferInfo empty()
     {
-        return new PageBufferInfo(0, 0, 0, 0, 0);
+        return new PageBufferInfo(0, 0, 0, 0, 0, 0);
     }
 }
