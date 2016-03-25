@@ -511,11 +511,16 @@ public final class Signature
         if (!parametersMatched && !typeSignature.getBase().equals(parameter.getBase())) {
             // check for possible coercion
             if (allowCoercion && canCoerce(typeSignature, parameter)) {
+                Type coercedType = typeManager.getType(TypeRegistry.getUnmatchedSignature(parameter));
+                if (coercedType == null) {
+                    return false;
+                }
+
                 return matchAndBind(
                         boundParameters,
                         typeVariableConstraints,
                         parameter,
-                        requireNonNull(typeManager.getType(TypeRegistry.getUnmatchedSignature(parameter))),
+                        coercedType,
                         true,
                         typeManager);
             }

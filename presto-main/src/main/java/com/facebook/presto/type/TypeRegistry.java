@@ -160,11 +160,18 @@ public final class TypeRegistry
         if (parametricType == null) {
             return null;
         }
-        Type instantiatedType = parametricType.createType(parameters);
 
-        // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"
-        //checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
-        return instantiatedType;
+        try {
+            Type instantiatedType = parametricType.createType(parameters);
+
+            // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"
+            //checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
+            return instantiatedType;
+        }
+        catch (IllegalArgumentException e) {
+            // TODO: check whether a type constructor actually exists rather than failing when it doesn't. This will be possible in the next version of the type system
+            return null;
+        }
     }
 
     @Override
