@@ -21,56 +21,69 @@ databases:
 
 Product tests are not run by default. To start them use run following command:
 
+* On GNU/Linux
 ```
 java -jar target/presto-product-tests-*-executable.jar --config-local tempto-configuration-local.yaml
 ```
 
-## Running tests with Using preconfigured docker based clusters
+* On Mac OS X
+```
+java -jar target/presto-product-tests-*-executable.jar --config-local file:///`pwd`/tempto-configuration-local.yaml
+```
+
+## Running tests with preconfigured docker based clusters
 
 In case you do not have an access to hadoop cluster or do not want to spent your time on configuration, this section
 describes how to run product tests with preconfigured docker based clusters.
 
-### Prerequisites
+*Running product test in docker environment requires at least 4GB free memory to be available.*
 
-* docker >= 1.10
+### Installing dependencies
 
-[https://docs.docker.com/installation/#installation](https://docs.docker.com/installation/#installation)
+#### On GNU/Linux
+* [```docker >= 1.10```](https://docs.docker.com/installation/#installation)
 
-For linux users:
 ```
 wget -qO- https://get.docker.com/ | sh
 ```
 
-For Mac OS X you need to install docker-machine.
-
-[https://docs.docker.com/engine/installation/mac/](https://docs.docker.com/engine/installation/mac/).
-
-* docker-compose >= 1.6
-
-[https://docs.docker.com/compose/install/](https://docs.docker.com/compose/install/).
-
+* [```docker-compose >= 1.60```](https://docs.docker.com/compose/install/)
 ```
 pip install docker-compose
 ```
 
-> Note that if you are using Mac OS X and installed docker-toolbox to have docker, 
-> then docker-compose should be already installed on your system.
+#### On Mac OS X
+
+* [```docker-toolbox >= 1.10```](https://www.docker.com/products/docker-toolbox)
+
+On Mac OS X installing docker-toolbox gives access to preconfigured bash environment
+with ```docker``` and ```docker-compose``` available. To start this bash environment
+select "Docker Quickstart Terminal" from Launchpad. Note that all commands given in
+further parts of this docs should be run from this environment.
+
+##### Setting up virtual machine for docker
+
+The default ```docker-toolbox``` setting should be decent in most cases, but setting
+up docker virtual machine to have at least 4GB is required.
+
+* To create virtual machine with name <machine> (required one time):
+    ```
+    docker-machine create -d virtualbox --virtualbox-memory 4096 <machine>
+    ```
+* To set up enviroment to use <machine> (required at docker bash startup):
+    ```
+    eval $(docker-machine env <machine>)
+    ```
+
+> Tip: In order to keep configuration as simple as possible one may want to change
+> memory available for "default" machine directly in virtual box.
+
 
 ### Running product tests
-
 Below manual describe how to set up and teardown docker clusters needed to run product tests.
 It also covers actual product tests execution with usage of these clusters.
 
-> Note that if you using Mac OS X you may need to configure your environment to make docker commands working. 
-> Additionally, please make sure that your docker machine is able to allocate at least 4GB memory.
-
-```
-docker-machine create -d virtualbox --virtualbox-memory 4096 <machine>
-eval $(docker env <machine>)
-```
-
 #### Configuration profiles
-
 Configuration profiles are stored in `presto-product-tests/etc` diretory. There are two such profiles:
 
 **distributed** - consists of single node (pseudo-distributed) hadoop cluster and multiple node presto cluster
@@ -93,12 +106,19 @@ Configuration profiles are stored in `presto-product-tests/etc` diretory. There 
 
     ```
     cd presto-product-tests/etc/<profile>
+    docker-compose pull
     docker-compose up -d
     ```
 
+    > Note that ```docker-compose pull``` command will ensure that latest version of docker
+    > images are downloaded from docker hub.
+
+    > Note that you can only start up hadoop dockers by using docker-compose command
+    > ```docker-compose up -d hadoop-master```
+
 3. Wait for Presto to be ready.
 
-    To see if all the components are ready you can use below command.
+    To see if all the components are ready you can use below query.
 
     ```
     select count(node_id) from system.runtime.nodes where state = 'active';
@@ -108,7 +128,7 @@ Configuration profiles are stored in `presto-product-tests/etc` diretory. There 
 
     ```
     cd presto-product-tests/etc/<profile>
-    java -jar ../target/presto-product-tests-<version>-executable.jar 
+    java -jar ../../target/presto-product-tests-<version>-executable.jar
     ```
 
     > Note that some tests may run queries too big to fit into docker resource constraints.

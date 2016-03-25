@@ -1,5 +1,10 @@
 #!/bin/bash -ex
 
+# http://stackoverflow.com/questions/3572030/bash-script-absolute-path-with-osx
+function absolutepath() {
+    [[ $1 = /* ]] && echo "$1" || echo "$PWD/${1#./}"
+}
+
 function retry() {
   END=$(($(date +%s) + 600))
 
@@ -39,13 +44,12 @@ function check_presto() {
       -i \
       --rm \
       --net ${DOCKER_NETWORK} \
-      -v $(readlink -f ../../../presto-cli/target/):/cli \
+      -v $(absolutepath ../../../presto-cli/target):/cli \
       teradatalabs/centos6-java8-oracle \
       java -jar /cli/presto-cli-${PRESTO_VERSION}-executable.jar --server presto-master:8080 | \
     grep -i hive
 }
-
-cd $(dirname $(readlink -f $0))
+cd $(dirname $(absolutepath $0))
 
 source ../../target/classes/presto.env
 
