@@ -21,6 +21,9 @@ import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -29,6 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
@@ -141,12 +145,22 @@ public class PartitionedOutputOperator
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.partitionFunction = Futures.immediateFuture(new PagePartitioner(partitionFunction, partitionChannels, partitionConstants, nullChannel, sharedBuffer, sourceTypes));
+
+        operatorContext.setInfoSupplier(this::getInfo);
     }
 
     @Override
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
+    }
+
+    public PartitionedOutputInfo getInfo()
+    {
+        if (!partitionFunction.isDone()) {
+            return new PartitionedOutputInfo(0, 0);
+        }
+        return getUnchecked(partitionFunction).getInfo();
     }
 
     @Override
@@ -216,6 +230,8 @@ public class PartitionedOutputOperator
         private final List<Optional<Block>> partitionConstants;
         private final List<PageBuilder> pageBuilders;
         private final OptionalInt nullChannel; // when present, send the position to every partition if this channel is null.
+        private final AtomicLong rowsAdded = new AtomicLong();
+        private final AtomicLong pagesAdded = new AtomicLong();
 
         public PagePartitioner(
                 PartitionFunction partitionFunction,
@@ -239,6 +255,11 @@ public class PartitionedOutputOperator
                 pageBuilders.add(new PageBuilder(sourceTypes));
             }
             this.pageBuilders = pageBuilders.build();
+        }
+
+        public PartitionedOutputInfo getInfo()
+        {
+            return new PartitionedOutputInfo(rowsAdded.get(), pagesAdded.get());
         }
 
         public ListenableFuture<?> partitionPage(Page page)
@@ -298,6 +319,8 @@ public class PartitionedOutputOperator
                     partitionPageBuilder.reset();
 
                     blockedFutures.add(sharedBuffer.enqueue(partition, pagePartition));
+                    pagesAdded.incrementAndGet();
+                    rowsAdded.addAndGet(pagePartition.getPositionCount());
                 }
             }
             ListenableFuture<?> future = Futures.allAsList(blockedFutures);
@@ -305,6 +328,49 @@ public class PartitionedOutputOperator
                 return NOT_BLOCKED;
             }
             return future;
+        }
+    }
+
+    public static class PartitionedOutputInfo
+            implements Mergeable<PartitionedOutputInfo>
+    {
+        private final long rowsAdded;
+        private final long pagesAdded;
+
+        @JsonCreator
+        public PartitionedOutputInfo(
+                @JsonProperty("rowsAdded") long rowsAdded,
+                @JsonProperty("pagesAdded") long pagesAdded)
+        {
+            this.rowsAdded = rowsAdded;
+            this.pagesAdded = pagesAdded;
+        }
+
+        @JsonProperty
+        public long getRowsAdded()
+        {
+            return rowsAdded;
+        }
+
+        @JsonProperty
+        public long getPagesAdded()
+        {
+            return pagesAdded;
+        }
+
+        @Override
+        public PartitionedOutputInfo mergeWith(PartitionedOutputInfo other)
+        {
+            return new PartitionedOutputInfo(rowsAdded + other.rowsAdded, pagesAdded + other.pagesAdded);
+        }
+
+        @Override
+        public String toString()
+        {
+            return MoreObjects.toStringHelper(this)
+                    .add("rowsAdded", rowsAdded)
+                    .add("pagesAdded", pagesAdded)
+                    .toString();
         }
     }
 }
