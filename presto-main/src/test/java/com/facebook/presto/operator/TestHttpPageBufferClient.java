@@ -457,9 +457,10 @@ public class TestHttpPageBufferClient
         }
 
         @Override
-        public void addPage(HttpPageBufferClient client, Page page)
+        public boolean addPages(HttpPageBufferClient client, List<Page> pages)
         {
-            pages.add(page);
+            this.pages.addAll(pages);
+            return true;
         }
 
         @Override
