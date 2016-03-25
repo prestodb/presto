@@ -43,6 +43,7 @@ public class PartitionBuffer
 {
     private final LinkedList<Page> masterBuffer = new LinkedList<>();
     private final BlockingQueue<QueuedPage> queuedPages = new LinkedBlockingQueue<>();
+    private final AtomicLong rowsAdded = new AtomicLong(); // Number of rows added to the masterBuffer
     private final AtomicLong pagesAdded = new AtomicLong(); // Number of pages added to the masterBuffer
     private final AtomicLong masterSequenceId = new AtomicLong();
     private final AtomicLong bufferedBytes = new AtomicLong();  // Bytes in the master buffer
@@ -74,7 +75,12 @@ public class PartitionBuffer
         long bytesAdded = 0;
         List<Page> pages = splitPage(page, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
         masterBuffer.addAll(pages);
+
+        long rowCount = pages.stream().mapToLong(Page::getPositionCount).sum();
+        checkState(rowCount == page.getPositionCount());
+        rowsAdded.addAndGet(rowCount);
         pagesAdded.addAndGet(pages.size());
+
         for (Page p : pages) {
             bytesAdded += p.getSizeInBytes();
         }
@@ -164,6 +170,11 @@ public class PartitionBuffer
         verify(bufferedBytes.get() >= 0);
     }
 
+    public long getRowCount()
+    {
+        return rowsAdded.get();
+    }
+
     public long getPageCount()
     {
         return pagesAdded.get();
@@ -191,7 +202,7 @@ public class PartitionBuffer
 
     public PageBufferInfo getInfo()
     {
-        return new PageBufferInfo(partition, getBufferedPageCount(), getQueuedPageCount(), getBufferedBytes(), pagesAdded.get());
+        return new PageBufferInfo(partition, getBufferedPageCount(), getQueuedPageCount(), getBufferedBytes(), rowsAdded.get(), pagesAdded.get());
     }
 
     @Immutable
