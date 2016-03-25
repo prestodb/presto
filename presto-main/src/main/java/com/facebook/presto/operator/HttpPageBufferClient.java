@@ -47,6 +47,8 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
 import java.util.List;
+import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -137,6 +139,9 @@ public final class HttpPageBufferClient
     private final AtomicLong rowsReceived = new AtomicLong();
     private final AtomicInteger pagesReceived = new AtomicInteger();
 
+    private final AtomicLong rowsRejected = new AtomicLong();
+    private final AtomicInteger pagesRejected = new AtomicInteger();
+
     private final AtomicInteger requestsScheduled = new AtomicInteger();
     private final AtomicInteger requestsCompleted = new AtomicInteger();
     private final AtomicInteger requestsFailed = new AtomicInteger();
@@ -195,12 +200,18 @@ public final class HttpPageBufferClient
         if (future != null) {
             httpRequestState = future.getState();
         }
+
+        long rejectedRows = rowsRejected.get();
+        int rejectedPages = pagesRejected.get();
+
         return new PageBufferClientStatus(
                 location,
                 state,
                 lastUpdate,
                 rowsReceived.get(),
                 pagesReceived.get(),
+                rejectedRows == 0 ? OptionalLong.empty() : OptionalLong.of(rejectedRows),
+                rejectedPages == 0 ? OptionalInt.empty() : OptionalInt.of(rejectedPages),
                 requestsScheduled.get(),
                 requestsCompleted.get(),
                 requestsFailed.get(),
@@ -329,6 +340,10 @@ public final class HttpPageBufferClient
                 if (clientCallback.addPages(HttpPageBufferClient.this, pages)) {
                     pagesReceived.addAndGet(pages.size());
                     rowsReceived.addAndGet(pages.stream().mapToLong(Page::getPositionCount).sum());
+                }
+                else {
+                    pagesRejected.addAndGet(pages.size());
+                    rowsRejected.addAndGet(pages.stream().mapToLong(Page::getPositionCount).sum());
                 }
 
                 synchronized (HttpPageBufferClient.this) {
