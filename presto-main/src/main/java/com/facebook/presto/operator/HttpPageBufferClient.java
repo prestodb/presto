@@ -49,6 +49,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES_TYPE;
 import static com.facebook.presto.block.PagesSerde.readPages;
@@ -131,6 +132,7 @@ public final class HttpPageBufferClient
     @GuardedBy("this")
     private String taskInstanceId;
 
+    private final AtomicLong rowsReceived = new AtomicLong();
     private final AtomicInteger pagesReceived = new AtomicInteger();
 
     private final AtomicInteger requestsScheduled = new AtomicInteger();
@@ -195,6 +197,7 @@ public final class HttpPageBufferClient
                 location,
                 state,
                 lastUpdate,
+                rowsReceived.get(),
                 pagesReceived.get(),
                 requestsScheduled.get(),
                 requestsCompleted.get(),
@@ -323,6 +326,7 @@ public final class HttpPageBufferClient
                 // add pages
                 for (Page page : pages) {
                     pagesReceived.incrementAndGet();
+                    rowsReceived.addAndGet(page.getPositionCount());
                     clientCallback.addPage(HttpPageBufferClient.this, page);
                 }
 
