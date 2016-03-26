@@ -364,8 +364,7 @@ public class ParquetHiveRecordCursor
             boolean predicatePushdownEnabled,
             TupleDomain<HiveColumnHandle> effectivePredicate)
     {
-        ParquetDataSource dataSource = buildHdfsParquetDataSource(path, configuration, start, length);
-        try {
+        try (ParquetDataSource dataSource = buildHdfsParquetDataSource(path, configuration, start, length)) {
             ParquetMetadata parquetMetadata = ParquetFileReader.readFooter(configuration, path, NO_FILTER);
             List<BlockMetaData> blocks = parquetMetadata.getBlocks();
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
@@ -410,11 +409,6 @@ public class ParquetHiveRecordCursor
             return realReader;
         }
         catch (Exception e) {
-            try {
-                dataSource.close();
-            }
-            catch (IOException ignored) {
-            }
             if (e instanceof PrestoException) {
                 throw (PrestoException) e;
             }
