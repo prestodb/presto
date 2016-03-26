@@ -109,6 +109,19 @@ public class PartitionBuffer
         return ImmutableList.copyOf(pages);
     }
 
+    /**
+     * @return true if there are still pages in the buffer after sequenceId
+     */
+    public synchronized boolean hasMorePages(long sequenceId)
+    {
+        if (!queuedPages.isEmpty()) {
+            return true;
+        }
+
+        int listOffset = Ints.checkedCast(sequenceId - masterSequenceId.get());
+        return listOffset < masterBuffer.size();
+    }
+
     public synchronized void advanceSequenceId(long newSequenceId)
     {
         long oldMasterSequenceId = masterSequenceId.get();
