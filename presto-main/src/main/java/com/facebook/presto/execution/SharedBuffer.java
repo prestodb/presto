@@ -491,7 +491,7 @@ public class SharedBuffer
             List<Page> pages = partitionBuffer.getPages(maxSize, sequenceId);
 
             // if we can't have any more pages, indicate that the buffer is complete
-            if (pages.isEmpty() && !state.get().canAddPages()) {
+            if (pages.isEmpty() && !state.get().canAddPages() && !partitionBuffer.hasMorePages(sequenceId)) {
                 return emptyResults(taskInstanceId, startingSequenceId, true);
             }
 
