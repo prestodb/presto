@@ -18,7 +18,6 @@ import com.facebook.presto.execution.StageState;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.JoinNode.Type;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
@@ -193,12 +192,7 @@ public class PhasedExecutionSchedule
         @Override
         public Set<PlanFragmentId> visitJoin(JoinNode node, PlanFragmentId currentFragmentId)
         {
-            if (node.getType() == Type.RIGHT) {
-                return processJoin(node.getLeft(), node.getRight(), currentFragmentId);
-            }
-            else {
-                return processJoin(node.getRight(), node.getLeft(), currentFragmentId);
-            }
+            return processJoin(node.getRight(), node.getLeft(), currentFragmentId);
         }
 
         @Override
