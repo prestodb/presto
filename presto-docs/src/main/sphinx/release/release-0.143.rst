@@ -5,6 +5,7 @@ Release 0.143
 General Changes
 ---------------
 
+* Fix race condition in output buffer that can cause a page to be lost.
 * Fix case-sensitivity issue when de-referencing row fields.
 * Fix :doc:`/sql/delete` for predicates that optimize to false.
 * Add support for scalar subqueries in :doc:`/sql/delete` queries.

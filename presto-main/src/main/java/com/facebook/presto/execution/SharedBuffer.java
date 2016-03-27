@@ -194,7 +194,6 @@ public class SharedBuffer
 
         long totalBufferedBytes = partitionBuffers.values().stream().mapToLong(PartitionBuffer::getBufferedBytes).sum();
         long totalBufferedPages = partitionBuffers.values().stream().mapToLong(PartitionBuffer::getBufferedPageCount).sum();
-        long totalQueuedPages = partitionBuffers.values().stream().mapToLong(PartitionBuffer::getQueuedPageCount).sum();
         long totalRowsSent = partitionBuffers.values().stream().mapToLong(PartitionBuffer::getRowCount).sum();
         long totalPagesSent = partitionBuffers.values().stream().mapToLong(PartitionBuffer::getPageCount).sum();
 
@@ -204,7 +203,6 @@ public class SharedBuffer
                 state.canAddPages(),
                 totalBufferedBytes,
                 totalBufferedPages,
-                totalQueuedPages,
                 totalRowsSent,
                 totalPagesSent,
                 infos.build());
@@ -276,10 +274,10 @@ public class SharedBuffer
         }
 
         PartitionBuffer partitionBuffer = createOrGetPartitionBuffer(partition);
-        ListenableFuture<?> result = partitionBuffer.enqueuePage(page);
+        partitionBuffer.enqueuePage(page);
         processPendingReads();
         updateState();
-        return result;
+        return memoryManager.getNotFullFuture();
     }
 
     public synchronized CompletableFuture<BufferResult> get(TaskId outputId, long startingSequenceId, DataSize maxSize)
@@ -384,11 +382,6 @@ public class SharedBuffer
                 return;
             }
 
-            if (!state.canAddPages()) {
-                // discard queued pages (not officially in the buffer)
-                partitionBuffers.values().forEach(PartitionBuffer::clearQueue);
-            }
-
             // advanced master queue
             if (!state.canAddBuffers() && !namedBuffers.isEmpty()) {
                 for (Map.Entry<Integer, Set<NamedBuffer>> entry : partitionToNamedBuffer.entrySet()) {
@@ -399,8 +392,10 @@ public class SharedBuffer
                             .getAsLong();
                     partitionBuffer.advanceSequenceId(newMasterSequenceId);
                 }
-                // this might have freed up space in the buffers, try to dequeue pages
-                partitionBuffers.values().forEach(PartitionBuffer::dequeuePages);
+            }
+
+            if (!state.canAddPages()) {
+                memoryManager.setNoBlockOnFull();
             }
         }
         finally {

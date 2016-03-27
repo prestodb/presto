@@ -13,6 +13,12 @@
  */
 package com.facebook.presto.execution;
 
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
+
+import javax.annotation.concurrent.GuardedBy;
+
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -22,6 +28,10 @@ public class SharedBufferMemoryManager
 {
     private final long maxBufferedBytes;
     private final AtomicLong bufferedBytes = new AtomicLong();
+    @GuardedBy("this")
+    private SettableFuture<?> notFull;
+
+    private final AtomicBoolean blockOnFull = new AtomicBoolean(true);
 
     private final SystemMemoryUsageListener systemMemoryUsageListener;
 
@@ -30,12 +40,36 @@ public class SharedBufferMemoryManager
         checkArgument(maxBufferedBytes > 0, "maxBufferedBytes must be > 0");
         this.maxBufferedBytes = maxBufferedBytes;
         this.systemMemoryUsageListener = requireNonNull(systemMemoryUsageListener, "systemMemoryUsageListener is null");
+
+        notFull = SettableFuture.create();
+        notFull.set(null);
     }
 
     public void updateMemoryUsage(long bytesAdded)
     {
         systemMemoryUsageListener.updateSystemMemoryUsage(bytesAdded);
         bufferedBytes.addAndGet(bytesAdded);
+        if (!isFull()) {
+            synchronized (this) {
+                if (!isFull() && !notFull.isDone()) {
+                    notFull.set(null);
+                }
+            }
+        }
+    }
+
+    public synchronized ListenableFuture<?> getNotFullFuture()
+    {
+        if (isFull() && notFull.isDone()) {
+            notFull = SettableFuture.create();
+        }
+        return notFull;
+    }
+
+    public synchronized void setNoBlockOnFull()
+    {
+        blockOnFull.set(false);
+        notFull.set(null);
     }
 
     public double getUtilization()
@@ -43,8 +77,8 @@ public class SharedBufferMemoryManager
         return bufferedBytes.get() / (double) maxBufferedBytes;
     }
 
-    public boolean isFull()
+    private boolean isFull()
     {
-        return bufferedBytes.get() >= maxBufferedBytes;
+        return bufferedBytes.get() > maxBufferedBytes && blockOnFull.get();
     }
 }
