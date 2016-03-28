@@ -46,6 +46,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
@@ -62,6 +63,7 @@ public class HttpRemoteTaskFactory
     private final Executor executor;
     private final ThreadPoolExecutorMBean executorMBean;
     private final ScheduledExecutorService errorScheduledExecutor;
+    private final RemoteTaskStats stats;
 
     @Inject
     public HttpRemoteTaskFactory(QueryManagerConfig config,
@@ -69,7 +71,8 @@ public class HttpRemoteTaskFactory
             @ForScheduler HttpClient httpClient,
             LocationFactory locationFactory,
             JsonCodec<TaskInfo> taskInfoCodec,
-            JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec)
+            JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
+            RemoteTaskStats stats)
     {
         this.httpClient = httpClient;
         this.locationFactory = locationFactory;
@@ -80,7 +83,7 @@ public class HttpRemoteTaskFactory
         this.coreExecutor = newCachedThreadPool(daemonThreadsNamed("remote-task-callback-%s"));
         this.executor = new BoundedExecutor(coreExecutor, config.getRemoteTaskMaxCallbackThreads());
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) coreExecutor);
-
+        this.stats = requireNonNull(stats, "stats is null");
         this.errorScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("remote-task-error-delay-%s"));
     }
 
@@ -124,7 +127,8 @@ public class HttpRemoteTaskFactory
                 summarizeTaskInfo,
                 taskInfoCodec,
                 taskUpdateRequestCodec,
-                partitionedSplitCountTracker
+                partitionedSplitCountTracker,
+                stats
         );
     }
 }
