@@ -339,9 +339,9 @@ public abstract class AbstractTestDistributedQueries
         // of how they are declared in the table schema
         assertUpdate(
                 "INSERT INTO test_insert (orderkey, orderdate) " +
-                "SELECT orderkey, orderdate FROM orders " +
-                "UNION ALL " +
-                "SELECT orderkey, orderdate FROM orders",
+                        "SELECT orderkey, orderdate FROM orders " +
+                        "UNION ALL " +
+                        "SELECT orderkey, orderdate FROM orders",
                 "SELECT 2 * count(*) FROM orders");
 
         assertUpdate("DROP TABLE test_insert");
@@ -630,8 +630,8 @@ public abstract class AbstractTestDistributedQueries
         MaterializedResult result = computeActual("DESCRIBE " + tableName);
         List<String> expected = ImmutableList.copyOf(columnNames);
         List<String> actual = result.getMaterializedRows().stream()
-            .map(row -> (String) row.getField(0))
-            .collect(toImmutableList());
+                .map(row -> (String) row.getField(0))
+                .collect(toImmutableList());
         assertEquals(actual, expected);
     }
 }
