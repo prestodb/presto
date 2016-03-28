@@ -13,15 +13,13 @@
  */
 package com.facebook.presto.hive.parquet.reader;
 
-import com.facebook.presto.hive.parquet.ParquetCodecFactory;
-import com.facebook.presto.hive.parquet.ParquetCodecFactory.BytesDecompressor;
 import com.facebook.presto.hive.parquet.ParquetCorruptionException;
-import parquet.bytes.BytesInput;
+import com.facebook.presto.hive.parquet.ParquetDataPage;
+import com.facebook.presto.hive.parquet.ParquetDataPageV1;
+import com.facebook.presto.hive.parquet.ParquetDataPageV2;
+import com.facebook.presto.hive.parquet.ParquetDictionaryPage;
+import io.airlift.slice.Slice;
 import parquet.column.Encoding;
-import parquet.column.page.DataPage;
-import parquet.column.page.DataPageV1;
-import parquet.column.page.DataPageV2;
-import parquet.column.page.DictionaryPage;
 import parquet.format.DataPageHeader;
 import parquet.format.DataPageHeaderV2;
 import parquet.format.DictionaryPageHeader;
@@ -33,22 +31,22 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getParquetEncoding;
+import static io.airlift.slice.Slices.wrappedBuffer;
+
 public class ParquetColumnChunk
         extends ByteArrayInputStream
 {
     private final ParquetColumnChunkDescriptor descriptor;
-    private final ParquetCodecFactory codecFactory;
 
     public ParquetColumnChunk(
             ParquetColumnChunkDescriptor descriptor,
             byte[] data,
-            int offset,
-            ParquetCodecFactory codecFactory)
+            int offset)
     {
         super(data);
         this.descriptor = descriptor;
         this.pos = offset;
-        this.codecFactory = codecFactory;
     }
 
     public ParquetColumnChunkDescriptor getDescriptor()
@@ -62,11 +60,11 @@ public class ParquetColumnChunk
         return Util.readPageHeader(this);
     }
 
-    public ParquetColumnChunkPageReader readAllPages()
+    public ParquetPageReader readAllPages()
             throws IOException
     {
-        List<DataPage> pages = new ArrayList<>();
-        DictionaryPage dictionaryPage = null;
+        List<ParquetDataPage> pages = new ArrayList<>();
+        ParquetDictionaryPage dictionaryPage = null;
         long valueCount = 0;
         while (valueCount < descriptor.getColumnChunkMetaData().getValueCount()) {
             PageHeader pageHeader = readPageHeader();
@@ -90,8 +88,7 @@ public class ParquetColumnChunk
                     break;
             }
         }
-        BytesDecompressor decompressor = codecFactory.getDecompressor(descriptor.getColumnChunkMetaData().getCodec());
-        return new ParquetColumnChunkPageReader(decompressor, pages, dictionaryPage);
+        return new ParquetPageReader(descriptor.getColumnChunkMetaData().getCodec(), pages, dictionaryPage);
     }
 
     public int getPosition()
@@ -99,61 +96,60 @@ public class ParquetColumnChunk
         return pos;
     }
 
-    public BytesInput getBytesInput(int size)
-            throws IOException
+    private Slice getSlice(int size)
     {
-        BytesInput bytesInput = BytesInput.from(buf, pos, size);
+        Slice slice = wrappedBuffer(buf, pos, size);
         pos += size;
-        return bytesInput;
+        return slice;
     }
 
-    private DictionaryPage readDictionaryPage(PageHeader pageHeader, int uncompressedPageSize, int compressedPageSize)
+    private ParquetDictionaryPage readDictionaryPage(PageHeader pageHeader, int uncompressedPageSize, int compressedPageSize)
             throws IOException
     {
         DictionaryPageHeader dicHeader = pageHeader.getDictionary_page_header();
-        return new DictionaryPage(
-                getBytesInput(compressedPageSize),
+        return new ParquetDictionaryPage(
+                getSlice(compressedPageSize),
                 uncompressedPageSize,
                 dicHeader.getNum_values(),
-                Encoding.valueOf(dicHeader.getEncoding().name()));
+                getParquetEncoding(Encoding.valueOf(dicHeader.getEncoding().name())));
     }
 
     private long readDataPageV1(PageHeader pageHeader,
             int uncompressedPageSize,
             int compressedPageSize,
-            List<DataPage> pages)
+            List<ParquetDataPage> pages)
             throws IOException
     {
         DataPageHeader dataHeaderV1 = pageHeader.getData_page_header();
-        pages.add(new DataPageV1(
-                getBytesInput(compressedPageSize),
+        pages.add(new ParquetDataPageV1(
+                getSlice(compressedPageSize),
                 dataHeaderV1.getNum_values(),
                 uncompressedPageSize,
                 ParquetMetadataReader.readStats(
                         dataHeaderV1.getStatistics(),
                         descriptor.getColumnDescriptor().getType()),
-                Encoding.valueOf(dataHeaderV1.getRepetition_level_encoding().name()),
-                Encoding.valueOf(dataHeaderV1.getDefinition_level_encoding().name()),
-                Encoding.valueOf(dataHeaderV1.getEncoding().name())));
+                getParquetEncoding(Encoding.valueOf(dataHeaderV1.getRepetition_level_encoding().name())),
+                getParquetEncoding(Encoding.valueOf(dataHeaderV1.getDefinition_level_encoding().name())),
+                getParquetEncoding(Encoding.valueOf(dataHeaderV1.getEncoding().name()))));
         return dataHeaderV1.getNum_values();
     }
 
     private long readDataPageV2(PageHeader pageHeader,
             int uncompressedPageSize,
             int compressedPageSize,
-            List<DataPage> pages)
+            List<ParquetDataPage> pages)
             throws IOException
     {
         DataPageHeaderV2 dataHeaderV2 = pageHeader.getData_page_header_v2();
         int dataSize = compressedPageSize - dataHeaderV2.getRepetition_levels_byte_length() - dataHeaderV2.getDefinition_levels_byte_length();
-        pages.add(new DataPageV2(
+        pages.add(new ParquetDataPageV2(
                 dataHeaderV2.getNum_rows(),
                 dataHeaderV2.getNum_nulls(),
                 dataHeaderV2.getNum_values(),
-                getBytesInput(dataHeaderV2.getRepetition_levels_byte_length()),
-                getBytesInput(dataHeaderV2.getDefinition_levels_byte_length()),
-                Encoding.valueOf(dataHeaderV2.getEncoding().name()),
-                getBytesInput(dataSize),
+                getSlice(dataHeaderV2.getRepetition_levels_byte_length()),
+                getSlice(dataHeaderV2.getDefinition_levels_byte_length()),
+                getParquetEncoding(Encoding.valueOf(dataHeaderV2.getEncoding().name())),
+                getSlice(dataSize),
                 uncompressedPageSize,
                 ParquetMetadataReader.readStats(
                         dataHeaderV2.getStatistics(),

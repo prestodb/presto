@@ -50,6 +50,12 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>aircompressor</artifactId>
+            <version>0.3</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>stats</artifactId>
         </dependency>
 
@@ -148,13 +154,6 @@
                     <artifactId>joda-time</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>org.iq80.snappy</groupId>
-            <artifactId>snappy</artifactId>
-            <version>0.3</version>
-            <scope>runtime</scope>
         </dependency>
 
         <dependency>
