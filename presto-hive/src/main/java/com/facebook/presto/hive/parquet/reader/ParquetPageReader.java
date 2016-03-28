@@ -13,80 +13,78 @@
  */
 package com.facebook.presto.hive.parquet.reader;
 
-import com.facebook.presto.hive.parquet.ParquetCodecFactory.BytesDecompressor;
-import com.google.common.primitives.Ints;
-import parquet.column.page.DataPage;
-import parquet.column.page.DataPageV1;
-import parquet.column.page.DataPageV2;
-import parquet.column.page.DictionaryPage;
-import parquet.column.page.PageReader;
+import com.facebook.presto.hive.parquet.ParquetDataPage;
+import com.facebook.presto.hive.parquet.ParquetDataPageV1;
+import com.facebook.presto.hive.parquet.ParquetDataPageV2;
+import com.facebook.presto.hive.parquet.ParquetDictionaryPage;
+import parquet.hadoop.metadata.CompressionCodecName;
 
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 
-class ParquetColumnChunkPageReader
-        implements PageReader
-{
-    private final BytesDecompressor decompressor;
-    private final long valueCount;
-    private final List<DataPage> compressedPages;
-    private final DictionaryPage compressedDictionaryPage;
+import static com.facebook.presto.hive.parquet.ParquetCompressionUtils.decompress;
 
-    public ParquetColumnChunkPageReader(BytesDecompressor decompressor,
-            List<DataPage> compressedPages,
-            DictionaryPage compressedDictionaryPage)
+class ParquetPageReader
+{
+    private final CompressionCodecName codec;
+    private final long valueCount;
+    private final List<ParquetDataPage> compressedPages;
+    private final ParquetDictionaryPage compressedDictionaryPage;
+
+    public ParquetPageReader(CompressionCodecName codec,
+            List<ParquetDataPage> compressedPages,
+            ParquetDictionaryPage compressedDictionaryPage)
     {
-        this.decompressor = decompressor;
+        this.codec = codec;
         this.compressedPages = new LinkedList<>(compressedPages);
         this.compressedDictionaryPage = compressedDictionaryPage;
         int count = 0;
-        for (DataPage page : compressedPages) {
+        for (ParquetDataPage page : compressedPages) {
             count += page.getValueCount();
         }
         this.valueCount = count;
     }
 
-    @Override
     public long getTotalValueCount()
     {
         return valueCount;
     }
 
-    @Override
-    public DataPage readPage()
+    public ParquetDataPage readPage()
     {
         if (compressedPages.isEmpty()) {
             return null;
         }
-        DataPage compressedPage = compressedPages.remove(0);
+        ParquetDataPage compressedPage = compressedPages.remove(0);
         try {
-            if (compressedPage instanceof DataPageV1) {
-                DataPageV1 dataPageV1 = (DataPageV1) compressedPage;
-                return new DataPageV1(
-                        decompressor.decompress(dataPageV1.getBytes(), dataPageV1.getUncompressedSize()),
+            if (compressedPage instanceof ParquetDataPageV1) {
+                ParquetDataPageV1 dataPageV1 = (ParquetDataPageV1) compressedPage;
+                return new ParquetDataPageV1(
+                        decompress(codec, dataPageV1.getSlice(), dataPageV1.getUncompressedSize()),
                         dataPageV1.getValueCount(),
                         dataPageV1.getUncompressedSize(),
                         dataPageV1.getStatistics(),
-                        dataPageV1.getRlEncoding(),
-                        dataPageV1.getDlEncoding(),
+                        dataPageV1.getRepetitionLevelEncoding(),
+                        dataPageV1.getDefinitionLevelEncoding(),
                         dataPageV1.getValueEncoding());
             }
             else {
-                DataPageV2 dataPageV2 = (DataPageV2) compressedPage;
+                ParquetDataPageV2 dataPageV2 = (ParquetDataPageV2) compressedPage;
                 if (!dataPageV2.isCompressed()) {
                     return dataPageV2;
                 }
-                int uncompressedSize = Ints.checkedCast(dataPageV2.getUncompressedSize() - dataPageV2.getDefinitionLevels().size() - dataPageV2.getRepetitionLevels().size());
-                return DataPageV2.uncompressed(
+                return new ParquetDataPageV2(
                         dataPageV2.getRowCount(),
                         dataPageV2.getNullCount(),
                         dataPageV2.getValueCount(),
                         dataPageV2.getRepetitionLevels(),
                         dataPageV2.getDefinitionLevels(),
                         dataPageV2.getDataEncoding(),
-                        decompressor.decompress(dataPageV2.getData(), uncompressedSize),
-                        dataPageV2.getStatistics());
+                        decompress(codec, dataPageV2.getSlice(), dataPageV2.getUncompressedSize()),
+                        dataPageV2.getUncompressedSize(),
+                        dataPageV2.getStatistics(),
+                        false);
             }
         }
         catch (IOException e) {
@@ -94,15 +92,14 @@ class ParquetColumnChunkPageReader
         }
     }
 
-    @Override
-    public DictionaryPage readDictionaryPage()
+    public ParquetDictionaryPage readDictionaryPage()
     {
         if (compressedDictionaryPage == null) {
             return null;
         }
         try {
-            return new DictionaryPage(
-                    decompressor.decompress(compressedDictionaryPage.getBytes(), compressedDictionaryPage.getUncompressedSize()),
+            return new ParquetDictionaryPage(
+                    decompress(codec, compressedDictionaryPage.getSlice(), compressedDictionaryPage.getUncompressedSize()),
                     compressedDictionaryPage.getDictionarySize(),
                     compressedDictionaryPage.getEncoding());
         }
