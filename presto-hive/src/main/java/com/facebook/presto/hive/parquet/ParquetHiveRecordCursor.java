@@ -415,7 +415,7 @@ public class ParquetHiveRecordCursor
             if (predicatePushdownEnabled) {
                 ParquetPredicate parquetPredicate = buildParquetPredicate(columns, effectivePredicate, fileMetaData.getSchema(), typeManager);
                 splitGroup = splitGroup.stream()
-                        .filter(block -> predicateMatches(parquetPredicate, block, configuration, dataSource, requestedSchema, effectivePredicate))
+                        .filter(block -> predicateMatches(parquetPredicate, block, dataSource, requestedSchema, effectivePredicate))
                         .collect(toList());
             }
 

@@ -170,7 +170,7 @@ public class ParquetPageSourceFactory
             if (predicatePushdownEnabled) {
                 ParquetPredicate parquetPredicate = buildParquetPredicate(columns, effectivePredicate, fileMetaData.getSchema(), typeManager);
                 blocks = blocks.stream()
-                        .filter(block -> predicateMatches(parquetPredicate, block, configuration, dataSource, requestedSchema, effectivePredicate))
+                        .filter(block -> predicateMatches(parquetPredicate, block, dataSource, requestedSchema, effectivePredicate))
                         .collect(toList());
             }
 

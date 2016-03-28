@@ -13,15 +13,17 @@
  */
 package com.facebook.presto.hive.parquet.predicate;
 
+import com.facebook.presto.hive.parquet.ParquetDictionaryPage;
 import parquet.column.ColumnDescriptor;
-import parquet.column.page.DictionaryPage;
+
+import java.util.Optional;
 
 public class ParquetDictionaryDescriptor
 {
     private final ColumnDescriptor columnDescriptor;
-    private final DictionaryPage dictionaryPage;
+    private final Optional<ParquetDictionaryPage> dictionaryPage;
 
-    public ParquetDictionaryDescriptor(ColumnDescriptor columnDescriptor, DictionaryPage dictionaryPage)
+    public ParquetDictionaryDescriptor(ColumnDescriptor columnDescriptor, Optional<ParquetDictionaryPage> dictionaryPage)
     {
         this.columnDescriptor = columnDescriptor;
         this.dictionaryPage = dictionaryPage;
@@ -32,7 +34,7 @@ public class ParquetDictionaryDescriptor
         return columnDescriptor;
     }
 
-    public DictionaryPage getDictionaryPage()
+    public Optional<ParquetDictionaryPage> getDictionaryPage()
     {
         return dictionaryPage;
     }
