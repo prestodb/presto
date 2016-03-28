@@ -86,6 +86,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.LongConsumer;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
@@ -128,6 +129,7 @@ public final class HttpRemoteTask
     private final AtomicLong nextSplitId = new AtomicLong();
 
     private final StateMachine<TaskInfo> taskInfo;
+    private final RemoteTaskStats stats;
 
     @GuardedBy("this")
     private Future<?> currentRequest;
@@ -177,7 +179,8 @@ public final class HttpRemoteTask
             boolean summarizeTaskInfo,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
-            PartitionedSplitCountTracker partitionedSplitCountTracker)
+            PartitionedSplitCountTracker partitionedSplitCountTracker,
+            RemoteTaskStats stats)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
@@ -191,6 +194,7 @@ public final class HttpRemoteTask
         requireNonNull(taskInfoCodec, "taskInfoCodec is null");
         requireNonNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
         requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
+        requireNonNull(stats, "stats is null");
 
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             this.taskId = taskId;
@@ -208,6 +212,7 @@ public final class HttpRemoteTask
             this.updateErrorTracker = new RequestErrorTracker(taskId, location, minErrorDuration, errorScheduledExecutor, "updating task");
             this.getErrorTracker = new RequestErrorTracker(taskId, location, minErrorDuration, errorScheduledExecutor, "getting info for task");
             this.partitionedSplitCountTracker = requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
+            this.stats = stats;
 
             for (Entry<PlanNodeId, Split> entry : requireNonNull(initialSplits, "initialSplits is null").entries()) {
                 ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), entry.getValue());
@@ -493,7 +498,7 @@ public final class HttpRemoteTask
         // and does so without grabbing the instance lock.
         needsUpdate.set(false);
 
-        Futures.addCallback(future, new SimpleHttpResponseHandler<>(new UpdateResponseHandler(sources), request.getUri()), executor);
+        Futures.addCallback(future, new SimpleHttpResponseHandler<>(new UpdateResponseHandler(sources), request.getUri(), stats::responseSize), executor);
     }
 
     private synchronized List<TaskSource> getSources()
@@ -667,6 +672,7 @@ public final class HttpRemoteTask
         public void success(TaskInfo value)
         {
             try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
+                updateStats(currentRequestStartNanos);
                 try {
                     synchronized (HttpRemoteTask.this) {
                         currentRequest = null;
@@ -685,6 +691,7 @@ public final class HttpRemoteTask
         public void failed(Throwable cause)
         {
             try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
+                updateStats(currentRequestStartNanos);
                 try {
                     synchronized (HttpRemoteTask.this) {
                         currentRequest = null;
@@ -721,6 +728,12 @@ public final class HttpRemoteTask
                 failTask(cause);
             }
         }
+
+        private void updateStats(long currentRequestStartNanos)
+        {
+            Duration requestRoundTrip = Duration.nanosSince(currentRequestStartNanos);
+            stats.updateRoundTripMillis(requestRoundTrip.toMillis());
+        }
     }
 
     /**
@@ -738,6 +751,9 @@ public final class HttpRemoteTask
 
         @GuardedBy("this")
         private ListenableFuture<JsonResponse<TaskInfo>> future;
+
+        @GuardedBy("this")
+        private long currentRequestStartNanos;
 
         public ContinuousTaskInfoFetcher(Duration refreshMaxWait)
         {
@@ -799,13 +815,15 @@ public final class HttpRemoteTask
             getErrorTracker.startRequest();
 
             future = httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec));
-            Futures.addCallback(future, new SimpleHttpResponseHandler<>(this, request.getUri()), executor);
+            Futures.addCallback(future, new SimpleHttpResponseHandler<>(this, request.getUri(), stats::responseSize), executor);
+            currentRequestStartNanos = System.nanoTime();
         }
 
         @Override
         public void success(TaskInfo value)
         {
             try (SetThreadName ignored = new SetThreadName("ContinuousTaskInfoFetcher-%s", taskId)) {
+                updateStats(currentRequestStartNanos);
                 synchronized (this) {
                     future = null;
                 }
@@ -824,6 +842,7 @@ public final class HttpRemoteTask
         public void failed(Throwable cause)
         {
             try (SetThreadName ignored = new SetThreadName("ContinuousTaskInfoFetcher-%s", taskId)) {
+                updateStats(currentRequestStartNanos);
                 synchronized (this) {
                     future = null;
                 }
@@ -868,6 +887,12 @@ public final class HttpRemoteTask
         {
             return running;
         }
+
+        private void updateStats(long currentRequestStartNanos)
+        {
+            Duration requestRoundTrip = Duration.nanosSince(currentRequestStartNanos);
+            stats.infoRoundTripMillis(requestRoundTrip.toMillis());
+        }
     }
 
     public static class SimpleHttpResponseHandler<T>
@@ -876,16 +901,19 @@ public final class HttpRemoteTask
         private final SimpleHttpResponseCallback<T> callback;
 
         private final URI uri;
+        private final LongConsumer responseSizeTracker;
 
-        public SimpleHttpResponseHandler(SimpleHttpResponseCallback<T> callback, URI uri)
+        public SimpleHttpResponseHandler(SimpleHttpResponseCallback<T> callback, URI uri, LongConsumer responseSizeTracker)
         {
             this.callback = callback;
             this.uri = uri;
+            this.responseSizeTracker = requireNonNull(responseSizeTracker, "responseSizeTracker is null");
         }
 
         @Override
         public void onSuccess(JsonResponse<T> response)
         {
+            responseSizeTracker.accept(response.getResponseSize());
             try {
                 if (response.getStatusCode() == HttpStatus.OK.code() && response.hasValue()) {
                     callback.success(response.getValue());
