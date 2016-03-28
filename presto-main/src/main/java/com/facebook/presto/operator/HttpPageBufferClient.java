@@ -41,8 +41,10 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.io.BufferedReader;
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.URI;
 import java.util.List;
 import java.util.concurrent.Future;
@@ -535,7 +537,22 @@ public final class HttpPageBufferClient
 
             // otherwise we must have gotten an OK response, everything else is considered fatal
             if (response.getStatusCode() != HttpStatus.OK.code()) {
-                throw new PageTransportErrorException(format("Expected response code to be 200, but was %s %s: %s", response.getStatusCode(), response.getStatusMessage(), request.getUri()));
+                StringBuilder body = new StringBuilder();
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(response.getInputStream()))) {
+                    // Get up to 1000 lines for debugging
+                    for (int i = 0; i < 1000; i++) {
+                        String line = reader.readLine();
+                        // Don't output more than 100KB
+                        if (line == null || body.length() + line.length() > 100 * 1024) {
+                            break;
+                        }
+                        body.append(line + "\n");
+                    }
+                }
+                catch (RuntimeException | IOException e) {
+                    // Ignored. Just return whatever message we were able to decode
+                }
+                throw new PageTransportErrorException(format("Expected response code to be 200, but was %s %s: %s%n%s", response.getStatusCode(), response.getStatusMessage(), request.getUri(), body.toString()));
             }
 
             // invalid content type can happen when an error page is returned, but is unlikely given the above 200
