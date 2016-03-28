@@ -102,8 +102,75 @@ Property Name                                      Description                  
 ``hive.immutable-partitions``                      Can new data be inserted into existing partitions?           ``false``
 
 ``hive.max-partitions-per-writers``                Maximum number of partitions per writer.                     100
+================================================== ============================================================ ==========
 
-``hive.s3.sse.enabled``                            Enable S3 server-side encryption.                            ``false``
+Amazon S3 Configuration
+^^^^^^^^^^^^^^^^^^^^^^^
+
+The Hive connector also allows querying data stored in Amazon S3.
+
+To access tables stored in S3, you must specify the AWS credential properties 
+``hive.s3.aws-access-key`` and ``hive.s3.aws-secret-key``. Alternatively, you can use
+``hive.s3.use-instance-credentials`` which if set to true, enables retrieving temporary
+`instance profile <http://docs.aws.amazon.com/AWSSdkDocsJava/latest/DeveloperGuide/java-dg-roles.html>`_
+AWS credentials.
+
+SQL Limitation for S3 tables
+----------------------------
+
+The SQL support for S3 tables is the same as for HDFS tables. Presto does not support creating external
+tables in Hive (both HDFS and S3). If you want to create a table in Hive with data in S3, you have to do it from
+`Hive <https://cwiki.apache.org/confluence/display/Hive/HiveAws+HivingS3nRemotely>`_.
+
+Also, ``CREATE TABLE..AS query``, where ``query`` is a ``SELECT`` query on the S3 table will not create the table
+on S3. If you want to load data back to S3, you need to use ``INSERT INTO`` command.
+
+Configuration Properties
+------------------------
+
+================================================== ============================================================ ==========
+Property Name                                      Description                                                  Default
+================================================== ============================================================ ==========
+``hive.s3.aws-access-key``                         AWS Access key.
+
+``hive.s3.aws-secret-key``                         AWS Secret key.
+
+``hive.s3.use-instance-credentials``               Instance profile credentials to use. This property is unused ``true``
+                                                   if default credential properties are added.
+	 	 	 
+``hive.s3.connect-timeout``                        Amount of time that the HTTP connection will wait to         ``5s``
+                                                   establish a connection before giving up.
+
+``hive.s3.socket-timeout``                         Amount of time to wait for data to be transferred over an    ``5s``
+                                                   established, open connection before the connection times 
+                                                   out and is closed.
+
+``hive.s3.max-error-retries``                      Maximum retry count for retriable errors.                    ``10``
+
+``hive.s3.max-connections``                        See :ref:`tuning section<s3-max-connections>`.               ``500``
+
+``hive.s3.ssl.enabled``                            Protocol to connect to AWS (HTTP or HTTPS).                  ``true``
+
+``hive.s3.pin-client-to-current-region``           Use current AWS region.                                      ``false``
+
+``hive.s3.max-backoff-time``                       Maximum value of sleep time allowed during data read retry   ``10 minutes``
+                                                   mechanism. Uses exponential backoff pattern ranging from
+                                                   1s to this value.
+
+``hive.s3.max-retry-time``                         Retries read attempt till this threshold is reached or       ``10 minutes``
+                                                   ``hive.s3.max-client-retries`` value is crossed.
+
+``hive.s3.max-client-retries``                     Reader fails if either ``hive.s3.max-retry-time``            ``3``
+                                                   is reached or the number of attempts hits this value.
+
+``hive.s3.multipart.min-file-size``                See :ref:`tuning section<s3-multipart-min-file>`.            ``16MB``
+                                                
+``hive.s3.multipart.min-part-size``                See :ref:`tuning section<s3-multipart-min-part>`.            ``5MB``
+
+``hive.s3.sse.enabled``                            Enable S3 server side encryption.                            ``false``
+
+``hive.s3.staging-directory``                      Temporary directory for staging files before uploading       ``/tmp``
+                                                   to S3.
 ================================================== ============================================================ ==========
 
 Querying Hive Tables
@@ -305,6 +372,7 @@ The following configuration properties may have an impact on connector performan
  * **Default value:** ``false``
  * **Description:** Access Parquet columns using names from the file. By default, columns in Parquet files are accessed by their ordinal position in the Hive table definition. Setting this property allows to use columns names recorded in the Parquet file instead.
 
+.. _s3-max-connections:
 
 ``hive.s3.max-connections``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -313,6 +381,7 @@ The following configuration properties may have an impact on connector performan
  * **Default value:** ``500``
  * **Description:** This value the maximum number of connections to S3. How many connection to S3 cluster may be open at the same time by the S3 driver. Higher value may increase network utilization when cluster is used on high speed network. However higher value relies more on S3 servers being well configured for high parallelism.
 
+.. _s3-multipart-min-file:
 
 ``hive.s3.multipart.min-file-size``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -321,6 +390,7 @@ The following configuration properties may have an impact on connector performan
  * **Default value:** ``16 MB``
  * **Description:** Minimum file size for an S3 multipart upload. This property describes how big file must be to be uploaded to S3 cluster using multipart feature. Amazon recommendation is to use ``100 MB`` value here, however lower value may allow to increase upload parallelism and can decrease ``data lost``/``data sent`` ratio in unstable network conditions.
 
+.. _s3-multipart-min-part:
 
 ``hive.s3.multipart.min-part-size``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
