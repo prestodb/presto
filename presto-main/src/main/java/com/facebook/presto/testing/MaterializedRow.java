@@ -52,6 +52,7 @@ public class MaterializedRow
 
     private static Object processValue(int precision, Object value)
     {
+        checkArgument(!(value instanceof Integer || value instanceof Short || value instanceof Byte), "INT, SMALLINT and TINYINT are not yet supported");
         if (value instanceof Double || value instanceof Float) {
             return new ApproximateDouble(((Number) value).doubleValue(), precision);
         }

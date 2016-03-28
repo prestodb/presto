@@ -269,7 +269,7 @@ public class TestConditions
                         "else 33 " +
                         "end",
                 BIGINT,
-                33);
+                33L);
 
         assertFunction("case true " +
                         "when false then 1.0 " +
