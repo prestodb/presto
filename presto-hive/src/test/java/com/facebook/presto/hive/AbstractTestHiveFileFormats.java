@@ -242,7 +242,10 @@ public abstract class AbstractTestHiveFileFormats
                     getStandardMapObjectInspector(javaStringObjectInspector, javaStringObjectInspector),
                     ImmutableMap.of("test", "test"),
                     mapBlockOf(VARCHAR, VARCHAR, "test", "test")))
-            .add(new TestColumn("t_map_tinyint", getStandardMapObjectInspector(javaByteObjectInspector, javaByteObjectInspector), ImmutableMap.of((byte) 1, (byte) 1), mapBlockOf(INTEGER, INTEGER, 1, 1)))
+            .add(new TestColumn("t_map_tinyint",
+                    getStandardMapObjectInspector(javaByteObjectInspector, javaByteObjectInspector),
+                    ImmutableMap.of((byte) 1, (byte) 1),
+                    mapBlockOf(INTEGER, INTEGER, 1, 1)))
             .add(new TestColumn("t_map_smallint",
                     getStandardMapObjectInspector(javaShortObjectInspector, javaShortObjectInspector),
                     ImmutableMap.of((short) 2, (short) 2),
