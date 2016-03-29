@@ -153,6 +153,11 @@ public final class HiveType
         return hiveTypeName;
     }
 
+    public boolean isSupportedType()
+    {
+        return isSupportedType(getTypeInfo());
+    }
+
     public static boolean isSupportedType(TypeInfo typeInfo)
     {
         switch (typeInfo.getCategory()) {
@@ -190,12 +195,9 @@ public final class HiveType
     }
 
     @Nonnull
-    public static HiveType toHiveType(TypeInfo typeInfo)
+    private static HiveType toHiveType(TypeInfo typeInfo)
     {
         requireNonNull(typeInfo, "typeInfo is null");
-        if (!isSupportedType(typeInfo)) {
-            throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", typeInfo));
-        }
         return new HiveType(typeInfo);
     }
 

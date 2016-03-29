@@ -678,13 +678,16 @@ public class HiveMetadata
 
         checkTableIsWritable(table.get());
 
-        List<HiveColumnHandle> handles = hiveColumnHandles(connectorId, table.get());
-
-        for (HiveColumnHandle hiveColumnHandle : handles) {
-            if (!isWritableType(hiveColumnHandle.getHiveType())) {
-                throw new PrestoException(NOT_SUPPORTED, format("Inserting into Hive table with column type %s not supported", hiveColumnHandle.getHiveType()));
+        for (FieldSchema fieldSchema : table.get().getSd().getCols()) {
+            HiveType hiveType = HiveType.valueOf(fieldSchema.getType());
+            if (!isWritableType(hiveType)) {
+                throw new PrestoException(
+                        NOT_SUPPORTED,
+                        format("Inserting into Hive table %s.%s with column type %s not supported", table.get().getDbName(), table.get().getTableName(), hiveType));
             }
         }
+
+        List<HiveColumnHandle> handles = hiveColumnHandles(connectorId, table.get());
 
         HiveStorageFormat tableStorageFormat = extractHiveStorageFormat(table.get());
         HiveInsertTableHandle result = new HiveInsertTableHandle(

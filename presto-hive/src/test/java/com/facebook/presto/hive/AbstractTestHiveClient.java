@@ -89,6 +89,7 @@ import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+import org.testng.TestException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -1919,7 +1920,11 @@ public abstract class AbstractTestHiveClient
             fail("expected failure");
         }
         catch (PrestoException e) {
-            assertEquals(e.getMessage(), "Inserting into Hive table with column type smallint not supported");
+            String expected = "Inserting into Hive table .* with column type smallint not supported";
+            if (!e.getMessage().matches(expected)) {
+                throw new TestException("The exception was thrown with the wrong message:" +
+                        " expected \"" + expected + "\"" + " but got \"" + e.getMessage() + "\"", e);
+            }
         }
     }
 
