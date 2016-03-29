@@ -32,4 +32,15 @@ public final class Types
                 value.getClass().getName());
         return target.cast(value);
     }
+
+    /**
+     * Uses 64 bit hash and compact its entropy in 32 bits.
+     * @deprecated This function should only be used for keeping backward compatibility with external libraries using 32 hashes.
+     * @param hash - the 64bit (long) hash
+     * @return 32bit (int) hash created based on long hash
+     */
+    public static int longHashToIntegerHash(long hash)
+    {
+        return (int) ((hash >>> 32) ^ hash);
+    }
 }

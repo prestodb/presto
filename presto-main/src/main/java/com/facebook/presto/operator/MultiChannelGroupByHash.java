@@ -233,8 +233,8 @@ public class MultiChannelGroupByHash
     @Override
     public boolean contains(int position, Page page, int[] hashChannels)
     {
-        int rawHash = hashStrategy.hashRow(position, page.getBlocks());
-        int hashPosition = getHashPosition(rawHash, mask);
+        long rawHash = hashStrategy.hashRow(position, page.getBlocks());
+        int hashPosition = (int) getHashPosition(rawHash, mask);
 
         // look for a slot containing this key
         while (groupAddressByHash[hashPosition] != -1) {
@@ -252,13 +252,13 @@ public class MultiChannelGroupByHash
     @Override
     public int putIfAbsent(int position, Page page)
     {
-        int rawHash = hashGenerator.hashPosition(position, page);
+        long rawHash = hashGenerator.hashPosition(position, page);
         return putIfAbsent(position, page, rawHash);
     }
 
-    private int putIfAbsent(int position, Page page, int rawHash)
+    private int putIfAbsent(int position, Page page, long rawHash)
     {
-        int hashPosition = getHashPosition(rawHash, mask);
+        int hashPosition = (int) getHashPosition(rawHash, mask);
 
         // look for an empty slot or a slot containing this key
         int groupId = -1;
@@ -280,7 +280,7 @@ public class MultiChannelGroupByHash
         return groupId;
     }
 
-    private int addNewGroup(int hashPosition, int position, Page page, int rawHash)
+    private int addNewGroup(int hashPosition, int position, Page page, long rawHash)
     {
         // add the row to the open page
         for (int i = 0; i < channels.length; i++) {
@@ -352,9 +352,9 @@ public class MultiChannelGroupByHash
             // get the address for this slot
             long address = groupAddressByHash[oldIndex];
 
-            int rawHash = hashPosition(address);
+            long rawHash = hashPosition(address);
             // find an empty slot for the address
-            int pos = getHashPosition(rawHash, newMask);
+            int pos = (int) getHashPosition(rawHash, newMask);
             while (newKey[pos] != -1) {
                 pos = (pos + 1) & newMask;
             }
@@ -374,7 +374,7 @@ public class MultiChannelGroupByHash
         groupAddressByGroupId.ensureCapacity(maxFill);
     }
 
-    private int hashPosition(long sliceAddress)
+    private long hashPosition(long sliceAddress)
     {
         int sliceIndex = decodeSliceIndex(sliceAddress);
         int position = decodePosition(sliceAddress);
@@ -384,9 +384,9 @@ public class MultiChannelGroupByHash
         return hashStrategy.hashPosition(sliceIndex, position);
     }
 
-    private int getRawHash(int sliceIndex, int position)
+    private long getRawHash(int sliceIndex, int position)
     {
-        return (int) channelBuilders.get(precomputedHashChannel.get()).get(sliceIndex).getLong(position, 0);
+        return channelBuilders.get(precomputedHashChannel.get()).get(sliceIndex).getLong(position, 0);
     }
 
     private boolean positionEqualsCurrentRow(long address, int hashPosition, int position, Page page, byte rawHash, int[] hashChannels)
@@ -397,7 +397,7 @@ public class MultiChannelGroupByHash
         return hashStrategy.positionEqualsRow(decodeSliceIndex(address), decodePosition(address), position, page, hashChannels);
     }
 
-    private static int getHashPosition(int rawHash, int mask)
+    private static long getHashPosition(long rawHash, int mask)
     {
         return murmurHash3(rawHash) & mask;
     }

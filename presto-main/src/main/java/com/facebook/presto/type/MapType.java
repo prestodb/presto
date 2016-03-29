@@ -32,6 +32,7 @@ import java.util.Map;
 import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
 import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
+import static com.facebook.presto.util.Types.longHashToIntegerHash;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class MapType
@@ -82,7 +83,7 @@ public class MapType
     }
 
     @Override
-    public int hash(Block block, int position)
+    public long hash(Block block, int position)
     {
         Block mapBlock = getObject(block, position);
         int result = 0;
@@ -152,7 +153,7 @@ public class MapType
         @Override
         public int hashCode()
         {
-            return type.hash(block, position);
+            return longHashToIntegerHash(type.hash(block, position));
         }
 
         @Override

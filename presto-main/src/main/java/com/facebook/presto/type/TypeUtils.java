@@ -62,7 +62,7 @@ public final class TypeUtils
         return defaultSize;
     }
 
-    public static int hashPosition(Type type, Block block, int position)
+    public static long hashPosition(Type type, Block block, int position)
     {
         if (block.isNull(position)) {
             return NULL_HASH_CODE;
@@ -131,7 +131,7 @@ public final class TypeUtils
         return new TypeSignature(base, parameters.build());
     }
 
-    public static int getHashPosition(List<? extends Type> hashTypes, Block[] hashBlocks, int position)
+    public static long getHashPosition(List<? extends Type> hashTypes, Block[] hashBlocks, int position)
     {
         int[] hashChannels = new int[hashBlocks.length];
         for (int i = 0; i < hashBlocks.length; i++) {

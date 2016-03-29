@@ -54,6 +54,7 @@ import static com.facebook.presto.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
 import static com.facebook.presto.util.FastutilSetHelper.toFastutilHashSet;
+import static com.facebook.presto.util.Types.longHashToIntegerHash;
 import static java.util.Objects.requireNonNull;
 
 public class InCodeGenerator
@@ -143,7 +144,7 @@ public class InCodeGenerator
                         break;
                     case HASH_SWITCH:
                         try {
-                            int hashCode = Ints.checkedCast((Long) hashCodeFunction.invoke(object));
+                            int hashCode = Ints.checkedCast(longHashToIntegerHash((Long) hashCodeFunction.invoke(object)));
                             hashBucketsBuilder.put(hashCode, testBytecode);
                         }
                         catch (Throwable throwable) {
@@ -210,7 +211,13 @@ public class InCodeGenerator
                         .comment("lookupSwitch(hashCode(<stackValue>))")
                         .dup(javaType)
                         .append(invoke(hashCodeBinding, hashCodeSignature))
+                        //.invokeStatic(Types.class, "longHashToIntegerHash", int.class, long.class)
+                        .dup(long.class)
+                        .push(32)
+                        .unsignedLongRightShift()
+                        .longBitXor()
                         .longToInt()
+                        //end of .invokeStatic equivalent
                         .append(switchBuilder.build())
                         .append(switchCaseBlocks);
                 break;

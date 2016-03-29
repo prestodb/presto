@@ -15,6 +15,7 @@ package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.slice.XxHash64;
 
 public abstract class AbstractVariableWidthBlock
         implements Block
@@ -99,10 +100,10 @@ public abstract class AbstractVariableWidthBlock
     }
 
     @Override
-    public int hash(int position, int offset, int length)
+    public long hash(int position, int offset, int length)
     {
         checkReadablePosition(position);
-        return getRawSlice(position).hashCode(getPositionOffset(position) + offset, length);
+        return XxHash64.hash(getRawSlice(position), getPositionOffset(position) + offset, length);
     }
 
     @Override

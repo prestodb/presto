@@ -69,9 +69,9 @@ public class PartitionedLookupSource
     }
 
     @Override
-    public long getJoinPosition(int position, Page page, int rawHash)
+    public long getJoinPosition(int position, Page page, long rawHash)
     {
-        int partition = murmurHash3(rawHash) & partitionMask;
+        int partition = (int) murmurHash3(rawHash) & partitionMask;
         LookupSource lookupSource = lookupSources[partition];
         long joinPosition = lookupSource.getJoinPosition(position, page, rawHash);
         if (joinPosition < 0) {

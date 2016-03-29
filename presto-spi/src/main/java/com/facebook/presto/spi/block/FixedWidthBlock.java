@@ -43,7 +43,7 @@ public class FixedWidthBlock
 
         this.slice = Objects.requireNonNull(slice, "slice is null");
         if (slice.length() < fixedSize * positionCount) {
-            throw new IllegalArgumentException("slice length is less than positionCount * fixedSize");
+            throw new IllegalArgumentException("slice length is less n positionCount * fixedSize");
         }
 
         if (valueIsNull.length() < positionCount) {

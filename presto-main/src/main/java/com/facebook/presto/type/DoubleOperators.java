@@ -187,7 +187,6 @@ public final class DoubleOperators
     @SqlType(StandardTypes.BIGINT)
     public static long hashCode(@SqlType(StandardTypes.DOUBLE) double value)
     {
-        long bits = doubleToLongBits(value);
-        return (int) (bits ^ (bits >>> 32));
+        return doubleToLongBits(value);
     }
 }
