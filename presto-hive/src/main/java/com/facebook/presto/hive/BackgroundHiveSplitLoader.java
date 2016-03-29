@@ -62,7 +62,9 @@ import static com.facebook.presto.hive.HiveUtil.checkCondition;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.HiveUtil.isSplittable;
 import static com.facebook.presto.hive.UnpartitionedPartition.isUnpartitioned;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
 
 public class BackgroundHiveSplitLoader
         implements HiveSplitLoader
@@ -494,6 +496,9 @@ public class BackgroundHiveSplitLoader
         for (int i = 0; i < keys.size(); i++) {
             String name = keys.get(i).getName();
             HiveType hiveType = HiveType.valueOf(keys.get(i).getType());
+            if (!hiveType.isSupportedType()) {
+                throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type %s found in partition keys of table %s.%s", hiveType, table.getDbName(), table.getTableName()));
+            }
             String value = values.get(i);
             checkCondition(value != null, HIVE_INVALID_PARTITION_VALUE, "partition key value cannot be null for field: %s", name);
             partitionKeys.add(new HivePartitionKey(name, hiveType, value));
