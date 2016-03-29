@@ -31,7 +31,7 @@ import java.util.List;
 
 @Immutable
 @EventType("QueryCompletion")
-public class QueryCompletionEvent
+public class QueryCompletionEvent implements QueryEvent
 {
     private final QueryId queryId;
     private final String transactionId;
