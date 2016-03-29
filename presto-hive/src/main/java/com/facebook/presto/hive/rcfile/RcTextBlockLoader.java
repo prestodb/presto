@@ -56,6 +56,8 @@ import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
 import static com.facebook.presto.hive.NumberParser.parseLong;
 import static com.facebook.presto.hive.util.SerDeUtils.serializeObject;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
+import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.wrappedBooleanArray;
 import static io.airlift.slice.Slices.wrappedDoubleArray;
@@ -93,10 +95,10 @@ public class RcTextBlockLoader
     }
 
     @Override
-    public LazyBlockLoader<LazySliceArrayBlock> variableWidthBlockLoader(RcFileColumnsBatch batch, int fieldId, HiveType hiveType, ObjectInspector fieldInspector)
+    public LazyBlockLoader<LazySliceArrayBlock> variableWidthBlockLoader(RcFileColumnsBatch batch, int fieldId, HiveType hiveType, ObjectInspector fieldInspector, Type type)
     {
         if (HIVE_STRING.equals(hiveType)) {
-            return new LazyStringBlockLoader(batch, fieldId);
+            return new LazyStringBlockLoader(batch, fieldId, type);
         }
         if (HIVE_BINARY.equals(hiveType)) {
             return new LazyBinaryBlockLoader(batch, fieldId);
@@ -393,12 +395,14 @@ public class RcTextBlockLoader
     {
         private final RcFileColumnsBatch batch;
         private final int fieldId;
+        private final Type type;
         private boolean loaded;
 
-        private LazyStringBlockLoader(RcFileColumnsBatch batch, int fieldId)
+        private LazyStringBlockLoader(RcFileColumnsBatch batch, int fieldId, Type type)
         {
             this.batch = batch;
             this.fieldId = fieldId;
+            this.type = type;
         }
 
         @Override
@@ -422,7 +426,11 @@ public class RcTextBlockLoader
                     int start = writable.getStart();
                     int length = writable.getLength();
                     if (!isNull(bytes, start, length)) {
-                        vector[i] = Slices.wrappedBuffer(Arrays.copyOfRange(bytes, start, start + length));
+                        Slice value = Slices.wrappedBuffer(Arrays.copyOfRange(bytes, start, start + length));
+                        if (isVarcharType(type)) {
+                            value = truncateToLength(value, type);
+                        }
+                        vector[i] = value;
                     }
                 }
 
