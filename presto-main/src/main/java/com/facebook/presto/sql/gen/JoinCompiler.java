@@ -304,7 +304,7 @@ public class JoinCompiler
         MethodDefinition hashPositionMethod = classDefinition.declareMethod(
                 a(PUBLIC),
                 "hashPosition",
-                type(int.class),
+                type(long.class),
                 blockIndex,
                 blockPosition);
 
@@ -320,7 +320,6 @@ public class JoinCompiler
                         long.class,
                         hashChannel.invoke("get", Object.class, blockIndex).cast(Block.class),
                         blockPosition)
-                        .cast(int.class)
                         .ret()
         );
 
@@ -328,8 +327,8 @@ public class JoinCompiler
                 .getBody()
                 .append(ifStatement);
 
-        Variable resultVariable = hashPositionMethod.getScope().declareVariable(int.class, "result");
-        hashPositionMethod.getBody().push(0).putVariable(resultVariable);
+        Variable resultVariable = hashPositionMethod.getScope().declareVariable(long.class, "result");
+        hashPositionMethod.getBody().push(0L).putVariable(resultVariable);
 
         for (int index = 0; index < joinChannelTypes.size(); index++) {
             BytecodeExpression type = constantType(callSiteBinder, joinChannelTypes.get(index));
@@ -343,27 +342,27 @@ public class JoinCompiler
             hashPositionMethod
                     .getBody()
                     .getVariable(resultVariable)
-                    .push(31)
-                    .append(OpCode.IMUL)
+                    .push(31L)
+                    .append(OpCode.LMUL)
                     .append(typeHashCode(type, block, blockPosition))
-                    .append(OpCode.IADD)
+                    .append(OpCode.LADD)
                     .putVariable(resultVariable);
         }
 
         hashPositionMethod
                 .getBody()
                 .getVariable(resultVariable)
-                .retInt();
+                .retLong();
     }
 
     private static void generateHashRowMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> joinChannelTypes)
     {
         Parameter position = arg("position", int.class);
         Parameter blocks = arg("blocks", Block[].class);
-        MethodDefinition hashRowMethod = classDefinition.declareMethod(a(PUBLIC), "hashRow", type(int.class), position, blocks);
+        MethodDefinition hashRowMethod = classDefinition.declareMethod(a(PUBLIC), "hashRow", type(long.class), position, blocks);
 
-        Variable resultVariable = hashRowMethod.getScope().declareVariable(int.class, "result");
-        hashRowMethod.getBody().push(0).putVariable(resultVariable);
+        Variable resultVariable = hashRowMethod.getScope().declareVariable(long.class, "result");
+        hashRowMethod.getBody().push(0L).putVariable(resultVariable);
 
         for (int index = 0; index < joinChannelTypes.size(); index++) {
             BytecodeExpression type = constantType(callSiteBinder, joinChannelTypes.get(index));
@@ -374,25 +373,25 @@ public class JoinCompiler
             hashRowMethod
                     .getBody()
                     .getVariable(resultVariable)
-                    .push(31)
-                    .append(OpCode.IMUL)
+                    .push(31L)
+                    .append(OpCode.LMUL)
                     .append(typeHashCode(type, block, position))
-                    .append(OpCode.IADD)
+                    .append(OpCode.LADD)
                     .putVariable(resultVariable);
         }
 
         hashRowMethod
                 .getBody()
                 .getVariable(resultVariable)
-                .retInt();
+                .retLong();
     }
 
     private static BytecodeNode typeHashCode(BytecodeExpression type, BytecodeExpression blockRef, BytecodeExpression blockPosition)
     {
         return new IfStatement()
             .condition(blockRef.invoke("isNull", boolean.class, blockPosition))
-            .ifTrue(constantInt(0))
-            .ifFalse(type.invoke("hash", int.class, blockRef, blockPosition));
+            .ifTrue(constantLong(0L))
+            .ifFalse(type.invoke("hash", long.class, blockRef, blockPosition));
     }
 
     private static void generateRowEqualsRowMethod(

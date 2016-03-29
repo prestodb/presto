@@ -63,7 +63,7 @@ public final class InMemoryJoinHash
 
         // index pages
         for (int position = 0; position < addresses.size(); position++) {
-            int pos = getHashPosition(hashPosition(position), mask);
+            int pos = (int) getHashPosition(hashPosition(position), mask);
 
             // look for an empty slot or a slot containing this key
             while (key[pos] != -1) {
@@ -109,9 +109,9 @@ public final class InMemoryJoinHash
     }
 
     @Override
-    public long getJoinPosition(int position, Page page, int rawHash)
+    public long getJoinPosition(int position, Page page, long rawHash)
     {
-        int pos = getHashPosition(rawHash, mask);
+        int pos = (int) getHashPosition(rawHash, mask);
 
         while (key[pos] != -1) {
             if (positionEqualsCurrentRow(key[pos], position, page.getBlocks())) {
@@ -144,7 +144,7 @@ public final class InMemoryJoinHash
     {
     }
 
-    private int hashPosition(int position)
+    private long hashPosition(int position)
     {
         long pageAddress = addresses.getLong(position);
         int blockIndex = decodeSliceIndex(pageAddress);
@@ -175,8 +175,8 @@ public final class InMemoryJoinHash
         return pagesHashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition);
     }
 
-    private static int getHashPosition(int rawHash, int mask)
+    private static long getHashPosition(long rawHash, long mask)
     {
-        return ((int) XxHash64.hash(rawHash)) & mask;
+        return (XxHash64.hash(rawHash)) & mask;
     }
 }

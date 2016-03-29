@@ -84,7 +84,7 @@ public class ArrayType
     }
 
     @Override
-    public int hash(Block block, int position)
+    public long hash(Block block, int position)
     {
         Block array = getObject(block, position);
         int hash = 0;

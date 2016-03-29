@@ -198,10 +198,10 @@ public class RowType
     }
 
     @Override
-    public int hash(Block block, int position)
+    public long hash(Block block, int position)
     {
         Block arrayBlock = block.getObject(position, Block.class);
-        int result = 1;
+        long result = 1;
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
             checkElementNotNull(arrayBlock.isNull(i));
             Type elementType = fields.get(i).getType();

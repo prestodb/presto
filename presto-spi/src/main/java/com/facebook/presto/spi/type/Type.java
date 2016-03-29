@@ -149,7 +149,7 @@ public interface Type
      * Calculates the hash code of the value at the specified position in the
      * specified block.
      */
-    int hash(Block block, int position);
+    long hash(Block block, int position);
 
     /**
      * Compare the values in the specified block at the specified positions equal.

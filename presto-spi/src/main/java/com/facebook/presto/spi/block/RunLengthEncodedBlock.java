@@ -193,7 +193,7 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public int hash(int position, int offset, int length)
+    public long hash(int position, int offset, int length)
     {
         return value.hash(0, offset, length);
     }

@@ -388,7 +388,7 @@ public class IndexLoader
         }
 
         @Override
-        public long getJoinPosition(int position, Page page, int rawHash)
+        public long getJoinPosition(int position, Page page, long rawHash)
         {
             return IndexSnapshot.UNLOADED_INDEX_KEY;
         }
