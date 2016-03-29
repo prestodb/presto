@@ -15,11 +15,14 @@ package com.facebook.presto.hive.parquet.reader;
 
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.Type;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import parquet.column.ColumnDescriptor;
 import parquet.io.api.Binary;
 
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
+import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 
 public class ParquetBinaryColumnReader
         extends ParquetColumnReader
@@ -29,23 +32,28 @@ public class ParquetBinaryColumnReader
         super(descriptor);
     }
 
-    public BlockBuilder createBlockBuilder()
+    public BlockBuilder createBlockBuilder(Type type)
     {
-        return VARCHAR.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
+        return type.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
     }
 
     @Override
-    public void readValues(BlockBuilder blockBuilder, int valueNumber)
+    public void readValues(BlockBuilder blockBuilder, int valueNumber, Type type)
     {
         for (int i = 0; i < valueNumber; i++) {
             if (definitionReader.readLevel() == columnDescriptor.getMaxDefinitionLevel()) {
                 Binary binary = valuesReader.readBytes();
+                Slice value;
                 if (binary.length() == 0) {
-                    VARCHAR.writeSlice(blockBuilder, Slices.EMPTY_SLICE);
+                    value = Slices.EMPTY_SLICE;
                 }
                 else {
-                    VARCHAR.writeSlice(blockBuilder, Slices.wrappedBuffer(binary.getBytes()));
+                    value = Slices.wrappedBuffer(binary.getBytes());
                 }
+                if (isVarcharType(type)) {
+                    value = truncateToLength(value, type);
+                }
+                type.writeSlice(blockBuilder, value);
             }
             else {
                 blockBuilder.appendNull();
