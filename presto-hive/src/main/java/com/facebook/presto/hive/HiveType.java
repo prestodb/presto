@@ -320,6 +320,8 @@ public final class HiveType
                 return DOUBLE;
             case STRING:
                 return VARCHAR;
+            case VARCHAR:
+                return VARCHAR;
             case DATE:
                 return DATE;
             case TIMESTAMP:
