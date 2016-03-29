@@ -115,7 +115,6 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
-import static com.facebook.presto.hive.HiveMetadata.convertToPredicate;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
@@ -134,6 +133,7 @@ import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.HiveUtil.annotateColumnComment;
+import static com.facebook.presto.hive.SimpleHiveMetadata.convertToPredicate;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -473,7 +473,7 @@ public abstract class AbstractTestHiveClient
         locationService = new HiveLocationService(metastoreClient, hdfsEnvironment, hiveClientConfig);
         TypeManager typeManager = new TypeRegistry();
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
-        metadataFactory = new HiveMetadataFactory(
+        metadataFactory = new SimpleHiveMetadataFactory(
                 connectorId,
                 metastoreClient,
                 hdfsEnvironment,

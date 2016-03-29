@@ -17,6 +17,7 @@ import com.facebook.presto.hive.HiveMetadataFactory;
 import com.facebook.presto.hive.HivePageSinkProvider;
 import com.facebook.presto.hive.HivePageSourceProvider;
 import com.facebook.presto.hive.HiveSplitManager;
+import com.facebook.presto.hive.SimpleHiveMetadataFactory;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
@@ -30,7 +31,7 @@ public class SimpleConnectorModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(HiveMetadataFactory.class).in(Scopes.SINGLETON);
+        binder.bind(HiveMetadataFactory.class).to(SimpleHiveMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorSplitManager.class).to(HiveSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSourceProvider.class).to(HivePageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(HivePageSinkProvider.class).in(Scopes.SINGLETON);

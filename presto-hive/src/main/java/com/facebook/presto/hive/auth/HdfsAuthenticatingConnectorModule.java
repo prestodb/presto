@@ -21,7 +21,7 @@ import com.facebook.presto.hive.HiveMetadataFactory;
 import com.facebook.presto.hive.HivePageSinkProvider;
 import com.facebook.presto.hive.HivePageSourceProvider;
 import com.facebook.presto.hive.HiveSplitManager;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.hive.SimpleHiveMetadataFactory;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
@@ -38,8 +38,8 @@ public class HdfsAuthenticatingConnectorModule extends AbstractModule
     @Override
     protected void configure()
     {
-        bind(HiveMetadataFactory.class).in(Scopes.SINGLETON);
-        bind(ConnectorMetadata.class).to(HdfsAuthenticatingMetadata.class);
+        bind(SimpleHiveMetadataFactory.class).in(Scopes.SINGLETON);
+        bind(HiveMetadataFactory.class).to(HdfsAuthenticatingHiveMetadataFactory.class).in(Scopes.SINGLETON);
 
         bind(HiveSplitManager.class).in(Scopes.SINGLETON);
         bind(ConnectorSplitManager.class).to(HdfsAuthenticatingSplitManager.class).in(Scopes.SINGLETON);

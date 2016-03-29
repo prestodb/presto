@@ -15,6 +15,9 @@ package com.facebook.presto.hive.auth;
 
 import com.facebook.presto.hive.ForHdfs;
 import com.facebook.presto.hive.HiveMetadata;
+import com.facebook.presto.hive.HiveOutputTableHandle;
+import com.facebook.presto.hive.HivePartitionManager;
+import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -31,7 +34,6 @@ import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.Privilege;
 import com.google.inject.Inject;
@@ -47,7 +49,7 @@ import java.util.Set;
 import static java.util.Objects.requireNonNull;
 
 public class HdfsAuthenticatingMetadata
-        implements ConnectorMetadata
+        implements HiveMetadata
 {
     private final HadoopAuthentication authentication;
     private final HiveMetadata targetMetadata;
@@ -166,7 +168,13 @@ public class HdfsAuthenticatingMetadata
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return authentication.doAs(session.getUser(), () -> targetMetadata.beginInsert(session, tableHandle));
+    }
+
+    @Override
+    public HiveOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
         return authentication.doAs(session.getUser(), () -> targetMetadata.beginCreateTable(session, tableMetadata, layout));
     }
@@ -247,5 +255,23 @@ public class HdfsAuthenticatingMetadata
     public OptionalLong metadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle tableLayoutHandle)
     {
         return authentication.doAs(session.getUser(), () -> targetMetadata.metadataDelete(session, tableHandle, tableLayoutHandle));
+    }
+
+    @Override
+    public HiveMetastore getMetastore()
+    {
+        return targetMetadata.getMetastore();
+    }
+
+    @Override
+    public HivePartitionManager getPartitionManager()
+    {
+        return targetMetadata.getPartitionManager();
+    }
+
+    @Override
+    public void rollback()
+    {
+        targetMetadata.rollback();
     }
 }
