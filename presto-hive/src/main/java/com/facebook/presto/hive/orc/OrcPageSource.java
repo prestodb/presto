@@ -35,7 +35,6 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
@@ -52,6 +51,7 @@ import static com.facebook.presto.hive.HiveUtil.integerPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.longDecimalPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.shortDecimalPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.varcharPartitionKey;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -62,7 +62,7 @@ import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -164,10 +164,10 @@ public class OrcPageSource
                         DOUBLE.writeDouble(blockBuilder, value);
                     }
                 }
-                else if (type.equals(VARCHAR)) {
-                    Slice value = Slices.wrappedBuffer(bytes);
+                else if (isVarcharType(type)) {
+                    Slice value = varcharPartitionKey(partitionKey.getValue(), name, type);
                     for (int i = 0; i < MAX_BATCH_SIZE; i++) {
-                        VARCHAR.writeSlice(blockBuilder, value);
+                        type.writeSlice(blockBuilder, value);
                     }
                 }
                 else if (type.equals(DATE)) {
