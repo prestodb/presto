@@ -30,7 +30,9 @@ import org.apache.hadoop.hive.serde2.lazy.ByteArrayRef;
 import org.apache.hadoop.hive.serde2.lazybinary.LazyBinaryFactory;
 import org.apache.hadoop.hive.serde2.lazybinary.LazyBinaryObject;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
+import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.apache.hadoop.io.WritableUtils;
 import org.apache.hadoop.mapred.RecordReader;
 import org.joda.time.DateTimeZone;
@@ -124,7 +126,7 @@ class ColumnarBinaryHiveRecordCursor<K>
     private static final int SIZE_OF_INT = 4;
     private static final int SIZE_OF_LONG = 8;
 
-    private static final Set<HiveType> VALID_HIVE_STRING_TYPES = ImmutableSet.of(HiveType.HIVE_BINARY, HiveType.HIVE_STRING);
+    private static final Set<PrimitiveCategory> VALID_HIVE_STRING_TYPES = ImmutableSet.of(PrimitiveCategory.BINARY, PrimitiveCategory.VARCHAR, PrimitiveCategory.STRING);
     private static final Set<Category> VALID_HIVE_STRUCTURAL_CATEGORIES = ImmutableSet.of(Category.LIST, Category.MAP, Category.STRUCT);
 
     public ColumnarBinaryHiveRecordCursor(RecordReader<K, BytesRefArrayWritable> recordReader,
@@ -559,7 +561,7 @@ class ColumnarBinaryHiveRecordCursor<K>
 
     private void parseStringColumn(int column, byte[] bytes, int start, int length)
     {
-        checkState(VALID_HIVE_STRING_TYPES.contains(hiveTypes[column]), "%s is not a valid STRING type", hiveTypes[column]);
+        checkState(isValidHiveStringType(hiveTypes[column]), "%s is not a valid STRING type", hiveTypes[column]);
         if (length == 0) {
             nulls[column] = true;
         }
@@ -621,6 +623,12 @@ class ColumnarBinaryHiveRecordCursor<K>
                 slices[column] = getLongDecimalValue(decimalWritable, columnType.getScale());
             }
         }
+    }
+
+    private boolean isValidHiveStringType(HiveType hiveType)
+    {
+        return hiveType.getCategory() == Category.PRIMITIVE
+                && VALID_HIVE_STRING_TYPES.contains(((PrimitiveTypeInfo) hiveType.getTypeInfo()).getPrimitiveCategory());
     }
 
     @Override

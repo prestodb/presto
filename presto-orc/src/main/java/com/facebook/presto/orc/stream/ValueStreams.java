@@ -73,6 +73,7 @@ public final class ValueStreams
                 case DOUBLE:
                     return new DoubleStream(inputStream);
                 case STRING:
+                case VARCHAR:
                 case BINARY:
                     return new ByteArrayStream(inputStream);
                 case TIMESTAMP:
@@ -86,6 +87,7 @@ public final class ValueStreams
         if (streamId.getStreamKind() == LENGTH) {
             switch (type) {
                 case STRING:
+                case VARCHAR:
                 case BINARY:
                 case MAP:
                 case LIST:
@@ -97,6 +99,7 @@ public final class ValueStreams
         if (streamId.getStreamKind() == ROW_GROUP_DICTIONARY_LENGTH) {
             switch (type) {
                 case STRING:
+                case VARCHAR:
                 case BINARY:
                     return new RowGroupDictionaryLengthStream(inputStream, false);
             }
@@ -106,6 +109,7 @@ public final class ValueStreams
         if (streamId.getStreamKind() == ROW_GROUP_DICTIONARY) {
             switch (type) {
                 case STRING:
+                case VARCHAR:
                 case BINARY:
                     return new ByteArrayStream(inputStream);
             }
