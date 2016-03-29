@@ -38,7 +38,6 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.Timestamp;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -56,6 +55,7 @@ import static com.facebook.presto.hive.HiveUtil.isStructuralType;
 import static com.facebook.presto.hive.HiveUtil.longDecimalPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.shortDecimalPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.varcharPartitionKey;
 import static com.facebook.presto.hive.util.SerDeUtils.getBlockObject;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -68,7 +68,8 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
+import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
@@ -200,8 +201,8 @@ class GenericHiveRecordCursor<K, V extends Writable>
                 else if (DOUBLE.equals(type)) {
                     doubles[columnIndex] = doublePartitionKey(partitionKey.getValue(), name);
                 }
-                else if (VARCHAR.equals(type)) {
-                    slices[columnIndex] = Slices.wrappedBuffer(Arrays.copyOf(bytes, bytes.length));
+                else if (isVarcharType(type)) {
+                    slices[columnIndex] = varcharPartitionKey(partitionKey.getValue(), name, type);
                 }
                 else if (DATE.equals(type)) {
                     longs[columnIndex] = datePartitionKey(partitionKey.getValue(), name);
@@ -428,18 +429,24 @@ class GenericHiveRecordCursor<K, V extends Writable>
         else {
             Object fieldValue = ((PrimitiveObjectInspector) fieldInspectors[column]).getPrimitiveJavaObject(fieldData);
             checkState(fieldValue != null, "fieldValue should not be null");
+            Slice value;
             if (fieldValue instanceof String) {
-                slices[column] = Slices.utf8Slice((String) fieldValue);
+                value = Slices.utf8Slice((String) fieldValue);
             }
             else if (fieldValue instanceof byte[]) {
-                slices[column] = Slices.wrappedBuffer((byte[]) fieldValue);
+                value = Slices.wrappedBuffer((byte[]) fieldValue);
             }
             else if (fieldValue instanceof HiveVarchar) {
-                slices[column] = Slices.utf8Slice(((HiveVarchar) fieldValue).getValue());
+                value = Slices.utf8Slice(((HiveVarchar) fieldValue).getValue());
             }
             else {
                 throw new IllegalStateException("unsupported string field type: " + fieldValue.getClass().getName());
             }
+            Type type = types[column];
+            if (isVarcharType(type)) {
+                value = truncateToLength(value, type);
+            }
+            slices[column] = value;
             nulls[column] = false;
         }
     }
@@ -530,7 +537,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
         else if (DOUBLE.equals(type)) {
             parseDoubleColumn(column);
         }
-        else if (VARCHAR.equals(type) || VARBINARY.equals(type)) {
+        else if (isVarcharType(type) || VARBINARY.equals(type)) {
             parseStringColumn(column);
         }
         else if (isStructuralType(hiveTypes[column])) {
