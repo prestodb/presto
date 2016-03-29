@@ -591,10 +591,10 @@ public class PrestoS3FileSystem
     private AmazonS3Client createAmazonS3Client(URI uri, Configuration hadoopConfig, ClientConfiguration clientConfig)
     {
         AWSCredentialsProvider credentials = getAwsCredentialsProvider(uri, hadoopConfig);
-        EncryptionMaterialsProvider emp = createEncryptionMaterialsProvider(hadoopConfig);
+        Optional<EncryptionMaterialsProvider> emp = createEncryptionMaterialsProvider(hadoopConfig);
         AmazonS3Client client;
-        if (emp != null) {
-            client = new AmazonS3EncryptionClient(credentials, emp, clientConfig, new CryptoConfiguration(), METRIC_COLLECTOR);
+        if (emp.isPresent()) {
+            client = new AmazonS3EncryptionClient(credentials, emp.get(), clientConfig, new CryptoConfiguration(), METRIC_COLLECTOR);
         }
         else {
             client = new AmazonS3Client(credentials, clientConfig, METRIC_COLLECTOR);
@@ -611,11 +611,11 @@ public class PrestoS3FileSystem
         return client;
     }
 
-    private static EncryptionMaterialsProvider createEncryptionMaterialsProvider(Configuration hadoopConfig)
+    private static Optional<EncryptionMaterialsProvider> createEncryptionMaterialsProvider(Configuration hadoopConfig)
     {
         String empClassName = hadoopConfig.get(S3_ENCRYPTION_MATERIALS_PROVIDER);
         if (empClassName == null) {
-            return null;
+            return Optional.empty();
         }
 
         try {
@@ -627,7 +627,7 @@ public class PrestoS3FileSystem
             if (emp instanceof Configurable) {
                 ((Configurable) emp).setConf(hadoopConfig);
             }
-            return emp;
+            return Optional.of(emp);
         }
         catch (ReflectiveOperationException e) {
             throw new RuntimeException("Unable to load or create S3 encryption materials provider: " + empClassName, e);
