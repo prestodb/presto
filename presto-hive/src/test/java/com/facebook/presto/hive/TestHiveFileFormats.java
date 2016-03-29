@@ -61,6 +61,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.TimeZone;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
@@ -151,10 +152,12 @@ public class TestHiveFileFormats
     public void testRCBinary(int rowCount)
             throws Exception
     {
-        List<TestColumn> testColumns = ImmutableList.copyOf(filter(TEST_COLUMNS, testColumn -> {
-            // RC file does not support complex type as key of a map
-            return !testColumn.getName().equals("t_map_null_key_complex_key_value");
-        }));
+        // RC file does not support complex type as key of a map and interprets empty VARCHAR as nulls
+        List<TestColumn> testColumns = TEST_COLUMNS.stream()
+                .filter(testColumn -> {
+                    String name = testColumn.getName();
+                    return !name.equals("t_map_null_key_complex_key_value") && !name.equals("t_empty_varchar");
+                }).collect(toList());
 
         HiveOutputFormat<?, ?> outputFormat = new RCFileOutputFormat();
         InputFormat<?, ?> inputFormat = new RCFileInputFormat<>();
@@ -402,10 +405,9 @@ public class TestHiveFileFormats
     public void testDwrf(int rowCount)
             throws Exception
     {
-        List<TestColumn> testColumns = ImmutableList.copyOf(filter(TEST_COLUMNS, testColumn -> {
-            ObjectInspector objectInspector = testColumn.getObjectInspector();
-            return !hasType(objectInspector, PrimitiveCategory.DATE) && !hasType(objectInspector, PrimitiveCategory.DECIMAL);
-        }));
+        List<TestColumn> testColumns = TEST_COLUMNS.stream()
+                .filter(testColumn -> !hasType(testColumn.getObjectInspector(), PrimitiveCategory.DATE, PrimitiveCategory.VARCHAR, PrimitiveCategory.DECIMAL))
+                .collect(Collectors.toList());
 
         HiveOutputFormat<?, ?> outputFormat = new com.facebook.hive.orc.OrcOutputFormat();
         InputFormat<?, ?> inputFormat = new com.facebook.hive.orc.OrcInputFormat();

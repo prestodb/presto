@@ -9,6 +9,7 @@ CREATE TABLE presto_test_types_textfile (
 , t_boolean BOOLEAN
 , t_timestamp TIMESTAMP
 , t_binary BINARY
+, t_varchar VARCHAR(50)
 , t_map MAP<STRING, STRING>
 , t_array_string ARRAY<STRING>
 , t_array_struct ARRAY<STRUCT<s_string: STRING, s_double:DOUBLE>>
@@ -29,6 +30,7 @@ SELECT
 , CASE n % 3 WHEN 0 THEN false WHEN 1 THEN true ELSE NULL END
 , CASE WHEN n % 17 = 0 THEN NULL ELSE '2011-05-06 07:08:09.1234567' END
 , CASE WHEN n % 23 = 0 THEN NULL ELSE CAST('test binary' AS BINARY) END
+, CASE n % 39 WHEN 0 THEN NULL WHEN 1 THEN '' ELSE 'test varchar' END
 , CASE WHEN n % 27 = 0 THEN NULL ELSE map('test key', 'test value') END
 , CASE WHEN n % 29 = 0 THEN NULL ELSE array('abc', 'xyz', 'data') END
 , CASE WHEN n % 31 = 0 THEN NULL ELSE
