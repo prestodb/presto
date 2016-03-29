@@ -21,18 +21,25 @@
 
 * [```docker-toolbox >= 1.10```](https://www.docker.com/products/docker-toolbox)
 
-On Mac OS X installing docker-toolbox gives access to a preconfigured bash environment
-with ```docker``` and ```docker-compose``` available. To start this bash environment
-select "Docker Quickstart Terminal" from Launchpad. Note that all commands given in
-later parts of these instructions should be run from this environment.
+On Mac OS X installing docker-toolbox gives access to a preconfigured shell environment
+with ```docker``` and ```docker-compose``` available. The shortcut to preconfigured
+shell environment for docker may be find in Applications/Docker as "Docker Quickstart Terminal"
+Note that all commands given in later parts of these instructions should be run from this
+environment.
 
 ##### Setting up virtual machine for docker
 
 As part of the ```docker-toolbox``` installation process VirtualBox machine with the
-name ```default``` is created. It's settings should be adequate for most cases,
-but setting up docker machine to have at least 4GB is required. Memory size can be
-adjusted using the VirtualBox GUI, or new docker machine with the desired memory size
-can be created.
+name ```default``` is created. In order to use this machine for product-tests it's required
+to assing at least 4GB memory to this machine. It can be done using following commands:
+
+```
+docker-machine stop
+vboxmanage modifyvm default --memory 4096
+docker-machine start
+```
+
+If one do not want to use ```default``` machine, following steps may be used in order to create and use new machine named ```<machine>``` for product tests:
 
 * To create virtual machine with name <machine> (required one time):
 
@@ -40,7 +47,7 @@ can be created.
     docker-machine create -d virtualbox --virtualbox-memory 4096 <machine>
     ```
 
-* To set up enviroment to use `<machine>` instead of ```default``` (required at docker bash startup):
+* To set up enviroment to use ```<machine>``` (required at docker bash startup):
 
     ```
     eval $(docker-machine env <machine>)
@@ -66,7 +73,9 @@ Possible profiles are:
 
 The following steps explain how you can run the product tests from your IDE as regular TestNG tests:
 
-1. Start the Hadoop container
+1. Navigate to the presto root folder
+
+2. Start the Hadoop container
 
     ```
     docker-compose -f presto-product-tests/conf/docker/singlenode/docker-compose.yml up -d hadoop-master
@@ -78,7 +87,7 @@ The following steps explain how you can run the product tests from your IDE as r
     docker-compose -f presto-product-tests/conf/docker/singlenode/docker-compose.yml logs
     ```
     
-2. Set ```hadoop-master``` host in ```/etc/hosts```
+3. Set ```hadoop-master``` host in ```/etc/hosts```
 
     - On GNU/Linux: ```<container ip> hadoop-master```. Container IP can be obtained with:
 
@@ -92,7 +101,7 @@ The following steps explain how you can run the product tests from your IDE as r
         docker-machine ip <machine|default>
         ```
     
-3. Create the run configuration and then start the Presto server
+4. Create the run configuration and then start the Presto server
     
     - Use classpath of module: ```presto-main```
     - Main class: ```com.facebook.presto.server.PrestoServer```
@@ -108,7 +117,11 @@ The following steps explain how you can run the product tests from your IDE as r
         -Duser.timezone=UTC
         ```
 
-4. Run product tests
+5. Run product tests
+
+    There are multiple mehods of running tests listed below. Note that product tests are
+    not parralelizable and that means that only one instance of only one method may be run
+    in the same environment in the same time:
 
     - From your IDE
     - Full suite from CLI:
@@ -129,7 +142,7 @@ The following steps explain how you can run the product tests from your IDE as r
         presto-product-tests/bin/run.sh -t sql_tests.testcases.system.selectInformationSchemaTables
         ```
     
-5. Stop hadoop container once debugging is done: 
+6. Stop hadoop container once debugging is done:
 
     ```
     docker-compose -f presto-product-tests/conf/docker/singlenode/docker-compose.yml down
