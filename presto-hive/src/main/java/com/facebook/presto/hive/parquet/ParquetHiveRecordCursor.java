@@ -76,6 +76,7 @@ import static com.facebook.presto.hive.HiveUtil.integerPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.longDecimalPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.shortDecimalPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.varcharPartitionKey;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getParquetType;
 import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.buildParquetPredicate;
@@ -93,7 +94,8 @@ import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
+import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
@@ -206,8 +208,8 @@ public class ParquetHiveRecordCursor
                 else if (type.equals(DOUBLE)) {
                     doubles[columnIndex] = doublePartitionKey(partitionKeyValue, columnName);
                 }
-                else if (type.equals(VARCHAR)) {
-                    slices[columnIndex] = wrappedBuffer(bytes);
+                else if (isVarcharType(type)) {
+                    slices[columnIndex] = varcharPartitionKey(partitionKeyValue, columnName, type);
                 }
                 else if (type.equals(TIMESTAMP)) {
                     longs[columnIndex] = timestampPartitionKey(partitionKey.getValue(), hiveStorageTimeZone, columnName);
@@ -641,8 +643,12 @@ public class ParquetHiveRecordCursor
         public void addBinary(Binary value)
         {
             nulls[fieldIndex] = false;
-            if (types[fieldIndex] == TIMESTAMP) {
+            Type type = types[fieldIndex];
+            if (type == TIMESTAMP) {
                 longs[fieldIndex] = ParquetTimestampUtils.getTimestampMillis(value);
+            }
+            else if (isVarcharType(type)) {
+                slices[fieldIndex] = truncateToLength(wrappedBuffer(value.getBytes()), type);
             }
             else {
                 slices[fieldIndex] = wrappedBuffer(value.getBytes());
@@ -1329,6 +1335,9 @@ public class ParquetHiveRecordCursor
             addMissingValues();
             if (type == TIMESTAMP) {
                 type.writeLong(builder, ParquetTimestampUtils.getTimestampMillis(value));
+            }
+            else if (isVarcharType(type)) {
+                type.writeSlice(builder, truncateToLength(wrappedBuffer(value.getBytes()), type));
             }
             else {
                 type.writeSlice(builder, wrappedBuffer(value.getBytes()));
