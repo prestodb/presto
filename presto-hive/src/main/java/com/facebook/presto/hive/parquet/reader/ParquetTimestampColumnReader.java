@@ -15,6 +15,7 @@ package com.facebook.presto.hive.parquet.reader;
 
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.Type;
 import parquet.column.ColumnDescriptor;
 import parquet.io.api.Binary;
 
@@ -29,13 +30,13 @@ public class ParquetTimestampColumnReader
         super(descriptor);
     }
 
-    public BlockBuilder createBlockBuilder()
+    public BlockBuilder createBlockBuilder(Type type)
     {
         return TIMESTAMP.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
     }
 
     @Override
-    public void readValues(BlockBuilder blockBuilder, int valueNumber)
+    public void readValues(BlockBuilder blockBuilder, int valueNumber, Type type)
     {
         for (int i = 0; i < valueNumber; i++) {
             if (definitionReader.readLevel() == columnDescriptor.getMaxDefinitionLevel()) {

@@ -64,9 +64,9 @@ public abstract class ParquetColumnReader
     private int remainingValueCountInPage;
     private int readOffset;
 
-    public abstract BlockBuilder createBlockBuilder();
+    public abstract BlockBuilder createBlockBuilder(Type type);
 
-    public abstract void readValues(BlockBuilder blockBuilder, int valueNumber);
+    public abstract void readValues(BlockBuilder blockBuilder, int valueNumber, Type type);
 
     public abstract void skipValues(int offsetNumber);
 
@@ -177,14 +177,14 @@ public abstract class ParquetColumnReader
             checkArgument(valuePosition == readOffset, "valuePosition " + valuePosition + " not equals to readOffset " + readOffset);
         }
 
-        BlockBuilder blockBuilder = createBlockBuilder();
+        BlockBuilder blockBuilder = createBlockBuilder(type);
         int valueCount = 0;
         while (valueCount < nextBatchSize) {
             if (page == null) {
                 readNextPage();
             }
             int valueNumber = Math.min(remainingValueCountInPage, nextBatchSize - valueCount);
-            readValues(blockBuilder, valueNumber);
+            readValues(blockBuilder, valueNumber, type);
             valueCount = valueCount + valueNumber;
             updatePosition(valueNumber);
         }
