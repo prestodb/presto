@@ -135,7 +135,7 @@ public abstract class AbstractArrayElementBlock
     }
 
     @Override
-    public int hash(int position, int offset, int length)
+    public long hash(int position, int offset, int length)
     {
         checkReadablePosition(position);
         return getBlock().hash(position + start, offset, length);

@@ -19,16 +19,17 @@ import static com.google.common.base.Preconditions.checkState;
 
 public interface HashGenerator
 {
-    int hashPosition(int position, Page page);
+    long hashPosition(int position, Page page);
 
     default int getPartition(int partitionCount, int position, Page page)
     {
-        int rawHash = hashPosition(position, page);
+        long rawHash = hashPosition(position, page);
 
         // clear the sign bit
-        rawHash &= 0x7fff_ffffL;
+        rawHash &= 0x7fff_ffff_ffff_ffffL;
 
-        int partition = rawHash % partitionCount;
+        int partition = (int) (rawHash % partitionCount);
+
         checkState(partition >= 0 && partition < partitionCount);
         return partition;
     }

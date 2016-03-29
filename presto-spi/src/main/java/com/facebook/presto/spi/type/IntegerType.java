@@ -63,7 +63,7 @@ public final class IntegerType
     }
 
     @Override
-    public int hash(Block block, int position)
+    public long hash(Block block, int position)
     {
         return block.getInt(position, 0);
     }

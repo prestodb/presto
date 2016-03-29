@@ -163,7 +163,7 @@ public abstract class AbstractInterleavedBlock
     }
 
     @Override
-    public int hash(int position, int offset, int length)
+    public long hash(int position, int offset, int length)
     {
         int blockIndex = position % columns;
         int positionInBlock = position / columns;

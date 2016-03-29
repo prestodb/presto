@@ -61,7 +61,7 @@ public final class BooleanType
     }
 
     @Override
-    public int hash(Block block, int position)
+    public long hash(Block block, int position)
     {
         boolean value = block.getByte(position, 0) != 0;
         return value ? 1231 : 1237;

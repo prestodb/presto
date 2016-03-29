@@ -70,7 +70,7 @@ public abstract class AbstractType
     }
 
     @Override
-    public int hash(Block block, int position)
+    public long hash(Block block, int position)
     {
         throw new UnsupportedOperationException(getTypeSignature() + " type is not comparable");
     }

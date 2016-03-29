@@ -101,7 +101,7 @@ public interface Block
      * Calculates the hash code the byte sequences at {@code offset} in the
      * value at {@code position}.
      */
-    int hash(int position, int offset, int length);
+    long hash(int position, int offset, int length);
 
     /**
      * Compares the byte sequences at {@code offset} in the value at {@code position}

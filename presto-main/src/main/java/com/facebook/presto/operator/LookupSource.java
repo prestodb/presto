@@ -27,7 +27,7 @@ public interface LookupSource
 
     int getJoinPositionCount();
 
-    long getJoinPosition(int position, Page page, int rawHash);
+    long getJoinPosition(int position, Page page, long rawHash);
 
     long getJoinPosition(int position, Page page);
 

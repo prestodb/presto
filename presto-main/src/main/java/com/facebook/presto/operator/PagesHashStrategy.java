@@ -38,13 +38,13 @@ public interface PagesHashStrategy
     /**
      * Calculates the hash code the hashed columns in this PagesHashStrategy at the specified position.
      */
-    int hashPosition(int blockIndex, int position);
+    long hashPosition(int blockIndex, int position);
 
     /**
      * Calculates the hash code at {@code position} in {@code blocks}. Blocks must have the same number of
      * entries as the hashed columns and each entry is expected to be the same type.
      */
-    int hashRow(int position, Block... blocks);
+    long hashRow(int position, Block... blocks);
 
     /**
      * Compares the values in the specified blocks.  The values are compared positionally, so {@code leftBlocks}

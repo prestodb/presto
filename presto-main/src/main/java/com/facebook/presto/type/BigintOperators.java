@@ -207,6 +207,6 @@ public final class BigintOperators
     @SqlType(StandardTypes.BIGINT)
     public static long hashCode(@SqlType(StandardTypes.BIGINT) long value)
     {
-        return (int) (value ^ (value >>> 32));
+        return value;
     }
 }

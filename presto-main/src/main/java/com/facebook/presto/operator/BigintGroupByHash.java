@@ -191,7 +191,7 @@ public class BigintGroupByHash
         }
 
         long value = BIGINT.getLong(block, position);
-        int hashPosition = getHashPosition(value, mask);
+        long hashPosition = getHashPosition(value, mask);
 
         // look for an empty slot or a slot containing this key
         while (true) {
@@ -227,7 +227,7 @@ public class BigintGroupByHash
         }
 
         long value = BIGINT.getLong(block, position);
-        int hashPosition = getHashPosition(value, mask);
+        long hashPosition = getHashPosition(value, mask);
 
         // look for an empty slot or a slot containing this key
         while (true) {
@@ -247,7 +247,7 @@ public class BigintGroupByHash
         return addNewGroup(hashPosition, value);
     }
 
-    private int addNewGroup(int hashPosition, long value)
+    private int addNewGroup(long hashPosition, long value)
     {
         // record group id in hash
         int groupId = nextGroupId++;
@@ -284,7 +284,7 @@ public class BigintGroupByHash
             long value = valuesByGroupId.get(groupId);
 
             // find an empty slot for the address
-            int hashPosition = getHashPosition(value, newMask);
+            long hashPosition = getHashPosition(value, newMask);
             while (newGroupIds.get(hashPosition) != -1) {
                 hashPosition = (hashPosition + 1) & newMask;
             }
@@ -303,9 +303,9 @@ public class BigintGroupByHash
         this.valuesByGroupId.ensureCapacity(maxFill);
     }
 
-    private static int getHashPosition(long rawHash, int mask)
+    private static long getHashPosition(long rawHash, int mask)
     {
-        return ((int) murmurHash3(rawHash)) & mask;
+        return murmurHash3(rawHash) & mask;
     }
 
     private static int calculateMaxFill(int hashSize)

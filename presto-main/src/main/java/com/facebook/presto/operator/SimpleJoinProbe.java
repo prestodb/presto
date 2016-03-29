@@ -106,7 +106,7 @@ public class SimpleJoinProbe
             return -1;
         }
         if (probeHashBlock.isPresent()) {
-            int rawHash = (int) BIGINT.getLong(probeHashBlock.get(), position);
+            long rawHash = BIGINT.getLong(probeHashBlock.get(), position);
             return lookupSource.getJoinPosition(position, probePage, rawHash);
         }
         return lookupSource.getJoinPosition(position, probePage);

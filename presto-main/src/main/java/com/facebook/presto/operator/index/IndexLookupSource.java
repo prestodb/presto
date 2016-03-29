@@ -56,7 +56,7 @@ public class IndexLookupSource
     }
 
     @Override
-    public long getJoinPosition(int position, Page page, int rawHash)
+    public long getJoinPosition(int position, Page page, long rawHash)
     {
         // TODO update to take advantage of precomputed hash
         return getJoinPosition(position, page);

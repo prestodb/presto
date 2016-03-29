@@ -363,8 +363,7 @@ public class JoinProbeCompiler
                     constantType(callSiteBinder, BigintType.BIGINT).invoke("getLong",
                             long.class,
                             probeHashBlock,
-                            position)
-                            .cast(int.class)))
+                            position)))
                     .retLong();
         }
         else {

@@ -199,10 +199,10 @@ public class HashPartitionMaskOperator
             maskBuilders[i] = BOOLEAN.createBlockBuilder(new BlockBuilderStatus(), page.getPositionCount());
         }
         for (int position = 0; position < page.getPositionCount(); position++) {
-            int rawHash = hashGenerator.hashPosition(position, page);
+            long rawHash = hashGenerator.hashPosition(position, page);
             // mix the bits so we don't use the same hash used to distribute between stages
-            rawHash = (int) XxHash64.hash(Integer.reverse(rawHash));
-            rawHash &= Integer.MAX_VALUE;
+            rawHash = XxHash64.hash(Long.reverse(rawHash));
+            rawHash &= Long.MAX_VALUE;
 
             boolean active = (rawHash % partitionCount == partition);
             BOOLEAN.writeBoolean(activePositions, active);

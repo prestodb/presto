@@ -288,7 +288,7 @@ public class TestMinMaxByAggregation
         }
 
         @Override
-        public int hash(Block block, int position)
+        public long hash(Block block, int position)
         {
             long value = block.getLong(position, 0);
             return (int) (value ^ (value >>> 32));

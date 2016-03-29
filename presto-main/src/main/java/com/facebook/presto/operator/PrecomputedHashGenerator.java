@@ -28,9 +28,9 @@ public class PrecomputedHashGenerator
     }
 
     @Override
-    public int hashPosition(int position, Page page)
+    public long hashPosition(int position, Page page)
     {
-        return (int) BigintType.BIGINT.getLong(page.getBlock(hashChannel), position);
+        return BigintType.BIGINT.getLong(page.getBlock(hashChannel), position);
     }
 
     @Override

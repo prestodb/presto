@@ -364,7 +364,7 @@ public class LookupOuterOperator
         }
 
         @Override
-        public long getJoinPosition(int position, Page page, int rawHash)
+        public long getJoinPosition(int position, Page page, long rawHash)
         {
             return lookupSource.getJoinPosition(position, page, rawHash);
         }

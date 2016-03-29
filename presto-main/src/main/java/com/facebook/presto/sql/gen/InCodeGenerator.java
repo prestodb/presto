@@ -143,7 +143,7 @@ public class InCodeGenerator
                         break;
                     case HASH_SWITCH:
                         try {
-                            int hashCode = Ints.checkedCast((Long) hashCodeFunction.invoke(object));
+                            int hashCode = Ints.checkedCast(Long.hashCode((Long) hashCodeFunction.invoke(object)));
                             hashBucketsBuilder.put(hashCode, testBytecode);
                         }
                         catch (Throwable throwable) {
@@ -210,7 +210,7 @@ public class InCodeGenerator
                         .comment("lookupSwitch(hashCode(<stackValue>))")
                         .dup(javaType)
                         .append(invoke(hashCodeBinding, hashCodeSignature))
-                        .longToInt()
+                        .invokeStatic(Long.class, "hashCode", int.class, long.class)
                         .append(switchBuilder.build())
                         .append(switchCaseBlocks);
                 break;

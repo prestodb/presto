@@ -62,7 +62,7 @@ public final class TimeWithTimeZoneType
     }
 
     @Override
-    public int hash(Block block, int position)
+    public long hash(Block block, int position)
     {
         long value = unpackMillisUtc(block.getLong(position, 0));
         return (int) (value ^ (value >>> 32));

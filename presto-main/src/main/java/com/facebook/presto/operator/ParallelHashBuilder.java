@@ -257,8 +257,8 @@ public class ParallelHashBuilder
             // build a block containing the partition id of each position
             BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), page.getPositionCount());
             for (int position = 0; position < page.getPositionCount(); position++) {
-                int rawHash = hashGenerator.hashPosition(position, page);
-                int partition = murmurHash3(rawHash) & parallelStreamMask;
+                long rawHash = hashGenerator.hashPosition(position, page);
+                int partition = (int) (murmurHash3(rawHash) & parallelStreamMask);
                 BIGINT.writeLong(blockBuilder, partition);
             }
             Block partitionIds = blockBuilder.build();

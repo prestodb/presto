@@ -116,7 +116,7 @@ public abstract class AbstractTestType
 
     protected void assertPositionEquals(Block block, int position, Object expectedStackValue, Object expectedObjectValue)
     {
-        int hash = 0;
+        long hash = 0;
         if (type.isComparable()) {
             hash = hashPosition(type, block, position);
         }
@@ -131,7 +131,7 @@ public abstract class AbstractTestType
         assertPositionValue(blockBuilder.build(), 0, expectedStackValue, hash, expectedObjectValue);
     }
 
-    private void assertPositionValue(Block block, int position, Object expectedStackValue, int expectedHash, Object expectedObjectValue)
+    private void assertPositionValue(Block block, int position, Object expectedStackValue, long expectedHash, Object expectedObjectValue)
     {
         Object objectValue = type.getObjectValue(SESSION, block, position);
         assertEquals(objectValue, expectedObjectValue);

@@ -184,7 +184,7 @@ public class DictionaryBlock
     }
 
     @Override
-    public int hash(int position, int offset, int length)
+    public long hash(int position, int offset, int length)
     {
         return dictionary.hash(getIndex(position), offset, length);
     }
