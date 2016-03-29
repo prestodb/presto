@@ -55,6 +55,7 @@ import static com.facebook.presto.hive.HiveUtil.parseHiveDate;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.HiveUtil.shortDecimalPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.varcharPartitionKey;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
 import static com.facebook.presto.hive.NumberParser.parseLong;
 import static com.facebook.presto.hive.util.SerDeUtils.getBlockObject;
@@ -69,7 +70,8 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.StandardTypes.DECIMAL;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
+import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
@@ -199,8 +201,8 @@ class ColumnarTextHiveRecordCursor<K>
                 else if (DOUBLE.equals(type)) {
                     doubles[columnIndex] = doublePartitionKey(partitionKey.getValue(), name);
                 }
-                else if (VARCHAR.equals(type)) {
-                    slices[columnIndex] = Slices.wrappedBuffer(bytes);
+                else if (isVarcharType(type)) {
+                    slices[columnIndex] = varcharPartitionKey(partitionKey.getValue(), name, type);
                 }
                 else if (DATE.equals(type)) {
                     longs[columnIndex] = datePartitionKey(partitionKey.getValue(), name);
@@ -505,12 +507,18 @@ class ColumnarTextHiveRecordCursor<K>
             wasNull = true;
         }
         else {
-            slices[column] = Slices.wrappedBuffer(Arrays.copyOfRange(bytes, start, start + length));
-
+            Type type = types[column];
+            Slice value = Slices.wrappedBuffer(Arrays.copyOfRange(bytes, start, start + length));
+            if (isVarcharType(type)) {
+                slices[column] = truncateToLength(value, type);
+            }
             // this is unbelievably stupid but Hive base64 encodes binary data in a binary file format
-            if (hiveTypes[column].equals(HiveType.HIVE_BINARY)) {
+            else if (type.equals(VARBINARY)) {
                 // and yes we end up with an extra copy here because the Base64 only handles whole arrays
-                slices[column] = base64Decode(slices[column].getBytes());
+                slices[column] = base64Decode(value.getBytes());
+            }
+            else {
+                slices[column] = value;
             }
             wasNull = false;
         }
@@ -657,7 +665,7 @@ class ColumnarTextHiveRecordCursor<K>
         else if (type.equals(DOUBLE)) {
             parseDoubleColumn(column);
         }
-        else if (VARCHAR.equals(type) || VARBINARY.equals(type)) {
+        else if (isVarcharType(type) || VARBINARY.equals(type)) {
             parseStringColumn(column);
         }
         else if (isStructuralType(hiveTypes[column])) {

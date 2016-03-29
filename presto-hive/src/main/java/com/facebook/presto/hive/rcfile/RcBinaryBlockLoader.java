@@ -51,6 +51,8 @@ import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.HIVE_TIMESTAMP;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
 import static com.facebook.presto.hive.util.SerDeUtils.serializeObject;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
+import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
@@ -99,10 +101,10 @@ public class RcBinaryBlockLoader
     }
 
     @Override
-    public LazyBlockLoader<LazySliceArrayBlock> variableWidthBlockLoader(RcFileColumnsBatch batch, int fieldId, HiveType hiveType, ObjectInspector fieldInspector)
+    public LazyBlockLoader<LazySliceArrayBlock> variableWidthBlockLoader(RcFileColumnsBatch batch, int fieldId, HiveType hiveType, ObjectInspector fieldInspector, Type type)
     {
         if (HIVE_STRING.equals(hiveType) || HIVE_BINARY.equals(hiveType)) {
-            return new LazySliceBlockLoader(batch, fieldId);
+            return new LazySliceBlockLoader(batch, fieldId, type);
         }
         throw new UnsupportedOperationException("Unsupported column type: " + hiveType);
     }
@@ -619,12 +621,14 @@ public class RcBinaryBlockLoader
     {
         private final RcFileColumnsBatch batch;
         private final int fieldId;
+        private final Type type;
         private boolean loaded;
 
-        private LazySliceBlockLoader(RcFileColumnsBatch batch, int fieldId)
+        private LazySliceBlockLoader(RcFileColumnsBatch batch, int fieldId, Type type)
         {
             this.batch = batch;
             this.fieldId = fieldId;
+            this.type = type;
         }
 
         @Override
@@ -648,12 +652,17 @@ public class RcBinaryBlockLoader
                     if (length > 0) {
                         byte[] bytes = writable.getData();
                         int start = writable.getStart();
+                        Slice value;
                         if ((length == 1) && bytes[start] == HIVE_EMPTY_STRING_BYTE) {
-                            vector[i] = Slices.EMPTY_SLICE;
+                            value = Slices.EMPTY_SLICE;
                         }
                         else {
-                            vector[i] = Slices.wrappedBuffer(Arrays.copyOfRange(bytes, start, start + length));
+                            value = Slices.wrappedBuffer(Arrays.copyOfRange(bytes, start, start + length));
                         }
+                        if (isVarcharType(type)) {
+                            value = truncateToLength(value, type);
+                        }
+                        vector[i] = value;
                     }
                 }
 
