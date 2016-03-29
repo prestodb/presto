@@ -25,13 +25,13 @@ import com.facebook.presto.spi.type.VarcharType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.collect.ImmutableList;
-import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.VarcharTypeInfo;
 
 import javax.annotation.Nonnull;
 
@@ -50,7 +50,8 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -271,7 +272,6 @@ public final class HiveType
     {
         switch (typeInfo.getCategory()) {
             case PRIMITIVE:
-                PrimitiveObjectInspector.PrimitiveCategory primitiveCategory = ((PrimitiveTypeInfo) typeInfo).getPrimitiveCategory();
                 Type primitiveType = getPrimitiveType((PrimitiveTypeInfo) typeInfo);
                 if (primitiveType == null) {
                     break;
@@ -319,9 +319,9 @@ public final class HiveType
             case DOUBLE:
                 return DOUBLE;
             case STRING:
-                return VARCHAR;
+                return createUnboundedVarcharType();
             case VARCHAR:
-                return VARCHAR;
+                return createVarcharType(((VarcharTypeInfo) typeInfo).getLength());
             case DATE:
                 return DATE;
             case TIMESTAMP:
