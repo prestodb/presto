@@ -25,10 +25,10 @@ public final class ParquetDecimalColumnReaderFactory
     {
         DecimalType decimalType = DecimalType.createDecimalType(precision, scale);
         if (decimalType.isShort()) {
-            return new ParquetShortDecimalColumnReader(descriptor, decimalType);
+            return new ParquetShortDecimalColumnReader(descriptor);
         }
         else {
-            return new ParquetLongDecimalColumnReader(descriptor, decimalType);
+            return new ParquetLongDecimalColumnReader(descriptor);
         }
     }
 }

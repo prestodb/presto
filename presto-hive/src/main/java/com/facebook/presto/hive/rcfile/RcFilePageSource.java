@@ -35,7 +35,6 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.hive.ql.io.RCFile;
 import org.apache.hadoop.hive.ql.io.RCFile.Reader;
@@ -58,6 +57,7 @@ import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
 import static com.facebook.presto.hive.HiveUtil.integerPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.varcharPartitionKey;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -65,7 +65,7 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -207,10 +207,10 @@ public class RcFilePageSource
                         DOUBLE.writeDouble(blockBuilder, value);
                     }
                 }
-                else if (type.equals(VARCHAR)) {
-                    Slice value = Slices.wrappedBuffer(bytes);
+                else if (isVarcharType(type)) {
+                    Slice value = varcharPartitionKey(partitionKey.getValue(), name, type);
                     for (int i = 0; i < MAX_PAGE_SIZE; i++) {
-                        VARCHAR.writeSlice(blockBuilder, value);
+                        type.writeSlice(blockBuilder, value);
                     }
                 }
                 else if (type.equals(DATE)) {
@@ -313,7 +313,8 @@ public class RcFilePageSource
                     LazyBlockLoader<LazySliceArrayBlock> loader = blockLoader.variableWidthBlockLoader(rcFileColumnsBatch,
                             fieldId,
                             hiveTypes.get(fieldId),
-                            fieldInspectors[fieldId]);
+                            fieldInspectors[fieldId],
+                            type);
                     blocks[fieldId] = new LazySliceArrayBlock(currentPageSize, loader);
                 }
                 else {
