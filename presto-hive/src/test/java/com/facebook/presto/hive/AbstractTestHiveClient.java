@@ -147,6 +147,8 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.concat;
@@ -662,7 +664,7 @@ public abstract class AbstractTestHiveClient
         Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), ColumnMetadata::getName);
 
         assertPrimitiveField(map, "t_string", VARCHAR, false);
-        assertPrimitiveField(map, "t_varchar", VARCHAR, false);
+        assertPrimitiveField(map, "t_varchar", createVarcharType(50), false);
         assertPrimitiveField(map, "t_tinyint", INTEGER, false);
         assertPrimitiveField(map, "t_smallint", INTEGER, false);
         assertPrimitiveField(map, "t_int", INTEGER, false);
@@ -2513,7 +2515,7 @@ public abstract class AbstractTestHiveClient
                 else if (DOUBLE.equals(column.getType())) {
                     assertInstanceOf(value, Double.class);
                 }
-                else if (VARCHAR.equals(column.getType())) {
+                else if (isVarcharType(column.getType())) {
                     assertInstanceOf(value, String.class);
                 }
                 else if (VARBINARY.equals(column.getType())) {
