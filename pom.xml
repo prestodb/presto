@@ -974,6 +974,19 @@
         </plugins>
     </build>
 
+    <repositories>
+        <repository>
+            <id>teradata-nexus-releases</id>
+            <url>http://phabricator.td.teradata.com:8081/nexus/content/repositories/presto-td</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
+
     <profiles>
         <!-- run cli for development: mvn -am -pl presto-cli -P cli compile exec:java -->
         <profile>
