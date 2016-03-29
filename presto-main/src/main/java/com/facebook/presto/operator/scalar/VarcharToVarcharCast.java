@@ -21,7 +21,6 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -30,9 +29,9 @@ import static com.facebook.presto.metadata.OperatorType.CAST;
 import static com.facebook.presto.metadata.Signature.comparableWithVariadicBound;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
+import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.slice.SliceUtf8.offsetOfCodePoint;
 
 public class VarcharToVarcharCast
         extends SqlOperator
@@ -70,13 +69,6 @@ public class VarcharToVarcharCast
         if (length < 0) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Length smaller then zero");
         }
-        else if (length == 0) {
-            return Slices.EMPTY_SLICE;
-        }
-        int indexEnd = offsetOfCodePoint(slice, length);
-        if (indexEnd < 0) {
-            return slice;
-        }
-        return slice.slice(0, indexEnd);
+        return truncateToLength(slice, length);
     }
 }
