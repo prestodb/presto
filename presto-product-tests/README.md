@@ -67,8 +67,6 @@ Possible profiles are:
     with one coordinator node and at least one worker node.
 - **singlenode** - consists of single node (pseudo-distributed) Hadoop cluster and one node Presto cluster
 
-*Docker container logs can be found in ```/tmp/presto_docker_logs```*
-
 ## Debugging tests
 
 The following steps explain how you can run the product tests from your IDE as regular TestNG tests:
