@@ -145,3 +145,24 @@ The following steps explain how you can run the product tests from your IDE as r
     ```
     docker-compose -f presto-product-tests/conf/docker/singlenode/docker-compose.yml down
     ```
+
+### Debugging convention based tests
+
+Some of the product tests are implemented in 
+[convention based](https://github.com/prestodb/tempto#convention-based-sql-query-tests) manner.
+Those tests can not be run from the IDE directly.
+ 
+The following steps explain how you can debug convention based tests:
+ 
+1. Follow the [1-4] steps from the previous section.
+2. Run convention based test with the debugger port exposed:
+    
+    ```
+    PRODUCT_TESTS_JVM_OPTIONS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=<debug port>" presto-product-tests/bin/run.sh -t sql_tests.testcases.system.selectInformationSchemaTables
+    ```
+    
+    Product tests execution will be suspended until debugger is attached.
+
+3. Set a breakpoint at the beginning of the ```com.teradata.tempto.internal.convention.ConventionBasedTestFactory#createTestCases```
+    method. This is the main entry point for the convention based tests.
+4. Attach debugger to the ```localhost:<debug port>```. On this step the product tests execution will be resumed.
