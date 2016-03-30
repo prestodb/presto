@@ -64,18 +64,6 @@ function run_product_tests() {
         --config-local /presto-product-tests/conf/tempto/tempto-configuration.yaml "$@"
 }
 
-function start_docker_logs() {
-  docker-compose -f "${DOCKER_COMPOSE_LOCATION}" logs --no-color &
-  DOCKER_LOG_PROCESS_ID=$!
-}
-
-function stop_docker_logs() {
-  set +e
-  kill ${DOCKER_LOG_PROCESS_ID}
-  wait ${DOCKER_LOG_PROCESS_ID}
-  set -e
-}
-
 ENVIRONMENT=$1
 
 if [[ "$ENVIRONMENT" != "singlenode" && "$ENVIRONMENT" != "distributed" ]]; then
@@ -107,21 +95,22 @@ docker-compose -f "${DOCKER_COMPOSE_LOCATION}" pull
 # start hadoop container
 docker-compose -f "${DOCKER_COMPOSE_LOCATION}" up -d hadoop-master
 
-# start docker logs to be able to check what is going on spawning hadoop-master container
-start_docker_logs
+# start docker logs for hadoop container
+docker-compose -f "${DOCKER_COMPOSE_LOCATION}" logs --no-color hadoop-master &
 
 # wait until hadoop processes is started
 retry check_hadoop
 stop_unnecessary_hadoop_services
 
-# stop docker logs and start it again after the presto containers are spawned
-stop_docker_logs
-
 # start presto containers
-docker-compose -f "${DOCKER_COMPOSE_LOCATION}" up -d
+PRESTO_SERVICES="presto-master"
+if [[ "$ENVIRONMENT" == "distributed" ]]; then
+   PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker"
+fi
+docker-compose -f "${DOCKER_COMPOSE_LOCATION}" up -d ${PRESTO_SERVICES}
 
-# start docker logs attached to both hadoop and presto containers
-start_docker_logs
+# start docker logs for presto containers
+docker-compose -f "${DOCKER_COMPOSE_LOCATION}" logs --no-color ${PRESTO_SERVICES} &
 
 # wait until presto is started
 retry check_presto
@@ -135,7 +124,7 @@ set -x
 # stop docker containers
 docker-compose -f "${DOCKER_COMPOSE_LOCATION}" down
 
-# stop docker logs
-stop_docker_logs
+# wait for docker logs to stop
+wait
 
 exit ${EXIT_CODE}
