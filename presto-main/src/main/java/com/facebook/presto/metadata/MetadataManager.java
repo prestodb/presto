@@ -341,7 +341,13 @@ public class MetadataManager
     {
         ConnectorEntry entry = lookupConnectorFor(tableHandle);
         ConnectorMetadata metadata = entry.getMetadata(session);
-        return metadata.getColumnHandles(session.toConnectorSession(entry.getCatalog()), tableHandle.getConnectorHandle());
+        Map<String, ColumnHandle> handles = metadata.getColumnHandles(session.toConnectorSession(entry.getCatalog()), tableHandle.getConnectorHandle());
+
+        ImmutableMap.Builder<String, ColumnHandle> map = ImmutableMap.builder();
+        for (Entry<String, ColumnHandle> mapEntry : handles.entrySet()) {
+            map.put(mapEntry.getKey().toLowerCase(ENGLISH), mapEntry.getValue());
+        }
+        return map.build();
     }
 
     @Override
