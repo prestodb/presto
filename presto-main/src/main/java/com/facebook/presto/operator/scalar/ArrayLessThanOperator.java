@@ -22,6 +22,7 @@ import com.google.common.base.Throwables;
 
 import java.lang.invoke.MethodHandle;
 
+import static com.facebook.presto.metadata.OperatorType.EQUAL;
 import static com.facebook.presto.metadata.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
@@ -36,6 +37,7 @@ public final class ArrayLessThanOperator
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean lessThan(
             @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle lessThanFunction,
+            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equalsFunction,
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block leftArray,
             @SqlType("array(T)") Block rightArray)
@@ -52,6 +54,9 @@ public final class ArrayLessThanOperator
                     return true;
                 }
                 if ((boolean) lessThanFunction.invoke(rightElement, leftElement)) {
+                    return false;
+                }
+                if (!(boolean) equalsFunction.invoke(leftElement, rightElement)) {
                     return false;
                 }
             }
