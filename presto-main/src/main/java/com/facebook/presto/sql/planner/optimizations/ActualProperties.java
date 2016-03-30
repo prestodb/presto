@@ -459,7 +459,7 @@ class ActualProperties
 
             for (int i = 0; i < partitioningArguments.size(); i++) {
                 PartitionFunctionArgumentBinding argument = partitioningArguments.get(i);
-                if (argument.isVariable() && !argument.getColumn().equals(columns.get(i))) {
+                if (!argument.getColumn().equals(columns.get(i))) {
                     return false;
                 }
             }
@@ -589,7 +589,7 @@ class ActualProperties
             // as it makes further optimizations possible.
             Optional<NullableValue> constant = constants.apply(argument.getColumn());
             if (constant.isPresent()) {
-                return Optional.of(new PartitionFunctionArgumentBinding(constant.get()));
+                return Optional.of(new PartitionFunctionArgumentBinding(argument.getColumn(), constant.get()));
             }
 
             return Optional.empty();
