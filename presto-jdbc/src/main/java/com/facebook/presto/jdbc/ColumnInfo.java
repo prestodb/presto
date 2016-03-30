@@ -109,6 +109,18 @@ class ColumnInfo
                 builder.setScale(0);
                 builder.setColumnDisplaySize(11);
                 break;
+            case "smallint":
+                builder.setSigned(true);
+                builder.setPrecision(5);
+                builder.setScale(0);
+                builder.setColumnDisplaySize(6);
+                break;
+            case "tinyint":
+                builder.setSigned(true);
+                builder.setPrecision(3);
+                builder.setScale(0);
+                builder.setColumnDisplaySize(4);
+                break;
             case "double":
                 builder.setSigned(true);
                 builder.setPrecision(17);
@@ -193,6 +205,10 @@ class ColumnInfo
                 return Types.BIGINT;
             case "integer":
                 return Types.INTEGER;
+            case "smallint":
+                return Types.SMALLINT;
+            case "tinyint":
+                return Types.TINYINT;
             case "double":
                 return Types.DOUBLE;
             case "varchar":

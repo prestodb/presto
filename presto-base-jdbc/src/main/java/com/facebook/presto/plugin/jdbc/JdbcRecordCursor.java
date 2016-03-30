@@ -18,8 +18,10 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.IntegerType;
+import com.facebook.presto.spi.type.SmallintType;
 import com.facebook.presto.spi.type.TimeType;
 import com.facebook.presto.spi.type.TimestampType;
+import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
@@ -137,11 +139,17 @@ public class JdbcRecordCursor
         checkState(!closed, "cursor is closed");
         try {
             Type type = getType(field);
-            if (type.equals(BigintType.BIGINT)) {
-                return resultSet.getLong(field + 1);
+            if (type.equals(TinyintType.TINYINT)) {
+                return (long) resultSet.getByte(field + 1);
+            }
+            if (type.equals(SmallintType.SMALLINT)) {
+                return (long) resultSet.getShort(field + 1);
             }
             if (type.equals(IntegerType.INTEGER)) {
                 return (long) resultSet.getInt(field + 1);
+            }
+            if (type.equals(BigintType.BIGINT)) {
+                return resultSet.getLong(field + 1);
             }
             if (type.equals(DateType.DATE)) {
                 // JDBC returns a date using a timestamp at midnight in the JVM timezone

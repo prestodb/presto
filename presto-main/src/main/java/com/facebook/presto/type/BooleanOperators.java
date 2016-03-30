@@ -110,6 +110,20 @@ public final class BooleanOperators
     }
 
     @ScalarOperator(CAST)
+    @SqlType(StandardTypes.SMALLINT)
+    public static long castToSmallint(@SqlType(StandardTypes.BOOLEAN) boolean value)
+    {
+        return value ? 1 : 0;
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.TINYINT)
+    public static long castToTinyint(@SqlType(StandardTypes.BOOLEAN) boolean value)
+    {
+        return value ? 1 : 0;
+    }
+
+    @ScalarOperator(CAST)
     @SqlType(StandardTypes.VARCHAR)
     public static Slice castToVarchar(@SqlType(StandardTypes.BOOLEAN) boolean value)
     {

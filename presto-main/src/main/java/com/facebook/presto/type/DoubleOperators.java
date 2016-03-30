@@ -19,6 +19,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.math.DoubleMath;
 import com.google.common.primitives.Ints;
+import com.google.common.primitives.Shorts;
+import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.metadata.OperatorType.ADD;
@@ -171,6 +173,30 @@ public final class DoubleOperators
     {
         try {
             return Ints.checkedCast((long) MathFunctions.round(value));
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+        }
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.SMALLINT)
+    public static long castToSmallint(@SqlType(StandardTypes.DOUBLE) double value)
+    {
+        try {
+            return Shorts.checkedCast((long) MathFunctions.round(value));
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+        }
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.TINYINT)
+    public static long castToTinyint(@SqlType(StandardTypes.DOUBLE) double value)
+    {
+        try {
+            return SignedBytes.checkedCast((long) MathFunctions.round(value));
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);

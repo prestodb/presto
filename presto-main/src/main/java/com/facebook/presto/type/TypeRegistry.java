@@ -45,10 +45,12 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.spi.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static com.facebook.presto.spi.type.P4HyperLogLogType.P4_HYPER_LOG_LOG;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
@@ -90,6 +92,8 @@ public final class TypeRegistry
         addType(BOOLEAN);
         addType(BIGINT);
         addType(INTEGER);
+        addType(SMALLINT);
+        addType(TINYINT);
         addType(DOUBLE);
         addType(VARBINARY);
         addType(DATE);
@@ -342,6 +346,32 @@ public final class TypeRegistry
                         return Optional.of(createVarcharType(0));
                     case StandardTypes.DECIMAL:
                         return Optional.of(createDecimalType(1, 0));
+                    default:
+                        return Optional.empty();
+                }
+            }
+            case StandardTypes.TINYINT: {
+                switch (resultTypeBase) {
+                    case StandardTypes.SMALLINT:
+                        return Optional.of(SMALLINT);
+                    case StandardTypes.INTEGER:
+                        return Optional.of(INTEGER);
+                    case StandardTypes.BIGINT:
+                        return Optional.of(BIGINT);
+                    case StandardTypes.DOUBLE:
+                        return Optional.of(DOUBLE);
+                    default:
+                        return Optional.empty();
+                }
+            }
+            case StandardTypes.SMALLINT: {
+                switch (resultTypeBase) {
+                    case StandardTypes.INTEGER:
+                        return Optional.of(INTEGER);
+                    case StandardTypes.BIGINT:
+                        return Optional.of(BIGINT);
+                    case StandardTypes.DOUBLE:
+                        return Optional.of(DOUBLE);
                     default:
                         return Optional.empty();
                 }

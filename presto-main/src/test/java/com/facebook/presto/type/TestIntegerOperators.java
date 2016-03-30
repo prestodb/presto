@@ -22,6 +22,8 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class TestIntegerOperators
@@ -199,6 +201,22 @@ public class TestIntegerOperators
     {
         assertFunction("cast(INTEGER'37' as bigint)", BIGINT, 37L);
         assertFunction("cast(INTEGER'17' as bigint)", BIGINT, 17L);
+    }
+
+    @Test
+    public void testCastToSmallint()
+            throws Exception
+    {
+        assertFunction("cast(INTEGER'37' as smallint)", SMALLINT, (short) 37);
+        assertFunction("cast(INTEGER'17' as smallint)", SMALLINT, (short) 17);
+    }
+
+    @Test
+    public void testCastToTinyint()
+            throws Exception
+    {
+        assertFunction("cast(INTEGER'37' as tinyint)", TINYINT, (byte) 37);
+        assertFunction("cast(INTEGER'17' as tinyint)", TINYINT, (byte) 17);
     }
 
     @Test
