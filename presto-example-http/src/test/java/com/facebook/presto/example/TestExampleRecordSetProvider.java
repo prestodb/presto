@@ -41,7 +41,7 @@ public class TestExampleRecordSetProvider
             throws Exception
     {
         ExampleRecordSetProvider recordSetProvider = new ExampleRecordSetProvider(new ExampleConnectorId("test"));
-        RecordSet recordSet = recordSetProvider.getRecordSet(SESSION, new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
+        RecordSet recordSet = recordSetProvider.getRecordSet(ExampleTransactionHandle.INSTANCE, SESSION, new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
                 new ExampleColumnHandle("test", "text", VARCHAR, 0),
                 new ExampleColumnHandle("test", "value", BIGINT, 1)));
         assertNotNull(recordSet, "recordSet is null");
