@@ -35,11 +35,11 @@ public class TestTpchDistributedQueries
     {
         assertExplainAnalyze("EXPLAIN ANALYZE SELECT * FROM orders",
                 "Fragment 1 \\[SOURCE\\]\n" +
-                        "    Cost: CPU .*, Input: 15000 lines \\(1\\.92MB\\), Output: 15000 lines \\(1\\.92MB\\)\n" +
+                        "    Cost: CPU .*, Input: 15000 lines \\(.*\\), Output: 15000 lines \\(.*\\)\n" +
                         "    Output layout: \\[orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment\\]\n" +
                         "    Output partitioning: SINGLE \\[\\]\n" +
                         "    - TableScan\\[tpch:tpch:orders:sf0\\.01, originalConstraint = true] => \\[orderkey:bigint, custkey:bigint, orderstatus:varchar, totalprice:double, orderdate:date, orderpriority:varchar, clerk:varchar, shippriority:bigint, comment:varchar\\]\n" +
-                        "            Cost: .*%, Output: 15000 lines \\(1\\.92MB\\)\n" +
+                        "            Cost: .*%, Output: 15000 lines \\(.*\\)\n" +
                         "            orderkey := tpch:orderkey\n" +
                         "            custkey := tpch:custkey\n" +
                         "            orderstatus := tpch:orderstatus\n" +
@@ -56,26 +56,26 @@ public class TestTpchDistributedQueries
     {
         assertExplainAnalyze("EXPLAIN ANALYZE SELECT count(*), clerk FROM orders GROUP BY clerk",
                 "Fragment 1 \\[HASH\\]\n" +
-                        "    Cost: CPU .*, Input: 12046 lines \\(447\\.51kB\\), Output: 1000 lines \\(28\\.35kB\\)\n" +
+                        "    Cost: CPU .*, Input: .* lines \\(.*\\), Output: 1000 lines \\(.*\\)\n" +
                         "    Output layout: \\[count, clerk\\]\n" +
                         "    Output partitioning: SINGLE \\[\\]\n" +
                         "    - ScanFilterAndProject\\[\\] => \\[count:bigint, clerk:varchar\\]\n" +
-                        "            Cost: .*, Input: 1000 lines \\(37\\.17kB\\), Output: 1000 lines \\(28\\.35kB\\), Filtered: 0\\.00%\n" +
+                        "            Cost: .*, Input: 1000 lines \\(.*\\), Output: 1000 lines \\(.*\\), Filtered: 0\\.00%\n" +
                         "        - Aggregate\\(FINAL\\)\\[clerk\\] => \\[clerk:varchar, \\$hashvalue:bigint, count:bigint\\]\n" +
-                        "                Cost: .*, Output: 1000 lines \\(37\\.17kB\\)\n" +
+                        "                Cost: .*, Output: 1000 lines \\(.*\\)\n" +
                         "                count := \"count\"\\(\"count_8\"\\)\n" +
                         "            - RemoteSource\\[2\\] => \\[clerk:varchar, \\$hashvalue:bigint, count_8:bigint\\]\n" +
                         "                    Cost: .*, Output: .* lines \\(.*\\)\n" +
                         "\n" +
                         "Fragment 2 \\[SOURCE\\]\n" +
-                        "    Cost: CPU .*, Input: 15000 lines \\(424\\.92kB\\), Output: .* lines \\(.*\\)\n" +
+                        "    Cost: CPU .*, Input: 15000 lines \\(.*\\), Output: .* lines \\(.*\\)\n" +
                         "    Output layout: \\[clerk, \\$hashvalue, count_8\\]\n" +
                         "    Output partitioning: HASH \\[clerk\\]\n" +
                         "    - Aggregate\\(PARTIAL\\)\\[clerk\\] => \\[clerk:varchar, \\$hashvalue:bigint, count_8:bigint\\]\n" +
                         "            Cost: .*, Output: .* lines \\(.*\\)\n" +
                         "            count_8 := \"count\"\\(\\*\\)\n" +
                         "        - ScanFilterAndProject\\[table = tpch:tpch:orders:sf0\\.01, originalConstraint = true\\] => \\[clerk:varchar, \\$hashvalue:bigint\\]\n" +
-                        "                Cost: .*, Input: 15000 lines \\(0B\\), Output: 15000 lines \\(424\\.92kB\\), Filtered: 0\\.00%\n" +
+                        "                Cost: .*, Input: 15000 lines \\(.*\\), Output: 15000 lines \\(.*\\), Filtered: 0\\.00%\n" +
                         "                \\$hashvalue := \"combine_hash\"\\(0, COALESCE\\(\"\\$operator\\$hash_code\"\\(\"clerk\"\\), 0\\)\\)\n" +
                         "                clerk := tpch:clerk\n\n");
     }
@@ -88,52 +88,52 @@ public class TestTpchDistributedQueries
                         "   SELECT orderdate, COUNT(*) x FROM orders GROUP BY orderdate) a JOIN (" +
                         "   SELECT orderdate, COUNT(*) y FROM orders GROUP BY orderdate) b ON a.orderdate = b.orderdate",
                 "Fragment 1 \\[HASH\\]\n" +
-                        "    Cost: CPU .*, Input: .* lines \\(.*\\), Output: 2401 lines \\(21\\.09kB\\)\n" +
+                        "    Cost: CPU .*, Input: .* lines \\(.*\\), Output: 2401 lines \\(.*\\)\n" +
                         "    Output layout: \\[expr_28\\]\n" +
                         "    Output partitioning: SINGLE \\[\\]\n" +
                         "    - ScanFilterAndProject\\[\\] => \\[expr_28:bigint\\]\n" +
-                        "            Cost: .*, Input: 2401 lines \\(107\\.86kB\\), Output: 2401 lines \\(21\\.09kB\\), Filtered: 0\\.00%\n" +
+                        "            Cost: .*, Input: 2401 lines \\(.*\\), Output: 2401 lines \\(.*\\), Filtered: 0\\.00%\n" +
                         "            expr_28 := \\(\"count\" \\+ \"count_19\"\\)\n" +
                         "        - InnerJoin\\[.*\\]\n" +
-                        "                Cost: .*, Output: 2401 lines \\(107\\.86kB\\)\n" +
+                        "                Cost: .*, Output: 2401 lines \\(.*\\)\n" +
                         "            - ScanFilterAndProject\\[\\] => \\[\\$hashvalue_32:bigint, count:bigint, orderdate:date\\]\n" +
-                        "                    Cost: .*, Input: 2401 lines \\(53\\.93kB\\), Output: 2401 lines \\(53\\.93kB\\), Filtered: 0\\.00%\n" +
+                        "                    Cost: .*, Input: 2401 lines \\(.*\\), Output: 2401 lines \\(.*\\), Filtered: 0\\.00%\n" +
                         "                    \\$hashvalue_32 := \"combine_hash\"\\(0, COALESCE\\(\"\\$operator\\$hash_code\"\\(\"orderdate\"\\), 0\\)\\)\n" +
                         "                - Aggregate\\(FINAL\\)\\[orderdate\\] => \\[orderdate:date, \\$hashvalue:bigint, count:bigint\\]\n" +
-                        "                        Cost: .*, Output: 2401 lines \\(53\\.93kB\\)\n" +
+                        "                        Cost: .*, Output: 2401 lines \\(.*\\)\n" +
                         "                        count := \"count\"\\(\"count_34\"\\)\n" +
                         "                    - RemoteSource\\[2\\] => \\[orderdate:date, \\$hashvalue:bigint, count_34:bigint\\]\n" +
                         "                            Cost: .*, Output: .* lines \\(.*\\)\n" +
                         "            - ScanFilterAndProject\\[\\] => \\[count_19:bigint, \\$hashvalue_33:bigint, orderdate_12:date\\]\n" +
-                        "                    Cost: .*, Input: 2401 lines \\(53\\.93kB\\), Output: 2401 lines \\(53\\.93kB\\), Filtered: 0\\.00%\n" +
+                        "                    Cost: .*, Input: 2401 lines \\(.*\\), Output: 2401 lines \\(.*\\), Filtered: 0\\.00%\n" +
                         "                    \\$hashvalue_33 := \"combine_hash\"\\(0, COALESCE\\(\"\\$operator\\$hash_code\"\\(\"orderdate_12\"\\), 0\\)\\)\n" +
                         "                - Aggregate\\(FINAL\\)\\[orderdate_12\\] => \\[orderdate_12:date, \\$hashvalue_31:bigint, count_19:bigint\\]\n" +
-                        "                        Cost: .*, Output: 2401 lines \\(53\\.93kB\\)\n" +
+                        "                        Cost: .*, Output: 2401 lines \\(.*\\)\n" +
                         "                        count_19 := \"count\"\\(\"count_35\"\\)\n" +
                         "                    - RemoteSource\\[3\\] => \\[orderdate_12:date, \\$hashvalue_31:bigint, count_35:bigint\\]\n" +
                         "                            Cost: .*, Output: .* lines \\(.*\\)\n" +
                         "\n" +
                         "Fragment 2 \\[SOURCE\\]\n" +
-                        "    Cost: .*, Input: 15000 lines \\(205\\.09kB\\), Output: .* lines \\(.*\\)\n" +
+                        "    Cost: .*, Input: 15000 lines \\(.*\\), Output: .* lines \\(.*\\)\n" +
                         "    Output layout: \\[orderdate, \\$hashvalue, count_34\\]\n" +
                         "    Output partitioning: HASH \\[orderdate\\]\n" +
                         "    - Aggregate\\(PARTIAL\\)\\[orderdate\\] => \\[orderdate:date, \\$hashvalue:bigint, count_34:bigint\\]\n" +
                         "            Cost: .*, Output: .* lines \\(.*\\)\n" +
                         "            count_34 := \"count\"\\(\\*\\)\n" +
                         "        - ScanFilterAndProject\\[table = tpch:tpch:orders:sf0\\.01, originalConstraint = true\\] => \\[orderdate:date, \\$hashvalue:bigint\\]\n" +
-                        "                Cost: .*, Input: 15000 lines \\(0B\\), Output: 15000 lines \\(205\\.09kB\\), Filtered: 0\\.00%\n" +
+                        "                Cost: .*, Input: 15000 lines \\(.*\\), Output: 15000 lines \\(.*\\), Filtered: 0\\.00%\n" +
                         "                \\$hashvalue := \"combine_hash\"\\(0, COALESCE\\(\"\\$operator\\$hash_code\"\\(\"orderdate\"\\), 0\\)\\)\n" +
                         "                orderdate := tpch:orderdate\n" +
                         "\n" +
                         "Fragment 3 \\[SOURCE\\]\n" +
-                        "    Cost: CPU .*, Input: 15000 lines \\(205\\.09kB\\), Output: .* lines \\(.*\\)\n" +
+                        "    Cost: CPU .*, Input: 15000 lines \\(.*\\), Output: .* lines \\(.*\\)\n" +
                         "    Output layout: \\[orderdate_12, \\$hashvalue_31, count_35\\]\n" +
                         "    Output partitioning: HASH \\[orderdate_12\\]\n" +
                         "    - Aggregate\\(PARTIAL\\)\\[orderdate_12\\] => \\[orderdate_12:date, \\$hashvalue_31:bigint, count_35:bigint\\]\n" +
                         "            Cost: .*, Output: .* lines \\(.*\\)\n" +
                         "            count_35 := \"count\"\\(\\*\\)\n" +
                         "        - ScanFilterAndProject\\[table = tpch:tpch:orders:sf0\\.01, originalConstraint = true\\] => \\[orderdate_12:date, \\$hashvalue_31:bigint\\]\n" +
-                        "                Cost: .*, Input: 15000 lines \\(0B\\), Output: 15000 lines \\(205\\.09kB\\), Filtered: 0\\.00%\n" +
+                        "                Cost: .*, Input: 15000 lines \\(.*\\), Output: 15000 lines \\(.*\\), Filtered: 0\\.00%\n" +
                         "                \\$hashvalue_31 := \"combine_hash\"\\(0, COALESCE\\(\"\\$operator\\$hash_code\"\\(\"orderdate_12\"\\), 0\\)\\)\n" +
                         "                orderdate_12 := tpch:orderdate\n\n");
     }
