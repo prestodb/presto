@@ -715,13 +715,13 @@
             <dependency>
                 <groupId>com.teradata.tempto</groupId>
                 <artifactId>tempto-core</artifactId>
-                <version>1.4</version>
+                <version>1.6</version>
             </dependency>
 
             <dependency>
                 <groupId>com.teradata.tempto</groupId>
                 <artifactId>tempto-runner</artifactId>
-                <version>1.4</version>
+                <version>1.6</version>
             </dependency>
 
             <dependency>
