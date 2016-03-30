@@ -15,6 +15,8 @@ package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.hive.HiveCluster;
 import com.facebook.presto.hive.HiveViewNotSupportedException;
+import com.facebook.presto.hive.PartitionAlreadyExistsException;
+import com.facebook.presto.hive.PartitionNotFoundException;
 import com.facebook.presto.hive.RetryDriver;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.spi.PrestoException;
@@ -59,6 +61,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
+import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.parsePrivilege;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -393,8 +396,7 @@ public class ThriftHiveMetastore
                     }));
         }
         catch (AlreadyExistsException e) {
-            // todo partition already exists exception
-            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+            throw new PartitionAlreadyExistsException(new SchemaTableName(databaseName, tableName), Optional.empty());
         }
         catch (NoSuchObjectException e) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
@@ -422,7 +424,7 @@ public class ThriftHiveMetastore
                     }));
         }
         catch (NoSuchObjectException e) {
-            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+            throw new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), parts);
         }
         catch (TException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
@@ -450,7 +452,7 @@ public class ThriftHiveMetastore
                     }));
         }
         catch (NoSuchObjectException e) {
-            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+            throw new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), toPartitionValues(partitionName));
         }
         catch (TException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
