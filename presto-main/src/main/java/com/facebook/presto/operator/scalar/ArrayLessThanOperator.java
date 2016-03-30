@@ -77,6 +77,7 @@ public final class ArrayLessThanOperator
     @TypeParameterSpecialization(name = "T", nativeContainerType = long.class)
     public static boolean lessThanLong(
             @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle lessThanFunction,
+            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equalsFunction,
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block leftArray,
             @SqlType("array(T)") Block rightArray)
@@ -93,6 +94,9 @@ public final class ArrayLessThanOperator
                     return true;
                 }
                 if ((boolean) lessThanFunction.invokeExact(rightElement, leftElement)) {
+                    return false;
+                }
+                if (!(boolean) equalsFunction.invokeExact(leftElement, rightElement)) {
                     return false;
                 }
             }
