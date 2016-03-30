@@ -18,6 +18,7 @@ import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.AtTimeZone;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
@@ -151,10 +152,16 @@ class AggregationAnalyzer
         }
 
         @Override
+        protected Boolean visitAtTimeZone(AtTimeZone node, Void context)
+        {
+            return process(node.getValue(), context);
+        }
+
+        @Override
         protected Boolean visitSubqueryExpression(SubqueryExpression node, Void context)
         {
             return true;
-       }
+        }
 
         @Override
         protected Boolean visitSubscriptExpression(SubscriptExpression node, Void context)
