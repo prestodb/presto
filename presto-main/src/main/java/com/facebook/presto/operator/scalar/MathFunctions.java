@@ -38,6 +38,24 @@ public final class MathFunctions
 
     @Description("absolute value")
     @ScalarFunction("abs")
+    @SqlType(StandardTypes.TINYINT)
+    public static long absTinyint(@SqlType(StandardTypes.TINYINT) long num)
+    {
+        checkCondition(num != Byte.MIN_VALUE, NUMERIC_VALUE_OUT_OF_RANGE, "Value -128 is out of range for abs()");
+        return Math.abs(num);
+    }
+
+    @Description("absolute value")
+    @ScalarFunction("abs")
+    @SqlType(StandardTypes.SMALLINT)
+    public static long absSmallint(@SqlType(StandardTypes.SMALLINT) long num)
+    {
+        checkCondition(num != Short.MIN_VALUE, NUMERIC_VALUE_OUT_OF_RANGE, "Value -32768 is out of range for abs()");
+        return Math.abs(num);
+    }
+
+    @Description("absolute value")
+    @ScalarFunction("abs")
     @SqlType(StandardTypes.INTEGER)
     public static long absInt(@SqlType(StandardTypes.INTEGER) long num)
     {
@@ -99,6 +117,22 @@ public final class MathFunctions
     public static double cbrt(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.cbrt(num);
+    }
+
+    @Description("round up to nearest integer")
+    @ScalarFunction(value = "ceiling", alias = "ceil")
+    @SqlType(StandardTypes.TINYINT)
+    public static long ceilingTinyint(@SqlType(StandardTypes.TINYINT) long num)
+    {
+        return num;
+    }
+
+    @Description("round up to nearest integer")
+    @ScalarFunction(value = "ceiling", alias = "ceil")
+    @SqlType(StandardTypes.SMALLINT)
+    public static long ceilingSmallint(@SqlType(StandardTypes.SMALLINT) long num)
+    {
+        return num;
     }
 
     @Description("round up to nearest integer")
@@ -175,6 +209,22 @@ public final class MathFunctions
 
     @Description("round down to nearest integer")
     @ScalarFunction("floor")
+    @SqlType(StandardTypes.TINYINT)
+    public static long floorTinyint(@SqlType(StandardTypes.TINYINT) long num)
+    {
+        return num;
+    }
+
+    @Description("round down to nearest integer")
+    @ScalarFunction("floor")
+    @SqlType(StandardTypes.SMALLINT)
+    public static long floorSmallint(@SqlType(StandardTypes.SMALLINT) long num)
+    {
+        return num;
+    }
+
+    @Description("round down to nearest integer")
+    @ScalarFunction("floor")
     @SqlType(StandardTypes.INTEGER)
     public static long floorInt(@SqlType(StandardTypes.INTEGER) long num)
     {
@@ -227,6 +277,22 @@ public final class MathFunctions
     public static double log(@SqlType(StandardTypes.DOUBLE) double num, @SqlType(StandardTypes.DOUBLE) double base)
     {
         return Math.log(num) / Math.log(base);
+    }
+
+    @Description("remainder of given quotient")
+    @ScalarFunction("mod")
+    @SqlType(StandardTypes.TINYINT)
+    public static long modTinyint(@SqlType(StandardTypes.TINYINT) long num1, @SqlType(StandardTypes.TINYINT) long num2)
+    {
+        return num1 % num2;
+    }
+
+    @Description("remainder of given quotient")
+    @ScalarFunction("mod")
+    @SqlType(StandardTypes.SMALLINT)
+    public static long modSmallint(@SqlType(StandardTypes.SMALLINT) long num1, @SqlType(StandardTypes.SMALLINT) long num2)
+    {
+        return num1 % num2;
     }
 
     @Description("remainder of given quotient")
@@ -287,6 +353,24 @@ public final class MathFunctions
 
     @Description("a pseudo-random number between 0 and value (exclusive)")
     @ScalarFunction(value = "random", alias = "rand", deterministic = false)
+    @SqlType(StandardTypes.TINYINT)
+    public static long randomTinyint(@SqlType(StandardTypes.TINYINT) long value)
+    {
+        checkCondition(value > 0, INVALID_FUNCTION_ARGUMENT, "bound must be positive");
+        return ThreadLocalRandom.current().nextInt((int) value);
+    }
+
+    @Description("a pseudo-random number between 0 and value (exclusive)")
+    @ScalarFunction(value = "random", alias = "rand", deterministic = false)
+    @SqlType(StandardTypes.SMALLINT)
+    public static long randomSmallint(@SqlType(StandardTypes.SMALLINT) long value)
+    {
+        checkCondition(value > 0, INVALID_FUNCTION_ARGUMENT, "bound must be positive");
+        return ThreadLocalRandom.current().nextInt((int) value);
+    }
+
+    @Description("a pseudo-random number between 0 and value (exclusive)")
+    @ScalarFunction(value = "random", alias = "rand", deterministic = false)
     @SqlType(StandardTypes.INTEGER)
     public static long randomInt(@SqlType(StandardTypes.INTEGER) long value)
     {
@@ -305,6 +389,22 @@ public final class MathFunctions
 
     @Description("round to nearest integer")
     @ScalarFunction("round")
+    @SqlType(StandardTypes.TINYINT)
+    public static long roundTinyint(@SqlType(StandardTypes.TINYINT) long num)
+    {
+        return num;
+    }
+
+    @Description("round to nearest integer")
+    @ScalarFunction("round")
+    @SqlType(StandardTypes.SMALLINT)
+    public static long roundSmallint(@SqlType(StandardTypes.SMALLINT) long num)
+    {
+        return num;
+    }
+
+    @Description("round to nearest integer")
+    @ScalarFunction("round")
     @SqlType(StandardTypes.INTEGER)
     public static long roundInt(@SqlType(StandardTypes.INTEGER) long num)
     {
@@ -317,6 +417,22 @@ public final class MathFunctions
     public static long round(@SqlType(StandardTypes.BIGINT) long num)
     {
         return round(num, 0);
+    }
+
+    @Description("round to nearest integer")
+    @ScalarFunction("round")
+    @SqlType(StandardTypes.TINYINT)
+    public static long roundTinyint(@SqlType(StandardTypes.TINYINT) long num, @SqlType(StandardTypes.BIGINT) long decimals)
+    {
+        return num;
+    }
+
+    @Description("round to nearest integer")
+    @ScalarFunction("round")
+    @SqlType(StandardTypes.SMALLINT)
+    public static long roundSmallint(@SqlType(StandardTypes.SMALLINT) long num, @SqlType(StandardTypes.BIGINT) long decimals)
+    {
+        return num;
     }
 
     @Description("round to nearest integer")
@@ -371,6 +487,22 @@ public final class MathFunctions
     @ScalarFunction("sign")
     @SqlType(StandardTypes.INTEGER)
     public static long signInt(@SqlType(StandardTypes.INTEGER) long num)
+    {
+        return (long) Math.signum(num);
+    }
+
+    @Description("signum")
+    @ScalarFunction("sign")
+    @SqlType(StandardTypes.SMALLINT)
+    public static long signSmallint(@SqlType(StandardTypes.SMALLINT) long num)
+    {
+        return (long) Math.signum(num);
+    }
+
+    @Description("signum")
+    @ScalarFunction("sign")
+    @SqlType(StandardTypes.TINYINT)
+    public static long signTinyint(@SqlType(StandardTypes.TINYINT) long num)
     {
         return (long) Math.signum(num);
     }

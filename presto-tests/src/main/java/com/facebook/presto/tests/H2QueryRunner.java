@@ -51,10 +51,12 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.facebook.presto.tpch.TpchRecordSet.createTpchRecordSet;
@@ -157,13 +159,22 @@ public class H2QueryRunner
                             row.add(booleanValue);
                         }
                     }
-                    else if (BIGINT.equals(type)) {
-                        long longValue = resultSet.getLong(i);
+                    else if (TINYINT.equals(type)) {
+                        byte byteValue = resultSet.getByte(i);
                         if (resultSet.wasNull()) {
                             row.add(null);
                         }
                         else {
-                            row.add(longValue);
+                            row.add(byteValue);
+                        }
+                    }
+                    else if (SMALLINT.equals(type)) {
+                        short shortValue = resultSet.getShort(i);
+                        if (resultSet.wasNull()) {
+                            row.add(null);
+                        }
+                        else {
+                            row.add(shortValue);
                         }
                     }
                     else if (INTEGER.equals(type)) {
@@ -173,6 +184,15 @@ public class H2QueryRunner
                         }
                         else {
                             row.add(intValue);
+                        }
+                    }
+                    else if (BIGINT.equals(type)) {
+                        long longValue = resultSet.getLong(i);
+                        if (resultSet.wasNull()) {
+                            row.add(null);
+                        }
+                        else {
+                            row.add(longValue);
                         }
                     }
                     else if (DOUBLE.equals(type)) {

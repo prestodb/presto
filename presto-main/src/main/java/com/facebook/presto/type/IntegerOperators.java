@@ -16,6 +16,8 @@ package com.facebook.presto.type;
 import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.google.common.primitives.Shorts;
+import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.metadata.OperatorType.ADD;
@@ -170,6 +172,30 @@ public final class IntegerOperators
     public static long castToBigint(@SqlType(StandardTypes.INTEGER) long value)
     {
         return value;
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.SMALLINT)
+    public static long castToSmallint(@SqlType(StandardTypes.INTEGER) long value)
+    {
+        try {
+            return Shorts.checkedCast(value);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+        }
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.TINYINT)
+    public static long castToTinyint(@SqlType(StandardTypes.INTEGER) long value)
+    {
+        try {
+            return SignedBytes.checkedCast(value);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+        }
     }
 
     @ScalarOperator(CAST)

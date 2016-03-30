@@ -113,10 +113,12 @@ import com.facebook.presto.type.IntegerOperators;
 import com.facebook.presto.type.IntervalDayTimeOperators;
 import com.facebook.presto.type.IntervalYearMonthOperators;
 import com.facebook.presto.type.LikeFunctions;
+import com.facebook.presto.type.SmallintOperators;
 import com.facebook.presto.type.TimeOperators;
 import com.facebook.presto.type.TimeWithTimeZoneOperators;
 import com.facebook.presto.type.TimestampOperators;
 import com.facebook.presto.type.TimestampWithTimeZoneOperators;
+import com.facebook.presto.type.TinyintOperators;
 import com.facebook.presto.type.UnknownOperators;
 import com.facebook.presto.type.VarbinaryOperators;
 import com.facebook.presto.type.VarcharOperators;
@@ -364,6 +366,8 @@ public class FunctionRegistry
                 .scalar(BooleanOperators.class)
                 .scalar(BigintOperators.class)
                 .scalar(IntegerOperators.class)
+                .scalar(SmallintOperators.class)
+                .scalar(TinyintOperators.class)
                 .scalar(DoubleOperators.class)
                 .scalar(VarcharOperators.class)
                 .scalar(VarbinaryOperators.class)
