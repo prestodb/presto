@@ -92,7 +92,7 @@ public class Console
         boolean hasQuery = !Strings.isNullOrEmpty(clientOptions.execute);
         boolean isFromFile = !Strings.isNullOrEmpty(clientOptions.file);
 
-        if (!hasQuery || !isFromFile) {
+        if (!hasQuery && !isFromFile) {
             AnsiConsole.systemInstall();
         }
 
