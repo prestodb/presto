@@ -413,7 +413,7 @@ public class ParallelHashBuilder
             PagesIndex pagesIndex = Futures.getUnchecked(pagesIndexFuture);
             // After this point the SharedLookupSource will take over our memory reservation, and ours will be zero
             SharedLookupSource sharedLookupSource = new SharedLookupSource(pagesIndex.createLookupSource(hashChannels, hashChannel), operatorContext);
-            operatorContext.recordHashCollision(sharedLookupSource.getHashCollisions());
+            operatorContext.recordHashCollision(sharedLookupSource.getHashCollisions(), sharedLookupSource.getExpectedHashCollisions());
             operatorContext.recordGeneratedInput(0L, pagesIndex.getPositionCount());
 
             if (!lookupSourceFuture.set(sharedLookupSource)) {

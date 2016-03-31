@@ -55,6 +55,8 @@ public interface GroupByHash
 
     long getHashCollisions();
 
+    double getExpectedHashCollisions();
+
     List<Type> getTypes();
 
     int getGroupCount();

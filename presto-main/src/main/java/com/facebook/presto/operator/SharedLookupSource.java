@@ -62,6 +62,12 @@ public final class SharedLookupSource
     }
 
     @Override
+    public double getExpectedHashCollisions()
+    {
+        return lookupSource.getExpectedHashCollisions();
+    }
+
+    @Override
     public long getJoinPosition(int position, Page page, int rawHash)
     {
         return lookupSource.getJoinPosition(position, page, rawHash);

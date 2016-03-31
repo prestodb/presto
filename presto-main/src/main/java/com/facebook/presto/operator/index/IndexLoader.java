@@ -394,6 +394,12 @@ public class IndexLoader
         }
 
         @Override
+        public double getExpectedHashCollisions()
+        {
+            return 0d;
+        }
+
+        @Override
         public long getJoinPosition(int position, Page page, int rawHash)
         {
             return IndexSnapshot.UNLOADED_INDEX_KEY;

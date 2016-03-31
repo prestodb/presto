@@ -63,6 +63,7 @@ public class OperatorStats
 
     private final double weightedHashCollisions;
     private final double weightedHashCollisionsSquared;
+    private final double weightedExpectedHashCollisions;
 
     private final DataSize memoryReservation;
     private final DataSize systemMemoryReservation;
@@ -102,6 +103,7 @@ public class OperatorStats
 
             @JsonProperty("weightedHashCollisions") double weightedHashCollisions,
             @JsonProperty("weightedHashCollisionsSquared") double weightedHashCollisionsSquared,
+            @JsonProperty("weightedExpectedHashCollisions") double weightedExpectedHashCollisions,
 
             @JsonProperty("memoryReservation") DataSize memoryReservation,
             @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
@@ -142,6 +144,7 @@ public class OperatorStats
 
         this.weightedHashCollisions = weightedHashCollisions;
         this.weightedHashCollisionsSquared = weightedHashCollisionsSquared;
+        this.weightedExpectedHashCollisions = weightedExpectedHashCollisions;
 
         this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
         this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
@@ -295,6 +298,12 @@ public class OperatorStats
     }
 
     @JsonProperty
+    public double getWeightedExpectedHashCollisions()
+    {
+        return weightedExpectedHashCollisions;
+    }
+
+    @JsonProperty
     public DataSize getMemoryReservation()
     {
         return memoryReservation;
@@ -352,6 +361,7 @@ public class OperatorStats
 
         double weightedHashCollisions = this.weightedHashCollisions;
         double weightedHashCollisionsSquared = this.weightedHashCollisionsSquared;
+        double weightedExpectedHashCollisions = this.weightedExpectedHashCollisions;
 
         long memoryReservation = this.memoryReservation.toBytes();
         long systemMemoryReservation = this.systemMemoryReservation.toBytes();
@@ -388,6 +398,7 @@ public class OperatorStats
 
             weightedHashCollisions += operator.getWeightedHashCollisions();
             weightedHashCollisionsSquared += operator.getWeightedHashCollisionsSquared();
+            weightedExpectedHashCollisions += operator.getWeightedExpectedHashCollisions();
 
             blockedWall += operator.getBlockedWall().roundTo(NANOSECONDS);
 
@@ -434,6 +445,7 @@ public class OperatorStats
 
                 weightedHashCollisions,
                 weightedHashCollisionsSquared,
+                weightedExpectedHashCollisions,
 
                 new DataSize(memoryReservation, BYTE).convertToMostSuccinctDataSize(),
                 new DataSize(systemMemoryReservation, BYTE).convertToMostSuccinctDataSize(),

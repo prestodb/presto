@@ -62,6 +62,12 @@ public class IndexLookupSource
     }
 
     @Override
+    public double getExpectedHashCollisions()
+    {
+        return 0d;
+    }
+
+    @Override
     public long getJoinPosition(int position, Page page, int rawHash)
     {
         // TODO update to take advantage of precomputed hash

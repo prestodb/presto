@@ -29,6 +29,7 @@ import java.util.Optional;
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.util.MathUtils.estimateNumberOfHashCollisions;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
@@ -48,6 +49,7 @@ public final class BigintInMemoryJoinHash
     private Optional<BitSet> nullsMask = Optional.empty(); // lazy initialized
 
     private long hashCollisions;
+    private double expectedHashCollisions;
 
     public BigintInMemoryJoinHash(LongArrayList addresses, PagesHashStrategy pagesHashStrategy, int hashBuildConcurrency, List<List<Block>> channels, List<Integer> joinChannels)
     {
@@ -100,6 +102,7 @@ public final class BigintInMemoryJoinHash
                 + sizeOf(addresses.elements()) + pagesHashStrategy.getSizeInBytes() / hashBuildConcurrency
                 + (positionLinks.isPresent() ? sizeOf(positionLinks.get()) : 0)
                 + (nullsMask.isPresent() ? nullsMask.get().size() / 8 : 0);
+        expectedHashCollisions = estimateNumberOfHashCollisions(addresses.size(), hashSize);
     }
 
     private void setPositionLinks(int position, int currentKey)
@@ -156,6 +159,12 @@ public final class BigintInMemoryJoinHash
     public long getHashCollisions()
     {
         return hashCollisions;
+    }
+
+    @Override
+    public double getExpectedHashCollisions()
+    {
+        return expectedHashCollisions;
     }
 
     @Override

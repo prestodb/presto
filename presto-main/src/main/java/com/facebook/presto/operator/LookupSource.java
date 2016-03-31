@@ -27,6 +27,8 @@ public interface LookupSource
 
     long getHashCollisions();
 
+    double getExpectedHashCollisions();
+
     int getJoinPositionCount();
 
     long getJoinPosition(int position, Page page, int rawHash);

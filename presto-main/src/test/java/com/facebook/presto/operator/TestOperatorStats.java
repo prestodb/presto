@@ -60,11 +60,12 @@ public class TestOperatorStats
 
             20d,
             21d,
+            22d,
 
-            new DataSize(22, BYTE),
             new DataSize(23, BYTE),
+            new DataSize(24, BYTE),
             Optional.empty(),
-            "24");
+            "25");
 
     public static final OperatorStats MERGEABLE = new OperatorStats(
             41,
@@ -97,11 +98,12 @@ public class TestOperatorStats
 
             20d,
             21d,
+            22d,
 
-            new DataSize(22, BYTE),
             new DataSize(23, BYTE),
+            new DataSize(24, BYTE),
             Optional.empty(),
-            new LongMergeable(24));
+            new LongMergeable(25));
 
     @Test
     public void testJson()
@@ -145,10 +147,11 @@ public class TestOperatorStats
 
         assertEquals(actual.getWeightedHashCollisions(), 20d);
         assertEquals(actual.getWeightedHashCollisionsSquared(), 21d);
+        assertEquals(actual.getWeightedExpectedHashCollisions(), 22d);
 
-        assertEquals(actual.getMemoryReservation(), new DataSize(22, BYTE));
-        assertEquals(actual.getSystemMemoryReservation(), new DataSize(23, BYTE));
-        assertEquals(actual.getInfo(), "24");
+        assertEquals(actual.getMemoryReservation(), new DataSize(23, BYTE));
+        assertEquals(actual.getSystemMemoryReservation(), new DataSize(24, BYTE));
+        assertEquals(actual.getInfo(), "25");
     }
 
     @Test
@@ -185,9 +188,10 @@ public class TestOperatorStats
 
         assertEquals(actual.getWeightedHashCollisions(), 3 * 20d);
         assertEquals(actual.getWeightedHashCollisionsSquared(), 3 * 21d);
+        assertEquals(actual.getWeightedExpectedHashCollisions(), 3 * 22d);
 
-        assertEquals(actual.getMemoryReservation(), new DataSize(3 * 22, BYTE));
-        assertEquals(actual.getSystemMemoryReservation(), new DataSize(3 * 23, BYTE));
+        assertEquals(actual.getMemoryReservation(), new DataSize(3 * 23, BYTE));
+        assertEquals(actual.getSystemMemoryReservation(), new DataSize(3 * 24, BYTE));
         assertEquals(actual.getInfo(), null);
     }
 
@@ -225,10 +229,11 @@ public class TestOperatorStats
 
         assertEquals(actual.getWeightedHashCollisions(), 3 * 20d);
         assertEquals(actual.getWeightedHashCollisionsSquared(), 3 * 21d);
+        assertEquals(actual.getWeightedExpectedHashCollisions(), 3 * 22d);
 
-        assertEquals(actual.getMemoryReservation(), new DataSize(3 * 22, BYTE));
-        assertEquals(actual.getSystemMemoryReservation(), new DataSize(3 * 23, BYTE));
-        assertEquals(actual.getInfo(), new LongMergeable(24 * 3));
+        assertEquals(actual.getMemoryReservation(), new DataSize(3 * 23, BYTE));
+        assertEquals(actual.getSystemMemoryReservation(), new DataSize(3 * 24, BYTE));
+        assertEquals(actual.getInfo(), new LongMergeable(25 * 3));
     }
 
     private static class LongMergeable

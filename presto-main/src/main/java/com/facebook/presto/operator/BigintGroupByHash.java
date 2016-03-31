@@ -31,6 +31,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.type.TypeUtils.NULL_HASH_CODE;
+import static com.facebook.presto.util.MathUtils.estimateNumberOfHashCollisions;
 import static com.google.common.base.Preconditions.checkArgument;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
@@ -63,6 +64,7 @@ public class BigintGroupByHash
 
     private int nextGroupId;
     private long hashCollisions;
+    private double expectedHashCollisions;
 
     public BigintGroupByHash(int hashChannel, Optional<Integer> maskChannel, boolean outputRawHash, int expectedSize)
     {
@@ -98,6 +100,12 @@ public class BigintGroupByHash
     public long getHashCollisions()
     {
         return hashCollisions;
+    }
+
+    @Override
+    public double getExpectedHashCollisions()
+    {
+        return expectedHashCollisions + estimateNumberOfHashCollisions(getGroupCount(), hashCapacity);
     }
 
     @Override
@@ -273,6 +281,8 @@ public class BigintGroupByHash
 
     private void rehash()
     {
+        expectedHashCollisions += estimateNumberOfHashCollisions(getGroupCount(), hashCapacity);
+
         long newCapacityLong = hashCapacity * 2L;
         if (newCapacityLong > Integer.MAX_VALUE) {
             throw new PrestoException(INSUFFICIENT_RESOURCES, "Size of hash table cannot exceed 1 billion entries");

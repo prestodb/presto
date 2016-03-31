@@ -282,6 +282,7 @@ public class HashAggregationOperator
         private final boolean partial;
 
         private long lastHashCollisions;
+        private double lastExpectedHashCollisions;
 
         private GroupByHashAggregationBuilder(
                 List<AccumulatorFactory> accumulatorFactories,
@@ -327,8 +328,12 @@ public class HashAggregationOperator
         private void recordHashCollisions()
         {
             long newHashCollisions = groupByHash.getHashCollisions();
-            operatorContext.recordHashCollision(newHashCollisions - lastHashCollisions);
+            double newExpectedHashCollisions = groupByHash.getExpectedHashCollisions();
+
+            operatorContext.recordHashCollision(newHashCollisions - lastHashCollisions, newExpectedHashCollisions - lastExpectedHashCollisions);
+
             lastHashCollisions = newHashCollisions;
+            lastExpectedHashCollisions = newExpectedHashCollisions;
         }
 
         public boolean isFull()
