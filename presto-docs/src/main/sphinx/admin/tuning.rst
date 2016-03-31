@@ -47,6 +47,7 @@ The following can be helpful for diagnosing GC issues:
     -XX:+PrintGCDateStamps
     -XX:+PrintGCTimeStamps
     -XX:+PrintGCDetails
+    -XX:+PrintReferenceGC
     -XX:+PrintClassHistogramAfterFullGC
     -XX:+PrintClassHistogramBeforeFullGC
     -XX:PrintFLSStatistics=2
