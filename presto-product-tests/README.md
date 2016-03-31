@@ -22,16 +22,16 @@
 * [```docker-toolbox >= 1.10```](https://www.docker.com/products/docker-toolbox)
 
 On Mac OS X installing docker-toolbox gives access to a preconfigured shell environment
-with ```docker``` and ```docker-compose``` available. The shortcut to preconfigured
-shell environment for docker may be find in Applications/Docker as "Docker Quickstart Terminal"
+with ```docker``` and ```docker-compose``` available. The shortcut to this preconfigured
+shell environment for docker may be found in Applications/Docker as "Docker Quickstart Terminal."
 Note that all commands given in later parts of these instructions should be run from this
 environment.
 
 ##### Setting up virtual machine for docker
 
-As part of the ```docker-toolbox``` installation process VirtualBox machine with the
-name ```default``` is created. In order to use this machine for product-tests it's required
-to assing at least 4GB memory to this machine. It can be done using following commands:
+As part of the ```docker-toolbox``` installation process a VirtualBox machine with the
+name ```default``` is created. In order to use this machine to run product-tests it must be
+ configured with at least 4GB memory. This configuration can be done using following commands:
 
 ```
 docker-machine stop
@@ -39,15 +39,16 @@ vboxmanage modifyvm default --memory 4096
 docker-machine start
 ```
 
-If one do not want to use ```default``` machine, following steps may be used in order to create and use new machine named ```<machine>``` for product tests:
+If one does not want to use the ```default``` machine to run product tests, the following
+ steps may be used to create and use a new machine named ```<machine>```:
 
-* To create virtual machine with name <machine> (required one time):
+* To create a virtual machine with name <machine> (required one time):
 
     ```
     docker-machine create -d virtualbox --virtualbox-memory 4096 <machine>
     ```
 
-* To set up enviroment to use ```<machine>``` (required at docker bash startup):
+* To set up an environment to use ```<machine>``` (required at docker bash startup):
 
     ```
     eval $(docker-machine env <machine>)
@@ -56,7 +57,7 @@ If one do not want to use ```default``` machine, following steps may be used in 
 
 ## Running tests
 
-Product tests are not run as part of the maven build process. To start them use run following command:
+Product tests are not run as part of the maven build process. To run them use the following command:
 
 ```
 presto-product-tests/bin/run_on_docker.sh <profile> -x quarantine,big_query
@@ -117,9 +118,9 @@ The following steps explain how you can run the product tests from your IDE as r
 
 5. Run product tests
 
-    There are multiple mehods of running tests listed below. Note that product tests are
-    not parralelizable and that means that only one instance of only one method may be run
-    in the same environment in the same time:
+    There are multiple methods of running tests listed below. Note that product tests are
+    not parallelizable.  This means that only one instance of only one method may be run
+    in the same environment at the same time:
 
     - From your IDE
     - Full suite from CLI:
@@ -140,7 +141,7 @@ The following steps explain how you can run the product tests from your IDE as r
         presto-product-tests/bin/run.sh -t sql_tests.testcases.system.selectInformationSchemaTables
         ```
     
-6. Stop hadoop container once debugging is done:
+6. Stop Hadoop container once debugging is done:
 
     ```
     docker-compose -f presto-product-tests/conf/docker/singlenode/docker-compose.yml down
