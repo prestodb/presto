@@ -147,7 +147,7 @@ public class TypedMultiChannelHeap
             appendTo(types, channelBlocks, position, channelBlockBuilders);
             siftUp();
         }
-        compactIfNecessary();
+        compactIfNecessary(false);
     }
 
     private int compareTo(Block[] leftBlocks, int leftIndex, Block[] rightBlocks, int rightIndex)
@@ -229,17 +229,17 @@ public class TypedMultiChannelHeap
         }
     }
 
-    private void compactIfNecessary()
+    private void compactIfNecessary(boolean force)
     {
         // Byte size check is needed. Otherwise, if size * 3 is small, BlockBuilder can be reallocate too often.
         // Position count is needed. Otherwise, for large elements, heap will be compacted every time.
         // Size instead of retained size is needed because default allocation size can be huge for some block builders. And the first check will become useless in such case.
-        if (channelBlockBuilders[0].getSizeInBytes() < COMPACT_THRESHOLD_BYTES || channelBlockBuilders[0].getPositionCount() / positionCount < COMPACT_THRESHOLD_RATIO) {
+        if (!force && (channelBlockBuilders[0].getSizeInBytes() < COMPACT_THRESHOLD_BYTES || channelBlockBuilders[0].getPositionCount() / positionCount < COMPACT_THRESHOLD_RATIO)) {
             return;
         }
         BlockBuilder[] newHeapBlockBuilders = new BlockBuilder[types.size()];
         for (int i = 0; i < newHeapBlockBuilders.length; i++) {
-            newHeapBlockBuilders[i] = types.get(i).createBlockBuilder(new BlockBuilderStatus(), channelBlockBuilders[i].getPositionCount());
+            newHeapBlockBuilders[i] = types.get(i).createBlockBuilder(new BlockBuilderStatus(), !force ? channelBlockBuilders[i].getPositionCount() : positionCount);
         }
         for (int i = 0; i < positionCount; i++) {
             for (int channel = 0; channel < channelBlockBuilders.length; channel++) {
@@ -252,6 +252,7 @@ public class TypedMultiChannelHeap
 
     public TypedMultiChannelHeapPageFiller build()
     {
+        compactIfNecessary(true);
         return new TypedMultiChannelHeapPageFiller();
     }
 

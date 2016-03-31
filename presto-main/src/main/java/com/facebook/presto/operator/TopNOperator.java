@@ -13,19 +13,16 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.operator.aggregation.TypedMultiChannelHeap;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Ordering;
 import io.airlift.units.DataSize;
 
-import java.util.Iterator;
 import java.util.List;
-import java.util.PriorityQueue;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -120,10 +117,12 @@ public class TopNOperator
 
     private final PageBuilder pageBuilder;
 
-    private TopNBuilder topNBuilder;
+    //private TopNBuilder topNBuilder;
+    private TypedMultiChannelHeap channelHeap;
     private boolean finishing;
 
-    private Iterator<Block[]> outputIterator;
+    //private Iterator<Integer> outputIterator;
+    private TypedMultiChannelHeap.TypedMultiChannelHeapPageFiller pageFiller;
 
     public TopNOperator(
             OperatorContext operatorContext,
@@ -174,13 +173,13 @@ public class TopNOperator
     @Override
     public boolean isFinished()
     {
-        return finishing && topNBuilder == null && (outputIterator == null || !outputIterator.hasNext());
+        return finishing && channelHeap == null && (pageFiller == null || pageFiller.isEmpty());
     }
 
     @Override
     public boolean needsInput()
     {
-        return !finishing && (outputIterator == null || !outputIterator.hasNext()) && (topNBuilder == null || !topNBuilder.isFull());
+        return !finishing && (pageFiller == null || pageFiller.isEmpty()) && (channelHeap == null || !isHeapFull());
     }
 
     @Override
@@ -188,181 +187,56 @@ public class TopNOperator
     {
         checkState(!finishing, "Operator is already finishing");
         requireNonNull(page, "page is null");
-        if (topNBuilder == null) {
-            topNBuilder = new TopNBuilder(
-                    n,
-                    partial,
-                    sortTypes,
-                    sortChannels,
-                    sortOrders,
-                    operatorContext);
+        if (channelHeap == null) {
+            channelHeap = new TypedMultiChannelHeap(
+                    this.types,
+                    this.sortChannels,
+                    this.sortOrders,
+                    n);
         }
 
-        checkState(!topNBuilder.isFull(), "Aggregation buffer is full");
-        topNBuilder.processPage(page);
+        checkState(!isHeapFull(), "Aggregation buffer is full");
+        channelHeap.addPage(page);
     }
 
     @Override
     public Page getOutput()
     {
-        if (outputIterator == null || !outputIterator.hasNext()) {
+        if (pageFiller == null || pageFiller.isEmpty()) {
             // no data
-            if (topNBuilder == null) {
+            if (channelHeap == null) {
                 return null;
             }
 
             // only flush if we are finishing or the aggregation builder is full
-            if (!finishing && !topNBuilder.isFull()) {
+            if (!finishing && !isHeapFull()) {
                 return null;
             }
 
             // Only partial aggregation can flush early. Also, check that we are not flushing tiny bits at a time
             if (finishing || partial) {
-                outputIterator = topNBuilder.build();
-                topNBuilder = null;
+                pageFiller = channelHeap.build();
+                channelHeap = null;
             }
         }
 
         pageBuilder.reset();
-        while (!pageBuilder.isFull() && outputIterator.hasNext()) {
-            Block[] next = outputIterator.next();
-            pageBuilder.declarePosition();
-            for (int i = 0; i < next.length; i++) {
-                Type type = types.get(i);
-                type.appendTo(next[i], 0, pageBuilder.getBlockBuilder(i));
-            }
-        }
-
+        pageFiller.fillPage(pageBuilder);
         return pageBuilder.build();
     }
 
-    private static class TopNBuilder
+    public boolean isHeapFull()
     {
-        private final int n;
-        private final boolean partial;
-        private final List<Type> sortTypes;
-        private final List<Integer> sortChannels;
-        private final List<SortOrder> sortOrders;
-        private final OperatorContext operatorContext;
-        private final PriorityQueue<Block[]> globalCandidates;
-
-        private long memorySize;
-
-        private TopNBuilder(int n,
-                boolean partial,
-                List<Type> sortTypes,
-                List<Integer> sortChannels,
-                List<SortOrder> sortOrders,
-                OperatorContext operatorContext)
-        {
-            this.n = n;
-            this.partial = partial;
-
-            this.sortTypes = sortTypes;
-            this.sortChannels = sortChannels;
-            this.sortOrders = sortOrders;
-
-            this.operatorContext = operatorContext;
-
-            Ordering<Block[]> comparator = Ordering.from(new RowComparator(sortTypes, sortChannels, sortOrders)).reverse();
-            this.globalCandidates = new PriorityQueue<>(Math.min(n, MAX_INITIAL_PRIORITY_QUEUE_SIZE), comparator);
+        long memorySize = channelHeap.getEstimatedSize() - operatorContext.getOperatorPreAllocatedMemory().toBytes();
+        if (memorySize < 0) {
+            memorySize = 0;
         }
-
-        public void processPage(Page page)
-        {
-            long sizeDelta = mergeWithGlobalCandidates(page);
-            memorySize += sizeDelta;
+        if (partial) {
+            return !operatorContext.trySetMemoryReservation(memorySize);
         }
-
-        private long mergeWithGlobalCandidates(Page page)
-        {
-            long sizeDelta = 0;
-
-            Block[] blocks = page.getBlocks();
-            for (int position = 0; position < page.getPositionCount(); position++) {
-                if (globalCandidates.size() < n || compare(position, blocks, globalCandidates.peek()) < 0) {
-                    sizeDelta += addRow(position, blocks);
-                }
-            }
-
-            return sizeDelta;
-        }
-
-        private int compare(int position, Block[] blocks, Block[] currentMax)
-        {
-            for (int i = 0; i < sortChannels.size(); i++) {
-                Type type = sortTypes.get(i);
-                int sortChannel = sortChannels.get(i);
-                SortOrder sortOrder = sortOrders.get(i);
-
-                Block block = blocks[sortChannel];
-                Block currentMaxValue = currentMax[sortChannel];
-
-                // compare the right value to the left block but negate the result since we are evaluating in the opposite order
-                int compare = -sortOrder.compareBlockValue(type, currentMaxValue, 0, block, position);
-                if (compare != 0) {
-                    return compare;
-                }
-            }
-            return 0;
-        }
-
-        private long addRow(int position, Block[] blocks)
-        {
-            long sizeDelta = 0;
-            Block[] row = getValues(position, blocks);
-
-            sizeDelta += sizeOfRow(row);
-            globalCandidates.add(row);
-
-            while (globalCandidates.size() > n) {
-                Block[] previous = globalCandidates.remove();
-                sizeDelta -= sizeOfRow(previous);
-            }
-            return sizeDelta;
-        }
-
-        private static long sizeOfRow(Block[] row)
-        {
-            long size = OVERHEAD_PER_VALUE.toBytes();
-            for (Block value : row) {
-                size += value.getRetainedSizeInBytes();
-            }
-            return size;
-        }
-
-        private static Block[] getValues(int position, Block[] blocks)
-        {
-            Block[] row = new Block[blocks.length];
-            for (int i = 0; i < blocks.length; i++) {
-                row[i] = blocks[i].getSingleValueBlock(position);
-            }
-            return row;
-        }
-
-        private boolean isFull()
-        {
-            long memorySize = this.memorySize - operatorContext.getOperatorPreAllocatedMemory().toBytes();
-            if (memorySize < 0) {
-                memorySize = 0;
-            }
-            if (partial) {
-                return !operatorContext.trySetMemoryReservation(memorySize);
-            }
-            else {
-                operatorContext.setMemoryReservation(memorySize);
-                return false;
-            }
-        }
-
-        public Iterator<Block[]> build()
-        {
-            ImmutableList.Builder<Block[]> minSortedGlobalCandidates = ImmutableList.builder();
-            while (!globalCandidates.isEmpty()) {
-                Block[] row = globalCandidates.remove();
-                minSortedGlobalCandidates.add(row);
-            }
-            return minSortedGlobalCandidates.build().reverse().iterator();
+        else {
+            operatorContext.setMemoryReservation(memorySize);
+            return false;
         }
     }
 }
