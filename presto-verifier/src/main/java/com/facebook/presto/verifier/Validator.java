@@ -81,6 +81,8 @@ public class Validator
     private final boolean explainOnly;
     private final Map<String, String> sessionProperties;
     private final int precision;
+    private final int controlTeardownRetries;
+    private final int testTeardownRetries;
 
     private Boolean valid;
 
@@ -105,6 +107,8 @@ public class Validator
             boolean checkCorrectness,
             boolean checkDeterministic,
             boolean verboseResultsComparison,
+            int controlTeardownRetries,
+            int testTeardownRetries,
             QueryPair queryPair)
     {
         this.testUsername = requireNonNull(queryPair.getTest().getUsername(), "test username is null");
@@ -121,6 +125,8 @@ public class Validator
         this.checkCorrectness = checkCorrectness;
         this.checkDeterministic = checkDeterministic;
         this.verboseResultsComparison = verboseResultsComparison;
+        this.controlTeardownRetries = controlTeardownRetries;
+        this.testTeardownRetries = testTeardownRetries;
 
         this.queryPair = requireNonNull(queryPair, "queryPair is null");
         // Test and Control always have the same session properties.
@@ -299,9 +305,23 @@ public class Validator
             }
         }
         finally {
-            // teardown no matter what
-            QueryResult tearDownResult = tearDown(query, testPostQueryResults, testPostquery -> executeQuery(testGateway, testUsername, testPassword, queryPair.getTest(), testPostquery, testTimeout, sessionProperties));
-
+            int retry = 0;
+            QueryResult tearDownResult;
+            do {
+                tearDownResult = tearDown(query, testPostQueryResults, testPostquery -> executeQuery(testGateway, testUsername, testPassword, queryPair.getTest(), testPostquery, testTimeout, sessionProperties));
+                if (tearDownResult.getState() == State.SUCCESS) {
+                    break;
+                }
+                try {
+                    TimeUnit.MINUTES.sleep(1);
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+                retry++;
+            }
+            while (retry < testTeardownRetries);
             // if teardown is not successful the query fails
             queryResult = tearDownResult.getState() == State.SUCCESS ? queryResult : tearDownResult;
         }
@@ -322,9 +342,23 @@ public class Validator
             }
         }
         finally {
-            // teardown no matter what
-            QueryResult tearDownResult = tearDown(query, controlPostQueryResults, controlPostquery -> executeQuery(controlGateway, controlUsername, controlPassword, queryPair.getControl(), controlPostquery, controlTimeout, sessionProperties));
-
+            int retry = 0;
+            QueryResult tearDownResult;
+            do {
+                tearDownResult = tearDown(query, controlPostQueryResults, controlPostquery -> executeQuery(controlGateway, controlUsername, controlPassword, queryPair.getControl(), controlPostquery, controlTimeout, sessionProperties));
+                if (tearDownResult.getState() == State.SUCCESS) {
+                    break;
+                }
+                try {
+                    TimeUnit.MINUTES.sleep(1);
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+                retry++;
+            }
+            while (retry < controlTeardownRetries);
             // if teardown is not successful the query fails
             queryResult = tearDownResult.getState() == State.SUCCESS ? queryResult : tearDownResult;
         }
