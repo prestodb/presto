@@ -55,6 +55,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
@@ -77,7 +78,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 @Path("/v1/task")
 public class TaskResource
 {
-    private static final Duration DEFAULT_MAX_WAIT_TIME = new Duration(1, SECONDS);
+    private static final Duration DEFAULT_MAX_WAIT_TIME = new Duration(2, SECONDS);
 
     private final TaskManager taskManager;
     private final SessionPropertyManager sessionPropertyManager;
@@ -151,10 +152,11 @@ public class TaskResource
             return;
         }
 
+        Duration waitTime = randomizeWaitTime(maxWait);
         CompletableFuture<TaskInfo> futureTaskInfo = addTimeout(
                 taskManager.getTaskInfo(taskId, currentState),
                 () -> taskManager.getTaskInfo(taskId),
-                maxWait,
+                waitTime,
                 timeoutExecutor);
 
         if (shouldSummarize(uriInfo)) {
@@ -162,7 +164,7 @@ public class TaskResource
         }
 
         // For hard timeout, add an additional 5 seconds to max wait for thread scheduling contention and GC
-        Duration timeout = new Duration(maxWait.toMillis() + 5000, MILLISECONDS);
+        Duration timeout = new Duration(waitTime.toMillis() + 5000, MILLISECONDS);
         bindAsyncResponse(asyncResponse, futureTaskInfo, responseExecutor)
                 .withTimeout(timeout);
     }
@@ -205,10 +207,11 @@ public class TaskResource
 
         long start = System.nanoTime();
         CompletableFuture<BufferResult> bufferResultFuture = taskManager.getTaskResults(taskId, outputId, token, maxSize);
+        Duration waitTime = randomizeWaitTime(DEFAULT_MAX_WAIT_TIME);
         bufferResultFuture = addTimeout(
                 bufferResultFuture,
                 () -> BufferResult.emptyResults(taskManager.getTaskInfo(taskId).getTaskInstanceId(), token, false),
-                DEFAULT_MAX_WAIT_TIME,
+                waitTime,
                 timeoutExecutor);
 
         CompletableFuture<Response> responseFuture = bufferResultFuture.thenApply(result -> {
@@ -234,7 +237,7 @@ public class TaskResource
         });
 
         // For hard timeout, add an additional 5 seconds to max wait for thread scheduling contention and GC
-        Duration timeout = new Duration(DEFAULT_MAX_WAIT_TIME.toMillis() + 5000, MILLISECONDS);
+        Duration timeout = new Duration(waitTime.toMillis() + 5000, MILLISECONDS);
         bindAsyncResponse(asyncResponse, responseFuture, responseExecutor)
                 .withTimeout(timeout,
                         Response.status(Status.NO_CONTENT)
@@ -280,5 +283,12 @@ public class TaskResource
     private static boolean shouldSummarize(UriInfo uriInfo)
     {
         return uriInfo.getQueryParameters().containsKey("summarize");
+    }
+
+    private static Duration randomizeWaitTime(Duration waitTime)
+    {
+        // Randomize in [T/2, T], so wait is not near zero and the client-supplied max wait time is respected
+        long halfWaitMillis = waitTime.toMillis() / 2;
+        return new Duration(halfWaitMillis + ThreadLocalRandom.current().nextLong(halfWaitMillis), MILLISECONDS);
     }
 }
