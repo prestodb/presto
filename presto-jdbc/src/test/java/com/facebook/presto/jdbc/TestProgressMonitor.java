@@ -55,7 +55,7 @@ public class TestProgressMonitor
     private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
 
     private static final String QUERY_ID = "20160128_214710_00012_rk68b";
-    private static final String INFO_URI = "http://" + SERVER_ADDRESS + "/v1/query/" + QUERY_ID;
+    private static final String INFO_URI = "http://" + SERVER_ADDRESS + "/query.html?" + QUERY_ID;
     private static final String PARTIAL_CANCEL_URI = "http://" + SERVER_ADDRESS + "/v1/stage/" + QUERY_ID + ".%d";
     private static final String NEXT_URI = "http://" + SERVER_ADDRESS + "/v1/statement/" + QUERY_ID + "/%d";
     private static final List<Column> RESPONSE_COLUMNS = ImmutableList.of(new Column("_col0", "bigint", new ClientTypeSignature("bigint", ImmutableList.of())));

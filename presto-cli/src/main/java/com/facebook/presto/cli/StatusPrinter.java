@@ -163,7 +163,7 @@ Parallelism: 2.5
         out.println(querySummary);
 
         if (debug) {
-            out.println(results.getInfoUri() + "?pretty");
+            out.println(results.getInfoUri().toString());
         }
 
         // Splits: 1000 total, 842 done (84.20%)
@@ -244,7 +244,7 @@ Parallelism: 2.5
                     stats.getTotalSplits());
             reprintLine(querySummary);
 
-            String url = results.getInfoUri() + "?pretty";
+            String url = results.getInfoUri().toString();
             if (debug && (url.length() < terminalWidth)) {
                 reprintLine(url);
             }
