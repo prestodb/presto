@@ -189,6 +189,12 @@ public class BigintGroupByHash
         return putIfAbsent(position, block);
     }
 
+    @Override
+    public int compare(int leftGroupId, int rightGroupId)
+    {
+        return Long.compare(valuesByGroupId.get(leftGroupId), valuesByGroupId.get(rightGroupId));
+    }
+
     private int putIfAbsent(int position, Block block)
     {
         if (block.isNull(position)) {

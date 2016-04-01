@@ -174,6 +174,8 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.getMaxEntriesBeforeSpill;
+import static com.facebook.presto.SystemSessionProperties.getOperatorMemoryLimitBeforeSpill;
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
@@ -871,7 +873,10 @@ public class LocalExecutionPlanner
                 return planGlobalAggregation(context.getNextOperatorId(), node, source);
             }
 
-            return planGroupByAggregation(node, source, context.getNextOperatorId());
+            DataSize memoryLimitBeforeSpill = getOperatorMemoryLimitBeforeSpill(context.getSession());
+            long maxEntriesBeforeSpill = getMaxEntriesBeforeSpill(context.getSession());
+
+            return planGroupByAggregation(node, source, context.getNextOperatorId(), memoryLimitBeforeSpill, maxEntriesBeforeSpill);
         }
 
         @Override
@@ -1832,7 +1837,7 @@ public class LocalExecutionPlanner
             return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
         }
 
-        private PhysicalOperation planGroupByAggregation(AggregationNode node, PhysicalOperation source, int operatorId)
+        private PhysicalOperation planGroupByAggregation(AggregationNode node, PhysicalOperation source, int operatorId, DataSize memoryLimitBeforeSpill, long maxEntriesBeforeSpill)
         {
             List<Symbol> groupBySymbols = node.getGroupBy();
 
@@ -1886,7 +1891,10 @@ public class LocalExecutionPlanner
                     accumulatorFactories,
                     hashChannel,
                     10_000,
-                    maxPartialAggregationMemorySize);
+                    maxPartialAggregationMemorySize,
+                    maxEntriesBeforeSpill,
+                    memoryLimitBeforeSpill,
+                    Optional.of(spillerFactory));
 
             return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
         }
