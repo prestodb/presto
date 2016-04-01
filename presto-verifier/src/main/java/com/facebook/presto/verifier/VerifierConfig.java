@@ -75,6 +75,8 @@ public class VerifierConfig
     private String testJdbcDriverName;
     private String controlJdbcDriverName;
     private int doublePrecision = 3;
+    private int controlTeardownRetries = 1;
+    private int testTeardownRetries = 1;
 
     private Duration regressionMinCpuTime = new Duration(5, TimeUnit.MINUTES);
 
@@ -652,6 +654,34 @@ public class VerifierConfig
     public VerifierConfig setRegressionMinCpuTime(Duration regressionMinCpuTime)
     {
         this.regressionMinCpuTime = regressionMinCpuTime;
+        return this;
+    }
+
+    @Min(0)
+    public int getControlTeardownRetries()
+    {
+        return controlTeardownRetries;
+    }
+
+    @ConfigDescription("Number of retries for control teardown queries")
+    @Config("control.teardown-retries")
+    public VerifierConfig setControlTeardownRetries(int controlTeardownRetries)
+    {
+        this.controlTeardownRetries = controlTeardownRetries;
+        return this;
+    }
+
+    @Min(0)
+    public int getTestTeardownRetries()
+    {
+        return testTeardownRetries;
+    }
+
+    @ConfigDescription("Number of retries for test teardown queries")
+    @Config("test.teardown-retries")
+    public VerifierConfig setTestTeardownRetries(int testTeardownRetries)
+    {
+        this.testTeardownRetries = testTeardownRetries;
         return this;
     }
 }

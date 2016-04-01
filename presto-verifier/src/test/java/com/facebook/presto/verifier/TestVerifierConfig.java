@@ -71,7 +71,9 @@ public class TestVerifierConfig
                 .setTestJdbcDriverName(null)
                 .setControlJdbcDriverName(null)
                 .setDoublePrecision(3)
-                .setRegressionMinCpuTime(new Duration(5, TimeUnit.MINUTES)));
+                .setRegressionMinCpuTime(new Duration(5, TimeUnit.MINUTES))
+                .setControlTeardownRetries(1)
+                .setTestTeardownRetries(1));
     }
 
     @Test
@@ -117,6 +119,8 @@ public class TestVerifierConfig
                 .put("control.jdbc-driver-class", "com.facebook.exampleclass")
                 .put("expected-double-precision", "5")
                 .put("regression.min-cpu-time", "30s")
+                .put("control.teardown-retries", "5")
+                .put("test.teardown-retries", "7")
                 .build();
 
         VerifierConfig expected = new VerifierConfig().setTestUsernameOverride("verifier-test")
@@ -158,7 +162,9 @@ public class TestVerifierConfig
                 .setTestJdbcDriverName("com.facebook.exampleclass")
                 .setControlJdbcDriverName("com.facebook.exampleclass")
                 .setDoublePrecision(5)
-                .setRegressionMinCpuTime(new Duration(30, TimeUnit.SECONDS));
+                .setRegressionMinCpuTime(new Duration(30, TimeUnit.SECONDS))
+                .setControlTeardownRetries(5)
+                .setTestTeardownRetries(7);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
