@@ -30,7 +30,9 @@ public class TestMetadataConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(MetadataConfig.class)
-                .setStartupGracePeriod(new Duration(5, MINUTES)));
+                .setStartupGracePeriod(new Duration(5, MINUTES))
+        .setReassignmentDelay(new Duration(0, MINUTES))
+        .setReassignmentInterval(new Duration(0, MINUTES)));
     }
 
     @Test
@@ -38,10 +40,14 @@ public class TestMetadataConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("raptor.startup-grace-period", "42m")
+                .put("raptor.reassignment-delay", "6m")
+                .put("raptor.reassignment-interval", "7m")
                 .build();
 
         MetadataConfig expected = new MetadataConfig()
-                .setStartupGracePeriod(new Duration(42, MINUTES));
+                .setStartupGracePeriod(new Duration(42, MINUTES))
+                .setReassignmentDelay(new Duration(6, MINUTES))
+                .setReassignmentInterval(new Duration(7, MINUTES));
 
         assertFullMapping(properties, expected);
     }

@@ -103,6 +103,7 @@ public class DatabaseShardManager
     private final DaoSupplier<ShardDao> shardDaoSupplier;
     private final ShardDao dao;
     private final NodeSupplier nodeSupplier;
+    private final AssignmentLimiter assignmentLimiter;
     private final Ticker ticker;
     private final Duration startupGracePeriod;
     private final long startTime;
@@ -123,16 +124,18 @@ public class DatabaseShardManager
             @ForMetadata IDBI dbi,
             DaoSupplier<ShardDao> shardDaoSupplier,
             NodeSupplier nodeSupplier,
+            AssignmentLimiter assignmentLimiter,
             Ticker ticker,
             MetadataConfig config)
     {
-        this(dbi, shardDaoSupplier, nodeSupplier, ticker, config.getStartupGracePeriod());
+        this(dbi, shardDaoSupplier, nodeSupplier, assignmentLimiter, ticker, config.getStartupGracePeriod());
     }
 
     public DatabaseShardManager(
             IDBI dbi,
             DaoSupplier<ShardDao> shardDaoSupplier,
             NodeSupplier nodeSupplier,
+            AssignmentLimiter assignmentLimiter,
             Ticker ticker,
             Duration startupGracePeriod)
     {
@@ -140,6 +143,7 @@ public class DatabaseShardManager
         this.shardDaoSupplier = requireNonNull(shardDaoSupplier, "shardDaoSupplier is null");
         this.dao = shardDaoSupplier.onDemand();
         this.nodeSupplier = requireNonNull(nodeSupplier, "nodeSupplier is null");
+        this.assignmentLimiter = requireNonNull(assignmentLimiter, "assignmentLimiter is null");
         this.ticker = requireNonNull(ticker, "ticker is null");
         this.startupGracePeriod = requireNonNull(startupGracePeriod, "startupGracePeriod is null");
         this.startTime = ticker.read();
@@ -543,6 +547,8 @@ public class DatabaseShardManager
                 if (nanosSince(startTime).compareTo(startupGracePeriod) < 0) {
                     throw new PrestoException(SERVER_STARTING_UP, "Cannot reassign buckets while server is starting");
                 }
+                assignmentLimiter.checkAssignFrom(nodeId);
+
                 String oldNodeId = nodeId;
                 // TODO: use smarter system to choose replacement node
                 nodeId = nodeIterator.next();

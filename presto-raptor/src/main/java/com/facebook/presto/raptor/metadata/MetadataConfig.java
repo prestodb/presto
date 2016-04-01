@@ -24,6 +24,8 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 public class MetadataConfig
 {
     private Duration startupGracePeriod = new Duration(5, MINUTES);
+    private Duration reassignmentDelay = new Duration(0, MINUTES);
+    private Duration reassignmentInterval = new Duration(0, MINUTES);
 
     @NotNull
     public Duration getStartupGracePeriod()
@@ -36,6 +38,34 @@ public class MetadataConfig
     public MetadataConfig setStartupGracePeriod(Duration startupGracePeriod)
     {
         this.startupGracePeriod = startupGracePeriod;
+        return this;
+    }
+
+    @NotNull
+    public Duration getReassignmentDelay()
+    {
+        return reassignmentDelay;
+    }
+
+    @Config("raptor.reassignment-delay")
+    @ConfigDescription("Minimum delay before allowing reassignments for a node")
+    public MetadataConfig setReassignmentDelay(Duration reassignmentDelay)
+    {
+        this.reassignmentDelay = reassignmentDelay;
+        return this;
+    }
+
+    @NotNull
+    public Duration getReassignmentInterval()
+    {
+        return reassignmentInterval;
+    }
+
+    @Config("raptor.reassignment-interval")
+    @ConfigDescription("Minimum interval between reassignments for different nodes")
+    public MetadataConfig setReassignmentInterval(Duration reassignmentInterval)
+    {
+        this.reassignmentInterval = reassignmentInterval;
         return this;
     }
 }
