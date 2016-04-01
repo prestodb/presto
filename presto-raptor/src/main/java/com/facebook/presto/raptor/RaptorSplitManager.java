@@ -250,6 +250,11 @@ public class RaptorSplitManager
                 if (!shard.getNodeIdentifiers().contains(nodeId)) {
                     shardManager.assignShard(tableId, shard.getShardUuid(), nodeId, false);
                 }
+                for (String shardNodeId : shard.getNodeIdentifiers()) {
+                    if (!shardNodeId.equals(nodeId)) {
+                        shardManager.unassignShard(tableId, shard.getShardUuid(), shardNodeId);
+                    }
+                }
             }
 
             Set<UUID> shardUuids = shards.stream()
