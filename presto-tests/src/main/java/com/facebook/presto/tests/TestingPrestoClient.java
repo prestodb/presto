@@ -111,7 +111,7 @@ public class TestingPrestoClient
         public void addResults(QueryResults results)
         {
             if (!loggedUri.getAndSet(true)) {
-                log.info("Query %s: %s?pretty", results.getId(), results.getInfoUri());
+                log.info("Query %s: %s", results.getId(), results.getInfoUri());
             }
 
             if (types.get() == null && results.getColumns() != null) {
