@@ -44,7 +44,7 @@
             {
                 "name": "size",
                 "mapping": "size",
-                "type": "BIGINT"
+                "type": "INTEGER"
             },
             {
                 "name": "container",

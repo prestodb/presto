@@ -573,7 +573,7 @@ public class TestHiveIntegrationSmokeTest
                 "CREATE TABLE test_insert_partitioned_table " +
                 "(" +
                 "  ORDER_KEY BIGINT," +
-                "  SHIP_PRIORITY BIGINT," +
+                "  SHIP_PRIORITY INTEGER," +
                 "  ORDER_STATUS VARCHAR" +
                 ") " +
                 "WITH (" +
@@ -652,7 +652,7 @@ public class TestHiveIntegrationSmokeTest
                 "CREATE TABLE test_metadata_delete " +
                 "(" +
                 "  ORDER_KEY BIGINT," +
-                "  LINE_NUMBER BIGINT," +
+                "  LINE_NUMBER INTEGER," +
                 "  LINE_STATUS VARCHAR" +
                 ") " +
                 "WITH (" +
@@ -670,7 +670,7 @@ public class TestHiveIntegrationSmokeTest
 
         // Delete returns number of rows deleted, or null if obtaining the number is hard or impossible.
         // Currently, Hive implementation always returns null.
-        assertUpdate("DELETE FROM test_metadata_delete WHERE LINE_STATUS='F' and LINE_NUMBER=3");
+        assertUpdate("DELETE FROM test_metadata_delete WHERE LINE_STATUS='F' and LINE_NUMBER=CAST(3 AS INTEGER)");
 
         assertQuery("SELECT * from test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'F' or linenumber<>3");
 

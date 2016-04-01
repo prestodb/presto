@@ -313,7 +313,7 @@ public abstract class AbstractTestIntegrationSmokeTest
                     .row("orderdate", orderDateType, "")
                     .row("orderpriority", "varchar", "")
                     .row("clerk", "varchar", "")
-                    .row("shippriority", "bigint", "")
+                    .row("shippriority", "integer", "")
                     .row("comment", "varchar", "")
                     .build();
     }

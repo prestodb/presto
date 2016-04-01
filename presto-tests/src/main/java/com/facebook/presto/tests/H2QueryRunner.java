@@ -85,7 +85,7 @@ public class H2QueryRunner
                 "  orderdate DATE NOT NULL,\n" +
                 "  orderpriority CHAR(15) NOT NULL,\n" +
                 "  clerk CHAR(15) NOT NULL,\n" +
-                "  shippriority BIGINT NOT NULL,\n" +
+                "  shippriority INTEGER NOT NULL,\n" +
                 "  comment VARCHAR(79) NOT NULL\n" +
                 ")");
         handle.execute("CREATE INDEX custkey_index ON orders (custkey)");
@@ -96,8 +96,8 @@ public class H2QueryRunner
                 "  orderkey BIGINT,\n" +
                 "  partkey BIGINT NOT NULL,\n" +
                 "  suppkey BIGINT NOT NULL,\n" +
-                "  linenumber BIGINT,\n" +
-                "  quantity BIGINT NOT NULL,\n" +
+                "  linenumber INTEGER,\n" +
+                "  quantity DOUBLE NOT NULL,\n" +
                 "  extendedprice DOUBLE NOT NULL,\n" +
                 "  discount DOUBLE NOT NULL,\n" +
                 "  tax DOUBLE NOT NULL,\n" +
@@ -269,6 +269,9 @@ public class H2QueryRunner
                     }
                     else if (BIGINT.equals(type)) {
                         part.bind(column, cursor.getLong(column));
+                    }
+                    else if (INTEGER.equals(type)) {
+                        part.bind(column, (int) cursor.getLong(column));
                     }
                     else if (DOUBLE.equals(type)) {
                         part.bind(column, cursor.getDouble(column));

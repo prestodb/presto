@@ -54,11 +54,13 @@ import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveDataStreamFac
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
 import static com.facebook.presto.hive.HiveType.HIVE_DATE;
 import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;
+import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertGreaterThan;
@@ -133,8 +135,11 @@ public class TestHivePageSink
                 LineItemColumn column = columns.get(i);
                 BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
                 switch (column.getType()) {
-                    case BIGINT:
-                        BIGINT.writeLong(blockBuilder, column.getLong(lineItem));
+                    case IDENTIFIER:
+                        BIGINT.writeLong(blockBuilder, column.getIdentifier(lineItem));
+                        break;
+                    case INTEGER:
+                        INTEGER.writeLong(blockBuilder, column.getInteger(lineItem));
                         break;
                     case DATE:
                         DATE.writeLong(blockBuilder, column.getDate(lineItem));
@@ -235,8 +240,10 @@ public class TestHivePageSink
     private static HiveType getHiveType(TpchColumnType type)
     {
         switch (type) {
-            case BIGINT:
+            case IDENTIFIER:
                 return HIVE_LONG;
+            case INTEGER:
+                return HIVE_INT;
             case DATE:
                 return HIVE_DATE;
             case DOUBLE:

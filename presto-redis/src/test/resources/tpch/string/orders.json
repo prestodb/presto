@@ -54,7 +54,7 @@
             {
                 "name": "shippriority",
                 "mapping": "shippriority",
-                "type": "BIGINT"
+                "type": "INTEGER"
             },
             {
                 "name": "comment",
