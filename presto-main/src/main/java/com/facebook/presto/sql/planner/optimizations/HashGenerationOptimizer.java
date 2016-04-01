@@ -617,7 +617,7 @@ public class HashGenerationOptimizer
 
             // return only hash symbols that are passed through the new node
             Map<HashComputation, Symbol> hashSymbols = new HashMap<>(source.getHashSymbols());
-            hashSymbols.keySet().retainAll(result.getOutputSymbols());
+            hashSymbols.values().retainAll(result.getOutputSymbols());
 
             return new PlanWithProperties(result, hashSymbols);
         }
