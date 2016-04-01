@@ -597,6 +597,10 @@ class StatementAnalyzer
             Type tableType = tableTypesIterator.next();
             Type queryType = queryTypesIterator.next();
 
+            if (isNullType(queryType)) {
+                continue;
+            }
+
             if (isStructuralType(tableType)) {
                 if (!tableType.getTypeSignature().getBase().equals(queryType.getTypeSignature().getBase())) {
                     return false;
@@ -612,6 +616,11 @@ class StatementAnalyzer
             }
         }
         return true;
+    }
+
+    private static boolean isNullType(Type queryType)
+    {
+        return Objects.equals(queryType, UNKNOWN);
     }
 
     private static boolean isStructuralType(Type type)
