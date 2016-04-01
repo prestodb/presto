@@ -24,8 +24,11 @@ import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.TypeToken;
 import io.airlift.concurrent.BoundedExecutor;
+import io.airlift.stats.TimeStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
@@ -39,6 +42,7 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.container.AsyncResponse;
+import javax.ws.rs.container.CompletionCallback;
 import javax.ws.rs.container.Suspended;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.GenericEntity;
@@ -79,6 +83,8 @@ public class TaskResource
     private final SessionPropertyManager sessionPropertyManager;
     private final Executor responseExecutor;
     private final ScheduledExecutorService timeoutExecutor;
+    private final TimeStat readFromOutputBufferTime = new TimeStat();
+    private final TimeStat resultsRequestTime = new TimeStat();
 
     @Inject
     public TaskResource(TaskManager taskManager,
@@ -197,6 +203,7 @@ public class TaskResource
         requireNonNull(taskId, "taskId is null");
         requireNonNull(outputId, "outputId is null");
 
+        long start = System.nanoTime();
         CompletableFuture<BufferResult> bufferResultFuture = taskManager.getTaskResults(taskId, outputId, token, maxSize);
         bufferResultFuture = addTimeout(
                 bufferResultFuture,
@@ -236,6 +243,9 @@ public class TaskResource
                                 .header(PRESTO_PAGE_NEXT_TOKEN, token)
                                 .header(PRESTO_BUFFER_COMPLETE, false)
                                 .build());
+
+        responseFuture.whenComplete((response, exception) -> readFromOutputBufferTime.add(Duration.nanosSince(start)));
+        asyncResponse.register((CompletionCallback) throwable -> resultsRequestTime.add(Duration.nanosSince(start)));
     }
 
     @DELETE
@@ -251,6 +261,20 @@ public class TaskResource
             taskInfo = taskInfo.summarize();
         }
         return Response.ok(taskInfo).build();
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getReadFromOutputBufferTime()
+    {
+        return readFromOutputBufferTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getResultsRequestTime()
+    {
+        return resultsRequestTime;
     }
 
     private static boolean shouldSummarize(UriInfo uriInfo)
