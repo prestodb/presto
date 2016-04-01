@@ -411,7 +411,7 @@ public class StatementResource
             // first time through, self is null
             QueryResults queryResults = new QueryResults(
                     queryId.toString(),
-                    uriInfo.getRequestUriBuilder().replaceQuery("").replacePath(queryInfo.getSelf().getPath()).build(),
+                    uriInfo.getRequestUriBuilder().replaceQuery(queryId.toString()).replacePath("query.html").build(),
                     findCancelableLeafStage(queryInfo),
                     nextResultsUri,
                     columns,
