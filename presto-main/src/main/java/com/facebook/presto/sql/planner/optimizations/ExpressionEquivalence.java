@@ -242,10 +242,10 @@ public class ExpressionEquivalence
                     return ((Boolean) leftValue).compareTo((Boolean) rightValue);
                 }
                 if (javaType == byte.class || javaType == short.class || javaType == int.class || javaType == long.class) {
-                    return Long.valueOf(((Number) leftValue).longValue()).compareTo(((Number) rightValue).longValue());
+                    return Long.compare(((Number) leftValue).longValue(), ((Number) rightValue).longValue());
                 }
                 if (javaType == float.class || javaType == double.class) {
-                    return Double.valueOf(((Number) leftValue).doubleValue()).compareTo(((Number) rightValue).doubleValue());
+                    return Double.compare(((Number) leftValue).doubleValue(), ((Number) rightValue).doubleValue());
                 }
                 if (javaType == Slice.class) {
                     return ((Slice) leftValue).compareTo((Slice) rightValue);
