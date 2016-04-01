@@ -183,6 +183,7 @@
             <th>Splits Pending</th>
             <th>Splits Running</th>
             <th>Splits Done</th>
+            <th>Elapsed Time</th>
             <th>Output Buffers</th>
             <th>Buffered Pages</th>
         </tr>
@@ -416,6 +417,7 @@ function taskData(d) {
         {"display": htmlEscape(d.stats.queuedDrivers)},
         {"display": htmlEscape(d.stats.runningDrivers)},
         {"display": htmlEscape(d.stats.completedDrivers)},
+        {"display": htmlEscape(d.stats.elapsedTime)},
         {"display": htmlEscape(finishedBuffers + ' / ' + allBuffers)},
         {"display": htmlEscape(bufferedPages)}
     ];
