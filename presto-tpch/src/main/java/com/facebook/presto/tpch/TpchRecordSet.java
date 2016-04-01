@@ -141,7 +141,10 @@ public class TpchRecordSet<E extends TpchEntity>
             if (tpchColumn.getType() == TpchColumnType.DATE) {
                 return tpchColumn.getDate(row);
             }
-            return tpchColumn.getLong(row);
+            if (tpchColumn.getType() == TpchColumnType.INTEGER) {
+                return tpchColumn.getInteger(row);
+            }
+            return tpchColumn.getIdentifier(row);
         }
 
         @Override

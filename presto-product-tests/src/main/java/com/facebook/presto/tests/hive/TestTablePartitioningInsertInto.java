@@ -44,7 +44,7 @@ public class TestTablePartitioningInsertInto
             HiveTableDefinition.builder(PARTITIONED_NATION_NAME)
                     .setCreateTableDDLTemplate("" +
                             "CREATE EXTERNAL TABLE %NAME%(" +
-                            "   p_nationkey     INT," +
+                            "   p_nationkey     BIGINT," +
                             "   p_name          STRING," +
                             "   p_comment       STRING) " +
                             "PARTITIONED BY (p_regionkey INT)" +
@@ -58,7 +58,7 @@ public class TestTablePartitioningInsertInto
             HiveTableDefinition.builder(TARGET_NATION_NAME)
                     .setCreateTableDDLTemplate("" +
                             "CREATE EXTERNAL TABLE %NAME%(" +
-                            "   p_nationkey     INT," +
+                            "   p_nationkey     BIGINT," +
                             "   p_name          STRING," +
                             "   p_comment       STRING," +
                             "   p_regionkey     INT) " +

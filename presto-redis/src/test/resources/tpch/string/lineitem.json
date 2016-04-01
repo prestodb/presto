@@ -33,7 +33,7 @@
             {
                 "name": "linenumber",
                 "mapping": "linenumber",
-                "type": "BIGINT"
+                "type": "INTEGER"
             },
             {
                 "name": "quantity",

@@ -39,8 +39,6 @@ import static com.facebook.presto.operator.aggregation.AverageAggregations.DOUBL
 import static com.facebook.presto.operator.aggregation.AverageAggregations.LONG_AVERAGE;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
-import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -101,7 +99,7 @@ public class HandTpchQuery1
                 Ints.asList(0, 1),
                 Step.SINGLE,
                 ImmutableList.of(
-                        LONG_SUM.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0),
+                        DOUBLE_SUM.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0),
                         DOUBLE_SUM.bind(ImmutableList.of(3), Optional.empty(), Optional.empty(), 1.0),
                         DOUBLE_SUM.bind(ImmutableList.of(4), Optional.empty(), Optional.empty(), 1.0),
                         LONG_AVERAGE.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0),
@@ -123,7 +121,7 @@ public class HandTpchQuery1
         private static final ImmutableList<Type> TYPES = ImmutableList.<Type>of(
                 VARCHAR,
                 VARCHAR,
-                BIGINT,
+                DOUBLE,
                 DOUBLE,
                 DOUBLE,
                 DOUBLE,
@@ -277,7 +275,7 @@ public class HandTpchQuery1
                         VARCHAR.appendTo(lineStatusBlock, position, pageBuilder.getBlockBuilder(1));
                     }
 
-                    long quantity = BIGINT.getLong(quantityBlock, position);
+                    double quantity = DOUBLE.getDouble(quantityBlock, position);
                     double extendedPrice = DOUBLE.getDouble(extendedPriceBlock, position);
                     double discount = DOUBLE.getDouble(discountBlock, position);
                     double tax = DOUBLE.getDouble(taxBlock, position);
@@ -291,7 +289,7 @@ public class HandTpchQuery1
                         pageBuilder.getBlockBuilder(2).appendNull();
                     }
                     else {
-                        BIGINT.writeLong(pageBuilder.getBlockBuilder(2), quantity);
+                        DOUBLE.writeDouble(pageBuilder.getBlockBuilder(2), quantity);
                     }
 
                     if (extendedPriceIsNull) {
