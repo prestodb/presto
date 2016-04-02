@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.client;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -80,6 +82,8 @@ public class StatementClient
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
     private final Map<String, String> setSessionProperties = new ConcurrentHashMap<>();
     private final Set<String> resetSessionProperties = Sets.newConcurrentHashSet();
+    private final List<String> sessionProperties;
+    private final List<String> connectionProperties;
     private final AtomicReference<String> startedtransactionId = new AtomicReference<>();
     private final AtomicBoolean clearTransactionId = new AtomicBoolean();
     private final AtomicBoolean closed = new AtomicBoolean();
@@ -102,7 +106,23 @@ public class StatementClient
         this.query = query;
         this.requestTimeoutNanos = session.getClientRequestTimeout().roundTo(NANOSECONDS);
 
-        Request request = buildQueryRequest(session, query);
+        // Extract connection properties from session properties
+        ImmutableList.Builder<String> sessionPropertiesBuilder = ImmutableList.builder();
+        ImmutableList.Builder<String> connectionPropertiesBuilder = ImmutableList.builder();
+        for (Entry<String, String> entry : session.getProperties().entrySet()) {
+            if (entry.getKey().startsWith(PrestoHeaders.PRESTO_CONNECTION_PROPERTY + ":")) {
+                // Prepare connection property headers
+                String key = entry.getKey().replace(PrestoHeaders.PRESTO_CONNECTION_PROPERTY + ":", "");
+                connectionPropertiesBuilder.add(key + "=" + entry.getValue());
+            }
+            else {
+                sessionPropertiesBuilder.add(entry.getKey() + "=" + entry.getValue());
+            }
+        }
+        sessionProperties = sessionPropertiesBuilder.build();
+        connectionProperties = connectionPropertiesBuilder.build();
+
+        Request request = buildQueryRequest(query, session);
         JsonResponse<QueryResults> response = httpClient.execute(request, responseHandler);
 
         if (response.getStatusCode() != HttpStatus.OK.code() || !response.hasValue()) {
@@ -112,10 +132,27 @@ public class StatementClient
         processResponse(response);
     }
 
-    private static Request buildQueryRequest(ClientSession session, String query)
+    private Request.Builder prepareRequest(Request.Builder builder, URI nextUri)
     {
-        Request.Builder builder = preparePost()
-                .setUri(uriBuilderFrom(session.getServer()).replacePath("/v1/statement").build())
+        builder.setHeader(USER_AGENT, USER_AGENT_VALUE);
+        setConnectionPropertyHeaders(builder);
+        builder.setUri(nextUri);
+        return builder;
+    }
+
+    private Request.Builder setConnectionPropertyHeaders(Request.Builder builder)
+    {
+        for (String kv : connectionProperties) {
+            builder.addHeader(PrestoHeaders.PRESTO_CONNECTION_PROPERTY, kv);
+        }
+        return builder;
+    }
+
+    private Request buildQueryRequest(String query, ClientSession session)
+    {
+        Request.Builder builder = prepareRequest(
+                preparePost(),
+                uriBuilderFrom(session.getServer()).replacePath("/v1/statement").build())
                 .setBodyGenerator(createStaticBodyGenerator(query, UTF_8));
 
         if (session.getUser() != null) {
@@ -132,13 +169,9 @@ public class StatementClient
         }
         builder.setHeader(PrestoHeaders.PRESTO_TIME_ZONE, session.getTimeZoneId());
         builder.setHeader(PrestoHeaders.PRESTO_LANGUAGE, session.getLocale().toLanguageTag());
-        builder.setHeader(USER_AGENT, USER_AGENT_VALUE);
-
-        Map<String, String> property = session.getProperties();
-        for (Entry<String, String> entry : property.entrySet()) {
-            builder.addHeader(PrestoHeaders.PRESTO_SESSION, entry.getKey() + "=" + entry.getValue());
+        for (String property : sessionProperties) {
+            builder.addHeader(PrestoHeaders.PRESTO_SESSION, property);
         }
-
         builder.setHeader(PrestoHeaders.PRESTO_TRANSACTION_ID, session.getTransactionId() == null ? "NONE" : session.getTransactionId());
 
         return builder.build();
@@ -152,6 +185,12 @@ public class StatementClient
     public String getTimeZoneId()
     {
         return timeZoneId;
+    }
+
+    @VisibleForTesting
+    public List<String> getConnectionProperties()
+    {
+        return connectionProperties;
     }
 
     public boolean isDebug()
@@ -224,10 +263,7 @@ public class StatementClient
             return false;
         }
 
-        Request request = prepareGet()
-                .setHeader(USER_AGENT, USER_AGENT_VALUE)
-                .setUri(nextUri)
-                .build();
+        Request request = prepareRequest(prepareGet(), nextUri).build();
 
         Exception cause = null;
         long start = System.nanoTime();
@@ -319,10 +355,7 @@ public class StatementClient
             return false;
         }
 
-        Request request = prepareDelete()
-                .setHeader(USER_AGENT, USER_AGENT_VALUE)
-                .setUri(uri)
-                .build();
+        Request request = prepareRequest(prepareDelete(), uri).build();
 
         HttpResponseFuture<StatusResponse> response = httpClient.executeAsync(request, createStatusResponseHandler());
         try {
@@ -347,10 +380,7 @@ public class StatementClient
         if (!closed.getAndSet(true)) {
             URI uri = currentResults.get().getNextUri();
             if (uri != null) {
-                Request request = prepareDelete()
-                        .setHeader(USER_AGENT, USER_AGENT_VALUE)
-                        .setUri(uri)
-                        .build();
+                Request request = prepareRequest(prepareDelete(), uri).build();
                 httpClient.executeAsync(request, createStatusResponseHandler());
             }
         }

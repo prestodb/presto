@@ -14,6 +14,7 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.presto.client.ClientSession;
+import com.facebook.presto.client.PrestoHeaders;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.client.StatementClient;
 import com.google.common.base.Splitter;
@@ -72,15 +73,17 @@ public class PrestoConnection
     private final String user;
     private final Map<String, String> clientInfo = new ConcurrentHashMap<>();
     private final Map<String, String> sessionProperties = new ConcurrentHashMap<>();
+    private final Map<String, String> connectionProperties;
     private final AtomicReference<String> transactionId = new AtomicReference<>();
     private final QueryExecutor queryExecutor;
 
-    PrestoConnection(URI uri, String user, QueryExecutor queryExecutor)
+    PrestoConnection(URI uri, String user, Map<String, String> connectionProperties, QueryExecutor queryExecutor)
             throws SQLException
     {
         this.uri = requireNonNull(uri, "uri is null");
         this.address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
         this.user = requireNonNull(user, "user is null");
+        this.connectionProperties = ImmutableMap.copyOf(requireNonNull(connectionProperties, "connectionProperties is null"));
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
         timeZoneId.set(TimeZone.getDefault().getID());
         locale.set(Locale.getDefault());
@@ -580,6 +583,13 @@ public class PrestoConnection
 
         String source = firstNonNull(clientInfo.get("ApplicationName"), "presto-jdbc");
 
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+        builder.putAll(sessionProperties);
+        // Add prefix X-Presto-Connection-Property to distinguish from presto session properties
+        for (Map.Entry<String, String> e : connectionProperties.entrySet()) {
+            builder.put(PrestoHeaders.PRESTO_CONNECTION_PROPERTY + ":" + e.getKey(), e.getValue());
+        }
+
         ClientSession session = new ClientSession(
                 uri,
                 user,
@@ -588,7 +598,7 @@ public class PrestoConnection
                 schema.get(),
                 timeZoneId.get(),
                 locale.get(),
-                ImmutableMap.copyOf(sessionProperties),
+                builder.build(),
                 transactionId.get(),
                 false,
                 new Duration(2, MINUTES));

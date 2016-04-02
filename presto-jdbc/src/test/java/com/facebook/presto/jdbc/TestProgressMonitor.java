@@ -19,6 +19,7 @@ import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementStats;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HttpHeaders;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpStatus;
@@ -119,7 +120,7 @@ public class TestProgressMonitor
         HttpClient client = new TestingHttpClient(new TestingHttpClientProcessor(RESPONSES));
         QueryExecutor testQueryExecutor = QueryExecutor.create(client);
         URI uri = URI.create(format("prestotest://%s", SERVER_ADDRESS));
-        return new PrestoConnection(uri, "test", testQueryExecutor);
+        return new PrestoConnection(uri, "test", ImmutableMap.of(), testQueryExecutor);
     }
 
     private static class TestingHttpClientProcessor
