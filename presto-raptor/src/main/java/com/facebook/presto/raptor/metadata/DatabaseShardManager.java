@@ -119,6 +119,17 @@ public class DatabaseShardManager
                 }
             });
 
+    private final LoadingCache<Long, Map<Integer, String>> bucketAssignmentsCache = CacheBuilder.newBuilder()
+            .expireAfterWrite(1, SECONDS)
+            .build(new CacheLoader<Long, Map<Integer, String>>()
+            {
+                @Override
+                public Map<Integer, String> load(Long distributionId)
+                {
+                    return loadBucketAssignments(distributionId);
+                }
+            });
+
     @Inject
     public DatabaseShardManager(
             @ForMetadata IDBI dbi,
@@ -533,6 +544,16 @@ public class DatabaseShardManager
 
     @Override
     public Map<Integer, String> getBucketAssignments(long distributionId)
+    {
+        try {
+            return bucketAssignmentsCache.getUnchecked(distributionId);
+        }
+        catch (UncheckedExecutionException | ExecutionError e) {
+            throw Throwables.propagate(e.getCause());
+        }
+    }
+
+    private Map<Integer, String> loadBucketAssignments(long distributionId)
     {
         Set<String> nodeIds = getNodeIdentifiers();
         Iterator<String> nodeIterator = cyclingShuffledIterator(nodeIds);
