@@ -252,6 +252,9 @@ public final class TypeRegistry
         if (actualType.equals(expectedType)) {
             return true;
         }
+        else if (actualType.equals(UNKNOWN.getTypeSignature())) {
+            return true;
+        }
         else if (actualType.getBase().equals(StandardTypes.VARCHAR) && expectedType.getBase().equals(StandardTypes.VARCHAR)) {
             return true;
         }
