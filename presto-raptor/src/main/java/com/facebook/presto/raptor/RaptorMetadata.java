@@ -320,7 +320,7 @@ public class RaptorMetadata
 
     private RaptorPartitioningHandle getPartitioningHandle(long distributionId)
     {
-        return new RaptorPartitioningHandle(distributionId, shardManager.getBucketAssignments(distributionId, true));
+        return new RaptorPartitioningHandle(distributionId, shardManager.getBucketAssignments(distributionId));
     }
 
     private Optional<DistributionInfo> getOrCreateDistribution(Map<String, RaptorColumnHandle> columnHandleMap, Map<String, Object> properties)
