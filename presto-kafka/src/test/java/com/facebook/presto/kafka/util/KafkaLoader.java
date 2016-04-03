@@ -38,6 +38,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -130,6 +131,9 @@ public class KafkaLoader
             }
             if (BIGINT.equals(type)) {
                 return ((Number) value).longValue();
+            }
+            if (INTEGER.equals(type)) {
+                return ((Number) value).intValue();
             }
             if (DOUBLE.equals(type)) {
                 return ((Number) value).doubleValue();
