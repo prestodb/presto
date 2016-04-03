@@ -23,6 +23,7 @@ import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
@@ -60,7 +61,7 @@ public enum CassandraType
     DOUBLE(DoubleType.DOUBLE, Double.class),
     FLOAT(DoubleType.DOUBLE, Float.class),
     INET(VarcharType.VARCHAR, InetAddress.class),
-    INT(BigintType.BIGINT, Integer.class),
+    INT(IntegerType.INTEGER, Integer.class),
     TEXT(VarcharType.VARCHAR, String.class),
     TIMESTAMP(TimestampType.TIMESTAMP, Date.class),
     UUID(VarcharType.VARCHAR, java.util.UUID.class),
@@ -473,6 +474,9 @@ public enum CassandraType
         }
         else if (type.equals(BigintType.BIGINT)) {
             return BIGINT;
+        }
+        else if (type.equals(IntegerType.INTEGER)) {
+            return INT;
         }
         else if (type.equals(DoubleType.DOUBLE)) {
             return DOUBLE;

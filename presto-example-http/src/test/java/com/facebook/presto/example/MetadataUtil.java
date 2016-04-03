@@ -29,6 +29,7 @@ import java.util.Map;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static java.util.Locale.ENGLISH;
@@ -58,6 +59,7 @@ public final class MetadataUtil
         private final Map<String, Type> types = ImmutableMap.<String, Type>of(
                 StandardTypes.BOOLEAN, BOOLEAN,
                 StandardTypes.BIGINT, BIGINT,
+                StandardTypes.INTEGER, INTEGER,
                 StandardTypes.DOUBLE, DOUBLE,
                 StandardTypes.VARCHAR, VARCHAR);
 
