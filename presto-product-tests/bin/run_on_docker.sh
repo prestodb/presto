@@ -41,7 +41,7 @@ function stop_unnecessary_hadoop_services() {
 }
 
 function docker_compose_network() {
-  docker network ls | grep ${ENVIRONMENT} | cut  -f 1 -d ' '
+  docker network ls | grep ${ENVIRONMENT}"_default" | cut  -f 1 -d ' '
 }
 
 function check_presto() {
