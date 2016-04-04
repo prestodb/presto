@@ -57,6 +57,35 @@ function run_product_tests() {
     --config-local /presto-product-tests/conf/tempto/tempto-configuration.yaml "$@"
 }
 
+# docker-compose down is not good enough because it's ignores services created with "run" command
+function stop_application_runner_containers() {
+  APPLICATION_RUNNER_CONTAINERS=$(docker-compose -f "$1" ps -q application-runner)
+  for CONTAINER_NAME in ${APPLICATION_RUNNER_CONTAINERS}
+  do
+    echo "Stopping: ${CONTAINER_NAME}"
+    docker stop ${CONTAINER_NAME}
+    echo "Container stopped: ${CONTAINER_NAME}"
+  done
+}
+
+function cleanup_docker_containers() {
+  # stop application runner containers started with "run"
+  stop_application_runner_containers "${DOCKER_COMPOSE_LOCATION}"
+
+  # stop containers started with "up"
+  docker-compose -f "${DOCKER_COMPOSE_LOCATION}" down
+
+  # docker logs processes are being terminated as soon as docker container are stopped
+  # wait for docker logs termination
+  wait
+}
+
+function termination_handler(){
+  set +e
+  cleanup_docker_containers
+  exit 130
+}
+
 ENVIRONMENT=$1
 
 if [[ "$ENVIRONMENT" != "singlenode" && "$ENVIRONMENT" != "distributed" ]]; then
@@ -71,6 +100,9 @@ PRODUCT_TESTS_ROOT="${SCRIPT_DIR}/.."
 PROJECT_ROOT="${PRODUCT_TESTS_ROOT}/.."
 DOCKER_COMPOSE_LOCATION="${PRODUCT_TESTS_ROOT}/conf/docker/${ENVIRONMENT}/docker-compose.yml"
 
+SINGLE_NODE_DOCKER_COMPOSE_LOCATION="${PRODUCT_TESTS_ROOT}/conf/docker/singlenode/docker-compose.yml"
+DISTRIBUTED_DOCKER_COMPOSE_LOCATION="${PRODUCT_TESTS_ROOT}/conf/docker/distributed/docker-compose.yml"
+
 PRESTO_SERVICES="presto-master"
 if [[ "$ENVIRONMENT" == "distributed" ]]; then
    PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker"
@@ -83,9 +115,14 @@ source "${PRODUCT_TESTS_ROOT}/target/classes/presto.env"
 docker-compose version
 docker version
 
-# try to stop already running containers
-docker-compose -f "${PRODUCT_TESTS_ROOT}/conf/docker/singlenode/docker-compose.yml" down || true
-docker-compose -f "${PRODUCT_TESTS_ROOT}/conf/docker/distributed/docker-compose.yml" down || true
+# stop already running containers
+stop_application_runner_containers "${SINGLE_NODE_DOCKER_COMPOSE_LOCATION}"
+stop_application_runner_containers "${DISTRIBUTED_DOCKER_COMPOSE_LOCATION}"
+docker-compose -f "${SINGLE_NODE_DOCKER_COMPOSE_LOCATION}" down || true
+docker-compose -f "${DISTRIBUTED_DOCKER_COMPOSE_LOCATION}" down || true
+
+# catch terminate signals
+trap termination_handler INT TERM
 
 # pull docker images
 docker-compose -f "${DOCKER_COMPOSE_LOCATION}" pull
@@ -111,14 +148,12 @@ retry check_presto
 
 # run product tests
 set +e
-run_product_tests "$*"
+run_product_tests "$*" &
+PRODUCT_TESTS_PROCESS_ID=$!
+wait ${PRODUCT_TESTS_PROCESS_ID}
 EXIT_CODE=$?
-set -x
+set -e
 
-# stop docker containers
-docker-compose -f "${DOCKER_COMPOSE_LOCATION}" down
-
-# wait for docker logs to stop
-wait
+cleanup_docker_containers
 
 exit ${EXIT_CODE}
