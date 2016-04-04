@@ -24,7 +24,7 @@ function retry() {
 }
 
 function hadoop_master_container(){
-  docker ps --format '{{.Names}}' | grep hadoop-master
+  docker-compose -f "${DOCKER_COMPOSE_LOCATION}" ps -q hadoop-master
 }
 
 function check_hadoop() {
@@ -40,28 +40,21 @@ function stop_unnecessary_hadoop_services() {
   docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl stop zookeeper
 }
 
-function docker_compose_network() {
-  docker network ls | grep ${ENVIRONMENT}"_default" | cut  -f 1 -d ' '
+function run_in_application_runner_container() {
+  docker-compose -f "${DOCKER_COMPOSE_LOCATION}" run --rm -T application-runner "$@"
 }
 
 function check_presto() {
-  docker run \
-    --rm -it \
-    --net $(docker_compose_network) \
-    -v "${PROJECT_ROOT}/presto-cli/target/:/cli" \
-    teradatalabs/centos6-java8-oracle \
-    java -jar /cli/presto-cli-${PRESTO_VERSION}-executable.jar --server presto-master:8080 \
-    --execute "SHOW CATALOGS"  | grep -i hive
+  run_in_application_runner_container \
+    java -jar /presto-cli/target/presto-cli-${PRESTO_VERSION}-executable.jar \
+    --server presto-master:8080 \
+    --execute "SHOW CATALOGS" | grep -i hive
 }
 
 function run_product_tests() {
-  docker run \
-        --rm -it \
-        --net $(docker_compose_network) \
-        -v "${PRODUCT_TESTS_ROOT}:/presto-product-tests" \
-        teradatalabs/centos6-java8-oracle \
-        /presto-product-tests/bin/run.sh \
-        --config-local /presto-product-tests/conf/tempto/tempto-configuration.yaml "$@"
+  run_in_application_runner_container \
+    /presto-product-tests/bin/run.sh \
+    --config-local /presto-product-tests/conf/tempto/tempto-configuration.yaml "$@"
 }
 
 ENVIRONMENT=$1
@@ -77,6 +70,11 @@ SCRIPT_DIR=$(dirname $(absolutepath "$0"))
 PRODUCT_TESTS_ROOT="${SCRIPT_DIR}/.."
 PROJECT_ROOT="${PRODUCT_TESTS_ROOT}/.."
 DOCKER_COMPOSE_LOCATION="${PRODUCT_TESTS_ROOT}/conf/docker/${ENVIRONMENT}/docker-compose.yml"
+
+PRESTO_SERVICES="presto-master"
+if [[ "$ENVIRONMENT" == "distributed" ]]; then
+   PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker"
+fi
 
 # set presto version environment variable
 source "${PRODUCT_TESTS_ROOT}/target/classes/presto.env"
@@ -103,10 +101,6 @@ retry check_hadoop
 stop_unnecessary_hadoop_services
 
 # start presto containers
-PRESTO_SERVICES="presto-master"
-if [[ "$ENVIRONMENT" == "distributed" ]]; then
-   PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker"
-fi
 docker-compose -f "${DOCKER_COMPOSE_LOCATION}" up -d ${PRESTO_SERVICES}
 
 # start docker logs for presto containers

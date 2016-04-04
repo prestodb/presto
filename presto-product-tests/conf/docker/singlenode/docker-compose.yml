@@ -26,3 +26,14 @@ services:
       - ../files/:/files:ro
     env_file:
       - ../../../target/classes/presto.env
+
+  application-runner:
+    hostname: application-runner
+    image: 'teradatalabs/centos6-java8-oracle'
+    depends_on:
+      - 'presto-master'
+    volumes:
+      - ../../../../presto-product-tests/:/presto-product-tests
+      - ../../../../presto-cli/:/presto-cli:ro
+    env_file:
+      - ../../../target/classes/presto.env
