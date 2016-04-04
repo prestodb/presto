@@ -62,7 +62,9 @@ import static com.facebook.presto.spi.type.StandardTypes.DATE;
 import static com.facebook.presto.spi.type.StandardTypes.DECIMAL;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
+import static com.facebook.presto.spi.type.StandardTypes.SMALLINT;
 import static com.facebook.presto.spi.type.StandardTypes.TIMESTAMP;
+import static com.facebook.presto.spi.type.StandardTypes.TINYINT;
 import static com.facebook.presto.spi.type.StandardTypes.VARBINARY;
 import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static java.lang.String.format;
@@ -76,7 +78,8 @@ public class ParquetPageSourceFactory
             .add("org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe")
             .add("parquet.hive.serde.ParquetHiveSerDe")
             .build();
-    private static final Set<String> SUPPORTED_TYPES = ImmutableSet.of(INTEGER, BIGINT, BOOLEAN, DOUBLE, TIMESTAMP, VARCHAR, VARBINARY, DATE, DECIMAL);
+    private static final Set<String> SUPPORTED_COLUMN_TYPES = ImmutableSet.of(INTEGER, BIGINT, BOOLEAN, DOUBLE, TIMESTAMP, VARCHAR, VARBINARY, DATE, DECIMAL);
+    private static final Set<String> SUPPORTED_PARTITION_TYPES = ImmutableSet.of(TINYINT, SMALLINT, INTEGER, BIGINT, BOOLEAN, DOUBLE, TIMESTAMP, VARCHAR, DATE, DECIMAL);
 
     private final TypeManager typeManager;
     private final boolean useParquetColumnNames;
@@ -229,9 +232,18 @@ public class ParquetPageSourceFactory
     // TODO: support complex types
     private static boolean columnTypeSupported(List<HiveColumnHandle> columns)
     {
-        return columns.stream()
+        boolean nonPartitionColumnsSupported = columns.stream()
+                .filter(column -> !column.isPartitionKey())
                 .map(HiveColumnHandle::getTypeSignature)
                 .map(TypeSignature::getBase)
-                .allMatch(SUPPORTED_TYPES::contains);
+                .allMatch(SUPPORTED_COLUMN_TYPES::contains);
+
+        boolean partitionColumnsSupported = columns.stream()
+                .filter(HiveColumnHandle::isPartitionKey)
+                .map(HiveColumnHandle::getTypeSignature)
+                .map(TypeSignature::getBase)
+                .allMatch(SUPPORTED_PARTITION_TYPES::contains);
+
+        return nonPartitionColumnsSupported && partitionColumnsSupported;
     }
 }
