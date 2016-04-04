@@ -118,6 +118,8 @@ import static com.facebook.presto.hive.HiveStorageFormat.RCBINARY;
 import static com.facebook.presto.hive.HiveStorageFormat.RCTEXT;
 import static com.facebook.presto.hive.HiveStorageFormat.SEQUENCEFILE;
 import static com.facebook.presto.hive.HiveStorageFormat.TEXTFILE;
+import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.CLUSTERED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
@@ -2542,6 +2544,8 @@ public abstract class AbstractTestHiveClient
         return ImmutableMap.<String, Object>builder()
                 .put(STORAGE_FORMAT_PROPERTY, storageFormat)
                 .put(PARTITIONED_BY_PROPERTY, ImmutableList.copyOf(parititonedBy))
+                .put(CLUSTERED_BY_PROPERTY, ImmutableList.of())
+                .put(BUCKET_COUNT_PROPERTY, 0)
                 .build();
     }
 
