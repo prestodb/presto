@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>50</version>
+        <version>51</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -45,7 +45,7 @@
         <air.java.version>1.8.0-40</air.java.version>
 
         <dep.antlr.version>4.5.1</dep.antlr.version>
-        <dep.airlift.version>0.126-SNAPSHOT</dep.airlift.version>
+        <dep.airlift.version>0.126</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.19</dep.slice.version>
         <dep.aws-sdk.version>1.9.40</dep.aws-sdk.version>
