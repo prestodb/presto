@@ -68,7 +68,7 @@ public class HashBuilderOperator
                     requireNonNull(layout, "layout is null"),
                     outer);
 
-            Preconditions.checkArgument(!hashChannels.isEmpty(), "hashChannels is empty");
+            Preconditions.checkArgument(!hashChannels.isEmpty() || filterFunction.isPresent(), "hashChannels is empty and filterFunction is not set");
             this.hashChannels = ImmutableList.copyOf(requireNonNull(hashChannels, "hashChannels is null"));
             this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
             this.filterFunction = requireNonNull(filterFunction, "filterFunction is null");
@@ -138,7 +138,7 @@ public class HashBuilderOperator
 
         this.lookupSourceSupplier = requireNonNull(lookupSourceSupplier, "hashSupplier is null");
 
-        Preconditions.checkArgument(!hashChannels.isEmpty(), "hashChannels is empty");
+        Preconditions.checkArgument(!hashChannels.isEmpty() || filterFunction.isPresent(), "hashChannels is empty and filterFunction is not set");
         this.hashChannels = ImmutableList.copyOf(requireNonNull(hashChannels, "hashChannels is null"));
         this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
         this.filterFunction = requireNonNull(filterFunction, "filterFunction is null");

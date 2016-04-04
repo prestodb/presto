@@ -74,7 +74,7 @@ public class SimpleJoinProbe
             probeBlocks[i] = blocks[probeJoinChannels.get(i)];
         }
         this.page = page;
-        this.probePage = new Page(probeBlocks);
+        this.probePage = new Page(page.getPositionCount(), probeBlocks);
         this.probeHashBlock = hashChannel.isPresent() ? Optional.of(page.getBlock(hashChannel.get())) : Optional.empty();
     }
 
