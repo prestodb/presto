@@ -116,6 +116,7 @@ import static com.facebook.presto.sql.planner.optimizations.LocalProperties.grou
 import static com.facebook.presto.sql.planner.optimizations.ScalarQueryUtil.isScalar;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
@@ -326,6 +327,15 @@ public class AddExchanges
 
         private PlanWithProperties splitAggregation(AggregationNode node, PlanWithProperties newChild, Function<PlanNode, PlanNode> exchanger)
         {
+            // only SINGLE aggregation could be split
+            if (!node.getStep().equals(SINGLE)) {
+                PlanNode result = node;
+                if (exchanger != null) {
+                    result = exchanger.apply(result);
+                }
+                return withDerivedProperties(result, newChild.getProperties());
+            }
+
             // otherwise, add a partial and final with an exchange in between
             Map<Symbol, Symbol> masks = node.getMasks();
 
