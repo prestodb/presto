@@ -1861,13 +1861,18 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) LEFT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND d > 0",
                 "VALUES (1, 1, 1, 1), (1, 1, 1, 2), (1, 2, 1, 1), (1, 2, 1, 2)");
-    }
-
-    @Test
-    public void testUnsupportedNonEqualityLeftJoin()
-            throws Exception
-    {
-        assertQueryFails("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.quantity > 5", ".*hashChannels is empty.*");
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2) t1(a) LEFT OUTER JOIN (VALUES 10, 11) t2(b) ON a > 1",
+                "VALUES (1, NULL), (2, 11), (2, 10)");
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2) t1(a) LEFT OUTER JOIN (VALUES 10, 11) t2(b) ON b > 10",
+                "VALUES (1, 11), (2, 11)");
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2) t1(a) LEFT OUTER JOIN (VALUES 10, 11) t2(b) ON a > b",
+                "VALUES (1, NULL), (2, NULL)");
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2) t1(a) LEFT OUTER JOIN (VALUES 10, 11) t2(b) ON a < b",
+                "VALUES (1, 10), (1, 11), (2, 10), (2, 11)");
     }
 
     @Test
@@ -1919,14 +1924,18 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) FULL OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND d > 0",
                 "VALUES (1, 1, 1, 1), (1, 1, 1, 2), (1, 2, 1, 1), (1, 2, 1, 2)");
-    }
-
-    @Test
-    public void testUnsupportedNonEqualityFullJoin()
-            throws Exception
-    {
-        assertQueryFails("SELECT COUNT(*) FROM lineitem FULL OUTER JOIN orders ON orders.custkey > 1000", ".*hashChannels is empty.*");
-        assertQueryFails("SELECT COUNT(*) FROM lineitem FULL OUTER JOIN orders ON lineitem.quantity > 5", ".*hashChannels is empty.*");
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2) t1(a) FULL OUTER JOIN (VALUES 10, 11) t2(b) ON a > 1",
+                "VALUES (2, 11), (2, 10), (1, NULL)");
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2) t1(a) FULL OUTER JOIN (VALUES 10, 11) t2(b) ON b > 10",
+                "VALUES (NULL, 10), (1, 11), (2, 11)");
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2) t1(a) FULL OUTER JOIN (VALUES 10, 11) t2(b) ON a > b",
+                "VALUES (NULL, 10), (NULL, 11), (1, NULL), (2, NULL)");
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2) t1(a) FULL OUTER JOIN (VALUES 10, 11) t2(b) ON a < b",
+                "VALUES (1, 10), (1, 11), (2, 10), (2, 11)");
     }
 
     @Test
@@ -1962,13 +1971,18 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) RIGHT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND d > 0",
                 "VALUES (1, 1, 1, 1), (1, 1, 1, 2), (1, 2, 1, 1), (1, 2, 1, 2)");
-    }
-
-    @Test
-    public void testUnsupportedNonEqualityRightJoin()
-            throws Exception
-    {
-        assertQueryFails("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON orders.shippriority > 5", ".*hashChannels is empty.*");
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2) t1(a) RIGHT OUTER JOIN (VALUES 10, 11) t2(b) ON a > 1",
+                "VALUES (2, 11), (2, 10)");
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2) t1(a) RIGHT OUTER JOIN (VALUES 10, 11) t2(b) ON b > 10",
+                "VALUES (NULL, 10), (1, 11), (2, 11)");
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2) t1(a) RIGHT OUTER JOIN (VALUES 10, 11) t2(b) ON a > b",
+                "VALUES (NULL, 10), (NULL, 11)");
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2) t1(a) RIGHT OUTER JOIN (VALUES 10, 11) t2(b) ON a < b",
+                "VALUES (1, 10), (1, 11), (2, 10), (2, 11)");
     }
 
     @Test
