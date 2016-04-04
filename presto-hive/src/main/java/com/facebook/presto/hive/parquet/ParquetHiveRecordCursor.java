@@ -77,7 +77,9 @@ import static com.facebook.presto.hive.HiveUtil.getDecimalType;
 import static com.facebook.presto.hive.HiveUtil.integerPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.longDecimalPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.shortDecimalPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.smallintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.tinyintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.varcharPartitionKey;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getParquetType;
@@ -92,10 +94,12 @@ import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -205,6 +209,12 @@ public class ParquetHiveRecordCursor
                 }
                 else if (type.equals(INTEGER)) {
                     longs[columnIndex] = integerPartitionKey(partitionKeyValue, columnName);
+                }
+                else if (type.equals(SMALLINT)) {
+                    longs[columnIndex] = smallintPartitionKey(partitionKeyValue, columnName);
+                }
+                else if (type.equals(TINYINT)) {
+                    longs[columnIndex] = tinyintPartitionKey(partitionKeyValue, columnName);
                 }
                 else if (type.equals(BIGINT)) {
                     longs[columnIndex] = bigintPartitionKey(partitionKeyValue, columnName);

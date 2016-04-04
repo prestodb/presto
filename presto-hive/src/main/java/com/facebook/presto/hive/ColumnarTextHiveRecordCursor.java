@@ -54,7 +54,9 @@ import static com.facebook.presto.hive.HiveUtil.longDecimalPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.parseHiveDate;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.HiveUtil.shortDecimalPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.smallintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.tinyintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.varcharPartitionKey;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
 import static com.facebook.presto.hive.NumberParser.parseLong;
@@ -67,8 +69,10 @@ import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.StandardTypes.DECIMAL;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
@@ -191,6 +195,12 @@ class ColumnarTextHiveRecordCursor<K>
                 }
                 else if (BOOLEAN.equals(type)) {
                     booleans[columnIndex] = booleanPartitionKey(partitionKey.getValue(), name);
+                }
+                else if (TINYINT.equals(type)) {
+                    longs[columnIndex] = tinyintPartitionKey(partitionKey.getValue(), name);
+                }
+                else if (SMALLINT.equals(type)) {
+                    longs[columnIndex] = smallintPartitionKey(partitionKey.getValue(), name);
                 }
                 else if (INTEGER.equals(type)) {
                     longs[columnIndex] = integerPartitionKey(partitionKey.getValue(), name);
@@ -339,9 +349,16 @@ class ColumnarTextHiveRecordCursor<K>
     {
         checkState(!closed, "Cursor is closed");
 
-        if (!types[fieldId].equals(BIGINT) && !types[fieldId].equals(INTEGER) && !types[fieldId].equals(DATE) && !types[fieldId].equals(TIMESTAMP) && !isShortDecimal(types[fieldId])) {
+        if (!types[fieldId].equals(BIGINT) &&
+                !types[fieldId].equals(INTEGER) &&
+                !types[fieldId].equals(SMALLINT) &&
+                !types[fieldId].equals(TINYINT) &&
+                !types[fieldId].equals(DATE) &&
+                !types[fieldId].equals(TIMESTAMP) &&
+                !isShortDecimal(types[fieldId])) {
             // we don't use Preconditions.checkArgument because it requires boxing fieldId, which affects inner loop performance
-            throw new IllegalArgumentException(String.format("Expected field to be %s, %s, %s, %s or %s , actual %s (field %s)", INTEGER, BIGINT, DATE, TIMESTAMP, DECIMAL, types[fieldId], fieldId));
+            throw new IllegalArgumentException(
+                    format("Expected field to be %s, %s, %s, %s, %s or %s , actual %s (field %s)", TINYINT, SMALLINT, INTEGER, BIGINT, DECIMAL, DATE, TIMESTAMP, types[fieldId], fieldId));
         }
 
         if (!loaded[fieldId]) {
@@ -660,6 +677,12 @@ class ColumnarTextHiveRecordCursor<K>
             parseLongColumn(column);
         }
         else if (type.equals(INTEGER)) {
+            parseLongColumn(column);
+        }
+        else if (type.equals(SMALLINT)) {
+            parseLongColumn(column);
+        }
+        else if (type.equals(TINYINT)) {
             parseLongColumn(column);
         }
         else if (type.equals(DOUBLE)) {

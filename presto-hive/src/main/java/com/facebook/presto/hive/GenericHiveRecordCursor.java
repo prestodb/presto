@@ -54,7 +54,9 @@ import static com.facebook.presto.hive.HiveUtil.integerPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
 import static com.facebook.presto.hive.HiveUtil.longDecimalPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.shortDecimalPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.smallintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.tinyintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.varcharPartitionKey;
 import static com.facebook.presto.hive.util.SerDeUtils.getBlockObject;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -66,7 +68,9 @@ import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.Decimals.rescale;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
@@ -197,6 +201,12 @@ class GenericHiveRecordCursor<K, V extends Writable>
                 }
                 else if (INTEGER.equals(type)) {
                     longs[columnIndex] = integerPartitionKey(partitionKey.getValue(), name);
+                }
+                else if (SMALLINT.equals(type)) {
+                    longs[columnIndex] = smallintPartitionKey(partitionKey.getValue(), name);
+                }
+                else if (TINYINT.equals(type)) {
+                    longs[columnIndex] = tinyintPartitionKey(partitionKey.getValue(), name);
                 }
                 else if (DOUBLE.equals(type)) {
                     doubles[columnIndex] = doublePartitionKey(partitionKey.getValue(), name);
@@ -532,6 +542,12 @@ class GenericHiveRecordCursor<K, V extends Writable>
             parseLongColumn(column);
         }
         else if (INTEGER.equals(type)) {
+            parseLongColumn(column);
+        }
+        else if (SMALLINT.equals(type)) {
+            parseLongColumn(column);
+        }
+        else if (TINYINT.equals(type)) {
             parseLongColumn(column);
         }
         else if (DOUBLE.equals(type)) {

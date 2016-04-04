@@ -91,6 +91,8 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
@@ -192,8 +194,8 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("p_empty_varchar", javaHiveVarcharObjectInspector, "", Slices.EMPTY_SLICE, true))
             .add(new TestColumn("p_varchar", javaHiveVarcharObjectInspector, "test", Slices.utf8Slice("test"), true))
             .add(new TestColumn("p_varchar_max_length", javaHiveVarcharObjectInspector, VARCHAR_MAX_LENGTH_STRING, Slices.utf8Slice(VARCHAR_MAX_LENGTH_STRING), true))
-            .add(new TestColumn("p_tinyint", javaByteObjectInspector, "1", 1, true))
-            .add(new TestColumn("p_smallint", javaShortObjectInspector, "2", 2, true))
+            .add(new TestColumn("p_tinyint", javaByteObjectInspector, "1", (byte) 1, true))
+            .add(new TestColumn("p_smallint", javaShortObjectInspector, "2", (short) 2, true))
             .add(new TestColumn("p_int", javaIntObjectInspector, "3", 3, true))
             .add(new TestColumn("p_bigint", javaLongObjectInspector, "4", 4L, true))
             .add(new TestColumn("p_float", javaFloatObjectInspector, "5.1", 5.1, true))
@@ -241,8 +243,8 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("t_empty_varchar", javaHiveVarcharObjectInspector, new HiveVarchar("", HiveVarchar.MAX_VARCHAR_LENGTH), Slices.EMPTY_SLICE))
             .add(new TestColumn("t_varchar", javaHiveVarcharObjectInspector, new HiveVarchar("test", HiveVarchar.MAX_VARCHAR_LENGTH), Slices.utf8Slice("test")))
             .add(new TestColumn("t_varchar_max_length", javaHiveVarcharObjectInspector, new HiveVarchar(VARCHAR_MAX_LENGTH_STRING, HiveVarchar.MAX_VARCHAR_LENGTH), Slices.utf8Slice(VARCHAR_MAX_LENGTH_STRING)))
-            .add(new TestColumn("t_tinyint", javaByteObjectInspector, (byte) 1, 1))
-            .add(new TestColumn("t_smallint", javaShortObjectInspector, (short) 2, 2))
+            .add(new TestColumn("t_tinyint", javaByteObjectInspector, (byte) 1, (byte) 1))
+            .add(new TestColumn("t_smallint", javaShortObjectInspector, (short) 2, (short) 2))
             .add(new TestColumn("t_int", javaIntObjectInspector, 3, 3))
             .add(new TestColumn("t_bigint", javaLongObjectInspector, 4L, 4L))
             .add(new TestColumn("t_float", javaFloatObjectInspector, 5.1f, 5.1))
@@ -265,7 +267,7 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("t_map_tinyint",
                     getStandardMapObjectInspector(javaByteObjectInspector, javaByteObjectInspector),
                     ImmutableMap.of((byte) 1, (byte) 1),
-                    mapBlockOf(INTEGER, INTEGER, 1, 1)))
+                    mapBlockOf(TINYINT, TINYINT, (byte) 1, (byte) 1)))
             .add(new TestColumn("t_map_varchar",
                     getStandardMapObjectInspector(javaHiveVarcharObjectInspector, javaHiveVarcharObjectInspector),
                     ImmutableMap.of(new HiveVarchar("test", HiveVarchar.MAX_VARCHAR_LENGTH), new HiveVarchar("test", HiveVarchar.MAX_VARCHAR_LENGTH)),
@@ -273,7 +275,7 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("t_map_smallint",
                     getStandardMapObjectInspector(javaShortObjectInspector, javaShortObjectInspector),
                     ImmutableMap.of((short) 2, (short) 2),
-                    mapBlockOf(INTEGER, INTEGER, 2, 2)))
+                    mapBlockOf(SMALLINT, SMALLINT, (short) 2, (short) 2)))
             .add(new TestColumn("t_map_null_key", getStandardMapObjectInspector(javaLongObjectInspector, javaLongObjectInspector), asMap(new Long[] {null, 2L}, new Long[] {0L,  3L}), mapBlockOf(BIGINT, BIGINT, 2, 3)))
             .add(new TestColumn("t_map_int", getStandardMapObjectInspector(javaIntObjectInspector, javaIntObjectInspector), ImmutableMap.of(3, 3), mapBlockOf(INTEGER, INTEGER, 3, 3)))
             .add(new TestColumn("t_map_bigint", getStandardMapObjectInspector(javaLongObjectInspector, javaLongObjectInspector), ImmutableMap.of(4L, 4L), mapBlockOf(BIGINT, BIGINT, 4L, 4L)))
@@ -323,8 +325,8 @@ public abstract class AbstractTestHiveFileFormats
             ))
             .add(new TestColumn("t_array_empty", getStandardListObjectInspector(javaStringObjectInspector), ImmutableList.of(), arrayBlockOf(createUnboundedVarcharType())))
             .add(new TestColumn("t_array_string", getStandardListObjectInspector(javaStringObjectInspector), ImmutableList.of("test"), arrayBlockOf(createUnboundedVarcharType(), "test")))
-            .add(new TestColumn("t_array_tinyint", getStandardListObjectInspector(javaByteObjectInspector), ImmutableList.of((byte) 1), arrayBlockOf(INTEGER, 1)))
-            .add(new TestColumn("t_array_smallint", getStandardListObjectInspector(javaShortObjectInspector), ImmutableList.of((short) 2), arrayBlockOf(INTEGER, 2)))
+            .add(new TestColumn("t_array_tinyint", getStandardListObjectInspector(javaByteObjectInspector), ImmutableList.of((byte) 1), arrayBlockOf(TINYINT, (byte) 1)))
+            .add(new TestColumn("t_array_smallint", getStandardListObjectInspector(javaShortObjectInspector), ImmutableList.of((short) 2), arrayBlockOf(SMALLINT, (short) 2)))
             .add(new TestColumn("t_array_int", getStandardListObjectInspector(javaIntObjectInspector), ImmutableList.of(3), arrayBlockOf(INTEGER, 3)))
             .add(new TestColumn("t_array_bigint", getStandardListObjectInspector(javaLongObjectInspector), ImmutableList.of(4L), arrayBlockOf(BIGINT, 4L)))
             .add(new TestColumn("t_array_float", getStandardListObjectInspector(javaFloatObjectInspector), ImmutableList.of(5.0f), arrayBlockOf(DOUBLE, 5.0f)))
@@ -548,6 +550,12 @@ public abstract class AbstractTestHiveFileFormats
                 else if (BOOLEAN.equals(type)) {
                     fieldFromCursor = cursor.getBoolean(i);
                 }
+                else if (TINYINT.equals(type)) {
+                    fieldFromCursor = cursor.getLong(i);
+                }
+                else if (SMALLINT.equals(type)) {
+                    fieldFromCursor = cursor.getLong(i);
+                }
                 else if (INTEGER.equals(type)) {
                     fieldFromCursor = cursor.getLong(i);
                 }
@@ -592,9 +600,13 @@ public abstract class AbstractTestHiveFileFormats
                         testColumn.getObjectInspector().getTypeName().equals("double")) {
                     assertEquals((double) fieldFromCursor, (double) testColumn.getExpectedValue(), EPSILON);
                 }
-                else if (testColumn.getObjectInspector().getTypeName().equals("tinyint") ||
-                        testColumn.getObjectInspector().getTypeName().equals("smallint") ||
-                        testColumn.getObjectInspector().getTypeName().equals("int")) {
+                else if (testColumn.getObjectInspector().getTypeName().equals("tinyint")) {
+                    assertEquals(((Number) fieldFromCursor).byteValue(), testColumn.getExpectedValue());
+                }
+                else if (testColumn.getObjectInspector().getTypeName().equals("smallint")) {
+                    assertEquals(((Number) fieldFromCursor).shortValue(), testColumn.getExpectedValue());
+                }
+                else if (testColumn.getObjectInspector().getTypeName().equals("int")) {
                     assertEquals(((Number) fieldFromCursor).intValue(), testColumn.getExpectedValue());
                 }
                 else if (testColumn.getObjectInspector().getCategory() == Category.PRIMITIVE) {
@@ -639,7 +651,9 @@ public abstract class AbstractTestHiveFileFormats
                         SqlDate expectedDate = new SqlDate(((Long) expectedValue).intValue());
                         assertEquals(actualValue, expectedDate, "Wrong value for column " + testColumn.getName());
                     }
-                    else if (testColumn.getObjectInspector().getTypeName().equals("int")) {
+                    else if (testColumn.getObjectInspector().getTypeName().equals("int") ||
+                            testColumn.getObjectInspector().getTypeName().equals("smallint") ||
+                            testColumn.getObjectInspector().getTypeName().equals("tinyint")) {
                         assertEquals(actualValue, expectedValue);
                     }
                     else if (testColumn.getObjectInspector().getTypeName().equals("timestamp")) {
