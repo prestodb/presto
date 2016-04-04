@@ -32,6 +32,7 @@ import static java.util.Objects.requireNonNull;
 public class SimplePagesHashStrategy
         implements PagesHashStrategy
 {
+    private static final Block[] EMPTY_BLOCK_ARRAY = new Block[0];
     private final List<Type> types;
     private final List<List<Block>> channels;
     private final List<Block[]> channelArrays;
