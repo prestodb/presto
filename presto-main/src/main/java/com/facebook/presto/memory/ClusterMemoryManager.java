@@ -143,21 +143,17 @@ public class ClusterMemoryManager
             DataSize sessionMaxQueryMemory = getQueryMaxMemory(query.getSession());
             long queryMemoryLimit = Math.min(maxQueryMemory.toBytes(), sessionMaxQueryMemory.toBytes());
             totalBytes += bytes;
-            if (bytes > queryMemoryLimit) {
-                if (resourceOvercommit(query.getSession())) {
-                    // If a query has requested resource overcommit, only kill it if the cluster has run out of memory
-                    if (outOfMemory) {
-                        DataSize memory = succinctDataSize(bytes, BYTE);
-                        query.fail(new PrestoException(CLUSTER_OUT_OF_MEMORY,
-                                format("The cluster is out of memory, you set %s=true, and your query is using %s of memory, so it was killed.", RESOURCE_OVERCOMMIT, memory)));
-                        queryKilled = true;
-                    }
-                }
-                else {
-                    DataSize maxMemory = succinctDataSize(queryMemoryLimit, BYTE);
-                    query.fail(exceededGlobalLimit(maxMemory));
-                    queryKilled = true;
-                }
+            if (resourceOvercommit(query.getSession()) && outOfMemory) {
+                // If a query has requested resource overcommit, only kill it if the cluster has run out of memory
+                DataSize memory = succinctDataSize(bytes, BYTE);
+                query.fail(new PrestoException(CLUSTER_OUT_OF_MEMORY,
+                        format("The cluster is out of memory and %s=true, so this query was killed. It was using %s of memory", RESOURCE_OVERCOMMIT, memory)));
+                queryKilled = true;
+            }
+            if (!resourceOvercommit(query.getSession()) && bytes > queryMemoryLimit) {
+                DataSize maxMemory = succinctDataSize(queryMemoryLimit, BYTE);
+                query.fail(exceededGlobalLimit(maxMemory));
+                queryKilled = true;
             }
         }
         clusterMemoryUsageBytes.set(totalBytes);
