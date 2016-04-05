@@ -93,7 +93,6 @@ import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -1301,21 +1300,21 @@ public class ParquetHiveRecordCursor
         public void addBoolean(boolean value)
         {
             addMissingValues();
-            BOOLEAN.writeBoolean(builder, value);
+            type.writeBoolean(builder, value);
         }
 
         @Override
         public void addDouble(double value)
         {
             addMissingValues();
-            DOUBLE.writeDouble(builder, value);
+            type.writeDouble(builder, value);
         }
 
         @Override
         public void addLong(long value)
         {
             addMissingValues();
-            BIGINT.writeLong(builder, value);
+            type.writeLong(builder, value);
         }
 
         @Override
@@ -1323,10 +1322,10 @@ public class ParquetHiveRecordCursor
         {
             addMissingValues();
             if (type == TIMESTAMP) {
-                builder.writeLong(ParquetTimestampUtils.getTimestampMillis(value)).closeEntry();
+                type.writeLong(builder, ParquetTimestampUtils.getTimestampMillis(value));
             }
             else {
-                VARBINARY.writeSlice(builder, wrappedBuffer(value.getBytes()));
+                type.writeSlice(builder, wrappedBuffer(value.getBytes()));
             }
         }
 
@@ -1334,14 +1333,14 @@ public class ParquetHiveRecordCursor
         public void addFloat(float value)
         {
             addMissingValues();
-            DOUBLE.writeDouble(builder, value);
+            type.writeDouble(builder, value);
         }
 
         @Override
         public void addInt(int value)
         {
             addMissingValues();
-            INTEGER.writeLong(builder, value);
+            type.writeLong(builder, value);
         }
     }
 
