@@ -11,8 +11,8 @@
     <link href="vendor/bootstrap/css/bootstrap.css" rel="stylesheet" type="text/css">
     <link href="vendor/bootstrap-sortable/bootstrap-sortable.css" rel="stylesheet" type="text/css">
 
-    <link rel="stylesheet" href="vendor/highlightjs/7.3/styles/idea.min.css">
-    <script src="vendor/highlightjs/7.3/highlight.min.js"></script>
+    <link rel="stylesheet" href="vendor/highlightjs/9.3/styles/idea.css">
+    <script src="vendor/highlightjs/9.3/highlight.pack.js"></script>
 
     <style type="text/css">
         pre code {
@@ -162,7 +162,7 @@
 
     <h2>Query</h2>
 
-    <div class="sql"><pre><code id="query"></code></pre></div>
+    <pre><code class="sql" id="query"></code></pre>
 
     <h2>Stages</h2>
 
@@ -206,6 +206,10 @@ d3.json('/v1/query/' + queryId, function (query) {
     }
 
     d3.select('#query').text(query.query);
+    $('#query').each(function(i, block) {
+      hljs.highlightBlock(block);
+    });
+
     d3.select('#queryId').text(query.queryId);
     if (query.queryStats.fullyBlocked && query.state == "RUNNING") {
         var state = "BLOCKED";
@@ -298,8 +302,6 @@ d3.json('/v1/query/' + queryId, function (query) {
 
     var timelineLink = "/timeline.html?" + query.queryId;
     d3.select('#timelineLink').attr("href", timelineLink);
-
-    hljs.initHighlighting();
 
     renderStagesTree(query.outputStage);
 
