@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.DefunctConfig;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
@@ -22,6 +23,8 @@ import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.util.concurrent.TimeUnit;
+
+import static io.airlift.units.DataSize.Unit.TERABYTE;
 
 @DefunctConfig({"query.max-pending-splits-per-node",
                 "experimental.big-query-initial-hash-partitions",
@@ -48,6 +51,7 @@ public class QueryManagerConfig
     private String queryExecutionPolicy = "all-at-once";
     private Duration queryMaxRunTime = new Duration(100, TimeUnit.DAYS);
     private Duration queryMaxCpuTime = new Duration(1_000_000_000, TimeUnit.DAYS);
+    private DataSize maxQueryDataSize = new DataSize(100, TERABYTE);
 
     public String getQueueConfigFile()
     {
@@ -167,6 +171,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setQueryManagerExecutorPoolSize(int queryManagerExecutorPoolSize)
     {
         this.queryManagerExecutorPoolSize = queryManagerExecutorPoolSize;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getQueryMaxDataSize()
+    {
+        return maxQueryDataSize;
+    }
+
+    @Config("query.max-data-size")
+    public QueryManagerConfig setQueryMaxDataSize(DataSize maxQueryDataSize)
+    {
+        this.maxQueryDataSize = maxQueryDataSize;
         return this;
     }
 
