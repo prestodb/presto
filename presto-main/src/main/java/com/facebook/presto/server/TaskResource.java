@@ -210,7 +210,7 @@ public class TaskResource
         Duration waitTime = randomizeWaitTime(DEFAULT_MAX_WAIT_TIME);
         bufferResultFuture = addTimeout(
                 bufferResultFuture,
-                () -> BufferResult.emptyResults(taskManager.getTaskInfo(taskId).getTaskInstanceId(), token, false),
+                () -> BufferResult.emptyResults(taskManager.getTaskInstanceId(taskId), token, false),
                 waitTime,
                 timeoutExecutor);
 
@@ -241,7 +241,7 @@ public class TaskResource
         bindAsyncResponse(asyncResponse, responseFuture, responseExecutor)
                 .withTimeout(timeout,
                         Response.status(Status.NO_CONTENT)
-                                .header(PRESTO_TASK_INSTANCE_ID, taskManager.getTaskInfo(taskId).getTaskInstanceId())
+                                .header(PRESTO_TASK_INSTANCE_ID, taskManager.getTaskInstanceId(taskId))
                                 .header(PRESTO_PAGE_TOKEN, token)
                                 .header(PRESTO_PAGE_NEXT_TOKEN, token)
                                 .header(PRESTO_BUFFER_COMPLETE, false)

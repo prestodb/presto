@@ -252,6 +252,14 @@ public class SqlTaskManager
     }
 
     @Override
+    public String getTaskInstanceId(TaskId taskId)
+    {
+        SqlTask sqlTask = tasks.getUnchecked(taskId);
+        sqlTask.recordHeartbeat();
+        return sqlTask.getTaskInstanceId();
+    }
+
+    @Override
     public TaskInfo updateTask(Session session, TaskId taskId, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers)
     {
         requireNonNull(session, "session is null");

@@ -53,6 +53,12 @@ public interface TaskManager
      */
     CompletableFuture<TaskInfo> getTaskInfo(TaskId taskId, TaskState currentState);
 
+    /**
+     * Gets the unique instance id of a task.  This can be used to detect a task
+     * that was destroyed and recreated.
+     */
+    String getTaskInstanceId(TaskId taskId);
+
     void updateMemoryPoolAssignments(MemoryPoolAssignmentsRequest assignments);
 
     /**

@@ -162,6 +162,11 @@ public class SqlTask
         return taskStateMachine.getTaskId();
     }
 
+    public String getTaskInstanceId()
+    {
+        return taskInstanceId;
+    }
+
     public void recordHeartbeat()
     {
         lastHeartbeat.set(DateTime.now());
