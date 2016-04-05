@@ -93,6 +93,9 @@ public class HiveTableProperties
     public static Optional<HiveBucketProperty> getBucketProperty(Map<String, Object> tableProperties)
     {
         List<String> clusteredBy = (List<String>) tableProperties.get(CLUSTERED_BY_PROPERTY);
+        if (!tableProperties.containsKey(BUCKET_COUNT_PROPERTY)) {
+            return Optional.empty();
+        }
         int bucketCount = (Integer) tableProperties.get(BUCKET_COUNT_PROPERTY);
         if ((clusteredBy.isEmpty()) && (bucketCount == 0)) {
             return Optional.empty();
