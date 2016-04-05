@@ -36,6 +36,7 @@ import com.facebook.presto.execution.QueryQueueRuleFactory;
 import com.facebook.presto.execution.RenameColumnTask;
 import com.facebook.presto.execution.RenameTableTask;
 import com.facebook.presto.execution.ResetSessionTask;
+import com.facebook.presto.execution.RevokeTask;
 import com.facebook.presto.execution.RollbackTask;
 import com.facebook.presto.execution.SetSessionTask;
 import com.facebook.presto.execution.SqlQueryManager;
@@ -76,6 +77,7 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
+import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
@@ -227,6 +229,7 @@ public class CoordinatorModule
         bindDataDefinitionTask(binder, executionBinder, Rollback.class, RollbackTask.class);
         bindDataDefinitionTask(binder, executionBinder, Call.class, CallTask.class);
         bindDataDefinitionTask(binder, executionBinder, Grant.class, GrantTask.class);
+        bindDataDefinitionTask(binder, executionBinder, Revoke.class, RevokeTask.class);
 
         MapBinder<String, ExecutionPolicy> executionPolicyBinder = newMapBinder(binder, String.class, ExecutionPolicy.class);
         executionPolicyBinder.addBinding("all-at-once").to(AllAtOnceExecutionPolicy.class);
