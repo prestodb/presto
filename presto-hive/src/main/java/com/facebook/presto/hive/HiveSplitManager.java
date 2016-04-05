@@ -35,9 +35,13 @@ import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
+import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import javax.inject.Inject;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -70,7 +74,6 @@ public class HiveSplitManager
         implements ConnectorSplitManager
 {
     public static final String PRESTO_OFFLINE = "presto_offline";
-    private static final String STRUCT_PREFIX = "struct<";
 
     private final String connectorId;
     private final HiveMetastore metastore;
@@ -276,11 +279,13 @@ public class HiveSplitManager
             throw new PrestoException(HIVE_INVALID_METADATA, format("Table '%s' or partition '%s' has null columns", tableName, partitionName));
         }
         for (int i = 0; i < min(partitionColumns.size(), tableColumns.size()); i++) {
-            String tableType = tableColumns.get(i).getType();
-            String partitionType = partitionColumns.get(i).getType();
+            HiveType tableType = HiveType.valueOf(tableColumns.get(i).getType());
+            HiveType partitionType = HiveType.valueOf(partitionColumns.get(i).getType());
             boolean validEvolution;
             if (isStruct(tableType) && isStruct(partitionType)) {
-                validEvolution = structFields(tableType).startsWith(structFields(partitionType));
+                ArrayList<TypeInfo> tableFieldTypes     = getStructFields(tableType);
+                ArrayList<TypeInfo> partitionFieldTypes = getStructFields(partitionType);
+                validEvolution = tableFieldTypes.subList(0, partitionFieldTypes.size()).equals(partitionFieldTypes);
             }
             else {
                 validEvolution = tableType.equals(partitionType);
@@ -301,17 +306,14 @@ public class HiveSplitManager
         }
     }
 
-    // Struct types take the following form:
-    //  struct<s_string:string,s_double:double>
-    private static boolean isStruct(String type)
+    private static boolean isStruct(HiveType type)
     {
-        return type.startsWith(STRUCT_PREFIX);
+        return type.getCategory() == Category.STRUCT;
     }
 
-    // remove leading 'struct<' and trailing '>'
-    private static String structFields(String structType)
+    private static ArrayList<TypeInfo> getStructFields(HiveType structHiveType)
     {
-        return structType.substring(STRUCT_PREFIX.length(), structType.length() - 1);
+        return ((StructTypeInfo) structHiveType.getTypeInfo()).getAllStructFieldTypeInfos();
     }
 
     /**
