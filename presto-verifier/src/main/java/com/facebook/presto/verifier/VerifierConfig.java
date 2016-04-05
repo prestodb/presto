@@ -31,8 +31,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.verifier.QueryType.CREATE;
-import static com.facebook.presto.verifier.QueryType.MODIFY;
 import static com.facebook.presto.verifier.QueryType.READ;
 import static java.util.Objects.requireNonNull;
 
@@ -43,8 +41,8 @@ public class VerifierConfig
     private String testPasswordOverride;
     private String controlPasswordOverride;
     private List<String> suites;
-    private Set<QueryType> controlQueryTypes = ImmutableSet.of(CREATE, READ, MODIFY);
-    private Set<QueryType> testQueryTypes = ImmutableSet.of(CREATE, READ, MODIFY);
+    private Set<QueryType> controlQueryTypes = ImmutableSet.of(READ);
+    private Set<QueryType> testQueryTypes = ImmutableSet.of(READ);
     private String source;
     private String runId = new DateTime().toString("yyyy-MM-dd");
     private Set<String> eventClients = ImmutableSet.of("human-readable");
