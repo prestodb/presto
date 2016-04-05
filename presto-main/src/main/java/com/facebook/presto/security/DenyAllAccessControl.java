@@ -30,6 +30,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyGrantTa
 import static com.facebook.presto.spi.security.AccessDeniedException.denyInsertTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
@@ -127,6 +128,12 @@ public class DenyAllAccessControl
     public void checkCanGrantTablePrivilege(Identity identity, Privilege privilege, QualifiedObjectName tableName)
     {
         denyGrantTablePrivilege(privilege.name(), tableName.toString());
+    }
+
+    @Override
+    public void checkCanRevokeTablePrivilege(Identity identity, Privilege privilege, QualifiedObjectName tableName)
+    {
+        denyRevokeTablePrivilege(privilege.name(), tableName.toString());
     }
 
     @Override

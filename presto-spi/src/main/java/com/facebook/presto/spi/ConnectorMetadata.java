@@ -283,4 +283,12 @@ public interface ConnectorMetadata
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support grants");
     }
+
+    /**
+     * Revokes the specified privilege on the specified table from the specified user
+     */
+    default void revokeTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, String grantee, boolean grantOption)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support revokes");
+    }
 }

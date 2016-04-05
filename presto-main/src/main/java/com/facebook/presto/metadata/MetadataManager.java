@@ -714,6 +714,15 @@ public class MetadataManager
     }
 
     @Override
+    public void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, String grantee, boolean grantOption)
+    {
+        ConnectorEntry entry = connectorsByCatalog.get(tableName.getCatalogName());
+        checkArgument(entry != null, "Catalog %s does not exist", tableName.getCatalogName());
+        ConnectorMetadata metadata = entry.getMetadata(session);
+        metadata.revokeTablePrivileges(session.toConnectorSession(entry.getCatalog()), tableName.asSchemaTableName(), privileges, grantee, grantOption);
+    }
+
+    @Override
     public FunctionRegistry getFunctionRegistry()
     {
         // TODO: transactional when FunctionRegistry is made transactional
