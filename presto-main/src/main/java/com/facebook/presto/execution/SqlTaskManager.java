@@ -60,7 +60,7 @@ import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 
 public class SqlTaskManager
@@ -107,7 +107,7 @@ public class SqlTaskManager
 
         DataSize maxBufferSize = config.getSinkMaxBufferSize();
 
-        taskNotificationExecutor = newCachedThreadPool(threadsNamed("task-notification-%s"));
+        taskNotificationExecutor = newFixedThreadPool(config.getTaskNotificationThreads(), threadsNamed("task-notification-%s"));
         taskNotificationExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskNotificationExecutor);
 
         taskManagementExecutor = newScheduledThreadPool(5, threadsNamed("task-management-%s"));

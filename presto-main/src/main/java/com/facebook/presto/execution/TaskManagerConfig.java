@@ -53,6 +53,8 @@ public class TaskManagerConfig
     private int httpResponseThreads = 100;
     private int httpTimeoutThreads = 3;
 
+    private int taskNotificationThreads = 5;
+
     @MinDuration("1ms")
     @MaxDuration("10s")
     @NotNull
@@ -311,6 +313,20 @@ public class TaskManagerConfig
     public TaskManagerConfig setHttpTimeoutThreads(int httpTimeoutThreads)
     {
         this.httpTimeoutThreads = httpTimeoutThreads;
+        return this;
+    }
+
+    @Min(1)
+    public int getTaskNotificationThreads()
+    {
+        return taskNotificationThreads;
+    }
+
+    @Config("task.task-notification-threads")
+    @ConfigDescription("Number of threads used for internal task event notifications")
+    public TaskManagerConfig setTaskNotificationThreads(int taskNotificationThreads)
+    {
+        this.taskNotificationThreads = taskNotificationThreads;
         return this;
     }
 }
