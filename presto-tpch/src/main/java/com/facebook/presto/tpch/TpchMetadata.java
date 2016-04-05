@@ -51,25 +51,30 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
+import static com.facebook.presto.spi.type.StandardTypes.DECIMAL;
 import static com.facebook.presto.tpch.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
 public class TpchMetadata
         implements ConnectorMetadata
 {
+    public static final int TPCH_GENERATOR_SCALE = 2;
+
     public static final String TINY_SCHEMA_NAME = "tiny";
+    public static final String TINY_DECIMAL_SCHEMA_NAME = "tiny_decimal";
     public static final double TINY_SCALE_FACTOR = 0.01;
-
-    public static final List<String> SCHEMA_NAMES = ImmutableList.of(
-            TINY_SCHEMA_NAME, "sf1", "sf100", "sf300", "sf1000", "sf3000", "sf10000", "sf30000", "sf100000");
-
     public static final String ROW_NUMBER_COLUMN_NAME = "row_number";
+
+    private static final Pattern SCHEMA_PATTERN = Pattern.compile("\\bsf([0-9]*\\.?[0-9]+)(_(" + DECIMAL + "))?\\b");
+    private static final int SCALE_FACTOR_GROUP = 1;
+    private static final int NUMERIC_TYPE_GROUP = 3;
+
+    private static final Type DECIMAL_TYPE = createDecimalType(12, TPCH_GENERATOR_SCALE);
 
     private final String connectorId;
     private final Set<String> tableNames;
@@ -87,7 +92,7 @@ public class TpchMetadata
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return SCHEMA_NAMES;
+        return listSchemaNames();
     }
 
     @Override
@@ -98,13 +103,12 @@ public class TpchMetadata
             return null;
         }
 
-        // parse the scale factor
-        double scaleFactor = schemaNameToScaleFactor(tableName.getSchemaName());
-        if (scaleFactor < 0) {
+        Optional<SchemaParameters> schemaParameters = extractSchemaParameters(tableName.getSchemaName());
+        if (!schemaParameters.isPresent()) {
             return null;
         }
 
-        return new TpchTableHandle(connectorId, tableName.getTableName(), scaleFactor);
+        return new TpchTableHandle(connectorId, tableName.getTableName(), schemaParameters.get().scaleFactor, tableName.getSchemaName(), schemaParameters.get().useDecimalNumericType);
     }
 
     @Override
@@ -173,16 +177,16 @@ public class TpchMetadata
         TpchTableHandle tpchTableHandle = checkType(tableHandle, TpchTableHandle.class, "tableHandle");
 
         TpchTable<?> tpchTable = TpchTable.getTable(tpchTableHandle.getTableName());
-        String schemaName = scaleFactorSchemaName(tpchTableHandle.getScaleFactor());
+        String schemaName = schemaNameForTpchTableHandle(tpchTableHandle);
 
-        return getTableMetadata(schemaName, tpchTable);
+        return getTableMetadata(schemaName, tpchTable, tpchTableHandle.isUseDecimalNumericType());
     }
 
-    private static ConnectorTableMetadata getTableMetadata(String schemaName, TpchTable<?> tpchTable)
+    private static ConnectorTableMetadata getTableMetadata(String schemaName, TpchTable<?> tpchTable, boolean useDecimalNumericType)
     {
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         for (TpchColumn<? extends TpchEntity> column : tpchTable.getColumns()) {
-            columns.add(new ColumnMetadata(column.getColumnName(), getPrestoType(column.getType())));
+            columns.add(new ColumnMetadata(column.getColumnName(), getPrestoType(column.getType(), useDecimalNumericType)));
         }
         columns.add(new ColumnMetadata(ROW_NUMBER_COLUMN_NAME, BIGINT, null, true));
 
@@ -204,10 +208,11 @@ public class TpchMetadata
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> tableColumns = ImmutableMap.builder();
-        for (String schemaName : getSchemaNames(session, prefix.getSchemaName())) {
+        for (String schemaName : getSchemaNames(prefix.getSchemaName())) {
             for (TpchTable<?> tpchTable : TpchTable.getTables()) {
                 if (prefix.getTableName() == null || tpchTable.getTableName().equals(prefix.getTableName())) {
-                    ConnectorTableMetadata tableMetadata = getTableMetadata(schemaName, tpchTable);
+                    Optional<SchemaParameters> schemaParameters = extractSchemaParameters(schemaName);
+                    ConnectorTableMetadata tableMetadata = getTableMetadata(schemaName, tpchTable, schemaParameters.get().useDecimalNumericType);
                     tableColumns.put(new SchemaTableName(schemaName, tpchTable.getTableName()), tableMetadata.getColumns());
                 }
             }
@@ -233,7 +238,7 @@ public class TpchMetadata
     public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
     {
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
-        for (String schemaName : getSchemaNames(session, schemaNameOrNull)) {
+        for (String schemaName : getSchemaNames(schemaNameOrNull)) {
             for (TpchTable<?> tpchTable : TpchTable.getTables()) {
                 builder.add(new SchemaTableName(schemaName, tpchTable.getTableName()));
             }
@@ -241,13 +246,13 @@ public class TpchMetadata
         return builder.build();
     }
 
-    private List<String> getSchemaNames(ConnectorSession session, String schemaNameOrNull)
+    private List<String> getSchemaNames(String schemaNameOrNull)
     {
         List<String> schemaNames;
         if (schemaNameOrNull == null) {
-            schemaNames = listSchemaNames(session);
+            schemaNames = listSchemaNames();
         }
-        else if (schemaNameToScaleFactor(schemaNameOrNull) > 0) {
+        else if (extractSchemaParameters(schemaNameOrNull).isPresent()) {
             schemaNames = ImmutableList.of(schemaNameOrNull);
         }
         else {
@@ -256,30 +261,59 @@ public class TpchMetadata
         return schemaNames;
     }
 
-    private static String scaleFactorSchemaName(double scaleFactor)
+    private static String schemaNameForTpchTableHandle(TpchTableHandle tpchTableHandle)
     {
-        return "sf" + scaleFactor;
+        return tpchTableHandle.getSchemaName();
     }
 
-    private static double schemaNameToScaleFactor(String schemaName)
+    private static Optional<SchemaParameters> extractSchemaParameters(String schemaName)
     {
         if (TINY_SCHEMA_NAME.equals(schemaName)) {
-            return TINY_SCALE_FACTOR;
+            return Optional.of(new SchemaParameters(TINY_SCALE_FACTOR, false));
+        }
+        else if (TINY_DECIMAL_SCHEMA_NAME.equals(schemaName)) {
+            return Optional.of(new SchemaParameters(TINY_SCALE_FACTOR, true));
         }
 
-        if (!schemaName.startsWith("sf")) {
-            return -1;
+        Matcher match = SCHEMA_PATTERN.matcher(schemaName);
+        if (!match.matches()) {
+            return Optional.empty();
         }
 
-        try {
-            return Double.parseDouble(schemaName.substring(2));
+        double scaleFactor = Double.parseDouble(match.group(SCALE_FACTOR_GROUP));
+        String numericType = match.group(NUMERIC_TYPE_GROUP);
+        if (numericType == null) {
+            return Optional.of(new SchemaParameters(scaleFactor, false));
         }
-        catch (Exception ignored) {
-            return -1;
+        else if (numericType.equals(DECIMAL)) {
+            return Optional.of(new SchemaParameters(scaleFactor, true));
+        }
+        else {
+            throw new IllegalArgumentException("Invalid schema name: " + schemaName);
         }
     }
 
-    public static Type getPrestoType(TpchColumnType tpchType)
+    public static List<String> listSchemaNames()
+    {
+        List<String> scaleFactors = ImmutableList.of("1", "100", "300", "1000", "3000", "10000", "30000", "100000");
+        List<String> numericTypes = ImmutableList.of(DECIMAL);
+
+        ImmutableList.Builder<String> schemaNames = ImmutableList.builder();
+
+        schemaNames.add(TINY_SCHEMA_NAME);
+        schemaNames.add(TINY_DECIMAL_SCHEMA_NAME);
+
+        for (String scaleFactor : scaleFactors) {
+            for (String numericType : numericTypes) {
+                schemaNames.add("sf" + scaleFactor + "_" + numericType);
+            }
+            schemaNames.add("sf" + scaleFactor);
+        }
+
+        return schemaNames.build();
+    }
+
+    public static Type getPrestoType(TpchColumnType tpchType, boolean useDecimalNumericType)
     {
         switch (tpchType) {
             case IDENTIFIER:
@@ -289,7 +323,12 @@ public class TpchMetadata
             case DATE:
                 return DateType.DATE;
             case DOUBLE:
-                return DoubleType.DOUBLE;
+                if (useDecimalNumericType) {
+                    return DECIMAL_TYPE;
+                }
+                else {
+                    return DoubleType.DOUBLE;
+                }
             case VARCHAR:
                 return VarcharType.VARCHAR;
         }
@@ -303,5 +342,17 @@ public class TpchMetadata
             throw new IllegalArgumentException("Total rows is larger than 2^64");
         }
         return (long) totalRows;
+    }
+
+    private static class SchemaParameters
+    {
+        final double scaleFactor;
+        final boolean useDecimalNumericType;
+
+        SchemaParameters(double scaleFactor, boolean useDecimalNumericType)
+        {
+            this.scaleFactor = scaleFactor;
+            this.useDecimalNumericType = useDecimalNumericType;
+        }
     }
 }

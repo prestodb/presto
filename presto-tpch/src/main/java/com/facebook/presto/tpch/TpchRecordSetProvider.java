@@ -43,13 +43,24 @@ public class TpchRecordSetProvider
 
         TpchTable<?> tpchTable = TpchTable.getTable(tableName);
 
-        return getRecordSet(tpchTable, columns, tpchSplit.getTableHandle().getScaleFactor(), tpchSplit.getPartNumber(), tpchSplit.getTotalParts());
+        return getRecordSet(tpchTable, columns, tpchSplit.getTableHandle().getScaleFactor(), tpchSplit.getTableHandle().isUseDecimalNumericType(), tpchSplit.getPartNumber(), tpchSplit.getTotalParts());
     }
 
     public <E extends TpchEntity> RecordSet getRecordSet(
             TpchTable<E> table,
             List<? extends ColumnHandle> columns,
             double scaleFactor,
+            int partNumber,
+            int totalParts)
+    {
+        return getRecordSet(table, columns, scaleFactor, false, partNumber, totalParts);
+    }
+
+    public <E extends TpchEntity> RecordSet getRecordSet(
+            TpchTable<E> table,
+            List<? extends ColumnHandle> columns,
+            double scaleFactor,
+            boolean useDecimalNumericType,
             int partNumber,
             int totalParts)
     {
@@ -64,7 +75,7 @@ public class TpchRecordSetProvider
             }
         }
 
-        return createTpchRecordSet(table, builder.build(), scaleFactor, partNumber + 1, totalParts);
+        return createTpchRecordSet(table, builder.build(), scaleFactor, useDecimalNumericType, partNumber + 1, totalParts);
     }
 
     private static class RowNumberTpchColumn<E extends TpchEntity>
