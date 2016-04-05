@@ -50,7 +50,8 @@ public class TestTaskManagerConfig
                 .setTaskDefaultConcurrency(1)
                 .setTaskJoinConcurrency(1)
                 .setHttpResponseThreads(100)
-                .setHttpTimeoutThreads(3));
+                .setHttpTimeoutThreads(3)
+                .setTaskNotificationThreads(5));
     }
 
     @Test
@@ -76,6 +77,7 @@ public class TestTaskManagerConfig
                 .put("task.join-concurrency", "8")
                 .put("task.http-response-threads", "4")
                 .put("task.http-timeout-threads", "10")
+                .put("task.task-notification-threads", "13")
                 .build();
 
         TaskManagerConfig expected = new TaskManagerConfig()
@@ -97,7 +99,8 @@ public class TestTaskManagerConfig
                 .setTaskDefaultConcurrency(7)
                 .setTaskJoinConcurrency(8)
                 .setHttpResponseThreads(4)
-                .setHttpTimeoutThreads(10);
+                .setHttpTimeoutThreads(10)
+                .setTaskNotificationThreads(13);
 
         assertFullMapping(properties, expected);
     }
