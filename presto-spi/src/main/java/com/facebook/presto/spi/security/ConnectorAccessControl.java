@@ -118,7 +118,15 @@ public interface ConnectorAccessControl
 
     /**
      * Check if identity is allowed to grant to any other user the specified privilege on the specified table.
+     *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     void checkCanGrantTablePrivilege(Identity identity, Privilege privilege, SchemaTableName tableName);
+
+    /**
+     * Check if identity is allowed to revoke the specified privilege on the specified table from any user.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanRevokeTablePrivilege(Identity identity, Privilege privilege, SchemaTableName tableName);
 }

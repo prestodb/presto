@@ -29,6 +29,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyGrantTa
 import static com.facebook.presto.spi.security.AccessDeniedException.denyInsertTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 
 public class ReadOnlyAccessControl
         implements ConnectorAccessControl
@@ -121,5 +122,11 @@ public class ReadOnlyAccessControl
     public void checkCanGrantTablePrivilege(Identity identity, Privilege privilege, SchemaTableName tableName)
     {
         denyGrantTablePrivilege(privilege.name(), tableName.toString());
+    }
+
+    @Override
+    public void checkCanRevokeTablePrivilege(Identity identity, Privilege privilege, SchemaTableName tableName)
+    {
+        denyRevokeTablePrivilege(privilege.name(), tableName.toString());
     }
 }

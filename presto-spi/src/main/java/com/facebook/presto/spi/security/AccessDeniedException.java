@@ -158,6 +158,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot grant privilege %s on table %s%s", privilege, tableName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyRevokeTablePrivilege(String privilege, String tableName)
+    {
+        denyRevokeTablePrivilege(privilege, tableName, null);
+    }
+
+    public static void denyRevokeTablePrivilege(String privilege, String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot revoke privilege %s on table %s%s", privilege, tableName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denySetSystemSessionProperty(String propertyName)
     {
         denySetSystemSessionProperty(propertyName, null);

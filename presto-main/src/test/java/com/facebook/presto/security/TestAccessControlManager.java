@@ -283,5 +283,11 @@ public class TestAccessControlManager
         {
             throw new UnsupportedOperationException();
         }
+
+        @Override
+        public void checkCanRevokeTablePrivilege(Identity identity, Privilege privilege, SchemaTableName tableName)
+        {
+            throw new UnsupportedOperationException();
+        }
     }
 }

@@ -90,6 +90,7 @@ import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
+import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.Rollup;
 import com.facebook.presto.sql.tree.Row;
@@ -645,6 +646,27 @@ class AstBuilder
                 getQualifiedName(context.qualifiedName()),
                 grantee,
                 context.OPTION() != null);
+    }
+
+    @Override
+    public Node visitRevoke(SqlBaseParser.RevokeContext context)
+    {
+        Optional<List<String>> privileges;
+        if (context.ALL() != null) {
+            privileges = Optional.empty();
+        }
+        else {
+            privileges = Optional.of(context.privilege().stream()
+                    .map(SqlBaseParser.PrivilegeContext::getText)
+                    .collect(toList()));
+        }
+        return new Revoke(
+                getLocation(context),
+                context.OPTION() != null,
+                privileges,
+                context.TABLE() != null,
+                getQualifiedName(context.qualifiedName()),
+                context.grantee.getText());
     }
 
     // ***************** boolean expressions ******************

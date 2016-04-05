@@ -328,6 +328,19 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanRevokeTablePrivilege(Identity identity, Privilege privilege, QualifiedObjectName tableName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(tableName, "tableName is null");
+        requireNonNull(privilege, "privilege is null");
+
+        CatalogAccessControlEntry entry = catalogAccessControl.get(tableName.getCatalogName());
+        if (entry != null) {
+            authorizationCheck(() -> entry.getAccessControl().checkCanRevokeTablePrivilege(identity, privilege, tableName.asSchemaTableName()));
+        }
+    }
+
+    @Override
     public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
     {
         requireNonNull(identity, "identity is null");

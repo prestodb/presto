@@ -70,6 +70,7 @@ import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
+import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.Rollup;
 import com.facebook.presto.sql.tree.SetSession;
@@ -1182,6 +1183,20 @@ public class TestSqlParser
                 new Grant(Optional.empty(), false, QualifiedName.of("t"), "u", false));
         assertStatement("GRANT taco ON t TO PUBLIC WITH GRANT OPTION",
                 new Grant(Optional.of(ImmutableList.of("taco")), false, QualifiedName.of("t"), "PUBLIC", true));
+    }
+
+    @Test
+    public void testRevoke()
+            throws Exception
+    {
+        assertStatement("REVOKE INSERT, DELETE ON t FROM u",
+                new Revoke(false, Optional.of(ImmutableList.of("INSERT", "DELETE")), false, QualifiedName.of("t"), "u"));
+        assertStatement("REVOKE GRANT OPTION FOR SELECT ON t FROM PUBLIC",
+                new Revoke(true, Optional.of(ImmutableList.of("SELECT")), false, QualifiedName.of("t"), "PUBLIC"));
+        assertStatement("REVOKE ALL PRIVILEGES ON TABLE t FROM u",
+                new Revoke(false, Optional.empty(), true, QualifiedName.of("t"), "u"));
+        assertStatement("REVOKE taco ON TABLE t FROM u",
+                new Revoke(false, Optional.of(ImmutableList.of("taco")), true, QualifiedName.of("t"), "u"));
     }
 
     @Test

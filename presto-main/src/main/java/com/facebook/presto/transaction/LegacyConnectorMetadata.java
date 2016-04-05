@@ -266,6 +266,12 @@ public class LegacyConnectorMetadata
         metadata.grantTablePrivileges(session, tableName, privileges, grantee, grantOption);
     }
 
+    @Override
+    public void revokeTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, String grantee, boolean grantOption)
+    {
+        metadata.revokeTablePrivileges(session, tableName, privileges, grantee, grantOption);
+    }
+
     private void setRollback(Runnable action)
     {
         checkState(rollbackAction.compareAndSet(null, action), "Should not have to override existing rollback action");
