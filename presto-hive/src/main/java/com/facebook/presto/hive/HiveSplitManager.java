@@ -70,6 +70,7 @@ public class HiveSplitManager
         implements ConnectorSplitManager
 {
     public static final String PRESTO_OFFLINE = "presto_offline";
+    private static final String STRUCT_PREFIX = "struct<";
 
     private final String connectorId;
     private final HiveMetastore metastore;
@@ -223,7 +224,7 @@ public class HiveSplitManager
                     throw new PrestoException(INTERNAL_ERROR, "Partition not loaded: " + hivePartition);
                 }
 
-                // verify all partition is online
+                // verify all partitions are online
                 String protectMode = partition.getParameters().get(ProtectMode.PARAMETER_NAME);
                 String partName = createPartitionName(partition, table);
                 if (protectMode != null && getProtectModeFromString(protectMode).offline) {
@@ -234,32 +235,8 @@ public class HiveSplitManager
                     throw new PartitionOfflineException(tableName, partName, format("Partition '%s' is offline for Presto: %s", partName, prestoOffline));
                 }
 
-                // Verify that the partition schema matches the table schema.
-                // Either adding or dropping columns from the end of the table
-                // without modifying existing partitions is allowed, but every
-                // column that exists in both the table and partition must have
-                // the same type.
-                List<FieldSchema> tableColumns = table.getSd().getCols();
-                List<FieldSchema> partitionColumns = partition.getSd().getCols();
-                if ((tableColumns == null) || (partitionColumns == null)) {
-                    throw new PrestoException(HIVE_INVALID_METADATA, format("Table '%s' or partition '%s' has null columns", tableName, partName));
-                }
-                for (int i = 0; i < min(partitionColumns.size(), tableColumns.size()); i++) {
-                    String tableType = tableColumns.get(i).getType();
-                    String partitionType = partitionColumns.get(i).getType();
-                    if (!tableType.equals(partitionType)) {
-                        throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
-                                        "There is a mismatch between the table and partition schemas. " +
-                                        "The column '%s' in table '%s' is declared as type '%s', " +
-                                        "but partition '%s' declared column '%s' as type '%s'.",
-                                tableColumns.get(i).getName(),
-                                tableName,
-                                tableType,
-                                partName,
-                                partitionColumns.get(i).getName(),
-                                partitionType));
-                    }
-                }
+                verifySchemaEvolution(tableName, table.getSd().getCols(),
+                                      partName, table.getSd().getCols());
 
                 Optional<HiveBucketProperty> partitionBucketProperty = HiveBucketProperty.fromStorageDescriptor(
                         partition.getSd(),
@@ -279,6 +256,62 @@ public class HiveSplitManager
             return results.build();
         });
         return concat(partitionBatches);
+    }
+
+    /**
+     * Verify that the partition schema is backward compatible with the table schema. Either
+     * adding or dropping columns from the end of the table without modifying existing partitions is
+     * allowed, but every column that exists in both the table and partition must have the same type.
+     *
+     * If the type is a nested type (i.e. a struct), verify all partition struct fields exist in the
+     * table struct fields in with the same name, type and order. Af that condition is met, additional
+     * table struct fields are permitted.
+     *
+     * @throws PrestoException if the schema has not evolved in a supported way
+     */
+    private void verifySchemaEvolution(SchemaTableName tableName, List<FieldSchema> tableColumns,
+            String partitionName, List<FieldSchema> partitionColumns) throws PrestoException
+    {
+        if ((tableColumns == null) || (partitionColumns == null)) {
+            throw new PrestoException(HIVE_INVALID_METADATA, format("Table '%s' or partition '%s' has null columns", tableName, partitionName));
+        }
+        for (int i = 0; i < min(partitionColumns.size(), tableColumns.size()); i++) {
+            String tableType = tableColumns.get(i).getType();
+            String partitionType = partitionColumns.get(i).getType();
+            boolean validEvolution;
+            if (isStruct(tableType) && isStruct(partitionType)) {
+                validEvolution = structFields(tableType).startsWith(structFields(partitionType));
+            }
+            else {
+                validEvolution = tableType.equals(partitionType);
+            }
+
+            if (!validEvolution) {
+                throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
+                                "There is a mismatch between the table and partition schemas. " +
+                                "The column '%s' in table '%s' is declared as type '%s', " +
+                                "but partition '%s' declared column '%s' as type '%s'.",
+                        tableColumns.get(i).getName(),
+                        tableName,
+                        tableType,
+                        partitionName,
+                        partitionColumns.get(i).getName(),
+                        partitionType));
+            }
+        }
+    }
+
+    // Struct types take the following form:
+    //  struct<s_string:string,s_double:double>
+    private static boolean isStruct(String type)
+    {
+        return type.startsWith(STRUCT_PREFIX);
+    }
+
+    // remove leading 'struct<' and trailing '>'
+    private static String structFields(String structType)
+    {
+        return structType.substring(STRUCT_PREFIX.length(), structType.length() - 1);
     }
 
     /**
