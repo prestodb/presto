@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.SqlOperator;
@@ -28,11 +29,10 @@ import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Map;
 
 import static com.facebook.presto.metadata.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.metadata.Signature.internalOperator;
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.util.Reflection.methodHandle;
@@ -50,14 +50,14 @@ public class MapSubscriptOperator
 
     protected MapSubscriptOperator()
     {
-        super(SUBSCRIPT, ImmutableList.of(typeParameter("K"), typeParameter("V")), "V", ImmutableList.of("map(K,V)", "K"));
+        super(SUBSCRIPT, ImmutableList.of(typeVariable("K"), typeVariable("V")), ImmutableList.of(), "V", ImmutableList.of("map(K,V)", "K"));
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Type keyType = types.get("K");
-        Type valueType = types.get("V");
+        Type keyType = boundVariables.getTypeVariable("K");
+        Type valueType = boundVariables.getTypeVariable("V");
 
         MethodHandle keyEqualsMethod = functionRegistry.getScalarFunctionImplementation(internalOperator(OperatorType.EQUAL, BooleanType.BOOLEAN, ImmutableList.of(keyType, keyType))).getMethodHandle();
 

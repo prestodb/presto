@@ -13,6 +13,7 @@ package com.facebook.presto.operator.scalar;
  * limitations under the License.
  */
 
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.block.Block;
@@ -22,7 +23,6 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Map;
 
 import static com.facebook.presto.metadata.OperatorType.EQUAL;
 import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
@@ -41,14 +41,14 @@ public class MapNotEqualOperator
 
     private MapNotEqualOperator()
     {
-        super(NOT_EQUAL, ImmutableList.of(comparableTypeParameter("K"), comparableTypeParameter("V")), StandardTypes.BOOLEAN, ImmutableList.of("map(K,V)", "map(K,V)"));
+        super(NOT_EQUAL, ImmutableList.of(comparableTypeParameter("K"), comparableTypeParameter("V")), ImmutableList.of(), StandardTypes.BOOLEAN, ImmutableList.of("map(K,V)", "map(K,V)"));
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Type keyType = types.get("K");
-        Type valueType = types.get("V");
+        Type keyType = boundVariables.getTypeVariable("K");
+        Type valueType = boundVariables.getTypeVariable("V");
 
         MethodHandle keyEqualsFunction = functionRegistry.getScalarFunctionImplementation(internalOperator(EQUAL, BOOLEAN, ImmutableList.of(keyType, keyType))).getMethodHandle();
         MethodHandle keyHashcodeFunction = functionRegistry.getScalarFunctionImplementation(internalOperator(HASH_CODE, BIGINT, ImmutableList.of(keyType))).getMethodHandle();

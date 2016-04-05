@@ -11,20 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
 
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Parameters;
-import org.testng.annotations.Test;
+package com.facebook.presto.type;
 
-@Test
-public class TestHiveClient
-        extends AbstractTestHiveClient
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.METHOD})
+public @interface Constraint
 {
-    @Parameters({"hive.hadoop1.metastoreHost", "hive.hadoop1.metastorePort", "hive.hadoop1.databaseName", "hive.hadoop1.timeZone"})
-    @BeforeClass
-    public void initialize(String host, int port, String databaseName, String timeZone)
-    {
-        setup(host, port, databaseName, timeZone);
-    }
+    String variable() default "";
+
+    String expression() default "";
 }

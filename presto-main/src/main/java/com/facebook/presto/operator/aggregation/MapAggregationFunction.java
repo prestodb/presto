@@ -15,6 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.aggregation.state.KeyValuePairStateSerializer;
@@ -30,10 +31,9 @@ import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
-import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
@@ -55,7 +55,7 @@ public class MapAggregationFunction
 
     public MapAggregationFunction()
     {
-        super(NAME, ImmutableList.of(comparableTypeParameter("K"), typeParameter("V")), "map(K,V)", ImmutableList.of("K", "V"));
+        super(NAME, ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")), ImmutableList.of(), "map(K,V)", ImmutableList.of("K", "V"));
     }
 
     @Override
@@ -65,10 +65,10 @@ public class MapAggregationFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Type keyType = types.get("K");
-        Type valueType = types.get("V");
+        Type keyType = boundVariables.getTypeVariable("K");
+        Type valueType = boundVariables.getTypeVariable("V");
         return generateAggregation(keyType, valueType);
     }
 

@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.aggregation.state.MinMaxNState;
@@ -32,7 +33,6 @@ import com.google.common.primitives.Ints;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Function;
 
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
@@ -58,15 +58,14 @@ public abstract class AbstractMinMaxNAggregationFunction
 
     protected AbstractMinMaxNAggregationFunction(String name, Function<Type, BlockComparator> typeToComparator)
     {
-        super(name, ImmutableList.of(orderableTypeParameter("E")), "array(E)", ImmutableList.of("E", StandardTypes.BIGINT));
+        super(name, ImmutableList.of(orderableTypeParameter("E")), ImmutableList.of(), "array(E)", ImmutableList.of("E", StandardTypes.BIGINT));
         requireNonNull(typeToComparator);
         this.typeToComparator = typeToComparator;
     }
 
-    @Override
-    public InternalAggregationFunction specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Type type = types.get("E");
+        Type type = boundVariables.getTypeVariable("E");
         return generateAggregation(type);
     }
 

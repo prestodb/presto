@@ -156,6 +156,12 @@ class ColumnInfo
             case "interval day to second":
                 builder.setColumnDisplaySize(TIMESTAMP_MAX);
                 break;
+            case "decimal":
+                builder.setSigned(true);
+                builder.setColumnDisplaySize(type.getParameters().get(0).getLongLiteral().intValue() + 2); // dot and sign
+                builder.setPrecision(type.getParameters().get(0).getLongLiteral().intValue());
+                builder.setScale(type.getParameters().get(1).getLongLiteral().intValue());
+                break;
         }
     }
 
@@ -195,6 +201,8 @@ class ColumnInfo
                 return Types.TIMESTAMP;
             case "date":
                 return Types.DATE;
+            case "decimal":
+                return Types.DECIMAL;
             default:
                 return Types.JAVA_OBJECT;
         }

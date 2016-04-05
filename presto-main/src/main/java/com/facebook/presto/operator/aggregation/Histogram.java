@@ -15,6 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.aggregation.state.HistogramState;
@@ -31,7 +32,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
-import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
@@ -56,7 +56,7 @@ public class Histogram
 
     public Histogram()
     {
-        super(NAME, ImmutableList.of(comparableTypeParameter("K")), "map(K,bigint)", ImmutableList.of("K"));
+        super(NAME, ImmutableList.of(comparableTypeParameter("K")), ImmutableList.of(), "map(K,bigint)", ImmutableList.of("K"));
     }
 
     @Override
@@ -66,9 +66,9 @@ public class Histogram
     }
 
     @Override
-    public InternalAggregationFunction specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Type keyType = types.get("K");
+        Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = BigintType.BIGINT;
         return generateAggregation(keyType, valueType);
     }
