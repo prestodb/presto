@@ -236,7 +236,7 @@ public class HiveSplitManager
                 }
 
                 verifySchemaEvolution(tableName, table.getSd().getCols(),
-                                      partName, table.getSd().getCols());
+                                      partName, partition.getSd().getCols());
 
                 Optional<HiveBucketProperty> partitionBucketProperty = HiveBucketProperty.fromStorageDescriptor(
                         partition.getSd(),
