@@ -1927,7 +1927,7 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testSupportedNonEqualityLeftJoin()
+    public void testNonEqualityLeftJoin()
             throws Exception
     {
         assertQuery("SELECT COUNT(*) FROM " +
@@ -1978,7 +1978,54 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testSupportedNonEqualityFullJoin()
+    public void testNonEqualityRightJoin()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM " +
+                "      (SELECT * FROM lineitem ORDER BY orderkey,linenumber LIMIT 5) l " +
+                "         RIGHT OUTER JOIN " +
+                "      (SELECT * FROM orders ORDER BY orderkey LIMIT 5) o " +
+                "         ON " +
+                "      l.quantity != 5 WHERE l.orderkey IS NULL");
+        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 5 WHERE lineitem.orderkey IS NULL");
+        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 5.0 WHERE lineitem.orderkey IS NULL");
+        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > lineitem.suppkey WHERE lineitem.orderkey IS NULL");
+        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity*1000 > orders.totalprice WHERE lineitem.orderkey IS NULL");
+        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice > 1000 WHERE lineitem.orderkey IS NULL");
+        assertQuery(
+                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) RIGHT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND b > d",
+                "VALUES (1, 2, 1, 1), (NULL, NULL, 1, 2)");
+        assertQuery(
+                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) RIGHT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND b < d",
+                "VALUES (1, 1, 1, 2), (NULL, NULL, 1, 1)");
+        assertQuery(
+                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) RIGHT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND b > 2",
+                "VALUES (NULL, NULL, 1, 1), (NULL, NULL, 1, 2)");
+        assertQuery(
+                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) RIGHT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND d > 2",
+                "VALUES (NULL, NULL, 1, 1), (NULL, NULL, 1, 2)");
+        assertQuery(
+                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) RIGHT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND b > 0",
+                "VALUES (1, 1, 1, 1), (1, 1, 1, 2), (1, 2, 1, 1), (1, 2, 1, 2)");
+        assertQuery(
+                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) RIGHT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND d > 0",
+                "VALUES (1, 1, 1, 1), (1, 1, 1, 2), (1, 2, 1, 1), (1, 2, 1, 2)");
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2) t1(a) RIGHT OUTER JOIN (VALUES 10, 11) t2(b) ON a > 1",
+                "VALUES (2, 11), (2, 10)");
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2) t1(a) RIGHT OUTER JOIN (VALUES 10, 11) t2(b) ON b > 10",
+                "VALUES (NULL, 10), (1, 11), (2, 11)");
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2) t1(a) RIGHT OUTER JOIN (VALUES 10, 11) t2(b) ON a > b",
+                "VALUES (NULL, 10), (NULL, 11)");
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2) t1(a) RIGHT OUTER JOIN (VALUES 10, 11) t2(b) ON a < b",
+                "VALUES (1, 10), (1, 11), (2, 10), (2, 11)");
+    }
+
+    @Test
+    public void testNonEqualityFullJoin()
             throws Exception
     {
         assertQuery(
@@ -1989,7 +2036,7 @@ public abstract class AbstractTestQueries
                         "SELECT lineitem.orderkey AS o1, orders.orderkey AS o2 FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 5 " +
                         "    WHERE lineitem.orderkey IS NULL) " +
                         " WHERE o1 IS NULL OR o2 IS NULL"
-                );
+        );
         assertQuery(
                 "SELECT COUNT(*) FROM lineitem FULL OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey > 1000 WHERE lineitem.orderkey IS NULL OR orders.orderkey IS NULL",
                 "SELECT COUNT(*) FROM " +
@@ -2037,53 +2084,6 @@ public abstract class AbstractTestQueries
                 "VALUES (NULL, 10), (NULL, 11), (1, NULL), (2, NULL)");
         assertQuery(
                 "SELECT * FROM (VALUES 1, 2) t1(a) FULL OUTER JOIN (VALUES 10, 11) t2(b) ON a < b",
-                "VALUES (1, 10), (1, 11), (2, 10), (2, 11)");
-    }
-
-    @Test
-    public void testSupportedNonEqualityRightJoin()
-            throws Exception
-    {
-        assertQuery("SELECT COUNT(*) FROM " +
-                "      (SELECT * FROM lineitem ORDER BY orderkey,linenumber LIMIT 5) l " +
-                "         RIGHT OUTER JOIN " +
-                "      (SELECT * FROM orders ORDER BY orderkey LIMIT 5) o " +
-                "         ON " +
-                "      l.quantity != 5 WHERE l.orderkey IS NULL");
-        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 5 WHERE lineitem.orderkey IS NULL");
-        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 5.0 WHERE lineitem.orderkey IS NULL");
-        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > lineitem.suppkey WHERE lineitem.orderkey IS NULL");
-        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity*1000 > orders.totalprice WHERE lineitem.orderkey IS NULL");
-        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice > 1000 WHERE lineitem.orderkey IS NULL");
-        assertQuery(
-                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) RIGHT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND b > d",
-                "VALUES (1, 2, 1, 1), (NULL, NULL, 1, 2)");
-        assertQuery(
-                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) RIGHT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND b < d",
-                "VALUES (1, 1, 1, 2), (NULL, NULL, 1, 1)");
-        assertQuery(
-                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) RIGHT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND b > 2",
-                "VALUES (NULL, NULL, 1, 1), (NULL, NULL, 1, 2)");
-        assertQuery(
-                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) RIGHT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND d > 2",
-                "VALUES (NULL, NULL, 1, 1), (NULL, NULL, 1, 2)");
-        assertQuery(
-                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) RIGHT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND b > 0",
-                "VALUES (1, 1, 1, 1), (1, 1, 1, 2), (1, 2, 1, 1), (1, 2, 1, 2)");
-        assertQuery(
-                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) RIGHT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND d > 0",
-                "VALUES (1, 1, 1, 1), (1, 1, 1, 2), (1, 2, 1, 1), (1, 2, 1, 2)");
-        assertQuery(
-                "SELECT * FROM (VALUES 1, 2) t1(a) RIGHT OUTER JOIN (VALUES 10, 11) t2(b) ON a > 1",
-                "VALUES (2, 11), (2, 10)");
-        assertQuery(
-                "SELECT * FROM (VALUES 1, 2) t1(a) RIGHT OUTER JOIN (VALUES 10, 11) t2(b) ON b > 10",
-                "VALUES (NULL, 10), (1, 11), (2, 11)");
-        assertQuery(
-                "SELECT * FROM (VALUES 1, 2) t1(a) RIGHT OUTER JOIN (VALUES 10, 11) t2(b) ON a > b",
-                "VALUES (NULL, 10), (NULL, 11)");
-        assertQuery(
-                "SELECT * FROM (VALUES 1, 2) t1(a) RIGHT OUTER JOIN (VALUES 10, 11) t2(b) ON a < b",
                 "VALUES (1, 10), (1, 11), (2, 10), (2, 11)");
     }
 
