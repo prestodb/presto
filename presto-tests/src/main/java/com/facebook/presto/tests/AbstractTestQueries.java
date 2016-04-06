@@ -1368,6 +1368,16 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGroupingSetSubsetAndPartitioning()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT_IF(x IS NULL) FROM (" +
+                        "SELECT x, y, COUNT(z) FROM (SELECT CAST(lineitem.orderkey AS BIGINT) x, lineitem.linestatus y, SUM(lineitem.quantity) z FROM lineitem " +
+                        "JOIN orders ON lineitem.orderkey = orders.orderkey GROUP BY 1, 2) GROUP BY GROUPING SETS ((x, y), ()))",
+                "SELECT 1");
+    }
+
+    @Test
     public void testRollup()
             throws Exception
     {

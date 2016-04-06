@@ -310,6 +310,7 @@ public class PruneUnreferencedOutputs
                     functionCalls.build(),
                     functions.build(),
                     masks.build(),
+                    node.getGroupingSets(),
                     node.getStep(),
                     node.getSampleWeight(),
                     node.getConfidence(),

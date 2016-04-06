@@ -6,3 +6,4 @@ General Changes
 ---------------
 
 * Fix already exists check when adding a column to be case-insensitive.
+* Fix correctness issue when complex grouping operations have a partitioned source.

@@ -150,6 +150,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableMap.of(C, fakeFunction("test"), D, fakeFunction("test")),
                 ImmutableMap.of(C, fakeFunctionHandle("test", AGGREGATE), D, fakeFunctionHandle("test", AGGREGATE)),
                 ImmutableMap.<Symbol, Symbol>of(),
+                ImmutableList.of(ImmutableList.of(A, B, C)),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),
                 1.0,
