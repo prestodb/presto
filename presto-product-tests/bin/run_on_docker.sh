@@ -56,7 +56,7 @@ function check_presto() {
 function run_product_tests() {
   run_in_application_runner_container \
     ${DOCKER_PRESTO_VOLUME}/presto-product-tests/bin/run.sh \
-    --config-local ${DOCKER_PRESTO_VOLUME}/presto-product-tests/conf/tempto/tempto-configuration.yaml "$@"
+    --config-local "${TEMPTO_CONFIGURATION}" "$@"
 }
 
 # docker-compose down is not good enough because it's ignores services created with "run" command
@@ -116,8 +116,8 @@ function terminate() {
 
 ENVIRONMENT=$1
 
-if [[ "$ENVIRONMENT" != "singlenode" && "$ENVIRONMENT" != "multinode" ]]; then
-   echo "Usage: run_on_docker.sh <singlenode|multinode> <product test args>"
+if [[ "$ENVIRONMENT" != "singlenode" && "$ENVIRONMENT" != "multinode" && "$ENVIRONMENT" != "singlenode-kerberized" ]]; then
+   echo "Usage: run_on_docker.sh <singlenode|multinode|singlenode-kerberized> <product test args>"
    exit 1
 fi
 
@@ -134,6 +134,11 @@ if [[ "$ENVIRONMENT" == "multinode" ]]; then
    PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker"
 fi
 
+TEMPTO_CONFIGURATION="${DOCKER_PRESTO_VOLUME}/presto-product-tests/conf/tempto/tempto-configuration.yaml"
+if [[ "$ENVIRONMENT" == "singlenode-kerberized" ]]; then
+   TEMPTO_CONFIGURATION="${DOCKER_PRESTO_VOLUME}/presto-product-tests/conf/tempto/tempto-configuration-kerberized.yaml"
+fi
+
 # set presto version environment variable
 source "${PRODUCT_TESTS_ROOT}/target/classes/presto.env"
 
@@ -144,6 +149,7 @@ docker version
 # stop already running containers
 stop_docker_compose_containers "${PRODUCT_TESTS_ROOT}/conf/docker/singlenode/docker-compose.yml"
 stop_docker_compose_containers "${PRODUCT_TESTS_ROOT}/conf/docker/multinode/docker-compose.yml"
+stop_docker_compose_containers "${PRODUCT_TESTS_ROOT}/conf/docker/singlenode-kerberized/docker-compose.yml"
 
 # catch terminate signals
 trap terminate INT TERM EXIT

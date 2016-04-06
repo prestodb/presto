@@ -4,8 +4,8 @@ set -e
 
 CONFIG=$1
 
-if [[ "$CONFIG" != "singlenode" && "$CONFIG" != "multinode-master" && "$CONFIG" != "multinode-worker" ]]; then
-   echo "Usage: launcher-wrapper <singlenode|multinode-master|multinode-worker> <launcher args>"
+if [[ "$CONFIG" != "singlenode" && "$CONFIG" != "multinode-master" && "$CONFIG" != "multinode-worker" && "$CONFIG" != "singlenode-kerberized" ]]; then
+   echo "Usage: launcher-wrapper <singlenode|multinode-master|multinode-worker|singlenode-kerberized> <launcher args>"
    exit 1
 fi
 
