@@ -18,6 +18,8 @@ import com.facebook.presto.TaskSource;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.event.query.QueryMonitorConfig;
+import com.facebook.presto.execution.buffer.BufferResult;
+import com.facebook.presto.execution.buffer.BufferState;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.ReservedSystemMemoryConfig;
@@ -128,7 +130,7 @@ public class TestSqlTaskManager
 
             // complete the task by calling abort on it
             TaskInfo info = sqlTaskManager.abortTaskResults(taskId, OUT);
-            assertEquals(info.getOutputBuffers().getState(), SharedBuffer.BufferState.FINISHED);
+            assertEquals(info.getOutputBuffers().getState(), BufferState.FINISHED);
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId, taskInfo.getTaskStatus().getState()).get(1, TimeUnit.SECONDS);
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);

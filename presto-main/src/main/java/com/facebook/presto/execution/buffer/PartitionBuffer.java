@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution;
+package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
@@ -25,7 +25,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.facebook.presto.execution.PageSplitterUtil.splitPage;
+import static com.facebook.presto.execution.buffer.PageSplitterUtil.splitPage;
 import static com.facebook.presto.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;

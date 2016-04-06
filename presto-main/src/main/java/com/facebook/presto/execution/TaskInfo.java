@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.execution.buffer.BufferInfo;
+import com.facebook.presto.execution.buffer.SharedBufferInfo;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -26,8 +28,8 @@ import java.net.URI;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.execution.SharedBuffer.BufferState.OPEN;
 import static com.facebook.presto.execution.TaskStatus.initialTaskStatus;
+import static com.facebook.presto.execution.buffer.BufferState.OPEN;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 

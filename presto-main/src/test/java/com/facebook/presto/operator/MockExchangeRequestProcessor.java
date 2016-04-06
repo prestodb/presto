@@ -16,7 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.block.PagesSerde;
 import com.facebook.presto.client.PrestoHeaders;
-import com.facebook.presto.execution.BufferResult;
+import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.cache.CacheBuilder;

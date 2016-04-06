@@ -11,10 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution;
+package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.PageAssertions;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.BigintType;
@@ -34,7 +35,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
-import static com.facebook.presto.execution.BufferResult.emptyResults;
+import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
