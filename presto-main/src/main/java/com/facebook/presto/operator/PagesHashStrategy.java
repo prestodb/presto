@@ -17,6 +17,8 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 
+import java.util.Optional;
+
 public interface PagesHashStrategy
 {
     /**
@@ -57,6 +59,7 @@ public interface PagesHashStrategy
      * Compares the hashed columns in this PagesHashStrategy to the values in the specified blocks.  The
      * values are compared positionally, so {@code rightBlocks} must have the same number of entries as
      * the hashed columns and each entry is expected to be the same type.
+     * {@code rightBlocks} is used if join uses filter function and must contain all columns from probe side of join.
      */
     @Deprecated
     boolean positionEqualsRow(int leftBlockIndex, int leftPosition, int rightPosition, Block... rightBlocks);
@@ -72,4 +75,14 @@ public interface PagesHashStrategy
      * Compares the hashed columns in this PagesHashStrategy at the specified positions.
      */
     boolean positionEqualsPosition(int leftBlockIndex, int leftPosition, int rightBlockIndex, int rightPosition);
+
+    /**
+     * Returns filter function assigned to this PagesHashStrategy.
+     */
+    Optional<JoinFilterFunction> getFilterFunction();
+
+    /**
+     * Checks result of filter function for given row.
+     */
+    boolean checkFilterFunction(int leftBlockIndex, int leftPosition, int rightPosition, Block[] allRightBlocks);
 }

@@ -100,7 +100,7 @@ public class TestJoinCompiler
                     Block rightBlock = channel.get(rightBlockIndex);
                     for (int rightBlockPosition = 0; rightBlockPosition < rightBlock.getPositionCount(); rightBlockPosition++) {
                         boolean expected = positionEqualsPosition(VARCHAR, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
-                        assertEquals(hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightBlockPosition, rightBlock), expected);
+                        assertEquals(hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightBlockPosition, new Block[] {rightBlock}), expected);
                         assertEquals(hashStrategy.rowEqualsRow(leftBlockPosition, new Block[] {leftBlock}, rightBlockPosition, new Block[] {rightBlock}), expected);
                         assertEquals(hashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition), expected);
                     }
@@ -111,7 +111,7 @@ public class TestJoinCompiler
                     Block rightBlock = channel.get(rightBlockIndex);
                     for (int rightBlockPosition = 0; rightBlockPosition < rightBlock.getPositionCount(); rightBlockPosition++) {
                         boolean expected = positionEqualsPosition(VARCHAR, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
-                        assertEquals(hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightBlockPosition, rightBlock), expected);
+                        assertEquals(hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightBlockPosition, new Block[] {rightBlock}), expected);
                         assertEquals(hashStrategy.rowEqualsRow(leftBlockPosition, new Block[] {leftBlock}, rightBlockPosition, new Block[] {rightBlock}), expected);
                         assertEquals(hashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition), expected);
                     }
@@ -175,7 +175,8 @@ public class TestJoinCompiler
 
         PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategyFactory(types, joinChannels);
         PagesHashStrategy hashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels, hashChannel);
-        PagesHashStrategy expectedHashStrategy = new SimplePagesHashStrategy(types, channels, joinChannels, hashChannel);
+        // todo add tests for filter function
+        PagesHashStrategy expectedHashStrategy = new SimplePagesHashStrategy(types, channels, joinChannels, hashChannel, Optional.empty());
 
         // verify channel count
         assertEquals(hashStrategy.getChannelCount(), types.size());

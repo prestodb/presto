@@ -14,12 +14,15 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
@@ -30,14 +33,16 @@ public final class ParallelLookupSourceSupplier
         implements LookupSourceSupplier
 {
     private final List<Type> types;
+    private final Map<Symbol, Integer> layout;
     private final List<Type> hashChannelTypes;
     private final ListenableFuture<LookupSource> lookupSourceFuture;
     private final List<? extends ListenableFuture<SharedLookupSource>> partitions;
     private final AtomicInteger referenceCount = new AtomicInteger(1);
 
-    public ParallelLookupSourceSupplier(List<Type> types, List<Integer> hashChannels, List<? extends ListenableFuture<SharedLookupSource>> partitions)
+    public ParallelLookupSourceSupplier(List<Type> types, Map<Symbol, Integer> layout, List<Integer> hashChannels, List<? extends ListenableFuture<SharedLookupSource>> partitions)
     {
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.layout = ImmutableMap.copyOf(requireNonNull(layout, "layout is null"));
         this.partitions = requireNonNull(partitions, "partitions is null");
 
         hashChannelTypes = hashChannels.stream()
@@ -54,6 +59,12 @@ public final class ParallelLookupSourceSupplier
     public List<Type> getTypes()
     {
         return types;
+    }
+
+    @Override
+    public Map<Symbol, Integer> getLayout()
+    {
+        return layout;
     }
 
     @Override

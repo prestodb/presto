@@ -50,9 +50,7 @@ public class LookupJoinOperatorFactory
         this.lookupSourceSupplier = lookupSourceSupplier;
         this.probeTypes = probeTypes;
         this.joinType = joinType;
-
         this.joinProbeFactory = joinProbeFactory;
-
         this.types = ImmutableList.<Type>builder()
                 .addAll(probeTypes)
                 .addAll(lookupSourceSupplier.getTypes())

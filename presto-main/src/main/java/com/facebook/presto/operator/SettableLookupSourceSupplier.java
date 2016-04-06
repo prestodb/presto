@@ -14,7 +14,9 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -22,6 +24,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -32,18 +35,26 @@ public final class SettableLookupSourceSupplier
         implements LookupSourceSupplier
 {
     private final List<Type> types;
+    private final ImmutableMap<Symbol, Integer> layout;
     private final SettableFuture<SharedLookupSource> lookupSourceFuture = SettableFuture.create();
     private final AtomicInteger referenceCount = new AtomicInteger(1);
 
-    public SettableLookupSourceSupplier(List<Type> types)
+    public SettableLookupSourceSupplier(List<Type> types, Map<Symbol, Integer> layout)
     {
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.layout = ImmutableMap.copyOf(requireNonNull(layout, "layout is null"));
     }
 
     @Override
     public List<Type> getTypes()
     {
         return types;
+    }
+
+    @Override
+    public Map<Symbol, Integer> getLayout()
+    {
+        return layout;
     }
 
     @Override

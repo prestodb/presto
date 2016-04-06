@@ -11,22 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.Block;
 
-public interface JoinProbe
+public interface JoinFilterFunction extends FilterFunction
 {
-    int getChannelCount();
-
-    boolean advanceNextPosition();
-
-    long getCurrentJoinPosition();
-
-    void appendTo(PageBuilder pageBuilder);
-
-    int getPosition();
-
-    Page getPage();
+    boolean filter(int leftPosition, Block[] leftBlocks, int rightPosition,  Block[] rightBlocks);
 }

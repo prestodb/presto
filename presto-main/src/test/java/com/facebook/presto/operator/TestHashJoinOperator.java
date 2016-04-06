@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingTaskContext;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import org.testng.annotations.AfterClass;
@@ -31,6 +32,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
@@ -98,7 +100,9 @@ public class TestHashJoinOperator
                 lookupSourceSupplier,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel());
+                probePages.getHashChannel(),
+                Optional.empty()
+        );
 
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
@@ -149,7 +153,9 @@ public class TestHashJoinOperator
                 lookupSourceSupplier,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel());
+                probePages.getHashChannel(),
+                Optional.empty()
+        );
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
@@ -192,7 +198,9 @@ public class TestHashJoinOperator
                 lookupSourceSupplier,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel());
+                probePages.getHashChannel(),
+                Optional.empty()
+        );
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
@@ -236,7 +244,9 @@ public class TestHashJoinOperator
                 lookupSourceSupplier,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel());
+                probePages.getHashChannel(),
+                Optional.empty()
+        );
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
@@ -273,7 +283,8 @@ public class TestHashJoinOperator
                 lookupSourceSupplier,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel());
+                probePages.getHashChannel(),
+                Optional.empty());
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
@@ -329,7 +340,8 @@ public class TestHashJoinOperator
                 lookupSourceSupplier,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel());
+                probePages.getHashChannel(),
+                Optional.empty());
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
@@ -374,7 +386,8 @@ public class TestHashJoinOperator
                 lookupSourceSupplier,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel());
+                probePages.getHashChannel(),
+                Optional.empty());
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
@@ -418,7 +431,8 @@ public class TestHashJoinOperator
                 lookupSourceSupplier,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel());
+                probePages.getHashChannel(),
+                Optional.empty());
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
@@ -463,8 +477,9 @@ public class TestHashJoinOperator
 
     private static LookupSourceSupplier buildHash(boolean parallelBuild, TaskContext taskContext, List<Integer> hashChannels, RowPagesBuilder buildPages)
     {
+        // todo add tests for filter function
         if (parallelBuild) {
-            ParallelHashBuilder parallelHashBuilder = new ParallelHashBuilder(buildPages.getTypes(), hashChannels, buildPages.getHashChannel(), 100, PARTITION_COUNT);
+            ParallelHashBuilder parallelHashBuilder = new ParallelHashBuilder(buildPages.getTypes(), ImmutableMap.of(), hashChannels, buildPages.getHashChannel(), Optional.empty(), 100, PARTITION_COUNT);
 
             // collect input data
             DriverContext collectDriverContext = taskContext.addPipelineContext(true, true).addDriverContext();
@@ -497,7 +512,7 @@ public class TestHashJoinOperator
             DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
 
             ValuesOperatorFactory valuesOperatorFactory = new ValuesOperatorFactory(0, new PlanNodeId("test"), buildPages.getTypes(), buildPages.build());
-            HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, new PlanNodeId("test"), buildPages.getTypes(), hashChannels, buildPages.getHashChannel(), 100);
+            HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, new PlanNodeId("test"), buildPages.getTypes(), ImmutableMap.of(), hashChannels, buildPages.getHashChannel(), Optional.empty(), 100);
 
             Driver driver = new Driver(driverContext,
                     valuesOperatorFactory.createOperator(driverContext),
