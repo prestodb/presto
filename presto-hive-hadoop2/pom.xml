@@ -53,6 +53,12 @@
             <artifactId>presto-main</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>dnsjava</groupId>
+            <artifactId>dnsjava</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

@@ -1,0 +1,23 @@
+version: '2'
+services:
+  hadoop-master:
+    hostname: hadoop-master
+    image: 'teradatalabs/cdh5-hive:2.6.0-cdh5.6.0-sshd-4e54a19'
+    ports:
+      - '1080:1080'
+      - '8020:8020'
+      - '8088:8088'
+      - '9083:9083'
+      - '10000:10000'
+      - '50070:50070'
+      - '50075:50075'
+    volumes:
+      - ../../presto-hive/src/test/sql:/files/sql:ro
+      - ./files/words:/usr/share/dict/words:ro
+  dnsmasq:
+    hostname: dnsmasq
+    image: 'teradatalabs/dns:2.75-4e54a19'
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - '5353:53/udp'

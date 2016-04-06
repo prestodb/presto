@@ -729,6 +729,13 @@
                 <artifactId>hive-apache-jdbc</artifactId>
                 <version>0.13.1-1</version>
             </dependency>
+
+            <dependency>
+                <groupId>dnsjava</groupId>
+                <artifactId>dnsjava</artifactId>
+                <version>2.1.7</version>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 
