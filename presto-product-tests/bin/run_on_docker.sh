@@ -46,15 +46,15 @@ function run_in_application_runner_container() {
 
 function check_presto() {
   run_in_application_runner_container \
-    java -jar /presto-cli/target/presto-cli-${PRESTO_VERSION}-executable.jar \
+    java -jar ${DOCKER_PRESTO_VOLUME}/presto-cli/target/presto-cli-${PRESTO_VERSION}-executable.jar \
     --server presto-master:8080 \
     --execute "SHOW CATALOGS" | grep -i hive
 }
 
 function run_product_tests() {
   run_in_application_runner_container \
-    /presto-product-tests/bin/run.sh \
-    --config-local /presto-product-tests/conf/tempto/tempto-configuration.yaml "$@"
+    ${DOCKER_PRESTO_VOLUME}/presto-product-tests/bin/run.sh \
+    --config-local ${DOCKER_PRESTO_VOLUME}/presto-product-tests/conf/tempto/tempto-configuration.yaml "$@"
 }
 
 # docker-compose down is not good enough because it's ignores services created with "run" command
@@ -99,6 +99,7 @@ SCRIPT_DIR=$(dirname $(absolutepath "$0"))
 PRODUCT_TESTS_ROOT="${SCRIPT_DIR}/.."
 PROJECT_ROOT="${PRODUCT_TESTS_ROOT}/.."
 DOCKER_COMPOSE_LOCATION="${PRODUCT_TESTS_ROOT}/conf/docker/${ENVIRONMENT}/docker-compose.yml"
+DOCKER_PRESTO_VOLUME="/docker/volumes/presto"
 
 SINGLE_NODE_DOCKER_COMPOSE_LOCATION="${PRODUCT_TESTS_ROOT}/conf/docker/singlenode/docker-compose.yml"
 DISTRIBUTED_DOCKER_COMPOSE_LOCATION="${PRODUCT_TESTS_ROOT}/conf/docker/distributed/docker-compose.yml"

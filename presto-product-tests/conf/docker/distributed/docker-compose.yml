@@ -14,15 +14,13 @@ services:
   presto-master:
     hostname: presto-master
     image: 'teradatalabs/centos6-java8-oracle'
-    ports: 
+    ports:
       - '8080:8080'
     depends_on:
       - 'hadoop-master'
-    command: /files/presto-launcher-wrapper.sh distributed-master run
+    command: /docker/volumes/presto/presto-product-tests/conf/docker/files/presto-launcher-wrapper.sh distributed-master run
     volumes:
-      - ../../../../presto-server/target/:/presto-server/target:ro
-      - ../../presto/etc/:/etc/presto:ro
-      - ../files/:/files:ro
+      - ../../../../:/docker/volumes/presto
     env_file:
       - ../../../target/classes/presto.env
 
@@ -30,7 +28,7 @@ services:
     image: 'teradatalabs/centos6-java8-oracle'
     depends_on:
       - 'presto-master'
-    command: /files/presto-launcher-wrapper.sh distributed-worker run
+    command: /docker/volumes/presto/presto-product-tests/conf/docker/files/presto-launcher-wrapper.sh distributed-worker run
     volumes_from:
       - presto-master
     env_file:
@@ -41,8 +39,7 @@ services:
     image: 'teradatalabs/centos6-java8-oracle'
     depends_on:
       - 'presto-master'
-    volumes:
-      - ../../../../presto-product-tests/:/presto-product-tests
-      - ../../../../presto-cli/:/presto-cli:ro
+    volumes_from:
+      - presto-master
     env_file:
       - ../../../target/classes/presto.env

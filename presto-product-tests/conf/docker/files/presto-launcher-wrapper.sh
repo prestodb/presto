@@ -7,12 +7,16 @@ if [[ "$CONFIG" != "singlenode" && "$CONFIG" != "distributed-master" && "$CONFIG
    exit 1
 fi
 
+PRESTO_VOLUME="/docker/volumes/presto"
+PRESTO_CONFIG_DIRECTORY="${PRESTO_VOLUME}/presto-product-tests/conf/presto/etc"
+
 shift 1
-/presto-server/target/presto-server-${PRESTO_VERSION}/bin/launcher \
+
+${PRESTO_VOLUME}/presto-server/target/presto-server-${PRESTO_VERSION}/bin/launcher \
   -Dnode.id=${HOSTNAME} \
-  -Dcatalog.config-dir=/etc/presto/catalog \
-  --config=/etc/presto/${CONFIG}.properties \
-  --jvm-config=/etc/presto/jvm.config \
-  --log-levels-file=/etc/presto/log.properties \
+  -Dcatalog.config-dir=${PRESTO_CONFIG_DIRECTORY}/catalog \
+  --config=${PRESTO_CONFIG_DIRECTORY}/${CONFIG}.properties \
+  --jvm-config=${PRESTO_CONFIG_DIRECTORY}/jvm.config \
+  --log-levels-file=${PRESTO_CONFIG_DIRECTORY}/log.properties \
   --data-dir=/var/presto \
   $* 
