@@ -11,10 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution;
+package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.execution.SystemMemoryUsageListener;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -38,18 +41,17 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Stream;
 
 import static com.facebook.presto.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
-import static com.facebook.presto.execution.BufferResult.emptyResults;
-import static com.facebook.presto.execution.SharedBuffer.BufferState.FAILED;
-import static com.facebook.presto.execution.SharedBuffer.BufferState.FINISHED;
-import static com.facebook.presto.execution.SharedBuffer.BufferState.FLUSHING;
-import static com.facebook.presto.execution.SharedBuffer.BufferState.NO_MORE_BUFFERS;
-import static com.facebook.presto.execution.SharedBuffer.BufferState.NO_MORE_PAGES;
-import static com.facebook.presto.execution.SharedBuffer.BufferState.OPEN;
-import static com.facebook.presto.execution.SharedBuffer.BufferState.TERMINAL_BUFFER_STATES;
+import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
+import static com.facebook.presto.execution.buffer.BufferState.FAILED;
+import static com.facebook.presto.execution.buffer.BufferState.FINISHED;
+import static com.facebook.presto.execution.buffer.BufferState.FLUSHING;
+import static com.facebook.presto.execution.buffer.BufferState.NO_MORE_BUFFERS;
+import static com.facebook.presto.execution.buffer.BufferState.NO_MORE_PAGES;
+import static com.facebook.presto.execution.buffer.BufferState.OPEN;
+import static com.facebook.presto.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -62,71 +64,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 @ThreadSafe
 public class SharedBuffer
 {
-    public enum BufferState
-    {
-        /**
-         * Additional buffers can be added.
-         * Any next state is allowed.
-         */
-        OPEN(true, true, false),
-        /**
-         * No more buffers can be added.
-         * Next state is {@link #FLUSHING}.
-         */
-        NO_MORE_BUFFERS(true, false, false),
-        /**
-         * No more pages can be added.
-         * Next state is {@link #FLUSHING}.
-         */
-        NO_MORE_PAGES(false, true, false),
-        /**
-         * No more pages or buffers can be added, and buffer is waiting
-         * for the final pages to be consumed.
-         * Next state is {@link #FINISHED}.
-         */
-        FLUSHING(false, false, false),
-        /**
-         * No more buffers can be added and all pages have been consumed.
-         * This is the terminal state.
-         */
-        FINISHED(false, false, true),
-        /**
-         * Buffer has failed.  No more buffers or pages can be added.  Readers
-         * will be blocked, as to not communicate a finished state.  It is
-         * assumed that the reader will be cleaned up elsewhere.
-         * This is the terminal state.
-         */
-        FAILED(false, false, true);
-
-        public static final Set<BufferState> TERMINAL_BUFFER_STATES = Stream.of(BufferState.values()).filter(BufferState::isTerminal).collect(toImmutableSet());
-
-        private final boolean newPagesAllowed;
-        private final boolean newBuffersAllowed;
-        private final boolean terminal;
-
-        BufferState(boolean newPagesAllowed, boolean newBuffersAllowed, boolean terminal)
-        {
-            this.newPagesAllowed = newPagesAllowed;
-            this.newBuffersAllowed = newBuffersAllowed;
-            this.terminal = terminal;
-        }
-
-        public boolean canAddPages()
-        {
-            return newPagesAllowed;
-        }
-
-        public boolean canAddBuffers()
-        {
-            return newBuffersAllowed;
-        }
-
-        public boolean isTerminal()
-        {
-            return terminal;
-        }
-    }
-
     private final SettableFuture<OutputBuffers> finalOutputBuffers = SettableFuture.create();
 
     @GuardedBy("this")
