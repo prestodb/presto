@@ -277,14 +277,14 @@ public class StatementClient
 
     private void processResponse(JsonResponse<QueryResults> response)
     {
-        for (String setSession : response.getHeaders().get(PRESTO_SET_SESSION)) {
+        for (String setSession : response.getHeaders(PRESTO_SET_SESSION)) {
             List<String> keyValue = SESSION_HEADER_SPLITTER.splitToList(setSession);
             if (keyValue.size() != 2) {
                 continue;
             }
             setSessionProperties.put(keyValue.get(0), keyValue.size() > 1 ? keyValue.get(1) : "");
         }
-        for (String clearSession : response.getHeaders().get(PRESTO_CLEAR_SESSION)) {
+        for (String clearSession : response.getHeaders(PRESTO_CLEAR_SESSION)) {
             resetSessionProperties.add(clearSession);
         }
 
