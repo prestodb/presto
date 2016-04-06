@@ -14,8 +14,6 @@ services:
   presto-master:
     hostname: presto-master
     image: 'teradatalabs/centos6-java8-oracle'
-    ports:
-      - '8080:8080'
     depends_on:
       - 'hadoop-master'
     command: /docker/volumes/presto/presto-product-tests/conf/docker/files/presto-launcher-wrapper.sh distributed-master run
