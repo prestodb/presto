@@ -1,0 +1,18 @@
+hdfs:
+  username: hdfs/hadoop-master@LABS.TERADATA.COM
+  webhdfs:
+    authentication: SPNEGO
+    keytab: /etc/hadoop/conf/hdfs.keytab
+
+databases:
+  hive:
+    host: hadoop-master
+    jdbc_url: jdbc:hive2://${databases.hive.host}:10000/default;principal=hive/hadoop-master@LABS.TERADATA.COM;auth=kerberos;kerberosAuthType=fromSubject;
+    jdbc_user: hive/hadoop-master@LABS.TERADATA.COM
+    jdbc_password: na
+    kerberos_principal: hive/hadoop-master@LABS.TERADATA.COM
+    kerberos_keytab: /etc/hive/conf/hive.keytab
+
+  presto:
+    host: presto-master
+    jdbc_user: jdbc_presto_user
