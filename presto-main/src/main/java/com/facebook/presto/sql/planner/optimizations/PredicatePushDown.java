@@ -809,6 +809,7 @@ public class PredicatePushDown
                         node.getAggregations(),
                         node.getFunctions(),
                         node.getMasks(),
+                        node.getGroupingSets(),
                         node.getStep(),
                         node.getSampleWeight(),
                         node.getConfidence(),

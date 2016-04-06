@@ -84,6 +84,7 @@ public class CountConstantOptimizer
                     aggregations,
                     functions,
                     node.getMasks(),
+                    node.getGroupingSets(),
                     node.getStep(),
                     node.getSampleWeight(),
                     node.getConfidence(),

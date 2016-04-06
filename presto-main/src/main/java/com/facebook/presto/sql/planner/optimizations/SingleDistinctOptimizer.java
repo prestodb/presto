@@ -27,6 +27,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -91,6 +92,7 @@ public class SingleDistinctOptimizer
                                         aggregations,
                                         node.getFunctions(),
                                         Collections.emptyMap(),
+                                        node.getGroupingSets(),
                                         node.getStep(),
                                         node.getSampleWeight(),
                                         node.getConfidence(),
@@ -109,6 +111,7 @@ public class SingleDistinctOptimizer
                                                                         Collections.emptyMap(),
                                                                         Collections.emptyMap(),
                                                                         Collections.emptyMap(),
+                                                                        ImmutableList.of(node.getDistinctSymbols()),
                                                                         SINGLE,
                                                                         Optional.empty(),
                                                                         1.0,
