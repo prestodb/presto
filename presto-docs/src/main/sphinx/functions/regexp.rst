@@ -91,6 +91,8 @@ with a few notable exceptions:
 
 .. function:: regexp_replace(string, pattern, replacement) -> varchar
 
+    .. _Capturing groups: http://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html#cg
+
     Replaces every instance of the substring matched by the regular expression
     ``pattern`` in ``string`` with ``replacement``. `Capturing groups`_ can be
     referenced in ``replacement`` using ``$g`` for a numbered group or
