@@ -14,6 +14,7 @@
 package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.PageAssertions;
@@ -58,10 +59,10 @@ public class TestSharedOutputBuffer
     private static final String TASK_INSTANCE_ID = "task-instance-id";
 
     private static final ImmutableList<BigintType> TYPES = ImmutableList.of(BIGINT);
-    public static final TaskId FIRST = new TaskId("query", "stage", 0);
-    public static final TaskId SECOND = new TaskId("query", "stage", 1);
-    public static final TaskId QUEUE = new TaskId("query", "stage", 0);
-    public static final TaskId FOO = new TaskId("foo", "bar", 0);
+    public static final OutputBufferId FIRST = new OutputBufferId(0);
+    public static final OutputBufferId SECOND = new OutputBufferId(1);
+    public static final OutputBufferId QUEUE = new OutputBufferId(0);
+    public static final OutputBufferId FOO = new OutputBufferId(1);
 
     private static Page createPage(int i)
     {
@@ -436,9 +437,9 @@ public class TestSharedOutputBuffer
         assertFinished(sharedBuffer);
     }
 
-    public static BufferResult getBufferResult(SharedOutputBuffer sharedBuffer, TaskId outputId, long sequenceId, DataSize maxSize, Duration maxWait)
+    public static BufferResult getBufferResult(SharedOutputBuffer sharedBuffer, OutputBufferId bufferId, long sequenceId, DataSize maxSize, Duration maxWait)
     {
-        CompletableFuture<BufferResult> future = sharedBuffer.get(outputId, sequenceId, maxSize);
+        CompletableFuture<BufferResult> future = sharedBuffer.get(bufferId, sequenceId, maxSize);
         return getFuture(future, maxWait);
     }
 
@@ -895,7 +896,7 @@ public class TestSharedOutputBuffer
 
     private static void assertQueueState(
             SharedOutputBuffer sharedBuffer,
-            TaskId queueId,
+            OutputBufferId bufferId,
             int partition,
             int bufferedPages,
             int pagesSent,
@@ -903,9 +904,9 @@ public class TestSharedOutputBuffer
             int pageBufferPagesSent)
     {
         assertEquals(
-                getBufferInfo(sharedBuffer, queueId),
+                getBufferInfo(sharedBuffer, bufferId),
                 new BufferInfo(
-                        queueId,
+                        bufferId,
                         false,
                         bufferedPages,
                         pagesSent,
@@ -918,18 +919,18 @@ public class TestSharedOutputBuffer
     }
 
     @SuppressWarnings("ConstantConditions")
-    private static void assertQueueClosed(SharedOutputBuffer sharedBuffer, TaskId queueId, int pagesSent)
+    private static void assertQueueClosed(SharedOutputBuffer sharedBuffer, OutputBufferId bufferId, int pagesSent)
     {
-        BufferInfo bufferInfo = getBufferInfo(sharedBuffer, queueId);
+        BufferInfo bufferInfo = getBufferInfo(sharedBuffer, bufferId);
         assertEquals(bufferInfo.getBufferedPages(), 0);
         assertEquals(bufferInfo.getPagesSent(), pagesSent);
         assertEquals(bufferInfo.isFinished(), true);
     }
 
-    private static BufferInfo getBufferInfo(SharedOutputBuffer sharedBuffer, TaskId queueId)
+    private static BufferInfo getBufferInfo(SharedOutputBuffer sharedBuffer, OutputBufferId bufferId)
     {
         for (BufferInfo bufferInfo : sharedBuffer.getInfo().getBuffers()) {
-            if (bufferInfo.getBufferId().equals(queueId)) {
+            if (bufferInfo.getBufferId().equals(bufferId)) {
                 return bufferInfo;
             }
         }

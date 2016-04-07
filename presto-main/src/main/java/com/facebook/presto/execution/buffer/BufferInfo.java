@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution.buffer;
 
-import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -25,7 +25,7 @@ import static java.util.Objects.requireNonNull;
 
 public class BufferInfo
 {
-    private final TaskId bufferId;
+    private final OutputBufferId bufferId;
     private final boolean finished;
     private final int bufferedPages;
 
@@ -34,7 +34,7 @@ public class BufferInfo
 
     @JsonCreator
     public BufferInfo(
-            @JsonProperty("bufferId") TaskId bufferId,
+            @JsonProperty("bufferId") OutputBufferId bufferId,
             @JsonProperty("finished") boolean finished,
             @JsonProperty("bufferedPages") int bufferedPages,
             @JsonProperty("pagesSent") long pagesSent,
@@ -51,7 +51,7 @@ public class BufferInfo
     }
 
     @JsonProperty
-    public TaskId getBufferId()
+    public OutputBufferId getBufferId()
     {
         return bufferId;
     }

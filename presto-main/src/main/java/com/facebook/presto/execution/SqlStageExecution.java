@@ -313,6 +313,8 @@ public final class SqlStageExecution
 
     private synchronized RemoteTask scheduleTask(Node node, int partition, Multimap<PlanNodeId, Split> sourceSplits)
     {
+        // The output buffer depends on the task id starting from 0 and being sequential, since each
+        // task is assigned a private buffer based on task id.
         TaskId taskId = new TaskId(stateMachine.getStageId(), nextTaskId.getAndIncrement());
 
         ImmutableMultimap.Builder<PlanNodeId, Split> initialSplits = ImmutableMultimap.builder();
@@ -363,7 +365,8 @@ public final class SqlStageExecution
 
     private static Split createRemoteSplitFor(TaskId taskId, URI taskLocation)
     {
-        URI splitLocation = uriBuilderFrom(taskLocation).appendPath("results").appendPath(taskId.toString()).build();
+        // Fetch the results from the buffer assigned to the task based on id
+        URI splitLocation = uriBuilderFrom(taskLocation).appendPath("results").appendPath(String.valueOf(taskId.getId())).build();
         return new Split("remote", new RemoteTransactionHandle(), new RemoteSplit(splitLocation));
     }
 

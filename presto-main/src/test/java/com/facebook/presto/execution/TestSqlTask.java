@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.client.NodeVersion;
@@ -65,7 +66,7 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestSqlTask
 {
-    public static final TaskId OUT = new TaskId("query", "stage", 0);
+    public static final OutputBufferId OUT = new OutputBufferId(0);
     private final TaskExecutor taskExecutor;
     private final ScheduledExecutorService taskNotificationExecutor;
     private final SqlTaskExecutionFactory sqlTaskExecutionFactory;

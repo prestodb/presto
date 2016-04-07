@@ -14,8 +14,8 @@
 package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.Page;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -58,12 +58,12 @@ public interface OutputBuffer
      * If the buffer result is marked as complete, the client must call abort to acknowledge
      * receipt of the final state.
      */
-    CompletableFuture<BufferResult> get(TaskId outputId, long token, DataSize maxSize);
+    CompletableFuture<BufferResult> get(OutputBufferId bufferId, long token, DataSize maxSize);
 
     /**
      * Closes the specified output buffer.
      */
-    void abort(TaskId outputId);
+    void abort(OutputBufferId bufferId);
 
     /**
      * Adds a page to an unpartitioned buffer. If no-more-pages has been set, the enqueue

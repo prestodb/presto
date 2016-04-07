@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -320,20 +321,20 @@ public class SqlTask
         return getTaskInfo();
     }
 
-    public CompletableFuture<BufferResult> getTaskResults(TaskId outputName, long startingSequenceId, DataSize maxSize)
+    public CompletableFuture<BufferResult> getTaskResults(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
     {
-        requireNonNull(outputName, "outputName is null");
+        requireNonNull(bufferId, "bufferId is null");
         checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
 
-        return outputBuffer.get(outputName, startingSequenceId, maxSize);
+        return outputBuffer.get(bufferId, startingSequenceId, maxSize);
     }
 
-    public TaskInfo abortTaskResults(TaskId outputId)
+    public TaskInfo abortTaskResults(OutputBufferId bufferId)
     {
-        requireNonNull(outputId, "outputId is null");
+        requireNonNull(bufferId, "bufferId is null");
 
-        log.debug("Aborting task %s output %s", taskId, outputId);
-        outputBuffer.abort(outputId);
+        log.debug("Aborting task %s output %s", taskId, bufferId);
+        outputBuffer.abort(bufferId);
 
         return getTaskInfo();
     }

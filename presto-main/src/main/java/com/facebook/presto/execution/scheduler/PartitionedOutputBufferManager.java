@@ -14,7 +14,7 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.OutputBuffers.OutputBufferId;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -33,7 +33,7 @@ public class PartitionedOutputBufferManager
 {
     private final Consumer<OutputBuffers> outputBufferTarget;
     @GuardedBy("this")
-    private final Map<TaskId, Integer> partitions = new LinkedHashMap<>();
+    private final Map<OutputBufferId, Integer> partitions = new LinkedHashMap<>();
     @GuardedBy("this")
     private boolean noMoreBufferIds;
 
