@@ -14,6 +14,7 @@
 package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.SystemMemoryUsageListener;
@@ -74,9 +75,9 @@ public class SharedOutputBuffer
     @GuardedBy("this")
     private final Map<Integer, Set<NamedBuffer>> partitionToNamedBuffer = new ConcurrentHashMap<>();
     @GuardedBy("this")
-    private final ConcurrentMap<TaskId, NamedBuffer> namedBuffers = new ConcurrentHashMap<>();
+    private final ConcurrentMap<OutputBufferId, NamedBuffer> namedBuffers = new ConcurrentHashMap<>();
     @GuardedBy("this")
-    private final Set<TaskId> abortedBuffers = new HashSet<>();
+    private final Set<OutputBufferId> abortedBuffers = new HashSet<>();
 
     private final StateMachine<BufferState> state;
     private final String taskInstanceId;
@@ -165,8 +166,8 @@ public class SharedOutputBuffer
         outputBuffers = newOutputBuffers;
 
         // add the new buffers
-        for (Entry<TaskId, Integer> entry : outputBuffers.getBuffers().entrySet()) {
-            TaskId bufferId = entry.getKey();
+        for (Entry<OutputBufferId, Integer> entry : outputBuffers.getBuffers().entrySet()) {
+            OutputBufferId bufferId = entry.getKey();
             if (!namedBuffers.containsKey(bufferId)) {
                 checkState(state.get().canAddBuffers(), "Cannot add buffers to %s", getClass().getSimpleName());
 
@@ -226,33 +227,33 @@ public class SharedOutputBuffer
     }
 
     @Override
-    public synchronized CompletableFuture<BufferResult> get(TaskId outputId, long startingSequenceId, DataSize maxSize)
+    public synchronized CompletableFuture<BufferResult> get(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
     {
-        requireNonNull(outputId, "outputId is null");
+        requireNonNull(bufferId, "outputId is null");
         checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
 
         // if no buffers can be added, and the requested buffer does not exist, return a closed empty result
         // this can happen with limit queries
         BufferState state = this.state.get();
-        if (state != FAILED && !state.canAddBuffers() && namedBuffers.get(outputId) == null) {
+        if (state != FAILED && !state.canAddBuffers() && namedBuffers.get(bufferId) == null) {
             return completedFuture(emptyResults(taskInstanceId, 0, true));
         }
 
         // return a future for data
-        GetBufferResult getBufferResult = new GetBufferResult(outputId, startingSequenceId, maxSize);
+        GetBufferResult getBufferResult = new GetBufferResult(bufferId, startingSequenceId, maxSize);
         stateChangeListeners.add(getBufferResult);
         updateState();
         return getBufferResult.getFuture();
     }
 
     @Override
-    public synchronized void abort(TaskId outputId)
+    public synchronized void abort(OutputBufferId bufferId)
     {
-        requireNonNull(outputId, "outputId is null");
+        requireNonNull(bufferId, "outputId is null");
 
-        abortedBuffers.add(outputId);
+        abortedBuffers.add(bufferId);
 
-        NamedBuffer namedBuffer = namedBuffers.get(outputId);
+        NamedBuffer namedBuffer = namedBuffers.get(bufferId);
         if (namedBuffer != null) {
             namedBuffer.abort();
         }
@@ -373,13 +374,13 @@ public class SharedOutputBuffer
     @ThreadSafe
     private final class NamedBuffer
     {
-        private final TaskId bufferId;
+        private final OutputBufferId bufferId;
         private final SharedOutputBufferPartition partition;
 
         private final AtomicLong sequenceId = new AtomicLong();
         private final AtomicBoolean finished = new AtomicBoolean();
 
-        private NamedBuffer(TaskId bufferId, SharedOutputBufferPartition partition)
+        private NamedBuffer(OutputBufferId bufferId, SharedOutputBufferPartition partition)
         {
             this.bufferId = requireNonNull(bufferId, "bufferId is null");
             this.partition = requireNonNull(partition, "partitionBuffer is null");
@@ -467,11 +468,11 @@ public class SharedOutputBuffer
     {
         private final CompletableFuture<BufferResult> future = new CompletableFuture<>();
 
-        private final TaskId outputId;
+        private final OutputBufferId outputId;
         private final long startingSequenceId;
         private final DataSize maxSize;
 
-        public GetBufferResult(TaskId outputId, long startingSequenceId, DataSize maxSize)
+        public GetBufferResult(OutputBufferId outputId, long startingSequenceId, DataSize maxSize)
         {
             this.outputId = outputId;
             this.startingSequenceId = startingSequenceId;

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.MockRemoteTaskFactory;
@@ -22,7 +23,6 @@ import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.StageId;
-import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TestSqlTaskManager.MockLocationFactory;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.PrestoNode;
@@ -86,7 +86,7 @@ import static org.testng.Assert.fail;
 
 public class TestSourcePartitionedScheduler
 {
-    public static final TaskId OUT = new TaskId("query", "stage", 0);
+    public static final OutputBufferId OUT = new OutputBufferId(0);
     private static final String CONNECTOR_ID = "test";
 
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stageExecutor-%s"));

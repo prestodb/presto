@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -70,7 +71,7 @@ public final class SqlQueryExecution
         implements QueryExecution
 {
     private static final OutputBuffers ROOT_OUTPUT_BUFFERS = createInitialEmptyOutputBuffers()
-            .withBuffer(new TaskId("output", "buffer", 0), BROADCAST_PARTITION_ID)
+            .withBuffer(new OutputBufferId(0), BROADCAST_PARTITION_ID)
             .withNoMoreBufferIds();
 
     private final QueryStateMachine stateMachine;

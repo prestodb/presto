@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.client.NodeVersion;
@@ -56,7 +57,7 @@ import static org.testng.Assert.assertNull;
 public class TestSqlTaskManager
 {
     private static final TaskId TASK_ID = new TaskId("query", "stage", 1);
-    public static final TaskId OUT = new TaskId("query", "stage", 0);
+    public static final OutputBufferId OUT = new OutputBufferId(0);
 
     private final TaskExecutor taskExecutor;
     private final LocalMemoryManager localMemoryManager;

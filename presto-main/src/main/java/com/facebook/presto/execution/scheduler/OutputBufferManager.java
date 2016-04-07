@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution.scheduler;
 
-import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.google.common.base.MoreObjects;
 
 import java.util.List;
@@ -28,17 +28,17 @@ interface OutputBufferManager
 
     class OutputBuffer
     {
-        private final TaskId bufferId;
+        private final OutputBufferId bufferId;
         private final int partition;
 
-        public OutputBuffer(TaskId bufferId, int partition)
+        public OutputBuffer(OutputBufferId bufferId, int partition)
         {
             this.bufferId = requireNonNull(bufferId, "bufferId is null");
             checkArgument(partition >= 0, "partition is negative");
             this.partition = partition;
         }
 
-        public TaskId getBufferId()
+        public OutputBufferId getBufferId()
         {
             return bufferId;
         }
