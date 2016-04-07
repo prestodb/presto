@@ -113,7 +113,6 @@ import static com.facebook.presto.hive.HiveWriteUtils.pathExists;
 import static com.facebook.presto.hive.HiveWriteUtils.renameDirectory;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.facebook.presto.spi.StandardErrorCode.USER_ERROR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -138,10 +137,6 @@ public class HiveMetadata
     private static final int PARTITION_COMMIT_BATCH_SIZE = 8;
 
     private final String connectorId;
-    private final boolean allowDropTable;
-    private final boolean allowRenameTable;
-    private final boolean allowAddColumn;
-    private final boolean allowRenameColumn;
     private final boolean allowCorruptWritesForTesting;
     private final HiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
@@ -163,10 +158,6 @@ public class HiveMetadata
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
             DateTimeZone timeZone,
-            boolean allowDropTable,
-            boolean allowRenameTable,
-            boolean allowAddColumn,
-            boolean allowRenameColumn,
             boolean allowCorruptWritesForTesting,
             boolean respectTableFormat,
             HiveStorageFormat defaultStorageFormat,
@@ -178,10 +169,6 @@ public class HiveMetadata
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
 
-        this.allowDropTable = allowDropTable;
-        this.allowRenameTable = allowRenameTable;
-        this.allowAddColumn = allowAddColumn;
-        this.allowRenameColumn = allowRenameColumn;
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
 
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -461,10 +448,6 @@ public class HiveMetadata
     @Override
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
-        if (!allowAddColumn) {
-            throw new PrestoException(PERMISSION_DENIED, "Adding Columns is disabled in this Hive catalog");
-        }
-
         HiveTableHandle handle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
         Optional<Table> tableMetadata = metastore.getTable(handle.getSchemaName(), handle.getTableName());
         if (!tableMetadata.isPresent()) {
@@ -485,10 +468,6 @@ public class HiveMetadata
     @Override
     public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
     {
-        if (!allowRenameColumn) {
-            throw new PrestoException(PERMISSION_DENIED, "Renaming columns is disabled in this Hive catalog");
-        }
-
         HiveTableHandle hiveTableHandle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
         HiveColumnHandle sourceHandle = checkType(source, HiveColumnHandle.class, "columnHandle");
         Optional<Table> tableMetadata = metastore.getTable(hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName());
@@ -514,10 +493,6 @@ public class HiveMetadata
     @Override
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
-        if (!allowRenameTable) {
-            throw new PrestoException(PERMISSION_DENIED, "Renaming tables is disabled in this Hive catalog");
-        }
-
         HiveTableHandle handle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
         SchemaTableName tableName = schemaTableName(tableHandle);
         Optional<Table> source = metastore.getTable(handle.getSchemaName(), handle.getTableName());
@@ -536,18 +511,9 @@ public class HiveMetadata
         HiveTableHandle handle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
         SchemaTableName tableName = schemaTableName(tableHandle);
 
-        if (!allowDropTable) {
-            throw new PrestoException(PERMISSION_DENIED, "DROP TABLE is disabled in this Hive catalog");
-        }
-
         Optional<Table> target = metastore.getTable(handle.getSchemaName(), handle.getTableName());
         if (!target.isPresent()) {
             throw new TableNotFoundException(tableName);
-        }
-        Table table = target.get();
-
-        if (!session.getUser().equals(table.getOwner())) {
-            throw new PrestoException(PERMISSION_DENIED, format("Unable to drop table '%s': owner of the table is different from session user", table));
         }
         metastore.dropTable(handle.getSchemaName(), handle.getTableName());
     }
