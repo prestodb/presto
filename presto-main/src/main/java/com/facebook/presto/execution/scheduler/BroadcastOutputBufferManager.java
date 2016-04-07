@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.OutputBuffers.BROADCAST_PARTITION_ID;
+import static com.facebook.presto.OutputBuffers.BufferType.BROADCAST;
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static java.util.Objects.requireNonNull;
 
@@ -33,7 +34,7 @@ class BroadcastOutputBufferManager
     private final Consumer<OutputBuffers> outputBufferTarget;
 
     @GuardedBy("this")
-    private OutputBuffers outputBuffers = createInitialEmptyOutputBuffers();
+    private OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(BROADCAST);
 
     public BroadcastOutputBufferManager(Consumer<OutputBuffers> outputBufferTarget)
     {

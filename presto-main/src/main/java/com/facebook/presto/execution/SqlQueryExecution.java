@@ -35,6 +35,7 @@ import com.facebook.presto.sql.planner.DistributedExecutionPlanner;
 import com.facebook.presto.sql.planner.InputExtractor;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
+import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -70,9 +71,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public final class SqlQueryExecution
         implements QueryExecution
 {
-    private static final OutputBuffers ROOT_OUTPUT_BUFFERS = createInitialEmptyOutputBuffers()
-            .withBuffer(new OutputBufferId(0), BROADCAST_PARTITION_ID)
-            .withNoMoreBufferIds();
+    private static final OutputBufferId OUTPUT_BUFFER_ID = new OutputBufferId(0);
 
     private final QueryStateMachine stateMachine;
 
@@ -311,6 +310,11 @@ public final class SqlQueryExecution
         // record field names
         stateMachine.setOutputFieldNames(outputStageExecutionPlan.getFieldNames());
 
+        PartitioningHandle partitioningHandle = plan.getRoot().getFragment().getPartitioningScheme().getPartitioning().getHandle();
+        OutputBuffers rootOutputBuffers = createInitialEmptyOutputBuffers(partitioningHandle)
+                .withBuffer(OUTPUT_BUFFER_ID, BROADCAST_PARTITION_ID)
+                .withNoMoreBufferIds();
+
         // build the stage execution objects (this doesn't schedule execution)
         SqlQueryScheduler scheduler = new SqlQueryScheduler(
                 stateMachine,
@@ -323,7 +327,7 @@ public final class SqlQueryExecution
                 plan.isSummarizeTaskInfos(),
                 scheduleSplitBatchSize,
                 queryExecutor,
-                ROOT_OUTPUT_BUFFERS,
+                rootOutputBuffers,
                 nodeTaskMap,
                 executionPolicy);
 

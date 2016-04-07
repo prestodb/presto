@@ -13,6 +13,7 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonValue;
@@ -23,6 +24,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 
+import static com.facebook.presto.OutputBuffers.BufferType.BROADCAST;
+import static com.facebook.presto.OutputBuffers.BufferType.PARTITIONED;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -33,11 +37,30 @@ public final class OutputBuffers
 {
     public static final int BROADCAST_PARTITION_ID = 0;
 
-    public static OutputBuffers createInitialEmptyOutputBuffers()
+    public static OutputBuffers createInitialEmptyOutputBuffers(BufferType type)
     {
-        return new OutputBuffers(0, false, ImmutableMap.of());
+        return new OutputBuffers(type, 0, false, ImmutableMap.of());
     }
 
+    public static OutputBuffers createInitialEmptyOutputBuffers(PartitioningHandle partitioningHandle)
+    {
+        BufferType type;
+        if (partitioningHandle.equals(FIXED_BROADCAST_DISTRIBUTION)) {
+            type = BROADCAST;
+        }
+        else {
+            type = PARTITIONED;
+        }
+        return new OutputBuffers(type, 0, false, ImmutableMap.of());
+    }
+
+    public enum BufferType
+    {
+        PARTITIONED,
+        BROADCAST,
+    }
+
+    private final BufferType type;
     private final long version;
     private final boolean noMoreBufferIds;
     private final Map<OutputBufferId, Integer> buffers;
@@ -45,13 +68,21 @@ public final class OutputBuffers
     // Visible only for Jackson... Use the "with" methods instead
     @JsonCreator
     public OutputBuffers(
+            @JsonProperty("type") BufferType type,
             @JsonProperty("version") long version,
             @JsonProperty("noMoreBufferIds") boolean noMoreBufferIds,
             @JsonProperty("buffers") Map<OutputBufferId, Integer> buffers)
     {
+        this.type = type;
         this.version = version;
         this.buffers = ImmutableMap.copyOf(requireNonNull(buffers, "buffers is null"));
         this.noMoreBufferIds = noMoreBufferIds;
+    }
+
+    @JsonProperty
+    public BufferType getType()
+    {
+        return type;
     }
 
     @JsonProperty
@@ -75,17 +106,19 @@ public final class OutputBuffers
     public void checkValidTransition(OutputBuffers newOutputBuffers)
     {
         requireNonNull(newOutputBuffers, "newOutputBuffers is null");
+        checkArgument(type == newOutputBuffers.getType(), "newOutputBuffers has a different type");
+
+        if (noMoreBufferIds) {
+            checkArgument(this.equals(newOutputBuffers), "Expected buffer to not change after no more buffers is set");
+            return;
+        }
+
         if (version > newOutputBuffers.version) {
             throw new IllegalArgumentException("newOutputBuffers version is older");
         }
 
         if (version == newOutputBuffers.version) {
             checkArgument(this.equals(newOutputBuffers), "newOutputBuffers is the same version but contains different information");
-        }
-
-        // assure we are not removing the no more buffers flag
-        if (noMoreBufferIds && !newOutputBuffers.noMoreBufferIds) {
-            throw new IllegalArgumentException("Expected newOutputBuffers to have noMoreBufferIds set");
         }
 
         // assure we have not changed the buffer assignments
@@ -111,7 +144,7 @@ public final class OutputBuffers
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final OutputBuffers other = (OutputBuffers) obj;
+        OutputBuffers other = (OutputBuffers) obj;
         return Objects.equals(this.version, other.version) &&
                 Objects.equals(this.noMoreBufferIds, other.noMoreBufferIds) &&
                 Objects.equals(this.buffers, other.buffers);
@@ -140,6 +173,7 @@ public final class OutputBuffers
         checkState(!noMoreBufferIds, "No more buffer ids already set");
 
         return new OutputBuffers(
+                type,
                 version + 1,
                 false,
                 ImmutableMap.<OutputBufferId, Integer>builder()
@@ -177,7 +211,7 @@ public final class OutputBuffers
         // add the existing buffers
         newBuffers.putAll(this.buffers);
 
-        return new OutputBuffers(version + 1, false, newBuffers);
+        return new OutputBuffers(type, version + 1, false, newBuffers);
     }
 
     public OutputBuffers withNoMoreBufferIds()
@@ -186,12 +220,13 @@ public final class OutputBuffers
             return this;
         }
 
-        return new OutputBuffers(version + 1, true, buffers);
+        return new OutputBuffers(type, version + 1, true, buffers);
     }
 
     private void checkHasBuffer(OutputBufferId bufferId, int partition)
     {
-        checkArgument(Objects.equals(buffers.get(bufferId), partition),
+        checkArgument(
+                Objects.equals(buffers.get(bufferId), partition),
                 "OutputBuffers already contains task %s, but partition is set to %s not %s",
                 bufferId,
                 buffers.get(bufferId),

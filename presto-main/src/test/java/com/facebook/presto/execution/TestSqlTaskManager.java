@@ -42,6 +42,7 @@ import java.net.URI;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.OutputBuffers.BufferType.BROADCAST;
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.TaskTestUtils.PLAN_FRAGMENT;
@@ -86,7 +87,7 @@ public class TestSqlTaskManager
                     taskId,
                     Optional.of(PLAN_FRAGMENT),
                     ImmutableList.<TaskSource>of(),
-                    createInitialEmptyOutputBuffers());
+                    createInitialEmptyOutputBuffers(BROADCAST));
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
@@ -96,7 +97,7 @@ public class TestSqlTaskManager
                     taskId,
                     Optional.of(PLAN_FRAGMENT),
                     ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.<ScheduledSplit>of(), true)),
-                    createInitialEmptyOutputBuffers().withNoMoreBufferIds());
+                    createInitialEmptyOutputBuffers(BROADCAST).withNoMoreBufferIds());
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
@@ -114,7 +115,7 @@ public class TestSqlTaskManager
                     taskId,
                     Optional.of(PLAN_FRAGMENT),
                     ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
-                    createInitialEmptyOutputBuffers().withBuffer(OUT, 0).withNoMoreBufferIds());
+                    createInitialEmptyOutputBuffers(BROADCAST).withBuffer(OUT, 0).withNoMoreBufferIds());
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
@@ -150,7 +151,7 @@ public class TestSqlTaskManager
                     taskId,
                     Optional.of(PLAN_FRAGMENT),
                     ImmutableList.<TaskSource>of(),
-                    createInitialEmptyOutputBuffers());
+                    createInitialEmptyOutputBuffers(BROADCAST));
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
             assertNull(taskInfo.getStats().getEndTime());
 
@@ -178,7 +179,7 @@ public class TestSqlTaskManager
                     taskId,
                     Optional.of(PLAN_FRAGMENT),
                     ImmutableList.<TaskSource>of(),
-                    createInitialEmptyOutputBuffers());
+                    createInitialEmptyOutputBuffers(BROADCAST));
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
             assertNull(taskInfo.getStats().getEndTime());
 
@@ -206,7 +207,7 @@ public class TestSqlTaskManager
                     taskId,
                     Optional.of(PLAN_FRAGMENT),
                     ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
-                    createInitialEmptyOutputBuffers().withBuffer(OUT, 0).withNoMoreBufferIds());
+                    createInitialEmptyOutputBuffers(BROADCAST).withBuffer(OUT, 0).withNoMoreBufferIds());
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
@@ -233,7 +234,7 @@ public class TestSqlTaskManager
                     taskId,
                     Optional.of(PLAN_FRAGMENT),
                     ImmutableList.<TaskSource>of(),
-                    createInitialEmptyOutputBuffers());
+                    createInitialEmptyOutputBuffers(BROADCAST));
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
             taskInfo = sqlTaskManager.cancelTask(taskId);

@@ -117,7 +117,7 @@ public class TaskInfo
         return new TaskInfo(
                 initialTaskStatus(taskId, location),
                 DateTime.now(),
-                new OutputBufferInfo(OPEN, true, true, 0, 0, 0, 0, bufferStates),
+                new OutputBufferInfo("UNINITIALIZED", OPEN, true, true, 0, 0, 0, 0, bufferStates),
                 ImmutableSet.of(),
                 taskStats,
                 true);
