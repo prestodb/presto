@@ -2,7 +2,7 @@
  concat | array(E) | E, array(E) | scalar | true | Concatenates an element to an array |
  concat | array(E) | array(E), E | scalar | true | Concatenates an array to an element |
  concat | array(E) | array(E), array(E) | scalar | true | Concatenates given arrays |
- cardinality | bigint | map(K,V) | scalar | true | |
+ cardinality | bigint | array(E) | scalar | true | Returns the cardinality (length) of the array |
  contains | boolean | array(T), T | scalar | true | Determines whether given value exists in the array |
  array_sort | array(E) | array(E) | scalar | true | Sorts the given array in ascending order according to the natural ordering of its elements. |
  array_intersect | array(E) | array(E), array(E) | scalar | true | Intersects elements of the two given arrays |
