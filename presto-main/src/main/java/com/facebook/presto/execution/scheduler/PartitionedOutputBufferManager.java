@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.OutputBuffers.BufferType.PARTITIONED;
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -41,7 +42,7 @@ public class PartitionedOutputBufferManager
             partitions.put(new OutputBufferId(partition), partition);
         }
 
-        OutputBuffers outputBuffers = createInitialEmptyOutputBuffers()
+        OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(PARTITIONED)
                 .withBuffers(partitions.build())
                 .withNoMoreBufferIds();
         outputBufferTarget.accept(outputBuffers);

@@ -69,7 +69,7 @@ public class SharedOutputBuffer
     private final SettableFuture<OutputBuffers> finalOutputBuffers = SettableFuture.create();
 
     @GuardedBy("this")
-    private OutputBuffers outputBuffers = createInitialEmptyOutputBuffers();
+    private OutputBuffers outputBuffers;
     @GuardedBy("this")
     private final Map<Integer, SharedOutputBufferPartition> partitionBuffers = new ConcurrentHashMap<>();
     @GuardedBy("this")
@@ -153,6 +153,7 @@ public class SharedOutputBuffer
         long totalPagesSent = partitionBuffers.values().stream().mapToLong(SharedOutputBufferPartition::getPageCount).sum();
 
         return new OutputBufferInfo(
+                "SHARED",
                 state,
                 state.canAddBuffers(),
                 state.canAddPages(),
@@ -167,6 +168,11 @@ public class SharedOutputBuffer
     public synchronized void setOutputBuffers(OutputBuffers newOutputBuffers)
     {
         requireNonNull(newOutputBuffers, "newOutputBuffers is null");
+
+        if (outputBuffers == null) {
+            outputBuffers = createInitialEmptyOutputBuffers(newOutputBuffers.getType());
+        }
+
         // ignore buffers added after query finishes, which can happen when a query is canceled
         // also ignore old versions, which is normal
         if (state.get().isTerminal() || outputBuffers.getVersion() >= newOutputBuffers.getVersion()) {

@@ -105,6 +105,7 @@ public class LazyOutputBuffer
             BufferState state = this.state.get();
 
             return new OutputBufferInfo(
+                    "UNINITIALIZED",
                     state,
                     state.canAddBuffers(),
                     state.canAddPages(),
@@ -129,7 +130,12 @@ public class LazyOutputBuffer
                 if (state.get().isTerminal()) {
                     return;
                 }
-                delegate = new SharedOutputBuffer(taskInstanceId, state, maxBufferSize, systemMemoryUsageListener);
+                switch (newOutputBuffers.getType()) {
+                    case PARTITIONED:
+                    case BROADCAST:
+                        delegate = new SharedOutputBuffer(taskInstanceId, state, maxBufferSize, systemMemoryUsageListener);
+                        break;
+                }
 
                 // process pending aborts and reads outside of synchronized lock
                 abortedBuffers = ImmutableSet.copyOf(this.abortedBuffers);

@@ -43,6 +43,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.facebook.presto.OutputBuffers.BufferType.PARTITIONED;
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.TaskTestUtils.EMPTY_SOURCES;
@@ -107,7 +108,7 @@ public class TestSqlTask
         TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.<TaskSource>of(),
-                createInitialEmptyOutputBuffers());
+                createInitialEmptyOutputBuffers(PARTITIONED));
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
         taskInfo = sqlTask.getTaskInfo();
@@ -116,7 +117,7 @@ public class TestSqlTask
         taskInfo = sqlTask.updateTask(TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.<ScheduledSplit>of(), true)),
-                createInitialEmptyOutputBuffers().withNoMoreBufferIds());
+                createInitialEmptyOutputBuffers(PARTITIONED).withNoMoreBufferIds());
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
 
         taskInfo = sqlTask.getTaskInfo();
@@ -132,7 +133,7 @@ public class TestSqlTask
         TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
-                createInitialEmptyOutputBuffers().withBuffer(OUT, 0).withNoMoreBufferIds());
+                createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
         taskInfo = sqlTask.getTaskInfo();
@@ -167,7 +168,7 @@ public class TestSqlTask
         TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.<TaskSource>of(),
-                createInitialEmptyOutputBuffers());
+                createInitialEmptyOutputBuffers(PARTITIONED));
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
         assertNull(taskInfo.getStats().getEndTime());
 
@@ -193,7 +194,7 @@ public class TestSqlTask
         TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
-                createInitialEmptyOutputBuffers().withBuffer(OUT, 0).withNoMoreBufferIds());
+                createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
         taskInfo = sqlTask.getTaskInfo();
@@ -214,7 +215,7 @@ public class TestSqlTask
     {
         SqlTask sqlTask = createInitialTask();
 
-        OutputBuffers outputBuffers = createInitialEmptyOutputBuffers().withBuffer(OUT, 0).withNoMoreBufferIds();
+        OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds();
         updateTask(sqlTask, EMPTY_SOURCES, outputBuffers);
 
         CompletableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
@@ -244,7 +245,7 @@ public class TestSqlTask
     {
         SqlTask sqlTask = createInitialTask();
 
-        updateTask(sqlTask, EMPTY_SOURCES, createInitialEmptyOutputBuffers().withBuffer(OUT, 0));
+        updateTask(sqlTask, EMPTY_SOURCES, createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0));
 
         CompletableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
         assertFalse(bufferResult.isDone());
@@ -266,7 +267,7 @@ public class TestSqlTask
     {
         SqlTask sqlTask = createInitialTask();
 
-        updateTask(sqlTask, EMPTY_SOURCES, createInitialEmptyOutputBuffers().withBuffer(OUT, 0));
+        updateTask(sqlTask, EMPTY_SOURCES, createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0));
 
         CompletableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
         assertFalse(bufferResult.isDone());
