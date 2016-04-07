@@ -133,6 +133,8 @@ public class LazyOutputBuffer
                 }
                 switch (newOutputBuffers.getType()) {
                     case PARTITIONED:
+                        delegate = new PartitionedOutputBuffer(taskInstanceId, state, newOutputBuffers, maxBufferSize, systemMemoryUsageListener, executor);
+                        break;
                     case BROADCAST:
                         delegate = new SharedOutputBuffer(taskInstanceId, state, maxBufferSize, systemMemoryUsageListener, executor);
                         break;
