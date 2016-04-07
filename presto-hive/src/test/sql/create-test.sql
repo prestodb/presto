@@ -157,8 +157,6 @@ SELECT
 , 5.1 + n
 , 6.2 + n
 , CASE n % 3 WHEN 0 THEN false WHEN 1 THEN true ELSE NULL END
-, 7.3 + n
-, 8.4 + n
 FROM presto_test_sequence
 LIMIT 100
 ;
