@@ -42,6 +42,7 @@ class BroadcastOutputBufferManager
     @Override
     public void addOutputBuffers(List<OutputBuffer> newBuffers, boolean noMoreBuffers)
     {
+        OutputBuffers newOutputBuffers;
         synchronized (this) {
             if (outputBuffers.isNoMoreBufferIds()) {
                 // a stage can move to a final state (e.g., failed) while scheduling, so ignore
@@ -64,7 +65,8 @@ class BroadcastOutputBufferManager
             if (outputBuffers == originalOutputBuffers) {
                 return;
             }
+            newOutputBuffers = this.outputBuffers;
         }
-        outputBufferTarget.accept(outputBuffers);
+        outputBufferTarget.accept(newOutputBuffers);
     }
 }
