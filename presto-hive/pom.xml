@@ -244,6 +244,12 @@
             <scope>test</scope>
         </dependency>
 
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>log-manager</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- for benchmark -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
@@ -273,6 +279,7 @@
                     <!-- integration tests take a very long time so only run them in the CI server -->
                     <excludes>
                         <exclude>**/TestHiveDistributedQueries.java</exclude>
+                        <exclude>**/TestHiveDistributedQueriesBucketed.java</exclude>
                     </excludes>
                 </configuration>
             </plugin>
