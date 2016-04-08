@@ -59,8 +59,6 @@ import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
@@ -102,7 +100,6 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.QueryUtil.mangleFieldReference;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.analyzeExpressionsWithSymbols;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
 import static com.facebook.presto.sql.planner.LocalExecutionPlanner.toTypes;
@@ -458,10 +455,7 @@ public final class FunctionAssertions
                     return rewriteExpression(node, context, treeRewriter);
                 }
 
-                // Rewrite all row field reference to function call.
-                QualifiedName mangledName = QualifiedName.of(mangleFieldReference(node.getFieldName()));
-                FunctionCall functionCall = new FunctionCall(mangledName, ImmutableList.of(node.getBase()));
-                Expression rewrittenExpression = rewriteFunctionCall(functionCall, context, treeRewriter);
+                Expression rewrittenExpression = treeRewriter.defaultRewrite(node, context);
 
                 // cast expression if coercion is registered
                 Type coercion = analysis.getCoercion(node);

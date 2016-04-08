@@ -80,7 +80,6 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
@@ -299,15 +298,8 @@ public final class ExpressionFormatter
                 arguments = "DISTINCT " + arguments;
             }
 
-            if (unmangleNames && node.getName().toString().startsWith(QueryUtil.FIELD_REFERENCE_PREFIX)) {
-                checkState(node.getArguments().size() == 1, "Expected only one argument to field reference");
-                QualifiedName name = QualifiedName.of(QueryUtil.unmangleFieldReference(node.getName().toString()));
-                builder.append(arguments).append(".").append(name);
-            }
-            else {
-                builder.append(formatQualifiedName(node.getName()))
-                        .append('(').append(arguments).append(')');
-            }
+            builder.append(formatQualifiedName(node.getName()))
+                    .append('(').append(arguments).append(')');
 
             if (node.getWindow().isPresent()) {
                 builder.append(" OVER ").append(visitWindow(node.getWindow().get(), unmangleNames));

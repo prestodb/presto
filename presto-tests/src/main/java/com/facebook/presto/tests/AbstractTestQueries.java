@@ -194,6 +194,10 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT a.col1 FROM (VALUES ROW (test_row(1.0, 'kittens'))) AS t (a)", "SELECT 'kittens'");
         assertQuery("SELECT a.col2.col1 FROM (VALUES ROW(test_row(1.0, ARRAY[2], test_row(3, 4.0)))) t(a)", "SELECT 4.0");
 
+        // mixture of row field reference and table field reference
+        assertQuery("SELECT test_row(1, t.x).col1 FROM (VALUES 1, 2, 3) t(x)", "SELECT * FROM (VALUES 1, 2, 3)");
+        assertQuery("SELECT Y.col1 FROM (SELECT test_row(1, t.x) AS Y FROM (VALUES 1, 2, 3) t(x)) test_t", "SELECT * FROM (VALUES 1, 2, 3)");
+
         // Subscript + Dereference
         assertQuery("SELECT a.col1[2] FROM (VALUES ROW(test_row(1.0, ARRAY[22, 33, 44, 55], test_row(3, 4.0)))) t(a)", "SELECT 33");
         assertQuery("SELECT a.col1[2].col0, a.col1[2].col1 FROM (VALUES ROW(test_row(1.0, ARRAY[test_row(31, 4.1), test_row(32, 4.2)], test_row(3, 4.0)))) t(a)", "SELECT 32, 4.2");

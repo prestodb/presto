@@ -21,19 +21,14 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FieldReference;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 
 import java.util.HashMap;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.QueryUtil.mangleFieldReference;
 import static com.facebook.presto.type.TypeRegistry.isTypeOnlyCoercion;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -190,18 +185,7 @@ class TranslationMap
                 if (analysis.getFieldIndex(node).isPresent()) {
                     return rewriteExpressionWithResolvedName(node);
                 }
-
-                // Rewrite all row field reference to function call.
-                QualifiedName mangledName = QualifiedName.of(mangleFieldReference(node.getFieldName()));
-                FunctionCall functionCall = new FunctionCall(mangledName, ImmutableList.of(node.getBase()));
-                // hackish - add type for created node to analysis object so further rewriting does not fail
-                IdentityHashMap<Expression, Type> functionType = new IdentityHashMap<>();
-                functionType.put(functionCall, analysis.getType(node));
-                analysis.addTypes(functionType);
-
-                Expression rewrittenExpression = rewriteFunctionCall(functionCall, context, treeRewriter);
-
-                return coerceIfNecessary(node, rewrittenExpression);
+                return rewriteExpression(node, context, treeRewriter);
             }
 
             private Expression coerceIfNecessary(Expression original, Expression rewritten)

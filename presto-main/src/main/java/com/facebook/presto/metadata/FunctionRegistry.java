@@ -93,7 +93,6 @@ import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -111,7 +110,6 @@ import com.facebook.presto.type.IntegerOperators;
 import com.facebook.presto.type.IntervalDayTimeOperators;
 import com.facebook.presto.type.IntervalYearMonthOperators;
 import com.facebook.presto.type.LikeFunctions;
-import com.facebook.presto.type.RowParametricType;
 import com.facebook.presto.type.TimeOperators;
 import com.facebook.presto.type.TimeWithTimeZoneOperators;
 import com.facebook.presto.type.TimestampOperators;
@@ -136,7 +134,6 @@ import com.google.common.primitives.Primitives;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.lang.invoke.MethodHandle;
@@ -554,34 +551,7 @@ public class FunctionRegistry
             return getMagicLiteralFunctionSignature(type);
         }
 
-        // TODO this should be removed and implemented as a special expression type
-        if (parameterTypes.size() == 1 && parameterTypes.get(0).getBase().equals(StandardTypes.ROW)) {
-            SqlFunction fieldReference = getRowFieldReference(name.getSuffix(), parameterTypes.get(0));
-            if (fieldReference != null) {
-                Optional<Signature> signature = new SignatureBinder(typeManager, fieldReference.getSignature(), true)
-                        .bind(resolvedTypes);
-                return signature.get();
-            }
-        }
-
         throw new PrestoException(FUNCTION_NOT_FOUND, message);
-    }
-
-    @Nullable
-    private SqlFunction getRowFieldReference(String field, TypeSignature rowTypeSignature)
-    {
-        Type rowType = typeManager.getType(rowTypeSignature);
-        checkState(rowType.getTypeSignature().getBase().equals(StandardTypes.ROW), "rowType is not a ROW type");
-        SqlFunction match = null;
-        for (SqlFunction function : RowParametricType.ROW.createFunctions(rowType)) {
-            if (!function.getSignature().getName().equalsIgnoreCase(field)) {
-                continue;
-            }
-            checkArgument(match == null, "Ambiguous field %s in type %s", field, rowType.getDisplayName());
-            match = function;
-        }
-
-        return match;
     }
 
     public WindowFunctionSupplier getWindowFunctionImplementation(Signature signature)
@@ -686,16 +656,6 @@ public class FunctionRegistry
             return new ScalarFunctionImplementation(false, ImmutableList.of(false), methodHandle, true);
         }
 
-        // TODO this should be removed and implemented as a special expression type
-        if (!signature.getArgumentTypes().isEmpty() && signature.getArgumentTypes().get(0).getBase().equals(StandardTypes.ROW)) {
-            SqlFunction fieldReference = getRowFieldReference(signature.getName(), signature.getArgumentTypes().get(0));
-            if (fieldReference != null) {
-                Optional<BoundVariables> boundVariables = new SignatureBinder(typeManager, fieldReference.getSignature(), false)
-                        .bindVariables(argumentTypes, returnType);
-                checkState(boundVariables.isPresent());
-                return specializedScalarCache.getUnchecked(new SpecializedFunctionKey(fieldReference, boundVariables.get(), argumentTypes.size()));
-            }
-        }
         throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("%s not found", signature));
     }
 
