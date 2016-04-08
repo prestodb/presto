@@ -315,7 +315,8 @@ public class TestHiveIntegrationSmokeTest
                 "WITH (partitioned_by = ARRAY['dragonfruit'])");
     }
 
-    @Test
+    // TODO: re-enable when bucketing is fixed
+    @Test(enabled = false)
     public void testCreatePartitionedBucketedTableAs()
             throws Exception
     {
@@ -378,7 +379,8 @@ public class TestHiveIntegrationSmokeTest
         assertFalse(queryRunner.tableExists(getSession(), "test_create_partitioned_bucketed_table_as"));
     }
 
-    @Test
+    // TODO: re-enable when bucketing is fixed
+    @Test(enabled = false)
     public void testInsertPartitionedBucketedTable()
             throws Exception
     {
