@@ -44,6 +44,16 @@ public class CreateDropViewTests
     }
 
     @Test(groups = CREATE_DROP_VIEW)
+    public void querySimpleViewQualified()
+            throws IOException
+    {
+        executeWith(createViewAs("SELECT * FROM nation"), view -> {
+            assertThat(query(format("SELECT %s.n_regionkey FROM %s", view.getName(), view.getName())))
+                    .hasRowsCount(25);
+        });
+    }
+
+    @Test(groups = CREATE_DROP_VIEW)
     public void createViewWithAggregate()
             throws IOException
     {

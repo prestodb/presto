@@ -908,7 +908,11 @@ class StatementAnalyzer
             // This is needed in case the underlying table(s) changed and the query in the view now produces types that
             // are implicitly coercible to the declared view types.
             List<Field> outputFields = view.getColumns().stream()
-                    .map(column -> Field.newUnqualified(column.getName(), column.getType()))
+                    .map(column -> Field.newQualified(
+                            QualifiedName.of(name.getObjectName()),
+                            Optional.of(column.getName()),
+                            column.getType(),
+                            false))
                     .collect(toImmutableList());
 
             analysis.addRelationCoercion(table, outputFields.stream().map(Field::getType).toArray(Type[]::new));
@@ -1858,7 +1862,8 @@ class StatementAnalyzer
                     .build();
 
             StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession, experimentalSyntaxEnabled, Optional.empty());
-            return analyzer.process(query, new AnalysisContext());
+            RelationType descriptor = analyzer.process(query, new AnalysisContext());
+            return descriptor.withAlias(name.getObjectName(), null);
         }
         catch (RuntimeException e) {
             throw new SemanticException(VIEW_ANALYSIS_ERROR, node, "Failed analyzing stored view '%s': %s", name, e.getMessage());
