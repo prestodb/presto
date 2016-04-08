@@ -50,7 +50,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -80,7 +79,7 @@ public final class SqlStageExecution
     private final Set<PlanNodeId> completeSources = newConcurrentHashSet();
     private final Set<PlanFragmentId> completeSourceFragments = newConcurrentHashSet();
 
-    private final AtomicReference<OutputBuffers> outputBuffers = new AtomicReference<>(createInitialEmptyOutputBuffers());
+    private final AtomicReference<OutputBuffers> outputBuffers = new AtomicReference<>();
 
     public SqlStageExecution(
             StageId stageId,
@@ -243,11 +242,12 @@ public final class SqlStageExecution
 
         while (true) {
             OutputBuffers currentOutputBuffers = this.outputBuffers.get();
-            if (outputBuffers.getVersion() <= currentOutputBuffers.getVersion()) {
-                return;
+            if (currentOutputBuffers != null) {
+                if (outputBuffers.getVersion() <= currentOutputBuffers.getVersion()) {
+                    return;
+                }
+                currentOutputBuffers.checkValidTransition(outputBuffers);
             }
-
-            currentOutputBuffers.checkValidTransition(outputBuffers);
 
             if (this.outputBuffers.compareAndSet(currentOutputBuffers, outputBuffers)) {
                 for (RemoteTask task : getAllTasks()) {
@@ -330,13 +330,16 @@ public final class SqlStageExecution
             initialSplits.put(entry.getKey(), createRemoteSplitFor(taskId, entry.getValue()));
         }
 
+        OutputBuffers outputBuffers = this.outputBuffers.get();
+        checkState(outputBuffers != null, "Initial output buffers must be set before a task can be scheduled");
+
         RemoteTask task = remoteTaskFactory.createRemoteTask(
                 stateMachine.getSession(),
                 taskId,
                 node,
                 stateMachine.getFragment(),
                 initialSplits.build(),
-                outputBuffers.get(),
+                outputBuffers,
                 nodeTaskMap.createPartitionedSplitCountTracker(node, taskId),
                 summarizeTaskInfo);
 

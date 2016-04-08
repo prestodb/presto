@@ -23,8 +23,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestPartitionedOutputBufferManager
 {
@@ -34,38 +34,45 @@ public class TestPartitionedOutputBufferManager
     {
         AtomicReference<OutputBuffers> outputBufferTarget = new AtomicReference<>();
 
-        PartitionedOutputBufferManager hashOutputBufferManager = new PartitionedOutputBufferManager(outputBufferTarget::set);
+        PartitionedOutputBufferManager hashOutputBufferManager = new PartitionedOutputBufferManager(4, outputBufferTarget::set);
 
-        // add buffers, which does not cause output buffer to be set
-        assertNull(outputBufferTarget.get());
+        // output buffers are set immediately when the manager is created
+        assertOutputBuffers(outputBufferTarget.get());
+
+        // add buffers, which does not cause an error
         hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBufferId(0)), false);
-        assertNull(outputBufferTarget.get());
-        hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBufferId(1), new OutputBufferId(2)), false);
-        assertNull(outputBufferTarget.get());
-
-        // set no more buffers, which causes buffers to be created
+        assertOutputBuffers(outputBufferTarget.get());
         hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBufferId(3)), true);
-        assertNotNull(outputBufferTarget.get());
+        assertOutputBuffers(outputBufferTarget.get());
 
-        // verify output buffers
-        OutputBuffers outputBuffers = outputBufferTarget.get();
+        // try to a buffer out side of the partition range, which should result in an error
+        try {
+            hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBufferId(5)), false);
+            fail("Expected IllegalStateException");
+        }
+        catch (IllegalStateException e) {
+        }
+        assertOutputBuffers(outputBufferTarget.get());
+
+        // try to a buffer out side of the partition range, which should result in an error
+        try {
+            hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBufferId(6)), true);
+            fail("Expected IllegalStateException");
+        }
+        catch (IllegalStateException e) {
+        }
+        assertOutputBuffers(outputBufferTarget.get());
+    }
+
+    private static void assertOutputBuffers(OutputBuffers outputBuffers)
+    {
+        assertNotNull(outputBuffers);
         assertTrue(outputBuffers.getVersion() > 0);
         assertTrue(outputBuffers.isNoMoreBufferIds());
-
         Map<OutputBufferId, Integer> buffers = outputBuffers.getBuffers();
         assertEquals(buffers.size(), 4);
         for (int partition = 0; partition < 4; partition++) {
             assertEquals(buffers.get(new OutputBufferId(partition)), Integer.valueOf(partition));
         }
-
-        // try to add another buffer, which should not result in an error
-        // and output buffers should not change
-        hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBufferId(5)), false);
-        assertEquals(outputBuffers, outputBufferTarget.get());
-
-        // try to set no more buffers again, which should not result in an error
-        // and output buffers should not change
-        hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBufferId(6)), true);
-        assertEquals(outputBuffers, outputBufferTarget.get());
     }
 }
