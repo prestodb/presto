@@ -2,6 +2,12 @@
 Release 0.145
 =============
 
+General Changes
+---------------
+
+* Add support for the ``integer`` type to the Presto engine and the Hive,
+  Raptor, Redis, Kafka, Cassandra and example-http connectors.
+
 CLI Changes
 -----------
 
