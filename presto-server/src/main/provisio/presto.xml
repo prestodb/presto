@@ -80,6 +80,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/atop">
+        <artifact id="${project.groupId}:presto-atop:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/ml">
         <artifact id="${project.groupId}:presto-ml:zip:${project.version}">
             <unpack />
