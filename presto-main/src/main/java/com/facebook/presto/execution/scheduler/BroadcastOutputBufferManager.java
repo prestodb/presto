@@ -38,6 +38,7 @@ class BroadcastOutputBufferManager
     public BroadcastOutputBufferManager(Consumer<OutputBuffers> outputBufferTarget)
     {
         this.outputBufferTarget = requireNonNull(outputBufferTarget, "outputBufferTarget is null");
+        outputBufferTarget.accept(outputBuffers);
     }
 
     @Override

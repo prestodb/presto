@@ -40,6 +40,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.primitives.Ints;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.units.Duration;
 
@@ -430,7 +431,8 @@ public class SqlQueryScheduler
                             return new BroadcastOutputBufferManager(childStage::setOutputBuffers);
                         }
                         else {
-                            return new PartitionedOutputBufferManager(childStage::setOutputBuffers);
+                            int partitionCount = Ints.max(childStage.getFragment().getPartitioningScheme().getBucketToPartition().get()) + 1;
+                            return new PartitionedOutputBufferManager(partitionCount, childStage::setOutputBuffers);
                         }
                     })
                     .collect(toImmutableSet());
