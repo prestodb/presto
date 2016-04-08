@@ -42,7 +42,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.net.InetAddresses.toAddrString;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -99,13 +98,6 @@ public enum CassandraType
         }
     }
 
-    public static CassandraType getSupportedCassandraType(DataType.Name name)
-    {
-        CassandraType cassandraType = getCassandraType(name);
-        checkArgument(cassandraType != null, "Unknown Cassandra type: " + name);
-        return cassandraType;
-    }
-
     public static CassandraType getCassandraType(DataType.Name name)
     {
         switch (name) {
@@ -152,22 +144,6 @@ public enum CassandraType
             default:
                 return null;
         }
-    }
-
-    public static CassandraType getSupportedCassandraType(String cassandraTypeName)
-    {
-        CassandraType cassandraType = getCassandraType(cassandraTypeName);
-        checkArgument(cassandraType != null, "Unknown Cassandra type: " + cassandraTypeName);
-        return cassandraType;
-    }
-
-    public static CassandraType getCassandraType(String cassandraTypeName)
-    {
-        DataType.Name name = DataType.Name.valueOf(cassandraTypeName);
-        if (name != null) {
-            return getCassandraType(name);
-        }
-        return null;
     }
 
     public static NullableValue getColumnValue(Row row, int i, FullCassandraType fullCassandraType)
