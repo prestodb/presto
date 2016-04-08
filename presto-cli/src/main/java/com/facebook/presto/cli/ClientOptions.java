@@ -62,6 +62,9 @@ public class ClientOptions
     @Option(name = "--krb5-principal", title = "krb5 principal", description = "Kerberos principal to be used")
     public String krb5Principal;
 
+    @Option(name = "--krb5-disable-remote-service-hostname-canonicalization", title = "krb5 disable remote service hostname canonicalization", description = "Disable service hostname canonicalization using the DNS reverse lookup")
+    public boolean krb5DisableRemoteServiceHostnameCanonicalization;
+
     @Option(name = "--keystore-path", title = "keystore path", description = "Keystore path")
     public String keystorePath;
 
@@ -143,7 +146,7 @@ public class ClientOptions
         if (krb5CredentialCachePath != null) {
             config.setCredentialCache(new File(krb5CredentialCachePath));
         }
-
+        config.setUseCanonicalHostname(!krb5DisableRemoteServiceHostnameCanonicalization);
         return config;
     }
 
