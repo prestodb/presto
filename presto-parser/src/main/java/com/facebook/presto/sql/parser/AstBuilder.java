@@ -197,6 +197,12 @@ class AstBuilder
     }
 
     @Override
+    public Node visitShowCreateTable(SqlBaseParser.ShowCreateTableContext context)
+    {
+        return new ShowCreate(getLocation(context), ShowCreate.Type.TABLE, getQualifiedName(context.qualifiedName()));
+    }
+
+    @Override
     public Node visitDropTable(SqlBaseParser.DropTableContext context)
     {
         return new DropTable(getLocation(context), getQualifiedName(context.qualifiedName()), context.EXISTS() != null);

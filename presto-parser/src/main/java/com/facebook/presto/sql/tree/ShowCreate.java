@@ -23,6 +23,7 @@ public class ShowCreate
         extends Statement
 {
     public enum Type {
+        TABLE,
         VIEW
     }
 
