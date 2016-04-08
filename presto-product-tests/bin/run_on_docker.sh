@@ -85,10 +85,26 @@ function stop_docker_compose_containers() {
 }
 
 function cleanup() {
-  stop_docker_compose_containers ${DOCKER_COMPOSE_LOCATION}
+  stop_application_runner_containers "${DOCKER_COMPOSE_LOCATION}"
+
+  if [[ "${LEAVE_CONTAINERS_ALIVE_ON_EXIT}" != "true" ]]; then
+    stop_docker_compose_containers "${DOCKER_COMPOSE_LOCATION}"
+  fi
+
+  # Ensure that the logs processes are terminated.
+  # In most cases after the docker containers are stopped, logs processes must be terminated.
+  # However when the `LEAVE_CONTAINERS_ALIVE_ON_EXIT` is set, docker containers are not being terminated.
+  # Redirection of system error is supposed to hide the `process does not exist` and `process terminated` messages
+  if [[ ! -z ${HADOOP_LOGS_PID} ]]; then
+    kill ${HADOOP_LOGS_PID} 2>/dev/null || true
+  fi
+  if [[ ! -z ${PRESTO_LOGS_PID} ]]; then
+    kill ${PRESTO_LOGS_PID} 2>/dev/null || true
+  fi
+
   # docker logs processes are being terminated as soon as docker container are stopped
   # wait for docker logs termination
-  wait
+  wait 2>/dev/null || true
 }
 
 function terminate() {
@@ -140,6 +156,7 @@ docker-compose -f "${DOCKER_COMPOSE_LOCATION}" up -d hadoop-master
 
 # start docker logs for hadoop container
 docker-compose -f "${DOCKER_COMPOSE_LOCATION}" logs --no-color hadoop-master &
+HADOOP_LOGS_PID=$!
 
 # wait until hadoop processes is started
 retry check_hadoop
@@ -150,6 +167,7 @@ docker-compose -f "${DOCKER_COMPOSE_LOCATION}" up -d ${PRESTO_SERVICES}
 
 # start docker logs for presto containers
 docker-compose -f "${DOCKER_COMPOSE_LOCATION}" logs --no-color ${PRESTO_SERVICES} &
+PRESTO_LOGS_PID=$!
 
 # wait until presto is started
 retry check_presto
