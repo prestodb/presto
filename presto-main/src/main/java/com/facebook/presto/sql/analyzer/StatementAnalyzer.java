@@ -154,10 +154,10 @@ import static com.facebook.presto.sql.QueryUtil.row;
 import static com.facebook.presto.sql.QueryUtil.selectAll;
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
+import static com.facebook.presto.sql.QueryUtil.singleValueQuery;
 import static com.facebook.presto.sql.QueryUtil.subquery;
 import static com.facebook.presto.sql.QueryUtil.table;
 import static com.facebook.presto.sql.QueryUtil.unaliasedName;
-import static com.facebook.presto.sql.QueryUtil.values;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
@@ -777,16 +777,9 @@ class StatementAnalyzer
             }
         }
 
-        String queryPlan = getQueryPlan(node, planType, planFormat);
+        String plan = getQueryPlan(node, planType, planFormat);
 
-        Query query = simpleQuery(
-                selectList(new AllColumns()),
-                aliased(
-                        values(row(new StringLiteral((queryPlan)))),
-                        "plan",
-                        ImmutableList.of("Query Plan")));
-
-        return process(query, context);
+        return process(singleValueQuery("Query Plan", plan), context);
     }
 
     private String getQueryPlan(Explain node, ExplainType.Type planType, ExplainFormat.Type planFormat)

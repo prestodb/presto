@@ -181,6 +181,19 @@ public final class QueryUtil
                 limit));
     }
 
+    public static Query singleValueQuery(String columnName, String value)
+    {
+        return query(new QuerySpecification(
+                new Select(false, ImmutableList.of(
+                        new SingleColumn(new StringLiteral(value), Optional.of(columnName)))),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(),
+                Optional.empty()));
+    }
+
     public static Query query(QueryBody body)
     {
         return new Query(
