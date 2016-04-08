@@ -35,6 +35,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DecimalLiteral;
+import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FieldReference;
@@ -60,6 +61,8 @@ import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
+import com.facebook.presto.type.RowType;
+import com.facebook.presto.type.RowType.RowField;
 import com.facebook.presto.type.UnknownType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -89,6 +92,7 @@ import static com.facebook.presto.sql.relational.Signatures.betweenSignature;
 import static com.facebook.presto.sql.relational.Signatures.castSignature;
 import static com.facebook.presto.sql.relational.Signatures.coalesceSignature;
 import static com.facebook.presto.sql.relational.Signatures.comparisonExpressionSignature;
+import static com.facebook.presto.sql.relational.Signatures.dereferenceSignature;
 import static com.facebook.presto.sql.relational.Signatures.likePatternSignature;
 import static com.facebook.presto.sql.relational.Signatures.likeSignature;
 import static com.facebook.presto.sql.relational.Signatures.logicalExpressionSignature;
@@ -106,6 +110,9 @@ import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseYearMonthInterval;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.util.Types.checkType;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
@@ -464,6 +471,24 @@ public final class SqlToRowExpressionTranslator
             }
 
             return expression;
+        }
+
+        @Override
+        protected RowExpression visitDereferenceExpression(DereferenceExpression node, Void context)
+        {
+            RowType rowType = checkType(types.get(node.getBase()), RowType.class, "type");
+            List<RowField> fields = rowType.getFields();
+            int index = -1;
+            for (int i = 0; i < fields.size(); i++) {
+                RowField field = fields.get(i);
+                if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(node.getFieldName())) {
+                    checkArgument(index < 0, "Ambiguous field %s in type %s", field, rowType.getDisplayName());
+                    index = i;
+                }
+            }
+            checkState(index >= 0, "could not find field name: %s", node.getFieldName());
+            Type returnType = types.get(node);
+            return call(dereferenceSignature(returnType, rowType), returnType, process(node.getBase(), context), constant(index, INTEGER));
         }
 
         @Override

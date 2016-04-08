@@ -43,12 +43,8 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 public final class QueryUtil
 {
-    public static final String FIELD_REFERENCE_PREFIX = "$field_reference$";
-
     private QueryUtil() {}
 
     public static Expression nameReference(String name)
@@ -198,16 +194,5 @@ public final class QueryUtil
                 ImmutableList.of(),
                 Optional.empty(),
                 Optional.empty());
-    }
-
-    public static String mangleFieldReference(String fieldName)
-    {
-        return FIELD_REFERENCE_PREFIX + fieldName;
-    }
-
-    public static String unmangleFieldReference(String mangledName)
-    {
-        checkArgument(mangledName.startsWith(FIELD_REFERENCE_PREFIX), "Invalid mangled name: %s", mangledName);
-        return mangledName.substring(FIELD_REFERENCE_PREFIX.length());
     }
 }

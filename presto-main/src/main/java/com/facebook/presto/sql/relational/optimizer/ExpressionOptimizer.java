@@ -36,6 +36,7 @@ import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
 import static com.facebook.presto.sql.relational.Signatures.CAST;
 import static com.facebook.presto.sql.relational.Signatures.COALESCE;
+import static com.facebook.presto.sql.relational.Signatures.DEREFERENCE;
 import static com.facebook.presto.sql.relational.Signatures.IF;
 import static com.facebook.presto.sql.relational.Signatures.IN;
 import static com.facebook.presto.sql.relational.Signatures.IS_NULL;
@@ -131,7 +132,8 @@ public class ExpressionOptimizer
                     case COALESCE:
                     case "AND":
                     case "OR":
-                    case IN: {
+                    case IN:
+                    case DEREFERENCE: {
                         List<RowExpression> arguments = call.getArguments().stream()
                                 .map(argument -> argument.accept(this, null))
                                 .collect(toImmutableList());

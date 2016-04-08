@@ -15,6 +15,7 @@ package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -22,6 +23,7 @@ import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.type.LikePatternType;
+import com.facebook.presto.type.RowType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
@@ -46,6 +48,7 @@ public final class Signatures
     public static final String COALESCE = "COALESCE";
     public static final String IN = "IN";
     public static final String TRY = "TRY";
+    public static final String DEREFERENCE = "DEREFERENCE";
 
     private Signatures()
     {
@@ -164,5 +167,10 @@ public final class Signatures
     public static Signature coalesceSignature(Type returnType, List<Type> argumentTypes)
     {
         return internalScalarFunction(COALESCE, returnType.getTypeSignature(), Lists.transform(argumentTypes, Type::getTypeSignature));
+    }
+
+    public static Signature dereferenceSignature(Type returnType, RowType rowType)
+    {
+        return internalScalarFunction(DEREFERENCE, returnType.getTypeSignature(), ImmutableList.of(rowType.getTypeSignature(), BigintType.BIGINT.getTypeSignature()));
     }
 }
