@@ -857,6 +857,14 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testQualifiedViewColumnResolution()
+            throws Exception
+    {
+        // it should be possible to qualify the column reference with the view name
+        analyze("SELECT v1.a FROM v1");
+    }
+
+    @Test
     public void testUse()
             throws Exception
     {
