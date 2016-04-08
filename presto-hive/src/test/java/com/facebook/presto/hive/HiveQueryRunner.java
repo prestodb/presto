@@ -15,6 +15,8 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.hive.metastore.InMemoryHiveMetastore;
+import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.facebook.presto.tpch.testing.SampledTpchPlugin;
@@ -25,18 +27,26 @@ import io.airlift.log.Logging;
 import io.airlift.tpch.TpchTable;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
+import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTimeZone;
 
 import java.io.File;
 import java.util.Map;
 
+import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.airlift.units.Duration.nanosSince;
+import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 
 public final class HiveQueryRunner
 {
+    private static final Logger log = Logger.get(HiveQueryRunner.class);
+
     private HiveQueryRunner()
     {
     }
@@ -55,10 +65,16 @@ public final class HiveQueryRunner
     public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        return createQueryRunner(tables, ImmutableMap.of());
+        return createQueryRunner(tables, false, ImmutableMap.of());
     }
 
-    public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> extraProperties)
+    public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tables, boolean bucketed)
+            throws Exception
+    {
+        return createQueryRunner(tables, bucketed, ImmutableMap.of());
+    }
+
+    public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tables, boolean bucketed, Map<String, String> extraProperties)
             throws Exception
     {
         assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=Asia/Katmandu to your JVM arguments");
@@ -78,19 +94,30 @@ public final class HiveQueryRunner
             metastore.createDatabase(createDatabaseMetastoreObject(baseDir, "tpch_sampled"));
 
             queryRunner.installPlugin(new HivePlugin(HIVE_CATALOG, metastore));
-            Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
+            ImmutableMap.Builder<String, String> hivePropertiesBuilder = ImmutableMap.<String, String>builder()
                     .put("hive.metastore.uri", "thrift://localhost:8080")
                     .put("hive.allow-add-column", "true")
                     .put("hive.allow-drop-table", "true")
                     .put("hive.allow-rename-table", "true")
                     .put("hive.allow-rename-column", "true")
                     .put("hive.time-zone", TIME_ZONE.getID())
-                    .put("hive.security", "sql-standard")
-                    .build();
-            queryRunner.createCatalog(HIVE_CATALOG, HIVE_CATALOG, hiveProperties);
+                    .put("hive.security", "sql-standard");
+            if (bucketed) {
+                hivePropertiesBuilder
+                        .put("hive.max-initial-split-size", "10kB")
+                        .put("hive.max-split-size", "10kB")
+                        .put("hive.storage-format", "TEXTFILE") // so that there's no minimum split size for the file
+                        .put("hive.compression-codec", "NONE"); // so that the file is splittable
+            }
+            queryRunner.createCatalog(HIVE_CATALOG, HIVE_CATALOG, hivePropertiesBuilder.build());
 
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
-            copyTpchTables(queryRunner, "tpch_sampled", TINY_SCHEMA_NAME, createSampledSession(), tables);
+            if (!bucketed) {
+                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
+                copyTpchTables(queryRunner, "tpch_sampled", TINY_SCHEMA_NAME, createSampledSession(), tables);
+            }
+            else {
+                copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
+            }
 
             return queryRunner;
         }
@@ -126,12 +153,57 @@ public final class HiveQueryRunner
                 .build();
     }
 
+    private static void copyTpchTablesBucketed(
+            QueryRunner queryRunner,
+            String sourceCatalog,
+            String sourceSchema,
+            Session session,
+            Iterable<TpchTable<?>> tables)
+            throws Exception
+    {
+        log.info("Loading data from %s.%s...", sourceCatalog, sourceSchema);
+        long startTime = System.nanoTime();
+        for (TpchTable<?> table : tables) {
+            copyTableBucketed(queryRunner, new QualifiedObjectName(sourceCatalog, sourceSchema, table.getTableName().toLowerCase(ENGLISH)), session);
+        }
+        log.info("Loading from %s.%s complete in %s", sourceCatalog, sourceSchema, nanosSince(startTime).toString(SECONDS));
+    }
+
+    private static void copyTableBucketed(QueryRunner queryRunner, QualifiedObjectName table, Session session)
+    {
+        long start = System.nanoTime();
+        log.info("Running import for %s", table.getObjectName());
+        @Language("SQL") String sql;
+        switch (table.getObjectName()) {
+            case "part":
+            case "partsupp":
+            case "supplier":
+            case "nation":
+            case "region":
+                sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.getObjectName(), table);
+                break;
+            case "lineitem":
+                sql = format("CREATE TABLE %s WITH (clustered_by=array['orderkey'], bucket_count=11) AS SELECT * FROM %s", table.getObjectName(), table);
+                break;
+            case "customer":
+                sql = format("CREATE TABLE %s WITH (clustered_by=array['custkey'], bucket_count=11) AS SELECT * FROM %s", table.getObjectName(), table);
+                break;
+            case "orders":
+                sql = format("CREATE TABLE %s WITH (clustered_by=array['custkey'], bucket_count=11) AS SELECT * FROM %s", table.getObjectName(), table);
+                break;
+            default:
+                throw new UnsupportedOperationException();
+        }
+        long rows = checkType(queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0), Long.class, "rows");
+        log.info("Imported %s rows for %s in %s", rows, table.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
+    }
+
     public static void main(String[] args)
             throws Exception
     {
         // You need to add "--user user" to your CLI for your queries to work
         Logging.initialize();
-        DistributedQueryRunner queryRunner = createQueryRunner(TpchTable.getTables(), ImmutableMap.of("http-server.http.port", "8080"));
+        DistributedQueryRunner queryRunner = createQueryRunner(TpchTable.getTables(), false, ImmutableMap.of("http-server.http.port", "8080"));
         Thread.sleep(10);
         Logger log = Logger.get(DistributedQueryRunner.class);
         log.info("======== SERVER STARTED ========");
