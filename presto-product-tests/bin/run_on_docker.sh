@@ -148,9 +148,6 @@ stop_docker_compose_containers "${PRODUCT_TESTS_ROOT}/conf/docker/multinode/dock
 # catch terminate signals
 trap terminate INT TERM EXIT
 
-# pull docker images
-docker-compose -f "${DOCKER_COMPOSE_LOCATION}" pull
-
 # start hadoop container
 docker-compose -f "${DOCKER_COMPOSE_LOCATION}" up -d hadoop-master
 
