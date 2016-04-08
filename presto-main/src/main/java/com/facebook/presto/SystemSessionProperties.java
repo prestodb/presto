@@ -137,7 +137,8 @@ public final class SystemSessionProperties
                                         format("%s must be a power of 2: %s", TASK_CONCURRENCY, concurrency));
                             }
                             return concurrency;
-                        }),
+                        },
+                        value -> new Integer(String.valueOf(value))),
                 booleanSessionProperty(
                         TASK_SHARE_INDEX_LOADING,
                         "Share index join lookups and caching within a task",
@@ -150,7 +151,8 @@ public final class SystemSessionProperties
                         Duration.class,
                         queryManagerConfig.getQueryMaxRunTime(),
                         false,
-                        value -> Duration.valueOf((String) value)),
+                        value -> Duration.valueOf((String) value),
+                        Duration::toString),
                 new PropertyMetadata<>(
                         QUERY_MAX_CPU_TIME,
                         "Maximum CPU time of a query",
@@ -158,7 +160,8 @@ public final class SystemSessionProperties
                         Duration.class,
                         queryManagerConfig.getQueryMaxCpuTime(),
                         false,
-                        value -> Duration.valueOf((String) value)),
+                        value -> Duration.valueOf((String) value),
+                        Duration::toString),
                 new PropertyMetadata<>(
                         QUERY_MAX_MEMORY,
                         "Maximum amount of distributed memory a query can use",
@@ -166,7 +169,8 @@ public final class SystemSessionProperties
                         DataSize.class,
                         memoryManagerConfig.getMaxQueryMemory(),
                         true,
-                        value -> DataSize.valueOf((String) value)),
+                        value -> DataSize.valueOf((String) value),
+                        DataSize::toString),
                 booleanSessionProperty(
                         RESOURCE_OVERCOMMIT,
                         "Use resources which are not guaranteed to be available to the query",
@@ -199,7 +203,8 @@ public final class SystemSessionProperties
                         Duration.class,
                         taskManagerConfig.getSplitConcurrencyAdjustmentInterval(),
                         false,
-                        value -> Duration.valueOf((String) value)),
+                        value -> Duration.valueOf((String) value),
+                        Duration::toString),
                 booleanSessionProperty(
                         OPTIMIZE_METADATA_QUERIES,
                         "Enable optimization for metadata queries",
