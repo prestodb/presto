@@ -68,21 +68,31 @@ function stop_application_runner_containers() {
   done
 }
 
-function cleanup_docker_containers() {
-  # stop application runner containers started with "run"
-  stop_application_runner_containers "${DOCKER_COMPOSE_LOCATION}"
+function stop_docker_compose_containers() {
+  RUNNING_CONTAINERS=$(docker-compose -f "$1" ps -q)
 
-  # stop containers started with "up"
-  docker-compose -f "${DOCKER_COMPOSE_LOCATION}" down
+  if [[ ! -z ${RUNNING_CONTAINERS} ]]; then
+    # stop application runner containers started with "run"
+    stop_application_runner_containers "$1"
 
+    # stop containers started with "up"
+    docker-compose -f "$1" down
+  fi
+
+  echo "Docker compose containers stopped: [$1]"
+}
+
+function cleanup() {
+  stop_docker_compose_containers ${DOCKER_COMPOSE_LOCATION}
   # docker logs processes are being terminated as soon as docker container are stopped
   # wait for docker logs termination
   wait
 }
 
-function termination_handler(){
+function terminate() {
+  trap - INT TERM EXIT
   set +e
-  cleanup_docker_containers
+  cleanup
   exit 130
 }
 
@@ -101,9 +111,6 @@ PROJECT_ROOT="${PRODUCT_TESTS_ROOT}/.."
 DOCKER_COMPOSE_LOCATION="${PRODUCT_TESTS_ROOT}/conf/docker/${ENVIRONMENT}/docker-compose.yml"
 DOCKER_PRESTO_VOLUME="/docker/volumes/presto"
 
-SINGLE_NODE_DOCKER_COMPOSE_LOCATION="${PRODUCT_TESTS_ROOT}/conf/docker/singlenode/docker-compose.yml"
-DISTRIBUTED_DOCKER_COMPOSE_LOCATION="${PRODUCT_TESTS_ROOT}/conf/docker/distributed/docker-compose.yml"
-
 PRESTO_SERVICES="presto-master"
 if [[ "$ENVIRONMENT" == "distributed" ]]; then
    PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker"
@@ -117,13 +124,11 @@ docker-compose version
 docker version
 
 # stop already running containers
-stop_application_runner_containers "${SINGLE_NODE_DOCKER_COMPOSE_LOCATION}"
-stop_application_runner_containers "${DISTRIBUTED_DOCKER_COMPOSE_LOCATION}"
-docker-compose -f "${SINGLE_NODE_DOCKER_COMPOSE_LOCATION}" down || true
-docker-compose -f "${DISTRIBUTED_DOCKER_COMPOSE_LOCATION}" down || true
+stop_docker_compose_containers "${PRODUCT_TESTS_ROOT}/conf/docker/singlenode/docker-compose.yml"
+stop_docker_compose_containers "${PRODUCT_TESTS_ROOT}/conf/docker/distributed/docker-compose.yml"
 
 # catch terminate signals
-trap termination_handler INT TERM
+trap terminate INT TERM EXIT
 
 # pull docker images
 docker-compose -f "${DOCKER_COMPOSE_LOCATION}" pull
@@ -155,6 +160,9 @@ wait ${PRODUCT_TESTS_PROCESS_ID}
 EXIT_CODE=$?
 set -e
 
-cleanup_docker_containers
+# execution finished successfully
+# disable trap, run cleanup manually
+trap - INT TERM EXIT
+cleanup
 
 exit ${EXIT_CODE}
