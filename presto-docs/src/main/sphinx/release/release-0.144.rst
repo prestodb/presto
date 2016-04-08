@@ -2,6 +2,11 @@
 Release 0.144
 =============
 
+.. warning::
+
+   Querying bucketed tables in the Hive connector may produce incorrect results.
+   This is fixed in :doc:`/release/release-0.144.1`, and :doc:`/release/release-0.145`.
+
 General Changes
 ---------------
 
