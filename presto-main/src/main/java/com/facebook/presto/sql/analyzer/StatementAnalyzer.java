@@ -29,10 +29,12 @@ import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.security.ViewAccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.ExpressionUtils;
@@ -45,13 +47,17 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
+import com.facebook.presto.sql.tree.ArrayConstructor;
+import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
+import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainFormat;
@@ -96,6 +102,7 @@ import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.TableElement;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
@@ -121,6 +128,7 @@ import com.google.common.primitives.Ints;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
@@ -128,6 +136,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_COLUMNS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
@@ -139,6 +148,7 @@ import static com.facebook.presto.metadata.FunctionKind.WINDOW;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedName;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -202,6 +212,7 @@ import static com.facebook.presto.sql.tree.FrameBound.Type.FOLLOWING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.PRECEDING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
+import static com.facebook.presto.sql.tree.ShowCreate.Type.TABLE;
 import static com.facebook.presto.sql.tree.ShowCreate.Type.VIEW;
 import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
 import static com.facebook.presto.type.TypeRegistry.canCoerce;
@@ -215,6 +226,7 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -360,6 +372,41 @@ class StatementAnalyzer
         return process(query, context);
     }
 
+    private static <T> Expression getExpression(Function<T, Object> function, Object value)
+            throws PrestoException
+    {
+        return toExpression(function.apply((T) value));
+    }
+
+    private static Expression toExpression(Object value)
+            throws PrestoException
+    {
+        if (value instanceof String) {
+            return new StringLiteral(value.toString());
+        }
+
+        if (value instanceof Boolean) {
+            return new BooleanLiteral(value.toString());
+        }
+
+        if (value instanceof Long || value instanceof Integer) {
+            return new LongLiteral(value.toString());
+        }
+
+        if (value instanceof Double) {
+            return new DoubleLiteral(value.toString());
+        }
+
+        if (value instanceof List) {
+            List<?> list = (List<?>) value;
+            return new ArrayConstructor(list.stream()
+                    .map(StatementAnalyzer::toExpression)
+                    .collect(toList()));
+        }
+
+        throw new PrestoException(INVALID_TABLE_PROPERTY, format("Failed to convert object of type %s to expression: %s", value.getClass().getName(), value));
+    }
+
     @Override
     protected RelationType visitUse(Use node, AnalysisContext context)
     {
@@ -444,24 +491,61 @@ class StatementAnalyzer
     @Override
     protected RelationType visitShowCreate(ShowCreate node, AnalysisContext context)
     {
-        if (node.getType() != VIEW) {
-            throw new UnsupportedOperationException("SHOW CREATE only supported for views");
-        }
+        QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
+        Optional<ViewDefinition> viewDefinition = metadata.getView(session, objectName);
 
-        QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
-        Optional<ViewDefinition> view = metadata.getView(session, viewName);
-        if (!view.isPresent()) {
-            if (metadata.getTableHandle(session, viewName).isPresent()) {
-                throw new SemanticException(NOT_SUPPORTED, node, "Relation '%s' is a table, not a view", viewName);
+        if (node.getType() == VIEW) {
+            if (!viewDefinition.isPresent()) {
+                if (metadata.getTableHandle(session, objectName).isPresent()) {
+                    throw new SemanticException(NOT_SUPPORTED, node, "Relation '%s' is a table, not a view", objectName);
+                }
+                throw new SemanticException(MISSING_TABLE, node, "View '%s' does not exist", objectName);
             }
-            throw new SemanticException(MISSING_TABLE, node, "View '%s' does not exist", viewName);
+
+            Query query = parseView(viewDefinition.get().getOriginalSql(), objectName, node);
+            String sql = formatSql(new CreateView(createQualifiedName(objectName), query, false)).trim();
+            return process(singleValueQuery("Create View", sql), context);
         }
 
-        Query query = parseView(view.get().getOriginalSql(), viewName, node);
+        if (node.getType() == TABLE) {
+            if (viewDefinition.isPresent()) {
+                throw new SemanticException(NOT_SUPPORTED, node, "Relation '%s' is a view, not a table", objectName);
+            }
 
-        String sql = formatSql(new CreateView(createQualifiedName(viewName), query, false)).trim();
+            Optional<TableHandle> tableHandle = metadata.getTableHandle(session, objectName);
+            if (!tableHandle.isPresent()) {
+                throw new SemanticException(MISSING_TABLE, node, "Table '%s' does not exist", objectName);
+            }
 
-        return process(singleValueQuery("Create View", sql), context);
+            ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle.get()).getMetadata();
+
+            List<TableElement> columns = connectorTableMetadata.getColumns().stream()
+                    .filter(column -> !column.isHidden())
+                    .map(column -> new TableElement(column.getName(), column.getType().getDisplayName()))
+                    .collect(toImmutableList());
+
+            Map<String, Object> properties = connectorTableMetadata.getProperties();
+            Map<String, PropertyMetadata<?>> allTableProperties = metadata.getTablePropertyManager().getAllTableProperties().get(objectName.getCatalogName());
+            Map<String, Expression> sqlProperties = new HashMap<>();
+
+            for (Map.Entry<String, Object> propertyEntry : properties.entrySet()) {
+                String propertyName = propertyEntry.getKey();
+                Object value = propertyEntry.getValue();
+                if (value == null) {
+                    throw new PrestoException(INVALID_TABLE_PROPERTY, format("Property %s for table %s cannot have a null value", propertyName, objectName));
+                }
+
+                Expression sqlExpression = getExpression(allTableProperties.get(propertyName)::encode, value);
+                sqlProperties.put(propertyName, sqlExpression);
+            }
+
+            CreateTable createTable = new CreateTable(QualifiedName.of(objectName.getCatalogName(), objectName.getSchemaName(), objectName.getObjectName()), columns, false, sqlProperties);
+            Query query = singleValueQuery("Create Table", formatSql(createTable).trim());
+
+            return process(query, context);
+        }
+
+        throw new UnsupportedOperationException("SHOW CREATE only supported for tables and views");
     }
 
     @Override

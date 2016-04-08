@@ -28,6 +28,7 @@ import static com.facebook.presto.raptor.RaptorQueryRunner.createSampledSession;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -152,5 +153,44 @@ public class TestRaptorIntegrationSmokeTest
         assertQuery("SELECT count(DISTINCT \"$shard_uuid\") FROM orders_bucketed", "SELECT 50 * 2");
 
         assertUpdate("DROP TABLE orders_bucketed");
+    }
+
+    @Test
+    public void testShowCreateTable()
+            throws Exception
+    {
+        String createTableSql = format("" +
+                        "CREATE TABLE %s.%s.%s (\n" +
+                        "   c1 bigint,\n" +
+                        "   c2 double,\n" +
+                        "   \"c 3\" varchar,\n" +
+                        "   \"c'4\" array(bigint),\n" +
+                        "   c5 map(bigint, varchar)\n" +
+                        ")",
+                getSession().getCatalog().get(), getSession().getSchema().get(), "test_show_create_table");
+        assertUpdate(createTableSql);
+
+        MaterializedResult actualResult = computeActual("SHOW CREATE TABLE test_show_create_table");
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+
+        actualResult = computeActual("SHOW CREATE TABLE " + getSession().getSchema().get() + ".test_show_create_table");
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+
+        actualResult = computeActual("SHOW CREATE TABLE " + getSession().getCatalog().get() + "." + getSession().getSchema().get() + ".test_show_create_table");
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+
+        createTableSql = format("" +
+                        "CREATE TABLE %s.%s.%s (\n" +
+                        "   \"c\"\"1\" bigint,\n" +
+                        "   c2 double,\n" +
+                        "   \"c 3\" varchar,\n" +
+                        "   \"c'4\" array(bigint),\n" +
+                        "   c5 map(bigint, varchar)\n" +
+                        ")",
+                getSession().getCatalog().get(), getSession().getSchema().get(), "\"test_show_create_table\"\"2\"");
+        assertUpdate(createTableSql);
+
+        actualResult = computeActual("SHOW CREATE TABLE \"test_show_create_table\"\"2\"");
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
     }
 }
