@@ -287,6 +287,11 @@ public class SqlTask
     public TaskInfo updateTask(Session session, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers)
     {
         try {
+            // The LazyOutput buffer does not support write methods, so the actual
+            // output buffer must be established before drivers are created (e.g.
+            // a VALUES query).
+            outputBuffer.setOutputBuffers(outputBuffers);
+
             // assure the task execution is only created once
             SqlTaskExecution taskExecution;
             synchronized (this) {
@@ -305,8 +310,6 @@ public class SqlTask
             }
 
             if (taskExecution != null) {
-                // addSources checks for task completion, so update the buffers first and the task might complete earlier
-                outputBuffer.setOutputBuffers(outputBuffers);
                 taskExecution.addSources(sources);
             }
         }
