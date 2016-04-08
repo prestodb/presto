@@ -42,6 +42,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.TPCH_SCHEMA;
+import static com.facebook.presto.hive.HiveQueryRunner.createBucketedSession;
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.hive.HiveQueryRunner.createSampledSession;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
@@ -55,6 +56,7 @@ import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.tpch.TpchTable.CUSTOMER;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -71,19 +73,20 @@ public class TestHiveIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
     private final String catalog;
+    private final Session bucketedSession;
 
     @SuppressWarnings("unused")
     public TestHiveIntegrationSmokeTest()
             throws Exception
     {
-        this(createQueryRunner(ORDERS), createSampledSession(), HIVE_CATALOG);
+        this(createQueryRunner(ORDERS, CUSTOMER), createSampledSession(), createBucketedSession(), HIVE_CATALOG);
     }
 
-    protected TestHiveIntegrationSmokeTest(QueryRunner queryRunner, Session sampledSession, String catalog)
-            throws Exception
+    protected TestHiveIntegrationSmokeTest(QueryRunner queryRunner, Session sampledSession, Session bucketedSession, String catalog)
     {
         super(queryRunner, sampledSession);
         this.catalog = requireNonNull(catalog, "catalog is null");
+        this.bucketedSession = requireNonNull(bucketedSession, "bucketSession is null");
     }
 
     protected List<?> getPartitions(ConnectorTableLayoutHandle tableLayoutHandle)
@@ -1021,6 +1024,31 @@ public class TestHiveIntegrationSmokeTest
         assertQuery(
                 "SELECT a[1]['a'], a[2]['d'] FROM tmp_complex1",
                 "SELECT 2.0, 14.0");
+    }
+
+    @Test
+    public void testBucketedCatalog()
+            throws Exception
+    {
+        String bucketedCatalog = bucketedSession.getCatalog().get();
+        String bucketedSchema = bucketedSession.getSchema().get();
+
+        TableMetadata ordersTableMetadata = getTableMetadata(bucketedCatalog, bucketedSchema, "orders");
+        assertEquals(ordersTableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY), ImmutableList.of("custkey"));
+        assertEquals(ordersTableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY), 11);
+
+        TableMetadata customerTableMetadata = getTableMetadata(bucketedCatalog, bucketedSchema, "customer");
+        assertEquals(customerTableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY), ImmutableList.of("custkey"));
+        assertEquals(customerTableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY), 11);
+    }
+
+    @Test
+    public void testBucketedExecution()
+            throws Exception
+    {
+        assertQuery(bucketedSession, "select count(*) a from orders t1 join orders t2 on t1.custkey=t2.custkey");
+        assertQuery(bucketedSession, "select count(*) a from orders t1 join customer t2 on t1.custkey=t2.custkey", "SELECT count(*) from orders");
+        assertQuery(bucketedSession, "select count(distinct custkey) from orders");
     }
 
     @Test
