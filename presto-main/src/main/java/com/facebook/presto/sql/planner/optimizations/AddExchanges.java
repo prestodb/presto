@@ -300,7 +300,7 @@ public class AddExchanges
                 }
             }
             else {
-                if (child.getProperties().isNodePartitionedOn(partitioningRequirement)) {
+                if (child.getProperties().isStreamPartitionedOn(partitioningRequirement)) {
                     return rebaseAndDeriveProperties(node, child);
                 }
                 else {
