@@ -571,14 +571,14 @@ public abstract class AbstractTestQueries
     public void testGroupByPartitioningColumn()
             throws Exception
     {
-        assertQuery("SELECT orderkey, count(*) FROM orders GROUP BY orderkey");
+        assertQuery("SELECT orderkey, count(*) FROM lineitem GROUP BY orderkey");
     }
 
     @Test
     public void testJoinPartitionedTable()
             throws Exception
     {
-        assertQuery("SELECT * FROM orders a JOIN orders b ON a.orderkey = b.orderkey");
+        assertQuery("SELECT * FROM lineitem a JOIN lineitem b ON a.orderkey = b.orderkey");
     }
 
     @Test
