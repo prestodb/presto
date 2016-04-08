@@ -139,6 +139,7 @@ public final class HiveSessionProperties
                 DataSize.class,
                 defaultValue,
                 hidden,
-                value -> DataSize.valueOf((String) value));
+                value -> DataSize.valueOf((String) value),
+                DataSize::toString);
     }
 }

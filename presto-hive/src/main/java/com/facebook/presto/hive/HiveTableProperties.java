@@ -51,7 +51,8 @@ public class HiveTableProperties
                         HiveStorageFormat.class,
                         config.getHiveStorageFormat(),
                         false,
-                        value -> HiveStorageFormat.valueOf(((String) value).toUpperCase(ENGLISH))),
+                        value -> HiveStorageFormat.valueOf(((String) value).toUpperCase(ENGLISH)),
+                        HiveStorageFormat::toString),
                 new PropertyMetadata<>(
                         PARTITIONED_BY_PROPERTY,
                         "Partition columns",
@@ -61,7 +62,8 @@ public class HiveTableProperties
                         false,
                         value -> ImmutableList.copyOf(((List<String>) value).stream()
                                 .map(name -> name.toLowerCase(ENGLISH))
-                                .collect(Collectors.toList()))),
+                                .collect(Collectors.toList())),
+                        List.class::cast),
                 new PropertyMetadata<>(
                         CLUSTERED_BY_PROPERTY,
                         "Bucketing columns",
@@ -71,7 +73,8 @@ public class HiveTableProperties
                         false,
                         value -> ImmutableList.copyOf(((List<?>) value).stream()
                                 .map(name -> ((String) name).toLowerCase(ENGLISH))
-                                .collect(Collectors.toList()))),
+                                .collect(Collectors.toList())),
+                        List.class::cast),
                 integerSessionProperty(BUCKET_COUNT_PROPERTY, "Number of buckets", 0, false));
     }
 
