@@ -1,6 +1,6 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
-set -xe;
+set -e;
 
 # http://stackoverflow.com/questions/3572030/bash-script-absolute-path-with-osx
 function absolutepath() {
