@@ -100,8 +100,8 @@ function terminate() {
 
 ENVIRONMENT=$1
 
-if [[ "$ENVIRONMENT" != "singlenode" && "$ENVIRONMENT" != "distributed" ]]; then
-   echo "Usage: run_on_docker.sh <singlenode|distributed> <product test args>"
+if [[ "$ENVIRONMENT" != "singlenode" && "$ENVIRONMENT" != "multinode" ]]; then
+   echo "Usage: run_on_docker.sh <singlenode|multinode> <product test args>"
    exit 1
 fi
 
@@ -114,7 +114,7 @@ DOCKER_COMPOSE_LOCATION="${PRODUCT_TESTS_ROOT}/conf/docker/${ENVIRONMENT}/docker
 DOCKER_PRESTO_VOLUME="/docker/volumes/presto"
 
 PRESTO_SERVICES="presto-master"
-if [[ "$ENVIRONMENT" == "distributed" ]]; then
+if [[ "$ENVIRONMENT" == "multinode" ]]; then
    PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker"
 fi
 
@@ -127,7 +127,7 @@ docker version
 
 # stop already running containers
 stop_docker_compose_containers "${PRODUCT_TESTS_ROOT}/conf/docker/singlenode/docker-compose.yml"
-stop_docker_compose_containers "${PRODUCT_TESTS_ROOT}/conf/docker/distributed/docker-compose.yml"
+stop_docker_compose_containers "${PRODUCT_TESTS_ROOT}/conf/docker/multinode/docker-compose.yml"
 
 # catch terminate signals
 trap terminate INT TERM EXIT

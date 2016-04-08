@@ -4,8 +4,8 @@ set -e
 
 CONFIG=$1
 
-if [[ "$CONFIG" != "singlenode" && "$CONFIG" != "distributed-master" && "$CONFIG" != "distributed-worker" ]]; then
-   echo "Usage: launcher-wrapper <singlenode|distributed-master|distributed-worker> <launcher args>"
+if [[ "$CONFIG" != "singlenode" && "$CONFIG" != "multinode-master" && "$CONFIG" != "multinode-worker" ]]; then
+   echo "Usage: launcher-wrapper <singlenode|multinode-master|multinode-worker> <launcher args>"
    exit 1
 fi
 

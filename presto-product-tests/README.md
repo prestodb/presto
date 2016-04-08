@@ -90,7 +90,7 @@ following command:
     ```
 
 where <profile> is one of either:
-- **distributed** - pseudo-distributed Hadoop installation running on a
+- **multinode** - pseudo-distributed Hadoop installation running on a
  single Docker container and a distributed Presto installation running on
  multiple Docker containers.
 - **singlenode** - pseudo-distributed Hadoop installation running on a
@@ -215,7 +215,7 @@ breakpoint is hit.
 
 Use the ``docker-compose`` and ``docker`` utilities to control and troubleshoot
 containers. In the following examples ``<profile>`` is either ``singlenode`` or
-``distributed``.
+``multinode``.
 
 1. Use the following command to view output from running containers:
 

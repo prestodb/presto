@@ -16,7 +16,7 @@ services:
     image: 'teradatalabs/centos6-java8-oracle'
     depends_on:
       - 'hadoop-master'
-    command: /docker/volumes/presto/presto-product-tests/conf/docker/files/presto-launcher-wrapper.sh distributed-master run
+    command: /docker/volumes/presto/presto-product-tests/conf/docker/files/presto-launcher-wrapper.sh multinode-master run
     volumes:
       - ../../../../:/docker/volumes/presto
     env_file:
@@ -26,7 +26,7 @@ services:
     image: 'teradatalabs/centos6-java8-oracle'
     depends_on:
       - 'presto-master'
-    command: /docker/volumes/presto/presto-product-tests/conf/docker/files/presto-launcher-wrapper.sh distributed-worker run
+    command: /docker/volumes/presto/presto-product-tests/conf/docker/files/presto-launcher-wrapper.sh multinode-worker run
     volumes_from:
       - presto-master
     env_file:
