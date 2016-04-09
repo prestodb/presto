@@ -57,7 +57,7 @@ public final class TestingTaskContext
     public static TaskContext createTaskContext(QueryContext queryContext, Executor executor, Session session, DataSize preallocated)
     {
         return queryContext.addTaskContext(
-                new TaskStateMachine(new TaskId("query", "stage", "task"), checkNotSameThreadExecutor(executor, "executor is null")),
+                new TaskStateMachine(new TaskId("query", "stage", 0), checkNotSameThreadExecutor(executor, "executor is null")),
                 session,
                 preallocated,
                 true,

@@ -42,17 +42,17 @@ public class TestPartitionedOutputBufferManager
 
         // add buffers, which does not cause output buffer to be set
         assertNull(outputBufferTarget.get());
-        hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBuffer(new TaskId(STAGE_ID, "0"), 2)), false);
+        hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBuffer(new TaskId(STAGE_ID, 0), 2)), false);
         assertNull(outputBufferTarget.get());
         hashOutputBufferManager.addOutputBuffers(
                 ImmutableList.of(
-                        new OutputBuffer(new TaskId(STAGE_ID, "1"), 0),
-                        new OutputBuffer(new TaskId(STAGE_ID, "2"), 1)),
+                        new OutputBuffer(new TaskId(STAGE_ID, 1), 0),
+                        new OutputBuffer(new TaskId(STAGE_ID, 2), 1)),
                 false);
         assertNull(outputBufferTarget.get());
 
         // set no more buffers, which causes buffers to be created
-        hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBuffer(new TaskId(STAGE_ID, "3"), 3)), true);
+        hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBuffer(new TaskId(STAGE_ID, 3), 3)), true);
         assertNotNull(outputBufferTarget.get());
 
         // verify output buffers
@@ -62,19 +62,19 @@ public class TestPartitionedOutputBufferManager
 
         Map<TaskId, Integer> buffers = outputBuffers.getBuffers();
         assertEquals(buffers.size(), 4);
-        assertEquals(buffers.get(new TaskId(STAGE_ID, "0")), Integer.valueOf(2));
-        assertEquals(buffers.get(new TaskId(STAGE_ID, "1")), Integer.valueOf(0));
-        assertEquals(buffers.get(new TaskId(STAGE_ID, "2")), Integer.valueOf(1));
-        assertEquals(buffers.get(new TaskId(STAGE_ID, "3")), Integer.valueOf(3));
+        assertEquals(buffers.get(new TaskId(STAGE_ID, 0)), Integer.valueOf(2));
+        assertEquals(buffers.get(new TaskId(STAGE_ID, 1)), Integer.valueOf(0));
+        assertEquals(buffers.get(new TaskId(STAGE_ID, 2)), Integer.valueOf(1));
+        assertEquals(buffers.get(new TaskId(STAGE_ID, 3)), Integer.valueOf(3));
 
         // try to add another buffer, which should not result in an error
         // and output buffers should not change
-        hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBuffer(new TaskId(STAGE_ID, "5"), 5)), false);
+        hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBuffer(new TaskId(STAGE_ID, 5), 5)), false);
         assertEquals(outputBuffers, outputBufferTarget.get());
 
         // try to set no more buffers again, which should not result in an error
         // and output buffers should not change
-        hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBuffer(new TaskId(STAGE_ID, "6"), 6)), true);
+        hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBuffer(new TaskId(STAGE_ID, 6), 6)), true);
         assertEquals(outputBuffers, outputBufferTarget.get());
     }
 }

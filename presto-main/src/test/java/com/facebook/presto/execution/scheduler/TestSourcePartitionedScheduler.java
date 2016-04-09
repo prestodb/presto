@@ -86,7 +86,7 @@ import static org.testng.Assert.fail;
 
 public class TestSourcePartitionedScheduler
 {
-    public static final TaskId OUT = new TaskId("query", "stage", "out");
+    public static final TaskId OUT = new TaskId("query", "stage", 0);
     private static final String CONNECTOR_ID = "test";
 
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stageExecutor-%s"));

@@ -40,7 +40,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -65,12 +65,12 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestSqlTask
 {
-    public static final TaskId OUT = new TaskId("query", "stage", "out");
+    public static final TaskId OUT = new TaskId("query", "stage", 0);
     private final TaskExecutor taskExecutor;
     private final ScheduledExecutorService taskNotificationExecutor;
     private final SqlTaskExecutionFactory sqlTaskExecutionFactory;
 
-    private final AtomicLong nextTaskId = new AtomicLong();
+    private final AtomicInteger nextTaskId = new AtomicInteger();
 
     public TestSqlTask()
     {
@@ -287,7 +287,7 @@ public class TestSqlTask
 
     public SqlTask createInitialTask()
     {
-        TaskId taskId = new TaskId("query", "stage", "task" + nextTaskId.incrementAndGet());
+        TaskId taskId = new TaskId("query", "stage", nextTaskId.incrementAndGet());
         URI location = URI.create("fake://task/" + taskId);
 
         return new SqlTask(
