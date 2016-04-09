@@ -171,7 +171,7 @@ public class TestNodeScheduler
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor);
         int task = 0;
         for (Node node : assignments.keySet()) {
-            TaskId taskId = new TaskId(new StageId("test", "1"), String.valueOf(task));
+            TaskId taskId = new TaskId("test", "1", task);
             task++;
             MockRemoteTaskFactory.MockRemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, ImmutableList.copyOf(assignments.get(node)), nodeTaskMap.createPartitionedSplitCountTracker(node, taskId));
             remoteTask.startSplits(20);
@@ -329,11 +329,11 @@ public class TestNodeScheduler
 
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor);
         // Max out number of splits on node
-        TaskId taskId1 = new TaskId(new StageId("test", "1"), "1");
+        TaskId taskId1 = new TaskId("test", "1", 1);
         RemoteTask remoteTask1 = remoteTaskFactory.createTableScanTask(taskId1, newNode, initialSplits.build(), nodeTaskMap.createPartitionedSplitCountTracker(newNode, taskId1));
         nodeTaskMap.addTask(newNode, remoteTask1);
 
-        TaskId taskId2 = new TaskId(new StageId("test", "1"), "2");
+        TaskId taskId2 = new TaskId("test", "1", 2);
         RemoteTask remoteTask2 = remoteTaskFactory.createTableScanTask(taskId2, newNode, initialSplits.build(), nodeTaskMap.createPartitionedSplitCountTracker(newNode, taskId2));
         nodeTaskMap.addTask(newNode, remoteTask2);
 
@@ -370,13 +370,13 @@ public class TestNodeScheduler
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor);
         for (Node node : nodeManager.getActiveDatasourceNodes("foo")) {
             // Max out number of splits on node
-            TaskId taskId = new TaskId(new StageId("test", "1"), "1");
+            TaskId taskId = new TaskId("test", "1", 1);
             RemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, initialSplits.build(), nodeTaskMap.createPartitionedSplitCountTracker(node, taskId));
             nodeTaskMap.addTask(node, remoteTask);
             tasks.add(remoteTask);
         }
 
-        TaskId taskId = new TaskId(new StageId("test", "1"), "2");
+        TaskId taskId = new TaskId("test", "1", 2);
         RemoteTask newRemoteTask = remoteTaskFactory.createTableScanTask(taskId, newNode, initialSplits.build(), nodeTaskMap.createPartitionedSplitCountTracker(newNode, taskId));
         // Max out pending splits on new node
         taskMap.put(newNode, newRemoteTask);
@@ -406,7 +406,7 @@ public class TestNodeScheduler
     {
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor);
         Node chosenNode = Iterables.get(nodeManager.getActiveDatasourceNodes("foo"), 0);
-        TaskId taskId = new TaskId(new StageId("test", "1"), "1");
+        TaskId taskId = new TaskId("test", "1", 1);
         RemoteTask remoteTask = remoteTaskFactory.createTableScanTask(
                 taskId,
                 chosenNode,
@@ -429,13 +429,13 @@ public class TestNodeScheduler
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor);
         Node chosenNode = Iterables.get(nodeManager.getActiveDatasourceNodes("foo"), 0);
 
-        TaskId taskId1 = new TaskId(new StageId("test", "1"), "1");
+        TaskId taskId1 = new TaskId("test", "1", 1);
         RemoteTask remoteTask1 = remoteTaskFactory.createTableScanTask(taskId1,
                 chosenNode,
                 ImmutableList.of(new Split("foo", TestingTransactionHandle.create("foo"), new TestSplitRemote()), new Split("bar", TestingTransactionHandle.create("bar"), new TestSplitRemote())),
                 nodeTaskMap.createPartitionedSplitCountTracker(chosenNode, taskId1));
 
-        TaskId taskId2 = new TaskId(new StageId("test", "1"), "2");
+        TaskId taskId2 = new TaskId("test", "1", 2);
         RemoteTask remoteTask2 = remoteTaskFactory.createTableScanTask(
                 taskId2,
                 chosenNode,

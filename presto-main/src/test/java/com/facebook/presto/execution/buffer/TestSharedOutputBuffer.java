@@ -53,15 +53,15 @@ public class TestSharedOutputBuffer
     private static final Duration MAX_WAIT = new Duration(1, TimeUnit.SECONDS);
     private static final DataSize PAGE_SIZE = new DataSize(createPage(42).getSizeInBytes(), BYTE);
     private static final DataSize RETAINED_PAGE_SIZE = new DataSize(createPage(42).getRetainedSizeInBytes(), BYTE);
-    private static final TaskId TASK_ID = new TaskId("query", "stage", "task");
+    private static final TaskId TASK_ID = new TaskId("query", "stage", 0);
     private static final int DEFAULT_PARTITION = 0;
     private static final String TASK_INSTANCE_ID = "task-instance-id";
 
     private static final ImmutableList<BigintType> TYPES = ImmutableList.of(BIGINT);
-    public static final TaskId FIRST = new TaskId("query", "stage", "first_task");
-    public static final TaskId SECOND = new TaskId("query", "stage", "second_task");
-    public static final TaskId QUEUE = new TaskId("query", "stage", "queue");
-    public static final TaskId FOO = new TaskId("foo", "bar", "baz");
+    public static final TaskId FIRST = new TaskId("query", "stage", 0);
+    public static final TaskId SECOND = new TaskId("query", "stage", 1);
+    public static final TaskId QUEUE = new TaskId("query", "stage", 0);
+    public static final TaskId FOO = new TaskId("foo", "bar", 0);
 
     private static Page createPage(int i)
     {

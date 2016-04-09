@@ -17,7 +17,6 @@ import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.execution.MockRemoteTaskFactory;
 import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import com.facebook.presto.execution.RemoteTask;
-import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.metadata.PrestoNode;
 import com.facebook.presto.spi.Node;
@@ -58,7 +57,7 @@ public class TestFixedCountScheduler
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
                 (node, partition) -> taskFactory.createTableScanTask(
-                        new TaskId(new StageId("test", "1"), "1"),
+                        new TaskId("test", "1", 1),
                         (Node) node, ImmutableList.of(),
                         new PartitionedSplitCountTracker(delta -> { })),
                 generateRandomNodes(1));
@@ -76,7 +75,7 @@ public class TestFixedCountScheduler
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
                 (node, partition) -> taskFactory.createTableScanTask(
-                        new TaskId(new StageId("test", "1"), "1"),
+                        new TaskId("test", "1", 1),
                         (Node) node, ImmutableList.of(),
                         new PartitionedSplitCountTracker(delta -> { })),
                 generateRandomNodes(5));

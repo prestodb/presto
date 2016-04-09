@@ -38,7 +38,7 @@ public class TestTaskExecutor
         taskExecutor.start();
 
         try {
-            TaskId taskId = new TaskId("test", "test", "test");
+            TaskId taskId = new TaskId("test", "test", 0);
             TaskHandle taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS));
 
             Phaser beginPhase = new Phaser();
@@ -123,7 +123,7 @@ public class TestTaskExecutor
         taskExecutor.start();
 
         try {
-            TaskId taskId = new TaskId("test", "test", "test");
+            TaskId taskId = new TaskId("test", "test", 0);
             TaskHandle taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS));
 
             Phaser beginPhase = new Phaser();

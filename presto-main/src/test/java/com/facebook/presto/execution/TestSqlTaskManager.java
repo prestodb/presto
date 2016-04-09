@@ -55,8 +55,8 @@ import static org.testng.Assert.assertNull;
 @Test
 public class TestSqlTaskManager
 {
-    private static final TaskId TASK_ID = new TaskId("query", "stage", "task");
-    public static final TaskId OUT = new TaskId("query", "stage", "out");
+    private static final TaskId TASK_ID = new TaskId("query", "stage", 1);
+    public static final TaskId OUT = new TaskId("query", "stage", 0);
 
     private final TaskExecutor taskExecutor;
     private final LocalMemoryManager localMemoryManager;

@@ -313,7 +313,7 @@ public final class SqlStageExecution
 
     private synchronized RemoteTask scheduleTask(Node node, int partition, Multimap<PlanNodeId, Split> sourceSplits)
     {
-        TaskId taskId = new TaskId(stateMachine.getStageId(), String.valueOf(nextTaskId.getAndIncrement()));
+        TaskId taskId = new TaskId(stateMachine.getStageId(), nextTaskId.getAndIncrement());
 
         ImmutableMultimap.Builder<PlanNodeId, Split> initialSplits = ImmutableMultimap.builder();
         initialSplits.putAll(sourceSplits);

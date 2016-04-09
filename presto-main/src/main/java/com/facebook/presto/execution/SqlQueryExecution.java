@@ -70,7 +70,7 @@ public final class SqlQueryExecution
         implements QueryExecution
 {
     private static final OutputBuffers ROOT_OUTPUT_BUFFERS = createInitialEmptyOutputBuffers()
-            .withBuffer(new TaskId("output", "buffer", "id"), BROADCAST_PARTITION_ID)
+            .withBuffer(new TaskId("output", "buffer", 0), BROADCAST_PARTITION_ID)
             .withNoMoreBufferIds();
 
     private final QueryStateMachine stateMachine;
