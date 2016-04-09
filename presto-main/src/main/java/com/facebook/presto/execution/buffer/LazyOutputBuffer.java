@@ -136,7 +136,7 @@ public class LazyOutputBuffer
                         delegate = new PartitionedOutputBuffer(taskInstanceId, state, newOutputBuffers, maxBufferSize, systemMemoryUsageListener, executor);
                         break;
                     case BROADCAST:
-                        delegate = new SharedOutputBuffer(taskInstanceId, state, maxBufferSize, systemMemoryUsageListener, executor);
+                        delegate = new BroadcastOutputBuffer(taskInstanceId, state, maxBufferSize, systemMemoryUsageListener, executor);
                         break;
                 }
 
