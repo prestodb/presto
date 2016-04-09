@@ -101,7 +101,7 @@ class ShardPredicate
             return Optional.empty();
         }
 
-        predicateJoiner.add(String.format("shard_uuid %s ?", operator));
+        predicateJoiner.add(format("shard_uuid %s ?", operator));
         return Optional.of(uuidBytes);
     }
 
