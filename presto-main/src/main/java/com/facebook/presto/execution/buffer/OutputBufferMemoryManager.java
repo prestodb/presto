@@ -83,6 +83,11 @@ class OutputBufferMemoryManager
         notificationExecutor.execute(() -> future.set(null));
     }
 
+    public long getBufferedBytes()
+    {
+        return bufferedBytes.get();
+    }
+
     public double getUtilization()
     {
         return bufferedBytes.get() / (double) maxBufferedBytes;
