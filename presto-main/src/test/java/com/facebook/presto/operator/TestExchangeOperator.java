@@ -23,14 +23,14 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.type.TypeRegistry;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Splitter;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableListMultimap.Builder;
 import com.google.common.collect.Iterables;
+
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
@@ -40,6 +40,7 @@ import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
@@ -81,15 +82,7 @@ public class TestExchangeOperator
     private static final String TASK_2_ID = "task2";
     private static final String TASK_3_ID = "task3";
 
-    private final LoadingCache<String, TaskBuffer> taskBuffers = CacheBuilder.newBuilder().build(new CacheLoader<String, TaskBuffer>()
-    {
-        @Override
-        public TaskBuffer load(String key)
-                throws Exception
-        {
-            return new TaskBuffer();
-        }
-    });
+    private final LoadingCache<String, TaskBuffer> taskBuffers = Caffeine.newBuilder().build(key -> new TaskBuffer());
 
     private ScheduledExecutorService executor;
     private HttpClient httpClient;
@@ -144,9 +137,9 @@ public class TestExchangeOperator
         operator.noMoreSplits();
 
         // add pages and close the buffers
-        taskBuffers.getUnchecked(TASK_1_ID).addPages(10, true);
-        taskBuffers.getUnchecked(TASK_2_ID).addPages(10, true);
-        taskBuffers.getUnchecked(TASK_3_ID).addPages(10, true);
+        taskBuffers.get(TASK_1_ID).addPages(10, true);
+        taskBuffers.get(TASK_2_ID).addPages(10, true);
+        taskBuffers.get(TASK_3_ID).addPages(10, true);
 
         // read the pages
         waitForPages(operator, 30);
@@ -172,9 +165,9 @@ public class TestExchangeOperator
         operator.noMoreSplits();
 
         // add pages and leave buffers open
-        taskBuffers.getUnchecked(TASK_1_ID).addPages(1, false);
-        taskBuffers.getUnchecked(TASK_2_ID).addPages(1, false);
-        taskBuffers.getUnchecked(TASK_3_ID).addPages(1, false);
+        taskBuffers.get(TASK_1_ID).addPages(1, false);
+        taskBuffers.get(TASK_2_ID).addPages(1, false);
+        taskBuffers.get(TASK_3_ID).addPages(1, false);
 
         // read 3 pages
         waitForPages(operator, 3);
@@ -185,9 +178,9 @@ public class TestExchangeOperator
         assertEquals(operator.getOutput(), null);
 
         // add more pages and close the buffers
-        taskBuffers.getUnchecked(TASK_1_ID).addPages(2, true);
-        taskBuffers.getUnchecked(TASK_2_ID).addPages(2, true);
-        taskBuffers.getUnchecked(TASK_3_ID).addPages(2, true);
+        taskBuffers.get(TASK_1_ID).addPages(2, true);
+        taskBuffers.get(TASK_2_ID).addPages(2, true);
+        taskBuffers.get(TASK_3_ID).addPages(2, true);
 
         // read all pages
         waitForPages(operator, 6);
@@ -205,7 +198,7 @@ public class TestExchangeOperator
         // add a buffer location containing one page and close the buffer
         operator.addSplit(newRemoteSplit(TASK_1_ID));
         // add pages and leave buffers open
-        taskBuffers.getUnchecked(TASK_1_ID).addPages(1, true);
+        taskBuffers.get(TASK_1_ID).addPages(1, true);
 
         // read page
         waitForPages(operator, 1);
@@ -220,7 +213,7 @@ public class TestExchangeOperator
         // set no more splits (buffer locations)
         operator.noMoreSplits();
         // add two pages and close the last buffer
-        taskBuffers.getUnchecked(TASK_2_ID).addPages(2, true);
+        taskBuffers.get(TASK_2_ID).addPages(2, true);
 
         // read all pages
         waitForPages(operator, 2);
@@ -241,9 +234,9 @@ public class TestExchangeOperator
         operator.noMoreSplits();
 
         // add pages and leave buffers open
-        taskBuffers.getUnchecked(TASK_1_ID).addPages(1, false);
-        taskBuffers.getUnchecked(TASK_2_ID).addPages(1, false);
-        taskBuffers.getUnchecked(TASK_3_ID).addPages(1, false);
+        taskBuffers.get(TASK_1_ID).addPages(1, false);
+        taskBuffers.get(TASK_2_ID).addPages(1, false);
+        taskBuffers.get(TASK_3_ID).addPages(1, false);
 
         // read 3 pages
         waitForPages(operator, 3);
@@ -377,7 +370,7 @@ public class TestExchangeOperator
             headers.put(PRESTO_TASK_INSTANCE_ID, "task-instance-id");
             headers.put(PRESTO_PAGE_TOKEN, String.valueOf(pageToken));
 
-            TaskBuffer taskBuffer = taskBuffers.getUnchecked(taskId);
+            TaskBuffer taskBuffer = taskBuffers.get(taskId);
             Page page = taskBuffer.getPage(pageToken);
             headers.put(CONTENT_TYPE, PRESTO_PAGES);
             if (page != null) {

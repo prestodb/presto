@@ -23,17 +23,17 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.github.benmanes.caffeine.cache.CacheLoader;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Throwables;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.ExecutionError;
-import com.google.common.util.concurrent.UncheckedExecutionException;
+
 import io.airlift.units.Duration;
+
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.Warehouse;
@@ -69,7 +69,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 
@@ -80,7 +80,6 @@ import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.parsePrivilege;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.cache.CacheLoader.asyncReloading;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -129,101 +128,53 @@ public class CachingHiveMetastore
         long expiresAfterWriteMillis = requireNonNull(cacheTtl, "cacheTtl is null").toMillis();
         long refreshMills = requireNonNull(refreshInterval, "refreshInterval is null").toMillis();
 
-        databaseNamesCache = CacheBuilder.newBuilder()
+        databaseNamesCache = Caffeine.newBuilder()
+                .executor(executor)
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(asyncReloading(new CacheLoader<String, List<String>>()
-                {
-                    @Override
-                    public List<String> load(String key)
-                            throws Exception
-                    {
-                        return loadAllDatabases();
-                    }
-                }, executor));
+                .build(key -> loadAllDatabases());
 
-        databaseCache = CacheBuilder.newBuilder()
+        databaseCache = Caffeine.newBuilder()
+                .executor(executor)
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(asyncReloading(new CacheLoader<String, Optional<Database>>()
-                {
-                    @Override
-                    public Optional<Database> load(String databaseName)
-                            throws Exception
-                    {
-                        return loadDatabase(databaseName);
-                    }
-                }, executor));
+                .build(this::loadDatabase);
 
-        tableNamesCache = CacheBuilder.newBuilder()
+        tableNamesCache = Caffeine.newBuilder()
+                .executor(executor)
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(asyncReloading(new CacheLoader<String, Optional<List<String>>>()
-                {
-                    @Override
-                    public Optional<List<String>> load(String databaseName)
-                            throws Exception
-                    {
-                        return loadAllTables(databaseName);
-                    }
-                }, executor));
+                .build(this::loadAllTables);
 
-        tableCache = CacheBuilder.newBuilder()
+        tableCache = Caffeine.newBuilder()
+                .executor(executor)
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(asyncReloading(new CacheLoader<HiveTableName, Optional<Table>>()
-                {
-                    @Override
-                    public Optional<Table> load(HiveTableName hiveTableName)
-                            throws Exception
-                    {
-                        return loadTable(hiveTableName);
-                    }
-                }, executor));
+                .build(this::loadTable);
 
-        viewNamesCache = CacheBuilder.newBuilder()
+        viewNamesCache = Caffeine.newBuilder()
+                .executor(executor)
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(asyncReloading(new CacheLoader<String, Optional<List<String>>>()
-                {
-                    @Override
-                    public Optional<List<String>> load(String databaseName)
-                            throws Exception
-                    {
-                        return loadAllViews(databaseName);
-                    }
-                }, executor));
+                .build(this::loadAllViews);
 
-        partitionNamesCache = CacheBuilder.newBuilder()
+        partitionNamesCache = Caffeine.newBuilder()
+                .executor(executor)
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(asyncReloading(new CacheLoader<HiveTableName, Optional<List<String>>>()
-                {
-                    @Override
-                    public Optional<List<String>> load(HiveTableName hiveTableName)
-                            throws Exception
-                    {
-                        return loadPartitionNames(hiveTableName);
-                    }
-                }, executor));
+                .build(this::loadPartitionNames);
 
-        partitionFilterCache = CacheBuilder.newBuilder()
+        partitionFilterCache = Caffeine.newBuilder()
+                .executor(executor)
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(asyncReloading(new CacheLoader<PartitionFilter, Optional<List<String>>>()
-                {
-                    @Override
-                    public Optional<List<String>> load(PartitionFilter partitionFilter)
-                            throws Exception
-                    {
-                        return loadPartitionNamesByParts(partitionFilter);
-                    }
-                }, executor));
+                .build(this::loadPartitionNamesByParts);
 
-        partitionCache = CacheBuilder.newBuilder()
+        partitionCache = Caffeine.newBuilder()
+                .executor(executor)
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(asyncReloading(new CacheLoader<HivePartitionName, Optional<Partition>>()
+                .build(new CacheLoader<HivePartitionName, Optional<Partition>>()
                 {
                     @Override
                     public Optional<Partition> load(HivePartitionName partitionName)
@@ -238,33 +189,19 @@ public class CachingHiveMetastore
                     {
                         return loadPartitionsByNames(partitionNames);
                     }
-                }, executor));
+                });
 
-        userRolesCache = CacheBuilder.newBuilder()
+        userRolesCache = Caffeine.newBuilder()
+                .executor(executor)
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(asyncReloading(new CacheLoader<String, Set<String>>()
-                {
-                    @Override
-                    public Set<String> load(String user)
-                            throws Exception
-                    {
-                        return loadRoles(user);
-                    }
-                }, executor));
+                .build(this::loadRoles);
 
-        userTablePrivileges = CacheBuilder.newBuilder()
+        userTablePrivileges = Caffeine.newBuilder()
+                .executor(executor)
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(asyncReloading(new CacheLoader<UserTableKey, Set<HivePrivilegeInfo>>()
-                {
-                    @Override
-                    public Set<HivePrivilegeInfo> load(UserTableKey key)
-                            throws Exception
-                    {
-                        return loadTablePrivileges(key.getUser(), key.getDatabase(), key.getTable());
-                    }
-                }, executor));
+                .build(key -> loadTablePrivileges(key.getUser(), key.getDatabase(), key.getTable()));
     }
 
     @Managed
@@ -294,7 +231,7 @@ public class CachingHiveMetastore
         try {
             return cache.get(key);
         }
-        catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
+        catch (CompletionException e) {
             throw Throwables.propagate(e.getCause());
         }
     }
@@ -304,7 +241,7 @@ public class CachingHiveMetastore
         try {
             return cache.getAll(keys);
         }
-        catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
+        catch (CompletionException e) {
             throw Throwables.propagate(e.getCause());
         }
     }

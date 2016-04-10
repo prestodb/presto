@@ -36,13 +36,11 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Throwables;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ExecutionError;
-import com.google.common.util.concurrent.UncheckedExecutionException;
+
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.lang.reflect.Constructor;
@@ -50,7 +48,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.ExecutionException;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PRIVATE;
@@ -71,48 +68,22 @@ import static java.util.Objects.requireNonNull;
 
 public class JoinCompiler
 {
-    private final LoadingCache<CacheKey, LookupSourceFactory> lookupSourceFactories = CacheBuilder.newBuilder().maximumSize(1000).build(
-            new CacheLoader<CacheKey, LookupSourceFactory>()
-            {
-                @Override
-                public LookupSourceFactory load(CacheKey key)
-                        throws Exception
-                {
-                    return internalCompileLookupSourceFactory(key.getTypes(), key.getJoinChannels());
-                }
-            });
+    private final LoadingCache<CacheKey, LookupSourceFactory> lookupSourceFactories = Caffeine.newBuilder().maximumSize(1000).build(
+            key -> internalCompileLookupSourceFactory(key.getTypes(), key.getJoinChannels()));
 
-    private final LoadingCache<CacheKey, Class<? extends PagesHashStrategy>> hashStrategies = CacheBuilder.newBuilder().maximumSize(1000).build(
-            new CacheLoader<CacheKey, Class<? extends PagesHashStrategy>>() {
-                @Override
-                public Class<? extends PagesHashStrategy> load(CacheKey key)
-                        throws Exception
-                {
-                    return internalCompileHashStrategy(key.getTypes(), key.getJoinChannels());
-                }
-            });
+    private final LoadingCache<CacheKey, Class<? extends PagesHashStrategy>> hashStrategies = Caffeine.newBuilder().maximumSize(1000).build(
+            key -> internalCompileHashStrategy(key.getTypes(), key.getJoinChannels()));
 
     public LookupSourceFactory compileLookupSourceFactory(List<? extends Type> types, List<Integer> joinChannels)
     {
-        try {
-            return lookupSourceFactories.get(new CacheKey(types, joinChannels));
-        }
-        catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
-            throw Throwables.propagate(e.getCause());
-        }
+        return lookupSourceFactories.get(new CacheKey(types, joinChannels));
     }
 
     public PagesHashStrategyFactory compilePagesHashStrategyFactory(List<Type> types, List<Integer> joinChannels)
     {
         requireNonNull(types, "types is null");
         requireNonNull(joinChannels, "joinChannels is null");
-
-        try {
-            return new PagesHashStrategyFactory(hashStrategies.get(new CacheKey(types, joinChannels)));
-        }
-        catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
-            throw Throwables.propagate(e.getCause());
-        }
+        return new PagesHashStrategyFactory(hashStrategies.get(new CacheKey(types, joinChannels)));
     }
 
     private LookupSourceFactory internalCompileLookupSourceFactory(List<Type> types, List<Integer> joinChannels)

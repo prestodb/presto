@@ -20,12 +20,11 @@ import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.base.Ticker;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -33,8 +32,10 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ExecutionError;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+
 import org.h2.jdbc.JdbcConnection;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
@@ -108,27 +109,13 @@ public class DatabaseShardManager
     private final Duration startupGracePeriod;
     private final long startTime;
 
-    private final LoadingCache<String, Integer> nodeIdCache = CacheBuilder.newBuilder()
+    private final LoadingCache<String, Integer> nodeIdCache = Caffeine.newBuilder()
             .maximumSize(10_000)
-            .build(new CacheLoader<String, Integer>()
-            {
-                @Override
-                public Integer load(String nodeIdentifier)
-                {
-                    return loadNodeId(nodeIdentifier);
-                }
-            });
+            .build(this::loadNodeId);
 
-    private final LoadingCache<Long, Map<Integer, String>> bucketAssignmentsCache = CacheBuilder.newBuilder()
+    private final LoadingCache<Long, Map<Integer, String>> bucketAssignmentsCache = Caffeine.newBuilder()
             .expireAfterWrite(1, SECONDS)
-            .build(new CacheLoader<Long, Map<Integer, String>>()
-            {
-                @Override
-                public Map<Integer, String> load(Long distributionId)
-                {
-                    return loadBucketAssignments(distributionId);
-                }
-            });
+            .build(this::loadBucketAssignments);
 
     @Inject
     public DatabaseShardManager(
@@ -546,7 +533,7 @@ public class DatabaseShardManager
     public Map<Integer, String> getBucketAssignments(long distributionId)
     {
         try {
-            return bucketAssignmentsCache.getUnchecked(distributionId);
+            return bucketAssignmentsCache.get(distributionId);
         }
         catch (UncheckedExecutionException | ExecutionError e) {
             throw Throwables.propagate(e.getCause());
@@ -597,7 +584,7 @@ public class DatabaseShardManager
     private int getOrCreateNodeId(String nodeIdentifier)
     {
         try {
-            return nodeIdCache.getUnchecked(nodeIdentifier);
+            return nodeIdCache.get(nodeIdentifier);
         }
         catch (UncheckedExecutionException | ExecutionError e) {
             throw Throwables.propagate(e.getCause());

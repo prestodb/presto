@@ -19,10 +19,11 @@ import com.facebook.presto.client.PrestoHeaders;
 import com.facebook.presto.execution.BufferResult;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.type.TypeRegistry;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
+import com.github.benmanes.caffeine.cache.CacheLoader;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.collect.ImmutableListMultimap;
+
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
@@ -54,7 +55,7 @@ public class MockExchangeRequestProcessor
         implements TestingHttpClient.Processor
 {
     private static final String TASK_INSTANCE_ID = "task-instance-id";
-    private final LoadingCache<URI, MockBuffer> buffers = CacheBuilder.newBuilder().build(new CacheLoader<URI, MockBuffer>()
+    private final LoadingCache<URI, MockBuffer> buffers = Caffeine.newBuilder().build(new CacheLoader<URI, MockBuffer>()
     {
         @Override
         public MockBuffer load(URI location)
@@ -72,12 +73,12 @@ public class MockExchangeRequestProcessor
 
     public void addPage(URI location, Page page)
     {
-        buffers.getUnchecked(location).addPage(page);
+        buffers.get(location).addPage(page);
     }
 
     public void setComplete(URI location)
     {
-        buffers.getUnchecked(location).setCompleted();
+        buffers.get(location).setCompleted();
     }
 
     @Override
@@ -96,7 +97,7 @@ public class MockExchangeRequestProcessor
         RequestLocation requestLocation = new RequestLocation(request.getUri());
         URI location = requestLocation.getLocation();
 
-        BufferResult result = buffers.getUnchecked(location).getPages(requestLocation.getSequenceId(), maxSize);
+        BufferResult result = buffers.get(location).getPages(requestLocation.getSequenceId(), maxSize);
         List<Page> pages = result.getPages();
 
         byte[] bytes = new byte[0];

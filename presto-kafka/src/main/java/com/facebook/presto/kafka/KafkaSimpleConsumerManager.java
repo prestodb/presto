@@ -15,11 +15,12 @@ package com.facebook.presto.kafka;
 
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.NodeManager;
+import com.github.benmanes.caffeine.cache.CacheLoader;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Throwables;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.primitives.Ints;
+
 import io.airlift.log.Logger;
 import kafka.javaapi.consumer.SimpleConsumer;
 
@@ -27,7 +28,7 @@ import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletionException;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -60,7 +61,7 @@ public class KafkaSimpleConsumerManager
         this.connectTimeoutMillis = Ints.checkedCast(kafkaConnectorConfig.getKafkaConnectTimeout().toMillis());
         this.bufferSizeBytes = Ints.checkedCast(kafkaConnectorConfig.getKafkaBufferSize().toBytes());
 
-        this.consumerCache = CacheBuilder.newBuilder().build(new SimpleConsumerCacheLoader());
+        this.consumerCache = Caffeine.newBuilder().build(new SimpleConsumerCacheLoader());
     }
 
     @PreDestroy
@@ -82,13 +83,13 @@ public class KafkaSimpleConsumerManager
         try {
             return consumerCache.get(host);
         }
-        catch (ExecutionException e) {
+        catch (CompletionException e) {
             throw Throwables.propagate(e.getCause());
         }
     }
 
     private class SimpleConsumerCacheLoader
-            extends CacheLoader<HostAddress, SimpleConsumer>
+            implements CacheLoader<HostAddress, SimpleConsumer>
     {
         @Override
         public SimpleConsumer load(HostAddress host)

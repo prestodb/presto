@@ -19,14 +19,16 @@ import com.facebook.presto.raptor.metadata.ShardMetadata;
 import com.facebook.presto.raptor.util.PrioritizedFifoExecutor;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
+import com.github.benmanes.caffeine.cache.CacheLoader;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.ListenableFuture;
+
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
@@ -364,7 +366,7 @@ public class ShardRecoveryManager
         public MissingShardsQueue(PrioritizedFifoExecutor<MissingShardRunnable> shardRecoveryExecutor)
         {
             requireNonNull(shardRecoveryExecutor, "shardRecoveryExecutor is null");
-            this.queuedMissingShards = CacheBuilder.newBuilder().build(new CacheLoader<MissingShard, Future<?>>()
+            this.queuedMissingShards = Caffeine.newBuilder().build(new CacheLoader<MissingShard, Future<?>>()
             {
                 @Override
                 public Future<?> load(MissingShard missingShard)
