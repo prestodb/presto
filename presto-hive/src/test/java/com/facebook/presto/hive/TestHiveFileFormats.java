@@ -229,7 +229,7 @@ public class TestHiveFileFormats
     }
 
     @Test
-    public void testOrcUseColumnNames_EmptyFile()
+    public void testOrcUseColumnNamesWithEmptyFile()
             throws Exception
     {
         HiveOutputFormat<?, ?> outputFormat = new org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat();
