@@ -229,6 +229,29 @@ public class TestHiveFileFormats
     }
 
     @Test
+    public void testOrcUseColumnNamesWithEmptyFile()
+            throws Exception
+    {
+        HiveOutputFormat<?, ?> outputFormat = new org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat();
+        InputFormat<?, ?> inputFormat = new org.apache.hadoop.hive.ql.io.orc.OrcInputFormat();
+        @SuppressWarnings("deprecation")
+        SerDe serde = new org.apache.hadoop.hive.ql.io.orc.OrcSerde();
+        File file = File.createTempFile("presto_test", "orc");
+        file.delete();
+        try {
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS, 0);
+            // Reverse the order of the columns to test access by name, not by index
+            List<TestColumn> reversedColumns = Lists.reverse(TEST_COLUMNS);
+            TestingConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig()).getSessionProperties());
+            testPageSourceFactory(new OrcPageSourceFactory(TYPE_MANAGER, true), split, inputFormat, serde, reversedColumns, session);
+        }
+        finally {
+            //noinspection ResultOfMethodCallIgnored
+            file.delete();
+        }
+    }
+
+    @Test
     public void testParquet()
             throws Exception
     {

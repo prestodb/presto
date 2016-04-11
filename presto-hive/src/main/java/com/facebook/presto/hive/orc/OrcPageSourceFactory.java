@@ -229,7 +229,7 @@ public class OrcPageSourceFactory
 
     private static void verifyFileHasColumnNames(List<String> physicalColumnNames, Path path)
     {
-        if (physicalColumnNames.stream().allMatch(physicalColumnName -> DEFAULT_HIVE_COLUMN_NAME_PATTERN.matcher(physicalColumnName).matches())) {
+        if (!physicalColumnNames.isEmpty() && physicalColumnNames.stream().allMatch(physicalColumnName -> DEFAULT_HIVE_COLUMN_NAME_PATTERN.matcher(physicalColumnName).matches())) {
             throw new PrestoException(
                     HIVE_FILE_MISSING_COLUMN_NAMES,
                     "ORC file does not contain column names in the footer: " + path);
