@@ -35,6 +35,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.LegacyTransactionConnector;
 import com.facebook.presto.transaction.TransactionManager;
+import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
@@ -47,6 +48,7 @@ import java.util.function.Consumer;
 
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS;
@@ -561,6 +563,7 @@ public class TestAnalyzer
         analyze("INSERT INTO t3 SELECT * FROM t3");
         analyze("INSERT INTO t3 SELECT a, b FROM t3");
         assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t1 VALUES (1, 2)");
+        analyze("INSERT INTO t5 (a) VALUES(null)");
 
         // ignore t5 hidden column
         analyze("INSERT INTO t5 VALUES (1)");
@@ -578,6 +581,16 @@ public class TestAnalyzer
         assertFails(MISSING_COLUMN, "INSERT INTO t6 (unknown) SELECT * FROM t6");
         assertFails(DUPLICATE_COLUMN_NAME, "INSERT INTO t6 (a, a) SELECT * FROM t6");
         assertFails(DUPLICATE_COLUMN_NAME, "INSERT INTO t6 (a, A) SELECT * FROM t6");
+
+        // b is bigint, while a is double, coercion from b to a is possible
+        analyze("INSERT INTO t7 (b) SELECT (a) FROM t7 ");
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t7 (a) SELECT (b) FROM t7");
+
+        // d is array of bigints, while c is array of doubles, coercion from d to c is possible
+        analyze("INSERT INTO t7 (d) SELECT (c) FROM t7 ");
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t7 (c) SELECT (d) FROM t7 ");
+
+        analyze("INSERT INTO t7 (d) VALUES (ARRAY[null])");
     }
 
     @Test
@@ -1012,6 +1025,15 @@ public class TestAnalyzer
                         new ColumnMetadata("b", VARCHAR),
                         new ColumnMetadata("c", BIGINT),
                         new ColumnMetadata("d", BIGINT))))));
+
+        // table with bigint, double, array of bigints and array of doubles column
+        SchemaTableName table7 = new SchemaTableName("s1", "t7");
+        inSetupTransaction(session -> metadata.createTable(session, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table7,
+                ImmutableList.of(
+                        new ColumnMetadata("a", BIGINT),
+                        new ColumnMetadata("b", DOUBLE),
+                        new ColumnMetadata("c", new ArrayType(BIGINT)),
+                        new ColumnMetadata("d", new ArrayType(DOUBLE)))))));
 
         // valid view referencing table in same schema
         String viewData1 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(

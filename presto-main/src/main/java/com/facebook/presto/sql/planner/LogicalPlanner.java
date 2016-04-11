@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationType;
@@ -36,6 +37,7 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.Explain;
@@ -59,6 +61,7 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
+import static com.facebook.presto.type.TypeRegistry.isTypeOnlyCoercion;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
@@ -188,7 +191,17 @@ public class LogicalPlanner
                 assignments.put(output, new NullLiteral());
             }
             else {
-                assignments.put(output, plan.getSymbol(index).toQualifiedNameReference());
+                Symbol input = plan.getSymbol(index);
+                Type tableType = column.getType();
+                Type queryType = symbolAllocator.getTypes().get(input);
+
+                if (queryType.equals(tableType) || isTypeOnlyCoercion(queryType, tableType)) {
+                    assignments.put(output, input.toQualifiedNameReference());
+                }
+                else {
+                    Expression cast = new Cast(input.toQualifiedNameReference(), tableType.getTypeSignature().toString());
+                    assignments.put(output, cast);
+                }
             }
         }
         ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), assignments.build());
