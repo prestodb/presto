@@ -42,6 +42,7 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.facebook.presto.raptor.storage.OrcStorageManager.columnTypesMap;
 import static com.facebook.presto.raptor.storage.TestOrcStorageManager.createOrcStorageManager;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -251,7 +252,7 @@ public class TestShardCompactor
 
     private ConnectorPageSource getPageSource(List<Long> columnIds, List<Type> columnTypes, UUID uuid)
     {
-        return storageManager.getPageSource(uuid, OptionalInt.empty(), columnIds, columnTypes, TupleDomain.all(), READER_ATTRIBUTES);
+        return storageManager.getPageSource(uuid, OptionalInt.empty(), columnIds, columnTypes, TupleDomain.all(), READER_ATTRIBUTES, columnTypesMap(columnIds, columnTypes));
     }
 
     private static List<ShardInfo> createSortedShards(StorageManager storageManager, List<Long> columnIds, List<Type> columnTypes, List<Integer> sortChannels, List<SortOrder> sortOrders, int shardCount)
@@ -305,7 +306,7 @@ public class TestShardCompactor
         int pageCount = 10;
 
         // some random values to start off the blocks
-        int[][] initialValues = { { 17, 15, 16, 18, 14 }, { 59, 55, 54, 53, 58 } };
+        int[][] initialValues = {{17, 15, 16, 18, 14}, {59, 55, 54, 53, 58}};
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
         for (int i = 0; i < pageCount; i++) {

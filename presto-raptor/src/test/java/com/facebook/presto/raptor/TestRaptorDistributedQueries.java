@@ -145,4 +145,18 @@ public class TestRaptorDistributedQueries
 
         assertUpdate("DROP TABLE orders_bucketed");
     }
+
+    @Test
+    public void testInsertDeleteAndAlterSchemaCombination()
+            throws Exception
+    {
+        assertUpdate("CREATE TABLE test_complex(a BIGINT, b BIGINT, c BIGINT)");
+        assertUpdate("INSERT INTO test_complex VALUES (1, 2, 3), (11, 12, 13), (21, 22, 23)", "VALUES(3)");
+        assertQuery("SELECT * FROM test_complex", "VALUES (1, 2, 3), (11, 12, 13), (21, 22, 23)");
+        assertUpdate("ALTER TABLE test_complex ADD COLUMN d BIGINT");
+        assertQuery("SELECT * FROM test_complex", "VALUES (1, 2, 3, NULL), (11, 12, 13, NULL), (21, 22, 23, NULL)");
+        assertUpdate("DELETE FROM test_complex WHERE a = 21", "VALUES(1)");
+        assertQuery("SELECT * FROM test_complex", "VALUES (1, 2, 3, NULL), (11, 12, 13, NULL)");
+        assertUpdate("DROP TABLE test_complex");
+    }
 }

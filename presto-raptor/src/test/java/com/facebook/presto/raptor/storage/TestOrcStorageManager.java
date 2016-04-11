@@ -68,6 +68,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
+import static com.facebook.presto.raptor.storage.OrcStorageManager.columnTypesMap;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.createReader;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.octets;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -251,7 +252,7 @@ public class TestOrcStorageManager
                 {885L, "max", null, null, null, Double.MAX_VALUE},
                 {886L, "pzero", null, null, null, 0.0},
                 {887L, "nzero", null, null, null, -0.0},
-        };
+                };
 
         List<Page> pages = rowPagesBuilder(columnTypes)
                 .row(123L, "hello", wrappedBuffer(bytes1), sqlDate(2001, 8, 22).getDays(), true, 123.45)
@@ -312,7 +313,6 @@ public class TestOrcStorageManager
         long transactionId = TRANSACTION_ID;
         List<Long> columnIds = ImmutableList.of(3L, 7L);
         List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, VARCHAR);
-
         // create file with 2 rows
         StoragePageSink sink = createStoragePageSink(manager, columnIds, columnTypes);
         List<Page> pages = rowPagesBuilder(columnTypes)
@@ -327,7 +327,7 @@ public class TestOrcStorageManager
         // delete one row
         BitSet rowsToDelete = new BitSet();
         rowsToDelete.set(0);
-        Collection<Slice> fragments = manager.rewriteShard(transactionId, OptionalInt.empty(), shards.get(0).getShardUuid(), rowsToDelete);
+        Collection<Slice> fragments = manager.rewriteShard(transactionId, OptionalInt.empty(), shards.get(0).getShardUuid(), rowsToDelete, columnTypesMap(columnIds, columnTypes));
 
         Slice shardDelta = Iterables.getOnlyElement(fragments);
         ShardDelta shardDeltas = jsonCodec(ShardDelta.class).fromJson(shardDelta.getBytes());
@@ -530,7 +530,7 @@ public class TestOrcStorageManager
             UUID uuid,
             TupleDomain<RaptorColumnHandle> tupleDomain)
     {
-        return manager.getPageSource(uuid, OptionalInt.empty(), columnIds, columnTypes, tupleDomain, READER_ATTRIBUTES);
+        return manager.getPageSource(uuid, OptionalInt.empty(), columnIds, columnTypes, tupleDomain, READER_ATTRIBUTES, columnTypesMap(columnIds, columnTypes));
     }
 
     private static StoragePageSink createStoragePageSink(StorageManager manager, List<Long> columnIds, List<Type> columnTypes)

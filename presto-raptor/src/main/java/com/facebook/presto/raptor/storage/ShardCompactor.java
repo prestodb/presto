@@ -39,6 +39,7 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.facebook.presto.raptor.storage.OrcStorageManager.columnTypesMap;
 import static com.facebook.presto.raptor.storage.Row.extractRow;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.Duration.nanosSince;
@@ -90,7 +91,7 @@ public final class ShardCompactor
             throws IOException
     {
         for (UUID uuid : uuids) {
-            try (ConnectorPageSource pageSource = storageManager.getPageSource(uuid, bucketNumber, columnIds, columnTypes, TupleDomain.all(), readerAttributes)) {
+            try (ConnectorPageSource pageSource = storageManager.getPageSource(uuid, bucketNumber, columnIds, columnTypes, TupleDomain.all(), readerAttributes, columnTypesMap(columnIds, columnTypes))) {
                 while (!pageSource.isFinished()) {
                     Page page = pageSource.getNextPage();
                     if (isNullOrEmptyPage(page)) {
@@ -126,7 +127,8 @@ public final class ShardCompactor
         StoragePageSink outputPageSink = storageManager.createStoragePageSink(transactionId, bucketNumber, columnIds, columnTypes);
         try {
             for (UUID uuid : uuids) {
-                ConnectorPageSource pageSource = storageManager.getPageSource(uuid, bucketNumber, columnIds, columnTypes, TupleDomain.all(), readerAttributes);
+                // todo use all column types
+                ConnectorPageSource pageSource = storageManager.getPageSource(uuid, bucketNumber, columnIds, columnTypes, TupleDomain.all(), readerAttributes, columnTypesMap(columnIds, columnTypes));
                 SortedRowSource rowSource = new SortedRowSource(pageSource, columnTypes, sortIndexes, sortOrders);
                 rowSources.add(rowSource);
             }
