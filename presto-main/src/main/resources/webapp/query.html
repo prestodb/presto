@@ -315,7 +315,8 @@ function formatDateTime(date) {
 }
 
 function formatCumulativeMemory(cumulativeMemory) {
-    return (cumulativeMemory / Math.pow(1000.0, 4)).toLocaleString() + 'GB seconds';
+    value = formatDataSize(cumulativeMemory/1000);
+    return value + 'B seconds';
 }
 
 function formatStackTrace(info) {
