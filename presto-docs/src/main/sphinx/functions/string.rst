@@ -13,7 +13,7 @@ String Functions
 .. note::
 
     These functions assume that the input strings contain valid UTF-8 encoded
-    Unicode code points.  There are no explicit checks for valid UTF-8, and
+    Unicode code points.  There are no explicit checks for valid UTF-8 and
     the functions may return incorrect results on invalid UTF-8.
     Invalid UTF-8 data can be corrected with :func:`from_utf8`.
 
