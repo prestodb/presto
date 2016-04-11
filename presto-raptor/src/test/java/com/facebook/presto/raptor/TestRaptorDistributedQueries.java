@@ -159,4 +159,14 @@ public class TestRaptorDistributedQueries
         assertQuery("SELECT * FROM test_complex", "VALUES (1, 2, 3, NULL), (11, 12, 13, NULL)");
         assertUpdate("DROP TABLE test_complex");
     }
+
+    @Test
+    public void testInsertSelectDecimal()
+            throws Exception
+    {
+        assertUpdate("CREATE TABLE test_decimal(short_decimal DECIMAL(5,2), long_decimal DECIMAL(25,20))");
+        assertUpdate("INSERT INTO test_decimal VALUES(DECIMAL '123.45', DECIMAL '12345.12345678901234567890')", "VALUES(1)");
+        assertQuery("SELECT * FROM test_decimal", "VALUES (123.45, 12345.12345678901234567890)");
+        assertUpdate("DROP TABLE test_decimal");
+    }
 }
