@@ -31,9 +31,10 @@ public interface StorageManager
             List<Long> columnIds,
             List<Type> columnTypes,
             TupleDomain<RaptorColumnHandle> effectivePredicate,
-            ReaderAttributes readerAttributes)
+            ReaderAttributes readerAttributes,
+            List<Type> allColumnsTypes)
     {
-        return getPageSource(shardUuid, bucketNumber, columnIds, columnTypes, effectivePredicate, readerAttributes, OptionalLong.empty());
+        return getPageSource(shardUuid, bucketNumber, columnIds, columnTypes, effectivePredicate, readerAttributes, OptionalLong.empty(), allColumnsTypes);
     }
 
     ConnectorPageSource getPageSource(
@@ -43,7 +44,8 @@ public interface StorageManager
             List<Type> columnTypes,
             TupleDomain<RaptorColumnHandle> effectivePredicate,
             ReaderAttributes readerAttributes,
-            OptionalLong transactionId);
+            OptionalLong transactionId,
+            List<Type> allColumnsTypes);
 
     StoragePageSink createStoragePageSink(
             long transactionId,
