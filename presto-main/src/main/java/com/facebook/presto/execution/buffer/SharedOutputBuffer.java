@@ -102,18 +102,23 @@ public class SharedOutputBuffer
                         OPEN,
                         TERMINAL_BUFFER_STATES),
                 maxBufferSize,
-                systemMemoryUsageListener);
+                systemMemoryUsageListener,
+                executor);
     }
 
-    public SharedOutputBuffer(String taskInstanceId, StateMachine<BufferState> state, DataSize maxBufferSize, SystemMemoryUsageListener systemMemoryUsageListener)
+    public SharedOutputBuffer(String taskInstanceId,
+            StateMachine<BufferState> state,
+            DataSize maxBufferSize,
+            SystemMemoryUsageListener systemMemoryUsageListener,
+            Executor notificationExecutor)
     {
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
         this.state = requireNonNull(state, "state is null");
-
         requireNonNull(maxBufferSize, "maxBufferSize is null");
         checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
         requireNonNull(systemMemoryUsageListener, "systemMemoryUsageListener is null");
-        this.memoryManager = new OutputBufferMemoryManager(maxBufferSize.toBytes(), systemMemoryUsageListener);
+        requireNonNull(notificationExecutor, "notificationExecutor is null");
+        this.memoryManager = new OutputBufferMemoryManager(maxBufferSize.toBytes(), systemMemoryUsageListener, notificationExecutor);
     }
 
     @Override
