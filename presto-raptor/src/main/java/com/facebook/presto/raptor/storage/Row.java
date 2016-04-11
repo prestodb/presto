@@ -23,7 +23,6 @@ import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 
-import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -132,12 +131,13 @@ public class Row
             BigInteger unscaledValue;
             DecimalType decimalType = (DecimalType) type;
             if (decimalType.isShort()) {
-                unscaledValue = BigInteger.valueOf((long)nativeValue);
+                unscaledValue = BigInteger.valueOf((long) nativeValue);
             }
             else {
                 unscaledValue = Decimals.decodeUnscaledValue((Slice) nativeValue);
             }
-            return HiveDecimal.create(unscaledValue, decimalType.getScale());        }
+            return HiveDecimal.create(unscaledValue, decimalType.getScale());
+        }
         if (nativeValue == null) {
             return null;
         }

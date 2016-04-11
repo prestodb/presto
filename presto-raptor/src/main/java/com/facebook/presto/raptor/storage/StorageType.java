@@ -44,7 +44,8 @@ public final class StorageType
         return new StorageType(format("%s<%s,%s>", MAP_TYPE_NAME, keyStorageType.getHiveTypeName(), valueStorageType.getHiveTypeName()));
     }
 
-    public static StorageType decimal(int precision, int scale) {
+    public static StorageType decimal(int precision, int scale)
+    {
         return new StorageType(format("%s(%d,%d)", DECIMAL_TYPE_NAME, precision, scale));
     }
 
