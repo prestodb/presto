@@ -277,7 +277,7 @@ class QueryPlanner
             }
             else {
                 Expression expression = fieldOrExpression.getExpression();
-                symbol = symbolAllocator.newSymbol(expression, analysis.getType(expression));
+                symbol = symbolAllocator.newSymbol(expression, analysis.getTypeWithCoercions(expression));
             }
 
             projections.put(symbol, subPlan.rewrite(fieldOrExpression));

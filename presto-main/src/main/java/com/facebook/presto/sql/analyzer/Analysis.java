@@ -162,6 +162,15 @@ public class Analysis
         return types.get(expression);
     }
 
+    public Type getTypeWithCoercions(Expression expression)
+    {
+        checkArgument(types.containsKey(expression), "Expression not analyzed: %s", expression);
+        if (coercions.containsKey(expression)) {
+            return coercions.get(expression);
+        }
+        return types.get(expression);
+    }
+
     public Type[] getRelationCoercion(Relation relation)
     {
         return relationCoercions.get(relation);
