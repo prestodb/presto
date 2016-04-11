@@ -17,6 +17,7 @@ import com.facebook.presto.raptor.util.SyncingFileSystem;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
@@ -255,6 +256,10 @@ public class OrcFileWriter
 
     private static StorageType toStorageType(Type type)
     {
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            return StorageType.decimal(decimalType.getPrecision(), decimalType.getScale());
+        }
         Class<?> javaType = type.getJavaType();
         if (javaType == boolean.class) {
             return StorageType.BOOLEAN;

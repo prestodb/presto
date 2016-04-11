@@ -18,6 +18,7 @@ import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.serde.serdeConstants.BIGINT_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.BINARY_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.BOOLEAN_TYPE_NAME;
+import static org.apache.hadoop.hive.serde.serdeConstants.DECIMAL_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.DOUBLE_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.LIST_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.MAP_TYPE_NAME;
@@ -41,6 +42,11 @@ public final class StorageType
     public static StorageType mapOf(StorageType keyStorageType, StorageType valueStorageType)
     {
         return new StorageType(format("%s<%s,%s>", MAP_TYPE_NAME, keyStorageType.getHiveTypeName(), valueStorageType.getHiveTypeName()));
+    }
+
+    public static StorageType decimal(int precision, int scale)
+    {
+        return new StorageType(format("%s(%d,%d)", DECIMAL_TYPE_NAME, precision, scale));
     }
 
     private StorageType(String hiveTypeName)
