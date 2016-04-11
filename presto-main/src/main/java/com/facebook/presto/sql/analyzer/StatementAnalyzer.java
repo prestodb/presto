@@ -33,7 +33,6 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.ExpressionUtils;
@@ -125,7 +124,6 @@ import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -202,7 +200,7 @@ import static com.facebook.presto.sql.tree.FrameBound.Type.PRECEDING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
-import static com.facebook.presto.type.TypeRegistry.isTypeOnlyCoercion;
+import static com.facebook.presto.type.TypeRegistry.canCoerce;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
@@ -576,7 +574,6 @@ class StatementAnalyzer
 
         Iterable<Type> queryTypes = transform(queryDescriptor.getVisibleFields(), Field::getType);
 
-        // TODO replace this workaround with injecting implicit coercions for INSERTed values.
         if (!typesMatchForInsert(tableTypes, queryTypes)) {
             throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES, insert, "Insert query has mismatched column types: " +
                     "Table: [" + Joiner.on(", ").join(tableTypes) + "], " +
@@ -591,42 +588,19 @@ class StatementAnalyzer
         if (Iterables.size(tableTypes) != Iterables.size(queryTypes)) {
             return false;
         }
+
         Iterator<Type> tableTypesIterator = tableTypes.iterator();
         Iterator<Type> queryTypesIterator = queryTypes.iterator();
         while (tableTypesIterator.hasNext()) {
             Type tableType = tableTypesIterator.next();
             Type queryType = queryTypesIterator.next();
 
-            if (isNullType(queryType)) {
-                continue;
-            }
-
-            if (isStructuralType(tableType)) {
-                if (!tableType.getTypeSignature().getBase().equals(queryType.getTypeSignature().getBase())) {
-                    return false;
-                }
-                if (!typesMatchForInsert(tableType.getTypeParameters(), queryType.getTypeParameters())) {
-                    return false;
-                }
-            }
-            else {
-                if (!Objects.equals(tableType, queryType) && !isTypeOnlyCoercion(queryType.getTypeSignature(), tableType.getTypeSignature())) {
-                    return false;
-                }
+            if (!canCoerce(queryType.getTypeSignature(), tableType.getTypeSignature())) {
+                return false;
             }
         }
+
         return true;
-    }
-
-    private static boolean isNullType(Type queryType)
-    {
-        return Objects.equals(queryType, UNKNOWN);
-    }
-
-    private static boolean isStructuralType(Type type)
-    {
-        String baseName = type.getTypeSignature().getBase();
-        return baseName.equals(StandardTypes.MAP) || baseName.equals(StandardTypes.ARRAY) || baseName.equals(StandardTypes.ROW);
     }
 
     @Override
