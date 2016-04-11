@@ -18,13 +18,16 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
 import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+@ThreadSafe
 class OutputBufferMemoryManager
 {
     private final long maxBufferedBytes;
@@ -35,12 +38,14 @@ class OutputBufferMemoryManager
     private final AtomicBoolean blockOnFull = new AtomicBoolean(true);
 
     private final SystemMemoryUsageListener systemMemoryUsageListener;
+    private final Executor notificationExecutor;
 
-    public OutputBufferMemoryManager(long maxBufferedBytes, SystemMemoryUsageListener systemMemoryUsageListener)
+    public OutputBufferMemoryManager(long maxBufferedBytes, SystemMemoryUsageListener systemMemoryUsageListener, Executor notificationExecutor)
     {
         checkArgument(maxBufferedBytes > 0, "maxBufferedBytes must be > 0");
         this.maxBufferedBytes = maxBufferedBytes;
         this.systemMemoryUsageListener = requireNonNull(systemMemoryUsageListener, "systemMemoryUsageListener is null");
+        this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
 
         notFull = SettableFuture.create();
         notFull.set(null);
@@ -50,11 +55,13 @@ class OutputBufferMemoryManager
     {
         systemMemoryUsageListener.updateSystemMemoryUsage(bytesAdded);
         bufferedBytes.addAndGet(bytesAdded);
-        if (!isFull()) {
-            synchronized (this) {
-                if (!isFull() && !notFull.isDone()) {
-                    notFull.set(null);
-                }
+        synchronized (this) {
+            if (!isFull() && !notFull.isDone()) {
+                // Complete future in a new thread to avoid making a callback on the caller thread.
+                // This make is easier for callers to use this class since they can update the memory
+                // usage while holding locks.
+                SettableFuture<?> future = this.notFull;
+                notificationExecutor.execute(() -> future.set(null));
             }
         }
     }
@@ -70,7 +77,10 @@ class OutputBufferMemoryManager
     public synchronized void setNoBlockOnFull()
     {
         blockOnFull.set(false);
-        notFull.set(null);
+
+        // Complete future in a new thread to avoid making a callback on the caller thread.
+        SettableFuture<?> future = notFull;
+        notificationExecutor.execute(() -> future.set(null));
     }
 
     public double getUtilization()

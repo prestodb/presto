@@ -32,6 +32,7 @@ import org.testng.annotations.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -45,6 +46,7 @@ import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -187,7 +189,7 @@ public class TestSharedOutputBuffer
         // queues consumed the first three pages, so they should be dropped now and the blocked page future from above should be done
         assertQueueState(sharedBuffer, FIRST, DEFAULT_PARTITION, 8, 3, 8, 11);
         assertQueueState(sharedBuffer, SECOND, DEFAULT_PARTITION, 1, 10, 8, 11);
-        assertTrue(future.isDone());
+        assertFutureIsDone(future);
 
         // we should be able to add 3 more pages (the third will be queued)
         // although the first queue fetched the 4th page, the page has not been acknowledged yet
@@ -202,7 +204,7 @@ public class TestSharedOutputBuffer
         assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, FIRST, 4, sizeOfPages(1), NO_WAIT), bufferResult(4, createPage(4)));
 
         // the blocked page future above should be done
-        assertTrue(future.isDone());
+        assertFutureIsDone(future);
         assertQueueState(sharedBuffer, FIRST, DEFAULT_PARTITION, 10, 4, 10, 14);
         assertQueueState(sharedBuffer, SECOND, DEFAULT_PARTITION, 4, 10, 10, 14);
 
@@ -303,7 +305,7 @@ public class TestSharedOutputBuffer
         sharedBuffer.get(FIRST, 2, sizeOfPages(10)).cancel(true);
 
         // page should be dequeued, we should not be blocked
-        assertTrue(future.isDone());
+        assertFutureIsDone(future);
         assertQueueState(sharedBuffer, SECOND, secondPartition, 1, 0, 1, 1); // no more queued pages
     }
 
@@ -384,7 +386,7 @@ public class TestSharedOutputBuffer
         sharedBuffer.setOutputBuffers(outputBuffers);
 
         // since both queues consumed some pages, the blocked page future from above should be done
-        assertTrue(future.isDone());
+        assertFutureIsDone(future);
         assertQueueState(sharedBuffer, FIRST, firstPartition, 8, 3, 8, 11);
         assertQueueState(sharedBuffer, SECOND, secondPartition, 0, 10, 0, 10);
 
@@ -400,7 +402,7 @@ public class TestSharedOutputBuffer
         assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, FIRST, 4, sizeOfPages(1), NO_WAIT), bufferResult(4, createPage(4)));
 
         // the blocked page future above should be done
-        assertTrue(future.isDone());
+        assertFutureIsDone(future);
         assertQueueState(sharedBuffer, FIRST, firstPartition, 10, 4, 10, 14);
         assertQueueState(sharedBuffer, SECOND, secondPartition, 0, 10, 0, 10);
 
@@ -753,8 +755,8 @@ public class TestSharedOutputBuffer
         assertFalse(sharedBuffer.isFinished());
 
         // verify futures are complete
-        assertTrue(firstEnqueuePage.isDone());
-        assertTrue(secondEnqueuePage.isDone());
+        assertFutureIsDone(firstEnqueuePage);
+        assertFutureIsDone(secondEnqueuePage);
 
         // get and acknowledge the last 6 pages
         assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, QUEUE, 1, sizeOfPages(100), NO_WAIT),
@@ -832,9 +834,9 @@ public class TestSharedOutputBuffer
         sharedBuffer.destroy();
         assertFinished(sharedBuffer);
 
-        // verify the furutres are completed
-        assertTrue(firstEnqueuePage.isDone());
-        assertTrue(secondEnqueuePage.isDone());
+        // verify the futures are completed
+        assertFutureIsDone(firstEnqueuePage);
+        assertFutureIsDone(secondEnqueuePage);
     }
 
     @Test
@@ -960,6 +962,12 @@ public class TestSharedOutputBuffer
             PageAssertions.assertPageEquals(types, actualPage, expectedPage);
         }
         assertEquals(actual.isBufferComplete(), expected.isBufferComplete());
+    }
+
+    private static void assertFutureIsDone(Future<?> future)
+    {
+        tryGetFutureValue(future, 5, SECONDS);
+        assertTrue(future.isDone());
     }
 
     public static BufferResult bufferResult(long token, Page firstPage, Page... otherPages)

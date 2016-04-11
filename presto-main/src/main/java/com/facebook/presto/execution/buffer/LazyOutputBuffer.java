@@ -51,6 +51,7 @@ public class LazyOutputBuffer
     private final String taskInstanceId;
     private final DataSize maxBufferSize;
     private final SystemMemoryUsageListener systemMemoryUsageListener;
+    private final Executor executor;
 
     @GuardedBy("this")
     private OutputBuffer delegate;
@@ -64,8 +65,8 @@ public class LazyOutputBuffer
     public LazyOutputBuffer(TaskId taskId, String taskInstanceId, Executor executor, DataSize maxBufferSize, SystemMemoryUsageListener systemMemoryUsageListener)
     {
         requireNonNull(taskId, "taskId is null");
-        requireNonNull(executor, "executor is null");
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
+        this.executor = requireNonNull(executor, "executor is null");
         state = new StateMachine<>(taskId + "-buffer", executor, OPEN, TERMINAL_BUFFER_STATES);
         this.maxBufferSize = requireNonNull(maxBufferSize, "maxBufferSize is null");
         checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
@@ -133,7 +134,7 @@ public class LazyOutputBuffer
                 switch (newOutputBuffers.getType()) {
                     case PARTITIONED:
                     case BROADCAST:
-                        delegate = new SharedOutputBuffer(taskInstanceId, state, maxBufferSize, systemMemoryUsageListener);
+                        delegate = new SharedOutputBuffer(taskInstanceId, state, maxBufferSize, systemMemoryUsageListener, executor);
                         break;
                 }
 
