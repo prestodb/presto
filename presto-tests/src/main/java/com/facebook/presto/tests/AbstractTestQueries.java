@@ -1239,6 +1239,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGroupByRequireIntegerCoercion()
+            throws Exception
+    {
+        assertQuery("SELECT partkey, COUNT(DISTINCT shipdate), SUM(linenumber) FROM lineitem GROUP BY partkey");
+    }
+
+    @Test
     public void testGroupByEmptyGroupingSet()
             throws Exception
     {
