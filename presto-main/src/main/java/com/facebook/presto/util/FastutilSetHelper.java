@@ -35,7 +35,6 @@ import java.util.Set;
 import static com.facebook.presto.metadata.OperatorType.EQUAL;
 import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.util.Types.longHashToIntegerHash;
 
 public final class FastutilSetHelper
 {
@@ -101,7 +100,7 @@ public final class FastutilSetHelper
         public int hashCode(long value)
         {
             try {
-                return longHashToIntegerHash((long) hashCodeHandle.invokeExact(value));
+                return Long.hashCode((long) hashCodeHandle.invokeExact(value));
             }
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
@@ -140,7 +139,7 @@ public final class FastutilSetHelper
         public int hashCode(double value)
         {
             try {
-                return longHashToIntegerHash((long) hashCodeHandle.invokeExact(value));
+                return Long.hashCode((long) hashCodeHandle.invokeExact(value));
             }
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
@@ -183,7 +182,7 @@ public final class FastutilSetHelper
         public int hashCode(Object value)
         {
             try {
-                return Ints.checkedCast(longHashToIntegerHash((long) hashCodeHandle.invokeExact(value)));
+                return Ints.checkedCast(Long.hashCode((long) hashCodeHandle.invokeExact(value)));
             }
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
