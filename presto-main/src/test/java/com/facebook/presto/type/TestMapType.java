@@ -20,7 +20,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
-public class MapTypeTest
+public class TestMapType
 {
     @Test
     public void testMapDisplayName()

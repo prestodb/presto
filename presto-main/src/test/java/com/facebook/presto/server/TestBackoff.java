@@ -25,7 +25,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class BackoffTest
+public class TestBackoff
 {
     @Test
     public void testMaxFailureInterval()
