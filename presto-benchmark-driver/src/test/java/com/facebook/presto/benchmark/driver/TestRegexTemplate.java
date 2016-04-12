@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static org.testng.Assert.assertEquals;
 
-public class RegexTemplateTest
+public class TestRegexTemplate
 {
     @Test
     public void test()

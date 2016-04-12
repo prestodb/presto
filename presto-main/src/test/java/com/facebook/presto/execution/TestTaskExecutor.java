@@ -28,7 +28,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 
-public class TaskExecutorTest
+public class TestTaskExecutor
 {
     @Test(invocationCount = 100)
     public void test()

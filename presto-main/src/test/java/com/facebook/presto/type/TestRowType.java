@@ -25,7 +25,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
 
-public class RowTypeTest
+public class TestRowType
 {
     @Test
     public void testRowDisplayName()

@@ -18,7 +18,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static org.testng.Assert.assertEquals;
 
-public class ArrayTypeTest
+public class TestArrayType
 {
     @Test
     public void testDisplayName()
