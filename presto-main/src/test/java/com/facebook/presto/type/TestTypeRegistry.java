@@ -94,7 +94,7 @@ public class TestTypeRegistry
         assertFalse(TypeRegistry.canCoerce(parseTypeSignature("array(double)"), parseTypeSignature("array(bigint)")));
         assertTrue(TypeRegistry.canCoerce(parseTypeSignature("map(bigint,double)"), parseTypeSignature("map(bigint,double)")));
         assertTrue(TypeRegistry.canCoerce(parseTypeSignature("map(bigint,double)"), parseTypeSignature("map(double,double)")));
-        assertTrue(TypeRegistry.canCoerce(parseTypeSignature("row<bigint,double,varchar>('a','b','c')"), parseTypeSignature("row<bigint,double,varchar>('a','b','c')")));
+        assertTrue(TypeRegistry.canCoerce(parseTypeSignature("row(a bigint,b double,c varchar)"), parseTypeSignature("row(a bigint,b double,c varchar)")));
 
         assertTrue(TypeRegistry.canCoerce(parseTypeSignature("varchar(42)"), parseTypeSignature("varchar(42)")));
         assertTrue(TypeRegistry.canCoerce(parseTypeSignature("varchar(42)"), parseTypeSignature("varchar(44)")));
@@ -131,7 +131,7 @@ public class TestTypeRegistry
         assertCommonSuperType("array(bigint)", "array(unknown)", "array(bigint)");
         assertCommonSuperType("map(bigint,double)", "map(bigint,double)", "map(bigint,double)");
         assertCommonSuperType("map(bigint,double)", "map(double,double)", "map(double,double)");
-        assertCommonSuperType("row<bigint,double,varchar>('a','b','c')", "row<bigint,double,varchar>('a','b','c')", "row<bigint,double,varchar>('a','b','c')");
+        assertCommonSuperType("row(a bigint,b double,c varchar)", "row(a bigint,b double,c varchar)", "row(a bigint,b double,c varchar)");
 
         assertCommonSuperType("varchar(42)", "varchar(44)", "varchar(44)");
     }

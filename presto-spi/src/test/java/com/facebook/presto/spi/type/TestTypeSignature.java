@@ -47,7 +47,7 @@ public class TestTypeSignature
         assertBindSignature("array<T1>", boundParameters, "array(double)");
         assertBindSignature("map(T1,T2)", boundParameters, "map(double,bigint)");
         assertBindSignature("map<T1,T2>", boundParameters, "map(double,bigint)");
-        assertBindSignature("row<T1,T2>('a','b')", boundParameters, "row<double,bigint>('a','b')");
+        assertBindSignature("row(a T1,b T2)", boundParameters, "row(a double,b bigint)");
         assertBindSignature("bla(T1,42,T2)", boundParameters, "bla(double,42,bigint)");
 
         assertBindSignatureFails("T1(bigint)", boundParameters, "Unbounded parameters can not have parameters");
@@ -83,33 +83,33 @@ public class TestTypeSignature
             throws Exception
     {
         assertRowSignature(
-                "row<bigint,varchar>('a','b')",
+                "row(a bigint,b varchar)",
                 rowSignature(namedParameter("a", signature("bigint")), namedParameter("b", varchar())));
         assertRowSignature(
-                "ROW<bigint,varchar>('a','b')",
+                "ROW(a bigint,b varchar)",
                 "ROW",
                 ImmutableList.of("a bigint", "b varchar"),
-                "row<bigint,varchar>('a','b')");
+                "row(a bigint,b varchar)");
         assertRowSignature(
-                "row<bigint,array(bigint),row<bigint>('a')>('a','b','c')",
+                "row(a bigint,b array(bigint),c row(a bigint))",
                 rowSignature(
                         namedParameter("a", signature("bigint")),
                         namedParameter("b", array(signature("bigint"))),
                         namedParameter("c", rowSignature(namedParameter("a", signature("bigint"))))));
         assertRowSignature(
-                "row<varchar(10),row<bigint>('a')>('a','b')",
+                "row(a varchar(10),b row(a bigint))",
                 rowSignature(
                         namedParameter("a", varchar(10)),
                         namedParameter("b", rowSignature(namedParameter("a", signature("bigint"))))));
         assertRowSignature(
-                "array(row<bigint,double>('col0','col1'))",
+                "array(row(col0 bigint,col1 double))",
                 array(rowSignature(namedParameter("col0", signature("bigint")), namedParameter("col1", signature("double")))));
         assertRowSignature(
-                "row<array(row<bigint,double>('col0','col1'))>('col0')",
+                "row(col0 array(row(col0 bigint,col1 double)))",
                 rowSignature(namedParameter("col0", array(
                         rowSignature(namedParameter("col0", signature("bigint")), namedParameter("col1", signature("double")))))));
         assertRowSignature(
-                "row<decimal(p1,s1),decimal(p2,s2)>('a','b')",
+                "row(a decimal(p1,s1),b decimal(p2,s2))",
                 ImmutableSet.of("p1", "s1", "p2", "s2"),
                 rowSignature(namedParameter("a", decimal("p1", "s1")), namedParameter("b", decimal("p2", "s2"))));
     }
@@ -211,8 +211,8 @@ public class TestTypeSignature
         assertFalse(parseTypeSignature("array(decimal(2, 1))").isCalculated());
         assertTrue(parseTypeSignature("map(decimal(p1, s1),decimal(p2, s2))", ImmutableSet.of("p1", "s1", "p2", "s2")).isCalculated());
         assertFalse(parseTypeSignature("map(decimal(2, 1),decimal(3, 1))").isCalculated());
-        assertTrue(parseTypeSignature("row<decimal(p1,s1),decimal(p2,s2)>('a','b')", ImmutableSet.of("p1", "s1", "p2", "s2")).isCalculated());
-        assertFalse(parseTypeSignature("row<decimal(2,1),decimal(3,2)>('a','b')").isCalculated());
+        assertTrue(parseTypeSignature("row(a decimal(p1,s1),b decimal(p2,s2))", ImmutableSet.of("p1", "s1", "p2", "s2")).isCalculated());
+        assertFalse(parseTypeSignature("row(a decimal(2,1),b decimal(3,2))").isCalculated());
     }
 
     private static void assertRowSignature(

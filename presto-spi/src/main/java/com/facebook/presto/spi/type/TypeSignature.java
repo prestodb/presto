@@ -115,7 +115,7 @@ public class TypeSignature
         if (!signature.contains("<") && !signature.contains("(")) {
             return new TypeSignature(signature, new ArrayList<>());
         }
-        if (signature.toLowerCase(Locale.ENGLISH).startsWith(StandardTypes.ROW + "<")) {
+        if (signature.toLowerCase(Locale.ENGLISH).startsWith(StandardTypes.ROW + "(")) {
             return parseRowTypeSignature(signature, literalCalculationParameters);
         }
 
@@ -170,68 +170,46 @@ public class TypeSignature
         List<String> fieldNames = new ArrayList<>();
         int parameterStart = -1;
         int bracketCount = 0;
-        boolean inLiteralParameters = false;
+        boolean inFieldName = false;
 
         for (int i = 0; i < signature.length(); i++) {
             char c = signature.charAt(i);
-            if (c == '<') {
+            if (c == '(') {
                 if (bracketCount == 0) {
                     verify(baseName == null, "Expected baseName to be null");
                     verify(parameterStart == -1, "Expected parameter start to be -1");
                     baseName = signature.substring(0, i);
                     parameterStart = i + 1;
+                    inFieldName = true;
                 }
                 bracketCount++;
             }
-            else if (c == '>') {
-                bracketCount--;
-                checkArgument(bracketCount >= 0, "Bad type signature: '%s'", signature);
-                if (bracketCount == 0) {
+            else if (c == ' ') {
+                if (bracketCount == 1 && inFieldName) {
                     checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
-                    parameters.add(parseTypeSignature(signature.substring(parameterStart, i), literalParameters));
+                    fieldNames.add(signature.substring(parameterStart, i));
                     parameterStart = i + 1;
-                    verify(i < signature.length() - 1, "Row's signature can not end with angle bracket");
+                    inFieldName = false;
                 }
             }
             else if (c == ',') {
                 if (bracketCount == 1) {
-                    if (!inLiteralParameters) {
-                        checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
-                        parameters.add(parseTypeSignature(signature.substring(parameterStart, i), literalParameters));
-                        parameterStart = i + 1;
-                    }
-                    else {
-                        checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
-                        fieldNames.add(parseFieldName(signature.substring(parameterStart, i)));
-                        parameterStart = i + 1;
-                    }
-                }
-            }
-            else if (c == '(') {
-                if (bracketCount == 0) {
-                    inLiteralParameters = true;
-                    if (baseName == null) {
-                        verify(parameters.isEmpty(), "Expected no parameters");
-                        verify(parameterStart == -1, "Expected parameter start to be -1");
-                        baseName = signature.substring(0, i);
-                    }
+                    checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
+                    parameters.add(parseTypeSignature(signature.substring(parameterStart, i), literalParameters));
                     parameterStart = i + 1;
+                    inFieldName = true;
                 }
-                bracketCount++;
             }
             else if (c == ')') {
                 bracketCount--;
                 if (bracketCount == 0) {
-                    checkArgument(inLiteralParameters, "Bad type signature: '%s'", signature);
-                    inLiteralParameters = false;
                     checkArgument(i == signature.length() - 1, "Bad type signature: '%s'", signature);
                     checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
-                    fieldNames.add(parseFieldName(signature.substring(parameterStart, i)));
+                    parameters.add(parseTypeSignature(signature.substring(parameterStart, i), literalParameters));
                     return new TypeSignature(baseName, createNamedTypeParameters(parameters, fieldNames));
                 }
             }
         }
-
         throw new IllegalArgumentException(format("Bad type signature: '%s'", signature));
     }
 
@@ -264,13 +242,6 @@ public class TypeSignature
         else {
             return TypeSignatureParameter.of(parseTypeSignature(parameterName, literalCalculationParameters));
         }
-    }
-
-    private static String parseFieldName(String fieldName)
-    {
-        checkArgument(fieldName != null && fieldName.length() >= 2, "Bad fieldName: '%s'", fieldName);
-        checkArgument(fieldName.startsWith("'") && fieldName.endsWith("'"), "Bad fieldName: '%s'", fieldName);
-        return fieldName.substring(1, fieldName.length() - 1);
     }
 
     @Override
@@ -311,19 +282,12 @@ public class TypeSignature
         verify(parameters.stream().allMatch(parameter -> parameter.getKind() == ParameterKind.NAMED_TYPE),
                 format("Incorrect parameters for row type %s", parameters));
 
-        String types = parameters.stream()
+        String fields = parameters.stream()
                 .map(TypeSignatureParameter::getNamedTypeSignature)
-                .map(NamedTypeSignature::getTypeSignature)
-                .map(TypeSignature::toString)
+                .map(parameter -> format("%s %s", parameter.getName(), parameter.getTypeSignature().toString()))
                 .collect(Collectors.joining(","));
 
-        String fieldNames = parameters.stream()
-                .map(TypeSignatureParameter::getNamedTypeSignature)
-                .map(NamedTypeSignature::getName)
-                .map(name -> format("'%s'", name))
-                .collect(Collectors.joining(","));
-
-        return format("row<%s>(%s)", types, fieldNames);
+        return format("row(%s)", fields);
     }
 
     private static void checkArgument(boolean argument, String format, Object... args)

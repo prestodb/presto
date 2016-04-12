@@ -29,7 +29,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 public class TestSimpleRowType
         extends AbstractTestType
 {
-    private static final Type TYPE = new TypeRegistry().getType(parseTypeSignature("row<bigint,varchar>('a','b')"));
+    private static final Type TYPE = new TypeRegistry().getType(parseTypeSignature("row(a bigint,b varchar)"));
 
     public TestSimpleRowType()
     {
