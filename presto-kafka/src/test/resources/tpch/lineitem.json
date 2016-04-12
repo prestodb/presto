@@ -39,7 +39,7 @@
             {
                 "name": "quantity",
                 "mapping": "quantity",
-                "type": "BIGINT"
+                "type": "DOUBLE"
             },
             {
                 "name": "extendedprice",

@@ -687,7 +687,7 @@ public class TestRaptorMetadata
         return buildTable(properties, tableMetadataBuilder(DEFAULT_TEST_LINEITEMS)
                 .column("orderkey", BIGINT)
                 .column("partkey", BIGINT)
-                .column("quantity", BIGINT)
+                .column("quantity", DOUBLE)
                 .column("price", DOUBLE));
     }
 
