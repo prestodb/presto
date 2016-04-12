@@ -15,8 +15,11 @@ package com.facebook.presto.raptor;
 
 import com.facebook.presto.raptor.backup.BackupService;
 import com.facebook.presto.raptor.metadata.BucketShards;
+import com.facebook.presto.raptor.metadata.ForMetadata;
+import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardNodes;
+import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.raptor.util.SynchronizedResultIterator;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -29,7 +32,9 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.ResultIterator;
 
 import javax.annotation.PreDestroy;
@@ -48,6 +53,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_NO_HOST_FOR_SHARD;
+import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.google.common.base.Preconditions.checkState;
@@ -59,6 +65,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
 public class RaptorSplitManager
@@ -69,20 +76,23 @@ public class RaptorSplitManager
     private final ShardManager shardManager;
     private final boolean backupAvailable;
     private final ExecutorService executor;
+    private final MetadataDao metadataDao;
 
     @Inject
-    public RaptorSplitManager(RaptorConnectorId connectorId, NodeSupplier nodeSupplier, ShardManager shardManager, BackupService backupService)
+    public RaptorSplitManager(RaptorConnectorId connectorId, NodeSupplier nodeSupplier, ShardManager shardManager, BackupService backupService, @ForMetadata IDBI dbi)
     {
-        this(connectorId, nodeSupplier, shardManager, requireNonNull(backupService, "backupService is null").isBackupAvailable());
+        this(connectorId, nodeSupplier, shardManager, requireNonNull(backupService, "backupService is null").isBackupAvailable(), dbi);
     }
 
-    public RaptorSplitManager(RaptorConnectorId connectorId, NodeSupplier nodeSupplier, ShardManager shardManager, boolean backupAvailable)
+    public RaptorSplitManager(RaptorConnectorId connectorId, NodeSupplier nodeSupplier, ShardManager shardManager, boolean backupAvailable, IDBI dbi)
     {
+        requireNonNull(dbi, "dbi can not be null");
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.nodeSupplier = requireNonNull(nodeSupplier, "nodeSupplier is null");
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
         this.backupAvailable = backupAvailable;
         this.executor = newCachedThreadPool(daemonThreadsNamed("raptor-split-" + connectorId + "-%s"));
+        this.metadataDao = onDemandDao(dbi, MetadataDao.class);
     }
 
     @PreDestroy
@@ -102,7 +112,10 @@ public class RaptorSplitManager
         boolean merged = bucketed && !table.isDelete();
         OptionalLong transactionId = table.getTransactionId();
         Optional<Map<Integer, String>> bucketToNode = handle.getPartitioning().map(RaptorPartitioningHandle::getBucketToNode);
-        return new RaptorSplitSource(tableId, bucketed, merged, effectivePredicate, transactionId, bucketToNode);
+        List<Type> allColumnsTypes = ImmutableList.copyOf(
+                metadataDao.getTableColumns(handle.getTable().getTableId()).stream().map(TableColumn::getDataType).collect(toList())
+        );
+        return new RaptorSplitSource(tableId, allColumnsTypes, bucketed, merged, effectivePredicate, transactionId, bucketToNode);
     }
 
     private static List<HostAddress> getAddressesForNodes(Map<String, Node> nodeMap, Iterable<String> nodeIdentifiers)
@@ -134,6 +147,7 @@ public class RaptorSplitManager
     {
         private final Map<String, Node> nodesById = uniqueIndex(nodeSupplier.getWorkerNodes(), Node::getNodeIdentifier);
         private final long tableId;
+        private final List<Type> allColumnsTypes;
         private final TupleDomain<RaptorColumnHandle> effectivePredicate;
         private final OptionalLong transactionId;
         private final Optional<Map<Integer, String>> bucketToNode;
@@ -144,6 +158,7 @@ public class RaptorSplitManager
 
         public RaptorSplitSource(
                 long tableId,
+                List<Type> allColumnsTypes,
                 boolean bucketed,
                 boolean merged,
                 TupleDomain<RaptorColumnHandle> effectivePredicate,
@@ -151,6 +166,7 @@ public class RaptorSplitManager
                 Optional<Map<Integer, String>> bucketToNode)
         {
             this.tableId = tableId;
+            this.allColumnsTypes = requireNonNull(allColumnsTypes, "allColumnsTypes can not be null");
             this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
             this.transactionId = requireNonNull(transactionId, "transactionId is null");
             this.bucketToNode = requireNonNull(bucketToNode, "bucketToNode is null");
@@ -232,7 +248,7 @@ public class RaptorSplitManager
                 addresses = ImmutableList.of(node.getHostAndPort());
             }
 
-            return new RaptorSplit(connectorId, shardId, addresses, effectivePredicate, transactionId);
+            return new RaptorSplit(connectorId, shardId, addresses, effectivePredicate, transactionId, allColumnsTypes);
         }
 
         private ConnectorSplit createBucketSplit(int bucketNumber, Set<ShardNodes> shards)
@@ -262,7 +278,7 @@ public class RaptorSplitManager
                     .collect(toSet());
             HostAddress address = node.getHostAndPort();
 
-            return new RaptorSplit(connectorId, shardUuids, bucketNumber, address, effectivePredicate, transactionId);
+            return new RaptorSplit(connectorId, shardUuids, bucketNumber, address, effectivePredicate, transactionId, allColumnsTypes);
         }
     }
 }

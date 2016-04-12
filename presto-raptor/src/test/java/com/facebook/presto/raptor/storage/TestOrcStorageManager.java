@@ -327,7 +327,7 @@ public class TestOrcStorageManager
         // delete one row
         BitSet rowsToDelete = new BitSet();
         rowsToDelete.set(0);
-        Collection<Slice> fragments = manager.rewriteShard(transactionId, OptionalInt.empty(), shards.get(0).getShardUuid(), rowsToDelete);
+        Collection<Slice> fragments = manager.rewriteShard(transactionId, OptionalInt.empty(), shards.get(0).getShardUuid(), rowsToDelete, columnTypes);
 
         Slice shardDelta = Iterables.getOnlyElement(fragments);
         ShardDelta shardDeltas = jsonCodec(ShardDelta.class).fromJson(shardDelta.getBytes());
@@ -530,7 +530,7 @@ public class TestOrcStorageManager
             UUID uuid,
             TupleDomain<RaptorColumnHandle> tupleDomain)
     {
-        return manager.getPageSource(uuid, OptionalInt.empty(), columnIds, columnTypes, tupleDomain, READER_ATTRIBUTES);
+        return manager.getPageSource(uuid, OptionalInt.empty(), columnIds, columnTypes, tupleDomain, READER_ATTRIBUTES, columnTypes);
     }
 
     private static StoragePageSink createStoragePageSink(StorageManager manager, List<Long> columnIds, List<Type> columnTypes)

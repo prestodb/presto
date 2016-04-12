@@ -90,7 +90,8 @@ public final class ShardCompactor
             throws IOException
     {
         for (UUID uuid : uuids) {
-            try (ConnectorPageSource pageSource = storageManager.getPageSource(uuid, bucketNumber, columnIds, columnTypes, TupleDomain.all(), readerAttributes)) {
+            // TODO - use all column types
+            try (ConnectorPageSource pageSource = storageManager.getPageSource(uuid, bucketNumber, columnIds, columnTypes, TupleDomain.all(), readerAttributes, columnTypes)) {
                 while (!pageSource.isFinished()) {
                     Page page = pageSource.getNextPage();
                     if (isNullOrEmptyPage(page)) {
@@ -126,7 +127,8 @@ public final class ShardCompactor
         StoragePageSink outputPageSink = storageManager.createStoragePageSink(transactionId, bucketNumber, columnIds, columnTypes);
         try {
             for (UUID uuid : uuids) {
-                ConnectorPageSource pageSource = storageManager.getPageSource(uuid, bucketNumber, columnIds, columnTypes, TupleDomain.all(), readerAttributes);
+                // todo use all column types
+                ConnectorPageSource pageSource = storageManager.getPageSource(uuid, bucketNumber, columnIds, columnTypes, TupleDomain.all(), readerAttributes, columnTypes);
                 SortedRowSource rowSource = new SortedRowSource(pageSource, columnTypes, sortIndexes, sortOrders);
                 rowSources.add(rowSource);
             }
