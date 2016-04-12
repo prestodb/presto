@@ -28,6 +28,7 @@ import org.apache.hadoop.hive.ql.io.orc.OrcProto.RowIndexEntry;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -166,7 +167,8 @@ public class OrcMetadataReader
                 toIntegerStatistics(statistics.getIntStatistics()),
                 toDoubleStatistics(statistics.getDoubleStatistics()),
                 toStringStatistics(statistics.getStringStatistics(), isRowGroup),
-                toDateStatistics(statistics.getDateStatistics(), isRowGroup));
+                toDateStatistics(statistics.getDateStatistics(), isRowGroup),
+                toDecimalStatistics(statistics.getDecimalStatistics()));
     }
 
     private static List<ColumnStatistics> toColumnStatistics(List<OrcProto.ColumnStatistics> columnStatistics, final boolean isRowGroup)
@@ -253,6 +255,18 @@ public class OrcMetadataReader
         Slice maximum = stringStatistics.hasMaximum() ? getMaxSlice(stringStatistics.getMaximum()) : null;
 
         return new StringStatistics(minimum, maximum);
+    }
+
+    private static DecimalStatistics toDecimalStatistics(OrcProto.DecimalStatistics decimalStatistics)
+    {
+        if (!decimalStatistics.hasMinimum() && !decimalStatistics.hasMaximum()) {
+            return null;
+        }
+
+        BigDecimal minimum = decimalStatistics.hasMinimum() ? new BigDecimal(decimalStatistics.getMinimum()) : null;
+        BigDecimal maximum = decimalStatistics.hasMaximum() ? new BigDecimal(decimalStatistics.getMaximum()) : null;
+
+        return new DecimalStatistics(minimum, maximum);
     }
 
     @VisibleForTesting
