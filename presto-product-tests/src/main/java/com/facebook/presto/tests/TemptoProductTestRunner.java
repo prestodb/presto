@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.tests.utils.DockerUtils;
 import com.teradata.tempto.internal.configuration.TestConfigurationFactory;
 import com.teradata.tempto.runner.TemptoRunner;
 import com.teradata.tempto.runner.TemptoRunnerCommandLineParser;
@@ -22,8 +21,6 @@ public class TemptoProductTestRunner
 {
     public static void main(String[] args)
     {
-        DockerUtils.updateConfigurationWithDockerMachineHost();
-
         TemptoRunnerCommandLineParser parser = TemptoRunnerCommandLineParser
                 .builder("presto product tests")
                 .setTestsPackage("com.facebook.presto.tests.*", false)

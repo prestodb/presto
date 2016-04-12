@@ -1,0 +1,43 @@
+version: '2'
+services:
+  hadoop-master:
+    hostname: hadoop-master
+    image: 'teradatalabs/cdh5-hive:2.6.0-cdh5.6.0-sshd-4e54a19'
+    ports:
+      - '8020:8020'
+      - '8088:8088'
+      - '9083:9083'
+      - '10000:10000'
+      - '50070:50070'
+      - '50075:50075'
+
+  presto-master:
+    hostname: presto-master
+    image: 'teradatalabs/centos6-java8-oracle:jdk1.8.0_40-4e54a19'
+    depends_on:
+      - 'hadoop-master'
+    command: /docker/volumes/presto/presto-product-tests/conf/docker/files/presto-launcher-wrapper.sh multinode-master run
+    volumes:
+      - ../../../../:/docker/volumes/presto
+    env_file:
+      - ../../../target/classes/presto.env
+
+  presto-worker:
+    image: 'teradatalabs/centos6-java8-oracle:jdk1.8.0_40-4e54a19'
+    depends_on:
+      - 'presto-master'
+    command: /docker/volumes/presto/presto-product-tests/conf/docker/files/presto-launcher-wrapper.sh multinode-worker run
+    volumes_from:
+      - presto-master
+    env_file:
+      - ../../../target/classes/presto.env
+
+  application-runner:
+    hostname: application-runner
+    image: 'teradatalabs/centos6-java8-oracle:jdk1.8.0_40-4e54a19'
+    depends_on:
+      - 'presto-master'
+    volumes_from:
+      - presto-master
+    env_file:
+      - ../../../target/classes/presto.env

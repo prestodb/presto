@@ -12,7 +12,7 @@ databases:
     alias: presto
 
   hive:
-    host: ${HADOOP_MASTER}
+    host: hadoop-master
     jdbc_driver_class: org.apache.hive.jdbc.HiveDriver
     jdbc_url: jdbc:hive2://${databases.hive.host}:10000
     jdbc_user: hdfs
@@ -23,7 +23,7 @@ databases:
     table_manager_type: hive
 
   presto:
-    host: ${PRESTO_MASTER}
+    host: localhost
     server_address: ${databases.presto.host}:8080
     jdbc_driver_class: com.facebook.presto.jdbc.PrestoDriver
     jdbc_url: jdbc:presto://${databases.presto.server_address}/hive/${databases.hive.schema}
