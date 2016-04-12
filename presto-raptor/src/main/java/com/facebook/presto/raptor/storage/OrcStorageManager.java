@@ -22,7 +22,6 @@ import com.facebook.presto.orc.TupleDomainOrcPredicate;
 import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
 import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
-import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.RaptorConnectorId;
 import com.facebook.presto.raptor.backup.BackupManager;
@@ -38,10 +37,8 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -83,11 +80,6 @@ import static com.facebook.presto.raptor.RaptorColumnHandle.isShardUuidColumn;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_ERROR;
 import static com.facebook.presto.raptor.storage.ShardStats.computeColumnStats;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -196,7 +188,8 @@ public class OrcStorageManager
             List<Type> columnTypes,
             TupleDomain<RaptorColumnHandle> effectivePredicate,
             ReaderAttributes readerAttributes,
-            OptionalLong transactionId)
+            OptionalLong transactionId,
+            Map<Long, Type> allColumnsTypes)
     {
         OrcDataSource dataSource = openShard(shardUuid, readerAttributes);
 
@@ -235,7 +228,7 @@ public class OrcStorageManager
 
             Optional<ShardRewriter> shardRewriter = Optional.empty();
             if (transactionId.isPresent()) {
-                shardRewriter = Optional.of(createShardRewriter(transactionId.getAsLong(), bucketNumber, shardUuid));
+                shardRewriter = Optional.of(createShardRewriter(transactionId.getAsLong(), bucketNumber, shardUuid, allColumnsTypes));
             }
 
             return new OrcPageSource(shardRewriter, recordReader, dataSource, columnIds, columnTypes, columnIndexes.build(), shardUuid, systemMemoryUsage);
@@ -257,9 +250,9 @@ public class OrcStorageManager
         return new OrcStoragePageSink(transactionId, columnIds, columnTypes, bucketNumber);
     }
 
-    private ShardRewriter createShardRewriter(long transactionId, OptionalInt bucketNumber, UUID shardUuid)
+    private ShardRewriter createShardRewriter(long transactionId, OptionalInt bucketNumber, UUID shardUuid, Map<Long, Type> columnTypes)
     {
-        return rowsToDelete -> supplyAsync(() -> rewriteShard(transactionId, bucketNumber, shardUuid, rowsToDelete), deletionExecutor);
+        return rowsToDelete -> supplyAsync(() -> rewriteShard(transactionId, bucketNumber, shardUuid, rowsToDelete, columnTypes), deletionExecutor);
     }
 
     private void writeShard(UUID shardUuid)
@@ -322,18 +315,18 @@ public class OrcStorageManager
         return backupStore.isPresent() && backupStore.get().shardExists(shardUuid);
     }
 
-    private ShardInfo createShardInfo(UUID shardUuid, OptionalInt bucketNumber, File file, Set<String> nodes, long rowCount, long uncompressedSize)
+    private ShardInfo createShardInfo(UUID shardUuid, OptionalInt bucketNumber, File file, Set<String> nodes, long rowCount, long uncompressedSize, Map<Long, Type> columnTypes)
     {
-        return new ShardInfo(shardUuid, bucketNumber, nodes, computeShardStats(file), rowCount, file.length(), uncompressedSize);
+        return new ShardInfo(shardUuid, bucketNumber, nodes, computeShardStats(file, columnTypes), rowCount, file.length(), uncompressedSize);
     }
 
-    private List<ColumnStats> computeShardStats(File file)
+    private List<ColumnStats> computeShardStats(File file, Map<Long, Type> columnTypes)
     {
         try (OrcDataSource dataSource = fileOrcDataSource(defaultReaderAttributes, file)) {
             OrcReader reader = new OrcReader(dataSource, new OrcMetadataReader(), defaultReaderAttributes.getMaxMergeDistance(), defaultReaderAttributes.getMaxReadSize());
 
             ImmutableList.Builder<ColumnStats> list = ImmutableList.builder();
-            for (ColumnInfo info : getColumnInfo(reader)) {
+            for (ColumnInfo info : getColumnInfo(reader, columnTypes)) {
                 computeColumnStats(reader, info.getColumnId(), info.getType()).ifPresent(list::add);
             }
             return list.build();
@@ -344,7 +337,7 @@ public class OrcStorageManager
     }
 
     @VisibleForTesting
-    Collection<Slice> rewriteShard(long transactionId, OptionalInt bucketNumber, UUID shardUuid, BitSet rowsToDelete)
+    Collection<Slice> rewriteShard(long transactionId, OptionalInt bucketNumber, UUID shardUuid, BitSet rowsToDelete, Map<Long, Type> columnTypes)
     {
         if (rowsToDelete.isEmpty()) {
             return ImmutableList.of();
@@ -369,7 +362,7 @@ public class OrcStorageManager
         Set<String> nodes = ImmutableSet.of(nodeId);
         long uncompressedSize = info.getUncompressedSize();
 
-        ShardInfo shard = createShardInfo(newShardUuid, bucketNumber, output, nodes, rowCount, uncompressedSize);
+        ShardInfo shard = createShardInfo(newShardUuid, bucketNumber, output, nodes, rowCount, uncompressedSize, columnTypes);
 
         writeShard(newShardUuid);
 
@@ -393,53 +386,18 @@ public class OrcStorageManager
         }
     }
 
-    private List<ColumnInfo> getColumnInfo(OrcReader reader)
+    private List<ColumnInfo> getColumnInfo(OrcReader reader, Map<Long, Type> columnTypes)
     {
-        // TODO: These should be stored as proper metadata.
-        // XXX: Relying on ORC types will not work when more Presto types are supported.
-
         List<String> names = reader.getColumnNames();
-        Type rowType = getType(reader.getFooter().getTypes(), 0);
-        if (names.size() != rowType.getTypeParameters().size()) {
-            throw new PrestoException(RAPTOR_ERROR, "Column names and types do not match");
-        }
-
         ImmutableList.Builder<ColumnInfo> list = ImmutableList.builder();
         for (int i = 0; i < names.size(); i++) {
-            list.add(new ColumnInfo(Long.parseLong(names.get(i)), rowType.getTypeParameters().get(i)));
+            long columnId = Long.parseLong(names.get(i));
+            if (!columnTypes.containsKey(columnId)) {
+                throw new PrestoException(RAPTOR_ERROR, "Unknown type for columnId " + columnId);
+            }
+            list.add(new ColumnInfo(columnId, columnTypes.get(columnId)));
         }
         return list.build();
-    }
-
-    private Type getType(List<OrcType> types, int index)
-    {
-        OrcType type = types.get(index);
-        switch (type.getOrcTypeKind()) {
-            case BOOLEAN:
-                return BOOLEAN;
-            case LONG:
-                return BIGINT;
-            case DOUBLE:
-                return DOUBLE;
-            case STRING:
-                return VARCHAR;
-            case BINARY:
-                return VARBINARY;
-            case LIST:
-                TypeSignature elementType = getType(types, type.getFieldTypeIndex(0)).getTypeSignature();
-                return typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(elementType), ImmutableList.of());
-            case MAP:
-                TypeSignature keyType = getType(types, type.getFieldTypeIndex(0)).getTypeSignature();
-                TypeSignature valueType = getType(types, type.getFieldTypeIndex(1)).getTypeSignature();
-                return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(keyType, valueType), ImmutableList.of());
-            case STRUCT:
-                ImmutableList.Builder<TypeSignature> fieldTypes = ImmutableList.builder();
-                for (int i = 0; i < type.getFieldCount(); i++) {
-                    fieldTypes.add(getType(types, type.getFieldTypeIndex(i)).getTypeSignature());
-                }
-                return typeManager.getParameterizedType(StandardTypes.ROW, fieldTypes.build(), ImmutableList.copyOf(type.getFieldNames()));
-        }
-        throw new PrestoException(RAPTOR_ERROR, "Unhandled ORC type: " + type);
     }
 
     private static OrcPredicate getPredicate(TupleDomain<RaptorColumnHandle> effectivePredicate, Map<Long, Integer> indexMap)
@@ -463,12 +421,24 @@ public class OrcStorageManager
         return map.build();
     }
 
+    @VisibleForTesting
+    static Map<Long, Type> columnTypesMap(List<Long> columnIds, List<Type> columnTypes)
+    {
+        checkArgument(columnTypes.size() == columnIds.size(), "size of columnTypes does not match size of columnIds; %d != %d", columnTypes.size(), columnIds.size());
+        ImmutableMap.Builder<Long, Type> map = ImmutableMap.builder();
+        for (int i = 0; i < columnIds.size(); i++) {
+            map.put(Long.valueOf(columnIds.get(i)), columnTypes.get(i));
+        }
+        return map.build();
+    }
+
     private class OrcStoragePageSink
             implements StoragePageSink
     {
         private final long transactionId;
         private final List<Long> columnIds;
         private final List<Type> columnTypes;
+        private final Map<Long, Type> columnTypesMap;
         private final OptionalInt bucketNumber;
 
         private final List<File> stagingFiles = new ArrayList<>();
@@ -484,6 +454,7 @@ public class OrcStorageManager
             this.transactionId = transactionId;
             this.columnIds = ImmutableList.copyOf(requireNonNull(columnIds, "columnIds is null"));
             this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
+            this.columnTypesMap = columnTypesMap(columnIds, columnTypes);
             this.bucketNumber = requireNonNull(bucketNumber, "bucketNumber is null");
         }
 
@@ -532,7 +503,7 @@ public class OrcStorageManager
                 long rowCount = writer.getRowCount();
                 long uncompressedSize = writer.getUncompressedSize();
 
-                shards.add(createShardInfo(shardUuid, bucketNumber, stagingFile, nodes, rowCount, uncompressedSize));
+                shards.add(createShardInfo(shardUuid, bucketNumber, stagingFile, nodes, rowCount, uncompressedSize, columnTypesMap));
 
                 writer = null;
                 shardUuid = null;

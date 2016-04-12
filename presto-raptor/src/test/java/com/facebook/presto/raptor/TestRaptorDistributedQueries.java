@@ -145,4 +145,28 @@ public class TestRaptorDistributedQueries
 
         assertUpdate("DROP TABLE orders_bucketed");
     }
+
+    @Test
+    public void testInsertDeleteAndAlterSchemaCombination()
+            throws Exception
+    {
+        assertUpdate("CREATE TABLE test_complex(a BIGINT, b BIGINT, c BIGINT)");
+        assertUpdate("INSERT INTO test_complex VALUES (1, 2, 3), (11, 12, 13), (21, 22, 23)", "VALUES(3)");
+        assertQuery("SELECT * FROM test_complex", "VALUES (1, 2, 3), (11, 12, 13), (21, 22, 23)");
+        assertUpdate("ALTER TABLE test_complex ADD COLUMN d BIGINT");
+        assertQuery("SELECT * FROM test_complex", "VALUES (1, 2, 3, NULL), (11, 12, 13, NULL), (21, 22, 23, NULL)");
+        assertUpdate("DELETE FROM test_complex WHERE a = 21", "VALUES(1)");
+        assertQuery("SELECT * FROM test_complex", "VALUES (1, 2, 3, NULL), (11, 12, 13, NULL)");
+        assertUpdate("DROP TABLE test_complex");
+    }
+
+    @Test
+    public void testInsertSelectDecimal()
+            throws Exception
+    {
+        assertUpdate("CREATE TABLE test_decimal(short_decimal DECIMAL(5,2), long_decimal DECIMAL(25,20))");
+        assertUpdate("INSERT INTO test_decimal VALUES(DECIMAL '123.45', DECIMAL '12345.12345678901234567890')", "VALUES(1)");
+        assertQuery("SELECT * FROM test_decimal", "VALUES (123.45, 12345.12345678901234567890)");
+        assertUpdate("DROP TABLE test_decimal");
+    }
 }

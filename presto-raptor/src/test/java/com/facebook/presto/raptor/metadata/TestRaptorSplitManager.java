@@ -88,14 +88,16 @@ public class TestRaptorSplitManager
     private RaptorSplitManager raptorSplitManager;
     private ConnectorTableHandle tableHandle;
     private ShardManager shardManager;
+    private MetadataDao metadataDao;
     private long tableId;
+    private DBI dbi;
 
     @BeforeMethod
     public void setup()
             throws Exception
     {
         TypeRegistry typeRegistry = new TypeRegistry();
-        DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dbi.registerMapper(new TableColumn.Mapper(typeRegistry));
         dummyHandle = dbi.open();
         temporary = createTempDir();
@@ -130,7 +132,7 @@ public class TestRaptorSplitManager
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty());
 
-        raptorSplitManager = new RaptorSplitManager(connectorId, nodeSupplier, shardManager, false);
+        raptorSplitManager = new RaptorSplitManager(connectorId, nodeSupplier, shardManager, false, dbi);
     }
 
     @AfterMethod
@@ -177,7 +179,7 @@ public class TestRaptorSplitManager
         NodeSupplier nodeSupplier = new RaptorNodeSupplier(nodeManager, connectorId);
         PrestoNode node = new PrestoNode(UUID.randomUUID().toString(), new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN);
         nodeManager.addNode(connectorId.toString(), node);
-        RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(connectorId, nodeSupplier, shardManager, true);
+        RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(connectorId, nodeSupplier, shardManager, true, dbi);
 
         deleteShardNodes();
 
@@ -193,7 +195,7 @@ public class TestRaptorSplitManager
     {
         deleteShardNodes();
 
-        RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new RaptorConnectorId("fbraptor"), ImmutableSet::of, shardManager, true);
+        RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new RaptorConnectorId("fbraptor"), ImmutableSet::of, shardManager, true, dbi);
         ConnectorTableLayoutResult layout = getOnlyElement(metadata.getTableLayouts(SESSION, tableHandle, Constraint.alwaysTrue(), Optional.empty()));
         ConnectorSplitSource splitSource = getSplits(raptorSplitManagerWithBackup, layout);
         getFutureValue(splitSource.getNextBatch(1000), PrestoException.class);
