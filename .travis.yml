@@ -38,7 +38,7 @@ script:
     fi
   - |
     if [ -v RUN_PRODUCT_TESTS ]; then
-      presto-product-tests/etc/singlenode/run_on_travis.sh -x quarantine,big_query
+      presto-product-tests/bin/run_on_docker.sh singlenode -x quarantine,big_query
     fi
   - |
     if [ -v INTEGRATION_TESTS ]; then
