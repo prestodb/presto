@@ -29,6 +29,7 @@ import io.airlift.units.Duration;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.Closeable;
+import java.io.InterruptedIOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URLDecoder;
@@ -265,13 +266,8 @@ public class StatementClient
                     MILLISECONDS.sleep(attempts * 100);
                 }
                 catch (InterruptedException e) {
-                    try {
-                        close();
-                    }
-                    finally {
-                        Thread.currentThread().interrupt();
-                    }
-                    throw new RuntimeException("StatementClient thread was interrupted");
+                    handleInterrupt();
+                    throw new RuntimeException("StatementClient thread is interrupted");
                 }
             }
             attempts++;
@@ -281,6 +277,10 @@ public class StatementClient
                 response = httpClient.execute(request, responseHandler);
             }
             catch (RuntimeException e) {
+                if (e.getCause() instanceof InterruptedException
+                        || e.getCause() instanceof InterruptedIOException) {
+                    handleInterrupt();
+                }
                 cause = e;
                 continue;
             }
@@ -298,6 +298,16 @@ public class StatementClient
 
         gone.set(true);
         throw new RuntimeException("Error fetching next", cause);
+    }
+
+    private void handleInterrupt()
+    {
+        try {
+            close();
+        }
+        finally {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private void processResponse(JsonResponse<QueryResults> response)
@@ -381,7 +391,7 @@ public class StatementClient
             URI uri = currentResults.get().getNextUri();
             if (uri != null) {
                 Request request = prepareRequest(prepareDelete(), uri).build();
-                httpClient.executeAsync(request, createStatusResponseHandler());
+                httpClient.execute(request, createStatusResponseHandler());
             }
         }
     }
