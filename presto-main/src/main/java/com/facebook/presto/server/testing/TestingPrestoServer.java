@@ -172,8 +172,8 @@ public class TestingPrestoServer
                 .put("task.default-concurrency", "4")
                 .put("task.max-worker-threads", "4")
                 .put("exchange.client-threads", "4")
-                .put("scheduler.http-client.http2.enabled", "true")
-                .put("exchange.http-client.http2.enabled", "true")
+                .put("scheduler.http-client.http2.enabled", "false")
+                .put("exchange.http-client.http2.enabled", "false")
                 .put("analyzer.experimental-syntax-enabled", "true");
 
         if (!properties.containsKey("query.max-memory-per-node")) {
