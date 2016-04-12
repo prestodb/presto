@@ -198,19 +198,12 @@ public class ClientTypeSignature
     @Deprecated
     private String rowToString()
     {
-        String types = arguments.stream()
+        String fields = arguments.stream()
                 .map(ClientTypeSignatureParameter::getNamedTypeSignature)
-                .map(NamedTypeSignature::getTypeSignature)
-                .map(TypeSignature::toString)
+                .map(parameter -> format("%s %s", parameter.getName(), parameter.getTypeSignature().toString()))
                 .collect(Collectors.joining(","));
 
-        String fieldNames = arguments.stream()
-                .map(ClientTypeSignatureParameter::getNamedTypeSignature)
-                .map(NamedTypeSignature::getName)
-                .map(name -> format("'%s'", name))
-                .collect(Collectors.joining(","));
-
-        return format("row<%s>(%s)", types, fieldNames);
+        return format("row(%s)", fields);
     }
 
     @Override

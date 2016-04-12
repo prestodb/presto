@@ -323,6 +323,18 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testRowCast()
+            throws Exception
+    {
+        assertQuery("SELECT cast(test_row(1, 2) as row(aa bigint, bb boolean)).aa", "SELECT 1");
+        assertQuery("SELECT cast(test_row(1, 2) as row(aa bigint, bb boolean)).bb", "SELECT true");
+        assertQuery("SELECT cast(test_row(1, 2) as row(aa bigint, bb varchar)).bb", "SELECT '2'");
+        assertQuery("SELECT cast(test_row(true, array[0, 2]) as row(aa boolean, bb array(boolean))).bb[1]", "SELECT false");
+        assertQuery("SELECT cast(test_row(0.1, array[0, 2], test_row(1, 0.5)) as row(aa bigint, bb array(boolean), cc row(dd varchar, ee varchar))).cc.ee", "SELECT '0.5'");
+        assertQuery("SELECT cast(array[test_row(0.1, array[0, 2], test_row(1, 0.5))] as array<row(aa bigint, bb array(boolean), cc row(dd varchar, ee varchar))>)[1].cc.ee", "SELECT '0.5'");
+    }
+
+    @Test
     public void testDereferenceInSubquery()
             throws Exception
     {

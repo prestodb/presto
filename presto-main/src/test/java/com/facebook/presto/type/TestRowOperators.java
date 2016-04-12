@@ -24,13 +24,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
+
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.JsonType.JSON;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -46,8 +50,8 @@ public class TestRowOperators
     public void testRowTypeLookup()
             throws Exception
     {
-        functionAssertions.getMetadata().getType(parseTypeSignature("row<bigint>('a')"));
-        Type type = functionAssertions.getMetadata().getType(parseTypeSignature("row<bigint>('b')"));
+        functionAssertions.getMetadata().getType(parseTypeSignature("row(a bigint)"));
+        Type type = functionAssertions.getMetadata().getType(parseTypeSignature("row(b bigint)"));
         assertEquals(type.getTypeSignature().getParameters().size(), 1);
         assertEquals(type.getTypeSignature().getParameters().get(0).getNamedTypeSignature().getName(), "b");
     }
@@ -92,6 +96,27 @@ public class TestRowOperators
     }
 
     @Test
+    public void testRowCast()
+    {
+        assertFunction("cast(test_row(2, 3) as row(aa bigint, bb bigint)).aa", BIGINT, 2L);
+        assertFunction("cast(test_row(2, 3) as row(aa bigint, bb bigint)).bb", BIGINT, 3L);
+        assertFunction("cast(test_row(2, 3) as row(aa bigint, bb boolean)).bb", BOOLEAN, true);
+        assertFunction("cast(test_row(2, cast(null as double)) as row(aa bigint, bb double)).bb", DOUBLE, null);
+        assertFunction("cast(test_row(2, 'test_str') as row(aa bigint, bb varchar)).bb", VARCHAR, "test_str");
+
+        // there are totally 7 field names
+        String longFieldNameCast = "CAST(test_row(1.2, ARRAY[test_row(233, 6.9)], test_row(1000, 6.3)) AS ROW(%s VARCHAR, %s ARRAY(ROW(%s VARCHAR, %s VARCHAR)), %s ROW(%s VARCHAR, %s VARCHAR))).%s[1].%s";
+        int fieldCount = 7;
+        char[] chars = new char[9333];
+        String[] fields = new String[fieldCount];
+        for (int i = 0; i < fieldCount; i++) {
+            Arrays.fill(chars, (char) ('a' + i));
+            fields[i] = new String(chars);
+        }
+        assertFunction(format(longFieldNameCast, fields[0], fields[1], fields[2], fields[3], fields[4], fields[5], fields[6], fields[1], fields[2]), VARCHAR, "233");
+    }
+
+    @Test
     public void testRowEquality()
             throws Exception
     {
@@ -120,7 +145,7 @@ public class TestRowOperators
             fail("hyperloglog is not comparable");
         }
         catch (SemanticException e) {
-            if (!e.getMessage().matches("\\Qline 1:55: '=' cannot be applied to row<HyperLogLog>('col0'), row<HyperLogLog>('col0')\\E")) {
+            if (!e.getMessage().matches("\\Qline 1:55: '=' cannot be applied to row(col0 HyperLogLog), row(col0 HyperLogLog)\\E")) {
                 throw e;
             }
             //Expected
