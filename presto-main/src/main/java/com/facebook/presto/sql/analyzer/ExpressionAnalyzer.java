@@ -579,6 +579,11 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitLongLiteral(LongLiteral node, StackableAstVisitorContext<AnalysisContext> context)
         {
+            if (node.getValue() > Integer.MIN_VALUE && node.getValue() < Integer.MAX_VALUE) {
+                expressionTypes.put(node, INTEGER);
+                return INTEGER;
+            }
+
             expressionTypes.put(node, BIGINT);
             return BIGINT;
         }
