@@ -29,6 +29,7 @@ import org.apache.hadoop.hive.ql.io.orc.OrcProto.RowIndexEntry;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.CompressionKind.UNCOMPRESSED;
@@ -324,7 +325,13 @@ public class OrcMetadataReader
 
     private static OrcType toType(OrcProto.Type type)
     {
-        return new OrcType(toTypeKind(type.getKind()), type.getSubtypesList(), type.getFieldNamesList());
+        Optional<Integer> precision = Optional.empty();
+        Optional<Integer> scale = Optional.empty();
+        if (type.getKind() == OrcProto.Type.Kind.DECIMAL) {
+            precision = Optional.of(type.getPrecision());
+            scale = Optional.of(type.getScale());
+        }
+        return new OrcType(toTypeKind(type.getKind()), type.getSubtypesList(), type.getFieldNamesList(), precision, scale);
     }
 
     private static List<OrcType> toType(List<OrcProto.Type> types)
