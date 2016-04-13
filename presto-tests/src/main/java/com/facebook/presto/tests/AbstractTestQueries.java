@@ -1198,6 +1198,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testJoinCoercionOnEqualityComparison()
+            throws Exception
+    {
+        assertQuery("SELECT o.clerk, avg(o.shippriority), COUNT(l.linenumber) FROM orders o LEFT OUTER JOIN lineitem l ON o.orderkey=l.orderkey AND o.shippriority=1 GROUP BY o.clerk");
+    }
+
+    @Test
     public void testGroupByNoAggregations()
             throws Exception
     {
