@@ -27,6 +27,7 @@ import io.airlift.slice.Slice;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.CompressionKind.UNCOMPRESSED;
@@ -226,7 +227,7 @@ public class DwrfMetadataReader
 
     private static OrcType toType(OrcProto.Type type)
     {
-        return new OrcType(toTypeKind(type.getKind()), type.getSubtypesList(), type.getFieldNamesList());
+        return new OrcType(toTypeKind(type.getKind()), type.getSubtypesList(), type.getFieldNamesList(), Optional.empty(), Optional.empty());
     }
 
     private static List<OrcType> toType(List<OrcProto.Type> types)
