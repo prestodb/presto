@@ -119,7 +119,7 @@ row counts for the ``customer`` table using the input column ``mktsegment``::
     (5 rows)
 
 When a ``GROUP BY`` clause is used in a ``SELECT`` statement all output
-expression must be either aggregate functions or columns present in
+expressions must be either aggregate functions or columns present in
 the ``GROUP BY`` clause.
 
 .. _complex_grouping_operations:
@@ -127,7 +127,7 @@ the ``GROUP BY`` clause.
 **Complex Grouping Operations**
 
 Presto also supports complex aggregations using the ``GROUPING SETS``, ``CUBE``
-and ``ROLLUP`` syntax. This syntax allows users to perform analysis that require
+and ``ROLLUP`` syntax. This syntax allows users to perform analysis that requires
 aggregation on multiple sets of columns in a single query. Complex grouping
 operations do not support grouping on expressions composed of input columns.
 Only column names or ordinals are allowed.
@@ -209,7 +209,7 @@ source is not deterministic.
 The ``CUBE`` operator generates all possible grouping sets (i.e. a power set)
 for a given set of columns. For example, the query::
 
-    SELECT origin_state, origin_zip, destination_state, sum(package_weight)
+    SELECT origin_state, destination_state, sum(package_weight)
     FROM shipping
     GROUP BY CUBE (origin_state, destination_state);
 
@@ -266,7 +266,7 @@ columns. For example, the query::
 
 is equivalent to::
 
-    SELECT origin_state, destination_state, sum(package_weight)
+    SELECT origin_state, origin_zip, sum(package_weight)
     FROM shipping
     GROUP BY GROUPING SETS ((origin_state, origin_zip), (origin_state), ());
 
