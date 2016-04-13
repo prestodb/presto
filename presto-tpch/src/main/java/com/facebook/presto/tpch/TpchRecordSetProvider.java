@@ -29,7 +29,7 @@ import java.util.List;
 
 import static com.facebook.presto.tpch.TpchRecordSet.createTpchRecordSet;
 import static com.facebook.presto.tpch.Types.checkType;
-import static io.airlift.tpch.TpchColumnType.IDENTIFIER;
+import static io.airlift.tpch.TpchColumnTypes.IDENTIFIER;
 
 public class TpchRecordSetProvider
         implements ConnectorRecordSetProvider

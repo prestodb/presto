@@ -37,6 +37,7 @@ import io.airlift.tpch.LineItem;
 import io.airlift.tpch.LineItemColumn;
 import io.airlift.tpch.LineItemGenerator;
 import io.airlift.tpch.TpchColumnType;
+import io.airlift.tpch.TpchColumnTypes;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
@@ -135,7 +136,7 @@ public class TestHivePageSink
             for (int i = 0; i < columns.size(); i++) {
                 LineItemColumn column = columns.get(i);
                 BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
-                switch (column.getType()) {
+                switch (column.getType().getBase()) {
                     case IDENTIFIER:
                         BIGINT.writeLong(blockBuilder, column.getIdentifier(lineItem));
                         break;
@@ -234,13 +235,13 @@ public class TestHivePageSink
     {
         return Stream.of(LineItemColumn.values())
                 // Not all the formats support DATE
-                .filter(column -> column.getType() != TpchColumnType.DATE)
+                .filter(column -> !column.getType().equals(TpchColumnTypes.DATE))
                 .collect(toList());
     }
 
     private static HiveType getHiveType(TpchColumnType type)
     {
-        switch (type) {
+        switch (type.getBase()) {
             case IDENTIFIER:
                 return HIVE_LONG;
             case INTEGER:
