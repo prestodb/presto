@@ -48,8 +48,8 @@ public class TestHiddenColumns
     {
         MaterializedResult expected = MaterializedResult.resultBuilder(TEST_SESSION, VARCHAR, VARCHAR, VARCHAR)
                 .row("regionkey", "bigint", "")
-                .row("name", "varchar", "")
-                .row("comment", "varchar", "")
+                .row("name", "varchar(25)", "")
+                .row("comment", "varchar(152)", "")
                 .build();
         assertEquals(runner.execute("DESC REGION"), expected);
     }

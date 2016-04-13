@@ -140,7 +140,7 @@ public class HiveFileFormatBenchmark
                 LineItemColumn column = columns.get(i);
                 BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
                 BlockBuilder noDateBlockBuilder = noDatePageBuilder.getBlockBuilder(i);
-                switch (column.getType()) {
+                switch (column.getType().getBase()) {
                     case IDENTIFIER:
                         BigintType.BIGINT.writeLong(blockBuilder, column.getIdentifier(lineItem));
                         BigintType.BIGINT.writeLong(noDateBlockBuilder, column.getIdentifier(lineItem));
@@ -234,7 +234,7 @@ public class HiveFileFormatBenchmark
 
     private static Type getColumnType(TpchColumn<?> input)
     {
-        switch (input.getType()) {
+        switch (input.getType().getBase()) {
             case IDENTIFIER:
                 return BigintType.BIGINT;
             case INTEGER:

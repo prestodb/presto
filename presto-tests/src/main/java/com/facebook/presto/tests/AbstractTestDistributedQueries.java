@@ -524,7 +524,7 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("DROP TABLE test_delete");
 
         // test EXPLAIN ANALYZE with CTAS
-        assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE analyze_test AS SELECT orderstatus FROM orders");
+        assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE analyze_test AS SELECT CAST(orderstatus AS VARCHAR(15)) orderstatus FROM orders");
         assertQuery("SELECT * from analyze_test", "SELECT orderstatus FROM orders");
         // check that INSERT works also
         assertExplainAnalyze("EXPLAIN ANALYZE INSERT INTO analyze_test SELECT clerk FROM orders");

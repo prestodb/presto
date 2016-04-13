@@ -57,7 +57,7 @@ import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_Z
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.facebook.presto.tpch.TpchRecordSet.createTpchRecordSet;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
@@ -204,7 +204,7 @@ public class H2QueryRunner
                             row.add(doubleValue);
                         }
                     }
-                    else if (type instanceof VarcharType) {
+                    else if (isVarcharType(type)) {
                         String stringValue = resultSet.getString(i);
                         if (resultSet.wasNull()) {
                             row.add(null);
@@ -296,7 +296,7 @@ public class H2QueryRunner
                     else if (DOUBLE.equals(type)) {
                         part.bind(column, cursor.getDouble(column));
                     }
-                    else if (VARCHAR.equals(type)) {
+                    else if (type instanceof VarcharType) {
                         part.bind(column, cursor.getSlice(column).toStringUtf8());
                     }
                     else if (DATE.equals(type)) {
