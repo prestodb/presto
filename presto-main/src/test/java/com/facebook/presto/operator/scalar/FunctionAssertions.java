@@ -65,9 +65,9 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingTransactionHandle;
+import com.facebook.presto.type.ArrayType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -97,6 +97,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -108,6 +109,7 @@ import static com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressi
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.facebook.presto.type.TypeRegistry.isTypeOnlyCoercion;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.util.Objects.requireNonNull;
@@ -211,15 +213,50 @@ public final class FunctionAssertions
         return this;
     }
 
+    public void assertTypedResultEquals(TypedResult actualResult, Object expectedResult, Type expectedType)
+    {
+        assertTypedResultEquals(actualResult, expectedResult, expectedType, "");
+    }
+
+    public void assertTypedResultEquals(TypedResult actualResult, Object expectedResult, Type expectedType, String message)
+    {
+        if (actualResult.getType() instanceof ArrayType && expectedType instanceof ArrayType
+                && actualResult.getResult() instanceof List && expectedResult instanceof List &&
+                ((List) actualResult.getResult()).size() == ((List) expectedResult).size()) {
+
+            List actualResultList = (List) actualResult.getResult();
+            List expectedResultList = (List) expectedResult;
+            Type actualElementType = ((ArrayType) actualResult.getType()).getElementType();
+            Type expectedElementType = ((ArrayType) expectedType).getElementType();
+
+            for (int i = 0; i < actualResultList.size(); i++) {
+                assertTypedResultEquals(new TypedResult(actualElementType, actualResultList.get(i)), expectedResultList.get(i), expectedElementType);
+            }
+
+            return;
+        }
+
+        if ((actualResult.getResult() instanceof Integer ^ expectedResult instanceof Integer) || (actualResult.getType() == BIGINT ^ expectedType == BIGINT)) {
+            if (actualResult.getResult() == null && expectedResult == null) {
+                return;
+            }
+
+            assertEquals(((Number) actualResult.getResult()).intValue(), ((Number) expectedResult).intValue(), message);
+            return;
+        }
+
+        assertEquals(actualResult.getResult(), expectedResult, message);
+    }
+
     public void assertFunction(String projection, Type expectedType, Object expected)
     {
         if (expected instanceof Slice) {
             expected = ((Slice) expected).toStringUtf8();
         }
 
-        Object actual = selectSingleValue(projection, expectedType, compiler);
+        TypedResult actual = selectSingleValue(projection, expectedType, compiler);
         try {
-            assertEquals(actual, expected);
+            assertTypedResultEquals(actual, expected, expectedType);
         }
         catch (Throwable e) {
             throw e;
@@ -241,72 +278,67 @@ public final class FunctionAssertions
         executeProjectionWithAll(expression, expectedType, session, compiler);
     }
 
-    private Object selectSingleValue(String projection, Type expectedType, ExpressionCompiler compiler)
+    private TypedResult selectSingleValue(String projection, Type expectedType, ExpressionCompiler compiler)
     {
         return selectUniqueValue(projection, expectedType, session, compiler);
     }
 
-    private Object selectUniqueValue(String projection, Type expectedType, Session session, ExpressionCompiler compiler)
+    private TypedResult selectUniqueValue(String projection, Type expectedType, Session session, ExpressionCompiler compiler)
     {
-        List<Object> results = executeProjectionWithAll(projection, expectedType, session, compiler);
-        HashSet<Object> resultSet = new HashSet<>(results);
+        List<TypedResult> results = executeProjectionWithAll(projection, expectedType, session, compiler);
 
-        // we should only have a single result
-        assertTrue(resultSet.size() == 1, "Expected only one result unique result, but got " + resultSet);
+        for (int i = 1; i < results.size(); i++) {
+            assertTypedResultEquals(results.get(i - 1), results.get(i).getResult(), expectedType, "Expected only one unique result, but got " + results);
+        }
 
-        return Iterables.getOnlyElement(resultSet);
+        return new TypedResult(expectedType, results.get(0).getResult());
     }
 
-    private List<Object> executeProjectionWithAll(String projection, Type expectedType, Session session, ExpressionCompiler compiler)
+    private List<TypedResult> executeProjectionWithAll(String projection, Type expectedType, Session session, ExpressionCompiler compiler)
     {
         requireNonNull(projection, "projection is null");
 
         Expression projectionExpression = createExpression(projection, metadata, SYMBOL_TYPES);
 
-        List<Object> results = new ArrayList<>();
+        List<TypedResult> results = new ArrayList<>();
 
         //
         // If the projection does not need bound values, execute query using full engine
         if (!needsBoundValue(projectionExpression)) {
             MaterializedResult result = runner.execute("SELECT " + projection);
-            assertType(result.getTypes(), expectedType);
             assertEquals(result.getTypes().size(), 1);
             assertEquals(result.getMaterializedRows().size(), 1);
-            Object queryResult = Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
-            results.add(queryResult);
+            Object queryResult = getOnlyElement(result.getMaterializedRows()).getField(0);
+            results.add(new TypedResult(getOnlyElement(result.getTypes()), queryResult));
         }
 
         // execute as standalone operator
         OperatorFactory operatorFactory = compileFilterProject(TRUE_LITERAL, projectionExpression, compiler);
-        assertType(operatorFactory.getTypes(), expectedType);
         Object directOperatorValue = selectSingleValue(operatorFactory, session);
-        results.add(directOperatorValue);
+        results.add(new TypedResult(getOnlyElement(operatorFactory.getTypes()), directOperatorValue));
 
         // interpret
         Operator interpretedFilterProject = interpretedFilterProject(TRUE_LITERAL, projectionExpression, session);
-        assertType(interpretedFilterProject.getTypes(), expectedType);
         Object interpretedValue = selectSingleValue(interpretedFilterProject);
-        results.add(interpretedValue);
+        results.add(new TypedResult(getOnlyElement(interpretedFilterProject.getTypes()), interpretedValue));
 
         // execute over normal operator
         SourceOperatorFactory scanProjectOperatorFactory = compileScanFilterProject(TRUE_LITERAL, projectionExpression, compiler);
-        assertType(scanProjectOperatorFactory.getTypes(), expectedType);
         Object scanOperatorValue = selectSingleValue(scanProjectOperatorFactory, createNormalSplit(), session);
-        results.add(scanOperatorValue);
+        results.add(new TypedResult(getOnlyElement(scanProjectOperatorFactory.getTypes()), scanOperatorValue));
 
         // execute over record set
         Object recordValue = selectSingleValue(scanProjectOperatorFactory, createRecordSetSplit(), session);
-        results.add(recordValue);
+        results.add(new TypedResult(getOnlyElement(scanProjectOperatorFactory.getTypes()), recordValue));
 
         //
         // If the projection does not need bound values, execute query using full engine
         if (!needsBoundValue(projectionExpression)) {
             MaterializedResult result = runner.execute("SELECT " + projection);
-            assertType(result.getTypes(), expectedType);
             assertEquals(result.getTypes().size(), 1);
             assertEquals(result.getMaterializedRows().size(), 1);
-            Object queryResult = Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
-            results.add(queryResult);
+            Object queryResult = getOnlyElement(result.getMaterializedRows()).getField(0);
+            results.add(new TypedResult(getOnlyElement(result.getTypes()), queryResult));
         }
 
         return results;
@@ -354,7 +386,7 @@ public final class FunctionAssertions
         // we should only have a single result
         assertTrue(resultSet.size() == 1, "Expected only [" + expected + "] result unique result, but got " + resultSet);
 
-        assertEquals((boolean) Iterables.getOnlyElement(resultSet), expected);
+        assertEquals((boolean) getOnlyElement(resultSet), expected);
     }
 
     private List<Boolean> executeFilterWithAll(String filter, Session session, boolean executeWithNoInputColumns, ExpressionCompiler compiler)
@@ -400,7 +432,7 @@ public final class FunctionAssertions
             }
             else {
                 assertEquals(result.getMaterializedRows().size(), 1);
-                queryResult = (Boolean) Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
+                queryResult = (Boolean) getOnlyElement(result.getMaterializedRows()).getField(0);
             }
             results.add(queryResult);
         }
@@ -673,7 +705,68 @@ public final class FunctionAssertions
     {
         assertTrue(types.size() == 1, "Expected one type, but got " + types);
         Type actualType = types.get(0);
+        assertTypeEquals(actualType, expectedType);
+    }
+
+    private static void assertTypeEquals(Type actualType, Type expectedType)
+    {
+        if (actualType.getTypeParameters().size() > 0 && actualType.getTypeParameters().size() == expectedType.getTypeParameters().size()) {
+            for (int i = 0; i < actualType.getTypeParameters().size(); i++) {
+                assertTypeEquals(actualType.getTypeParameters().get(i), expectedType.getTypeParameters().get(i));
+            }
+            return;
+        }
+
+        // Check for automatically narrowed integral types
+        if (expectedType.equals(BIGINT) && actualType.equals(INTEGER)) {
+            return;
+        }
+
         assertEquals(actualType, expectedType);
+    }
+
+    private static class TypedResult
+    {
+        private final Type type;
+        private final Object result;
+
+        public TypedResult(Type type, Object result)
+        {
+            this.type = type;
+            this.result = result;
+        }
+
+        public Type getType()
+        {
+            return type;
+        }
+
+        public Object getResult()
+        {
+            return result;
+        }
+    }
+
+    private static class TypedResults
+    {
+        private final Type type;
+        private final List<Object> results;
+
+        public TypedResults(Type type, List<Object> results)
+        {
+            this.type = type;
+            this.results = results;
+        }
+
+        public Type getType()
+        {
+            return type;
+        }
+
+        public List<Object> getResults()
+        {
+            return results;
+        }
     }
 
     private static class TestPageSourceProvider
