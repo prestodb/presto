@@ -52,7 +52,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.tpch.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
@@ -277,7 +277,7 @@ public class TpchMetadata
 
     public static Type getPrestoType(TpchColumnType tpchType)
     {
-        switch (tpchType) {
+        switch (tpchType.getBase()) {
             case IDENTIFIER:
                 return BigintType.BIGINT;
             case INTEGER:
@@ -287,7 +287,7 @@ public class TpchMetadata
             case DOUBLE:
                 return DoubleType.DOUBLE;
             case VARCHAR:
-                return createUnboundedVarcharType();
+                return createVarcharType((int) (long) tpchType.getPrecision().get());
         }
         throw new IllegalArgumentException("Unsupported type " + tpchType);
     }
