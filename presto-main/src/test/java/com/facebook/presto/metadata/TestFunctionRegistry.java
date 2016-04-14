@@ -61,7 +61,7 @@ public class TestFunctionRegistry
         boolean foundOperator = false;
         for (SqlFunction function : registry.listOperators()) {
             OperatorType operatorType = unmangleOperator(function.getSignature().getName());
-            if (operatorType == OperatorType.CAST) {
+            if (operatorType == OperatorType.CAST || operatorType == OperatorType.SATURATED_FLOOR_CAST) {
                 continue;
             }
             if (!function.getSignature().getTypeVariableConstraints().isEmpty()) {
