@@ -31,6 +31,7 @@ public class TestFeaturesConfig
     {
         assertRecordedDefaults(ConfigAssertions.recordDefaults(FeaturesConfig.class)
                 .setExperimentalSyntaxEnabled(false)
+                .setResourceGroupsEnabled(false)
                 .setDistributedIndexJoinsEnabled(false)
                 .setDistributedJoinsEnabled(true)
                 .setRedistributeWrites(true)
@@ -49,6 +50,7 @@ public class TestFeaturesConfig
     {
         Map<String, String> propertiesLegacy = new ImmutableMap.Builder<String, String>()
                 .put("analyzer.experimental-syntax-enabled", "true")
+                .put("experimental.resource-groups-enabled", "true")
                 .put("distributed-index-joins-enabled", "true")
                 .put("distributed-joins-enabled", "false")
                 .put("redistribute-writes", "false")
@@ -63,6 +65,7 @@ public class TestFeaturesConfig
                 .build();
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("experimental-syntax-enabled", "true")
+                .put("experimental.resource-groups-enabled", "true")
                 .put("distributed-index-joins-enabled", "true")
                 .put("distributed-joins-enabled", "false")
                 .put("redistribute-writes", "false")
@@ -78,6 +81,7 @@ public class TestFeaturesConfig
 
         FeaturesConfig expected = new FeaturesConfig()
                 .setExperimentalSyntaxEnabled(true)
+                .setResourceGroupsEnabled(true)
                 .setDistributedIndexJoinsEnabled(true)
                 .setDistributedJoinsEnabled(false)
                 .setRedistributeWrites(false)

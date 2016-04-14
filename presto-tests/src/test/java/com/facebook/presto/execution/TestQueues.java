@@ -37,9 +37,25 @@ public class TestQueues
     public void testSqlQueryQueueManager()
             throws Exception
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("query.queue-config-file", getResourceFilePath("queue_config_dashboard.json"))
-                .build();
+        testBasic(false);
+    }
+
+    @Test(timeOut = 240_000)
+    public void testResourceGroupManager()
+            throws Exception
+    {
+        testBasic(true);
+    }
+
+    private void testBasic(boolean resourceGroups)
+            throws Exception
+    {
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+        builder.put("query.queue-config-file", getResourceFilePath("queue_config_dashboard.json"));
+        if (resourceGroups) {
+            builder.put("experimental.resource-groups-enabled", "true");
+        }
+        Map<String, String> properties = builder.build();
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(properties)) {
             // submit first "dashboard" query
@@ -77,9 +93,25 @@ public class TestQueues
     public void testSqlQueryQueueManagerWithTwoDashboardQueriesRequestedAtTheSameTime()
             throws Exception
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("query.queue-config-file", getResourceFilePath("queue_config_dashboard.json"))
-                .build();
+        testTwoQueriesAtSameTime(false);
+    }
+
+    @Test(timeOut = 240_000)
+    public void testResourceGroupManagerWithTwoDashboardQueriesRequestedAtTheSameTime()
+            throws Exception
+    {
+        testTwoQueriesAtSameTime(true);
+    }
+
+    private void testTwoQueriesAtSameTime(boolean resourceGroups)
+            throws Exception
+    {
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+        builder.put("query.queue-config-file", getResourceFilePath("queue_config_dashboard.json"));
+        if (resourceGroups) {
+            builder.put("experimental.resource-groups-enabled", "true");
+        }
+        Map<String, String> properties = builder.build();
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(properties)) {
             QueryId firstDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
@@ -95,9 +127,25 @@ public class TestQueues
     public void testSqlQueryQueueManagerWithTooManyQueriesScheduled()
             throws Exception
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("query.queue-config-file", getResourceFilePath("queue_config_dashboard.json"))
-                .build();
+        testTooManyQueries(false);
+    }
+
+    @Test(timeOut = 240_000)
+    public void testResourceGroupManagerWithTooManyQueriesScheduled()
+            throws Exception
+    {
+        testTooManyQueries(true);
+    }
+
+    private void testTooManyQueries(boolean resourceGroups)
+            throws Exception
+    {
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+        builder.put("query.queue-config-file", getResourceFilePath("queue_config_dashboard.json"));
+        if (resourceGroups) {
+            builder.put("experimental.resource-groups-enabled", "true");
+        }
+        Map<String, String> properties = builder.build();
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(properties)) {
             QueryId firstDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
