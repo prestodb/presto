@@ -653,6 +653,23 @@ public class Validator
 
                 return 0;
             }
+            if (a instanceof List && b instanceof List) {
+                List aList = (List) a;
+                List bList = (List) b;
+
+                if (aList.size() != bList.size()) {
+                    return a.hashCode() < b.hashCode() ? -1 : 1;
+                }
+
+                for (int i = 0; i < aList.size(); i++) {
+                    int compareResult = columnComparator(precision).compare(aList.get(i), bList.get(i));
+                    if (compareResult != 0) {
+                        return compareResult;
+                    }
+                }
+
+                return 0;
+            }
             if (a instanceof Map && b instanceof Map) {
                 Map aMap = (Map) a;
                 Map bMap = (Map) b;
