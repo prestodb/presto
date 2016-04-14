@@ -171,7 +171,7 @@ public abstract class AbstractTestQueries
         assertEquals(materializedResult.getRowCount(), 10);
         for (MaterializedRow materializedRow : materializedResult) {
             assertEquals(materializedRow.getFieldCount(), 2);
-            assertEquals(((Number) materializedRow.getField(0)).longValue() + 1, materializedRow.getField(1));
+            assertEquals(((Number) materializedRow.getField(0)).intValue() + 1, materializedRow.getField(1));
         }
     }
 
@@ -2951,7 +2951,7 @@ public abstract class AbstractTestQueries
                 "   FROM (VALUES (1), (1), (1), (2), (2), (3)) t (a)) t " +
                 "WHERE rn < 3 AND rn % 2 = 0 AND a = 2 LIMIT 2");
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(2L, 2L)
+                .row(2, 2L)
                 .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
@@ -2966,8 +2966,8 @@ public abstract class AbstractTestQueries
                 "FROM (VALUES (1), (2), (1), (2)) t (a)) t WHERE rn < 2 LIMIT 2");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(1L, 1L)
-                .row(2L, 1L)
+                .row(1, 1L)
+                .row(2, 1L)
                 .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
 
@@ -2977,10 +2977,10 @@ public abstract class AbstractTestQueries
                 "FROM (VALUES (1), (2), (1), (2), (1)) t (a)) t WHERE rn < 3 LIMIT 2");
 
         expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(1L, 1L)
-                .row(1L, 2L)
-                .row(2L, 1L)
-                .row(2L, 2L)
+                .row(1, 1L)
+                .row(1, 2L)
+                .row(2, 1L)
+                .row(2, 2L)
                 .build();
         assertEquals(actual.getMaterializedRows().size(), 2);
         assertContains(expected, actual);
@@ -3061,7 +3061,7 @@ public abstract class AbstractTestQueries
                 "LIMIT 1");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(2L, 2L)
+                .row(2, 2L)
                 .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
 
@@ -3074,8 +3074,8 @@ public abstract class AbstractTestQueries
                 "LIMIT 2");
 
         expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(2L, 1L)
-                .row(2L, 2L)
+                .row(2, 1L)
+                .row(2, 2L)
                 .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
@@ -3585,14 +3585,14 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT coalesce(try_cast(clerk AS BIGINT), 456) FROM orders", "SELECT 456 FROM orders");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "line 1:8: Cannot cast bigint to date")
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "line 1:8: Cannot cast integer to date")
     public void testInvalidCast()
             throws Exception
     {
         assertQuery("SELECT CAST(1 AS DATE) FROM orders");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "line 2:1: Cannot cast bigint to date")
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "line 2:1: Cannot cast integer to date")
     public void testInvalidCastInMultilineQuery()
             throws Exception
     {
@@ -3888,9 +3888,9 @@ public abstract class AbstractTestQueries
         MaterializedResult actual = computeActual("SELECT a, row_number() OVER (ORDER BY a, a) FROM (VALUES 3, 2, 1) t(a)");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(1L, 1L)
-                .row(2L, 2L)
-                .row(3L, 3L)
+                .row(1, 1L)
+                .row(2, 2L)
+                .row(3, 3L)
                 .build();
 
         assertEqualsIgnoreOrder(actual, expected);
@@ -5377,7 +5377,7 @@ public abstract class AbstractTestQueries
         assertTrue(stats.getVariance() > 0, "Samples all had the exact same size");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:8: Unexpected parameters (bigint) for function length. Expected:\\E.*")
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:8: Unexpected parameters (integer) for function length. Expected:\\E.*")
     public void testFunctionNotRegistered()
     {
         computeActual("SELECT length(1)");
@@ -5389,7 +5389,7 @@ public abstract class AbstractTestQueries
         computeActual("SELECT greatest(rgb(255, 0, 0))");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:10: '<>' cannot be applied to bigint, varchar(1)\\E")
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:10: '<>' cannot be applied to integer, varchar(1)\\E")
     public void testTypeMismatch()
     {
         computeActual("SELECT 1 <> 'x'");
@@ -5401,7 +5401,7 @@ public abstract class AbstractTestQueries
         computeActual("SELECT CAST(null AS array(foo))");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:21: '+' cannot be applied to varchar, bigint\\E")
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:21: '+' cannot be applied to varchar, integer\\E")
     public void testInvalidTypeInfixOperator()
     {
         // Comment on why error message references varchar(214783647) instead of varchar(2) which seems expected result type for concatenation in expression.
@@ -5410,13 +5410,13 @@ public abstract class AbstractTestQueries
         computeActual("SELECT ('a' || 'z') + (3 * 4) / 5");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:12: Cannot check if varchar(1) is BETWEEN bigint and varchar(1)\\E")
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:12: Cannot check if varchar(1) is BETWEEN integer and varchar(1)\\E")
     public void testInvalidTypeBetweenOperator()
     {
         computeActual("SELECT 'a' BETWEEN 3 AND 'z'");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:20: All ARRAY elements must be the same type: bigint\\E")
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:20: All ARRAY elements must be the same type: integer\\E")
     public void testInvalidTypeArray()
     {
         computeActual("SELECT ARRAY[1, 2, 'a']");
@@ -5905,7 +5905,7 @@ public abstract class AbstractTestQueries
         MaterializedResult actual = computeActual("SELECT foo from (values (1, 2)) a(foo, bar)");
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
-                .row(1L)
+                .row(1)
                 .build();
 
         assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());

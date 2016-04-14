@@ -322,7 +322,7 @@ public final class MathFunctions
     @Description("round to nearest integer")
     @ScalarFunction("round")
     @SqlType(StandardTypes.INTEGER)
-    public static long roundInt(@SqlType(StandardTypes.INTEGER) long num, @SqlType(StandardTypes.BIGINT) long decimals)
+    public static long roundInt(@SqlType(StandardTypes.INTEGER) long num, @SqlType(StandardTypes.INTEGER) long decimals)
     {
         return num;
     }

@@ -300,12 +300,12 @@ public abstract class AbstractTestDistributedQueries
 
         assertUpdate("ALTER TABLE test_rename RENAME TO test_rename_new");
         MaterializedResult materializedRows = computeActual("SELECT x FROM test_rename_new");
-        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123L);
+        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123);
 
         // provide new table name in uppercase
         assertUpdate("ALTER TABLE test_rename_new RENAME TO TEST_RENAME");
         materializedRows = computeActual("SELECT x FROM test_rename");
-        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123L);
+        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123);
 
         assertUpdate("DROP TABLE test_rename");
 
@@ -321,11 +321,11 @@ public abstract class AbstractTestDistributedQueries
 
         assertUpdate("ALTER TABLE test_rename_column RENAME COLUMN x TO y");
         MaterializedResult materializedRows = computeActual("SELECT y FROM test_rename_column");
-        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123L);
+        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123);
 
         assertUpdate("ALTER TABLE test_rename_column RENAME COLUMN y TO Z");
         materializedRows = computeActual("SELECT z FROM test_rename_column");
-        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123L);
+        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123);
 
         assertUpdate("DROP TABLE test_rename_column");
         assertFalse(queryRunner.tableExists(getSession(), "test_rename_column"));
@@ -345,21 +345,21 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("ALTER TABLE test_add_column ADD COLUMN a bigint");
         assertUpdate("INSERT INTO test_add_column SELECT * FROM test_add_column_a", 1);
         MaterializedResult materializedRows = computeActual("SELECT x, a FROM test_add_column ORDER BY x");
-        assertEquals(materializedRows.getMaterializedRows().get(0).getField(0), 123L);
+        assertEquals(materializedRows.getMaterializedRows().get(0).getField(0), 123);
         assertEquals(materializedRows.getMaterializedRows().get(0).getField(1), null);
-        assertEquals(materializedRows.getMaterializedRows().get(1).getField(0), 234L);
+        assertEquals(materializedRows.getMaterializedRows().get(1).getField(0), 234);
         assertEquals(materializedRows.getMaterializedRows().get(1).getField(1), 111L);
 
         assertUpdate("ALTER TABLE test_add_column ADD COLUMN b double");
         assertUpdate("INSERT INTO test_add_column SELECT * FROM test_add_column_ab", 1);
         materializedRows = computeActual("SELECT x, a, b FROM test_add_column ORDER BY x");
-        assertEquals(materializedRows.getMaterializedRows().get(0).getField(0), 123L);
+        assertEquals(materializedRows.getMaterializedRows().get(0).getField(0), 123);
         assertEquals(materializedRows.getMaterializedRows().get(0).getField(1), null);
         assertEquals(materializedRows.getMaterializedRows().get(0).getField(2), null);
-        assertEquals(materializedRows.getMaterializedRows().get(1).getField(0), 234L);
+        assertEquals(materializedRows.getMaterializedRows().get(1).getField(0), 234);
         assertEquals(materializedRows.getMaterializedRows().get(1).getField(1), 111L);
         assertEquals(materializedRows.getMaterializedRows().get(1).getField(2), null);
-        assertEquals(materializedRows.getMaterializedRows().get(2).getField(0), 345L);
+        assertEquals(materializedRows.getMaterializedRows().get(2).getField(0), 345);
         assertEquals(materializedRows.getMaterializedRows().get(2).getField(1), 222L);
         assertEquals(materializedRows.getMaterializedRows().get(2).getField(2), 33.3);
 
@@ -596,7 +596,7 @@ public abstract class AbstractTestDistributedQueries
     public void testViewMetadata()
             throws Exception
     {
-        @Language("SQL") String query = "SELECT 123 x, 'foo' y";
+        @Language("SQL") String query = "SELECT BIGINT '123' x, 'foo' y";
         assertUpdate("CREATE VIEW meta_test_view AS " + query);
 
         // test INFORMATION_SCHEMA.TABLES

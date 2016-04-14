@@ -131,8 +131,8 @@ public class TestHiveIntegrationSmokeTest
                 "SELECT" +
                 " 'foo' _varchar" +
                 ", cast('bar' as varbinary) _varbinary" +
-                ", 1 _bigint" +
-                ", INTEGER'2' _integer" +
+                ", cast(1 as bigint) _bigint" +
+                ", 2 _integer" +
                 ", CAST('3.14' AS DOUBLE) _double" +
                 ", true _boolean" +
                 ", DATE '1980-05-07' _date" +
@@ -212,8 +212,8 @@ public class TestHiveIntegrationSmokeTest
         @Language("SQL") String select = "" +
                 "SELECT" +
                 " 'foo' _varchar" +
-                ", 1 _bigint" +
-                ", CAST(2 AS INTEGER) _integer" +
+                ", CAST(1 AS BIGINT) _bigint" +
+                ", 2 _integer" +
                 ", CAST('3.14' AS DOUBLE) _double" +
                 ", true _boolean" +
                 ", CAST('3.14' AS DECIMAL(3,2)) _decimal_short" +

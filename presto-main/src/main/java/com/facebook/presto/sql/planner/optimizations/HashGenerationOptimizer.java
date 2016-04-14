@@ -68,6 +68,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
@@ -803,7 +804,7 @@ public class HashGenerationOptimizer
 
         private Expression getHashExpression()
         {
-            Expression hashExpression = new LongLiteral(String.valueOf(INITIAL_HASH_VALUE));
+            Expression hashExpression = toExpression(INITIAL_HASH_VALUE, BIGINT);
             for (Symbol field : fields) {
                 hashExpression = getHashFunctionCall(hashExpression, field);
             }

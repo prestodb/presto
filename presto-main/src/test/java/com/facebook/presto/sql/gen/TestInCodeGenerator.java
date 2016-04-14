@@ -28,6 +28,7 @@ import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.gen.InCodeGenerator.SwitchGenerationCase.DIRECT_SWITCH;
 import static com.facebook.presto.sql.gen.InCodeGenerator.SwitchGenerationCase.HASH_SWITCH;
@@ -39,39 +40,39 @@ import static org.testng.Assert.assertEquals;
 public class TestInCodeGenerator
 {
     @Test
-    public void testBigintSmall()
+    public void testInteger()
     {
         List<RowExpression> values = new ArrayList<>();
-        values.add(new ConstantExpression((long) Integer.MIN_VALUE, BIGINT));
-        values.add(new ConstantExpression((long) Integer.MAX_VALUE, BIGINT));
-        values.add(new ConstantExpression(3L, BIGINT));
-        assertEquals(checkSwitchGenerationCase(BIGINT, values), DIRECT_SWITCH);
+        values.add(new ConstantExpression(Integer.MIN_VALUE, INTEGER));
+        values.add(new ConstantExpression(Integer.MAX_VALUE, INTEGER));
+        values.add(new ConstantExpression(3, INTEGER));
+        assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
 
-        values.add(new ConstantExpression(null, BIGINT));
-        assertEquals(checkSwitchGenerationCase(BIGINT, values), DIRECT_SWITCH);
+        values.add(new ConstantExpression(null, INTEGER));
+        assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
         values.add(new CallExpression(
                 new Signature(
                         CAST,
                         SCALAR,
-                        BIGINT.getDisplayName(),
+                        INTEGER.getDisplayName(),
                         DOUBLE.getDisplayName()
                 ),
-                BIGINT,
+                INTEGER,
                 Collections.singletonList(new ConstantExpression(12345678901234.0, DOUBLE))
         ));
-        assertEquals(checkSwitchGenerationCase(BIGINT, values), DIRECT_SWITCH);
+        assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
 
-        for  (long i = 6; i <= 32; ++i) {
-            values.add(new ConstantExpression(i, BIGINT));
+        for  (int i = 6; i <= 32; ++i) {
+            values.add(new ConstantExpression(i, INTEGER));
         }
-        assertEquals(checkSwitchGenerationCase(BIGINT, values), DIRECT_SWITCH);
+        assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
 
-        values.add(new ConstantExpression(33L, BIGINT));
-        assertEquals(checkSwitchGenerationCase(BIGINT, values), SET_CONTAINS);
+        values.add(new ConstantExpression(33, INTEGER));
+        assertEquals(checkSwitchGenerationCase(INTEGER, values), SET_CONTAINS);
     }
 
     @Test
-    public void testBigintLarge()
+    public void testBigint()
     {
         List<RowExpression> values = new ArrayList<>();
         values.add(new ConstantExpression(Integer.MAX_VALUE + 1L, BIGINT));

@@ -18,6 +18,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 
@@ -27,17 +28,17 @@ public class TestRowNumberFunction
     @Test
     public void testRowNumber()
     {
-        MaterializedResult expected = resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
-                .row(1L, "O", 1L)
-                .row(2L, "O", 2L)
-                .row(3L, "F", 3L)
-                .row(4L, "O", 4L)
-                .row(5L, "F", 5L)
-                .row(6L, "F", 6L)
-                .row(7L, "O", 7L)
-                .row(32L, "O", 8L)
-                .row(33L, "F", 9L)
-                .row(34L, "O", 10L)
+        MaterializedResult expected = resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
+                .row(1, "O", 1L)
+                .row(2, "O", 2L)
+                .row(3, "F", 3L)
+                .row(4, "O", 4L)
+                .row(5, "F", 5L)
+                .row(6, "F", 6L)
+                .row(7, "O", 7L)
+                .row(32, "O", 8L)
+                .row(33, "F", 9L)
+                .row(34, "O", 10L)
                 .build();
         MaterializedResult expectedWithNulls = resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
                 .row(1L, null, 1L)
