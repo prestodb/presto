@@ -730,6 +730,17 @@ public class TestArrayOperators
         assertFunction("ARRAY_REMOVE(ARRAY [ARRAY ['foo'], ARRAY ['bar'], ARRAY ['baz']], ARRAY ['bar'])", new ArrayType(new ArrayType(createVarcharType(3))), ImmutableList.of(ImmutableList.of("foo"), ImmutableList.of("baz")));
     }
 
+    @Test
+    public void testSequence()
+            throws Exception
+    {
+        assertFunction("SEQUENCE(1, 5)", new ArrayType(BIGINT), ImmutableList.of(1L, 2L, 3L, 4L, 5L));
+        assertFunction("SEQUENCE(-10, -5)", new ArrayType(BIGINT), ImmutableList.of(-10L, -9L, -8L, -7L, -6L, -5L));
+        assertFunction("SEQUENCE(-5, 2)", new ArrayType(BIGINT), ImmutableList.of(-5L, -4L, -3L, -2L, -1L, 0L, 1L, 2L));
+        assertFunction("SEQUENCE(2, 2)", new ArrayType(BIGINT), ImmutableList.of(2L));
+        assertInvalidFunction("SEQUENCE(2, -1)", INVALID_FUNCTION_ARGUMENT);
+    }
+
     public void assertInvalidFunction(String projection, SemanticErrorCode errorCode)
     {
         try {
