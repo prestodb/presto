@@ -223,7 +223,6 @@ public final class FunctionAssertions
         if (actualResult.getType() instanceof ArrayType && expectedType instanceof ArrayType
                 && actualResult.getResult() instanceof List && expectedResult instanceof List &&
                 ((List) actualResult.getResult()).size() == ((List) expectedResult).size()) {
-
             List actualResultList = (List) actualResult.getResult();
             List expectedResultList = (List) expectedResult;
             Type actualElementType = ((ArrayType) actualResult.getType()).getElementType();
