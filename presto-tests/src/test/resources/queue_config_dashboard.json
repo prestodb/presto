@@ -17,8 +17,8 @@
     {
       "source": "(?i).*dashboard.*",
       "queues": [
-        "user.${USER}",
         "dashboard.${USER}",
+        "user.${USER}",
         "global"
       ]
     },

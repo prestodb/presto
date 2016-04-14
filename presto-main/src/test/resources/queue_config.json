@@ -4,6 +4,14 @@
       "maxConcurrent": 5,
       "maxQueued": 20
     },
+    "user_big.${USER}": {
+      "maxConcurrent": 1,
+      "maxQueued": 1
+    },
+    "user_pipeline.${USER}": {
+      "maxConcurrent": 5,
+      "maxQueued": 20
+    },
     "pipeline": {
       "maxConcurrent": 10,
       "maxQueued": 100
@@ -31,18 +39,9 @@
       "queues": ["admin"]
     },
     {
-      "session.experimental_big_query": "true",
       "source": ".*pipeline.*",
       "queues": [
-        "user.${USER}",
-        "pipeline",
-        "big"
-      ]
-    },
-    {
-      "source": ".*pipeline.*",
-      "queues": [
-        "user.${USER}",
+        "user_pipeline.${USER}",
         "pipeline",
         "global"
       ]
@@ -50,7 +49,7 @@
     {
       "session.experimental_big_query": "true",
       "queues": [
-        "user.${USER}",
+        "user_big.${USER}",
         "big"
       ]
     },

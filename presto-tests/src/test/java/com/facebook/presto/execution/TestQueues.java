@@ -63,15 +63,13 @@ public class TestQueues
             // submit second non "dashboard" query
             QueryId secondNonDashboardQuery = createQuery(queryRunner, newSession(), LONG_LASTING_QUERY);
 
-            // wait for the second non "dashboard" query to be queued ("user.${USER}" queue strategy only allows three user queries to be accepted for execution,
-            // two "dashboard" and one non "dashboard" queries are already accepted by "user.${USER}" queue)
-            waitForQueryState(queryRunner, secondNonDashboardQuery, QUEUED);
+            // wait for the second non "dashboard" query to start
+            waitForQueryState(queryRunner, secondNonDashboardQuery, RUNNING);
 
             // cancel first "dashboard" query, second "dashboard" query and second non "dashboard" query should start running
             cancelQuery(queryRunner, firstDashboardQuery);
             waitForQueryState(queryRunner, firstDashboardQuery, FAILED);
             waitForQueryState(queryRunner, secondDashboardQuery, RUNNING);
-            waitForQueryState(queryRunner, secondNonDashboardQuery, RUNNING);
         }
     }
 
