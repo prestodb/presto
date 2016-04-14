@@ -76,3 +76,7 @@ Array Functions
 .. function:: slice(x, start, length) -> array
 
     Subsets array ``x`` starting from index ``start`` (or starting from the end if ``start`` is negative) with a length of ``length``.
+
+.. function:: sequence(start, end) -> array
+
+    Sequence function to generate synthetic arrays, starting from integer value start, to integer value end.
