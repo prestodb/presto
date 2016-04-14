@@ -146,6 +146,10 @@ public class PartitionedOutputOperator
         this.partitionFunction = new PagePartitioner(partitionFunction, partitionChannels, partitionConstants, nullChannel, sharedBuffer, sourceTypes);
 
         operatorContext.setInfoSupplier(this::getInfo);
+        // TODO: We should try to make this more accurate
+        // Recalculating the retained size of all the PageBuilders is somewhat expensive,
+        // so we only do it once here rather than in addInput(), and assume that the size will be constant.
+        operatorContext.getSystemMemoryContext().newLocalMemoryContext().setBytes(this.partitionFunction.getRetainedSizeInBytes());
     }
 
     @Override
@@ -248,6 +252,14 @@ public class PartitionedOutputOperator
                 pageBuilders.add(new PageBuilder(sourceTypes));
             }
             this.pageBuilders = pageBuilders.build();
+        }
+
+        // Does not include size of SharedBuffer
+        public long getRetainedSizeInBytes()
+        {
+            return pageBuilders.stream()
+                    .mapToLong(PageBuilder::getRetainedSizeInBytes)
+                    .sum();
         }
 
         public PartitionedOutputInfo getInfo()
