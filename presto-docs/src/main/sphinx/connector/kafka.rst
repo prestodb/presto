@@ -7,7 +7,7 @@ Each message is presented as a row in Presto.
 
 Topics can be live: rows will appear as data arrives and disappear as
 segments get dropped. This can result in strange behavior if accessing the
-same table multiple times in a single query (e.g. performing a self join).
+same table multiple times in a single query (e.g., performing a self join).
 
 .. note::
 
@@ -85,7 +85,7 @@ This property is required; there is no default and at least one node must be def
 
     Presto must still be able to connect to all nodes of the cluster
     even if only a subset is specified here as segment files may be
-    located only on a specifc node.
+    located only on a specific node.
 
 ``kafka.connect-timeout``
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -135,11 +135,11 @@ Column name             Type      Description
 ``_partition_offset``   BIGINT    Offset within the Kafka partition for this row.
 ``_segment_start``      BIGINT    Lowest offset in the segment (inclusive) which contains this row. This offset is partition specific.
 ``_segment_end``        BIGINT    Highest offset in the segment (exclusive) which contains this row. The offset is partition specific. This is the same value as ``_segment_start`` of the next segment (if it exists).
-``_segment_count``      BIGINT    Running count of for the current row within the segment. For an uncompacted topic, ``_segment_start + _segment_count`` is equal to ``_partition_offset``.
+``_segment_count``      BIGINT    Running count for the current row within the segment. For an uncompacted topic, ``_segment_start + _segment_count`` is equal to ``_partition_offset``.
 ``_message_corrupt``    BOOLEAN   True if the decoder could not decode the message for this row. When true, data columns mapped from the message should be treated as invalid.
 ``_message``            VARCHAR   Message bytes as an UTF-8 encoded string. This is only useful for a text topic.
 ``_message_length``     BIGINT    Number of bytes in the message.
-``_key_corrupt``        BOOLEAN   True if the key decode could not decode the key for this row. When true, data columns mapped from the key should be treated as invalid.
+``_key_corrupt``        BOOLEAN   True if the key decoder could not decode the key for this row. When true, data columns mapped from the key should be treated as invalid.
 ``_key``                VARCHAR   Key bytes as an UTF-8 encoded string. This is only useful for textual keys.
 ``_key_length``         BIGINT    Number of bytes in the key.
 ======================= ========= =============================
@@ -198,7 +198,7 @@ Field           Required  Type           Description
 Key and Message in Kafka
 ------------------------
 
-Starting with Kafka 0.8, each Message in a topic can have an optional key.
+Starting with Kafka 0.8, each message in a topic can have an optional key.
 A table definition file contains sections for both key and message to map
 the data onto table columns.
 
@@ -267,10 +267,10 @@ or key and converting it into Presto columns.
 
 For fields, the following attributes are supported:
 
-* ``type`` - All Presto data types are supported
-* ``dataFormat`` - Only ``_default`` supported, can be omitted.
+* ``type`` - all Presto primitive data types are supported
+* ``dataFormat`` - only ``_default`` supported (optional)
 * ``mapping`` - selects the width of the data type converted
-* ``formatHint`` - optional, ``<start>[:<end>]``; start and end position of bytes to convert
+* ``formatHint`` - ``<start>[:<end>]``; start and end position of bytes to convert (optional)
 
 The ``mapping`` column selects the number of bytes converted.
 If absent, ``BYTE`` is assumed. All values are signed.
@@ -316,9 +316,9 @@ string using UTF-8 encoding and then interprets the result as a CSV
 
 For fields, the following attributes are supported:
 
-* ``type`` - All Presto data types are supported
-* ``dataFormat`` - Only ``_default`` supported, can be omitted
-* ``mapping`` - field index used for the column. Must be given
+* ``type`` - all Presto primitive data types are supported
+* ``dataFormat`` - only ``_default`` supported (optional)
+* ``mapping`` - field index used for the column (required)
 * ``formatHint`` - not supported, ignored
 
 * boolean based types return ``true`` if the field value is the string "true" (case insensitive), ``false`` otherwise.
@@ -334,11 +334,11 @@ into a JSON object, not an array or simple type.
 
 For fields, the following attributes are supported:
 
-* ``type`` - All Presto data types are supported
+* ``type`` - all Presto primitive data types are supported
 * ``dataFormat`` - ``_default``, ``custom-date-time``, ``iso8601``, ``rfc2822``,
   ``milliseconds-since-epoch``, ``seconds-since-epoch``. If missing, ``_default`` is used.
-* ``mapping`` - slash-separated list of fields names to select a field from the JSON object.
-* ``formatHint`` - only for ``custom-date-time``, see below.
+* ``mapping`` - slash-separated list of field names to select a field from the JSON object
+* ``formatHint`` - only for ``custom-date-time``, see below
 
 The JSON decoder supports multiple field decoders, with ``_default`` being
 used for standard table columns and a number of decoders for date and time
