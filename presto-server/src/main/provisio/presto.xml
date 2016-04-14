@@ -145,4 +145,10 @@
             <unpack />
         </artifact>
     </artifactSet>
+
+    <artifactSet to="plugin/accumulo">
+        <artifact id="${project.groupId}:presto-accumulo:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
 </runtime>
