@@ -33,6 +33,7 @@ public class FeaturesConfig
     private boolean columnarProcessing;
     private boolean columnarProcessingDictionary;
     private boolean dictionaryAggregation;
+    private boolean resourceGroups;
 
     private String resourceGroupManager = FILE_BASED_RESOURCE_GROUP_MANAGER;
 
@@ -46,6 +47,18 @@ public class FeaturesConfig
     public FeaturesConfig setResourceGroupManager(String resourceGroupManager)
     {
         this.resourceGroupManager = resourceGroupManager;
+        return this;
+    }
+
+    public boolean isResourceGroupsEnabled()
+    {
+        return resourceGroups;
+    }
+
+    @Config("experimental.resource-groups-enabled")
+    public FeaturesConfig setResourceGroupsEnabled(boolean enabled)
+    {
+        resourceGroups = enabled;
         return this;
     }
 

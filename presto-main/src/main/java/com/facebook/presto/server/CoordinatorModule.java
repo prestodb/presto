@@ -39,6 +39,7 @@ import com.facebook.presto.execution.SetSessionTask;
 import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.SqlQueryQueueManager;
 import com.facebook.presto.execution.StartTransactionTask;
+import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.AllAtOnceExecutionPolicy;
 import com.facebook.presto.execution.scheduler.ExecutionPolicy;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
@@ -113,6 +114,13 @@ import static org.weakref.jmx.guice.ExportBinder.newExporter;
 public class CoordinatorModule
         implements Module
 {
+    private final boolean resourceGroups;
+
+    public CoordinatorModule(boolean resourceGroups)
+    {
+        this.resourceGroups = resourceGroups;
+    }
+
     @Override
     public void configure(Binder binder)
     {
@@ -126,7 +134,12 @@ public class CoordinatorModule
         jaxrsBinder(binder).bind(StageResource.class);
         binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
-        binder.bind(QueryQueueManager.class).to(SqlQueryQueueManager.class).in(Scopes.SINGLETON);
+        if (resourceGroups) {
+            binder.bind(QueryQueueManager.class).to(ResourceGroupManager.class).in(Scopes.SINGLETON);
+        }
+        else {
+            binder.bind(QueryQueueManager.class).to(SqlQueryQueueManager.class).in(Scopes.SINGLETON);
+        }
         newExporter(binder).export(QueryManager.class).withGeneratedName();
         configBinder(binder).bindConfig(QueryManagerConfig.class);
 

@@ -80,6 +80,7 @@ import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.Serialization.ExpressionDeserializer;
 import com.facebook.presto.sql.Serialization.ExpressionSerializer;
 import com.facebook.presto.sql.Serialization.FunctionCallDeserializer;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
@@ -147,9 +148,10 @@ public class ServerMainModule
     protected void setup(Binder binder)
     {
         ServerConfig serverConfig = buildConfigObject(ServerConfig.class);
+        FeaturesConfig featuresConfig = buildConfigObject(FeaturesConfig.class);
 
         // TODO: this should only be installed if this is a coordinator
-        binder.install(new CoordinatorModule());
+        binder.install(new CoordinatorModule(featuresConfig.isResourceGroupsEnabled()));
 
         if (serverConfig.isCoordinator()) {
             discoveryBinder(binder).bindHttpAnnouncement("presto-coordinator");
