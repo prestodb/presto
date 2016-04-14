@@ -36,7 +36,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.Futures.getUnchecked;
 import static java.util.Objects.requireNonNull;
 
 public class PartitionedOutputOperator
@@ -130,7 +129,7 @@ public class PartitionedOutputOperator
     }
 
     private final OperatorContext operatorContext;
-    private final ListenableFuture<PagePartitioner> partitionFunction;
+    private final PagePartitioner partitionFunction;
     private ListenableFuture<?> blocked = NOT_BLOCKED;
     private boolean finished;
 
@@ -144,7 +143,7 @@ public class PartitionedOutputOperator
             SharedBuffer sharedBuffer)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.partitionFunction = Futures.immediateFuture(new PagePartitioner(partitionFunction, partitionChannels, partitionConstants, nullChannel, sharedBuffer, sourceTypes));
+        this.partitionFunction = new PagePartitioner(partitionFunction, partitionChannels, partitionConstants, nullChannel, sharedBuffer, sourceTypes);
 
         operatorContext.setInfoSupplier(this::getInfo);
     }
@@ -157,10 +156,7 @@ public class PartitionedOutputOperator
 
     public PartitionedOutputInfo getInfo()
     {
-        if (!partitionFunction.isDone()) {
-            return new PartitionedOutputInfo(0, 0);
-        }
-        return getUnchecked(partitionFunction).getInfo();
+        return partitionFunction.getInfo();
     }
 
     @Override
@@ -173,7 +169,7 @@ public class PartitionedOutputOperator
     public void finish()
     {
         finished = true;
-        blocked = getUnchecked(partitionFunction).flush(true);
+        blocked = partitionFunction.flush(true);
     }
 
     @Override
@@ -185,9 +181,6 @@ public class PartitionedOutputOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        if (!partitionFunction.isDone()) {
-            return partitionFunction;
-        }
         if (blocked != NOT_BLOCKED && blocked.isDone()) {
             blocked = NOT_BLOCKED;
         }
@@ -210,7 +203,7 @@ public class PartitionedOutputOperator
             return;
         }
 
-        blocked = getUnchecked(partitionFunction).partitionPage(page);
+        blocked = partitionFunction.partitionPage(page);
 
         operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
     }
