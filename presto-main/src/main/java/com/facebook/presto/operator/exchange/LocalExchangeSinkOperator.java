@@ -18,7 +18,6 @@ import com.facebook.presto.operator.LocalPlannerAware;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
-import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeSink;
 import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeSinkFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
@@ -120,11 +119,7 @@ public class LocalExchangeSinkOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        ListenableFuture<?> blocked = sink.waitForWriting();
-        if (blocked.isDone()) {
-            return NOT_BLOCKED;
-        }
-        return blocked;
+        return sink.waitForWriting();
     }
 
     @Override
