@@ -176,6 +176,15 @@ public enum OperatorType
                     validateOperatorSignature(this, returnType, argumentTypes, 1);
                     checkArgument(returnType.getBase().equals(StandardTypes.BIGINT), "%s operator must return a BIGINT: %s", this, formatSignature(this, returnType, argumentTypes));
                 }
+            },
+
+    SATURATED_FLOOR_CAST("SATURATED FLOOR CAST")
+            {
+                @Override
+                void validateSignature(TypeSignature returnType, List<TypeSignature> argumentTypes)
+                {
+                    validateOperatorSignature(this, returnType, argumentTypes, 1);
+                }
             };
 
     private final String operator;
