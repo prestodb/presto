@@ -44,7 +44,7 @@ class PageReference
 
     public Page removePage()
     {
-        int referenceCount = this.referenceCount.getAndDecrement();
+        int referenceCount = this.referenceCount.decrementAndGet();
         checkArgument(referenceCount >= 0, "Page reference count is negative");
         if (referenceCount == 0) {
             onFree.run();

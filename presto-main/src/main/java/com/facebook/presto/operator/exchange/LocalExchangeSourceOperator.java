@@ -17,7 +17,6 @@ import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
-import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -114,11 +113,7 @@ public class LocalExchangeSourceOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        ListenableFuture<?> blocked = source.waitForReading();
-        if (blocked.isDone()) {
-            return NOT_BLOCKED;
-        }
-        return blocked;
+        return source.waitForReading();
     }
 
     @Override
