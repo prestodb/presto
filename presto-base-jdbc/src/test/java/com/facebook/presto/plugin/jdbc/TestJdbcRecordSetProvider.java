@@ -34,6 +34,7 @@ import java.util.Map;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -50,6 +51,7 @@ public class TestJdbcRecordSetProvider
 
     private JdbcTableHandle table;
     private JdbcColumnHandle textColumn;
+    private JdbcColumnHandle textShortColumn;
     private JdbcColumnHandle valueColumn;
 
     @BeforeClass
@@ -64,6 +66,7 @@ public class TestJdbcRecordSetProvider
 
         Map<String, JdbcColumnHandle> columns = database.getColumnHandles("example", "numbers");
         textColumn = columns.get("text");
+        textShortColumn = columns.get("text_short");
         valueColumn = columns.get("value");
     }
 
@@ -79,7 +82,7 @@ public class TestJdbcRecordSetProvider
             throws Exception
     {
         JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient);
-        RecordSet recordSet = recordSetProvider.getRecordSet(SESSION, split, ImmutableList.of(textColumn, valueColumn));
+        RecordSet recordSet = recordSetProvider.getRecordSet(SESSION, split, ImmutableList.of(textColumn, textShortColumn, valueColumn));
         assertNotNull(recordSet, "recordSet is null");
 
         RecordCursor cursor = recordSet.cursor();
@@ -87,7 +90,8 @@ public class TestJdbcRecordSetProvider
 
         Map<String, Long> data = new LinkedHashMap<>();
         while (cursor.advanceNextPosition()) {
-            data.put(cursor.getSlice(0).toStringUtf8(), cursor.getLong(1));
+            data.put(cursor.getSlice(0).toStringUtf8(), cursor.getLong(2));
+            assertEquals(cursor.getSlice(0), cursor.getSlice(1));
         }
         assertEquals(data, ImmutableMap.<String, Long>builder()
                 .put("one", 1L)
@@ -149,12 +153,22 @@ public class TestJdbcRecordSetProvider
                 ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.create(ValueSet.ofRanges(Range.range(VARCHAR, utf8Slice("bar"), true, utf8Slice("foo"), true)), false))
         ));
 
-        getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.create(ValueSet.ofRanges(
-                                Range.range(VARCHAR, utf8Slice("bar"), true, utf8Slice("foo"), true),
-                                Range.range(VARCHAR, utf8Slice("hello"), false, utf8Slice("world"), false)),
-                        false
-                ))
+        getCursor(table, ImmutableList.of(textColumn, textShortColumn, valueColumn), TupleDomain.withColumnDomains(
+                ImmutableMap.<ColumnHandle, Domain>of(
+                        textColumn,
+                        Domain.create(ValueSet.ofRanges(
+                                        Range.range(VARCHAR, utf8Slice("bar"), true, utf8Slice("foo"), true),
+                                        Range.range(VARCHAR, utf8Slice("hello"), false, utf8Slice("world"), false)),
+                                false
+                        ),
+
+                        textShortColumn,
+                        Domain.create(ValueSet.ofRanges(
+                                        Range.range(createVarcharType(32), utf8Slice("bar"), true, utf8Slice("foo"), true),
+                                        Range.range(createVarcharType(32), utf8Slice("hello"), false, utf8Slice("world"), false)),
+                                false
+                        )
+                )
         ));
 
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
