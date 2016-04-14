@@ -326,7 +326,12 @@ public class PrestoS3FileSystem
             throw new IOException("File already exists:" + path);
         }
 
-        createDirectories(stagingDirectory.toPath());
+        if (!stagingDirectory.exists()) {
+            createDirectories(stagingDirectory.toPath());
+        }
+        if (!stagingDirectory.isDirectory()) {
+            throw new IOException("Configured staging path is not a directory: " + stagingDirectory);
+        }
         File tempFile = createTempFile(stagingDirectory.toPath(), "presto-s3-", ".tmp").toFile();
 
         String key = keyFromPath(qualifiedPath(path));
