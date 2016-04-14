@@ -29,6 +29,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -228,6 +229,9 @@ public class InMemoryRecordSet
                 Type type = types.get(i);
                 if (BOOLEAN.equals(type)) {
                     checkArgument(value instanceof Boolean, "Expected value %d to be an instance of Boolean, but is a %s", i, value.getClass().getSimpleName());
+                }
+                else if (INTEGER.equals(type)) {
+                    checkArgument(value instanceof Integer, "Expected value %d to be an instance of Integer, but is a %s", i, value.getClass().getSimpleName());
                 }
                 else if (BIGINT.equals(type) || DATE.equals(type) || TIMESTAMP.equals(type) || TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
                     checkArgument(value instanceof Integer || value instanceof Long,

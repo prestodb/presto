@@ -17,6 +17,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 
@@ -27,17 +28,17 @@ public class TestLastValueFunction
     public void testLastValueUnbounded()
     {
         assertUnboundedWindowQuery("last_value(orderdate) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
-                        .row(3L, "F", "1993-10-27")
-                        .row(5L, "F", "1993-10-27")
-                        .row(6L, "F", "1993-10-27")
-                        .row(33L, "F", "1993-10-27")
-                        .row(1L, "O", "1998-07-21")
-                        .row(2L, "O", "1998-07-21")
-                        .row(4L, "O", "1998-07-21")
-                        .row(7L, "O", "1998-07-21")
-                        .row(32L, "O", "1998-07-21")
-                        .row(34L, "O", "1998-07-21")
+                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, VARCHAR)
+                        .row(3, "F", "1993-10-27")
+                        .row(5, "F", "1993-10-27")
+                        .row(6, "F", "1993-10-27")
+                        .row(33, "F", "1993-10-27")
+                        .row(1, "O", "1998-07-21")
+                        .row(2, "O", "1998-07-21")
+                        .row(4, "O", "1998-07-21")
+                        .row(7, "O", "1998-07-21")
+                        .row(32, "O", "1998-07-21")
+                        .row(34, "O", "1998-07-21")
                         .build());
         assertUnboundedWindowQueryWithNulls("last_value(orderdate) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
@@ -54,17 +55,17 @@ public class TestLastValueFunction
                         .build());
 
         assertUnboundedWindowQuery("last_value(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
-                        .row(3L, "F", 33L)
-                        .row(5L, "F", 33L)
-                        .row(6L, "F", 33L)
-                        .row(33L, "F", 33L)
-                        .row(1L, "O", 34L)
-                        .row(2L, "O", 34L)
-                        .row(4L, "O", 34L)
-                        .row(7L, "O", 34L)
-                        .row(32L, "O", 34L)
-                        .row(34L, "O", 34L)
+                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, INTEGER)
+                        .row(3, "F", 33)
+                        .row(5, "F", 33)
+                        .row(6, "F", 33)
+                        .row(33, "F", 33)
+                        .row(1, "O", 34)
+                        .row(2, "O", 34)
+                        .row(4, "O", 34)
+                        .row(7, "O", 34)
+                        .row(32, "O", 34)
+                        .row(34, "O", 34)
                         .build());
         assertUnboundedWindowQueryWithNulls("last_value(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
@@ -81,17 +82,17 @@ public class TestLastValueFunction
                         .build());
         // Timestamp
         assertWindowQuery("date_format(last_value(cast(orderdate as TIMESTAMP)) OVER (PARTITION BY orderstatus ORDER BY orderkey), '%Y-%m-%d')",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
-                        .row(3L, "F", "1993-10-14")
-                        .row(5L, "F", "1994-07-30")
-                        .row(6L, "F", "1992-02-21")
-                        .row(33L, "F", "1993-10-27")
-                        .row(1L, "O", "1996-01-02")
-                        .row(2L, "O", "1996-12-01")
-                        .row(4L, "O", "1995-10-11")
-                        .row(7L, "O", "1996-01-10")
-                        .row(32L, "O", "1995-07-16")
-                        .row(34L, "O", "1998-07-21")
+                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, VARCHAR)
+                        .row(3, "F", "1993-10-14")
+                        .row(5, "F", "1994-07-30")
+                        .row(6, "F", "1992-02-21")
+                        .row(33, "F", "1993-10-27")
+                        .row(1, "O", "1996-01-02")
+                        .row(2, "O", "1996-12-01")
+                        .row(4, "O", "1995-10-11")
+                        .row(7, "O", "1996-01-10")
+                        .row(32, "O", "1995-07-16")
+                        .row(34, "O", "1998-07-21")
                         .build());
     }
 
@@ -100,17 +101,17 @@ public class TestLastValueFunction
     {
         assertWindowQuery("last_value(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
-                        .row(3L, "F", 6L)
-                        .row(5L, "F", 33L)
-                        .row(6L, "F", 33L)
-                        .row(33L, "F", 33L)
-                        .row(1L, "O", 4L)
-                        .row(2L, "O", 7L)
-                        .row(4L, "O", 32L)
-                        .row(7L, "O", 34L)
-                        .row(32L, "O", 34L)
-                        .row(34L, "O", 34L)
+                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, INTEGER)
+                        .row(3, "F", 6)
+                        .row(5, "F", 33)
+                        .row(6, "F", 33)
+                        .row(33, "F", 33)
+                        .row(1, "O", 4)
+                        .row(2, "O", 7)
+                        .row(4, "O", 32)
+                        .row(7, "O", 34)
+                        .row(32, "O", 34)
+                        .row(34, "O", 34)
                         .build());
         assertWindowQueryWithNulls("last_value(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)",

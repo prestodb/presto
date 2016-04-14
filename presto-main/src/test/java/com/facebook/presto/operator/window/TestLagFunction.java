@@ -17,6 +17,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 
@@ -27,17 +28,17 @@ public class TestLagFunction
     public void testLagFunction()
     {
         assertWindowQuery("lag(orderdate) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
-                        .row(3L, "F", null)
-                        .row(5L, "F", "1993-10-14")
-                        .row(6L, "F", "1994-07-30")
-                        .row(33L, "F", "1992-02-21")
-                        .row(1L, "O", null)
-                        .row(2L, "O", "1996-01-02")
-                        .row(4L, "O", "1996-12-01")
-                        .row(7L, "O", "1995-10-11")
-                        .row(32L, "O", "1996-01-10")
-                        .row(34L, "O", "1995-07-16")
+                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, VARCHAR)
+                        .row(3, "F", null)
+                        .row(5, "F", "1993-10-14")
+                        .row(6, "F", "1994-07-30")
+                        .row(33, "F", "1992-02-21")
+                        .row(1, "O", null)
+                        .row(2, "O", "1996-01-02")
+                        .row(4, "O", "1996-12-01")
+                        .row(7, "O", "1995-10-11")
+                        .row(32, "O", "1996-01-10")
+                        .row(34, "O", "1995-07-16")
                         .build());
         assertWindowQueryWithNulls("lag(orderdate) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
@@ -54,17 +55,17 @@ public class TestLagFunction
                         .build());
 
         assertWindowQuery("lag(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
-                        .row(3L, "F", null)
-                        .row(5L, "F", 3L)
-                        .row(6L, "F", 5L)
-                        .row(33L, "F", 6L)
-                        .row(1L, "O", null)
-                        .row(2L, "O", 1L)
-                        .row(4L, "O", 2L)
-                        .row(7L, "O", 4L)
-                        .row(32L, "O", 7L)
-                        .row(34L, "O", 32L)
+                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, INTEGER)
+                        .row(3, "F", null)
+                        .row(5, "F", 3)
+                        .row(6, "F", 5)
+                        .row(33, "F", 6)
+                        .row(1, "O", null)
+                        .row(2, "O", 1)
+                        .row(4, "O", 2)
+                        .row(7, "O", 4)
+                        .row(32, "O", 7)
+                        .row(34, "O", 32)
                         .build());
         assertWindowQueryWithNulls("lag(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
@@ -81,17 +82,17 @@ public class TestLagFunction
                         .build());
 
         assertWindowQuery("lag(orderdate, 2, '1977-01-01') OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
-                        .row(3L, "F", "1977-01-01")
-                        .row(5L, "F", "1977-01-01")
-                        .row(6L, "F", "1993-10-14")
-                        .row(33L, "F", "1994-07-30")
-                        .row(1L, "O", "1977-01-01")
-                        .row(2L, "O", "1977-01-01")
-                        .row(4L, "O", "1996-01-02")
-                        .row(7L, "O", "1996-12-01")
-                        .row(32L, "O", "1995-10-11")
-                        .row(34L, "O", "1996-01-10")
+                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, VARCHAR)
+                        .row(3, "F", "1977-01-01")
+                        .row(5, "F", "1977-01-01")
+                        .row(6, "F", "1993-10-14")
+                        .row(33, "F", "1994-07-30")
+                        .row(1, "O", "1977-01-01")
+                        .row(2, "O", "1977-01-01")
+                        .row(4, "O", "1996-01-02")
+                        .row(7, "O", "1996-12-01")
+                        .row(32, "O", "1995-10-11")
+                        .row(34, "O", "1996-01-10")
                         .build());
         assertWindowQueryWithNulls("lag(orderdate, 2, '1977-01-01') OVER (PARTITION BY orderstatus ORDER BY orderkey)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
@@ -108,17 +109,17 @@ public class TestLagFunction
                         .build());
 
         assertWindowQuery("lag(orderkey, 2, -1) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
-                        .row(3L, "F", -1L)
-                        .row(5L, "F", -1L)
-                        .row(6L, "F", 3L)
-                        .row(33L, "F", 5L)
-                        .row(1L, "O", -1L)
-                        .row(2L, "O", -1L)
-                        .row(4L, "O", 1L)
-                        .row(7L, "O", 2L)
-                        .row(32L, "O", 4L)
-                        .row(34L, "O", 7L)
+                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, INTEGER)
+                        .row(3, "F", -1)
+                        .row(5, "F", -1)
+                        .row(6, "F", 3)
+                        .row(33, "F", 5)
+                        .row(1, "O", -1)
+                        .row(2, "O", -1)
+                        .row(4, "O", 1)
+                        .row(7, "O", 2)
+                        .row(32, "O", 4)
+                        .row(34, "O", 7)
                         .build());
         assertWindowQueryWithNulls("lag(orderkey, 2, -1) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
@@ -134,60 +135,60 @@ public class TestLagFunction
                         .row(null, null, 7L)
                         .build());
 
-        assertWindowQuery("lag(orderkey, 8 * 1000 * 1000 * 1000) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
-                        .row(3L, "F", null)
-                        .row(5L, "F", null)
-                        .row(6L, "F", null)
-                        .row(33L, "F", null)
-                        .row(1L, "O", null)
-                        .row(2L, "O", null)
-                        .row(4L, "O", null)
-                        .row(7L, "O", null)
-                        .row(32L, "O", null)
-                        .row(34L, "O", null)
+        assertWindowQuery("lag(orderkey, BIGINT '8' * 1000 * 1000 * 1000) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
+                        .row(3, "F", null)
+                        .row(5, "F", null)
+                        .row(6, "F", null)
+                        .row(33, "F", null)
+                        .row(1, "O", null)
+                        .row(2, "O", null)
+                        .row(4, "O", null)
+                        .row(7, "O", null)
+                        .row(32, "O", null)
+                        .row(34, "O", null)
                         .build());
 
         assertWindowQuery("lag(orderkey, null, -1) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
-                        .row(3L, "F", null)
-                        .row(5L, "F", null)
-                        .row(6L, "F", null)
-                        .row(33L, "F", null)
-                        .row(1L, "O", null)
-                        .row(2L, "O", null)
-                        .row(4L, "O", null)
-                        .row(7L, "O", null)
-                        .row(32L, "O", null)
-                        .row(34L, "O", null)
+                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
+                        .row(3, "F", null)
+                        .row(5, "F", null)
+                        .row(6, "F", null)
+                        .row(33, "F", null)
+                        .row(1, "O", null)
+                        .row(2, "O", null)
+                        .row(4, "O", null)
+                        .row(7, "O", null)
+                        .row(32, "O", null)
+                        .row(34, "O", null)
                         .build());
 
         assertWindowQuery("lag(orderkey, 0) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
-                        .row(3L, "F", 3L)
-                        .row(5L, "F", 5L)
-                        .row(6L, "F", 6L)
-                        .row(33L, "F", 33L)
-                        .row(1L, "O", 1L)
-                        .row(2L, "O", 2L)
-                        .row(4L, "O", 4L)
-                        .row(7L, "O", 7L)
-                        .row(32L, "O", 32L)
-                        .row(34L, "O", 34L)
+                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, INTEGER)
+                        .row(3, "F", 3)
+                        .row(5, "F", 5)
+                        .row(6, "F", 6)
+                        .row(33, "F", 33)
+                        .row(1, "O", 1)
+                        .row(2, "O", 2)
+                        .row(4, "O", 4)
+                        .row(7, "O", 7)
+                        .row(32, "O", 32)
+                        .row(34, "O", 34)
                         .build());
 
         assertWindowQuery("date_format(lag(cast(orderdate as TIMESTAMP), 0) OVER (PARTITION BY orderstatus ORDER BY orderkey), '%Y-%m-%d')",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
-                        .row(3L, "F", "1993-10-14")
-                        .row(5L, "F", "1994-07-30")
-                        .row(6L, "F", "1992-02-21")
-                        .row(33L, "F", "1993-10-27")
-                        .row(1L, "O", "1996-01-02")
-                        .row(2L, "O", "1996-12-01")
-                        .row(4L, "O", "1995-10-11")
-                        .row(7L, "O", "1996-01-10")
-                        .row(32L, "O", "1995-07-16")
-                        .row(34L, "O", "1998-07-21")
+                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, VARCHAR)
+                        .row(3, "F", "1993-10-14")
+                        .row(5, "F", "1994-07-30")
+                        .row(6, "F", "1992-02-21")
+                        .row(33, "F", "1993-10-27")
+                        .row(1, "O", "1996-01-02")
+                        .row(2, "O", "1996-12-01")
+                        .row(4, "O", "1995-10-11")
+                        .row(7, "O", "1996-01-10")
+                        .row(32, "O", "1995-07-16")
+                        .row(34, "O", "1998-07-21")
                         .build());
     }
 }

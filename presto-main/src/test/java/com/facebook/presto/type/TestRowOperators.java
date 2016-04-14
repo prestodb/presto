@@ -25,9 +25,9 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.JsonType.JSON;
@@ -57,7 +57,7 @@ public class TestRowOperators
             throws Exception
     {
         assertFunction("CAST(test_row(1, 2) AS JSON)", JSON, "[1,2]");
-        assertFunction("CAST(test_row(1, CAST(NULL AS BIGINT)) AS JSON)", JSON, "[1,null]");
+        assertFunction("CAST(test_row(1, CAST(NULL AS INTEGER)) AS JSON)", JSON, "[1,null]");
         assertFunction("CAST(test_row(1, 2.0) AS JSON)", JSON, "[1,2.0]");
         assertFunction("CAST(test_row(1.0, 2.5) AS JSON)", JSON, "[1.0,2.5]");
         assertFunction("CAST(test_row(1.0, 'kittens') AS JSON)", JSON, "[1.0,\"kittens\"]");
@@ -71,7 +71,7 @@ public class TestRowOperators
             throws Exception
     {
         // test_row has both (bigint, double) and (bigint, bigint) so this method is non-deterministic
-        // assertFunction("test_row(1, NULL).col1", BIGINT,  null);
+        // assertFunction("test_row(1, NULL).col1", INTEGER,  null);
         // test_row has both (boolean, boolean) and (boolean, array<bigint>), so this method is non-deterministic
         // assertFunction("test_row(TRUE, NULL).col1", BOOLEAN, null);
 
@@ -80,15 +80,15 @@ public class TestRowOperators
 
         assertFunction("test_row(1, CAST(NULL AS DOUBLE)).col1", DOUBLE, null);
         assertFunction("test_row(TRUE, CAST(NULL AS BOOLEAN)).col1", BOOLEAN, null);
-        assertFunction("test_row(TRUE, CAST(NULL AS ARRAY<BIGINT>)).col1", new ArrayType(BIGINT), null);
+        assertFunction("test_row(TRUE, CAST(NULL AS ARRAY<INTEGER>)).col1", new ArrayType(INTEGER), null);
         assertFunction("test_row(1.0, CAST(NULL AS VARCHAR)).col1", VARCHAR, null);
-        assertFunction("test_row(1, 2).col0", BIGINT, 1L);
+        assertFunction("test_row(1, 2).col0", INTEGER, 1);
         assertFunction("test_row(1, 'kittens').col1", VARCHAR, "kittens");
-        assertFunction("test_row(1, 2).\"col1\"", BIGINT, 2L);
-        assertFunction("array[test_row(1, 2)][1].col1", BIGINT, 2L);
-        assertFunction("test_row(FALSE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0])).col1", new ArrayType(BIGINT), ImmutableList.of(1L, 2L));
-        assertFunction("test_row(FALSE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0])).col2", new MapType(BIGINT, DOUBLE), ImmutableMap.of(1L, 2.0, 3L, 4.0));
-        assertFunction("test_row(1.0, ARRAY[test_row(31, 4.1), test_row(32, 4.2)], test_row(3, 4.0)).col1[2].col0", BIGINT, 32L);
+        assertFunction("test_row(1, 2).\"col1\"", INTEGER, 2);
+        assertFunction("array[test_row(1, 2)][1].col1", INTEGER, 2);
+        assertFunction("test_row(FALSE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0])).col1", new ArrayType(INTEGER), ImmutableList.of(1, 2));
+        assertFunction("test_row(FALSE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0])).col2", new MapType(INTEGER, DOUBLE), ImmutableMap.of(1, 2.0, 3, 4.0));
+        assertFunction("test_row(1.0, ARRAY[test_row(31, 4.1), test_row(32, 4.2)], test_row(3, 4.0)).col1[2].col0", INTEGER, 32);
     }
 
     @Test
@@ -130,7 +130,7 @@ public class TestRowOperators
         assertFunction("test_row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0])) = test_row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0]))", BOOLEAN, true);
 
         try {
-            assertFunction("test_row(1, CAST(NULL AS BIGINT)) = test_row(1, 2)", BOOLEAN, false);
+            assertFunction("test_row(1, CAST(NULL AS INTEGER)) = test_row(1, 2)", BOOLEAN, false);
             fail("ROW comparison not implemented for NULL values");
         }
         catch (PrestoException e) {

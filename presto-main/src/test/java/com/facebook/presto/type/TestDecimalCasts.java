@@ -62,9 +62,9 @@ public class TestDecimalCasts
         assertDecimalFunction("CAST(1234567890 AS DECIMAL(20, 10))", decimal("1234567890.0000000000"));
         assertDecimalFunction("CAST(-1234567890 AS DECIMAL(20, 10))", decimal("-1234567890.0000000000"));
 
-        assertInvalidCast("CAST(1234567890 AS DECIMAL(17,10))", "Cannot cast BIGINT '1234567890' to DECIMAL(17, 10)");
-        assertInvalidCast("CAST(123 AS DECIMAL(2,1))", "Cannot cast BIGINT '123' to DECIMAL(2, 1)");
-        assertInvalidCast("CAST(-123 AS DECIMAL(2,1))", "Cannot cast BIGINT '-123' to DECIMAL(2, 1)");
+        assertInvalidCast("CAST(1234567890 AS DECIMAL(17,10))", "Cannot cast INTEGER '1234567890' to DECIMAL(17, 10)");
+        assertInvalidCast("CAST(123 AS DECIMAL(2,1))", "Cannot cast INTEGER '123' to DECIMAL(2, 1)");
+        assertInvalidCast("CAST(-123 AS DECIMAL(2,1))", "Cannot cast INTEGER '-123' to DECIMAL(2, 1)");
         assertInvalidCast("CAST(123456789012345678 AS DECIMAL(17,1))", "Cannot cast BIGINT '123456789012345678' to DECIMAL(17, 1)");
         assertInvalidCast("CAST(12345678901 AS DECIMAL(20, 10))", "Cannot cast BIGINT '12345678901' to DECIMAL(20, 10)");
     }

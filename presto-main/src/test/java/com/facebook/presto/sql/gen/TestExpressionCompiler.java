@@ -59,12 +59,14 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.stream.LongStream;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
@@ -90,11 +92,11 @@ import static org.testng.Assert.assertTrue;
 public class TestExpressionCompiler
 {
     private static final Boolean[] booleanValues = {true, false, null};
-    private static final Long[] smallLongs = {9L, 10L, 11L, -9L, -10L, -11L, null};
-    private static final Long[] extremeLongs = {10151082135029368L, /*Long.MIN_VALUE,*/ Long.MAX_VALUE};
-    private static final Long[] longLefts = ObjectArrays.concat(smallLongs, extremeLongs, Long.class);
-    private static final Long[] longRights = {3L, -3L, 10151082135029369L, null};
-    private static final Long[] longMiddle = {9L, -3L, 88L, null};
+    private static final Integer[] smallInts = {9, 10, 11, -9, -10, -11, null};
+    private static final Integer[] extremeInts = {101510, /*Long.MIN_VALUE,*/ Integer.MAX_VALUE};
+    private static final Integer[] intLefts = ObjectArrays.concat(smallInts, extremeInts, Integer.class);
+    private static final Integer[] intRights = {3, -3, 101510823, null};
+    private static final Integer[] intMiddle = {9, -3, 88, null};
     private static final Double[] doubleLefts = {9.0, 10.0, 11.0, -9.0, -10.0, -11.0, 9.1, 10.1, 11.1, -9.1, -10.1, -11.1,
                                                  Double.MIN_VALUE, Double.MAX_VALUE, Double.MIN_NORMAL, null};
     private static final Double[] doubleRights = {3.0, -3.0, 3.1, -3.1, null};
@@ -177,12 +179,13 @@ public class TestExpressionCompiler
         assertExecute("cast(true as boolean)", BOOLEAN, true);
         assertExecute("true", BOOLEAN, true);
         assertExecute("false", BOOLEAN, false);
-        assertExecute("42", BIGINT, 42L);
+        assertExecute("42", INTEGER, 42);
         assertExecute("'foo'", createVarcharType(3), "foo");
         assertExecute("4.2", DOUBLE, 4.2);
-        assertExecute("1 + 1", BIGINT, 2L);
+        assertExecute("10000000000 + 1", BIGINT, 10000000001L);
         assertExecute("X' 1 f'", VARBINARY, new SqlVarbinary(Slices.wrappedBuffer((byte) 0x1f).getBytes()));
         assertExecute("X' '", VARBINARY, new SqlVarbinary(new byte[0]));
+        assertExecute("bound_integer", INTEGER, 1234);
         assertExecute("bound_long", BIGINT, 1234L);
         assertExecute("bound_string", VARCHAR, "hello");
         assertExecute("bound_double", DOUBLE, 12.34);
@@ -205,7 +208,10 @@ public class TestExpressionCompiler
     {
         assertFilter("true", true);
         assertFilter("false", false);
+        assertFilter("bound_integer = 1234", true);
+        assertFilter("bound_integer = BIGINT '1234'", true);
         assertFilter("bound_long = 1234", true);
+        assertFilter("bound_long = BIGINT '1234'", true);
         assertFilter("bound_long = 5678", false);
         assertFilter("bound_null_string is null", true);
         assertFilter("bound_null_string = 'foo'", false);
@@ -232,9 +238,12 @@ public class TestExpressionCompiler
             assertExecute(generateExpression("%s is not null", value), BOOLEAN, value != null);
         }
 
-        for (Long value : longLefts) {
-            assertExecute(generateExpression("%s", value), BIGINT, value == null ? null : value);
-            assertExecute(generateExpression("- (%s)", value), BIGINT, value == null ? null : -value);
+        for (Integer value : intLefts) {
+            Long longValue = value == null ? null : value *  10000000000L;
+            assertExecute(generateExpression("%s", value), INTEGER, value == null ? null : value);
+            assertExecute(generateExpression("- (%s)", value), INTEGER, value == null ? null : -value);
+            assertExecute(generateExpression("%s", longValue), BIGINT, value == null ? null : longValue);
+            assertExecute(generateExpression("- (%s)", longValue), BIGINT, value == null ? null : -longValue);
             assertExecute(generateExpression("%s is null", value), BOOLEAN, value == null);
             assertExecute(generateExpression("%s is not null", value), BOOLEAN, value != null);
         }
@@ -283,11 +292,11 @@ public class TestExpressionCompiler
     }
 
     @Test
-    public void testBinaryOperatorsLongLong()
+    public void testBinaryOperatorsIntegralIntegral()
             throws Exception
     {
-        for (Long left : smallLongs) {
-            for (Long right : longRights) {
+        for (Integer left : smallInts) {
+            for (Integer right : intRights) {
                 assertExecute(generateExpression("%s = %s", left, right), BOOLEAN, left == null || right == null ? null : (long) left == right);
                 assertExecute(generateExpression("%s <> %s", left, right), BOOLEAN, left == null || right == null ? null : (long) left != right);
                 assertExecute(generateExpression("%s > %s", left, right), BOOLEAN, left == null || right == null ? null : (long) left > right);
@@ -295,14 +304,21 @@ public class TestExpressionCompiler
                 assertExecute(generateExpression("%s >= %s", left, right), BOOLEAN, left == null || right == null ? null : (long) left >= right);
                 assertExecute(generateExpression("%s <= %s", left, right), BOOLEAN, left == null || right == null ? null : (long) left <= right);
 
-                assertExecute(generateExpression("nullif(%s, %s)", left, right), BIGINT, nullIf(left, right));
+                assertExecute(generateExpression("nullif(%s, %s)", left, right), INTEGER, nullIf(left, right));
                 assertExecute(generateExpression("%s is distinct from %s", left, right), BOOLEAN, !Objects.equals(left, right));
 
-                assertExecute(generateExpression("%s + %s", left, right), BIGINT, left == null || right == null ? null : left + right);
-                assertExecute(generateExpression("%s - %s", left, right), BIGINT, left == null || right == null ? null : left - right);
-                assertExecute(generateExpression("%s * %s", left, right), BIGINT, left == null || right == null ? null : left * right);
-                assertExecute(generateExpression("%s / %s", left, right), BIGINT, left == null || right == null ? null : left / right);
-                assertExecute(generateExpression("%s %% %s", left, right), BIGINT, left == null || right == null ? null : left % right);
+                assertExecute(generateExpression("%s + %s", left, right), INTEGER, left == null || right == null ? null : left + right);
+                assertExecute(generateExpression("%s - %s", left, right), INTEGER, left == null || right == null ? null : left - right);
+                assertExecute(generateExpression("%s * %s", left, right), INTEGER, left == null || right == null ? null : left * right);
+                assertExecute(generateExpression("%s / %s", left, right), INTEGER, left == null || right == null ? null : left / right);
+                assertExecute(generateExpression("%s %% %s", left, right), INTEGER, left == null || right == null ? null : left % right);
+
+                Long longLeft = left == null ? null : left *  1000000000L;
+                assertExecute(generateExpression("%s + %s", longLeft, right), BIGINT, longLeft == null || right == null ? null : longLeft + right);
+                assertExecute(generateExpression("%s - %s", longLeft, right), BIGINT, longLeft == null || right == null ? null : longLeft - right);
+                assertExecute(generateExpression("%s * %s", longLeft, right), BIGINT, longLeft == null || right == null ? null : longLeft * right);
+                assertExecute(generateExpression("%s / %s", longLeft, right), BIGINT, longLeft == null || right == null ? null : longLeft / right);
+                assertExecute(generateExpression("%s %% %s", longLeft, right), BIGINT, longLeft == null || right == null ? null : longLeft % right);
             }
         }
 
@@ -310,10 +326,10 @@ public class TestExpressionCompiler
     }
 
     @Test
-    public void testBinaryOperatorsLongDouble()
+    public void testBinaryOperatorsIntegralDouble()
             throws Exception
     {
-        for (Long left : longLefts) {
+        for (Integer left : intLefts) {
             for (Double right : doubleRights) {
                 assertExecute(generateExpression("%s = %s", left, right), BOOLEAN, left == null || right == null ? null : (double) left == right);
                 assertExecute(generateExpression("%s <> %s", left, right), BOOLEAN, left == null || right == null ? null : (double) left != right);
@@ -324,7 +340,7 @@ public class TestExpressionCompiler
 
                 Object expectedNullIf = nullIf(left, right);
                 for (String expression : generateExpression("nullif(%s, %s)", left, right)) {
-                    functionAssertions.assertFunction(expression, BIGINT, expectedNullIf);
+                    functionAssertions.assertFunction(expression, INTEGER, expectedNullIf);
                 }
 
                 assertExecute(generateExpression("%s is distinct from %s", left, right), BOOLEAN, !Objects.equals(left == null ? null : left.doubleValue(), right));
@@ -341,11 +357,11 @@ public class TestExpressionCompiler
     }
 
     @Test
-    public void testBinaryOperatorsDoubleLong()
+    public void testBinaryOperatorsDoubleIntegral()
             throws Exception
     {
         for (Double left : doubleLefts) {
-            for (Long right : longRights) {
+            for (Integer right : intRights) {
                 assertExecute(generateExpression("%s = %s", left, right), BOOLEAN, left == null || right == null ? null : left == (double) right);
                 assertExecute(generateExpression("%s <> %s", left, right), BOOLEAN, left == null || right == null ? null : left != (double) right);
                 assertExecute(generateExpression("%s > %s", left, right), BOOLEAN, left == null || right == null ? null : left > (double) right);
@@ -455,9 +471,9 @@ public class TestExpressionCompiler
     public void testTernaryOperatorsLongLong()
             throws Exception
     {
-        for (Long first : longLefts) {
-            for (Long second : longLefts) {
-                for (Long third : longRights) {
+        for (Integer first : intLefts) {
+            for (Integer second : intLefts) {
+                for (Integer third : intRights) {
                     assertExecute(generateExpression("%s between %s and %s", first, second, third),
                             BOOLEAN,
                             first == null || second == null || third == null ? null : second <= first && first <= third);
@@ -472,9 +488,9 @@ public class TestExpressionCompiler
     public void testTernaryOperatorsLongDouble()
             throws Exception
     {
-        for (Long first : longLefts) {
+        for (Integer first : intLefts) {
             for (Double second : doubleLefts) {
-                for (Long third : longRights) {
+                for (Integer third : intRights) {
                     assertExecute(generateExpression("%s between %s and %s", first, second, third),
                             BOOLEAN,
                             first == null || second == null || third == null ? null : second <= first && first <= third);
@@ -491,7 +507,7 @@ public class TestExpressionCompiler
     {
         for (Double first : doubleLefts) {
             for (Double second : doubleLefts) {
-                for (Long third : longRights) {
+                for (Integer third : intRights) {
                     assertExecute(generateExpression("%s between %s and %s", first, second, third),
                             BOOLEAN,
                             first == null || second == null || third == null ? null : second <= first && first <= third);
@@ -525,14 +541,16 @@ public class TestExpressionCompiler
     {
         for (Boolean value : booleanValues) {
             assertExecute(generateExpression("cast(%s as boolean)", value), BOOLEAN, value == null ? null : (value ? true : false));
+            assertExecute(generateExpression("cast(%s as integer)", value), INTEGER, value == null ? null : (value ? 1 : 0));
             assertExecute(generateExpression("cast(%s as bigint)", value), BIGINT, value == null ? null : (value ? 1L : 0L));
             assertExecute(generateExpression("cast(%s as double)", value), DOUBLE, value == null ? null : (value ? 1.0 : 0.0));
             assertExecute(generateExpression("cast(%s as varchar)", value), VARCHAR, value == null ? null : (value ? "true" : "false"));
         }
 
-        for (Long value : longLefts) {
+        for (Integer value : intLefts) {
             assertExecute(generateExpression("cast(%s as boolean)", value), BOOLEAN, value == null ? null : (value != 0L ? true : false));
-            assertExecute(generateExpression("cast(%s as bigint)", value), BIGINT, value == null ? null : value);
+            assertExecute(generateExpression("cast(%s as integer)", value), INTEGER, value == null ? null : value);
+            assertExecute(generateExpression("cast(%s as bigint)", value), BIGINT, value == null ? null : (long) value);
             assertExecute(generateExpression("cast(%s as double)", value), DOUBLE, value == null ? null : value.doubleValue());
             assertExecute(generateExpression("cast(%s as varchar)", value), VARCHAR, value == null ? null : String.valueOf(value));
         }
@@ -556,9 +574,10 @@ public class TestExpressionCompiler
         assertExecute("cast('1' as BOOLEAN)", BOOLEAN, true);
         assertExecute("cast('0' as BOOLEAN)", BOOLEAN, false);
 
-        for (Long value : longLefts) {
+        for (Integer value : intLefts) {
             if (value != null) {
-                assertExecute(generateExpression("cast(%s as bigint)", String.valueOf(value)), BIGINT, value == null ? null : value);
+                assertExecute(generateExpression("cast(%s as integer)", String.valueOf(value)), INTEGER, value == null ? null : value);
+                assertExecute(generateExpression("cast(%s as bigint)", String.valueOf(value)), BIGINT, value == null ? null : (long) value);
             }
         }
         for (Double value : doubleLefts) {
@@ -584,6 +603,7 @@ public class TestExpressionCompiler
         assertExecute("try(cast (cast (123 AS VARCHAR) AS BIGINT))", BIGINT, 123L);
         assertExecute("coalesce(cast (CONCAT('123', CAST (123 AS VARCHAR)) AS BIGINT), 0)", BIGINT, 123123L);
         assertExecute("try(cast (CONCAT(bound_string, CAST (123 AS VARCHAR)) AS BIGINT))", BIGINT, null);
+        assertExecute("coalesce(try(cast (concat('a', cast (123 AS VARCHAR)) AS INTEGER)), 0)", INTEGER, 0);
         assertExecute("coalesce(try(cast (concat('a', cast (123 AS VARCHAR)) AS BIGINT)), 0)", BIGINT, 0L);
         assertExecute("123 + TRY(ABS(-9223372036854775807 - 1))", BIGINT, null);
         assertExecute("JSON_FORMAT(TRY(JSON '[]')) || '123'", VARCHAR, "[]123");
@@ -596,10 +616,13 @@ public class TestExpressionCompiler
     public void testTryCast()
             throws Exception
     {
+        assertExecute("try_cast(null as integer)", INTEGER, null);
+        assertExecute("try_cast('123' as integer)", INTEGER, 123);
         assertExecute("try_cast(null as bigint)", BIGINT, null);
         assertExecute("try_cast('123' as bigint)", BIGINT, 123L);
         assertExecute("try_cast('foo' as varchar)", VARCHAR, "foo");
         assertExecute("try_cast('foo' as bigint)", BIGINT, null);
+        assertExecute("try_cast('foo' as integer)", INTEGER, null);
         assertExecute("try_cast('2001-08-22' as timestamp)", TIMESTAMP, new SqlTimestamp(new DateTime(2001, 8, 22, 0, 0, 0, 0, UTC).getMillis(), UTC_KEY));
         assertExecute("try_cast(bound_string as bigint)", BIGINT, null);
         assertExecute("try_cast(cast(null as varchar) as bigint)", BIGINT, null);
@@ -679,7 +702,8 @@ public class TestExpressionCompiler
     public void testIf()
             throws Exception
     {
-        assertExecute("if(null and true, 1, 0)", BIGINT, 0L);
+        assertExecute("if(null and true, BIGINT '1', 0)", BIGINT, 0L);
+        assertExecute("if(null and true, 1, 0)", INTEGER, 0);
         for (Boolean condition : booleanValues) {
             for (String trueValue : stringLefts) {
                 for (String falseValue : stringRights) {
@@ -718,9 +742,9 @@ public class TestExpressionCompiler
                 }
             }
         }
-        for (Long value : longLefts) {
-            for (Long firstTest : longMiddle) {
-                for (Long secondTest : longRights) {
+        for (Integer value : intLefts) {
+            for (Integer firstTest : intMiddle) {
+                for (Integer secondTest : intRights) {
                     String expected;
                     if (value == null) {
                         expected = null;
@@ -748,7 +772,7 @@ public class TestExpressionCompiler
     {
         // assertExecute("case when null and true then 1 else 0 end", 0L);
         for (Double value : doubleLefts) {
-            for (Long firstTest : longLefts) {
+            for (Integer firstTest : intLefts) {
                 for (Double secondTest : doubleRights) {
                     String expected;
                     if (value == null) {
@@ -779,7 +803,7 @@ public class TestExpressionCompiler
             throws Exception
     {
         for (Double value : doubleLefts) {
-            for (Long firstTest : longLefts) {
+            for (Integer firstTest : intLefts) {
                 for (Double secondTest : doubleRights) {
                     String expected;
                     if (value == null) {
@@ -818,8 +842,8 @@ public class TestExpressionCompiler
             assertExecute(generateExpression("%s in (null)", value), BOOLEAN, null);
         }
 
-        for (Long value : longLefts) {
-            List<Long> testValues = Arrays.asList(33L, 9L, -9L, -33L);
+        for (Integer value : intLefts) {
+            List<Integer> testValues = Arrays.asList(33, 9, -9, -33);
             assertExecute(generateExpression("%s in (33, 9, -9, -33)", value),
                     BOOLEAN,
                     value == null ? null : testValues.contains(value));
@@ -902,7 +926,13 @@ public class TestExpressionCompiler
     public void testHugeIn()
             throws Exception
     {
-        String longValues = range(2000, 7000).asLongStream()
+        String intValues = range(2000, 7000)
+                .mapToObj(Integer::toString)
+                .collect(joining(", "));
+        assertExecute("bound_integer in (1234, " + intValues + ")", BOOLEAN, true);
+        assertExecute("bound_integer in (" + intValues + ")", BOOLEAN, false);
+
+        String longValues = LongStream.range(Integer.MAX_VALUE + 1L, Integer.MAX_VALUE + 5000L)
                 .mapToObj(Long::toString)
                 .collect(joining(", "));
         assertExecute("bound_long in (1234, " + longValues + ")", BOOLEAN, true);
@@ -933,20 +963,20 @@ public class TestExpressionCompiler
     public void testFunctionCall()
             throws Exception
     {
-        for (Long left : longLefts) {
-            for (Long right : longRights) {
+        for (Integer left : intLefts) {
+            for (Integer right : intRights) {
                 assertExecute(generateExpression("log(%s, %s)", left, right), DOUBLE, left == null || right == null ? null : MathFunctions.log(left, right));
             }
         }
 
-        for (Long left : longLefts) {
+        for (Integer left : intLefts) {
             for (Double right : doubleRights) {
                 assertExecute(generateExpression("log(%s, %s)", left, right), DOUBLE, left == null || right == null ? null : MathFunctions.log(left, right));
             }
         }
 
         for (Double left : doubleLefts) {
-            for (Long right : longRights) {
+            for (Integer right : intRights) {
                 assertExecute(generateExpression("log(%s, %s)", left, right), DOUBLE, left == null || right == null ? null : MathFunctions.log(left, right));
             }
         }
@@ -958,8 +988,8 @@ public class TestExpressionCompiler
         }
 
         for (String value : stringLefts) {
-            for (Long start : longLefts) {
-                for (Long length : longRights) {
+            for (Integer start : intLefts) {
+                for (Integer length : intRights) {
                     String expected;
                     if (value == null || start == null || length == null) {
                         expected = null;
@@ -1021,6 +1051,7 @@ public class TestExpressionCompiler
         }
 
         assertExecute("json_array_contains('[1, 2, 3]', 2)", BOOLEAN, true);
+        assertExecute("json_array_contains('[1, 2, 3]', BIGINT '2')", BOOLEAN, true);
         assertExecute("json_array_contains('[2.5]', 2.5)", BOOLEAN, true);
         assertExecute("json_array_contains('[false, true]', true)", BOOLEAN, true);
         assertExecute("json_array_contains('[5]', 3)", BOOLEAN, false);
@@ -1119,11 +1150,15 @@ public class TestExpressionCompiler
     public void testCoalesce()
             throws Exception
     {
-        assertExecute("coalesce(9, 1)", BIGINT, 9L);
-        assertExecute("coalesce(9, null)", BIGINT, 9L);
+        assertExecute("coalesce(9, 1)", INTEGER, 9);
+        assertExecute("coalesce(9, null)", INTEGER, 9);
+        assertExecute("coalesce(9, BIGINT '1')", BIGINT, 9L);
+        assertExecute("coalesce(BIGINT '9', null)", BIGINT, 9L);
         assertExecute("coalesce(9, cast(null as bigint))", BIGINT, 9L);
-        assertExecute("coalesce(null, 9, 1)", BIGINT, 9L);
-        assertExecute("coalesce(null, 9, null)", BIGINT, 9L);
+        assertExecute("coalesce(null, 9, 1)", INTEGER, 9);
+        assertExecute("coalesce(null, 9, null)", INTEGER, 9);
+        assertExecute("coalesce(null, 9, BIGINT '1')", BIGINT, 9L);
+        assertExecute("coalesce(null, 9, CAST (null AS BIGINT))", BIGINT, 9L);
         assertExecute("coalesce(null, 9, cast(null as bigint))", BIGINT, 9L);
         assertExecute("coalesce(cast(null as bigint), 9, 1)", BIGINT, 9L);
         assertExecute("coalesce(cast(null as bigint), 9, null)", BIGINT, 9L);
@@ -1163,7 +1198,8 @@ public class TestExpressionCompiler
     {
         assertExecute("nullif(NULL, NULL)", UNKNOWN, null);
         assertExecute("nullif(NULL, 2)", UNKNOWN, null);
-        assertExecute("nullif(2, NULL)", BIGINT, 2L);
+        assertExecute("nullif(2, NULL)", INTEGER, 2);
+        assertExecute("nullif(BIGINT '2', NULL)", BIGINT, 2L);
 
         Futures.allAsList(futures).get();
     }
@@ -1176,6 +1212,11 @@ public class TestExpressionCompiler
     private List<String> generateExpression(String expressionPattern, Long value)
     {
         return formatExpression(expressionPattern, value, "bigint");
+    }
+
+    private List<String> generateExpression(String expressionPattern, Integer value)
+    {
+        return formatExpression(expressionPattern, value, "integer");
     }
 
     private List<String> generateExpression(String expressionPattern, Double value)
@@ -1198,14 +1239,34 @@ public class TestExpressionCompiler
         return formatExpression(expressionPattern, left, "bigint", right, "bigint");
     }
 
+    private List<String> generateExpression(String expressionPattern, Long left, Integer right)
+    {
+        return formatExpression(expressionPattern, left, "bigint", right, "integer");
+    }
+
+    private List<String> generateExpression(String expressionPattern, Integer left, Integer right)
+    {
+        return formatExpression(expressionPattern, left, "integer", right, "integer");
+    }
+
     private List<String> generateExpression(String expressionPattern, Long left, Double right)
     {
         return formatExpression(expressionPattern, left, "bigint", right, "double");
     }
 
+    private List<String> generateExpression(String expressionPattern, Integer left, Double right)
+    {
+        return formatExpression(expressionPattern, left, "integer", right, "double");
+    }
+
     private List<String> generateExpression(String expressionPattern, Double left, Long right)
     {
         return formatExpression(expressionPattern, left, "double", right, "bigint");
+    }
+
+    private List<String> generateExpression(String expressionPattern, Double left, Integer right)
+    {
+        return formatExpression(expressionPattern, left, "double", right, "integer");
     }
 
     private List<String> generateExpression(String expressionPattern, Double left, Double right)
@@ -1223,9 +1284,19 @@ public class TestExpressionCompiler
         return formatExpression(expressionPattern, first, "bigint", second, "bigint", third, "bigint");
     }
 
+    private List<String> generateExpression(String expressionPattern, Integer first, Integer second, Integer third)
+    {
+        return formatExpression(expressionPattern, first, "integer", second, "integer", third, "integer");
+    }
+
     private List<String> generateExpression(String expressionPattern, Long first, Double second, Long third)
     {
         return formatExpression(expressionPattern, first, "bigint", second, "double", third, "bigint");
+    }
+
+    private List<String> generateExpression(String expressionPattern, Integer first, Double second, Integer third)
+    {
+        return formatExpression(expressionPattern, first, "integer", second, "double", third, "integer");
     }
 
     private List<String> generateExpression(String expressionPattern, Double first, Double second, Double third)
@@ -1236,6 +1307,11 @@ public class TestExpressionCompiler
     private List<String> generateExpression(String expressionPattern, Double first, Double second, Long third)
     {
         return formatExpression(expressionPattern, first, "double", second, "double", third, "bigint");
+    }
+
+    private List<String> generateExpression(String expressionPattern, Double first, Double second, Integer third)
+    {
+        return formatExpression(expressionPattern, first, "double", second, "double", third, "integer");
     }
 
     private List<String> generateExpression(String expressionPattern, Double first, Long second, Double third)
@@ -1256,6 +1332,11 @@ public class TestExpressionCompiler
     private List<String> generateExpression(String expressionPattern, String first, Long second, Long third)
     {
         return formatExpression(expressionPattern, first, "varchar", second, "bigint", third, "bigint");
+    }
+
+    private List<String> generateExpression(String expressionPattern, String first, Integer second, Integer third)
+    {
+        return formatExpression(expressionPattern, first, "varchar", second, "integer", third, "integer");
     }
 
     private List<String> formatExpression(String expressionPattern, Object value, String type)

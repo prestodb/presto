@@ -60,14 +60,14 @@ public class TestExecuteResource
             throws Exception
     {
         String expected = "{\"columns\":[" +
-                "{\"name\":\"foo\",\"type\":\"bigint\",\"typeSignature\":{\"rawType\":\"bigint\",\"arguments\":[],\"typeArguments\":[],\"literalArguments\":[]}}," +
+                "{\"name\":\"foo\",\"type\":\"integer\",\"typeSignature\":{\"rawType\":\"integer\",\"arguments\":[],\"typeArguments\":[],\"literalArguments\":[]}}," +
+                "{\"name\":\"phoo\",\"type\":\"bigint\",\"typeSignature\":{\"rawType\":\"bigint\",\"arguments\":[],\"typeArguments\":[],\"literalArguments\":[]}}," +
                 "{\"name\":\"bar\",\"type\":\"varchar(3)\",\"typeSignature\":" +
                     "{\"rawType\":\"varchar\",\"arguments\":[{\"kind\":\"LONG_LITERAL\",\"value\":3}],\"typeArguments\":[],\"literalArguments\":[]}}," +
                 "{\"name\":\"baz\",\"type\":\"array(bigint)\",\"typeSignature\":" +
                     "{\"rawType\":\"array\",\"arguments\":[{\"kind\":\"TYPE_SIGNATURE\",\"value\":{\"rawType\":\"bigint\",\"arguments\":[],\"typeArguments\":[],\"literalArguments\":[]}}],\"typeArguments\":[{\"rawType\":\"bigint\",\"arguments\":[],\"typeArguments\":[],\"literalArguments\":[]}],\"literalArguments\":[]}}]," +
-                "\"data\":[[123,\"abc\",[42,44]]]}\n";
-
-        StringResponse response = executeQuery("SELECT 123 foo, 'abc' bar, CAST(JSON_PARSE('[42,44]') AS ARRAY<BIGINT>) baz");
+                "\"data\":[[123, 12300000000, \"abc\",[42,44]]]}\n";
+        StringResponse response = executeQuery("SELECT 123 foo, 12300000000 phoo, 'abc' bar, CAST(JSON_PARSE('[42,44]') AS ARRAY<BIGINT>) baz");
         assertEquals(response.getStatusCode(), HttpStatus.OK.code());
         assertEquals(response.getHeader(HttpHeaders.CONTENT_TYPE), "application/json");
 

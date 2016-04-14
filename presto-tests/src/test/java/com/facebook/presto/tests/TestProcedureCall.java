@@ -83,7 +83,7 @@ public class TestProcedureCall
         assertCallFails("CALL test_args(x => 3, x => 4)", "line 1:24: Duplicate procedure argument: x");
         assertCallFails("CALL test_args(t => 404)", "line 1:16: Unknown argument name: t");
         assertCallFails("CALL test_nulls('hello', null)", "line 1:17: Cannot cast type bigint to varchar(5)");
-        assertCallFails("CALL test_nulls(null, 123)", "line 1:23: Cannot cast type varchar to bigint");
+        assertCallFails("CALL test_nulls(null, 123)", "line 1:23: Cannot cast type varchar to integer");
     }
 
     private void assertCall(@Language("SQL") String sql, String name, Object... arguments)

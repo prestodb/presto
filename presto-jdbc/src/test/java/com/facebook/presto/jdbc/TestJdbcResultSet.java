@@ -97,26 +97,28 @@ public class TestJdbcResultSet
     public void testObjectTypes()
             throws Exception
     {
-        String sql = "SELECT 123, 0.1, true, 'hello', 1.0 / 0.0, 0.0 / 0.0, ARRAY[1, 2]";
+        String sql = "SELECT 123, 12300000000, 0.1, true, 'hello', 1.0 / 0.0, 0.0 / 0.0, ARRAY[1, 2]";
         try (ResultSet rs = statement.executeQuery(sql)) {
             ResultSetMetaData metadata = rs.getMetaData();
-            assertEquals(metadata.getColumnCount(), 7);
-            assertEquals(metadata.getColumnType(1), Types.BIGINT);
-            assertEquals(metadata.getColumnType(2), Types.DOUBLE);
-            assertEquals(metadata.getColumnType(3), Types.BOOLEAN);
-            assertEquals(metadata.getColumnType(4), Types.LONGNVARCHAR);
-            assertEquals(metadata.getColumnType(5), Types.DOUBLE);
+            assertEquals(metadata.getColumnCount(), 8);
+            assertEquals(metadata.getColumnType(1), Types.INTEGER);
+            assertEquals(metadata.getColumnType(2), Types.BIGINT);
+            assertEquals(metadata.getColumnType(3), Types.DOUBLE);
+            assertEquals(metadata.getColumnType(4), Types.BOOLEAN);
+            assertEquals(metadata.getColumnType(5), Types.LONGNVARCHAR);
             assertEquals(metadata.getColumnType(6), Types.DOUBLE);
-            assertEquals(metadata.getColumnType(7), Types.ARRAY);
+            assertEquals(metadata.getColumnType(7), Types.DOUBLE);
+            assertEquals(metadata.getColumnType(8), Types.ARRAY);
 
             assertTrue(rs.next());
-            assertEquals(rs.getObject(1), 123L);
-            assertEquals(rs.getObject(2), 0.1d);
-            assertEquals(rs.getObject(3), true);
-            assertEquals(rs.getObject(4), "hello");
-            assertEquals(rs.getObject(5), Double.POSITIVE_INFINITY);
-            assertEquals(rs.getObject(6), Double.NaN);
-            assertEquals(rs.getArray(7).getArray(), new long[] {1L, 2L});
+            assertEquals(rs.getObject(1), 123);
+            assertEquals(rs.getObject(2), 12300000000L);
+            assertEquals(rs.getObject(3), 0.1d);
+            assertEquals(rs.getObject(4), true);
+            assertEquals(rs.getObject(5), "hello");
+            assertEquals(rs.getObject(6), Double.POSITIVE_INFINITY);
+            assertEquals(rs.getObject(7), Double.NaN);
+            assertEquals(rs.getArray(8).getArray(), new int[] {1, 2});
         }
     }
 

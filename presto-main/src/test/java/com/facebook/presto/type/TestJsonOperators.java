@@ -56,10 +56,12 @@ public class TestJsonOperators
     }
 
     @Test
-    public void testCastFromBigint()
+    public void testCastFromIntegrals()
     {
+        assertFunction("cast(cast (null as integer) as JSON)", JSON, null);
         assertFunction("cast(cast (null as bigint) as JSON)", JSON, null);
         assertFunction("cast(128 as JSON)", JSON, "128");
+        assertFunction("cast(BIGINT '128' as JSON)", JSON, "128");
     }
 
     @Test

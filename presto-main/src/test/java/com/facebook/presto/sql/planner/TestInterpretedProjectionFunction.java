@@ -56,25 +56,31 @@ public class TestInterpretedProjectionFunction
     @Test
     public void testArithmeticExpression()
     {
-        assertProjection("42 + 87", 42L + 87L);
-        assertProjection("42 + 22.2", 42L + 22.2);
+        assertProjection("42 + 87", 42 + 87);
+        assertProjection("42 + 22.2", 42 + 22.2);
         assertProjection("11.1 + 22.2", 11.1 + 22.2);
 
-        assertProjection("42 - 87", 42L - 87L);
-        assertProjection("42 - 22.2", 42L - 22.2);
+        assertProjection("42 - 87", 42 - 87);
+        assertProjection("42 - 22.2", 42 - 22.2);
         assertProjection("11.1 - 22.2", 11.1 - 22.2);
 
-        assertProjection("42 * 87", 42L * 87L);
-        assertProjection("42 * 22.2", 42L * 22.2);
+        assertProjection("42 * 87", 42 * 87);
+        assertProjection("42 * 22.2", 42 * 22.2);
         assertProjection("11.1 * 22.2", 11.1 * 22.2);
 
-        assertProjection("42 / 87", 42L / 87L);
-        assertProjection("42 / 22.2", 42L / 22.2);
+        assertProjection("42 / 87", 42 / 87);
+        assertProjection("42 / 22.2", 42 / 22.2);
         assertProjection("11.1 / 22.2", 11.1 / 22.2);
 
-        assertProjection("42 % 87", 42L % 87L);
-        assertProjection("42 % 22.2", 42L % 22.2);
+        assertProjection("42 % 87", 42 % 87);
+        assertProjection("42 % 22.2", 42 % 22.2);
         assertProjection("11.1 % 22.2", 11.1 % 22.2);
+
+        assertProjection("42 + BIGINT '87'", 42 + 87L);
+        assertProjection("BIGINT '42' - 22.2", 42L - 22.2);
+        assertProjection("42 * BIGINT '87'", 42 * 87L);
+        assertProjection("BIGINT '11' / 22.2", 11L / 22.2);
+        assertProjection("11.1 % BIGINT '22'", 11.1 % 22L);
     }
 
     @Test
@@ -94,10 +100,12 @@ public class TestInterpretedProjectionFunction
     @Test
     public void testCoalesceExpression()
     {
-        assertProjection("COALESCE(42, 87, 100)", 42L);
-        assertProjection("COALESCE(NULL, 87, 100)", 87L);
-        assertProjection("COALESCE(42, NULL, 100)", 42L);
-        assertProjection("COALESCE(NULL, NULL, 100)", 100L);
+        assertProjection("COALESCE(42, 87, 100)", 42);
+        assertProjection("COALESCE(NULL, 87, 100)", 87);
+        assertProjection("COALESCE(42, NULL, 100)", 42);
+        assertProjection("COALESCE(42, NULL, BIGINT '100')", 42L);
+        assertProjection("COALESCE(NULL, NULL, 100)", 100);
+        assertProjection("COALESCE(NULL, NULL, BIGINT '100')", 100L);
 
         assertProjection("COALESCE(42.2, 87.2, 100.2)", 42.2);
         assertProjection("COALESCE(NULL, 87.2, 100.2)", 87.2);
@@ -120,14 +128,16 @@ public class TestInterpretedProjectionFunction
         assertProjection("NULLIF(42.42, 42.42)", null);
         assertProjection("NULLIF('foo', 'foo')", null);
 
-        assertProjection("NULLIF(42, 87)", 42L);
-        assertProjection("NULLIF(42, 22.2)", 42L);
+        assertProjection("NULLIF(42, 87)", 42);
+        assertProjection("NULLIF(42, 22.2)", 42);
+        assertProjection("NULLIF(42, BIGINT '87')", 42);
+        assertProjection("NULLIF(BIGINT '42', 22.2)", 42L);
         assertProjection("NULLIF(42.42, 22.2)", 42.42);
         assertProjection("NULLIF('foo', 'bar')", "foo");
 
         assertProjection("NULLIF(NULL, NULL)", null);
 
-        assertProjection("NULLIF(42, NULL)", 42L);
+        assertProjection("NULLIF(42, NULL)", 42);
         assertProjection("NULLIF(NULL, 42)", null);
 
         assertProjection("NULLIF(11.1, NULL)", 11.1);

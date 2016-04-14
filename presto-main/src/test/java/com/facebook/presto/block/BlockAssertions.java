@@ -31,6 +31,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -191,6 +192,29 @@ public final class BlockAssertions
             }
             else {
                 BOOLEAN.writeBoolean(builder, value);
+            }
+        }
+
+        return builder.build();
+    }
+
+    public static Block createIntsBlock(Integer... values)
+    {
+        requireNonNull(values, "varargs 'values' is null");
+
+        return createIntsBlock(Arrays.asList(values));
+    }
+
+    public static Block createIntsBlock(Iterable<Integer> values)
+    {
+        BlockBuilder builder = INTEGER.createBlockBuilder(new BlockBuilderStatus(), 100);
+
+        for (Integer value : values) {
+            if (value == null) {
+                builder.appendNull();
+            }
+            else {
+                INTEGER.writeLong(builder, value);
             }
         }
 
