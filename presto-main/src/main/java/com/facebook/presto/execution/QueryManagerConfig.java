@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.DefunctConfig;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
@@ -33,6 +34,14 @@ public class QueryManagerConfig
     private int scheduleSplitBatchSize = 1000;
     private int maxConcurrentQueries = 1000;
     private int maxQueuedQueries = 5000;
+    //new attributes:
+    private DataSize queueMaxMemory = new DataSize(32, DataSize.Unit.GIGABYTE);
+    private Duration queueMaxCpuTime = new Duration(20, TimeUnit.HOURS);
+    private Duration queueMaxQueryCpuTime = new Duration(2, TimeUnit.HOURS);
+    private Duration queueRuntimeCap = new Duration(1, TimeUnit.HOURS);
+    private Duration queueQueuedTimeCap = new Duration(1, TimeUnit.HOURS);
+    private boolean queueIsPublic = true;
+
     private String queueConfigFile;
 
     private int initialHashPartitions = 8;
@@ -101,6 +110,84 @@ public class QueryManagerConfig
     public QueryManagerConfig setMaxQueuedQueries(int maxQueuedQueries)
     {
         this.maxQueuedQueries = maxQueuedQueries;
+        return this;
+    }
+
+    @Deprecated
+    public DataSize getQueueMaxMemory()
+    {
+        return queueMaxMemory;
+    }
+
+    @Deprecated
+    @Config("query.queue-max-memory")
+    public QueryManagerConfig setQueueMaxMemory(DataSize queueMaxMemory) {
+        this.queueMaxMemory = queueMaxMemory;
+        return this;
+    }
+
+    @Deprecated
+    public Duration getQueueMaxCpuTime()
+    {
+        return queueMaxCpuTime;
+    }
+
+    @Deprecated
+    @Config("query.queue-max-cpu-time")
+    public QueryManagerConfig setQueueMaxCpuTime(Duration queueMaxCpuTime) {
+        this.queueMaxCpuTime = queueMaxCpuTime;
+        return this;
+    }
+
+    @Deprecated
+    public Duration getQueueMaxQueryCpuTime()
+    {
+        return queueMaxQueryCpuTime;
+    }
+
+    @Deprecated
+    @Config("query.queue-max-query-cpu-time")
+    public QueryManagerConfig setQueueMaxQueryCpuTime(Duration queueMaxQueryCpuTime) {
+        this.queueMaxQueryCpuTime = queueMaxQueryCpuTime;
+        return this;
+    }
+
+    @Deprecated
+    public Duration getQueueRuntimeCap()
+    {
+        return queueRuntimeCap;
+    }
+
+    @Deprecated
+    @Config("query.queue-run-time-cap")
+    public QueryManagerConfig setQueueRuntimeCap(Duration queueRuntimeCap) {
+        this.queueRuntimeCap = queueRuntimeCap;
+        return this;
+    }
+    @Deprecated
+    public Duration getQueueQueuedTimeCap()
+    {
+        return queueQueuedTimeCap;
+    }
+
+    @Deprecated
+    @Config("query.queue-queued-time-cap")
+    public QueryManagerConfig setQueueQueuedTimeCap(Duration queueQueuedTimeCap) {
+        this.queueQueuedTimeCap = queueQueuedTimeCap;
+        return this;
+    }
+
+    @Deprecated
+    public boolean getQueueIsPublic()
+    {
+        return queueIsPublic;
+    }
+
+    @Deprecated
+    @Config("query.queue-is-public")
+    public QueryManagerConfig setQueueIsPublic(boolean queueIsPublic)
+    {
+        this.queueIsPublic = queueIsPublic;
         return this;
     }
 

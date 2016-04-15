@@ -14,7 +14,10 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -23,35 +26,44 @@ import static java.util.Objects.requireNonNull;
 
 public class QueryQueueDefinition
 {
-    private static final Pattern USER_PATTERN = Pattern.compile(Pattern.quote("${USER}"));
-    private static final Pattern SOURCE_PATTERN = Pattern.compile(Pattern.quote("${SOURCE}"));
-    private final String template;
+    private final String name;
     private final int maxConcurrent;
     private final int maxQueued;
-
-    public QueryQueueDefinition(String template, int maxConcurrent, int maxQueued)
+    // new attributes:
+    private final DataSize maxMemory;
+    private final Duration maxCpuTime;
+    private final Duration maxQueryCpuTime;
+    private final Duration runtimeCap;
+    private final Duration queuedTimeCap;
+    private final boolean isPublic;
+    public QueryQueueDefinition(String name,
+                                int maxConcurrent,
+                                int maxQueued,
+                                DataSize maxMemory,
+                                Duration maxCpuTime,
+                                Duration maxQueryCpuTime,
+                                Duration runtimeCap,
+                                Duration queuedTimeCap,
+                                boolean isPublic)
     {
-        this.template = requireNonNull(template, "template is null");
-        Matcher matcher = Pattern.compile("\\$\\{(.*?)\\}").matcher(template);
-        while (matcher.find()) {
-            String group = matcher.group(1);
-            checkArgument(group.equals("USER") || group.equals("SOURCE"), "Unsupported template parameter: ${%s}", group);
-        }
+        this.name = requireNonNull(name, "name is null");
         checkArgument(maxConcurrent > 0, "maxConcurrent must be positive");
         checkArgument(maxQueued > 0, "maxQueued must be positive");
         this.maxConcurrent = maxConcurrent;
         this.maxQueued = maxQueued;
+
+        //new attributes:
+        this.maxMemory = requireNonNull(maxMemory, "max memory is null");
+        this.maxCpuTime = requireNonNull(maxCpuTime, "max cpu time is null");
+        this.maxQueryCpuTime = requireNonNull(maxQueryCpuTime, "max query cpu time is null");
+        this.runtimeCap = requireNonNull(runtimeCap, "runtime cap is null");
+        this.queuedTimeCap = requireNonNull(queuedTimeCap, "queued time cap is null");
+        this.isPublic = isPublic;
     }
 
-    public String getExpandedTemplate(Session session)
+    String getName()
     {
-        String expanded = USER_PATTERN.matcher(template).replaceAll(session.getUser());
-        return SOURCE_PATTERN.matcher(expanded).replaceAll(session.getSource().orElse(""));
-    }
-
-    String getTemplate()
-    {
-        return template;
+        return name;
     }
 
     public int getMaxConcurrent()
@@ -62,5 +74,50 @@ public class QueryQueueDefinition
     public int getMaxQueued()
     {
         return maxQueued;
+    }
+
+    public DataSize getMaxMemory()
+    {
+        return maxMemory;
+    }
+
+    public Duration getMaxCpuTime()
+    {
+        return maxCpuTime;
+    }
+
+    public Duration getMaxQueryCpuTime()
+    {
+        return maxQueryCpuTime;
+    }
+
+    public Duration getRuntimeCap()
+    {
+        return runtimeCap;
+    }
+
+    public Duration getQueuedTimeCap()
+    {
+        return queuedTimeCap;
+    }
+
+    public boolean getIsPublic()
+    {
+        return isPublic;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (!(other instanceof QueryQueueDefinition)) {
+            return false;
+        }
+
+        QueryQueueDefinition that = (QueryQueueDefinition) other;
+        return getName() == that.getName();
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name);
     }
 }

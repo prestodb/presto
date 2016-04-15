@@ -18,18 +18,14 @@ import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Provider;
 import com.google.inject.Provides;
-import org.jgrapht.DirectedGraph;
-import org.jgrapht.GraphPath;
-import org.jgrapht.Graphs;
-import org.jgrapht.alg.FloydWarshallShortestPaths;
-import org.jgrapht.graph.DefaultEdge;
-import org.jgrapht.graph.DirectedPseudograph;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
@@ -40,28 +36,36 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class QueryQueueRuleFactory
-        implements Provider<List<? extends ResourceGroupSelector>>
+        implements Provider<Map<String, ? extends ResourceGroupSelector>>
 {
-    private final List<? extends ResourceGroupSelector> selectors;
+    private final Map<String, ? extends ResourceGroupSelector> selectors;
 
     @Inject
     public QueryQueueRuleFactory(QueryManagerConfig config, ObjectMapper mapper)
     {
         requireNonNull(config, "config is null");
 
-        ImmutableList.Builder<QueryQueueRule> rules = ImmutableList.builder();
+        ImmutableMap.Builder<String, QueryQueueRule> rules = ImmutableMap.builder();
         if (config.getQueueConfigFile() == null) {
-            QueryQueueDefinition global = new QueryQueueDefinition("global", config.getMaxConcurrentQueries(), config.getMaxQueuedQueries());
-            rules.add(new QueryQueueRule(null, null, ImmutableMap.of(), ImmutableList.of(global)));
+            QueryQueueDefinition global = new QueryQueueDefinition("global",
+                    config.getMaxConcurrentQueries(),
+                    config.getMaxQueuedQueries(),
+                    config.getQueueMaxMemory(),
+                    config.getQueueMaxCpuTime(),
+                    config.getQueueMaxQueryCpuTime(),
+                    config.getQueueRuntimeCap(),
+                    config.getQueueQueuedTimeCap(),
+                    config.getQueueIsPublic()
+                    );
+            rules.put("global", new QueryQueueRule(global, ImmutableSet.<String>of()));
         }
         else {
             File file = new File(config.getQueueConfigFile());
@@ -74,74 +78,29 @@ public class QueryQueueRuleFactory
             }
             Map<String, QueryQueueDefinition> definitions = new HashMap<>();
             for (Map.Entry<String, QueueSpec> queue : managerSpec.getQueues().entrySet()) {
-                definitions.put(queue.getKey(), new QueryQueueDefinition(queue.getKey(), queue.getValue().getMaxConcurrent(), queue.getValue().getMaxQueued()));
+                definitions.put(queue.getKey(), new QueryQueueDefinition(
+                        queue.getKey(),
+                        queue.getValue().getMaxConcurrent(),
+                        queue.getValue().getMaxQueued(),
+                        queue.getValue().getMaxMemory(),
+                        queue.getValue().getMaxCpuTime(),
+                        queue.getValue().getMaxQueryCpuTime(),
+                        queue.getValue().getRuntimeCap(),
+                        queue.getValue().getQueuedTimeCap(),
+                        queue.getValue().getIsPublic())
+                );
             }
 
             for (RuleSpec rule : managerSpec.getRules()) {
-                rules.add(QueryQueueRule.createRule(rule.getUserRegex(), rule.getSourceRegex(), rule.getSessionPropertyRegexes(), rule.getQueues(), definitions));
+                rules.put(rule.getQueueName(), QueryQueueRule.createRule(definitions.get(rule.getQueueName()), rule.getUserNames()));
             }
         }
-        checkIsDAG(rules.build());
         this.selectors = rules.build();
-    }
-
-    private static void checkIsDAG(List<QueryQueueRule> rules)
-    {
-        DirectedPseudograph<String, DefaultEdge> graph = new DirectedPseudograph<>(DefaultEdge.class);
-        for (QueryQueueRule rule : rules) {
-            String lastQueueName = null;
-            for (QueryQueueDefinition queue : rule.getQueues()) {
-                String currentQueueName = queue.getTemplate();
-                graph.addVertex(currentQueueName);
-                if (lastQueueName != null) {
-                    graph.addEdge(lastQueueName, currentQueueName);
-                }
-                lastQueueName = currentQueueName;
-            }
-        }
-
-        List<String> shortestCycle = shortestCycle(graph);
-
-        if (shortestCycle != null) {
-            String s = Joiner.on(", ").join(shortestCycle);
-            throw new IllegalArgumentException(format("Queues must not contain a cycle. The shortest cycle found is [%s]", s));
-        }
-    }
-
-    private static List<String> shortestCycle(DirectedGraph<String, DefaultEdge> graph)
-    {
-        FloydWarshallShortestPaths<String, DefaultEdge> floyd = new FloydWarshallShortestPaths<>(graph);
-        int minDistance = Integer.MAX_VALUE;
-        String minSource = null;
-        String minDestination = null;
-        for (DefaultEdge edge : graph.edgeSet()) {
-            String src = graph.getEdgeSource(edge);
-            String dst = graph.getEdgeTarget(edge);
-            int dist = (int) Math.round(floyd.shortestDistance(dst, src)); // from dst to src
-            if (dist < 0) {
-                continue;
-            }
-            if (dist < minDistance) {
-                minDistance = dist;
-                minSource = src;
-                minDestination = dst;
-            }
-        }
-        if (minSource == null) {
-            return null;
-        }
-        GraphPath<String, DefaultEdge> shortestPath = floyd.getShortestPath(minDestination, minSource);
-        List<String> pathVertexList = Graphs.getPathVertexList(shortestPath);
-        // note: pathVertexList will be [a, a] instead of [a] when the shortest path is a loop edge
-        if (!Objects.equals(shortestPath.getStartVertex(), shortestPath.getEndVertex())) {
-            pathVertexList.add(pathVertexList.get(0));
-        }
-        return pathVertexList;
     }
 
     @Override
     @Provides
-    public List<? extends ResourceGroupSelector> get()
+    public Map<String, ? extends ResourceGroupSelector> get()
     {
         return selectors;
     }
@@ -156,8 +115,18 @@ public class QueryQueueRuleFactory
                 @JsonProperty("queues") Map<String, QueueSpec> queues,
                 @JsonProperty("rules") List<RuleSpec> rules)
         {
-            this.queues = ImmutableMap.copyOf(requireNonNull(queues, "queues is null"));
+            this.queues = getLeafQueues(requireNonNull(queues, "queues is null"));
             this.rules = ImmutableList.copyOf(requireNonNull(rules, "rules is null"));
+        }
+
+        private static ImmutableMap<String, QueueSpec> getLeafQueues(Map<String, QueueSpec> queues) {
+            ImmutableMap.Builder<String, QueueSpec> builder = ImmutableMap.builder();
+            for(Map.Entry<String, QueueSpec> entry: queues.entrySet()) {
+                if (entry.getValue().getSubGroups().isEmpty()) {
+                    builder.put(entry);
+                }
+            }
+            return builder.build();
         }
 
         public Map<String, QueueSpec> getQueues()
@@ -175,14 +144,35 @@ public class QueryQueueRuleFactory
     {
         private final int maxQueued;
         private final int maxConcurrent;
-
+        private final DataSize maxMemory;
+        private final Duration maxCpuTime;
+        private final Duration maxQueryCpuTime;
+        private final Duration runtimeCap;
+        private final Duration queuedTimeCap;
+        private final boolean isPublic;
+        private final ImmutableList<QueueSpec> subGroups;
         @JsonCreator
         public QueueSpec(
                 @JsonProperty("maxQueued") int maxQueued,
-                @JsonProperty("maxConcurrent") int maxConcurrent)
+                @JsonProperty("maxConcurrent") int maxConcurrent,
+                @JsonProperty("maxMemory") DataSize maxMemory,
+                @JsonProperty("maxCpuTime") Duration maxCpuTime,
+                @JsonProperty("maxQueryCpuTime") Duration maxQueryCpuTime,
+                @JsonProperty("runtimeCap") Duration runtimeCap,
+                @JsonProperty("queuedTimeCap") Duration queuedTimeCap,
+                @JsonProperty("isPublic") boolean isPublic,
+                @JsonProperty("subGroups") List<QueueSpec> subGroups
+                )
         {
             this.maxQueued = maxQueued;
             this.maxConcurrent = maxConcurrent;
+            this.maxMemory = maxMemory;
+            this.maxCpuTime = maxCpuTime;
+            this.maxQueryCpuTime = maxQueryCpuTime;
+            this.runtimeCap = runtimeCap;
+            this.queuedTimeCap = queuedTimeCap;
+            this.isPublic = isPublic;
+            this.subGroups = ImmutableList.copyOf(subGroups);
         }
 
         public int getMaxQueued()
@@ -194,26 +184,58 @@ public class QueryQueueRuleFactory
         {
             return maxConcurrent;
         }
+
+        public DataSize getMaxMemory()
+        {
+            return maxMemory;
+        }
+
+        public Duration getMaxCpuTime()
+        {
+            return maxCpuTime;
+        }
+
+        public Duration getMaxQueryCpuTime()
+        {
+            return maxQueryCpuTime;
+        }
+
+        public Duration getRuntimeCap()
+        {
+            return runtimeCap;
+        }
+
+        public Duration getQueuedTimeCap()
+        {
+            return queuedTimeCap;
+        }
+
+        public boolean getIsPublic()
+        {
+            return isPublic;
+        }
+
+        public ImmutableList<QueueSpec> getSubGroups()
+        {
+            return subGroups;
+        }
     }
 
     public static class RuleSpec
     {
         @Nullable
-        private final Pattern userRegex;
+        private final ImmutableSet<String> userNames;
         @Nullable
-        private final Pattern sourceRegex;
+        private final String queueName;
         private final Map<String, Pattern> sessionPropertyRegexes = new HashMap<>();
-        private final List<String> queues;
 
         @JsonCreator
         public RuleSpec(
-                @JsonProperty("user") @Nullable Pattern userRegex,
-                @JsonProperty("source") @Nullable Pattern sourceRegex,
-                @JsonProperty("queues") List<String> queues)
+                @JsonProperty("source") @Nullable String queueName,
+                @JsonProperty("users") @Nullable Set<String> userNames)
         {
-            this.userRegex = userRegex;
-            this.sourceRegex = sourceRegex;
-            this.queues = ImmutableList.copyOf(queues);
+            this.queueName = queueName;
+            this.userNames = ImmutableSet.copyOf(userNames);
         }
 
         @JsonAnySetter
@@ -224,15 +246,15 @@ public class QueryQueueRuleFactory
         }
 
         @Nullable
-        public Pattern getUserRegex()
+        public ImmutableSet<String> getUserNames()
         {
-            return userRegex;
+            return userNames;
         }
 
         @Nullable
-        public Pattern getSourceRegex()
+        public String getQueueName()
         {
-            return sourceRegex;
+            return queueName;
         }
 
         public Map<String, Pattern> getSessionPropertyRegexes()
@@ -240,9 +262,5 @@ public class QueryQueueRuleFactory
             return ImmutableMap.copyOf(sessionPropertyRegexes);
         }
 
-        public List<String> getQueues()
-        {
-            return queues;
-        }
     }
 }

@@ -21,6 +21,7 @@ import javax.validation.constraints.NotNull;
 public class FeaturesConfig
 {
     public static final String FILE_BASED_RESOURCE_GROUP_MANAGER = "file";
+    public static final String DB_BASED_RESOURCE_GROUP_MANAGER = "db";
     private boolean experimentalSyntaxEnabled;
     private boolean distributedIndexJoinsEnabled;
     private boolean distributedJoinsEnabled = true;

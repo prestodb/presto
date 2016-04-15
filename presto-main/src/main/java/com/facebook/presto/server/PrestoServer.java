@@ -64,7 +64,8 @@ import static io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncemen
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
 import static java.util.Objects.requireNonNull;
 
-public class PrestoServer
+public class
+PrestoServer
         implements Runnable
 {
     public static void main(String[] args)

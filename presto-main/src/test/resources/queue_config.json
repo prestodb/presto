@@ -1,24 +1,44 @@
 {
   "queues": {
-    "user.${USER}": {
-      "maxConcurrent": 5,
-      "maxQueued": 20
-    },
     "pipeline": {
       "maxConcurrent": 10,
-      "maxQueued": 100
+      "maxQueued": 100,
+      "maxMemory": "2g",
+      "maxCpuTime": "120m",
+      "maxQueryCpuTime": "60m",
+      "runtimeCap": "30m",
+      "queuedTimeCap": "30m",
+      "isPublic": false
     },
     "admin": {
       "maxConcurrent": 100,
-      "maxQueued": 100
+      "maxQueued": 100,
+      "maxMemory": "2g",
+      "maxCpuTime": "120m",
+      "maxQueryCpuTime": "60m",
+      "runtimeCap": "30m",
+      "queuedTimeCap": "30m",
+      "isPublic": false
     },
     "global": {
       "maxConcurrent": 100,
-      "maxQueued": 1000
+      "maxQueued": 1000,
+      "maxMemory": "2g",
+      "maxCpuTime": "120m",
+      "maxQueryCpuTime": "60m",
+      "runtimeCap": "30m",
+      "queuedTimeCap": "30m",
+      "isPublic": true
     },
     "big": {
       "maxConcurrent": 1,
-      "maxQueued": 10
+      "maxQueued": 10,
+      "maxMemory": "2g",
+      "maxCpuTime": "120m",
+      "maxQueryCpuTime": "60m",
+      "runtimeCap": "30m",
+      "queuedTimeCap": "30m",
+      "isPublic": false
     }
   },
   "rules": [
@@ -32,17 +52,15 @@
     },
     {
       "session.experimental_big_query": "true",
-      "source": ".*pipeline.*",
+      "source": "pipeline",
       "queues": [
-        "user.${USER}",
         "pipeline",
         "big"
       ]
     },
     {
-      "source": ".*pipeline.*",
+      "source": "pipeline",
       "queues": [
-        "user.${USER}",
         "pipeline",
         "global"
       ]
@@ -50,13 +68,11 @@
     {
       "session.experimental_big_query": "true",
       "queues": [
-        "user.${USER}",
         "big"
       ]
     },
     {
       "queues": [
-        "user.${USER}",
         "global"
       ]
     }
