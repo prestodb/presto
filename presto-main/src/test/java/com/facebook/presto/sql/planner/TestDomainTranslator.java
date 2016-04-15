@@ -20,6 +20,7 @@ import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DomainTranslator.ExtractionResult;
@@ -66,7 +67,9 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.FloatType.FLOAT;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.ExpressionUtils.and;
@@ -106,9 +109,16 @@ public class TestDomainTranslator
     private static final Symbol J = new Symbol("c_color");
     private static final Symbol K = new Symbol("c_hyper_log_log");
     private static final Symbol L = new Symbol("c_varbinary");
-    private static final Symbol M = new Symbol("c_decimal_10_5");
-    private static final Symbol N = new Symbol("c_decimal_4_2");
+    private static final Symbol M = new Symbol("c_decimal_26_5");
+    private static final Symbol N = new Symbol("c_decimal_23_4");
     private static final Symbol O = new Symbol("c_integer");
+    private static final Symbol P = new Symbol("c_decimal_21_3");
+    private static final Symbol R = new Symbol("c_decimal_12_2");
+    private static final Symbol S = new Symbol("c_decimal_6_1");
+    private static final Symbol T = new Symbol("c_decimal_3_0");
+    private static final Symbol U = new Symbol("c_decimal_2_0");
+    private static final Symbol V = new Symbol("c_smallint");
+    private static final Symbol W = new Symbol("c_tinyint");
 
     private static final Map<Symbol, Type> TYPES = ImmutableMap.<Symbol, Type>builder()
             .put(A, BIGINT)
@@ -123,9 +133,16 @@ public class TestDomainTranslator
             .put(J, COLOR) // Equatable, but not orderable
             .put(K, HYPER_LOG_LOG) // Not Equatable or orderable
             .put(L, VARBINARY)
-            .put(M, createDecimalType(10, 5))
-            .put(N, createDecimalType(4, 2))
+            .put(M, createDecimalType(26, 5))
+            .put(N, createDecimalType(23, 4))
             .put(O, INTEGER)
+            .put(P, createDecimalType(21, 3))
+            .put(R, createDecimalType(12, 2))
+            .put(S, createDecimalType(6, 1))
+            .put(T, createDecimalType(3, 0))
+            .put(U, createDecimalType(2, 0))
+            .put(V, SMALLINT)
+            .put(W, TINYINT)
             .build();
 
     private static final long TIMESTAMP_VALUE = new DateTime(2013, 3, 30, 1, 5, 0, 0, DateTimeZone.UTC).getMillis();
@@ -471,16 +488,6 @@ public class TestDomainTranslator
         result = fromPredicate(predicate);
         assertEquals(result.getRemainingExpression(), predicate);
         assertTrue(result.getTupleDomain().isAll());
-    }
-
-    @Test
-    public void testFromDecimalComparison()
-            throws Exception
-    {
-        Expression predicate = greaterThan(M, decimalLiteral("12.345"));
-        ExtractionResult result = fromPredicate(predicate);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(M, Domain.create(ValueSet.ofRanges(Range.greaterThan(createDecimalType(10, 5), 1234500L)), false))));
     }
 
     @Test
@@ -1165,10 +1172,33 @@ public class TestDomainTranslator
         List<NumericValues> translationChain = ImmutableList.of(
                 // DOUBLE
                 new NumericValues(B, (value) -> doubleLiteral((double) value), -1.0 * Double.MAX_VALUE, -22.0, -44.555678, 23.0, 44.555678, Double.MAX_VALUE),
+                // DECIMAL(26, 5)
+                new NumericValues(M, (value) -> decimalLiteral(Decimals.toString((Slice) value, 5)), longDecimal("-999999999999999999999.99999"), longDecimal("-22.00000"), longDecimal("-44.55568"), longDecimal("23.00000"), longDecimal("44.55567"), longDecimal("999999999999999999999.99999")),
+                // DECIMAL(23, 4)
+                new NumericValues(N, (value) -> decimalLiteral(Decimals.toString((Slice) value, 4)), longDecimal("-9999999999999999999.9999"), longDecimal("-22.0000"), longDecimal("-44.5557"), longDecimal("23.0000"), longDecimal("44.5556"), longDecimal("9999999999999999999.9999")),
                 // BIGINT
                 new NumericValues(A, (value) -> bigintLiteral((long) value), Long.MIN_VALUE, -22L, -45L, 23L, 44L, Long.MAX_VALUE),
+                // DECIMAL(21, 3)
+                new NumericValues(P, (value) -> decimalLiteral(Decimals.toString((Slice) value, 3)),
+                        longDecimal("-999999999999999999.999"), longDecimal("-22.000"), longDecimal("-44.556"), longDecimal("23.000"), longDecimal("44.555"), longDecimal("999999999999999999.999")),
+                // DECIMAL(12, 2)
+                new NumericValues(R, (value) -> decimalLiteral(Decimals.toString((Long) value, 2)),
+                        shortDecimal("-9999999999.99"), shortDecimal("-22.00"), shortDecimal("-44.56"), shortDecimal("23.00"), shortDecimal("44.55"), shortDecimal("9999999999.99")),
                 // INTEGER
-                new NumericValues(O, (value) -> integerLiteral((long) value), (long) Integer.MIN_VALUE, -22L, -45L, 23L, 44L, (long) Integer.MAX_VALUE)
+                new NumericValues(O, (value) -> integerLiteral((long) value), (long) Integer.MIN_VALUE, -22L, -45L, 23L, 44L, (long) Integer.MAX_VALUE),
+                // DECIMAL(6, 1)
+                new NumericValues(S, (value) -> decimalLiteral(Decimals.toString((Long) value, 1)),
+                        shortDecimal("-99999.9"), shortDecimal("-22.0"), shortDecimal("-44.6"), shortDecimal("23.0"), shortDecimal("44.5"), shortDecimal("99999.9")),
+                // SMALLINT
+                new NumericValues(V, (value) -> smallintLiteral((long) value), (long) Short.MIN_VALUE, -22L, -45L, 23L, 44L, (long) Short.MAX_VALUE),
+                // DECIMAL(3, 0)
+                new NumericValues(T, (value) -> decimalLiteral(Decimals.toString((Long) value, 0)),
+                        shortDecimal("-999"), shortDecimal("-22"), shortDecimal("-45"), shortDecimal("23"), shortDecimal("44"), shortDecimal("999")),
+                // TINYINT
+                new NumericValues(W, (value) -> tinyintLiteral((long) value), (long) Byte.MIN_VALUE, -22L, -45L, 23L, 44L, (long) Byte.MAX_VALUE),
+                // DECIMAL(2, 0)
+                new NumericValues(U, (value) -> decimalLiteral(Decimals.toString((Long) value, 0)),
+                        shortDecimal("-99"), shortDecimal("-22"), shortDecimal("-45"), shortDecimal("23"), shortDecimal("44"), shortDecimal("99"))
         );
 
         for (int literalIndex = 0; literalIndex < translationChain.size(); literalIndex++) {
@@ -1361,6 +1391,18 @@ public class TestDomainTranslator
     {
         checkArgument(value >= Integer.MIN_VALUE && value <= Integer.MAX_VALUE);
         return new GenericLiteral("INTEGER", Long.toString(value));
+    }
+
+    private static Literal smallintLiteral(long value)
+    {
+        checkArgument(value >= Short.MIN_VALUE && value <= Short.MAX_VALUE);
+        return new GenericLiteral("SMALLINT", Long.toString(value));
+    }
+
+    private static Literal tinyintLiteral(long value)
+    {
+        checkArgument(value >= Byte.MIN_VALUE && value <= Byte.MAX_VALUE);
+        return new GenericLiteral("TINYINT", Long.toString(value));
     }
 
     private static DoubleLiteral doubleLiteral(double value)

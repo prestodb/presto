@@ -34,6 +34,7 @@ import static com.facebook.presto.metadata.OperatorType.MODULUS;
 import static com.facebook.presto.metadata.OperatorType.MULTIPLY;
 import static com.facebook.presto.metadata.OperatorType.NEGATION;
 import static com.facebook.presto.metadata.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.metadata.OperatorType.SATURATED_FLOOR_CAST;
 import static com.facebook.presto.metadata.OperatorType.SUBTRACT;
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
@@ -234,5 +235,19 @@ public final class IntegerOperators
     public static long hashCode(@SqlType(StandardTypes.INTEGER) long value)
     {
         return (int) value;
+    }
+
+    @ScalarOperator(SATURATED_FLOOR_CAST)
+    @SqlType(StandardTypes.SMALLINT)
+    public static long saturatedFloorCastToSmallint(@SqlType(StandardTypes.INTEGER) long value)
+    {
+        return Shorts.saturatedCast(value);
+    }
+
+    @ScalarOperator(SATURATED_FLOOR_CAST)
+    @SqlType(StandardTypes.TINYINT)
+    public static long saturatedFloorCastToTinyint(@SqlType(StandardTypes.INTEGER) long value)
+    {
+        return SignedBytes.saturatedCast(value);
     }
 }
