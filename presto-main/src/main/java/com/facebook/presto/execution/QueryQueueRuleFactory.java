@@ -33,10 +33,11 @@ import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -65,7 +66,7 @@ public class QueryQueueRuleFactory
                     config.getQueueQueuedTimeCap(),
                     config.getQueueIsPublic()
                     );
-            rules.put("global", new QueryQueueRule(global, ImmutableSet.<String>of()));
+            rules.put("global", new QueryQueueRule(global, ImmutableSet.<String>of(), ImmutableMap.of()));
         }
         else {
             File file = new File(config.getQueueConfigFile());
@@ -92,7 +93,7 @@ public class QueryQueueRuleFactory
             }
 
             for (RuleSpec rule : managerSpec.getRules()) {
-                rules.put(rule.getQueueName(), QueryQueueRule.createRule(definitions.get(rule.getQueueName()), rule.getUserNames()));
+                rules.put(rule.getQueueName(), QueryQueueRule.createRule(definitions.get(rule.getQueueName()), rule.getUserNames(), ImmutableMap.of()));
             }
         }
         this.selectors = rules.build();
@@ -119,11 +120,30 @@ public class QueryQueueRuleFactory
             this.rules = ImmutableList.copyOf(requireNonNull(rules, "rules is null"));
         }
 
-        private static ImmutableMap<String, QueueSpec> getLeafQueues(Map<String, QueueSpec> queues) {
+        private static ImmutableMap<String, QueueSpec> getLeafQueues(Map<String, QueueSpec> queues)
+        {
             ImmutableMap.Builder<String, QueueSpec> builder = ImmutableMap.builder();
-            for(Map.Entry<String, QueueSpec> entry: queues.entrySet()) {
-                if (entry.getValue().getSubGroups().isEmpty()) {
-                    builder.put(entry);
+            for (Map.Entry<String, QueueSpec> entry : queues.entrySet()) {
+                if (entry.getKey().contains(".")) {
+                    throw new IllegalArgumentException("Queue name cannot contain \".\"'s since \".\" is the delimiter");
+                }
+                LinkedList<Map.Entry<String, QueueSpec>> queue = new LinkedList<>();
+                queue.add(entry);
+                while (!queue.isEmpty()) {
+                    Map.Entry<String, QueueSpec> subEntry = queue.poll();
+                    if (subEntry.getValue().getSubGroups().isEmpty()) {
+                        builder.put(subEntry);
+                    }
+                    else {
+                        for (Map.Entry<String, QueueSpec> sub : subEntry.getValue().getSubGroups().entrySet()) {
+                            if (sub.getKey().contains(".")) {
+                                throw new IllegalArgumentException("Queue name cannot contain \".\"'s since \".\" is the delimiter");
+                            }
+                            Map.Entry<String, QueueSpec> subEntryWithPath = new SimpleEntry<>(
+                                    subEntry.getKey() + "." + sub.getKey(), sub.getValue());
+                            queue.add(subEntryWithPath);
+                        }
+                    }
                 }
             }
             return builder.build();
@@ -150,7 +170,7 @@ public class QueryQueueRuleFactory
         private final Duration runtimeCap;
         private final Duration queuedTimeCap;
         private final boolean isPublic;
-        private final ImmutableList<QueueSpec> subGroups;
+        private final ImmutableMap<String, QueueSpec> subGroups;
         @JsonCreator
         public QueueSpec(
                 @JsonProperty("maxQueued") int maxQueued,
@@ -161,7 +181,7 @@ public class QueryQueueRuleFactory
                 @JsonProperty("runtimeCap") Duration runtimeCap,
                 @JsonProperty("queuedTimeCap") Duration queuedTimeCap,
                 @JsonProperty("isPublic") boolean isPublic,
-                @JsonProperty("subGroups") List<QueueSpec> subGroups
+                @JsonProperty("subGroups") Map<String, QueueSpec> subGroups
                 )
         {
             this.maxQueued = maxQueued;
@@ -172,7 +192,7 @@ public class QueryQueueRuleFactory
             this.runtimeCap = runtimeCap;
             this.queuedTimeCap = queuedTimeCap;
             this.isPublic = isPublic;
-            this.subGroups = ImmutableList.copyOf(subGroups);
+            this.subGroups = ImmutableMap.copyOf(subGroups);
         }
 
         public int getMaxQueued()
@@ -215,7 +235,7 @@ public class QueryQueueRuleFactory
             return isPublic;
         }
 
-        public ImmutableList<QueueSpec> getSubGroups()
+        public ImmutableMap<String, QueueSpec> getSubGroups()
         {
             return subGroups;
         }
@@ -231,8 +251,8 @@ public class QueryQueueRuleFactory
 
         @JsonCreator
         public RuleSpec(
-                @JsonProperty("source") @Nullable String queueName,
-                @JsonProperty("users") @Nullable Set<String> userNames)
+                @JsonProperty("queue") @Nullable String queueName,
+                @JsonProperty("users") @Nullable List<String> userNames)
         {
             this.queueName = queueName;
             this.userNames = ImmutableSet.copyOf(userNames);
@@ -261,6 +281,5 @@ public class QueryQueueRuleFactory
         {
             return ImmutableMap.copyOf(sessionPropertyRegexes);
         }
-
     }
 }

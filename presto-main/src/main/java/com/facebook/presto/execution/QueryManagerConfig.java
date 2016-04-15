@@ -36,7 +36,7 @@ public class QueryManagerConfig
     private int maxQueuedQueries = 5000;
     //new attributes:
     private DataSize queueMaxMemory = new DataSize(32, DataSize.Unit.GIGABYTE);
-    private Duration queueMaxCpuTime = new Duration(20, TimeUnit.HOURS);
+    private Duration queueMaxCpuTime = new Duration(30, TimeUnit.MINUTES);
     private Duration queueMaxQueryCpuTime = new Duration(2, TimeUnit.HOURS);
     private Duration queueRuntimeCap = new Duration(1, TimeUnit.HOURS);
     private Duration queueQueuedTimeCap = new Duration(1, TimeUnit.HOURS);
@@ -121,7 +121,8 @@ public class QueryManagerConfig
 
     @Deprecated
     @Config("query.queue-max-memory")
-    public QueryManagerConfig setQueueMaxMemory(DataSize queueMaxMemory) {
+    public QueryManagerConfig setQueueMaxMemory(DataSize queueMaxMemory)
+    {
         this.queueMaxMemory = queueMaxMemory;
         return this;
     }
@@ -134,7 +135,8 @@ public class QueryManagerConfig
 
     @Deprecated
     @Config("query.queue-max-cpu-time")
-    public QueryManagerConfig setQueueMaxCpuTime(Duration queueMaxCpuTime) {
+    public QueryManagerConfig setQueueMaxCpuTime(Duration queueMaxCpuTime)
+    {
         this.queueMaxCpuTime = queueMaxCpuTime;
         return this;
     }
@@ -147,7 +149,8 @@ public class QueryManagerConfig
 
     @Deprecated
     @Config("query.queue-max-query-cpu-time")
-    public QueryManagerConfig setQueueMaxQueryCpuTime(Duration queueMaxQueryCpuTime) {
+    public QueryManagerConfig setQueueMaxQueryCpuTime(Duration queueMaxQueryCpuTime)
+    {
         this.queueMaxQueryCpuTime = queueMaxQueryCpuTime;
         return this;
     }
@@ -160,10 +163,12 @@ public class QueryManagerConfig
 
     @Deprecated
     @Config("query.queue-run-time-cap")
-    public QueryManagerConfig setQueueRuntimeCap(Duration queueRuntimeCap) {
+    public QueryManagerConfig setQueueRuntimeCap(Duration queueRuntimeCap)
+    {
         this.queueRuntimeCap = queueRuntimeCap;
         return this;
     }
+
     @Deprecated
     public Duration getQueueQueuedTimeCap()
     {
@@ -172,7 +177,8 @@ public class QueryManagerConfig
 
     @Deprecated
     @Config("query.queue-queued-time-cap")
-    public QueryManagerConfig setQueueQueuedTimeCap(Duration queueQueuedTimeCap) {
+    public QueryManagerConfig setQueueQueuedTimeCap(Duration queueQueuedTimeCap)
+    {
         this.queueQueuedTimeCap = queueQueuedTimeCap;
         return this;
     }

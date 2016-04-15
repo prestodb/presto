@@ -48,7 +48,7 @@ public class TestResourceUtil
         HttpServletRequest request = new MockHttpServletRequest(
                 ImmutableListMultimap.<String, String>builder()
                         .put(PRESTO_USER, "testUser")
-                        .put(PRESTO_SOURCE, "testSource")
+                        .put(PRESTO_SOURCE, "global")
                         .put(PRESTO_CATALOG, "testCatalog")
                         .put(PRESTO_SCHEMA, "testSchema")
                         .put(PRESTO_LANGUAGE, "zh-TW")
@@ -62,7 +62,7 @@ public class TestResourceUtil
 
         assertEquals(session.getQueryId(), new QueryId("test_query_id"));
         assertEquals(session.getUser(), "testUser");
-        assertEquals(session.getSource().get(), "testSource");
+        assertEquals(session.getSource().get(), "global");
         assertEquals(session.getCatalog().get(), "testCatalog");
         assertEquals(session.getSchema().get(), "testSchema");
         assertEquals(session.getLocale(), Locale.TAIWAN);

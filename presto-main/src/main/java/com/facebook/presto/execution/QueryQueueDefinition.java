@@ -13,13 +13,10 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.Session;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.util.Objects;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -107,7 +104,8 @@ public class QueryQueueDefinition
     }
 
     @Override
-    public boolean equals(Object other) {
+    public boolean equals(Object other)
+    {
         if (!(other instanceof QueryQueueDefinition)) {
             return false;
         }
@@ -117,7 +115,8 @@ public class QueryQueueDefinition
     }
 
     @Override
-    public int hashCode() {
+    public int hashCode()
+    {
         return Objects.hash(name);
     }
 }

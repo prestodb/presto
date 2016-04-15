@@ -18,6 +18,7 @@ import com.facebook.presto.execution.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.ObjectNames;
 
@@ -25,8 +26,7 @@ import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
-import java.util.List;
-import java.util.Objects;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -41,60 +41,70 @@ public class SqlQueryQueueManager
         implements QueryQueueManager
 {
     private final ConcurrentMap<QueryQueueDefinition, QueryQueue> queryQueues = new ConcurrentHashMap<>();
-    private final List<ResourceGroupSelector> selectors;
+    private final Map<String, ResourceGroupSelector> selectors;
     private final MBeanExporter mbeanExporter;
-
+    private Executor executor;
     @Inject
-    public SqlQueryQueueManager(List<? extends ResourceGroupSelector> selectors, MBeanExporter mbeanExporter)
+    public SqlQueryQueueManager(Map<String, ? extends ResourceGroupSelector> selectors, MBeanExporter mbeanExporter)
     {
         this.mbeanExporter = requireNonNull(mbeanExporter, "mbeanExporter is null");
-        this.selectors = ImmutableList.copyOf(selectors);
+        this.selectors = ImmutableMap.copyOf(selectors);
+        this.executor = null;
     }
 
     @Override
-    public boolean submit(Statement statement, QueryExecution queryExecution, Executor executor, SqlQueryManagerStats stats)
+    public void setExecutor(Executor executor)
     {
-        List<QueryQueue> queues = selectQueues(statement, queryExecution.getSession(), executor);
-
-        for (QueryQueue queue : queues) {
-            if (!queue.reserve(queryExecution)) {
-                // Reject query if we couldn't acquire a permit to enter the queue.
-                // The permits will be released when this query fails.
-                return false;
-            }
+        if (this.executor == null) {
+            this.executor = executor;
+            createAllQueues();
         }
-        queues.get(0).enqueue(createQueuedExecution(queryExecution, queues.subList(1, queues.size()), executor, stats));
+    }
+
+    @Override
+    public boolean submit(Statement statement, QueryExecution queryExecution, SqlQueryManagerStats stats)
+    {
+        QueryQueue queue = selectQueue(statement, queryExecution.getSession(), executor);
+        if (!queue.reserve(queryExecution)) {
+            // Reject query if we couldn't acquire a permit to enter the queue.
+            // The permits will be released when this query fails.
+            return false;
+        }
+        queue.enqueue(createQueuedExecution(queryExecution, ImmutableList.of(), executor, stats));
         return true;
     }
 
     // Queues returned have already been created and added queryQueues
-    private List<QueryQueue> selectQueues(Statement statement, Session session, Executor executor)
+    private QueryQueue selectQueue(Statement statement, Session session, Executor executor)
     {
-        for (ResourceGroupSelector selector : selectors) {
-            Optional<List<QueryQueueDefinition>> queues = selector.match(statement, session.toSessionRepresentation());
-            if (queues.isPresent()) {
-                return getOrCreateQueues(session, executor, queues.get());
+        ResourceGroupSelector selector = selectors.get(session.getSource().get());
+        if (selector != null) {
+            Optional<QueryQueueDefinition> queueDefinition = selector.match(statement, session.toSessionRepresentation());
+            if (queueDefinition.isPresent()) {
+                QueryQueue queue = queryQueues.get(queueDefinition.get());
+                if (queue != null) {
+                    return queue;
+                }
             }
         }
-        throw new PrestoException(USER_ERROR, "Query did not match any queuing rule");
+        throw new PrestoException(USER_ERROR, "Query did not match any queuing rule ");
     }
 
-    private List<QueryQueue> getOrCreateQueues(Session session, Executor executor, List<QueryQueueDefinition> definitions)
+    private void createAllQueues()
     {
-        ImmutableList.Builder<QueryQueue> queues = ImmutableList.builder();
-        for (QueryQueueDefinition definition : definitions) {
-            String expandedName = definition.getName();
+        for (ResourceGroupSelector selector : selectors.values()) {
+            QueryQueueDefinition definition = selector.getQueryQueueDefinition();
             if (!queryQueues.containsKey(definition)) {
                 QueryQueue queue = new QueryQueue(executor, definition.getMaxQueued(), definition.getMaxConcurrent());
                 if (queryQueues.putIfAbsent(definition, queue) == null) {
                     // Export the mbean, after checking for races
-                    String objectName = ObjectNames.builder(QueryQueue.class, definition.getName()).withProperty("expansion", expandedName).build();
+                    String objectName = ObjectNames.builder(
+                            QueryQueue.class, definition.getName()).withProperty(
+                            "expansion", definition.getName()).build();
                     mbeanExporter.export(objectName, queue);
                 }
             }
-            queues.add(queryQueues.get(definition));
         }
-        return queues.build();
     }
 
     @PreDestroy

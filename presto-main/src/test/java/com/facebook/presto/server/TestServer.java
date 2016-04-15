@@ -92,7 +92,7 @@ public class TestServer
                 .setUri(uriFor("/v1/statement"))
                 .setBodyGenerator(createStaticBodyGenerator("show catalogs", UTF_8))
                 .setHeader(PRESTO_USER, "user")
-                .setHeader(PRESTO_SOURCE, "source")
+                .setHeader(PRESTO_SOURCE, "global")
                 .setHeader(PRESTO_CATALOG, "catalog")
                 .setHeader(PRESTO_SCHEMA, "schema")
                 .addHeader(PRESTO_SESSION, QUERY_MAX_MEMORY + "=1GB")

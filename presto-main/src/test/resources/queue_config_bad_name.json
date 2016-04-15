@@ -1,0 +1,22 @@
+{
+  "queues": {
+    "pipeline.badname": {
+      "maxConcurrent": 100,
+      "maxQueued": 1000,
+      "maxMemory": "2GB",
+      "maxCpuTime": "120m",
+      "maxQueryCpuTime": "60m",
+      "runtimeCap": "30m",
+      "queuedTimeCap": "30m",
+      "isPublic": true,
+      "subGroups": {}
+    }
+  },
+  "rules": [
+    {
+      "queue": "pipeline.badname",
+      "users": ["bob"]
+
+    }
+  ]
+}

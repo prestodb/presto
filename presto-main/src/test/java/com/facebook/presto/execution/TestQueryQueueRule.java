@@ -20,8 +20,12 @@ import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -37,17 +41,40 @@ public class TestQueryQueueRule
     @Test
     public void testBasic()
     {
-        QueryQueueDefinition definition = new QueryQueueDefinition("user.${USER}", 1, 1);
-        QueryQueueRule rule = new QueryQueueRule(Pattern.compile(".+"), null, ImmutableMap.of(), ImmutableList.of(definition));
-        assertEquals(rule.match(STATEMENT, TEST_SESSION.toSessionRepresentation()).get(), ImmutableList.of(definition));
+        DataSize dataSize = new DataSize(3, DataSize.Unit.MEGABYTE);
+        Duration testDuration = new Duration(30, TimeUnit.MINUTES);
+        QueryQueueDefinition definition = new QueryQueueDefinition(
+                "global",
+                1,
+                1,
+                dataSize,
+                testDuration,
+                testDuration,
+                testDuration,
+                testDuration,
+                true);
+        QueryQueueRule rule = new QueryQueueRule(definition, ImmutableSet.of(), ImmutableMap.of());
+        assertEquals(rule.match(STATEMENT, TEST_SESSION.toSessionRepresentation()).get(), definition);
     }
 
     @Test
     public void testBigQuery()
     {
-        Session session = TEST_SESSION.withSystemProperty("big_query", "true");
-        QueryQueueDefinition definition = new QueryQueueDefinition("big", 1, 1);
-        QueryQueueRule rule = new QueryQueueRule(null, null, ImmutableMap.of("big_query", Pattern.compile("true", Pattern.CASE_INSENSITIVE)), ImmutableList.of(definition));
-        assertEquals(rule.match(STATEMENT, session.toSessionRepresentation()).get(), ImmutableList.of(definition));
+        Session session = TEST_SESSION.withSystemProperty("session.big_query", "true");
+        DataSize dataSize = new DataSize(3, DataSize.Unit.MEGABYTE);
+        Duration testDuration = new Duration(30, TimeUnit.MINUTES);
+        QueryQueueDefinition definition = new QueryQueueDefinition(
+                "global",
+                1,
+                1,
+                dataSize,
+                testDuration,
+                testDuration,
+                testDuration,
+                testDuration,
+                true);
+        QueryQueueRule rule = new QueryQueueRule(definition, ImmutableSet.of(),
+                ImmutableMap.of("session.big_query", Pattern.compile("true", Pattern.CASE_INSENSITIVE)));
+        assertEquals(rule.match(STATEMENT, session.toSessionRepresentation()).get(), definition);
     }
 }
