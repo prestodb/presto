@@ -17,6 +17,7 @@ import com.facebook.presto.execution.SharedBuffer;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.PageBuilderStatus;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.type.Type;
@@ -27,6 +28,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -49,25 +51,28 @@ public class PartitionedOutputOperator
         private final List<Optional<NullableValue>> partitionConstants;
         private final SharedBuffer sharedBuffer;
         private final OptionalInt nullChannel;
+        private final DataSize maxMemory;
 
         public PartitionedOutputFactory(
                 PartitionFunction partitionFunction,
                 List<Integer> partitionChannels,
                 List<Optional<NullableValue>> partitionConstants,
                 OptionalInt nullChannel,
-                SharedBuffer sharedBuffer)
+                SharedBuffer sharedBuffer,
+                DataSize maxMemory)
         {
             this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
             this.partitionChannels = requireNonNull(partitionChannels, "partitionChannels is null");
             this.partitionConstants = requireNonNull(partitionConstants, "partitionConstants is null");
             this.nullChannel = requireNonNull(nullChannel, "nullChannel is null");
             this.sharedBuffer = requireNonNull(sharedBuffer, "sharedBuffer is null");
+            this.maxMemory = requireNonNull(maxMemory, "maxMemory is null");
         }
 
         @Override
         public OperatorFactory createOutputOperator(int operatorId, PlanNodeId planNodeId, List<Type> sourceTypes)
         {
-            return new PartitionedOutputOperatorFactory(operatorId, planNodeId, sourceTypes, partitionFunction, partitionChannels, partitionConstants, nullChannel, sharedBuffer);
+            return new PartitionedOutputOperatorFactory(operatorId, planNodeId, sourceTypes, partitionFunction, partitionChannels, partitionConstants, nullChannel, sharedBuffer, maxMemory);
         }
     }
 
@@ -82,6 +87,7 @@ public class PartitionedOutputOperator
         private final List<Optional<NullableValue>> partitionConstants;
         private final OptionalInt nullChannel;
         private final SharedBuffer sharedBuffer;
+        private final DataSize maxMemory;
 
         public PartitionedOutputOperatorFactory(
                 int operatorId,
@@ -91,7 +97,8 @@ public class PartitionedOutputOperator
                 List<Integer> partitionChannels,
                 List<Optional<NullableValue>> partitionConstants,
                 OptionalInt nullChannel,
-                SharedBuffer sharedBuffer)
+                SharedBuffer sharedBuffer,
+                DataSize maxMemory)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -101,6 +108,7 @@ public class PartitionedOutputOperator
             this.partitionConstants = requireNonNull(partitionConstants, "partitionConstants is null");
             this.nullChannel = requireNonNull(nullChannel, "nullChannel is null");
             this.sharedBuffer = requireNonNull(sharedBuffer, "sharedBuffer is null");
+            this.maxMemory = requireNonNull(maxMemory, "maxMemory is null");
         }
 
         @Override
@@ -113,7 +121,7 @@ public class PartitionedOutputOperator
         public Operator createOperator(DriverContext driverContext)
         {
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, PartitionedOutputOperator.class.getSimpleName());
-            return new PartitionedOutputOperator(operatorContext, sourceTypes, partitionFunction, partitionChannels, partitionConstants, nullChannel, sharedBuffer);
+            return new PartitionedOutputOperator(operatorContext, sourceTypes, partitionFunction, partitionChannels, partitionConstants, nullChannel, sharedBuffer, maxMemory);
         }
 
         @Override
@@ -124,7 +132,7 @@ public class PartitionedOutputOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new PartitionedOutputOperatorFactory(operatorId, planNodeId, sourceTypes, partitionFunction, partitionChannels, partitionConstants, nullChannel, sharedBuffer);
+            return new PartitionedOutputOperatorFactory(operatorId, planNodeId, sourceTypes, partitionFunction, partitionChannels, partitionConstants, nullChannel, sharedBuffer, maxMemory);
         }
     }
 
@@ -140,10 +148,11 @@ public class PartitionedOutputOperator
             List<Integer> partitionChannels,
             List<Optional<NullableValue>> partitionConstants,
             OptionalInt nullChannel,
-            SharedBuffer sharedBuffer)
+            SharedBuffer sharedBuffer,
+            DataSize maxMemory)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.partitionFunction = new PagePartitioner(partitionFunction, partitionChannels, partitionConstants, nullChannel, sharedBuffer, sourceTypes);
+        this.partitionFunction = new PagePartitioner(partitionFunction, partitionChannels, partitionConstants, nullChannel, sharedBuffer, sourceTypes, maxMemory);
 
         operatorContext.setInfoSupplier(this::getInfo);
         // TODO: We should try to make this more accurate
@@ -236,7 +245,8 @@ public class PartitionedOutputOperator
                 List<Optional<NullableValue>> partitionConstants,
                 OptionalInt nullChannel,
                 SharedBuffer sharedBuffer,
-                List<Type> sourceTypes)
+                List<Type> sourceTypes,
+                DataSize maxMemory)
         {
             this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
             this.partitionChannels = requireNonNull(partitionChannels, "partitionChannels is null");
@@ -247,9 +257,12 @@ public class PartitionedOutputOperator
             this.sharedBuffer = requireNonNull(sharedBuffer, "sharedBuffer is null");
             this.sourceTypes = requireNonNull(sourceTypes, "sourceTypes is null");
 
+            int pageSize = Math.min(PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES, ((int) maxMemory.toBytes()) / partitionFunction.getPartitionCount());
+            pageSize = Math.max(1, pageSize);
+
             ImmutableList.Builder<PageBuilder> pageBuilders = ImmutableList.builder();
             for (int i = 0; i < partitionFunction.getPartitionCount(); i++) {
-                pageBuilders.add(new PageBuilder(sourceTypes));
+                pageBuilders.add(PageBuilder.withMaxPageSize(pageSize, sourceTypes));
             }
             this.pageBuilders = pageBuilders.build();
         }
