@@ -143,6 +143,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.metadata.FunctionKind.APPROXIMATE_AGGREGATE;
@@ -241,8 +242,6 @@ public class FunctionRegistry
 
     // hack: java classes for types that can be used with magic literals
     private static final Set<Class<?>> SUPPORTED_LITERAL_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class);
-    // TODO: add TINYINT and SMALLINT when those types are added
-    private static final Set<Type> AMBIGUOUS_INTEGRAL_COERCION_SOURCES = ImmutableSet.of(INTEGER);
 
     private final TypeManager typeManager;
     private final BlockEncodingSerde blockEncodingSerde;
@@ -508,7 +507,8 @@ public class FunctionRegistry
         }
 
         // search for coerced matches
-        List<Signature> coercedMatches = new ArrayList<>();
+        List<SqlFunction> coercedCandidates = new ArrayList<>();
+        Signature firstCoercedMatch = null;
         for (SqlFunction function : candidates) {
             Map<String, Type> boundTypeVariables = function.getSignature().bindTypeVariables(resolvedTypes, true, typeManager);
             if (boundTypeVariables == null) {
@@ -516,25 +516,37 @@ public class FunctionRegistry
             }
             Signature signature = bindSignature(function.getSignature(), boundTypeVariables, resolvedTypes.size());
             if (signature != null) {
-                coercedMatches.add(signature);
-            }
-        }
+                coercedCandidates.add(function);
 
-        // TODO: remove when we move to a lattice-based type coercion system
-        if (coercedMatches.size() == 2) {
-            for (int i = 0; i < resolvedTypes.size(); i++) {
-                if (AMBIGUOUS_INTEGRAL_COERCION_SOURCES.contains(resolvedTypes.get(i)) &&
-                        typeManager.getType(coercedMatches.get(0).getArgumentTypes().get(i)).equals(DOUBLE) &&
-                        typeManager.getType(coercedMatches.get(1).getArgumentTypes().get(i)).equals(BIGINT)) {
-                    coercedMatches = ImmutableList.of(coercedMatches.get(1));
-                    break;
+                if (firstCoercedMatch == null) {
+                    firstCoercedMatch = signature;
                 }
             }
         }
 
-        if (!coercedMatches.isEmpty()) {
-            // TODO: This should also check for ambiguities
-            match = coercedMatches.get(0);
+        // search for a 'best' coerced match if it exists
+        // TODO: remove when we move to a lattice-based type coercion system
+        // TODO: this is a hack that relies on the fact that all functions are specified for bigints, but not for the narrower integral types
+        // converts any ints to bigints and then see if there is an exact match
+        List<Type> promotedTypes = resolvedTypes.stream()
+                .map(type -> type == INTEGER ? BIGINT : type)
+                .collect(Collectors.toList());
+
+        for (SqlFunction coercedFunction : coercedCandidates) {
+            Map<String, Type> boundTypeVariables = coercedFunction.getSignature().bindTypeVariables(promotedTypes, false, typeManager);
+            if (boundTypeVariables == null) {
+                continue;
+            }
+            Signature signature = bindSignature(coercedFunction.getSignature(), boundTypeVariables, resolvedTypes.size());
+            if (signature != null) {
+                checkState(match == null, "ambiguous function implementations found when integers were cast to bigints");
+                match = signature;
+            }
+        }
+
+        if (match == null || coercedCandidates.size() == 1) {
+            // i.e. revert to old behavior
+            match = firstCoercedMatch; // TODO: this does not deal with ambiguities
         }
 
         if (match != null) {
