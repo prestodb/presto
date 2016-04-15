@@ -63,6 +63,7 @@ import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 @ThreadSafe
 public final class SqlQueryExecution
@@ -185,6 +186,9 @@ public final class SqlQueryExecution
         if (queryInfo != null) {
             return queryInfo.getQueryStats().getTotalMemoryReservation().toBytes();
         }
+        if (scheduler == null) {
+            return 0;
+        }
         return scheduler.getTotalMemoryReservation();
     }
 
@@ -195,6 +199,9 @@ public final class SqlQueryExecution
         QueryInfo queryInfo = finalQueryInfo.get();
         if (queryInfo != null) {
             return queryInfo.getQueryStats().getTotalCpuTime();
+        }
+        if (scheduler == null) {
+            return new Duration(0, SECONDS);
         }
         return scheduler.getTotalCpuTime();
     }
