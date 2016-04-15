@@ -1006,6 +1006,7 @@ public class ParquetHiveRecordCursor
         private final BlockConverter elementConverter;
 
         private BlockBuilder builder;
+        private int startingPosition;
 
         public ParquetListEntryConverter(Type prestoType, String columnName, GroupType elementType)
         {
@@ -1043,12 +1044,17 @@ public class ParquetHiveRecordCursor
         public void start()
         {
             elementConverter.beforeValue(builder);
+            startingPosition = builder.getPositionCount();
         }
 
         @Override
         public void end()
         {
             elementConverter.afterValue();
+            //we have read nothing, this means there is a null element in this list
+            if (builder.getPositionCount() == startingPosition) {
+                builder.appendNull();
+            }
         }
 
         @Override
