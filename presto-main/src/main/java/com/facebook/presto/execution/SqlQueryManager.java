@@ -296,14 +296,19 @@ public class SqlQueryManager
             URI self = locationFactory.createQueryLocation(queryId);
             QueryExecution execution = new FailedQueryExecution(queryId, query, session, self, transactionManager, queryExecutor, e);
 
-            queries.put(queryId, execution);
+            QueryInfo queryInfo = null;
+            try {
+                queries.put(queryId, execution);
 
-            QueryInfo queryInfo = execution.getQueryInfo();
-            queryMonitor.createdEvent(queryInfo);
-            queryMonitor.completionEvent(queryInfo);
-            stats.queryFinished(queryInfo);
-
-            expirationQueue.add(execution);
+                queryInfo = execution.getQueryInfo();
+                queryMonitor.createdEvent(queryInfo);
+                queryMonitor.completionEvent(queryInfo);
+                stats.queryFinished(queryInfo);
+            }
+            finally {
+                // execution MUST be added to the expiration queue or there will be a leak
+                expirationQueue.add(execution);
+            }
 
             return queryInfo;
         }
@@ -313,11 +318,15 @@ public class SqlQueryManager
 
         queryExecution.addStateChangeListener(newValue -> {
             if (newValue.isDone()) {
-                QueryInfo info = queryExecution.getQueryInfo();
-
-                stats.queryFinished(info);
-                queryMonitor.completionEvent(info);
-                expirationQueue.add(queryExecution);
+                try {
+                    QueryInfo info = queryExecution.getQueryInfo();
+                    stats.queryFinished(info);
+                    queryMonitor.completionEvent(info);
+                }
+                finally {
+                    // execution MUST be added to the expiration queue or there will be a leak
+                    expirationQueue.add(queryExecution);
+                }
             }
         });
 
