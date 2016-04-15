@@ -27,7 +27,6 @@ import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
-import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -50,6 +49,7 @@ import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -61,11 +61,14 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
+import static com.facebook.presto.spi.type.Decimals.encodeScaledValue;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.ExpressionUtils.and;
@@ -106,10 +109,17 @@ public class TestDomainTranslator
     private static final Symbol C_COLOR = new Symbol("c_color");
     private static final Symbol C_HYPER_LOG_LOG = new Symbol("c_hyper_log_log");
     private static final Symbol C_VARBINARY = new Symbol("c_varbinary");
-    private static final Symbol C_DECIMAL_10_5 = new Symbol("c_decimal_10_5");
-    private static final Symbol C_DECIMAL_4_2 = new Symbol("c_decimal_4_2");
+    private static final Symbol C_DECIMAL_26_5 = new Symbol("c_decimal_26_5");
+    private static final Symbol C_DECIMAL_23_4 = new Symbol("c_decimal_23_4");
     private static final Symbol C_INTEGER = new Symbol("c_integer");
     private static final Symbol C_CHAR = new Symbol("c_char");
+    private static final Symbol C_DECIMAL_21_3 = new Symbol("c_decimal_21_3");
+    private static final Symbol C_DECIMAL_12_2 = new Symbol("c_decimal_12_2");
+    private static final Symbol C_DECIMAL_6_1 = new Symbol("c_decimal_6_1");
+    private static final Symbol C_DECIMAL_3_0 = new Symbol("c_decimal_3_0");
+    private static final Symbol C_DECIMAL_2_0 = new Symbol("c_decimal_2_0");
+    private static final Symbol C_SMALLINT = new Symbol("c_smallint");
+    private static final Symbol C_TINYINT = new Symbol("c_tinyint");
 
     private static final Map<Symbol, Type> TYPES = ImmutableMap.<Symbol, Type>builder()
             .put(C_BIGINT, BIGINT)
@@ -124,10 +134,17 @@ public class TestDomainTranslator
             .put(C_COLOR, COLOR) // Equatable, but not orderable
             .put(C_HYPER_LOG_LOG, HYPER_LOG_LOG) // Not Equatable or orderable
             .put(C_VARBINARY, VARBINARY)
-            .put(C_DECIMAL_10_5, createDecimalType(10, 5))
-            .put(C_DECIMAL_4_2, createDecimalType(4, 2))
+            .put(C_DECIMAL_26_5, createDecimalType(26, 5))
+            .put(C_DECIMAL_23_4, createDecimalType(23, 4))
             .put(C_INTEGER, INTEGER)
             .put(C_CHAR, createCharType(10))
+            .put(C_DECIMAL_21_3, createDecimalType(21, 3))
+            .put(C_DECIMAL_12_2, createDecimalType(12, 2))
+            .put(C_DECIMAL_6_1, createDecimalType(6, 1))
+            .put(C_DECIMAL_3_0, createDecimalType(3, 0))
+            .put(C_DECIMAL_2_0, createDecimalType(2, 0))
+            .put(C_SMALLINT, SMALLINT)
+            .put(C_TINYINT, TINYINT)
             .build();
 
     private static final long TIMESTAMP_VALUE = new DateTime(2013, 3, 30, 1, 5, 0, 0, DateTimeZone.UTC).getMillis();
@@ -473,16 +490,6 @@ public class TestDomainTranslator
         result = fromPredicate(predicate);
         assertEquals(result.getRemainingExpression(), predicate);
         assertTrue(result.getTupleDomain().isAll());
-    }
-
-    @Test
-    public void testFromDecimalComparison()
-            throws Exception
-    {
-        Expression predicate = greaterThan(C_DECIMAL_10_5, decimalLiteral("12.345"));
-        ExtractionResult result = fromPredicate(predicate);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_DECIMAL_10_5, Domain.create(ValueSet.ofRanges(Range.greaterThan(createDecimalType(10, 5), 1234500L)), false))));
     }
 
     @Test
@@ -1165,9 +1172,18 @@ public class TestDomainTranslator
             throws Exception
     {
         List<NumericValues> translationChain = ImmutableList.of(
-                new NumericValues<>(C_DOUBLE, -1.0 * Double.MAX_VALUE, -22.0, -44.555678, 23.0, 44.555678, Double.MAX_VALUE),
+                new NumericValues<>(C_DOUBLE, -1.0 * Double.MAX_VALUE, -22.0, -44.5556836, 23.0, 44.5556789, Double.MAX_VALUE),
+                new NumericValues<>(C_DECIMAL_26_5, longDecimal("-999999999999999999999.99999"), longDecimal("-22.00000"), longDecimal("-44.55569"), longDecimal("23.00000"), longDecimal("44.55567"), longDecimal("999999999999999999999.99999")),
+                new NumericValues<>(C_DECIMAL_23_4, longDecimal("-9999999999999999999.9999"), longDecimal("-22.0000"), longDecimal("-44.5557"), longDecimal("23.0000"), longDecimal("44.5556"), longDecimal("9999999999999999999.9999")),
                 new NumericValues<>(C_BIGINT, Long.MIN_VALUE, -22L, -45L, 23L, 44L, Long.MAX_VALUE),
-                new NumericValues<>(C_INTEGER, (long) Integer.MIN_VALUE, -22L, -45L, 23L, 44L, (long) Integer.MAX_VALUE)
+                new NumericValues<>(C_DECIMAL_21_3, longDecimal("-999999999999999999.999"), longDecimal("-22.000"), longDecimal("-44.556"), longDecimal("23.000"), longDecimal("44.555"), longDecimal("999999999999999999.999")),
+                new NumericValues<>(C_DECIMAL_12_2, shortDecimal("-9999999999.99"), shortDecimal("-22.00"), shortDecimal("-44.56"), shortDecimal("23.00"), shortDecimal("44.55"), shortDecimal("9999999999.99")),
+                new NumericValues<>(C_INTEGER, (long) Integer.MIN_VALUE, -22L, -45L, 23L, 44L, (long) Integer.MAX_VALUE),
+                new NumericValues<>(C_DECIMAL_6_1, shortDecimal("-99999.9"), shortDecimal("-22.0"), shortDecimal("-44.6"), shortDecimal("23.0"), shortDecimal("44.5"), shortDecimal("99999.9")),
+                new NumericValues<>(C_SMALLINT, (long) Short.MIN_VALUE, -22L, -45L, 23L, 44L, (long) Short.MAX_VALUE),
+                new NumericValues<>(C_DECIMAL_3_0, shortDecimal("-999"), shortDecimal("-22"), shortDecimal("-45"), shortDecimal("23"), shortDecimal("44"), shortDecimal("999")),
+                new NumericValues<>(C_TINYINT, (long) Byte.MIN_VALUE, -22L, -45L, 23L, 44L, (long) Byte.MAX_VALUE),
+                new NumericValues<>(C_DECIMAL_2_0, shortDecimal("-99"), shortDecimal("-22"), shortDecimal("-45"), shortDecimal("23"), shortDecimal("44"), shortDecimal("99"))
         );
 
         for (int literalIndex = 0; literalIndex < translationChain.size(); literalIndex++) {
@@ -1410,11 +1426,6 @@ public class TestDomainTranslator
         return new DoubleLiteral(Double.toString(value));
     }
 
-    private static DecimalLiteral decimalLiteral(String value)
-    {
-        return new DecimalLiteral(value);
-    }
-
     private static StringLiteral stringLiteral(String value)
     {
         return new StringLiteral(value);
@@ -1438,6 +1449,16 @@ public class TestDomainTranslator
     private static FunctionCall function(String functionName, Expression... args)
     {
         return new FunctionCall(QualifiedName.of(functionName), ImmutableList.copyOf(args));
+    }
+
+    private static Long shortDecimal(String value)
+    {
+        return new BigDecimal(value).unscaledValue().longValueExact();
+    }
+
+    private static Slice longDecimal(String value)
+    {
+        return encodeScaledValue(new BigDecimal(value));
     }
 
     private static void testSimpleComparison(Expression expression, Symbol symbol, Range expectedDomainRange)
