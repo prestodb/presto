@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.decoder.util.DecoderTestUtil.checkIsNull;
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkValue;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static org.testng.Assert.assertEquals;
@@ -46,6 +47,19 @@ public class TestRawDecoder
             map.put(column, DEFAULT_FIELD_DECODER);
         }
         return map.build();
+    }
+
+    @Test
+    public void testEmptyRecord()
+    {
+        RawRowDecoder rowDecoder = new RawRowDecoder();
+        byte[] emptyRow = new byte[0];
+        DecoderTestColumnHandle column = new DecoderTestColumnHandle("", 0, "row1", BigintType.BIGINT, null, "LONG", null, false, false, false);
+        List<DecoderColumnHandle> columns = ImmutableList.of(column);
+        Set<FieldValueProvider> providers = new HashSet<>();
+        boolean corrupt = rowDecoder.decodeRow(emptyRow, null, providers, columns, buildMap(columns));
+        assertFalse(corrupt);
+        checkIsNull(providers, column);
     }
 
     @Test
