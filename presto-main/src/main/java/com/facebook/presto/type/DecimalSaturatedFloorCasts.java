@@ -28,6 +28,7 @@ import static com.facebook.presto.metadata.OperatorType.SATURATED_FLOOR_CAST;
 import static com.facebook.presto.spi.type.Decimals.bigIntegerTenToNth;
 import static com.facebook.presto.spi.type.Decimals.decodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
+import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
 import static java.math.BigInteger.ONE;
 import static java.math.RoundingMode.FLOOR;
 
@@ -93,5 +94,43 @@ public final class DecimalSaturatedFloorCasts
             return minUnscaledValue;
         }
         return unscaledValue;
+    }
+
+    public static final SqlScalarFunction DECIMAL_TO_BIGINT_SATURATED_FLOOR_CAST = SqlScalarFunction.builder(DecimalSaturatedFloorCasts.class)
+            .signature(Signature.builder()
+                    .kind(SCALAR)
+                    .operatorType(SATURATED_FLOOR_CAST)
+                    .literalParameters("source_precision", "source_scale")
+                    .argumentTypes("decimal(source_precision,source_scale)")
+                    .returnType(BIGINT)
+                    .build()
+            )
+            .implementation(b -> b
+                    .methods("shortDecimalToBigint", "longDecimalToBigint")
+                    .withExtraParameters((context) -> {
+                        int sourceScale = Ints.checkedCast(context.getLiteral("source_scale"));
+                        return ImmutableList.of(sourceScale);
+                    })
+            ).build();
+
+    @UsedByGeneratedCode
+    public static long shortDecimalToBigint(long value, int sourceScale)
+    {
+        BigDecimal bigDecimal = new BigDecimal(BigInteger.valueOf(value), sourceScale);
+        return bigDecimal.setScale(0, FLOOR).longValueExact();
+    }
+
+    @UsedByGeneratedCode
+    public static long longDecimalToBigint(Slice value, int sourceScale)
+    {
+        BigDecimal bigDecimal = new BigDecimal(decodeUnscaledValue(value), sourceScale);
+        BigInteger unscaledValue = bigDecimal.setScale(0, FLOOR).unscaledValue();
+        if (unscaledValue.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) > 0) {
+            return Long.MAX_VALUE;
+        }
+        if (unscaledValue.compareTo(BigInteger.valueOf(Long.MIN_VALUE)) < 0) {
+            return Long.MIN_VALUE;
+        }
+        return unscaledValue.longValueExact();
     }
 }

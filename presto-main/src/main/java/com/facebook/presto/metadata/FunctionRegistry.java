@@ -231,6 +231,7 @@ import static com.facebook.presto.type.DecimalOperators.DECIMAL_DIVIDE_OPERATOR;
 import static com.facebook.presto.type.DecimalOperators.DECIMAL_MODULUS_OPERATOR;
 import static com.facebook.presto.type.DecimalOperators.DECIMAL_MULTIPLY_OPERATOR;
 import static com.facebook.presto.type.DecimalOperators.DECIMAL_SUBTRACT_OPERATOR;
+import static com.facebook.presto.type.DecimalSaturatedFloorCasts.DECIMAL_TO_BIGINT_SATURATED_FLOOR_CAST;
 import static com.facebook.presto.type.DecimalSaturatedFloorCasts.DECIMAL_TO_DECIMAL_SATURATED_FLOOR_CAST;
 import static com.facebook.presto.type.DecimalToDecimalCasts.DECIMAL_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
@@ -417,7 +418,7 @@ public class FunctionRegistry
                 .functions(DECIMAL_EQUAL_OPERATOR, DECIMAL_NOT_EQUAL_OPERATOR)
                 .functions(DECIMAL_LESS_THAN_OPERATOR, DECIMAL_LESS_THAN_OR_EQUAL_OPERATOR)
                 .functions(DECIMAL_GREATER_THAN_OPERATOR, DECIMAL_GREATER_THAN_OR_EQUAL_OPERATOR)
-                .functions(DECIMAL_TO_DECIMAL_SATURATED_FLOOR_CAST)
+                .functions(DECIMAL_TO_DECIMAL_SATURATED_FLOOR_CAST, DECIMAL_TO_BIGINT_SATURATED_FLOOR_CAST)
                 .function(DECIMAL_BETWEEN_OPERATOR)
                 .function(HISTOGRAM)
                 .function(CHECKSUM_AGGREGATION)
