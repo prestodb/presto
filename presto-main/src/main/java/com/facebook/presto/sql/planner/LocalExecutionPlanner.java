@@ -231,6 +231,7 @@ public class LocalExecutionPlanner
     private final DataSize maxIndexMemorySize;
     private final IndexJoinLookupStats indexJoinLookupStats;
     private final DataSize maxPartialAggregationMemorySize;
+    private final DataSize maxPagePartitioningBufferSize;
 
     @Inject
     public LocalExecutionPlanner(
@@ -260,6 +261,7 @@ public class LocalExecutionPlanner
         this.indexJoinLookupStats = requireNonNull(indexJoinLookupStats, "indexJoinLookupStats is null");
         this.maxIndexMemorySize = requireNonNull(taskManagerConfig, "taskManagerConfig is null").getMaxIndexMemoryUsage();
         this.maxPartialAggregationMemorySize = taskManagerConfig.getMaxPartialAggregationMemoryUsage();
+        this.maxPagePartitioningBufferSize = taskManagerConfig.getMaxPagePartitioningBufferSize();
 
         interpreterEnabled = compilerConfig.isInterpreterEnabled();
     }
@@ -325,7 +327,7 @@ public class LocalExecutionPlanner
                 plan,
                 outputLayout,
                 types,
-                new PartitionedOutputFactory(partitionFunction, partitionChannels, partitionConstants, nullChannel, sharedBuffer),
+                new PartitionedOutputFactory(partitionFunction, partitionChannels, partitionConstants, nullChannel, sharedBuffer, maxPagePartitioningBufferSize),
                 singleNode,
                 allowLocalParallel);
     }

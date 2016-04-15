@@ -43,17 +43,27 @@ public class PageBuilder
 
     public PageBuilder(int initialExpectedEntries, List<? extends Type> types)
     {
+        this(initialExpectedEntries, DEFAULT_MAX_PAGE_SIZE_IN_BYTES, types);
+    }
+
+    public static PageBuilder withMaxPageSize(int maxPageBytes, List<? extends Type> types)
+    {
+        return new PageBuilder(Integer.MAX_VALUE, maxPageBytes, types);
+    }
+
+    private PageBuilder(int initialExpectedEntries, int maxPageBytes, List<? extends Type> types)
+    {
         this.types = unmodifiableList(new ArrayList<>(requireNonNull(types, "types is null")));
 
         int maxBlockSizeInBytes;
         if (!types.isEmpty()) {
-            maxBlockSizeInBytes = (int) (1.0 * DEFAULT_MAX_PAGE_SIZE_IN_BYTES / types.size());
+            maxBlockSizeInBytes = (int) (1.0 * maxPageBytes / types.size());
             maxBlockSizeInBytes = Math.min(DEFAULT_MAX_BLOCK_SIZE_IN_BYTES, maxBlockSizeInBytes);
         }
         else {
             maxBlockSizeInBytes = 0;
         }
-        pageBuilderStatus = new PageBuilderStatus(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, maxBlockSizeInBytes);
+        pageBuilderStatus = new PageBuilderStatus(maxPageBytes, maxBlockSizeInBytes);
 
         int expectedEntries = Math.min(maxBlockSizeInBytes, initialExpectedEntries);
         for (Type type : types) {
