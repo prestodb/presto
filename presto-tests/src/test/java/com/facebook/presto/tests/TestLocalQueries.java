@@ -38,6 +38,7 @@ public class TestLocalQueries
         Session defaultSession = testSessionBuilder()
                 .setCatalog("local")
                 .setSchema(TINY_SCHEMA_NAME)
+                .setSource("global")
                 .build();
 
         LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession);
@@ -64,6 +65,7 @@ public class TestLocalQueries
         return testSessionBuilder()
                 .setCatalog(TPCH_SAMPLED_SCHEMA)
                 .setSchema(TINY_SCHEMA_NAME)
+                .setSource("global")
                 .build();
     }
 }

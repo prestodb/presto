@@ -21,6 +21,7 @@ public final class SessionTestUtils
     public static final Session TEST_SESSION = testSessionBuilder()
             .setCatalog("tpch")
             .setSchema(TINY_SCHEMA_NAME)
+            .setSource("global")
             .build();
 
     private SessionTestUtils()

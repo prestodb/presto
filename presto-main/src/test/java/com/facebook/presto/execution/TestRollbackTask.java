@@ -109,6 +109,7 @@ public class TestRollbackTask
 
         Session session = sessionBuilder()
                 .setTransactionId(TransactionId.create()) // Use a random transaction ID that is unknown to the system
+                .setSource("global")
                 .build();
         QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "ROLLBACK", session, URI.create("fake://uri"), true, transactionManager, executor);
 

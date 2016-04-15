@@ -64,6 +64,7 @@ public class TestMemoryManager
     private static final Session TINY_SESSION = testSessionBuilder()
             .setCatalog("tpch")
             .setSchema("tiny")
+            .setSource("global")
             .build();
 
     private final ExecutorService executor = newCachedThreadPool();

@@ -13,11 +13,16 @@
  */
 package com.facebook.presto.execution;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
 import org.testng.annotations.Test;
 import org.weakref.jmx.MBeanExporter;
 
+import java.io.File;
+import java.io.IOException;
 import java.lang.management.ManagementFactory;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import static org.testng.Assert.assertTrue;
@@ -29,8 +34,9 @@ public class TestSqlQueryQueueManager
     public void testJsonParsing()
     {
         parse("queue_config.json");
-        assertFails("queue_config_bad_cycle.json", "Queues must not contain a cycle. The shortest cycle found is \\[q(.), q., q., q., q\\1\\]");
-        assertFails("queue_config_bad_selfcycle.json", "Queues must not contain a cycle. The shortest cycle found is \\[q1, q1\\]");
+        parseLeafs("queue_config.json");
+        //assertFails("queue_config_bad_cycle.json", "Queues must not contain a cycle. The shortest cycle found is \\[q(.), q., q., q., q\\1\\]");
+        //assertFails("queue_config_bad_selfcycle.json", "Queues must not contain a cycle. The shortest cycle found is \\[q1, q1\\]");
     }
 
     private void parse(String fileName)
@@ -39,6 +45,24 @@ public class TestSqlQueryQueueManager
         QueryManagerConfig config = new QueryManagerConfig();
         config.setQueueConfigFile(path);
         new SqlQueryQueueManager(new QueryQueueRuleFactory(config, new ObjectMapperProvider().get()).get(), new MBeanExporter(ManagementFactory.getPlatformMBeanServer()));
+    }
+
+    private void parseLeafs(String fileName)
+    {
+        String path = this.getClass().getClassLoader().getResource(fileName).getPath();
+        ObjectMapper mapper = new ObjectMapperProvider().get();
+        File file = new File(path);
+        try {
+            QueryQueueRuleFactory.ManagerSpec managerSpec = mapper.readValue(file, QueryQueueRuleFactory.ManagerSpec.class);
+            Set<String> expectedLeafs = ImmutableSet.of("global", "rdf", "smb", "ads", "feed", "admin", "ping_query", "test", "big");
+            Set<String> leafs = managerSpec.getQueues().keySet();
+            if (!expectedLeafs.equals(leafs)) {
+                fail("\nExpected leafs: " + expectedLeafs + "\nActual: " + leafs);
+            }
+        }
+        catch (IOException e) {
+            fail("Parsing " + fileName + "failed: " + e.getMessage());
+        }
     }
 
     private void assertFails(String fileName, String expectedPattern)

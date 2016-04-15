@@ -43,6 +43,7 @@ public class TestDistributedQueriesIndexed
         Session session = testSessionBuilder()
                 .setCatalog("tpch_indexed")
                 .setSchema(TINY_SCHEMA_NAME)
+                .setSource("global")
                 .build();
 
         DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 3);

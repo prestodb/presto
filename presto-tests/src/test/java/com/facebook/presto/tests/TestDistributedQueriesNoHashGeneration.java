@@ -33,7 +33,7 @@ public class TestDistributedQueriesNoHashGeneration
             throws Exception
     {
         Session session = testSessionBuilder()
-                .setSource("test")
+                .setSource("global")
                 .setCatalog("tpch")
                 .setSchema("tiny")
                 .build();

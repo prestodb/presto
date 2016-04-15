@@ -132,6 +132,7 @@ public class SqlQueryManager
 
         queryManagementExecutor = Executors.newScheduledThreadPool(config.getQueryManagerExecutorPoolSize(), threadsNamed("query-management-%s"));
         queryManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryManagementExecutor);
+        queueManager.setExecutor(queryExecutor);
         queryManagementExecutor.scheduleWithFixedDelay(new Runnable()
         {
             @Override
@@ -333,7 +334,7 @@ public class SqlQueryManager
         queries.put(queryId, queryExecution);
 
         // start the query in the background
-        if (!queueManager.submit(statement, queryExecution, queryExecutor, stats)) {
+        if (!queueManager.submit(statement, queryExecution, stats)) {
             queryExecution.fail(new PrestoException(QUERY_QUEUE_FULL, "Too many queued queries!"));
         }
 
