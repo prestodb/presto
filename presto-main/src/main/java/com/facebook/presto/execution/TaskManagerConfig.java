@@ -43,6 +43,7 @@ public class TaskManagerConfig
     private Duration splitConcurrencyAdjustmentInterval = new Duration(100, TimeUnit.MILLISECONDS);
 
     private DataSize sinkMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
+    private DataSize maxPagePartitioningBufferSize = new DataSize(32, Unit.MEGABYTE);
 
     private Duration clientTimeout = new Duration(2, TimeUnit.MINUTES);
     private Duration infoMaxAge = new Duration(15, TimeUnit.MINUTES);
@@ -215,6 +216,19 @@ public class TaskManagerConfig
     public TaskManagerConfig setSinkMaxBufferSize(DataSize sinkMaxBufferSize)
     {
         this.sinkMaxBufferSize = sinkMaxBufferSize;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getMaxPagePartitioningBufferSize()
+    {
+        return sinkMaxBufferSize;
+    }
+
+    @Config("driver.max-page-partitioning-buffer-size")
+    public TaskManagerConfig setMaxPagePartitioningBufferSize(DataSize size)
+    {
+        this.maxPagePartitioningBufferSize = size;
         return this;
     }
 
