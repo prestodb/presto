@@ -70,15 +70,9 @@ public class ResourceGroup
     @GuardedBy("root")
     private final Set<QueryExecution> runningQueries = new HashSet<>();
 
-    protected ResourceGroup(Optional<ResourceGroup> parent, String name, int maxRunningQueries, int maxQueuedQueries,  long softMemoryLimitBytes, Executor executor)
+    protected ResourceGroup(Optional<ResourceGroup> parent, String name, Executor executor)
     {
         this.parent = requireNonNull(parent, "parent is null");
-        checkArgument(maxRunningQueries >= 0, "maxRunningQueries may not be negative");
-        this.maxRunningQueries = maxRunningQueries;
-        checkArgument(maxQueuedQueries >= 0, "maxQueuedQueries may not be negative");
-        this.maxQueuedQueries = maxQueuedQueries;
-        checkArgument(softMemoryLimitBytes >= 0, "softMemoryLimitBytes may not be negative");
-        this.softMemoryLimitBytes = softMemoryLimitBytes;
         this.executor = requireNonNull(executor, "executor is null");
         requireNonNull(name, "name is null");
         if (parent.isPresent()) {
@@ -120,16 +114,15 @@ public class ResourceGroup
         }
     }
 
-    public ResourceGroup getOrCreateSubGroup(String name, int maxRunningQueries, int maxQueuedQueries, DataSize softMemoryLimit)
+    public ResourceGroup getOrCreateSubGroup(String name)
     {
         requireNonNull(name, "name is null");
         synchronized (root) {
             checkArgument(runningQueries.isEmpty() && queuedQueries.isEmpty(), "Cannot add sub group to %s while queries are running", id);
             if (subGroups.containsKey(name)) {
-                // TODO: handle the case where this group has already been added with different configs
                 return subGroups.get(name);
             }
-            ResourceGroup subGroup = new ResourceGroup(Optional.of(this), name, maxRunningQueries, maxQueuedQueries, softMemoryLimit.toBytes(), executor);
+            ResourceGroup subGroup = new ResourceGroup(Optional.of(this), name, executor);
             subGroups.put(name, subGroup);
             return subGroup;
         }
@@ -366,9 +359,9 @@ public class ResourceGroup
     public static final class RootResourceGroup
             extends ResourceGroup
     {
-        public RootResourceGroup(String name, int maxRunningQueries, int maxQueuedQueries, DataSize softMemoryLimit, Executor executor)
+        public RootResourceGroup(String name, Executor executor)
         {
-            super(Optional.empty(), name, maxRunningQueries, maxQueuedQueries, softMemoryLimit.toBytes(), executor);
+            super(Optional.empty(), name, executor);
         }
 
         public synchronized void processQueuedQueries()

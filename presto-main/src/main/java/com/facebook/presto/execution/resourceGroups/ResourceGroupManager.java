@@ -111,18 +111,22 @@ public class ResourceGroupManager
     private synchronized void createGroupIfNecessary(ResourceGroupId id, QueryQueueDefinition definition, Executor executor)
     {
         if (!groups.containsKey(id)) {
+            ResourceGroup group;
             if (id.getParent().isPresent()) {
                 ResourceGroup parent = groups.get(id.getParent().get());
                 requireNonNull(parent, "parent is null");
-                // TODO: Implement memory limits
-                ResourceGroup group = parent.getOrCreateSubGroup(id.getLastSegment(), definition.getMaxConcurrent(), definition.getMaxQueued(), new DataSize(Long.MAX_VALUE, BYTE));
-                checkState(groups.put(id, group) == null, "Unexpected existing resource group");
+                group = parent.getOrCreateSubGroup(id.getLastSegment());
             }
             else {
-                RootResourceGroup group = new RootResourceGroup(id.getSegments().get(0), definition.getMaxConcurrent(), definition.getMaxQueued(), new DataSize(Long.MAX_VALUE, BYTE), executor);
-                rootGroups.add(group);
-                checkState(groups.put(id, group) == null, "Unexpected existing resource group");
+                RootResourceGroup root = new RootResourceGroup(id.getSegments().get(0), executor);
+                group = root;
+                rootGroups.add(root);
             }
+            // TODO: Implement memory limits
+            group.setSoftMemoryLimit(new DataSize(Long.MAX_VALUE, BYTE));
+            group.setMaxQueuedQueries(definition.getMaxQueued());
+            group.setMaxRunningQueries(definition.getMaxConcurrent());
+            checkState(groups.put(id, group) == null, "Unexpected existing resource group");
         }
     }
 

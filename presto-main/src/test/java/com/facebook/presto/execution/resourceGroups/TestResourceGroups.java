@@ -15,12 +15,12 @@ package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.presto.execution.MockQueryExecution;
 import com.facebook.presto.execution.resourceGroups.ResourceGroup.RootResourceGroup;
-import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.testng.Assert.assertEquals;
@@ -30,10 +30,22 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testFairEligibility()
     {
-        RootResourceGroup root = new RootResourceGroup("root", 1, 4, new DataSize(1, MEGABYTE), MoreExecutors.directExecutor());
-        ResourceGroup group1 = root.getOrCreateSubGroup("1", 1, 4, new DataSize(1, MEGABYTE));
-        ResourceGroup group2 = root.getOrCreateSubGroup("2", 1, 4, new DataSize(1, MEGABYTE));
-        ResourceGroup group3 = root.getOrCreateSubGroup("3", 1, 4, new DataSize(1, MEGABYTE));
+        RootResourceGroup root = new RootResourceGroup("root", directExecutor());
+        root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        root.setMaxQueuedQueries(4);
+        root.setMaxRunningQueries(1);
+        ResourceGroup group1 = root.getOrCreateSubGroup("1");
+        group1.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        group1.setMaxQueuedQueries(4);
+        group1.setMaxRunningQueries(1);
+        ResourceGroup group2 = root.getOrCreateSubGroup("2");
+        group2.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        group2.setMaxQueuedQueries(4);
+        group2.setMaxRunningQueries(1);
+        ResourceGroup group3 = root.getOrCreateSubGroup("3");
+        group3.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        group3.setMaxQueuedQueries(4);
+        group3.setMaxRunningQueries(1);
         MockQueryExecution query1a = new MockQueryExecution(0);
         group1.add(query1a);
         assertEquals(query1a.getState(), RUNNING);
@@ -73,9 +85,18 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testFairQueuing()
     {
-        RootResourceGroup root = new RootResourceGroup("root", 1, 4, new DataSize(1, MEGABYTE), MoreExecutors.directExecutor());
-        ResourceGroup group1 = root.getOrCreateSubGroup("1", 2, 4, new DataSize(1, MEGABYTE));
-        ResourceGroup group2 = root.getOrCreateSubGroup("2", 2, 4, new DataSize(1, MEGABYTE));
+        RootResourceGroup root = new RootResourceGroup("root", directExecutor());
+        root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        root.setMaxQueuedQueries(4);
+        root.setMaxRunningQueries(1);
+        ResourceGroup group1 = root.getOrCreateSubGroup("1");
+        group1.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        group1.setMaxQueuedQueries(4);
+        group1.setMaxRunningQueries(2);
+        ResourceGroup group2 = root.getOrCreateSubGroup("2");
+        group2.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        group2.setMaxQueuedQueries(4);
+        group2.setMaxRunningQueries(2);
         MockQueryExecution query1a = new MockQueryExecution(0);
         group1.add(query1a);
         assertEquals(query1a.getState(), RUNNING);
@@ -106,7 +127,10 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testMemoryLimit()
     {
-        RootResourceGroup root = new RootResourceGroup("root", 3, 4, new DataSize(1, BYTE), MoreExecutors.directExecutor());
+        RootResourceGroup root = new RootResourceGroup("root", directExecutor());
+        root.setSoftMemoryLimit(new DataSize(1, BYTE));
+        root.setMaxQueuedQueries(4);
+        root.setMaxRunningQueries(3);
         MockQueryExecution query1 = new MockQueryExecution(1);
         root.add(query1);
         // Process the group to refresh stats
