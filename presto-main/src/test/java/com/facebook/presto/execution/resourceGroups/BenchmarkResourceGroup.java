@@ -72,10 +72,16 @@ public class BenchmarkResourceGroup
         @Setup
         public void setup()
         {
-            root = new RootResourceGroup("root", queries, queries, new DataSize(1, MEGABYTE), executor);
+            root = new RootResourceGroup("root", executor);
+            root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+            root.setMaxQueuedQueries(queries);
+            root.setMaxRunningQueries(queries);
             ResourceGroup group = root;
             for (int i = 0; i < children; i++) {
-                group = root.getOrCreateSubGroup(String.valueOf(i), queries, queries, new DataSize(1, MEGABYTE));
+                group = root.getOrCreateSubGroup(String.valueOf(i));
+                group.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+                group.setMaxQueuedQueries(queries);
+                group.setMaxRunningQueries(queries);
             }
             for (int i = 0; i < queries; i++) {
                 group.add(new MockQueryExecution(10));
