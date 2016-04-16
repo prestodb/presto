@@ -13,20 +13,13 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
-import com.facebook.presto.execution.QueryQueueRuleFactory;
-import com.google.inject.Binder;
-import com.google.inject.Module;
-import com.google.inject.Scopes;
-import com.google.inject.TypeLiteral;
+import com.facebook.presto.SessionRepresentation;
 
-import java.util.List;
-
-public class ResourceGroupsModule
-        implements Module
+public interface ResourceGroupConfigurationManager
 {
-    @Override
-    public void configure(Binder binder)
-    {
-        binder.bind(new TypeLiteral<List<? extends ResourceGroupSelector>>() {}).toProvider(QueryQueueRuleFactory.class).in(Scopes.SINGLETON);
-    }
+    /**
+     * Implementations may retain a reference to the group, and re-configure it asynchronously.
+     * This method is called, once, when the group is created.
+     */
+    void configure(ConfigurableResourceGroup group, SessionRepresentation session);
 }

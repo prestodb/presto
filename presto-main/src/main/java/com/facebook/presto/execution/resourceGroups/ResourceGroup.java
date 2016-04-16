@@ -35,10 +35,12 @@ import java.util.concurrent.Executor;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class ResourceGroup
+        implements ConfigurableResourceGroup
 {
     private final ResourceGroup root;
     private final Optional<ResourceGroup> parent;
@@ -85,6 +87,21 @@ public class ResourceGroup
         }
     }
 
+    @Override
+    public ResourceGroupId getId()
+    {
+        return id;
+    }
+
+    @Override
+    public DataSize getSoftMemoryLimit()
+    {
+        synchronized (root) {
+            return new DataSize(softMemoryLimitBytes, BYTE);
+        }
+    }
+
+    @Override
     public void setSoftMemoryLimit(DataSize limit)
     {
         synchronized (root) {
@@ -96,8 +113,18 @@ public class ResourceGroup
         }
     }
 
+    @Override
+    public int getMaxRunningQueries()
+    {
+        synchronized (root) {
+            return maxRunningQueries;
+        }
+    }
+
+    @Override
     public void setMaxRunningQueries(int maxRunningQueries)
     {
+        checkArgument(maxRunningQueries >= 0, "maxRunningQueries is negative");
         synchronized (root) {
             boolean oldCanRun = canRunMore();
             this.maxRunningQueries = maxRunningQueries;
@@ -107,8 +134,18 @@ public class ResourceGroup
         }
     }
 
+    @Override
+    public int getMaxQueuedQueries()
+    {
+        synchronized (root) {
+            return maxQueuedQueries;
+        }
+    }
+
+    @Override
     public void setMaxQueuedQueries(int maxQueuedQueries)
     {
+        checkArgument(maxQueuedQueries >= 0, "maxQueuedQueries is negative");
         synchronized (root) {
             this.maxQueuedQueries = maxQueuedQueries;
         }

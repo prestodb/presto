@@ -1,0 +1,41 @@
+{
+  "rootGroups": [
+    {
+      "name": "global",
+      "softMemoryLimit": "1MB",
+      "maxRunning": 100,
+      "maxQueued": 1000,
+      "subGroups": [
+        {
+          "name": "user-${USER}",
+          "softMemoryLimit": "1MB",
+          "maxRunning": 3,
+          "maxQueued": 3,
+          "subGroups": [
+            {
+              "name": "adhoc-${USER}",
+              "softMemoryLimit": "1MB",
+              "maxRunning": 3,
+              "maxQueued": 3
+            },
+            {
+              "name": "dashboard-${USER}",
+              "softMemoryLimit": "1MB",
+              "maxRunning": 1,
+              "maxQueued": 1
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "selectors": [
+    {
+      "source": "(?i).*dashboard.*",
+      "group": "global.user-${USER}.dashboard-${USER}"
+    },
+    {
+      "group": "global.user-${USER}.adhoc-${USER}"
+    }
+  ]
+}
