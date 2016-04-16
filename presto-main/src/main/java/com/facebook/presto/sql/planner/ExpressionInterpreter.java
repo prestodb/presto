@@ -27,6 +27,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.AnalysisContext;
@@ -1037,7 +1038,25 @@ public class ExpressionInterpreter
         @Override
         protected Object visitRow(Row node, Object context)
         {
-            throw new PrestoException(NOT_SUPPORTED, "Row expressions not yet supported");
+            RowType rowType = checkType(expressionTypes.get(node), RowType.class, "type");
+            List<Type> parameterTypes = rowType.getTypeParameters();
+            List<Expression> arguments = node.getItems();
+
+            int cardinality = arguments.size();
+            List<Object> values = new ArrayList<>(cardinality);
+            for (Expression argument : arguments) {
+                values.add(process(argument, context));
+            }
+            if (hasUnresolvedValue(values)) {
+                return new Row(toExpressions(values, parameterTypes));
+            }
+            else {
+                BlockBuilder blockBuilder =  new InterleavedBlockBuilder(parameterTypes, new BlockBuilderStatus(), cardinality);
+                for (int i = 0; i < cardinality; ++i) {
+                    writeNativeValue(parameterTypes.get(i), blockBuilder, values.get(i));
+                }
+                return blockBuilder.build();
+            }
         }
 
         @Override

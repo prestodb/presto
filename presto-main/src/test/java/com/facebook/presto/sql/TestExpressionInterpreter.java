@@ -1136,6 +1136,26 @@ public class TestExpressionInterpreter
                 "array_constructor((bound_long + 0), (unbound_long + 1), NULL)");
     }
 
+    @Test
+    public void testRowConstructor()
+    {
+        optimize("ROW(NULL)");
+        optimize("ROW(1)");
+        optimize("ROW(unbound_long + 0)");
+        optimize("ROW(unbound_long + unbound_long2, unbound_string, unbound_double)");
+        optimize("ROW(unbound_boolean, FALSE, ARRAY[unbound_long, unbound_long2], unbound_null_string, unbound_interval)");
+        optimize("ARRAY [ROW(unbound_string, unbound_double), ROW(unbound_string, 0.0)]");
+        optimize("ARRAY [ROW('string', unbound_double), ROW('string', bound_double)]");
+        optimize("ROW(ROW(NULL), ROW(ROW(ROW(ROW('rowception')))))");
+        optimize("ROW(unbound_string, bound_string)");
+
+        optimize("ARRAY [ROW(unbound_string, unbound_double), ROW(CAST(bound_string AS VARCHAR), 0.0)]");
+        optimize("ARRAY [ROW(CAST(bound_string AS VARCHAR), 0.0), ROW(unbound_string, unbound_double)]");
+
+        optimize("ARRAY [ROW(unbound_string, unbound_double), CAST(NULL AS ROW(VARCHAR, DOUBLE))]");
+        optimize("ARRAY [CAST(NULL AS ROW(VARCHAR, DOUBLE)), ROW(unbound_string, unbound_double)]");
+    }
+
     @Test(expectedExceptions = PrestoException.class)
     public void testArraySubscriptConstantNegativeIndex()
     {
