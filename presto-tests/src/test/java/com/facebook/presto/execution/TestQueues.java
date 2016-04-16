@@ -51,9 +51,12 @@ public class TestQueues
             throws Exception
     {
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-        builder.put("query.queue-config-file", getResourceFilePath("queue_config_dashboard.json"));
         if (resourceGroups) {
             builder.put("experimental.resource-groups-enabled", "true");
+            builder.put("resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json"));
+        }
+        else {
+            builder.put("query.queue-config-file", getResourceFilePath("queue_config_dashboard.json"));
         }
         Map<String, String> properties = builder.build();
 
@@ -107,9 +110,12 @@ public class TestQueues
             throws Exception
     {
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-        builder.put("query.queue-config-file", getResourceFilePath("queue_config_dashboard.json"));
         if (resourceGroups) {
             builder.put("experimental.resource-groups-enabled", "true");
+            builder.put("resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json"));
+        }
+        else {
+            builder.put("query.queue-config-file", getResourceFilePath("queue_config_dashboard.json"));
         }
         Map<String, String> properties = builder.build();
 
@@ -141,9 +147,12 @@ public class TestQueues
             throws Exception
     {
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-        builder.put("query.queue-config-file", getResourceFilePath("queue_config_dashboard.json"));
         if (resourceGroups) {
             builder.put("experimental.resource-groups-enabled", "true");
+            builder.put("resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json"));
+        }
+        else {
+            builder.put("query.queue-config-file", getResourceFilePath("queue_config_dashboard.json"));
         }
         Map<String, String> properties = builder.build();
 

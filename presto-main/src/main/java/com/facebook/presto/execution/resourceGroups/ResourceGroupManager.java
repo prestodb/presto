@@ -14,6 +14,7 @@
 package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryQueueDefinition;
 import com.facebook.presto.execution.QueryQueueManager;
@@ -23,7 +24,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
-import io.airlift.units.DataSize;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -45,7 +45,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.spi.StandardErrorCode.USER_ERROR;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -57,12 +56,14 @@ public class ResourceGroupManager
     private final List<RootResourceGroup> rootGroups = new CopyOnWriteArrayList<>();
     private final ConcurrentMap<ResourceGroupId, ResourceGroup> groups = new ConcurrentHashMap<>();
     private final List<ResourceGroupSelector> selectors;
+    private final ResourceGroupConfigurationManager configurationManager;
     private final AtomicBoolean started = new AtomicBoolean();
 
     @Inject
-    public ResourceGroupManager(List<? extends ResourceGroupSelector> selectors)
+    public ResourceGroupManager(List<? extends ResourceGroupSelector> selectors, ResourceGroupConfigurationManager configurationManager)
     {
         this.selectors = ImmutableList.copyOf(selectors);
+        this.configurationManager = requireNonNull(configurationManager, "configurationManager is null");
     }
 
     @Override
@@ -73,10 +74,10 @@ public class ResourceGroupManager
         queues = new ArrayList<>(queues);
         Collections.reverse(queues);
         ResourceGroupId groupId = new ResourceGroupId(queues.get(0).getExpandedTemplate(queryExecution.getSession()));
-        createGroupIfNecessary(groupId, queues.get(0), executor);
+        createGroupIfNecessary(groupId, queryExecution.getSession().toSessionRepresentation(), executor);
         for (QueryQueueDefinition queue : queues.subList(1, queues.size())) {
             groupId = new ResourceGroupId(groupId, queue.getExpandedTemplate(queryExecution.getSession()));
-            createGroupIfNecessary(groupId, queue, executor);
+            createGroupIfNecessary(groupId, queryExecution.getSession().toSessionRepresentation(), executor);
         }
 
         return groups.get(groupId).add(queryExecution);
@@ -108,7 +109,7 @@ public class ResourceGroupManager
         }
     }
 
-    private synchronized void createGroupIfNecessary(ResourceGroupId id, QueryQueueDefinition definition, Executor executor)
+    private synchronized void createGroupIfNecessary(ResourceGroupId id, SessionRepresentation session, Executor executor)
     {
         if (!groups.containsKey(id)) {
             ResourceGroup group;
@@ -122,10 +123,7 @@ public class ResourceGroupManager
                 group = root;
                 rootGroups.add(root);
             }
-            // TODO: Implement memory limits
-            group.setSoftMemoryLimit(new DataSize(Long.MAX_VALUE, BYTE));
-            group.setMaxQueuedQueries(definition.getMaxQueued());
-            group.setMaxRunningQueries(definition.getMaxConcurrent());
+            configurationManager.configure(group, session);
             checkState(groups.put(id, group) == null, "Unexpected existing resource group");
         }
     }

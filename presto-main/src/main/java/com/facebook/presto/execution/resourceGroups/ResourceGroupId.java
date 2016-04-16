@@ -20,14 +20,12 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public final class ResourceGroupId
 {
-    public static final Pattern REGEXP = Pattern.compile("[^.]+");
     private final List<String> segments;
 
     public ResourceGroupId(String name)
@@ -45,7 +43,7 @@ public final class ResourceGroupId
         checkArgument(!segments.isEmpty(), "Resource group id is empty");
         for (String segment : segments) {
             checkArgument(!segment.isEmpty(), "Empty segment in resource group id");
-            checkArgument(REGEXP.matcher(segment).matches(), "Invalid resource group id. '%s' contains a '.'", Joiner.on(".").join(segments));
+            checkArgument(segment.indexOf('.') < 0, "Invalid resource group id. '%s' contains a '.'", Joiner.on(".").join(segments));
         }
         this.segments = segments;
     }

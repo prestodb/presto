@@ -14,7 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.discovery.EmbeddedDiscoveryModule;
-import com.facebook.presto.execution.resourceGroups.ResourceGroupsModule;
+import com.facebook.presto.execution.resourceGroups.FileResourceGroupsModule;
 import com.facebook.presto.execution.scheduler.FlatNetworkTopology;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NetworkTopology;
@@ -113,8 +113,8 @@ public class PrestoServer
                 new GracefulShutdownModule(),
                 installModuleIf(
                         FeaturesConfig.class,
-                        config -> FILE_BASED_RESOURCE_GROUP_MANAGER.equalsIgnoreCase(config.getResourceGroupManager()),
-                        binder -> binder.install(new ResourceGroupsModule())),
+                        config -> config.isResourceGroupsEnabled() && FILE_BASED_RESOURCE_GROUP_MANAGER.equalsIgnoreCase(config.getResourceGroupManager()),
+                        binder -> binder.install(new FileResourceGroupsModule())),
                 installModuleIf(
                         NodeSchedulerConfig.class,
                         config -> LEGACY_NETWORK_TOPOLOGY.equalsIgnoreCase(config.getNetworkTopology()),
