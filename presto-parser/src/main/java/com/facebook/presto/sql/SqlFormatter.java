@@ -50,6 +50,7 @@ import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Rollback;
+import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
@@ -828,6 +829,22 @@ public final class SqlFormatter
 
             builder.append(")");
 
+            return null;
+        }
+
+        @Override
+        protected Void visitRow(Row node, Integer indent)
+        {
+            builder.append("ROW(");
+            boolean firstItem = true;
+            for (Expression item : node.getItems()) {
+                if (!firstItem) {
+                    builder.append(", ");
+                }
+                process(item, indent);
+                firstItem = false;
+            }
+            builder.append(")");
             return null;
         }
 

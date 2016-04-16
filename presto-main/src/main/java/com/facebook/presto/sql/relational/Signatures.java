@@ -36,6 +36,7 @@ import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.internalScalarFunction;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 
 public final class Signatures
 {
@@ -49,6 +50,7 @@ public final class Signatures
     public static final String IN = "IN";
     public static final String TRY = "TRY";
     public static final String DEREFERENCE = "DEREFERENCE";
+    public static final String ROW_CONSTRUCTOR = "ROW_CONSTRUCTOR";
 
     private Signatures()
     {
@@ -156,6 +158,11 @@ public final class Signatures
     public static Signature inSignature()
     {
         return internalScalarFunction(IN, StandardTypes.BOOLEAN);
+    }
+
+    public static Signature rowConstructorSignature(Type returnType, List<Type> argumentTypes)
+    {
+        return internalScalarFunction(ROW_CONSTRUCTOR, returnType.getTypeSignature(), argumentTypes.stream().map(Type::getTypeSignature).collect(toImmutableList()));
     }
 
     // **************** functions that need to do special null handling ****************

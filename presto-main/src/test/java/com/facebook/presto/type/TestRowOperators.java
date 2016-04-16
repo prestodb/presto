@@ -60,14 +60,16 @@ public class TestRowOperators
     public void testRowToJson()
             throws Exception
     {
-        assertFunction("CAST(test_row(1, 2) AS JSON)", JSON, "[1,2]");
-        assertFunction("CAST(test_row(1, CAST(NULL AS INTEGER)) AS JSON)", JSON, "[1,null]");
-        assertFunction("CAST(test_row(1, 2.0) AS JSON)", JSON, "[1,2.0]");
-        assertFunction("CAST(test_row(1.0, 2.5) AS JSON)", JSON, "[1.0,2.5]");
-        assertFunction("CAST(test_row(1.0, 'kittens') AS JSON)", JSON, "[1.0,\"kittens\"]");
-        assertFunction("CAST(test_row(TRUE, FALSE) AS JSON)", JSON, "[true,false]");
-        assertFunction("CAST(test_row(from_unixtime(1)) AS JSON)", JSON, "[\"" + new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()) + "\"]");
-        assertFunction("CAST(test_row(FALSE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0])) AS JSON)", JSON, "[false,[1,2],{\"1\":2.0,\"3\":4.0}]");
+        assertFunction("CAST(ROW(1, 2) AS JSON)", JSON, "[1,2]");
+        assertFunction("CAST(CAST(ROW(1, 2) AS ROW(a BIGINT, b BIGINT)) AS JSON)", JSON, "[1,2]");
+        assertFunction("CAST(ROW(1, NULL) AS JSON)", JSON, "[1,null]");
+        assertFunction("CAST(ROW(1, CAST(NULL AS INTEGER)) AS JSON)", JSON, "[1,null]");
+        assertFunction("CAST(ROW(1, 2.0) AS JSON)", JSON, "[1,2.0]");
+        assertFunction("CAST(ROW(1.0, 2.5) AS JSON)", JSON, "[1.0,2.5]");
+        assertFunction("CAST(ROW(1.0, 'kittens') AS JSON)", JSON, "[1.0,\"kittens\"]");
+        assertFunction("CAST(ROW(TRUE, FALSE) AS JSON)", JSON, "[true,false]");
+        assertFunction("CAST(ROW(from_unixtime(1)) AS JSON)", JSON, "[\"" + new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()) + "\"]");
+        assertFunction("CAST(ROW(FALSE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0])) AS JSON)", JSON, "[false,[1,2],{\"1\":2.0,\"3\":4.0}]");
     }
 
     @Test
@@ -93,6 +95,16 @@ public class TestRowOperators
         assertFunction("test_row(FALSE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0])).col1", new ArrayType(INTEGER), ImmutableList.of(1, 2));
         assertFunction("test_row(FALSE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0])).col2", new MapType(INTEGER, DOUBLE), ImmutableMap.of(1, 2.0, 3, 4.0));
         assertFunction("test_row(1.0, ARRAY[test_row(31, 4.1), test_row(32, 4.2)], test_row(3, 4.0)).col1[2].col0", INTEGER, 32);
+
+        // Using ROW constructor
+        assertFunction("CAST(ROW(1, 2) AS ROW(a BIGINT, b DOUBLE)).a", BIGINT, 1L);
+        assertFunction("CAST(ROW(1, 2) AS ROW(a BIGINT, b DOUBLE)).b", DOUBLE, 2.0);
+        assertFunction("CAST(ROW(CAST(ROW('aa') AS ROW(a VARCHAR))) AS ROW(a ROW(a VARCHAR))).a.a", VARCHAR, "aa");
+        assertFunction("CAST(ROW(ROW('ab')) AS ROW(a ROW(b VARCHAR))).a.b", VARCHAR, "ab");
+        assertFunction("CAST(ROW(ARRAY[NULL]) AS ROW(a ARRAY(BIGINT))).a", new ArrayType(BIGINT), Arrays.asList((Integer) null));
+
+        // Row type is not case sensitive
+        assertFunction("CAST(ROW(1) AS ROW(A BIGINT)).A", BIGINT, 1L);
     }
 
     @Test
@@ -103,6 +115,14 @@ public class TestRowOperators
         assertFunction("cast(test_row(2, 3) as row(aa bigint, bb boolean)).bb", BOOLEAN, true);
         assertFunction("cast(test_row(2, cast(null as double)) as row(aa bigint, bb double)).bb", DOUBLE, null);
         assertFunction("cast(test_row(2, 'test_str') as row(aa bigint, bb varchar)).bb", VARCHAR, "test_str");
+
+        try {
+            assertFunction("CAST(ROW(1, 2) AS ROW(a BIGINT, A DOUBLE)).a", BIGINT, 1L);
+            fail("fields in Row are case insensitive");
+        }
+        catch (RuntimeException e) {
+            // Expected
+        }
 
         // there are totally 7 field names
         String longFieldNameCast = "CAST(test_row(1.2, ARRAY[test_row(233, 6.9)], test_row(1000, 6.3)) AS ROW(%s VARCHAR, %s ARRAY(ROW(%s VARCHAR, %s VARCHAR)), %s ROW(%s VARCHAR, %s VARCHAR))).%s[1].%s";
@@ -169,5 +189,8 @@ public class TestRowOperators
         assertFunction("test_row(TRUE, ARRAY [1]) != test_row(TRUE, ARRAY [1])", BOOLEAN, false);
         assertFunction("test_row(TRUE, ARRAY [1]) != test_row(TRUE, ARRAY [1,2])", BOOLEAN, true);
         assertFunction("test_row(1.0, ARRAY [1,2,3], test_row(2,2.0)) != test_row(1.0, ARRAY [1,2,3], test_row(1,2.0))", BOOLEAN, true);
+
+        assertFunction("ROW(1, 2) = ROW(1, 2)", BOOLEAN, true);
+        assertFunction("ROW(2, 1) != ROW(1, 2)", BOOLEAN, true);
     }
 }
