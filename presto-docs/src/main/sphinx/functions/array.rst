@@ -77,6 +77,15 @@ Array Functions
 
     Subsets array ``x`` starting from index ``start`` (or starting from the end if ``start`` is negative) with a length of ``length``.
 
-.. function:: sequence(start, end) -> array
+.. function:: sequence(start bigint, stop bigint) -> array<bigint>
 
-    Sequence function to generate synthetic arrays, starting from integer value start, to integer value end.
+    Generate a sequence of integers from `start` to `stop`, incrementing by 1 if `start <= stop` and -1 if `start > stop`.
+
+.. function:: sequence(start bigint, stop bigint, step bigint) -> array<bigint>
+
+    Generate a sequence of integers from `start` to `stop` incrementing by `step`.
+
+.. function:: sequence(start timestamp, stop timestamp, step interval) -> array<timestamp>
+
+    Generate a sequence of timestamps from `start` to `stop` incrementing be `step`. The type of the `step` parameter
+    can be either `INTERVAL DAY TO SECOND` or `INTERVAL YEAR TO MONTH`.
