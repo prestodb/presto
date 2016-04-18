@@ -424,7 +424,7 @@ public class AccumuloClient
 
             // Special case if this column is the
             if (cm.getName().toLowerCase().equals(rowIdColumn)) {
-                cBuilder.add(new AccumuloColumnHandle("accumulo", rowIdColumn, null, null,
+                cBuilder.add(new AccumuloColumnHandle(rowIdColumn, null, null,
                         cm.getType(), ordinal, "Accumulo row ID", false));
             }
             else {
@@ -440,7 +440,7 @@ public class AccumuloClient
                         famqual.getLeft(), famqual.getRight(), indexed);
 
                 // Create a new AccumuloColumnHandle object
-                cBuilder.add(new AccumuloColumnHandle("accumulo", cm.getName(), famqual.getLeft(),
+                cBuilder.add(new AccumuloColumnHandle(cm.getName(), famqual.getLeft(),
                         famqual.getRight(), cm.getType(), ordinal, comment, indexed));
             }
         }

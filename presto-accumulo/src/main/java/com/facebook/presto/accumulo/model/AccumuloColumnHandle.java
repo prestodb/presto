@@ -36,7 +36,6 @@ public final class AccumuloColumnHandle
         implements ColumnHandle, Comparable<AccumuloColumnHandle>
 {
     private final boolean indexed;
-    private final String connectorId;
     private String name;
     private final String family;
     private final String qualifier;
@@ -47,7 +46,6 @@ public final class AccumuloColumnHandle
     /**
      * JSON Creator for a new {@link AccumuloColumnHandle} object
      *
-     * @param connectorId Connector ID
      * @param name Presto column name
      * @param family Accumulo column family
      * @param qualifier Accumulo column qualifier
@@ -57,13 +55,11 @@ public final class AccumuloColumnHandle
      * @param indexed True if the column has entries in the index table, false otherwise
      */
     @JsonCreator
-    public AccumuloColumnHandle(@JsonProperty("connectorId") String connectorId,
-            @JsonProperty("name") String name, @JsonProperty("family") String family,
+    public AccumuloColumnHandle(@JsonProperty("name") String name, @JsonProperty("family") String family,
             @JsonProperty("qualifier") String qualifier, @JsonProperty("type") Type type,
             @JsonProperty("ordinal") int ordinal, @JsonProperty("comment") String comment,
             @JsonProperty("indexed") boolean indexed)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.name = requireNonNull(name, "name is null");
         this.family = family;
         this.qualifier = qualifier;
@@ -71,17 +67,6 @@ public final class AccumuloColumnHandle
         this.ordinal = requireNonNull(ordinal, "type is null");
         this.comment = requireNonNull(comment, "comment is null");
         this.indexed = requireNonNull(indexed, "indexed is null");
-    }
-
-    /**
-     * Gets the Presto connector ID.
-     *
-     * @return Connector ID
-     */
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     /**
@@ -202,7 +187,7 @@ public final class AccumuloColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(indexed, connectorId, name, family, qualifier, type, ordinal, comment);
+        return Objects.hash(indexed, name, family, qualifier, type, ordinal, comment);
     }
 
     @Override
@@ -217,7 +202,6 @@ public final class AccumuloColumnHandle
 
         AccumuloColumnHandle other = (AccumuloColumnHandle) obj;
         return Objects.equals(this.indexed, other.indexed)
-                && Objects.equals(this.connectorId, other.connectorId)
                 && Objects.equals(this.name, other.name)
                 && Objects.equals(this.family, other.family)
                 && Objects.equals(this.qualifier, other.qualifier)
@@ -229,7 +213,7 @@ public final class AccumuloColumnHandle
     @Override
     public String toString()
     {
-        return toStringHelper(this).add("connectorId", connectorId).add("name", name)
+        return toStringHelper(this).add("name", name)
                 .add("columnFamily", family).add("columnQualifier", qualifier).add("type", type)
                 .add("ordinal", ordinal).add("comment", comment).add("indexed", indexed).toString();
     }
