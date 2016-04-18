@@ -27,7 +27,9 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import io.airlift.log.Logger;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
@@ -51,6 +53,7 @@ public class AccumuloRecordSet
         implements RecordSet
 {
     private static final Logger LOG = Logger.get(AccumuloRecordSet.class);
+    private static final Splitter COMMA_SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
 
     private final List<AccumuloColumnHandle> columnHandles;
     private final List<AccumuloColumnConstraint> constraints;
@@ -132,7 +135,7 @@ public class AccumuloRecordSet
         }
 
         if (split.hasScanAuthorizations()) {
-            Authorizations auths = new Authorizations(split.getScanAuthorizations().split(","));
+            Authorizations auths = new Authorizations(Iterables.toArray(COMMA_SPLITTER.split(split.getScanAuthorizations()), String.class));
             LOG.debug("scan_auths table property set: %s", auths);
             return auths;
         }

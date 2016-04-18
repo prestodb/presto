@@ -21,7 +21,9 @@ import com.facebook.presto.accumulo.serializers.StringRowSerializer;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.VarcharType;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.inject.Inject;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -55,6 +57,9 @@ public final class AccumuloTableProperties
     public static final String ROW_ID = "row_id";
     public static final String SERIALIZER = "serializer";
     public static final String SCAN_AUTHS = "scan_auths";
+    private static final Splitter COLON_SPLITTER = Splitter.on(':').omitEmptyStrings().trimResults();
+    private static final Splitter COMMA_SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
+    private static final Splitter PIPE_SPLITTER = Splitter.on('|').omitEmptyStrings().trimResults();
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -139,8 +144,8 @@ public final class AccumuloTableProperties
         // This is a comma-delimited list of "presto column:accumulo fam:accumulo qualifier"
         // triplets
         Map<String, Pair<String, String>> mapping = new HashMap<>();
-        for (String m : strMapping.split(",")) {
-            String[] tokens = m.split(":");
+        for (String m : COMMA_SPLITTER.split(strMapping)) {
+            String[] tokens = Iterables.toArray(COLON_SPLITTER.split(m), String.class);
 
             // If there are three tokens, parse out the mapping
             // Else throw an exception!
@@ -183,8 +188,8 @@ public final class AccumuloTableProperties
         Map<String, Set<String>> groups = new HashMap<>();
 
         // Split all configured locality groups
-        for (String group : groupStr.split("\\|")) {
-            String[] locGroups = group.split(":");
+        for (String group : PIPE_SPLITTER.split(groupStr)) {
+            String[] locGroups = Iterables.toArray(COLON_SPLITTER.split(group), String.class);
 
             if (locGroups.length != 2) {
                 throw new PrestoException(USER_ERROR,
@@ -195,7 +200,7 @@ public final class AccumuloTableProperties
             Set<String> colSet = new HashSet<>();
             groups.put(grpName, colSet);
 
-            for (String f : locGroups[1].split(",")) {
+            for (String f : COMMA_SPLITTER.split(locGroups[1])) {
                 colSet.add(f);
             }
         }

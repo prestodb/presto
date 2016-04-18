@@ -34,9 +34,11 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Marker.Bound;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import io.airlift.log.Logger;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
@@ -96,6 +98,7 @@ public class AccumuloClient
     private static final String DUMMY_LOCATION = "localhost:9997";
     private static final String MAC_PASSWORD = "secret";
     private static final String MAC_USER = "root";
+    private static final Splitter COMMA_SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
 
     private static Connector conn = null;
 
@@ -936,7 +939,7 @@ public class AccumuloClient
 
         String strAuths = this.getTable(new SchemaTableName(schema, table)).getScanAuthorizations();
         if (strAuths != null) {
-            Authorizations scanAuths = new Authorizations(strAuths.split(","));
+            Authorizations scanAuths = new Authorizations(Iterables.toArray(COMMA_SPLITTER.split(strAuths), String.class));
             LOG.info("scan_auths table property set, using: %s", scanAuths);
             return scanAuths;
         }
