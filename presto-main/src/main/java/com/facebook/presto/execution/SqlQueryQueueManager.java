@@ -33,7 +33,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 
 import static com.facebook.presto.execution.QueuedExecution.createQueuedExecution;
-import static com.facebook.presto.spi.StandardErrorCode.USER_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -77,7 +77,7 @@ public class SqlQueryQueueManager
                 return getOrCreateQueues(session, executor, queues.get());
             }
         }
-        throw new PrestoException(USER_ERROR, "Query did not match any queuing rule");
+        throw new PrestoException(QUERY_REJECTED, "Query did not match any queuing rule");
     }
 
     private List<QueryQueue> getOrCreateQueues(Session session, Executor executor, List<QueryQueueDefinition> definitions)
