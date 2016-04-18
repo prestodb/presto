@@ -26,9 +26,12 @@ import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
+import com.google.inject.name.Named;
 
 import java.util.List;
 
+import static com.facebook.presto.connector.jmx.JmxMetadata.NODE_COLUMN_NAME;
 import static com.facebook.presto.connector.jmx.Types.checkType;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.predicate.TupleDomain.fromFixedValues;
@@ -43,7 +46,10 @@ public class JmxSplitManager
     private final String connectorId;
     private final NodeManager nodeManager;
 
-    public JmxSplitManager(String connectorId, NodeManager nodeManager)
+    @Inject
+    public JmxSplitManager(
+            @Named(JmxConnector.CONNECTOR_ID_PARAMETER) String connectorId,
+            NodeManager nodeManager)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
@@ -57,7 +63,9 @@ public class JmxSplitManager
         TupleDomain<ColumnHandle> predicate = jmxLayout.getConstraint();
 
         //TODO is there a better way to get the node column?
-        JmxColumnHandle nodeColumnHandle = tableHandle.getColumns().get(0);
+        JmxColumnHandle nodeColumnHandle = tableHandle.getColumns().stream()
+                .filter(jmxColumnHandle -> jmxColumnHandle.getColumnName().equals(NODE_COLUMN_NAME))
+                .findFirst().get();
 
         List<ConnectorSplit> splits = nodeManager.getNodes(ACTIVE)
                 .stream()
