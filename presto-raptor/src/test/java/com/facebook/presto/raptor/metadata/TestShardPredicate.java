@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.raptor.RaptorColumnHandle.SHARD_UUID_COLUMN_TYPE;
 import static com.facebook.presto.raptor.RaptorColumnHandle.shardUuidColumnHandle;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidStringToBytes;
 import static com.facebook.presto.spi.predicate.Domain.create;
@@ -29,7 +30,7 @@ import static com.facebook.presto.spi.predicate.Domain.singleValue;
 import static com.facebook.presto.spi.predicate.Range.equal;
 import static com.facebook.presto.spi.predicate.Range.greaterThanOrEqual;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.sql.JDBCType.VARBINARY;
 import static java.util.UUID.randomUUID;
@@ -43,7 +44,7 @@ public class TestShardPredicate
     {
         String uuid = randomUUID().toString();
         TupleDomain<RaptorColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(
-                shardUuidColumnHandle("test"), singleValue(VARCHAR, utf8Slice(uuid))
+                shardUuidColumnHandle("test"), singleValue(SHARD_UUID_COLUMN_TYPE, utf8Slice(uuid))
         ));
 
         ShardPredicate shardPredicate = ShardPredicate.create(tupleDomain);
@@ -61,7 +62,7 @@ public class TestShardPredicate
         Slice uuid1 = utf8Slice(randomUUID().toString());
         TupleDomain<RaptorColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(
                 shardUuidColumnHandle("test"),
-                create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(equal(VARCHAR, uuid0), equal(VARCHAR, uuid1))), false)));
+                create(SortedRangeSet.copyOf(createUnboundedVarcharType(), ImmutableList.of(equal(createUnboundedVarcharType(), uuid0), equal(createUnboundedVarcharType(), uuid1))), false)));
 
         ShardPredicate shardPredicate = ShardPredicate.create(tupleDomain);
 
@@ -78,7 +79,7 @@ public class TestShardPredicate
         Slice uuid1 = utf8Slice("test2");
         TupleDomain<RaptorColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(
                 shardUuidColumnHandle("test"),
-                create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(equal(VARCHAR, uuid0), equal(VARCHAR, uuid1))), false)));
+                create(SortedRangeSet.copyOf(SHARD_UUID_COLUMN_TYPE, ImmutableList.of(equal(SHARD_UUID_COLUMN_TYPE, uuid0), equal(SHARD_UUID_COLUMN_TYPE, uuid1))), false)));
 
         ShardPredicate shardPredicate = ShardPredicate.create(tupleDomain);
 
@@ -92,7 +93,7 @@ public class TestShardPredicate
         Slice uuid0 = utf8Slice(randomUUID().toString());
         TupleDomain<RaptorColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(
                 shardUuidColumnHandle("test"),
-                create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(greaterThanOrEqual(VARCHAR, uuid0))), false)));
+                create(SortedRangeSet.copyOf(SHARD_UUID_COLUMN_TYPE, ImmutableList.of(greaterThanOrEqual(SHARD_UUID_COLUMN_TYPE, uuid0))), false)));
 
         ShardPredicate shardPredicate = ShardPredicate.create(tupleDomain);
         assertEquals(shardPredicate.getPredicate(), "true");

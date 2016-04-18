@@ -21,7 +21,6 @@ import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.VarbinaryType;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
@@ -64,6 +63,7 @@ import static com.facebook.presto.raptor.util.Types.isArrayType;
 import static com.facebook.presto.raptor.util.Types.isMapType;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Functions.toStringFunction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
@@ -310,7 +310,7 @@ public class OrcFileWriter
             return StorageType.DOUBLE;
         }
         if (javaType == Slice.class) {
-            if (type instanceof VarcharType) {
+            if (isVarcharType(type)) {
                 return StorageType.STRING;
             }
             if (type.equals(VarbinaryType.VARBINARY)) {
