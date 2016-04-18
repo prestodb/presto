@@ -26,6 +26,8 @@ import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
+import com.google.inject.name.Named;
 
 import java.util.List;
 
@@ -44,7 +46,10 @@ public class JmxSplitManager
     private final String connectorId;
     private final NodeManager nodeManager;
 
-    public JmxSplitManager(String connectorId, NodeManager nodeManager)
+    @Inject
+    public JmxSplitManager(
+            @Named(JmxConnector.CONNECTOR_ID_PARAMETER) String connectorId,
+            NodeManager nodeManager)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");

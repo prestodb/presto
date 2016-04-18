@@ -30,6 +30,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.inject.Inject;
+import com.google.inject.name.Named;
 
 import javax.management.JMException;
 import javax.management.MBeanAttributeInfo;
@@ -66,7 +68,11 @@ public class JmxMetadata
     private final MBeanServer mbeanServer;
     private final JmxHistoryHolder jmxHistoryHolder;
 
-    public JmxMetadata(String connectorId, MBeanServer mbeanServer, JmxHistoryHolder jmxHistoryHolder)
+    @Inject
+    public JmxMetadata(
+            @Named(JmxConnector.CONNECTOR_ID_PARAMETER) String connectorId,
+            MBeanServer mbeanServer,
+            JmxHistoryHolder jmxHistoryHolder)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.mbeanServer = requireNonNull(mbeanServer, "mbeanServer is null");

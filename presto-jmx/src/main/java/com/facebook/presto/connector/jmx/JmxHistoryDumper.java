@@ -14,8 +14,8 @@
 package com.facebook.presto.connector.jmx;
 
 import com.facebook.presto.spi.SchemaTableName;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
-import io.airlift.units.Duration;
 
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
@@ -37,12 +37,17 @@ public class JmxHistoryDumper
     private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor();
     private final long period;
 
-    public JmxHistoryDumper(JmxHistoryHolder jmxHistoryHolder, JmxMetadata jmxMetadata, JmxRecordSetProvider jmxRecordSetProvider, Duration period)
+    @Inject
+    public JmxHistoryDumper(
+            JmxHistoryHolder jmxHistoryHolder,
+            JmxMetadata jmxMetadata,
+            JmxRecordSetProvider jmxRecordSetProvider,
+            JmxConnectorConfig jmxConfig)
     {
         this.jmxHistoryHolder = requireNonNull(jmxHistoryHolder, "jmxStatsHolder is null");
         this.jmxMetadata = requireNonNull(jmxMetadata, "jmxMetadata is null");
         this.jmxRecordSetProvider = requireNonNull(jmxRecordSetProvider, "jmxRecordSetProvider is null");
-        this.period = requireNonNull(period.toMillis(), "period is null");
+        this.period = requireNonNull(jmxConfig, "jmxConfig is null").getDumpPeriod().toMillis();
     }
 
     public void start()

@@ -13,23 +13,21 @@
  */
 package com.facebook.presto.connector.jmx;
 
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
-import io.airlift.units.Duration;
-
-import javax.management.MBeanServer;
-
-import java.util.Set;
 
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
+import static java.util.Objects.requireNonNull;
 
 public class JmxConnector
         implements Connector
 {
+    public static final String CONNECTOR_ID_PARAMETER = "jmx.connectorId";
+
     private static final Logger log = Logger.get(JmxConnector.class);
 
     private final JmxMetadata jmxMetadata;
@@ -37,19 +35,17 @@ public class JmxConnector
     private final JmxSplitManager jmxSplitManager;
     private final JmxRecordSetProvider jmxRecordSetProvider;
 
+    @Inject
     public JmxConnector(
-            String connectorId,
-            MBeanServer mbeanServer,
-            NodeManager nodeManager,
-            Set<String> dumpTables,
-            Duration dumpPeriod,
-            int evictionLimit)
+            JmxMetadata jmxMetadata,
+            JmxSplitManager jmxSplitManager,
+            JmxRecordSetProvider jmxRecordSetProvider,
+            JmxHistoryDumper jmxHistoryDumper)
     {
-        JmxHistoryHolder jmxHistoryHolder = new JmxHistoryHolder(evictionLimit, dumpTables);
-        jmxSplitManager = new JmxSplitManager(connectorId, nodeManager);
-        jmxMetadata = new JmxMetadata(connectorId, mbeanServer, jmxHistoryHolder);
-        jmxRecordSetProvider = new JmxRecordSetProvider(mbeanServer, nodeManager.getCurrentNode().getNodeIdentifier(), jmxHistoryHolder);
-        jmxHistoryDumper = new JmxHistoryDumper(jmxHistoryHolder, jmxMetadata, jmxRecordSetProvider, dumpPeriod);
+        this.jmxMetadata = requireNonNull(jmxMetadata, "jmxMetadata is null");
+        this.jmxSplitManager = requireNonNull(jmxSplitManager, "jmxSplitManager is null");
+        this.jmxRecordSetProvider = requireNonNull(jmxRecordSetProvider, "jmxRecordSetProvider is null");
+        this.jmxHistoryDumper = requireNonNull(jmxHistoryDumper, "jmxHistoryDumper is null");
         jmxHistoryDumper.start();
     }
 

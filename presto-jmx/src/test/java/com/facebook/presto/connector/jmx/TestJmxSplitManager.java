@@ -57,19 +57,20 @@ public class TestJmxSplitManager
     private static final Duration JMX_STATS_DUMP = new Duration(100, TimeUnit.MILLISECONDS);
     private static final long SLEEP_TIME = JMX_STATS_DUMP.toMillis() / 5;
     private static final long TIMEOUT_TIME = JMX_STATS_DUMP.toMillis() * 40;
-    private static final Set<String> TEST_BEANS = ImmutableSet.of("java.lang:type=Runtime");
+    private static final String TEST_BEANS = "java.lang:type=Runtime";
+    private static final String CONNECTOR_ID = "test-id";
     private final Node localNode = new TestingNode("host1");
     private final Set<Node> nodes = ImmutableSet.of(localNode, new TestingNode("host2"), new TestingNode("host3"));
 
+    private final JmxConnector jmxConnector =
+            (JmxConnector) new JmxConnectorFactory(getPlatformMBeanServer(), new TestingNodeManager())
+                    .create(CONNECTOR_ID, ImmutableMap.of(
+                            "jmx.dump-tables", TEST_BEANS,
+                            "jmx.dump-period", format("%dms", JMX_STATS_DUMP.toMillis()),
+                            "jmx.eviction-limit", "1000"));
+
     private final JmxColumnHandle columnHandle = new JmxColumnHandle("test", "node", VARCHAR);
     private final JmxTableHandle tableHandle = new JmxTableHandle("test", "objectName", ImmutableList.of(columnHandle), true);
-    private final JmxConnector jmxConnector = new JmxConnector(
-            "test",
-            getPlatformMBeanServer(),
-            new TestingNodeManager(),
-            TEST_BEANS,
-            JMX_STATS_DUMP,
-            1000);
 
     private final JmxSplitManager splitManager = jmxConnector.getSplitManager();
     private final JmxMetadata metadata = jmxConnector.getMetadata(new ConnectorTransactionHandle() {});

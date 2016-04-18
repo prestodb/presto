@@ -16,6 +16,7 @@ package com.facebook.presto.connector.jmx;
 import com.google.common.collect.EvictingQueue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -30,10 +31,16 @@ public class JmxHistoryHolder
     private final Set<String> tables;
     private final Map<String, EvictingQueue<List<Object>>> tablesRows = new HashMap<>();
 
+    @Inject
+    public JmxHistoryHolder(JmxConnectorConfig jmxConfig)
+    {
+        this(jmxConfig.getEvictionLimit(), jmxConfig.getDumpTables());
+    }
+
     public JmxHistoryHolder(int evictionLimit, Set<String> tableNames)
     {
         tables = ImmutableSet.copyOf(tableNames);
-        for (String tableName : tableNames) {
+        for (String tableName : tables) {
             tablesRows.put(tableName, EvictingQueue.create(evictionLimit));
         }
     }
