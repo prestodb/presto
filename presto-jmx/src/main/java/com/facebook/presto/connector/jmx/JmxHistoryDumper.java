@@ -36,6 +36,7 @@ public class JmxHistoryDumper
     private final JmxRecordSetProvider jmxRecordSetProvider;
     private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor();
     private final long period;
+    private long lastDumpTs;
 
     @Inject
     public JmxHistoryDumper(
@@ -68,6 +69,12 @@ public class JmxHistoryDumper
         // we are using rounded up timestamp, so that records from different nodes and different
         // tables will have matching timestamps (for joining/grouping etc)
         long dumpTs = roundToPeriod(getNowMillis());
+
+        // if something has lagged and next dump has the same timestamp as this one, ignore this dump
+        if (dumpTs == lastDumpTs) {
+            return;
+        }
+        lastDumpTs = dumpTs;
 
         for (String tableName : jmxHistoryHolder.getTables()) {
             try {
