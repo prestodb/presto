@@ -17,6 +17,7 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
 import javax.management.MBeanServer;
@@ -29,6 +30,8 @@ import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorS
 public class JmxConnector
         implements Connector
 {
+    private static final Logger log = Logger.get(JmxConnector.class);
+
     private final JmxMetadata jmxMetadata;
     private final JmxHistoryDumper jmxHistoryDumper;
     private final JmxSplitManager jmxSplitManager;
@@ -78,6 +81,11 @@ public class JmxConnector
     @Override
     public void shutdown()
     {
-        jmxHistoryDumper.shutdown();
+        try {
+            jmxHistoryDumper.shutdown();
+        }
+        catch (Exception e) {
+            log.error(e, "Error shutting down connector");
+        }
     }
 }

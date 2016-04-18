@@ -19,11 +19,12 @@ import io.airlift.units.Duration;
 
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class JmxHistoryDumper
         implements Runnable
@@ -46,14 +47,14 @@ public class JmxHistoryDumper
 
     public void start()
     {
-        long nowTs = System.currentTimeMillis();
-        long initialDelay = nowTs - roundToPeriod(nowTs + period);
-        executor.scheduleAtFixedRate(this, initialDelay, period, TimeUnit.MILLISECONDS);
+        long nowMillis = getNowMillis();
+        long initialDelay = nowMillis - roundToPeriod(nowMillis + period);
+        executor.scheduleAtFixedRate(this, initialDelay, period, MILLISECONDS);
     }
 
-    private long roundToPeriod(long ts)
+    private long roundToPeriod(long millis)
     {
-        return ((ts + period / 2) / period) * period;
+        return ((millis + period / 2) / period) * period;
     }
 
     @Override
@@ -61,7 +62,7 @@ public class JmxHistoryDumper
     {
         // we are using rounded up timestamp, so that records from different nodes and different
         // tables will have matching timestamps (for joining/grouping etc)
-        long dumpTs = roundToPeriod(System.currentTimeMillis());
+        long dumpTs = roundToPeriod(getNowMillis());
 
         for (String tableName : jmxHistoryHolder.getTables()) {
             try {
@@ -76,7 +77,7 @@ public class JmxHistoryDumper
                 jmxHistoryHolder.addRow(tableName, row);
             }
             catch (Throwable ex) {
-                log.error(ex);
+                log.error(ex, "Error starting JmxHistoryDumper");
             }
         }
     }
@@ -84,5 +85,10 @@ public class JmxHistoryDumper
     public void shutdown()
     {
         executor.shutdown();
+    }
+
+    private static long getNowMillis()
+    {
+        return MILLISECONDS.convert(System.nanoTime(), NANOSECONDS);
     }
 }

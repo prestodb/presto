@@ -32,10 +32,10 @@ import javax.management.ObjectName;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.connector.jmx.Types.checkType;
@@ -64,7 +64,7 @@ public class JmxRecordSetProvider
         requireNonNull(columns, "columns is null");
         checkArgument(!columns.isEmpty(), "must provide at least one column");
 
-        Map<String, Type> columnTypes = getColumnTypes(columns);
+        ImmutableMap<String, Type> columnTypes = getColumnTypes(columns);
 
         List<List<Object>> rows;
         try {
@@ -94,7 +94,7 @@ public class JmxRecordSetProvider
         return selectedColumns.build();
     }
 
-    public Map<String, Type> getColumnTypes(List<? extends ColumnHandle> columns)
+    public ImmutableMap<String, Type> getColumnTypes(List<? extends ColumnHandle> columns)
     {
         ImmutableMap.Builder<String, Type> builder = ImmutableMap.builder();
         for (ColumnHandle column : columns) {
@@ -104,30 +104,30 @@ public class JmxRecordSetProvider
         return builder.build();
     }
 
-    private Map<String, Object> getAttributes(Set<String> uniqueColumnNames, JmxTableHandle tableHandle)
+    private ImmutableMap<String, Optional<Object>> getAttributes(Set<String> uniqueColumnNames, JmxTableHandle tableHandle)
             throws JMException
     {
         ObjectName objectName = new ObjectName(tableHandle.getObjectName());
 
         String[] columnNamesArray = uniqueColumnNames.toArray(new String[uniqueColumnNames.size()]);
 
-        Map<String, Object> map = new HashMap<>();
+        ImmutableMap.Builder<String, Optional<Object>> attributes = ImmutableMap.builder();
         for (Attribute attribute : mbeanServer.getAttributes(objectName, columnNamesArray).asList()) {
-            map.put(attribute.getName(), attribute.getValue());
+            attributes.put(attribute.getName(), Optional.ofNullable(attribute.getValue()));
         }
-        return map;
+        return attributes.build();
     }
 
-    public List<Object> getLiveRow(JmxTableHandle tableHandle, Map<String, Type> columnTypes)
+    public List<Object> getLiveRow(JmxTableHandle tableHandle, ImmutableMap<String, Type> columnTypes)
             throws JMException
     {
         return getLiveRow(tableHandle, columnTypes, 0);
     }
 
-    public List<Object> getLiveRow(JmxTableHandle tableHandle, Map<String, Type> columnTypes, long dumpTs)
+    public List<Object> getLiveRow(JmxTableHandle tableHandle, ImmutableMap<String, Type> columnTypes, long dumpTs)
             throws JMException
     {
-        Map<String, Object> attributes = getAttributes(columnTypes.keySet(), tableHandle);
+        ImmutableMap<String, Optional<Object>> attributes = getAttributes(columnTypes.keySet(), tableHandle);
         List<Object> row = new ArrayList<>();
         // NOTE: data must be produced in the order of the columns parameter.  This code relies on the
         // fact that columnTypes is an ImmutableMap which is an order preserving LinkedHashMap under
@@ -140,11 +140,12 @@ public class JmxRecordSetProvider
                 row.add(dumpTs);
             }
             else {
-                Object value = attributes.get(entry.getKey());
-                if (value == null) {
+                Optional<Object> optionalValue = attributes.get(entry.getKey());
+                if (optionalValue == null || !optionalValue.isPresent()) {
                     row.add(null);
                 }
                 else {
+                    Object value = optionalValue.get();
                     Class<?> javaType = entry.getValue().getJavaType();
                     if (javaType == boolean.class) {
                         if (value instanceof Boolean) {
