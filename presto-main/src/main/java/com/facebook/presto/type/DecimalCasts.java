@@ -39,6 +39,7 @@ import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
 import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.spi.type.StandardTypes.DECIMAL;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
+import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
 import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.util.Types.checkType;
 import static java.lang.Math.multiplyExact;
@@ -52,6 +53,8 @@ public final class DecimalCasts
     public static final SqlScalarFunction DECIMAL_TO_BOOLEAN_CAST = castFunctionFromDecimalTo(BOOLEAN, "shortDecimalToBoolean", "longDecimalToBoolean");
     public static final SqlScalarFunction BOOLEAN_TO_DECIMAL_CAST = castFunctionToDecimalFrom(BOOLEAN, "booleanToShortDecimal", "booleanToLongDecimal");
     public static final SqlScalarFunction DECIMAL_TO_BIGINT_CAST = castFunctionFromDecimalTo(BIGINT, "shortDecimalToBigint", "longDecimalToBigint");
+    public static final SqlScalarFunction INTEGER_TO_DECIMAL_CAST = castFunctionToDecimalFrom(INTEGER, "integerToShortDecimal", "integerToLongDecimal");
+    public static final SqlScalarFunction DECIMAL_TO_INTEGER_CAST = castFunctionFromDecimalTo(INTEGER, "shortDecimalToInteger", "longDecimalToInteger");
     public static final SqlScalarFunction BIGINT_TO_DECIMAL_CAST = castFunctionToDecimalFrom(BIGINT, "bigintToShortDecimal", "bigintToLongDecimal");
     public static final SqlScalarFunction DECIMAL_TO_DOUBLE_CAST = castFunctionFromDecimalTo(DOUBLE, "shortDecimalToDouble", "longDecimalToDouble");
     public static final SqlScalarFunction DOUBLE_TO_DECIMAL_CAST = castFunctionToDecimalFrom(DOUBLE, "doubleToShortDecimal", "doubleToLongDecimal");
@@ -132,7 +135,7 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static long shortDecimalToBigint(long decimal, long precision, long scale, long tenToScale)
     {
-        // this rounds the decimal value to the nearest integer values
+        // this rounds the decimal value to the nearest integral value
         if (decimal >= 0) {
             return (decimal + tenToScale / 2) / tenToScale;
         }
@@ -171,6 +174,61 @@ public final class DecimalCasts
 
     @UsedByGeneratedCode
     public static Slice bigintToLongDecimal(long value, long precision, long scale, long tenToScale)
+    {
+        BigInteger decimalBigInteger = BigInteger.valueOf(value).multiply(BigInteger.valueOf(tenToScale));
+        if (overflows(decimalBigInteger, (int) precision)) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast BIGINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
+        }
+        return encodeUnscaledValue(decimalBigInteger);
+    }
+
+    @UsedByGeneratedCode
+    public static long shortDecimalToInteger(long decimal, long precision, long scale, long tenToScale)
+    {
+        // this rounds the decimal value to the nearest integral value
+        long longResult = (decimal + tenToScale / 2) / tenToScale;
+        if (decimal < 0) {
+            longResult = -((-decimal + tenToScale / 2) / tenToScale);
+        }
+
+        try {
+            return Math.toIntExact(longResult);
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to INTEGER", longResult));
+        }
+    }
+
+    @UsedByGeneratedCode
+    public static long longDecimalToInteger(Slice decimal, long precision, long scale, long tenToScale)
+    {
+        BigDecimal bigDecimal = new BigDecimal(decodeUnscaledValue(decimal), (int) scale);
+        bigDecimal = bigDecimal.setScale(0, RoundingMode.HALF_UP);
+        try {
+            return bigDecimal.intValueExact();
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to INTEGER", bigDecimal));
+        }
+    }
+
+    @UsedByGeneratedCode
+    public static long integerToShortDecimal(long value, long precision, long scale, long tenToScale)
+    {
+        try {
+            long decimal = multiplyExact(value, tenToScale);
+            if (overflows(decimal, (int) precision)) {
+                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast INTEGER '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            }
+            return decimal;
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast INTEGER '%s' to DECIMAL(%s, %s)", value, precision, scale));
+        }
+    }
+
+    @UsedByGeneratedCode
+    public static Slice integerToLongDecimal(long value, long precision, long scale, long tenToScale)
     {
         BigInteger decimalBigInteger = BigInteger.valueOf(value).multiply(BigInteger.valueOf(tenToScale));
         if (overflows(decimalBigInteger, (int) precision)) {
