@@ -46,7 +46,8 @@ public enum HiveErrorCode
     HIVE_FILE_MISSING_COLUMN_NAMES(24),
     HIVE_WRITER_OPEN_ERROR(25),
     HIVE_WRITER_CLOSE_ERROR(26),
-    HIVE_WRITER_DATA_ERROR(27);
+    HIVE_WRITER_DATA_ERROR(27),
+    HIVE_INVALID_BUCKET_FILES(28);
 
     private final ErrorCode errorCode;
 
