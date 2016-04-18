@@ -26,7 +26,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 
 public class RaptorSessionProperties
 {
@@ -105,7 +105,7 @@ public class RaptorSessionProperties
         return new PropertyMetadata<>(
                 name,
                 description,
-                VARCHAR,
+                createUnboundedVarcharType(),
                 DataSize.class,
                 defaultValue,
                 hidden,

@@ -21,7 +21,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static java.util.Objects.requireNonNull;
 
 public final class RaptorColumnHandle
@@ -36,6 +36,7 @@ public final class RaptorColumnHandle
 
     public static final long SHARD_UUID_COLUMN_ID = -2;
     public static final String SHARD_UUID_COLUMN_NAME = "$shard_uuid";
+    public static final Type SHARD_UUID_COLUMN_TYPE = createVarcharType(36);
 
     private final String connectorId;
     private final String columnName;
@@ -131,6 +132,6 @@ public final class RaptorColumnHandle
 
     public static RaptorColumnHandle shardUuidColumnHandle(String connectorId)
     {
-        return new RaptorColumnHandle(connectorId, SHARD_UUID_COLUMN_NAME, SHARD_UUID_COLUMN_ID, VARCHAR);
+        return new RaptorColumnHandle(connectorId, SHARD_UUID_COLUMN_NAME, SHARD_UUID_COLUMN_ID, SHARD_UUID_COLUMN_TYPE);
     }
 }

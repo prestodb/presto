@@ -48,7 +48,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
@@ -98,7 +98,7 @@ public class TestShardCompactor
             throws Exception
     {
         List<Long> columnIds = ImmutableList.of(3L, 7L, 2L, 1L, 5L);
-        List<Type> columnTypes = ImmutableList.of(BIGINT, VARCHAR, DOUBLE, DATE, TIMESTAMP);
+        List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(20), DOUBLE, DATE, TIMESTAMP);
 
         List<ShardInfo> inputShards = createShards(storageManager, columnIds, columnTypes, 3);
         assertEquals(inputShards.size(), 3);
@@ -122,7 +122,7 @@ public class TestShardCompactor
     public void testShardCompactorSorted()
             throws Exception
     {
-        List<Type> columnTypes = ImmutableList.of(BIGINT, VARCHAR, DATE, TIMESTAMP, DOUBLE);
+        List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(20), DATE, TIMESTAMP, DOUBLE);
         List<Long> columnIds = ImmutableList.of(3L, 7L, 2L, 1L, 5L);
         List<Long> sortColumnIds = ImmutableList.of(1L, 2L, 3L, 5L, 7L);
         List<SortOrder> sortOrders = nCopies(sortColumnIds.size(), ASC_NULLS_FIRST);
