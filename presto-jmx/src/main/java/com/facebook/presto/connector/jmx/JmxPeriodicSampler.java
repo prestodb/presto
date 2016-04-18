@@ -40,6 +40,7 @@ public class JmxPeriodicSampler
     private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor();
     private final long period;
     private final List<JmxTableHandle> tableHandles;
+    private long lastDumpTimestamp;
 
     @Inject
     public JmxPeriodicSampler(
@@ -91,6 +92,14 @@ public class JmxPeriodicSampler
         // we are using rounded up timestamp, so that records from different nodes and different
         // tables will have matching timestamps (for joining/grouping etc)
         long dumpTimestamp = roundToPeriod(currentTimeMillis());
+
+        // if something has lagged and next dump has the same timestamp as this one, or somehow
+        // time on the machine was changed backward (monotonic issue of currentTimeMillis)
+        // ignore this dump
+        if (dumpTimestamp <= lastDumpTimestamp) {
+            return;
+        }
+        lastDumpTimestamp = dumpTimestamp;
 
         for (JmxTableHandle tableHandle : tableHandles) {
             try {

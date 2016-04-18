@@ -152,7 +152,9 @@ public class TestJmxSplitManager
                 Thread.sleep(SLEEP_TIME);
             }
             assertTrue(timeStamps.size() >= 2);
-            assertEquals(timeStamps.get(1) - timeStamps.get(0), JMX_STATS_DUMP.toMillis());
+
+            // we don't have equality check here because JmxHistoryDumper scheduling can lag
+            assertTrue(timeStamps.get(1) - timeStamps.get(0) >= JMX_STATS_DUMP.toMillis());
         }
     }
 
