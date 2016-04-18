@@ -138,11 +138,17 @@ public class AccumuloClient
                     try {
                         LOG.info("Shutting down MAC");
                         accumulo.stop();
+                    }
+                    catch (IOException | InterruptedException e) {
+                        throw new PrestoException(INTERNAL_ERROR, "Failed to shut down MAC instance", e);
+                    }
+
+                    try {
                         LOG.info("Cleaning up MAC directory");
                         FileUtils.forceDelete(macDir);
                     }
-                    catch (IOException | InterruptedException e) {
-                        throw new RuntimeException(e);
+                    catch (IOException e) {
+                        throw new PrestoException(INTERNAL_ERROR, "Failed to clean up MAC directory", e);
                     }
                 }));
             }
