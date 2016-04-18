@@ -71,6 +71,7 @@ import java.util.function.Predicate;
 
 import static com.facebook.presto.raptor.RaptorColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.raptor.RaptorColumnHandle.SHARD_UUID_COLUMN_NAME;
+import static com.facebook.presto.raptor.RaptorColumnHandle.SHARD_UUID_LENGTH;
 import static com.facebook.presto.raptor.RaptorColumnHandle.shardRowIdHandle;
 import static com.facebook.presto.raptor.RaptorColumnHandle.shardUuidColumnHandle;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
@@ -95,7 +96,7 @@ import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
@@ -187,7 +188,7 @@ public class RaptorMetadata
             throw new PrestoException(RAPTOR_ERROR, "Table does not have any columns: " + tableName);
         }
 
-        columns.add(hiddenColumn(SHARD_UUID_COLUMN_NAME, VARCHAR));
+        columns.add(hiddenColumn(SHARD_UUID_COLUMN_NAME, createVarcharType(SHARD_UUID_LENGTH)));
         return new ConnectorTableMetadata(tableName, columns);
     }
 
