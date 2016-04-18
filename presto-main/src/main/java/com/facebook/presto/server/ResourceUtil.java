@@ -50,7 +50,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
+//import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
@@ -87,7 +87,8 @@ final class ResourceUtil
         SessionBuilder sessionBuilder = Session.builder(sessionPropertyManager)
                 .setQueryId(queryId)
                 .setIdentity(identity)
-                .setSource(servletRequest.getHeader(PRESTO_SOURCE))
+                //.setSource(servletRequest.getHeader(PRESTO_SOURCE))
+                .setSource("global")
                 .setCatalog(catalog)
                 .setSchema(schema)
                 .setRemoteUserAddress(servletRequest.getRemoteAddr())

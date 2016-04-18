@@ -16,67 +16,44 @@ package com.facebook.presto.execution;
 import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.sql.tree.Statement;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nullable;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class QueryQueueRule
         implements ResourceGroupSelector
 {
     @Nullable
-    private final Pattern userRegex;
-    @Nullable
-    private final Pattern sourceRegex;
+    private final Set<String> userNames;
     private final Map<String, Pattern> sessionPropertyRegexes;
-    private final List<QueryQueueDefinition> queues;
 
-    QueryQueueRule(@Nullable Pattern userRegex, @Nullable Pattern sourceRegex, Map<String, Pattern> sessionPropertyRegexes, List<QueryQueueDefinition> queues)
+    //Repurposed to represent queueName
+    @Nullable
+    private final QueryQueueDefinition queryQueueDefinition;
+    QueryQueueRule(QueryQueueDefinition queryQueueDefinition, @Nullable Set<String> userNames, Map<String, Pattern> sessionPropertyRegexes)
     {
-        this.userRegex = userRegex;
-        this.sourceRegex = sourceRegex;
+        this.queryQueueDefinition = requireNonNull(queryQueueDefinition, "queue keys is null");
+        this.userNames = ImmutableSet.copyOf(userNames);
         this.sessionPropertyRegexes = ImmutableMap.copyOf(requireNonNull(sessionPropertyRegexes, "sessionPropertyRegexes is null"));
-        requireNonNull(queues, "queues is null");
-        checkArgument(!queues.isEmpty(), "queues is empty");
-        this.queues = ImmutableList.copyOf(queues);
     }
 
-    public static QueryQueueRule createRule(@Nullable Pattern userRegex, @Nullable Pattern sourceRegex, Map<String, Pattern> sessionPropertyRegexes, List<String> queueKeys, Map<String, QueryQueueDefinition> definedQueues)
+    public static QueryQueueRule createRule(QueryQueueDefinition queryQueueDefinition, @Nullable Set<String> userNames, Map<String, Pattern> sessionPropertyRegexes)
     {
-        ImmutableList.Builder<QueryQueueDefinition> queues = ImmutableList.builder();
-
-        for (String key : queueKeys) {
-            if (!definedQueues.containsKey(key)) {
-                throw new IllegalArgumentException(format("Undefined queue %s. Defined queues are %s", key, definedQueues.keySet()));
-            }
-            queues.add(definedQueues.get(key));
-        }
-
-        return new QueryQueueRule(userRegex, sourceRegex, sessionPropertyRegexes, queues.build());
+        //propose to remove this method
+        return new QueryQueueRule(queryQueueDefinition, userNames, sessionPropertyRegexes);
     }
 
     @Override
-    public Optional<List<QueryQueueDefinition>> match(Statement statement, SessionRepresentation session)
+    public Optional<QueryQueueDefinition> match(Statement statement, SessionRepresentation session)
     {
-        if (userRegex != null && !userRegex.matcher(session.getUser()).matches()) {
-            return Optional.empty();
-        }
-        if (sourceRegex != null) {
-            String source = session.getSource().orElse("");
-            if (!sourceRegex.matcher(source).matches()) {
-                return Optional.empty();
-            }
-        }
-
         for (Map.Entry<String, Pattern> entry : sessionPropertyRegexes.entrySet()) {
             String value = session.getSystemProperties().getOrDefault(entry.getKey(), "");
             if (!entry.getValue().matcher(value).matches()) {
@@ -84,11 +61,26 @@ public class QueryQueueRule
             }
         }
 
-        return Optional.of(queues);
+        if (queryQueueDefinition.getIsPublic() && session.getSource().orElse(queryQueueDefinition.getName()).equals(queryQueueDefinition.getName())) {
+            return Optional.of(queryQueueDefinition);
+        }
+
+        if (!userNames.contains(session.getUser())) {
+            return Optional.empty();
+        }
+
+        Optional<String> source = session.getSource();
+        if (source.isPresent() && source.get() == queryQueueDefinition.getName()) {
+                return Optional.of(queryQueueDefinition);
+        }
+        else {
+            return Optional.empty();
+        }
     }
 
-    List<QueryQueueDefinition> getQueues()
+    @Override
+    public QueryQueueDefinition getQueryQueueDefinition()
     {
-        return queues;
+        return queryQueueDefinition;
     }
 }

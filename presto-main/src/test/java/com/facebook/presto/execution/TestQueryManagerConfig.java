@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
@@ -33,6 +34,12 @@ public class TestQueryManagerConfig
                 .setScheduleSplitBatchSize(1000)
                 .setMaxConcurrentQueries(1000)
                 .setMaxQueuedQueries(5000)
+                .setQueueMaxMemory(new DataSize(32, DataSize.Unit.GIGABYTE))
+                .setQueueMaxCpuTime(new Duration(30, TimeUnit.MINUTES))
+                .setQueueMaxQueryCpuTime(new Duration(2, TimeUnit.HOURS))
+                .setQueueRuntimeCap(new Duration(1, TimeUnit.HOURS))
+                .setQueueQueuedTimeCap(new Duration(1, TimeUnit.HOURS))
+                .setQueueIsPublic(true)
                 .setQueueConfigFile(null)
                 .setInitialHashPartitions(8)
                 .setQueryManagerExecutorPoolSize(5)
@@ -43,7 +50,8 @@ public class TestQueryManagerConfig
                 .setQueryMaxCpuTime(new Duration(1_000_000_000, TimeUnit.DAYS))
         );
     }
-
+//,
+//  ,
     @Test
     public void testExplicitPropertyMappings()
     {
@@ -54,6 +62,12 @@ public class TestQueryManagerConfig
                 .put("query.schedule-split-batch-size", "99")
                 .put("query.max-concurrent-queries", "10")
                 .put("query.max-queued-queries", "15")
+                .put("query.queue-max-memory", "11GB")
+                .put("query.queue-max-cpu-time", "20m")
+                .put("query.queue-max-query-cpu-time", "16m")
+                .put("query.queue-run-time-cap", "31m")
+                .put("query.queue-queued-time-cap", "31m")
+                .put("query.queue-is-public", "false")
                 .put("query.queue-config-file", "/etc/presto/queues.json")
                 .put("query.initial-hash-partitions", "16")
                 .put("query.manager-executor-pool-size", "11")
@@ -71,6 +85,12 @@ public class TestQueryManagerConfig
                 .setScheduleSplitBatchSize(99)
                 .setMaxConcurrentQueries(10)
                 .setMaxQueuedQueries(15)
+                .setQueueMaxMemory(new DataSize(11, DataSize.Unit.GIGABYTE))
+                .setQueueMaxCpuTime(new Duration(20, TimeUnit.MINUTES))
+                .setQueueMaxQueryCpuTime(new Duration(16, TimeUnit.MINUTES))
+                .setQueueRuntimeCap(new Duration(31, TimeUnit.MINUTES))
+                .setQueueQueuedTimeCap(new Duration(31, TimeUnit.MINUTES))
+                .setQueueIsPublic(false)
                 .setQueueConfigFile("/etc/presto/queues.json")
                 .setInitialHashPartitions(16)
                 .setQueryManagerExecutorPoolSize(11)

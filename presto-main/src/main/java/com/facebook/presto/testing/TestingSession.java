@@ -35,7 +35,7 @@ public final class TestingSession
         return Session.builder(new SessionPropertyManager())
                 .setQueryId(queryIdGenerator.createNextQueryId())
                 .setIdentity(new Identity("user", Optional.empty()))
-                .setSource("test")
+                .setSource("global")
                 .setCatalog("catalog")
                 .setSchema("schema")
                 .setTimeZoneKey(UTC_KEY)

@@ -19,7 +19,7 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 
-import java.util.List;
+import java.util.Map;
 
 public class ResourceGroupsModule
         implements Module
@@ -27,6 +27,6 @@ public class ResourceGroupsModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(new TypeLiteral<List<? extends ResourceGroupSelector>>() {}).toProvider(QueryQueueRuleFactory.class).in(Scopes.SINGLETON);
+        binder.bind(new TypeLiteral<Map<String, ? extends ResourceGroupSelector>>() {}).toProvider(QueryQueueRuleFactory.class).in(Scopes.SINGLETON);
     }
 }

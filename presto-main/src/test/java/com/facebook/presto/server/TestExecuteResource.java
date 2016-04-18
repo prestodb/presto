@@ -83,6 +83,7 @@ public class TestExecuteResource
                 .setHeader(PrestoHeaders.PRESTO_CATALOG, "catalog")
                 .setHeader(PrestoHeaders.PRESTO_SCHEMA, "schema")
                 .setHeader(PrestoHeaders.PRESTO_TIME_ZONE, "UTC")
+                .setHeader(PrestoHeaders.PRESTO_SOURCE, "global")
                 .setBodyGenerator(createStaticBodyGenerator(query, UTF_8))
                 .build();
         return client.execute(request, createStringResponseHandler());

@@ -1,63 +1,179 @@
 {
   "queues": {
-    "user.${USER}": {
-      "maxConcurrent": 5,
-      "maxQueued": 20
+    "global": {
+      "maxConcurrent": 100,
+      "maxQueued": 1000,
+      "maxMemory": "2GB",
+      "maxCpuTime": "120m",
+      "maxQueryCpuTime": "60m",
+      "runtimeCap": "30m",
+      "queuedTimeCap": "30m",
+      "isPublic": true,
+      "subGroups": {}
     },
     "pipeline": {
       "maxConcurrent": 10,
-      "maxQueued": 100
+      "maxQueued": 100,
+      "maxMemory": "2GB",
+      "maxCpuTime": "120m",
+      "maxQueryCpuTime": "60m",
+      "runtimeCap": "30m",
+      "queuedTimeCap": "30m",
+      "isPublic": false,
+      "subGroups": {
+        "bi": {
+          "maxConcurrent": 5,
+          "maxQueued": 50,
+          "maxMemory": "1GB",
+          "maxCpuTime": "60m",
+          "maxQueryCpuTime": "60m",
+          "runtimeCap": "30m",
+          "queuedTimeCap": "30m",
+          "isPublic": false,
+          "subGroups": {
+            "rdf": {
+              "maxConcurrent": 5,
+              "maxQueued": 50,
+              "maxMemory": "1GB",
+              "maxCpuTime": "60m",
+              "maxQueryCpuTime": "60m",
+              "runtimeCap": "30m",
+              "queuedTimeCap": "30m",
+              "isPublic": false,
+              "subGroups": {}
+            },
+            "smb": {
+              "maxConcurrent": 5,
+              "maxQueued": 50,
+              "maxMemory": "1GB",
+              "maxCpuTime": "60m",
+              "maxQueryCpuTime": "60m",
+              "runtimeCap": "30m",
+              "queuedTimeCap": "30m",
+              "isPublic": false,
+              "subGroups": {}
+            }
+          }
+        },
+        "di": {
+          "maxConcurrent": 5,
+          "maxQueued": 50,
+          "maxMemory": "1GB",
+          "maxCpuTime": "60m",
+          "maxQueryCpuTime": "60m",
+          "runtimeCap": "30m",
+          "queuedTimeCap": "30m",
+          "isPublic": false,
+          "subGroups": {
+            "ads": {
+              "maxConcurrent": 5,
+              "maxQueued": 50,
+              "maxMemory": "1GB",
+              "maxCpuTime": "60m",
+              "maxQueryCpuTime": "60m",
+              "runtimeCap": "30m",
+              "queuedTimeCap": "30m",
+              "isPublic": false,
+              "subGroups": {}
+            },
+            "feed": {
+              "maxConcurrent": 5,
+              "maxQueued": 50,
+              "maxMemory": "1GB",
+              "maxCpuTime": "60m",
+              "maxQueryCpuTime": "60m",
+              "runtimeCap": "30m",
+              "queuedTimeCap": "30m",
+              "isPublic": false,
+              "subGroups": {}
+            }
+          }
+        }
+      }
     },
     "admin": {
       "maxConcurrent": 100,
-      "maxQueued": 100
+      "maxQueued": 100,
+      "maxMemory": "2GB",
+      "maxCpuTime": "120m",
+      "maxQueryCpuTime": "60m",
+      "runtimeCap": "30m",
+      "queuedTimeCap": "30m",
+      "isPublic": false,
+      "subGroups": {}
     },
-    "global": {
-      "maxConcurrent": 100,
-      "maxQueued": 1000
+    "ping_query": {
+      "maxConcurrent": 5,
+      "maxQueued": 5,
+      "maxMemory": "1MB",
+      "maxCpuTime": "1m",
+      "maxQueryCpuTime": "30s",
+      "runtimeCap": "2m",
+      "queuedTimeCap": "2m",
+      "isPublic": false,
+      "subGroups": {}
+    },
+    "test": {
+      "maxConcurrent": 5,
+      "maxQueued": 5,
+      "maxMemory": "100MB",
+      "maxCpuTime": "1m",
+      "maxQueryCpuTime": "30s",
+      "runtimeCap": "2m",
+      "queuedTimeCap": "2m",
+      "isPublic": false,
+      "subGroups": {}
     },
     "big": {
       "maxConcurrent": 1,
-      "maxQueued": 10
+      "maxQueued": 10,
+      "maxMemory": "2GB",
+      "maxCpuTime": "120m",
+      "maxQueryCpuTime": "60m",
+      "runtimeCap": "30m",
+      "queuedTimeCap": "30m",
+      "isPublic": false,
+      "subGroups": {}
     }
   },
   "rules": [
     {
-      "user": "bob",
-      "queues": ["admin"]
+      "queue": "admin",
+      "users": ["bob"]
+
     },
     {
-      "source": "ping_query",
-      "queues": ["admin"]
-    },
-    {
-      "session.experimental_big_query": "true",
-      "source": ".*pipeline.*",
-      "queues": [
-        "user.${USER}",
-        "pipeline",
-        "big"
-      ]
-    },
-    {
-      "source": ".*pipeline.*",
-      "queues": [
-        "user.${USER}",
-        "pipeline",
-        "global"
-      ]
+      "queue": "ping_query",
+      "users": ["pinguser"]
     },
     {
       "session.experimental_big_query": "true",
-      "queues": [
-        "user.${USER}",
-        "big"
+      "queue": "ads",
+      "users": [
+        "bob",
+        "jane"
       ]
     },
     {
-      "queues": [
-        "user.${USER}",
-        "global"
+      "queue": "feed",
+      "users": [
+        "bob",
+        "jane"
+      ]
+    },
+    {
+      "session.experimental_big_query": "true",
+      "queue": "big",
+      "users": [
+        "bob",
+        "jane",
+        "joe"
+      ]
+    },
+    {
+      "queue": "test",
+      "users": [
+        "user"
       ]
     }
   ]

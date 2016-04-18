@@ -1,32 +1,51 @@
 {
   "queues": {
-    "user.${USER}": {
-      "maxConcurrent": 3,
-      "maxQueued": 3
-    },
-    "dashboard.${USER}": {
-      "maxConcurrent": 1,
-      "maxQueued": 1
-    },
     "global": {
       "maxConcurrent": 100,
-      "maxQueued": 1000
+      "maxQueued": 1000,
+      "maxMemory": "2GB",
+      "maxCpuTime": "120m",
+      "maxQueryCpuTime": "60m",
+      "runtimeCap": "30m",
+      "queuedTimeCap": "30m",
+      "isPublic": true,
+      "subGroups": {}
+    },
+    "user_queue": {
+      "maxConcurrent": 3,
+      "maxQueued": 3,
+      "maxMemory": "2GB",
+      "maxCpuTime": "120m",
+      "maxQueryCpuTime": "60m",
+      "runtimeCap": "30m",
+      "queuedTimeCap": "30m",
+      "isPublic": true,
+      "subGroups": {}
+    },
+    "dashboard": {
+      "maxConcurrent": 1,
+      "maxQueued": 1,
+      "maxMemory": "2GB",
+      "maxCpuTime": "120m",
+      "maxQueryCpuTime": "60m",
+      "runtimeCap": "30m",
+      "queuedTimeCap": "30m",
+      "isPublic": true,
+      "subGroups": {}
     }
   },
   "rules": [
     {
-      "source": "(?i).*dashboard.*",
-      "queues": [
-        "user.${USER}",
-        "dashboard.${USER}",
-        "global"
-      ]
+      "queue": "global",
+      "users": []
     },
     {
-      "queues": [
-        "user.${USER}",
-        "global"
-      ]
+      "queue": "user_queue",
+      "users": []
+    },
+    {
+      "queue": "dashboard",
+      "users": []
     }
   ]
 }
