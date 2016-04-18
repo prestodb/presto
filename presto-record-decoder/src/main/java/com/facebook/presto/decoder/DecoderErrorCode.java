@@ -19,18 +19,16 @@ import com.facebook.presto.spi.ErrorCodeSupplier;
 public enum DecoderErrorCode
         implements ErrorCodeSupplier
 {
-    // Connectors can use error codes starting at EXTERNAL
-
     /**
      * A requested data conversion is not supported.
      */
-    DECODER_CONVERSION_NOT_SUPPORTED(0x0200_0000);
+    DECODER_CONVERSION_NOT_SUPPORTED(0);
 
     private final ErrorCode errorCode;
 
     DecoderErrorCode(int code)
     {
-        errorCode = new ErrorCode(code, name());
+        errorCode = new ErrorCode(code + 0x0101_0000, name());
     }
 
     @Override

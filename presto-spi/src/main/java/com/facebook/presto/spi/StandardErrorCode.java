@@ -74,6 +74,7 @@ public enum StandardErrorCode
     EXCEEDED_CPU_LIMIT(0x0002_0005),
 
     // Connectors can use error codes starting at EXTERNAL
+    // See https://github.com/prestodb/presto/wiki/Error-Codes
     EXTERNAL(0x0100_0000);
 
     private final ErrorCode errorCode;
