@@ -36,7 +36,6 @@ import org.apache.accumulo.core.security.Authorizations;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.io.Text;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -112,14 +111,14 @@ public class ColumnCardinalityCache
             throws AccumuloException, AccumuloSecurityException, TableNotFoundException,
             ExecutionException
     {
-        List<Pair<AccumuloColumnConstraint, Long>> retval = new ArrayList<>();
+        ImmutableList.Builder<Pair<AccumuloColumnConstraint, Long>> cardBuilder = ImmutableList.builder();
         for (Entry<AccumuloColumnConstraint, Collection<Range>> e : idxConstraintRangePairs
                 .entrySet()) {
             long card = getColumnCardinality(schema, table, e.getKey(), e.getValue());
             LOG.debug("Cardinality for column %s is %d", e.getKey().getName(), card);
-            retval.add(Pair.of(e.getKey(), card));
+            cardBuilder.add(Pair.of(e.getKey(), card));
         }
-        return retval;
+        return cardBuilder.build();
     }
 
     /**

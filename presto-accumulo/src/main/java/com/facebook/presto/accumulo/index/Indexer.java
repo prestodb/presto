@@ -52,7 +52,6 @@ import javax.annotation.concurrent.NotThreadSafe;
 
 import java.io.Closeable;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -401,7 +400,7 @@ public class Indexer
      */
     private Collection<Mutation> getMetricsMutations()
     {
-        List<Mutation> muts = new ArrayList<>();
+        ImmutableList.Builder<Mutation> mutationBuilder = ImmutableList.builder();
         // Mapping of column value to column to number of row IDs that contain that value
         for (Entry<ByteBuffer, Map<ByteBuffer, AtomicLong>> m : metrics.entrySet()) {
             // Create new mutation for this row value
@@ -418,7 +417,7 @@ public class Indexer
             }
 
             // Add to our list of mutations
-            muts.add(mut);
+            mutationBuilder.add(mut);
         }
 
         // If the first row and last row are both not null, which would really be for a brand new
@@ -430,10 +429,10 @@ public class Indexer
             Mutation flm = new Mutation(METRICS_TABLE_ROW_ID.array());
             flm.put(METRICS_TABLE_ROWS_CF.array(), METRICS_TABLE_FIRST_ROW_CQ.array(), firstRow);
             flm.put(METRICS_TABLE_ROWS_CF.array(), METRICS_TABLE_LAST_ROW_CQ.array(), lastRow);
-            muts.add(flm);
+            mutationBuilder.add(flm);
         }
 
-        return muts;
+        return mutationBuilder.build();
     }
 
     /**

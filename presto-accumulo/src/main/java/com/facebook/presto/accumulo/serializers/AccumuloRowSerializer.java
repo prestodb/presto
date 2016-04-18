@@ -34,7 +34,6 @@ import java.io.IOException;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -432,11 +431,11 @@ public interface AccumuloRowSerializer
      */
     static List<Object> getArrayFromBlock(Type elementType, Block block)
     {
-        List<Object> array = new ArrayList<>(block.getPositionCount());
+        ImmutableList.Builder<Object> arrayBuilder = ImmutableList.builder();
         for (int i = 0; i < block.getPositionCount(); ++i) {
-            array.add(readObject(elementType, block, i));
+            arrayBuilder.add(readObject(elementType, block, i));
         }
-        return array;
+        return arrayBuilder.build();
     }
 
     /**

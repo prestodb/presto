@@ -27,7 +27,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSetter;
 import com.google.common.collect.ImmutableList;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
@@ -213,7 +212,7 @@ public class AccumuloTable
     @JsonIgnore
     public void addColumn(AccumuloColumnHandle newColumn)
     {
-        final List<AccumuloColumnHandle> newColumns;
+        ImmutableList.Builder<AccumuloColumnHandle> newColumns;
 
         // If this column is going to be appended instead of inserted
         if (newColumn.getOrdinal() == columns.size()) {
@@ -226,13 +225,14 @@ public class AccumuloTable
             }
 
             // Copy the list and add the new column at the end
-            newColumns = new ArrayList<>(columns);
+            newColumns = ImmutableList.builder();
+            newColumns.addAll(columns);
             newColumns.add(newColumn);
         }
         else {
             // Else, iterate through all existing columns, updating the ordinals and inserting the
             // column at the appropriate place
-            newColumns = new ArrayList<>();
+            newColumns = ImmutableList.builder();
             int ordinal = 0;
             for (AccumuloColumnHandle col : columns) {
                 // Validate this column does not already exist
@@ -256,7 +256,7 @@ public class AccumuloTable
         }
 
         // Set the new column list
-        columns = ImmutableList.copyOf(newColumns);
+        columns = newColumns.build();
 
         // Update the index status of the table
         indexed |= newColumn.isIndexed();

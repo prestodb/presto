@@ -37,8 +37,6 @@ import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.accumulo.Types.checkType;
@@ -110,7 +108,7 @@ public class AccumuloSplitManager
                 tableHandle.getSerializerInstance());
 
         // Pack the tablet split metadata into a connector split
-        List<ConnectorSplit> cSplits = new ArrayList<>();
+        ImmutableList.Builder<ConnectorSplit> cSplits = ImmutableList.builder();
         for (TabletSplitMetadata smd : tSplits) {
             AccumuloSplit split = new AccumuloSplit(connectorId, schemaName, tableName, rowIdName,
                     tableHandle.getSerializerClassName(), smd.getRanges(), iteratorConstraints,
@@ -119,10 +117,8 @@ public class AccumuloSplitManager
             cSplits.add(split);
         }
 
-        Collections.shuffle(cSplits);
-
         // TODO Would this be more beneficial to return splits in batches?
-        return new FixedSplitSource(connectorId, cSplits);
+        return new FixedSplitSource(connectorId, cSplits.build());
     }
 
     /**
@@ -156,17 +152,17 @@ public class AccumuloSplitManager
     private List<AccumuloColumnConstraint> getColumnConstraints(String rowIdName,
             TupleDomain<ColumnHandle> constraint)
     {
-        List<AccumuloColumnConstraint> acc = new ArrayList<>();
+        ImmutableList.Builder<AccumuloColumnConstraint> constraintBuilder = ImmutableList.builder();
         for (ColumnDomain<ColumnHandle> cd : constraint.getColumnDomains().get()) {
             AccumuloColumnHandle col =
                     checkType(cd.getColumn(), AccumuloColumnHandle.class, "column handle");
 
             if (!col.getName().equals(rowIdName)) {
-                acc.add(new AccumuloColumnConstraint(col.getName(), col.getFamily(),
+                constraintBuilder.add(new AccumuloColumnConstraint(col.getName(), col.getFamily(),
                         col.getQualifier(), cd.getDomain(), col.isIndexed()));
             }
         }
 
-        return acc;
+        return constraintBuilder.build();
     }
 }

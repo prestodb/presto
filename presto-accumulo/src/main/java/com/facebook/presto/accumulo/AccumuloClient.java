@@ -68,7 +68,6 @@ import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -241,7 +240,7 @@ public class AccumuloClient
 
         // Check all the column types, and throw an exception if the types of a map are complex
         // While it is a rare case, this is not supported by the Accumulo connector
-        Set<String> columnNames = new HashSet<>();
+        ImmutableSet.Builder<String> columnNameBuilder = ImmutableSet.builder();
         for (ColumnMetadata column : meta.getColumns()) {
             if (Types.isMapType(column.getType())) {
                 if (Types.isMapType(Types.getKeyType(column.getType()))
@@ -253,8 +252,10 @@ public class AccumuloClient
                 }
             }
 
-            columnNames.add(column.getName().toLowerCase());
+            columnNameBuilder.add(column.getName().toLowerCase());
         }
+
+        ImmutableSet<String> columnNames = columnNameBuilder.build();
 
         // Validate the columns are distinct
         if (columnNames.size() != meta.getColumns().size()) {
@@ -962,20 +963,20 @@ public class AccumuloClient
     private Collection<Range> splitByTabletBoundaries(String tableName, Collection<Range> ranges)
             throws TableNotFoundException, AccumuloException, AccumuloSecurityException
     {
-        Collection<Range> splitRanges = new HashSet<>();
+        ImmutableSet.Builder<Range> rangeBuilder = ImmutableSet.builder();
         for (Range r : ranges) {
             // if start and end key are equivalent, no need to split the range
             if (r.getStartKey() != null && r.getEndKey() != null
                     && r.getStartKey().equals(r.getEndKey())) {
-                splitRanges.add(r);
+                rangeBuilder.add(r);
             }
             else {
                 // Call out to Accumulo to split the range on tablets
-                splitRanges.addAll(conn.tableOperations().splitRangeByTablets(tableName, r,
+                rangeBuilder.addAll(conn.tableOperations().splitRangeByTablets(tableName, r,
                         Integer.MAX_VALUE));
             }
         }
-        return splitRanges;
+        return rangeBuilder.build();
     }
 
     /**
@@ -1124,13 +1125,13 @@ public class AccumuloClient
             return ImmutableSet.of(new Range());
         }
 
-        Set<Range> ranges = new HashSet<>();
+        ImmutableSet.Builder<Range> rangeBuilder = ImmutableSet.builder();
         for (com.facebook.presto.spi.predicate.Range r : dom.getValues().getRanges()
                 .getOrderedRanges()) {
-            ranges.add(getRangeFromPrestoRange(r, serializer));
+            rangeBuilder.add(getRangeFromPrestoRange(r, serializer));
         }
 
-        return ranges;
+        return rangeBuilder.build();
     }
 
     /**
