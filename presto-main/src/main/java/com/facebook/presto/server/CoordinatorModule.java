@@ -162,7 +162,7 @@ public class CoordinatorModule
         httpClientBinder(binder).bindHttpClient("node-manager", ForGracefulShutdown.class)
                 .withTracing()
                 .withConfigDefaults(config -> {
-                    config.setIdleTimeout(new Duration(2, SECONDS));
+                    config.setIdleTimeout(new Duration(30, SECONDS));
                     config.setRequestTimeout(new Duration(10, SECONDS));
                 });
 
