@@ -25,6 +25,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.RowExpression;
@@ -83,7 +84,7 @@ public class InCodeGenerator
             return SwitchGenerationCase.SET_CONTAINS;
         }
 
-        if (!(type instanceof BigintType || type instanceof DateType)) {
+        if (!(type instanceof IntegerType || type instanceof BigintType || type instanceof DateType)) {
             return SwitchGenerationCase.HASH_SWITCH;
         }
         for (RowExpression expression : values) {
@@ -97,7 +98,7 @@ public class InCodeGenerator
             if (constant == null) {
                 continue;
             }
-            long longConstant = (Long) constant;
+            long longConstant = ((Number) constant).longValue();
             if (longConstant < Integer.MIN_VALUE || longConstant > Integer.MAX_VALUE) {
                 return SwitchGenerationCase.HASH_SWITCH;
             }

@@ -290,6 +290,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.INTEGER)
     public static long randomInt(@SqlType(StandardTypes.INTEGER) long value)
     {
+        checkCondition(value > 0, INVALID_FUNCTION_ARGUMENT, "bound must be positive");
         return ThreadLocalRandom.current().nextInt((int) value);
     }
 

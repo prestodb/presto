@@ -164,7 +164,7 @@ public final class VarcharOperators
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.INTEGER)
-    public static long castToInt(@SqlType("varchar(x)") Slice slice)
+    public static long castToInteger(@SqlType("varchar(x)") Slice slice)
     {
         try {
             return Integer.parseInt(slice.toStringUtf8());

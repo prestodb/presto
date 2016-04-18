@@ -103,6 +103,13 @@ public final class BooleanOperators
     }
 
     @ScalarOperator(CAST)
+    @SqlType(StandardTypes.INTEGER)
+    public static long castToInteger(@SqlType(StandardTypes.BOOLEAN) boolean value)
+    {
+        return value ? 1 : 0;
+    }
+
+    @ScalarOperator(CAST)
     @SqlType(StandardTypes.VARCHAR)
     public static Slice castToVarchar(@SqlType(StandardTypes.BOOLEAN) boolean value)
     {
