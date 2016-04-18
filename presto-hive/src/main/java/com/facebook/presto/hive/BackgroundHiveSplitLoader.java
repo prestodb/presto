@@ -55,9 +55,9 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static com.facebook.presto.hadoop.HadoopFileStatus.isDirectory;
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxSplitSize;
 import static com.facebook.presto.hive.HiveUtil.checkCondition;
@@ -71,6 +71,8 @@ import static java.lang.String.format;
 public class BackgroundHiveSplitLoader
         implements HiveSplitLoader
 {
+    private static final String CORRUPT_BUCKETING = "Hive table is corrupt. It is declared as being bucketed, but the files do not match the bucketing declaration.";
+
     public static final CompletableFuture<?> COMPLETED_FUTURE = CompletableFuture.completedFuture(null);
 
     private final String connectorId;
@@ -366,16 +368,13 @@ public class BackgroundHiveSplitLoader
             LocatedFileStatus next = hiveFileIterator.next();
             if (isDirectory(next)) {
                 // Fail here to be on the safe side. This seems to be the same as what Hive does
-                throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, "Found sub-directory in bucket directory");
-            }
-            if (list.size() >= bucketCount) {
-                throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, "There are more files in the directory than the specified bucket count: " + bucketCount);
+                throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format("%s Found sub-directory in bucket directory for partition: %s", CORRUPT_BUCKETING, hiveFileIterator.getPartitionName()));
             }
             list.add(next);
         }
 
         if (list.size() != bucketCount) {
-            throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, "There are less files in the directory than the specified bucket count: " + bucketCount);
+            throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format("%s The number of files in the directory (%s) does not match the declared bucket count (%s) for partition: %s", CORRUPT_BUCKETING, list.size(), bucketCount, hiveFileIterator.getPartitionName()));
         }
 
         // Sort FileStatus objects (instead of, e.g., fileStatus.getPath().toString). This matches org.apache.hadoop.hive.ql.metadata.Table.getSortedPaths
