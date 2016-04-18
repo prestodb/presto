@@ -35,6 +35,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Marker.Bound;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import org.apache.accumulo.core.client.AccumuloException;
@@ -43,7 +44,6 @@ import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.client.Instance;
 import org.apache.accumulo.core.client.IteratorSetting;
 import org.apache.accumulo.core.client.Scanner;
-import org.apache.accumulo.core.client.TableExistsException;
 import org.apache.accumulo.core.client.TableNotFoundException;
 import org.apache.accumulo.core.client.ZooKeeperInstance;
 import org.apache.accumulo.core.client.security.tokens.PasswordToken;
@@ -70,8 +70,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Random;
 import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
@@ -97,6 +97,12 @@ public class AccumuloClient
     private static final String MAC_USER = "root";
 
     private static Connector conn = null;
+
+    private final AccumuloConfig conf;
+    private final AccumuloMetadataManager metaManager;
+    private final Authorizations auths;
+    private final Random random = new Random();
+    private final AccumuloTableManager tableManager;
 
     /**
      * Gets an Accumulo Connector based on the given configuration.
@@ -153,10 +159,6 @@ public class AccumuloClient
         return conn;
     }
 
-    private final AccumuloConfig conf;
-    private final AccumuloMetadataManager metaManager;
-    private final Authorizations auths;
-
     /**
      * Creates a new instance of an AccumuloClient, injected by that Guice. Creates a connection to
      * Accumulo.
@@ -171,6 +173,7 @@ public class AccumuloClient
     {
         this.conf = requireNonNull(config, "config is null");
         this.metaManager = config.getMetadataManager();
+        this.tableManager = new AccumuloTableManager(config);
 
         // Creates and sets CONNECTOR in the event it has not yet been created
         this.auths = getAccumuloConnector(this.conf).securityOperations().getUserAuthorizations(conf.getUsername());
@@ -184,23 +187,45 @@ public class AccumuloClient
      */
     public AccumuloTable createTable(ConnectorTableMetadata meta)
     {
-        // Get the table properties for this table
-        Map<String, Object> tableProperties = meta.getProperties();
+        // Validate the DDL is something we can handle
+        validateCreateTable(meta);
 
-        // Get the row ID from the properties
-        // If null, use the first column
-        String rowIdColumn = AccumuloTableProperties.getRowId(tableProperties);
-        if (rowIdColumn == null) {
-            rowIdColumn = meta.getColumns().get(0).getName();
+        if (AccumuloTableProperties.isExternal(meta.getProperties())) {
+            return createExternalTable(meta);
         }
+        else {
+            return createInternalTable(meta);
+        }
+    }
 
-        // For those who like capital letters
-        rowIdColumn = rowIdColumn.toLowerCase();
+    /**
+     * Validates the given metadata for a series of conditions to ensure the table is well-formed
+     *
+     * @param meta Table metadata
+     */
+    private void validateCreateTable(ConnectorTableMetadata meta)
+    {
+        validateColumns(meta);
+        validateLocalityGroups(meta);
+        if (AccumuloTableProperties.isExternal(meta.getProperties())) {
+            validateExternalTable(meta);
+        }
+        else {
+            validateInternalTable(meta);
+        }
+    }
 
+    /**
+     * Validates the columns set in the configure locality groups (if any) exist
+     *
+     * @param meta Table metadata
+     */
+    private void validateColumns(ConnectorTableMetadata meta)
+    {
         // Here, we make sure the user has specified at least one non-row ID column
         // Accumulo requires a column family and qualifier against a row ID, and these values
         // are specified by the other columns in the table
-        if (meta.getColumns().size() == 1) {
+        if (meta.getColumns().size() <= 1) {
             throw new InvalidParameterException("Must have at least one non-row ID column");
         }
 
@@ -226,51 +251,180 @@ public class AccumuloClient
             throw new PrestoException(USER_ERROR, "Duplicate column names are not supported");
         }
 
+        // Column generation is for internal tables only
+        if (AccumuloTableProperties.getColumnMapping(meta.getProperties()) == null &&
+                AccumuloTableProperties.isExternal(meta.getProperties())) {
+            throw new PrestoException(USER_ERROR,
+                    "Column generation for external tables is not supported, must specify " +
+                            AccumuloTableProperties.COLUMN_MAPPING);
+        }
+    }
+
+    /**
+     * Validates the columns set in the configure locality groups (if any) exist
+     *
+     * @param meta Table metadata
+     */
+    private void validateLocalityGroups(ConnectorTableMetadata meta)
+    {
         // Validate any configured locality groups
         Map<String, Set<String>> groups =
                 AccumuloTableProperties.getLocalityGroups(meta.getProperties());
+        if (groups == null) {
+            return;
+        }
 
-        if (groups != null) {
-            // For each locality group
-            for (Entry<String, Set<String>> g : groups.entrySet()) {
-                // For each column in the group
-                for (String col : g.getValue()) {
-                    // If the column was not found, throw exception
-                    List<ColumnMetadata> matched = meta.getColumns().stream().filter(x -> x.getName().equals(col)).collect(Collectors.toList());
+        String rowIdColumn = getRowIdColumn(meta);
 
-                    if (matched.size() != 1) {
-                        throw new PrestoException(USER_ERROR, "Unknown column in locality group: " + col);
-                    }
+        // For each locality group
+        for (Map.Entry<String, Set<String>> g : groups.entrySet()) {
+            // For each column in the group
+            for (String col : g.getValue()) {
+                // If the column was not found, throw exception
+                List<ColumnMetadata> matched = meta.getColumns().stream()
+                        .filter(x -> x.getName().equalsIgnoreCase(col)).collect(Collectors.toList());
 
-                    if (matched.get(0).getName().toLowerCase().equals(rowIdColumn)) {
-                        throw new PrestoException(USER_ERROR, "Row ID column cannot be in a locality group");
-                    }
+                if (matched.size() != 1) {
+                    throw new PrestoException(USER_ERROR, "Unknown column in locality group: " + col);
+                }
+
+                if (matched.get(0).getName().equalsIgnoreCase(rowIdColumn)) {
+                    throw new PrestoException(USER_ERROR, "Row ID column cannot be in a locality group");
                 }
             }
         }
+    }
 
-        // Get the column mappings
-        Map<String, Pair<String, String>> mapping = AccumuloTableProperties.getColumnMapping(meta.getProperties());
-        if (mapping == null) {
-            if (AccumuloTableProperties.isExternal(tableProperties)) {
-                throw new PrestoException(USER_ERROR, "Column generation for external tables is not supported, must specify " + AccumuloTableProperties.COLUMN_MAPPING);
+    /**
+     * Validates the Accumulo table (and index tables, if applicable) exist if the table is external
+     *
+     * @param meta Table metadata
+     */
+    private void validateExternalTable(ConnectorTableMetadata meta)
+    {
+        String table = AccumuloTable.getFullTableName(meta.getTable());
+        String indexTable = Indexer.getIndexTableName(meta.getTable());
+        String metricsTable = Indexer.getMetricsTableName(meta.getTable());
+        try {
+            if (!conn.tableOperations().exists(table)) {
+                throw new PrestoException(USER_ERROR,
+                        "Cannot create external table w/o an Accumulo table. Create the "
+                                + "Accumulo table first.");
             }
 
-            mapping = autoGenerateMapping(meta.getColumns(), groups);
+            if (AccumuloTableProperties.getIndexColumns(meta.getProperties()).size() > 0) {
+                if (!conn.tableOperations().exists(indexTable) || !conn.tableOperations().exists(metricsTable)) {
+                    throw new PrestoException(USER_ERROR,
+                            "External table is indexed but the index table and/or index metrics table "
+                                    + "do not exist.  Create these tables as well and configure the "
+                                    + "correct iterators and locality groups. See the README");
+                }
+            }
+        }
+        catch (Exception e) {
+            throw new PrestoException(INTERNAL_ERROR,
+                    "Accumulo error when validating external tables", e);
+        }
+    }
+
+    /**
+     * Validates the Accumulo table (and index tables, if applicable) do not already exist, if internal
+     *
+     * @param meta Table metadata
+     */
+    private void validateInternalTable(ConnectorTableMetadata meta)
+    {
+        String table = AccumuloTable.getFullTableName(meta.getTable());
+        String indexTable = Indexer.getIndexTableName(meta.getTable());
+        String metricsTable = Indexer.getMetricsTableName(meta.getTable());
+        if (conn.tableOperations().exists(table)) {
+            throw new PrestoException(ACCUMULO_TABLE_EXISTS,
+                    "Cannot create internal table when an Accumulo table already exists");
+        }
+
+        if (AccumuloTableProperties.getIndexColumns(meta.getProperties()).size() > 0) {
+            if (conn.tableOperations().exists(indexTable) || conn.tableOperations().exists(metricsTable)) {
+                throw new PrestoException(ACCUMULO_TABLE_EXISTS,
+                        "Internal table is indexed, but the index table and/or index metrics table(s) already exist");
+            }
+        }
+    }
+
+    /**
+     * Creates an internal Presto table for Accumulo using the given metadata
+     *
+     * @param meta Table metadata
+     * @return New Accumulo table
+     */
+    private AccumuloTable createInternalTable(ConnectorTableMetadata meta)
+    {
+        Map<String, Object> tableProperties = meta.getProperties();
+        String rowIdColumn = getRowIdColumn(meta);
+
+        // Get the list of column handles
+        List<AccumuloColumnHandle> columns = getColumnHandles(meta, rowIdColumn);
+
+        // Create the AccumuloTable object
+        AccumuloTable table = new AccumuloTable(meta.getTable().getSchemaName(),
+                meta.getTable().getTableName(), columns, rowIdColumn, false,
+                AccumuloTableProperties.getSerializerClass(tableProperties),
+                AccumuloTableProperties.getScanAuthorizations(tableProperties));
+
+        // First, create the metadata
+        metaManager.createTableMetadata(table);
+
+        // Make sure the namespace exists
+        tableManager.ensureNamespace(table.getSchema());
+
+        // Create the Accumulo table
+        tableManager.createAccumuloTable(table.getFullTableName());
+
+        // Set any locality groups on the data table
+        setLocalityGroups(tableProperties, table);
+
+        // Create index tables, if appropriate
+        createIndexTables(table);
+
+        return table;
+    }
+
+    /**
+     * Gets the row ID based on a table properties or the first column name
+     *
+     * @param meta ConnectorTableMetadata
+     * @return Presto column name mapped to the Accumulo row ID
+     */
+    private String getRowIdColumn(ConnectorTableMetadata meta)
+    {
+        String rowIdColumn = AccumuloTableProperties.getRowId(meta.getProperties());
+        if (rowIdColumn == null) {
+            rowIdColumn = meta.getColumns().get(0).getName();
+        }
+        return rowIdColumn.toLowerCase();
+    }
+
+    private List<AccumuloColumnHandle> getColumnHandles(ConnectorTableMetadata meta, String rowIdColumn)
+    {
+        // Get the column mappings
+        Map<String, Pair<String, String>> mapping =
+                AccumuloTableProperties.getColumnMapping(meta.getProperties());
+        if (mapping == null) {
+            mapping = autoGenerateMapping(meta.getColumns(),
+                    AccumuloTableProperties.getLocalityGroups(meta.getProperties()));
         }
 
         // The list of indexed columns
-        List<String> indexedColumns = AccumuloTableProperties.getIndexColumns(tableProperties);
+        List<String> indexedColumns = AccumuloTableProperties.getIndexColumns(meta.getProperties());
 
         // And now we parse the configured columns and create handles for the
         // metadata manager
-        List<AccumuloColumnHandle> columns = new ArrayList<>();
+        ImmutableList.Builder<AccumuloColumnHandle> cBuilder = ImmutableList.builder();
         for (int ordinal = 0; ordinal < meta.getColumns().size(); ++ordinal) {
             ColumnMetadata cm = meta.getColumns().get(ordinal);
 
             // Special case if this column is the
             if (cm.getName().toLowerCase().equals(rowIdColumn)) {
-                columns.add(new AccumuloColumnHandle("accumulo", rowIdColumn, null, null,
+                cBuilder.add(new AccumuloColumnHandle("accumulo", rowIdColumn, null, null,
                         cm.getType(), ordinal, "Accumulo row ID", false));
             }
             else {
@@ -286,99 +440,96 @@ public class AccumuloClient
                         famqual.getLeft(), famqual.getRight(), indexed);
 
                 // Create a new AccumuloColumnHandle object
-                columns.add(new AccumuloColumnHandle("accumulo", cm.getName(), famqual.getLeft(),
+                cBuilder.add(new AccumuloColumnHandle("accumulo", cm.getName(), famqual.getLeft(),
                         famqual.getRight(), cm.getType(), ordinal, comment, indexed));
             }
         }
 
-        // Finally create the AccumuloTable object
-        boolean external = AccumuloTableProperties.isExternal(tableProperties);
+        return cBuilder.build();
+    }
+
+    /**
+     * Extracts the locality groups from the given tasble properties and sets them for the Accumulo table
+     *
+     * @param tableProperties Table properties
+     * @param table AccumuloTable object
+     */
+    private void setLocalityGroups(Map<String, Object> tableProperties, AccumuloTable table)
+    {
+        Map<String, Set<String>> groups = AccumuloTableProperties.getLocalityGroups(tableProperties);
+        if (groups != null && groups.size() > 0) {
+            ImmutableMap.Builder<String, Set<Text>> localityGroupsBldr = ImmutableMap.builder();
+            for (Map.Entry<String, Set<String>> g : groups.entrySet()) {
+                ImmutableSet.Builder<Text> famBldr = ImmutableSet.builder();
+                // For each configured column for this locality group
+                for (String col : g.getValue()) {
+                    // Locate the column family mapping via the Handle
+                    // We already validated this earlier, so it'll exist
+                    famBldr.add(new Text(table.getColumns().stream()
+                            .filter(x -> x.getName().equals(col)).collect(Collectors.toList())
+                            .get(0).getFamily()));
+                }
+                localityGroupsBldr.put(g.getKey(), famBldr.build());
+            }
+
+            tableManager.setLocalityGroups(table.getFullTableName(), localityGroupsBldr.build());
+        }
+        else {
+            LOG.info("No locality groups to set");
+        }
+    }
+
+    /**
+     * Creates the index tables from the given Accumulo table. No op if
+     * {@link AccumuloTable#isIndexed()} is false.
+     *
+     * @param table Table to create index tables
+     */
+    private void createIndexTables(AccumuloTable table)
+    {
+        // Early-out if table is not indexed
+        if (!table.isIndexed()) {
+            return;
+        }
+
+        // Create index table and set the locality groups
+        Map<String, Set<Text>> indexGroups = Indexer.getLocalityGroups(table);
+        tableManager.createAccumuloTable(table.getIndexTableName());
+
+        tableManager.setLocalityGroups(table.getIndexTableName(), indexGroups);
+
+        // Create index metrics table, attach iterators, and set locality groups
+        tableManager.createAccumuloTable(table.getMetricsTableName());
+        tableManager.setLocalityGroups(table.getMetricsTableName(), indexGroups);
+        for (IteratorSetting s : Indexer.getMetricIterators(table)) {
+            tableManager.setIterator(table.getMetricsTableName(), s);
+        }
+    }
+
+    /**
+     * Creates an external Presto table for Accumulo using the given metadata
+     *
+     * @param meta Table metadata
+     * @return New Accumulo table
+     */
+    private AccumuloTable createExternalTable(ConnectorTableMetadata meta)
+    {
+        Map<String, Object> tableProperties = meta.getProperties();
+        String rowIdColumn = getRowIdColumn(meta);
+
+        // Get the list of column handles
+        List<AccumuloColumnHandle> columns = getColumnHandles(meta, rowIdColumn);
+
+        // Create the AccumuloTable object
         AccumuloTable table = new AccumuloTable(meta.getTable().getSchemaName(),
-                meta.getTable().getTableName(), columns, rowIdColumn, external,
+                meta.getTable().getTableName(), columns, rowIdColumn, true,
                 AccumuloTableProperties.getSerializerClass(tableProperties),
                 AccumuloTableProperties.getScanAuthorizations(tableProperties));
 
-        // Validate the Accumulo table exists if it is external
-        if (external) {
-            boolean tableExists = false;
-            boolean indexTableExists = false;
-            boolean indexMetricsTableExists = false;
-            try {
-                tableExists = conn.tableOperations().exists(table.getFullTableName());
-                indexTableExists = conn.tableOperations().exists(table.getIndexTableName());
-                indexMetricsTableExists =
-                        conn.tableOperations().exists(table.getMetricsTableName());
-            }
-            catch (Exception e) {
-                dropTable(table);
-                throw new PrestoException(INTERNAL_ERROR,
-                        "Accumulo error when validating external tables", e);
-            }
-
-            if (!tableExists) {
-                throw new PrestoException(USER_ERROR,
-                        "Cannot create external table w/o an Accumulo table. Create the "
-                                + "Accumulo table first.");
-            }
-
-            if (table.isIndexed() && (!indexTableExists || !indexMetricsTableExists)) {
-                throw new PrestoException(USER_ERROR,
-                        "External table is indexed but the index table and/or index metrics table "
-                                + "do not exist.  Create these tables as well and configure the "
-                                + "correct iterators and locality groups. See the README");
-            }
-        }
-
-        // Okay, now we can actually create the metadata and tables. Promise.
+        // Create the metadata
         metaManager.createTableMetadata(table);
 
-        // If this table is external, then we are done here
-        if (external) {
-            return table;
-        }
-
-        // But wait! It is internal!
-        try {
-            // If the table schema is not "default" and the namespace does not exist, create it
-            if (!table.getSchema().equals("default")
-                    && !conn.namespaceOperations().exists(table.getSchema())) {
-                conn.namespaceOperations().create(table.getSchema());
-            }
-
-            // Create the table!
-            conn.tableOperations().create(table.getFullTableName());
-
-            // Set locality groups, if any
-            if (groups != null && groups.size() > 0) {
-                Map<String, Set<Text>> localityGroups = new HashMap<>();
-                for (Entry<String, Set<String>> g : groups.entrySet()) {
-                    Set<Text> families = new HashSet<>();
-
-                    for (String col : g.getValue()) {
-                        // Locate the column family from the list of columns
-                        // We already validated this earlier, so it'll exist. Promise.
-                        families.add(new Text(table.getColumns().stream().filter(x -> x.getName().equals(col)).collect(Collectors.toList()).get(0).getFamily()));
-                    }
-                    localityGroups.put(g.getKey(), families);
-                }
-
-                conn.tableOperations().setLocalityGroups(table.getFullTableName(), localityGroups);
-                LOG.info("Set locality groups to %s", groups);
-            }
-            else {
-                LOG.info("No locality groups set");
-            }
-
-            // Create index tables, if appropriate
-            createIndexTables(table);
-            return table;
-        }
-        catch (Exception e) {
-            dropTable(table);
-            throw new PrestoException(INTERNAL_ERROR,
-                    "Accumulo error when creating table, check coordinator logs for more detail",
-                    e);
-        }
+        return table;
     }
 
     /**
@@ -395,11 +546,11 @@ public class AccumuloClient
             boolean tryAgain = false;
             do {
                 String fam = null;
-                String qual = UUID.randomUUID().toString().substring(0, 4);
+                String qual = getRandomColumnName();
 
                 // search through locality groups to find if this column has a locality group
                 if (groups != null) {
-                    for (Entry<String, Set<String>> g : groups.entrySet()) {
+                    for (Map.Entry<String, Set<String>> g : groups.entrySet()) {
                         if (g.getValue().contains(column.getName())) {
                             fam = g.getKey();
                         }
@@ -408,11 +559,11 @@ public class AccumuloClient
 
                 // randomly generate column family if not found
                 if (fam == null) {
-                    fam = UUID.randomUUID().toString().substring(0, 4);
+                    fam = getRandomColumnName();
                 }
 
                 // sanity check for qualifier uniqueness... but, I mean, what are the odds?
-                for (Entry<String, Pair<String, String>> m : mapping.entrySet()) {
+                for (Map.Entry<String, Pair<String, String>> m : mapping.entrySet()) {
                     if (m.getValue().getRight().equals(qual)) {
                         tryAgain = true;
                         break;
@@ -429,69 +580,36 @@ public class AccumuloClient
     }
 
     /**
-     * Creates the index tables from the given Accumulo table. No op if
-     * {@link AccumuloTable#isIndexed()} is false.
+     * Gets a random four-character hexidecimal number as a String to be used by the column name generator
      *
-     * @param table Table to create index tables
+     * @return Random column name
      */
-    private void createIndexTables(AccumuloTable table)
+    private String getRandomColumnName()
     {
-        try {
-            // If our table is indexed, create the index as well
-            if (table.isIndexed()) {
-                // Create index table and set the locality groups
-                Map<String, Set<Text>> indexGroups = Indexer.getLocalityGroups(table);
-                conn.tableOperations().create(table.getIndexTableName());
-                conn.tableOperations().setLocalityGroups(table.getIndexTableName(), indexGroups);
-
-                // Create index metrics table, attach iterators, and set locality groups
-                conn.tableOperations().create(table.getMetricsTableName());
-                conn.tableOperations().setLocalityGroups(table.getMetricsTableName(), indexGroups);
-                for (IteratorSetting s : Indexer.getMetricIterators(table)) {
-                    conn.tableOperations().attachIterator(table.getMetricsTableName(), s);
-                }
-            }
-        }
-        catch (Exception e) {
-            dropTable(table);
-            throw new PrestoException(INTERNAL_ERROR,
-                    "Accumulo error when creating index tables, check coordinator logs for more detail",
-                    e);
-        }
+        return format("%04x", random.nextInt(Short.MAX_VALUE));
     }
 
     /**
-     * Drops the table metadata from Presto. If this table is internal, the Accumulo
-     * tables are also deleted.
+     * Drops the table metadata from Presto and Accumulo tables if internal table
      *
      * @param table The Accumulo table
      */
     public void dropTable(AccumuloTable table)
     {
         SchemaTableName stName = new SchemaTableName(table.getSchema(), table.getTable());
-        String tn = table.getFullTableName();
+        String tableName = table.getFullTableName();
 
         // Remove the table metadata from Presto
         metaManager.deleteTableMetadata(stName);
 
-        // If the table is external, we won't clean up the Accumulo tables
-        if (table.isExternal()) {
-            return;
-        }
+        if (!table.isExternal()) {
+            // delete the table and index tables
+            tableManager.deleteAccumuloTable(tableName);
 
-        try {
-            // delete the table
-            conn.tableOperations().delete(tn);
-
-            // and delete our index tables
             if (table.isIndexed()) {
-                conn.tableOperations().delete(Indexer.getIndexTableName(stName));
-                conn.tableOperations().delete(Indexer.getMetricsTableName(stName));
+                tableManager.deleteAccumuloTable(Indexer.getIndexTableName(stName));
+                tableManager.deleteAccumuloTable(Indexer.getMetricsTableName(stName));
             }
-        }
-        catch (Exception e) {
-            throw new PrestoException(INTERNAL_ERROR, "Failed to delete table",
-                    e);
         }
     }
 
@@ -503,131 +621,65 @@ public class AccumuloClient
      */
     public void renameTable(SchemaTableName oldName, SchemaTableName newName)
     {
-        if (this.getTable(newName) != null) {
-            throw new PrestoException(ALREADY_EXISTS,
-                    "Table " + newName + " already exists");
-        }
-
         if (!oldName.getSchemaName().equals(newName.getSchemaName())) {
             throw new PrestoException(NOT_SUPPORTED,
                     "Accumulo does not support renaming tables to different namespaces (schemas)");
         }
 
         AccumuloTable oldTable = getTable(oldName);
-        AccumuloTable newTable = new AccumuloTable(newName.getSchemaName(), newName.getTableName(),
-                oldTable.getColumns(), oldTable.getRowId(), oldTable.isExternal(),
-                oldTable.getSerializerClassName(), oldTable.getScanAuthorizations());
+        AccumuloTable newTable = oldTable.clone();
+        newTable.setTable(newName.getTableName());
 
-        // Probably being over-cautious on the failure conditions and rollbacks, but I suppose it is
-        // better to be safe than sink ships.
-
-        try {
-            // First, rename the Accumulo table in the event there is some issue
-            conn.tableOperations().rename(oldTable.getFullTableName(), newTable.getFullTableName());
-        }
-        catch (AccumuloSecurityException | TableNotFoundException | AccumuloException
-                | TableExistsException e) {
-            throw new PrestoException(INTERNAL_ERROR, "Failed to rename table",
-                    e);
+        // Validate table existence
+        if (!tableManager.exists(oldTable.getFullTableName())) {
+            throw new PrestoException(INTERNAL_ERROR, format("Table %s does not exist", oldTable.getFullTableName()));
         }
 
-        // Rename index tables as well, if indexed, of course
-        if (oldTable.isIndexed()) {
-            try {
-                conn.tableOperations().rename(oldTable.getIndexTableName(),
-                        newTable.getIndexTableName());
-            }
-            catch (AccumuloSecurityException | TableNotFoundException | AccumuloException
-                    | TableExistsException e) {
-                try {
-                    conn.tableOperations().rename(newTable.getFullTableName(),
-                            oldTable.getFullTableName());
-                }
-                catch (Exception e1) {
-                    throw new PrestoException(INTERNAL_ERROR,
-                            "Failed to rollback table rename", e1);
-                }
-
-                throw new PrestoException(INTERNAL_ERROR,
-                        "Failed to rename index table", e);
-            }
-
-            try {
-                conn.tableOperations().rename(oldTable.getMetricsTableName(),
-                        newTable.getMetricsTableName());
-            }
-            catch (AccumuloSecurityException | TableNotFoundException | AccumuloException
-                    | TableExistsException e) {
-                try {
-                    conn.tableOperations().rename(newTable.getFullTableName(),
-                            oldTable.getFullTableName());
-                    conn.tableOperations().rename(newTable.getIndexTableName(),
-                            oldTable.getIndexTableName());
-                }
-                catch (Exception e1) {
-                    throw new PrestoException(INTERNAL_ERROR,
-                            "Failed to rollback table rename", e1);
-                }
-
-                throw new PrestoException(INTERNAL_ERROR,
-                        "Failed to rename index table", e);
-            }
+        if (tableManager.exists(newTable.getFullTableName())) {
+            throw new PrestoException(INTERNAL_ERROR, format("Table %s already exists", newTable.getFullTableName()));
         }
 
-        try {
-            // We'll then create the metadata
-            metaManager.createTableMetadata(newTable);
-        }
-        catch (Exception e) {
-            // catch all to rollback the operation -- rename the table back
-            try {
-                conn.tableOperations().rename(newTable.getFullTableName(),
-                        oldTable.getFullTableName());
+        // Rename index tables (which will also validate table existence)
+        renameIndexTables(oldTable, newTable);
 
-                if (oldTable.isIndexed()) {
-                    conn.tableOperations().rename(newTable.getIndexTableName(),
-                            oldTable.getIndexTableName());
-                    conn.tableOperations().rename(newTable.getMetricsTableName(),
-                            oldTable.getMetricsTableName());
-                }
-            }
-            catch (Exception e1) {
-                throw new PrestoException(INTERNAL_ERROR,
-                        "Failed to rename table", e1);
-            }
+        // Rename the Accumulo table
+        tableManager.renameAccumuloTable(oldTable.getFullTableName(), newTable.getFullTableName());
 
-            throw new PrestoException(INTERNAL_ERROR, "Failed to create metadata",
-                    e);
+        // We'll then create the metadata
+        metaManager.deleteTableMetadata(oldTable.getSchemaTableName());
+        metaManager.createTableMetadata(newTable);
+    }
+
+    /**
+     * Renames the index tables, if applicable, of from the old table to the new table
+     *
+     * @param oldTable Old AccumuloTable
+     * @param newTable New AccumuloTable
+     */
+    private void renameIndexTables(AccumuloTable oldTable, AccumuloTable newTable)
+    {
+        if (!oldTable.isIndexed()) {
+            return;
         }
 
-        try {
-            // We'll then delete the metadata
-            metaManager.deleteTableMetadata(oldName);
+        if (!tableManager.exists(oldTable.getIndexTableName())) {
+            throw new PrestoException(INTERNAL_ERROR, format("Table %s does not exist", oldTable.getIndexTableName()));
         }
-        catch (Exception e) {
-            try {
-                // catch all to rollback the operation -- rename the table back and create the old
-                // metadata
-                conn.tableOperations().rename(newTable.getFullTableName(),
-                        oldTable.getFullTableName());
 
-                if (oldTable.isIndexed()) {
-                    conn.tableOperations().rename(newTable.getIndexTableName(),
-                            oldTable.getIndexTableName());
-                    conn.tableOperations().rename(newTable.getMetricsTableName(),
-                            oldTable.getMetricsTableName());
-                }
-
-                metaManager.createTableMetadata(oldTable);
-            }
-            catch (Exception e1) {
-                throw new PrestoException(INTERNAL_ERROR,
-                        "Failed to rollback rename table operation ", e1);
-            }
-
-            throw new PrestoException(INTERNAL_ERROR, "Failed to delete metadata",
-                    e);
+        if (tableManager.exists(newTable.getIndexTableName())) {
+            throw new PrestoException(INTERNAL_ERROR, format("Table %s already exists", newTable.getIndexTableName()));
         }
+
+        if (!tableManager.exists(oldTable.getMetricsTableName())) {
+            throw new PrestoException(INTERNAL_ERROR, format("Table %s does not exist", oldTable.getMetricsTableName()));
+        }
+
+        if (tableManager.exists(newTable.getMetricsTableName())) {
+            throw new PrestoException(INTERNAL_ERROR, format("Table %s already exists", newTable.getMetricsTableName()));
+        }
+
+        tableManager.renameAccumuloTable(oldTable.getIndexTableName(), newTable.getIndexTableName());
+        tableManager.renameAccumuloTable(oldTable.getMetricsTableName(), newTable.getMetricsTableName());
     }
 
     /**
@@ -664,32 +716,6 @@ public class AccumuloClient
     public void dropView(SchemaTableName viewName)
     {
         metaManager.deleteViewMetadata(viewName);
-    }
-
-    /**
-     * Adds a new column to an existing table
-     *
-     * @param table Accumulo table to act on
-     * @param column New column to add
-     * @throws IndexOutOfBoundsException If the ordinal is greater than or equal to the number of columns
-     */
-    public void addColumn(AccumuloTable table, AccumuloColumnHandle column)
-            throws IndexOutOfBoundsException
-    {
-        // Add the column
-        table.addColumn(column);
-
-        // Recreate the table metadata with the new name and exit
-        metaManager.deleteTableMetadata(new SchemaTableName(table.getSchema(), table.getTable()));
-        metaManager.createTableMetadata(table);
-
-        // Validate index tables exist -- User may have added an index column to a previously
-        // un-indexed table
-        if (table.isIndexed() && !table.isExternal()) {
-            if (!conn.tableOperations().exists(table.getIndexTableName())) {
-                createIndexTables(table);
-            }
-        }
     }
 
     /**

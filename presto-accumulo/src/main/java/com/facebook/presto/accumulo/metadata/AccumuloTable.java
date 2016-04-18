@@ -46,11 +46,12 @@ public class AccumuloTable
     private String rowId;
     private final Integer rowIdOrdinal;
     private final String schema;
-    private final String table;
+    private String table;
     private List<AccumuloColumnHandle> columns;
     private final List<ColumnMetadata> columnsMetadata;
     private final String serializerClassName;
     private final String scanAuthorizations;
+    private final SchemaTableName schemaTableName;
 
     /***
      * Creates a new instance of AccumuloTable
@@ -97,6 +98,7 @@ public class AccumuloTable
                 "rowIdOrdinal is null, enable to locate rowId in given column list");
         this.indexed = indexed;
         this.columnsMetadata = cmb.build();
+        this.schemaTableName = new SchemaTableName(this.schema, this.table);
     }
 
     /**
@@ -141,6 +143,16 @@ public class AccumuloTable
     public String getTable()
     {
         return table;
+    }
+
+    /**
+     * Sets the table name.
+     *
+     * @param table
+     */
+    public void setTable(String table)
+    {
+        this.table = table;
     }
 
     /**
@@ -360,6 +372,28 @@ public class AccumuloTable
     public static String getFullTableName(SchemaTableName stn)
     {
         return getFullTableName(stn.getSchemaName(), stn.getTableName());
+    }
+
+    /**
+     * Clones this AccumuloTable into a new AccumuloTable
+     *
+     * @return A new AccumuloTable
+     */
+    @JsonIgnore
+    public AccumuloTable clone()
+    {
+        return new AccumuloTable(getSchema(), getTable(), getColumns(), getRowId(), isExternal(), getSerializerClassName(), getScanAuthorizations());
+    }
+
+    /**
+     * Gets the table name as a {@link SchemaTableName}
+     *
+     * @return Schema table name
+     */
+    @JsonIgnore
+    public SchemaTableName getSchemaTableName()
+    {
+        return schemaTableName;
     }
 
     @Override
