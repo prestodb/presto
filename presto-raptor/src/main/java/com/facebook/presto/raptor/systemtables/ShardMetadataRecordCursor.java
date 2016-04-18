@@ -39,6 +39,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.raptor.RaptorColumnHandle.SHARD_UUID_COLUMN_TYPE;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.maxColumn;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.minColumn;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
@@ -47,7 +48,7 @@ import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkState;
@@ -68,9 +69,9 @@ public class ShardMetadataRecordCursor
     public static final ConnectorTableMetadata SHARD_METADATA = new ConnectorTableMetadata(
             SHARD_METADATA_TABLE_NAME,
             ImmutableList.of(
-                    new ColumnMetadata(SCHEMA_NAME, VARCHAR),
-                    new ColumnMetadata(TABLE_NAME, VARCHAR),
-                    new ColumnMetadata(SHARD_UUID, VARCHAR),
+                    new ColumnMetadata(SCHEMA_NAME, createUnboundedVarcharType()),
+                    new ColumnMetadata(TABLE_NAME, createUnboundedVarcharType()),
+                    new ColumnMetadata(SHARD_UUID, SHARD_UUID_COLUMN_TYPE),
                     new ColumnMetadata("bucket_number", BIGINT),
                     new ColumnMetadata("uncompressed_size", BIGINT),
                     new ColumnMetadata("compressed_size", BIGINT),

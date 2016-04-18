@@ -26,6 +26,7 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.UUID;
 
+import static com.facebook.presto.raptor.RaptorColumnHandle.SHARD_UUID_COLUMN_TYPE;
 import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunner;
 import static com.facebook.presto.raptor.RaptorQueryRunner.createSampledSession;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -91,7 +92,7 @@ public class TestRaptorIntegrationSmokeTest
         assertUpdate("CREATE TABLE test_shard_uuid AS SELECT orderdate, orderkey FROM orders", "SELECT count(*) FROM orders");
 
         MaterializedResult actualResults = computeActual("SELECT *, \"$shard_uuid\" FROM test_shard_uuid");
-        assertEquals(actualResults.getTypes(), ImmutableList.of(DATE, BIGINT, VARCHAR));
+        assertEquals(actualResults.getTypes(), ImmutableList.of(DATE, BIGINT, SHARD_UUID_COLUMN_TYPE));
         UUID arbitraryUuid = null;
         for (MaterializedRow row : actualResults.getMaterializedRows()) {
             Object uuid = row.getField(2);
