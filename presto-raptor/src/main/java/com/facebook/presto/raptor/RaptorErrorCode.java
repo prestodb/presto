@@ -19,22 +19,22 @@ import com.facebook.presto.spi.ErrorCodeSupplier;
 public enum RaptorErrorCode
         implements ErrorCodeSupplier
 {
-    RAPTOR_ERROR(0x0300_0000),
-    RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS(0x0300_0001),
-    RAPTOR_NO_HOST_FOR_SHARD(0x0300_0002),
-    RAPTOR_RECOVERY_ERROR(0x0300_0003),
-    RAPTOR_BACKUP_TIMEOUT(0x0300_0004),
-    RAPTOR_METADATA_ERROR(0x0300_0005),
-    RAPTOR_BACKUP_ERROR(0x0300_0006),
-    RAPTOR_BACKUP_NOT_FOUND(0x300_0007),
-    RAPTOR_REASSIGNMENT_DELAY(0x300_0008),
-    RAPTOR_REASSIGNMENT_THROTTLE(0x300_0009);
+    RAPTOR_ERROR(0),
+    RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS(1),
+    RAPTOR_NO_HOST_FOR_SHARD(2),
+    RAPTOR_RECOVERY_ERROR(3),
+    RAPTOR_BACKUP_TIMEOUT(4),
+    RAPTOR_METADATA_ERROR(5),
+    RAPTOR_BACKUP_ERROR(6),
+    RAPTOR_BACKUP_NOT_FOUND(7),
+    RAPTOR_REASSIGNMENT_DELAY(8),
+    RAPTOR_REASSIGNMENT_THROTTLE(9);
 
     private final ErrorCode errorCode;
 
     RaptorErrorCode(int code)
     {
-        errorCode = new ErrorCode(code, name());
+        errorCode = new ErrorCode(code + 0x0300_0000, name());
     }
 
     @Override

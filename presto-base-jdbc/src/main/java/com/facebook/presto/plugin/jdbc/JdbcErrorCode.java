@@ -19,14 +19,14 @@ import com.facebook.presto.spi.ErrorCodeSupplier;
 public enum JdbcErrorCode
         implements ErrorCodeSupplier
 {
-    JDBC_ERROR(0x0400_0000),
-    JDBC_NON_TRANSIENT_ERROR(0x0400_0001);
+    JDBC_ERROR(0),
+    JDBC_NON_TRANSIENT_ERROR(1);
 
     private final ErrorCode errorCode;
 
     JdbcErrorCode(int code)
     {
-        errorCode = new ErrorCode(code, name());
+        errorCode = new ErrorCode(code + 0x0400_0000, name());
     }
 
     @Override
