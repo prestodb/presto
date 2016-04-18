@@ -70,7 +70,7 @@ source_suffix = '.rst'
 
 master_doc = 'index'
 
-project = u'Presto'
+project = 'Teradata Presto'
 
 version = get_version()
 release = version
@@ -87,8 +87,9 @@ rst_epilog = """
 
 # -- Options for HTML output ---------------------------------------------------
 
+html_theme = "sphinx_rtd_theme"
+
 html_theme_path = ['./themes']
-html_theme = 'presto'
 
 html_title = '%s %s Documentation' % (project, release)
 
