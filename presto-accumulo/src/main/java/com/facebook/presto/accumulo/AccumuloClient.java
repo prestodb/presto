@@ -70,6 +70,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -274,16 +275,16 @@ public class AccumuloClient
     private void validateLocalityGroups(ConnectorTableMetadata meta)
     {
         // Validate any configured locality groups
-        Map<String, Set<String>> groups =
+        Optional<Map<String, Set<String>>> groups =
                 AccumuloTableProperties.getLocalityGroups(meta.getProperties());
-        if (groups == null) {
+        if (!groups.isPresent()) {
             return;
         }
 
         String rowIdColumn = getRowIdColumn(meta);
 
         // For each locality group
-        for (Map.Entry<String, Set<String>> g : groups.entrySet()) {
+        for (Map.Entry<String, Set<String>> g : groups.get().entrySet()) {
             // For each column in the group
             for (String col : g.getValue()) {
                 // If the column was not found, throw exception
@@ -462,27 +463,27 @@ public class AccumuloClient
      */
     private void setLocalityGroups(Map<String, Object> tableProperties, AccumuloTable table)
     {
-        Map<String, Set<String>> groups = AccumuloTableProperties.getLocalityGroups(tableProperties);
-        if (groups != null && groups.size() > 0) {
-            ImmutableMap.Builder<String, Set<Text>> localityGroupsBldr = ImmutableMap.builder();
-            for (Map.Entry<String, Set<String>> g : groups.entrySet()) {
-                ImmutableSet.Builder<Text> famBldr = ImmutableSet.builder();
-                // For each configured column for this locality group
-                for (String col : g.getValue()) {
-                    // Locate the column family mapping via the Handle
-                    // We already validated this earlier, so it'll exist
-                    famBldr.add(new Text(table.getColumns().stream()
-                            .filter(x -> x.getName().equals(col)).collect(Collectors.toList())
-                            .get(0).getFamily()));
-                }
-                localityGroupsBldr.put(g.getKey(), famBldr.build());
-            }
-
-            tableManager.setLocalityGroups(table.getFullTableName(), localityGroupsBldr.build());
-        }
-        else {
+        Optional<Map<String, Set<String>>> groups = AccumuloTableProperties.getLocalityGroups(tableProperties);
+        if (!groups.isPresent()) {
             LOG.info("No locality groups to set");
+            return;
         }
+
+        ImmutableMap.Builder<String, Set<Text>> localityGroupsBldr = ImmutableMap.builder();
+        for (Map.Entry<String, Set<String>> g : groups.get().entrySet()) {
+            ImmutableSet.Builder<Text> famBldr = ImmutableSet.builder();
+            // For each configured column for this locality group
+            for (String col : g.getValue()) {
+                // Locate the column family mapping via the Handle
+                // We already validated this earlier, so it'll exist
+                famBldr.add(new Text(table.getColumns().stream()
+                        .filter(x -> x.getName().equals(col)).collect(Collectors.toList())
+                        .get(0).getFamily()));
+            }
+            localityGroupsBldr.put(g.getKey(), famBldr.build());
+        }
+
+        tableManager.setLocalityGroups(table.getFullTableName(), localityGroupsBldr.build());
     }
 
     /**
@@ -545,44 +546,48 @@ public class AccumuloClient
      * @param groups Mapping of locality groups to a set of Presto columns, or null if none
      * @return Column mappings
      */
-    private Map<String, Pair<String, String>> autoGenerateMapping(List<ColumnMetadata> columns, Map<String, Set<String>> groups)
+    private Map<String, Pair<String, String>> autoGenerateMapping(List<ColumnMetadata> columns, Optional<Map<String, Set<String>>> groups)
     {
         Map<String, Pair<String, String>> mapping = new HashMap<>();
         for (ColumnMetadata column : columns) {
+            Optional<String> fam = getColumnLocalityGroup(column.getName(), groups);
+            String qual = getRandomColumnName();
             boolean tryAgain = false;
+
+            // sanity check for qualifier uniqueness... but, I mean, what are the odds?
             do {
-                String fam = null;
-                String qual = getRandomColumnName();
-
-                // search through locality groups to find if this column has a locality group
-                if (groups != null) {
-                    for (Map.Entry<String, Set<String>> g : groups.entrySet()) {
-                        if (g.getValue().contains(column.getName())) {
-                            fam = g.getKey();
-                        }
-                    }
-                }
-
-                // randomly generate column family if not found
-                if (fam == null) {
-                    fam = getRandomColumnName();
-                }
-
-                // sanity check for qualifier uniqueness... but, I mean, what are the odds?
                 for (Map.Entry<String, Pair<String, String>> m : mapping.entrySet()) {
                     if (m.getValue().getRight().equals(qual)) {
                         tryAgain = true;
                         break;
                     }
                 }
-
-                if (!tryAgain) {
-                    mapping.put(column.getName(), Pair.of(fam, qual));
-                }
             }
             while (tryAgain);
+
+            mapping.put(column.getName(), Pair.of(fam.orElse(getRandomColumnName()), qual));
         }
         return mapping;
+    }
+
+    /**
+     * Searches through the given locality groups to find if this column has a locality group.
+     *
+     * @param columnName Column name to get the locality group of
+     * @param groups Optional locality group configuration
+     * @return Optional string containing the name of the locality group, if present
+     */
+    private Optional<String> getColumnLocalityGroup(String columnName, Optional<Map<String, Set<String>>> groups)
+    {
+        if (groups.isPresent()) {
+            for (Map.Entry<String, Set<String>> g : groups.get().entrySet()) {
+                if (g.getValue().contains(columnName.toLowerCase())) {
+                    return Optional.of(g.getKey());
+                }
+            }
+        }
+
+        return Optional.empty();
     }
 
     /**

@@ -101,6 +101,10 @@ public class AccumuloTableManager
      */
     public void setLocalityGroups(String tableName, Map<String, Set<Text>> groups)
     {
+        if (groups.size() == 0) {
+            return;
+        }
+
         try {
             conn.tableOperations().setLocalityGroups(tableName, groups);
             LOG.info("Set locality groups to %s", groups);

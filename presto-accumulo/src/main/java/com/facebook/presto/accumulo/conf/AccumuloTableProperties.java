@@ -32,6 +32,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.USER_ERROR;
@@ -170,13 +171,13 @@ public final class AccumuloTableProperties
      * Gets the configured locality groups for the table.
      *
      * @param tableProperties The map of table properties
-     * @return The map of locality groups, or null if not set
+     * @return Optional map of locality groups
      */
-    public static Map<String, Set<String>> getLocalityGroups(Map<String, Object> tableProperties)
+    public static Optional<Map<String, Set<String>>> getLocalityGroups(Map<String, Object> tableProperties)
     {
         String groupStr = (String) tableProperties.get(LOCALITY_GROUPS);
         if (groupStr == null) {
-            return null;
+            return Optional.empty();
         }
 
         Map<String, Set<String>> groups = new HashMap<>();
@@ -199,7 +200,7 @@ public final class AccumuloTableProperties
             }
         }
 
-        return groups;
+        return Optional.of(groups);
     }
 
     /**
