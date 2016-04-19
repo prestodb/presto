@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -391,13 +392,32 @@ public class TypeSignature
 
         TypeSignature other = (TypeSignature) o;
 
+        // TODO remove this hack together with hack from toString()
+        if (magicVarcharEquals(other, this)) {
+            return true;
+        }
+
         return Objects.equals(this.base.toLowerCase(Locale.ENGLISH), other.base.toLowerCase(Locale.ENGLISH)) &&
                 Objects.equals(this.parameters, other.parameters);
+    }
+
+    private static boolean magicVarcharEquals(TypeSignature first, TypeSignature second)
+    {
+        // treat varchar and varchar(MAX_LONG) as equivalent
+        // should replaced with hack in parser as soon as we change declarations of all functions taking varchar parameters to use parameterization
+        return first.getBase().equals(StandardTypes.VARCHAR)
+                && second.getBase().equals(StandardTypes.VARCHAR)
+                && ((first.getParameters().isEmpty() && second.getParameters().equals(Arrays.asList(TypeSignatureParameter.of(VarcharType.MAX_LENGTH))))
+                || (second.getParameters().isEmpty() && first.getParameters().equals(Arrays.asList(TypeSignatureParameter.of(VarcharType.MAX_LENGTH)))));
     }
 
     @Override
     public int hashCode()
     {
+        // TODO remove this hack together with hack from toString()
+        if (getBase().equals(StandardTypes.VARCHAR) && parameters.isEmpty()) {
+            return VarcharType.createUnboundedVarcharType().getTypeSignature().hashCode();
+        }
         return Objects.hash(base.toLowerCase(Locale.ENGLISH), parameters);
     }
 }
