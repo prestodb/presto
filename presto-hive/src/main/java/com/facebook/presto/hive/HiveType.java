@@ -25,6 +25,7 @@ import com.facebook.presto.spi.type.VarcharType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.collect.ImmutableList;
+import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
@@ -65,6 +66,7 @@ import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.floatTypeIn
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getListTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getMapTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getStructTypeInfo;
+import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getVarcharTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.intTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.longTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.shortTypeInfo;
@@ -225,7 +227,18 @@ public final class HiveType
             return HIVE_DOUBLE.typeInfo;
         }
         if (type instanceof VarcharType) {
-            return HIVE_STRING.typeInfo;
+            VarcharType varcharType = (VarcharType) type;
+            int varcharLength = varcharType.getLength();
+            if (varcharLength <= HiveVarchar.MAX_VARCHAR_LENGTH) {
+                return getVarcharTypeInfo(varcharLength);
+            }
+            else if (varcharLength == VarcharType.MAX_LENGTH) {
+                return HIVE_STRING.typeInfo;
+            }
+            else {
+                throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s. Supported VARCHAR types: VARCHAR(<=%d), VARCHAR.",
+                        type, HiveVarchar.MAX_VARCHAR_LENGTH));
+            }
         }
         if (VARBINARY.equals(type)) {
             return HIVE_BINARY.typeInfo;

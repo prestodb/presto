@@ -105,6 +105,7 @@ import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Arrays.fill;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardListObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardMapObjectInspector;
@@ -141,6 +142,14 @@ public abstract class AbstractTestHiveFileFormats
 
     private static final long TIMESTAMP = new DateTime(2011, 5, 6, 7, 8, 9, 123).getMillis();
     private static final String TIMESTAMP_STRING = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS").print(TIMESTAMP);
+
+    private static final String VARCHAR_MAX_LENGTH_STRING;
+
+    static {
+        char[] varcharMaxLengthCharArray = new char[HiveVarchar.MAX_VARCHAR_LENGTH];
+        fill(varcharMaxLengthCharArray, 'a');
+        VARCHAR_MAX_LENGTH_STRING = new String(varcharMaxLengthCharArray);
+    }
 
     private static final JavaHiveDecimalObjectInspector DECIMAL_INSPECTOR_PRECISION_2 =
             new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(2, 1));
@@ -182,6 +191,7 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("p_string", javaStringObjectInspector, "test", Slices.utf8Slice("test"), true))
             .add(new TestColumn("p_empty_varchar", javaHiveVarcharObjectInspector, "", Slices.EMPTY_SLICE, true))
             .add(new TestColumn("p_varchar", javaHiveVarcharObjectInspector, "test", Slices.utf8Slice("test"), true))
+            .add(new TestColumn("p_varchar_max_length", javaHiveVarcharObjectInspector, VARCHAR_MAX_LENGTH_STRING, Slices.utf8Slice(VARCHAR_MAX_LENGTH_STRING), true))
             .add(new TestColumn("p_tinyint", javaByteObjectInspector, "1", 1, true))
             .add(new TestColumn("p_smallint", javaShortObjectInspector, "2", 2, true))
             .add(new TestColumn("p_int", javaIntObjectInspector, "3", 3, true))
