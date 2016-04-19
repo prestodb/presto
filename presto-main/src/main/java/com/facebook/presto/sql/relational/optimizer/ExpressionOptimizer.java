@@ -107,10 +107,14 @@ public class ExpressionOptimizer
                                 return call.getArguments().get(2).accept(this, context);
                             }
                         }
+                    case TRY:
+                        checkState(call.getArguments().size() == 1, "try call expressions must have a single argument");
+                        if (!(Iterables.getOnlyElement(call.getArguments()) instanceof CallExpression)) {
+                            return Iterables.getOnlyElement(call.getArguments());
+                        }
                     case NULL_IF:
                     case SWITCH:
                     case "WHEN":
-                    case TRY:
                     case TRY_CAST:
                     case IS_NULL:
                     case "IS_DISTINCT_FROM":

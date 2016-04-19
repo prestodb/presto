@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
+import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
 import com.facebook.presto.type.TypeRegistry;
@@ -47,6 +48,20 @@ public class TestExpressionOptimizer
             expression = new CallExpression(signature, BIGINT, ImmutableList.of(expression, new ConstantExpression(1L, BIGINT)));
         }
         optimizer.optimize(expression);
+    }
+
+    @Test
+    public void testTryOptimization()
+    {
+        TypeRegistry typeManager = new TypeRegistry();
+        ExpressionOptimizer optimizer = new ExpressionOptimizer(new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), false), typeManager, TEST_SESSION);
+        Signature signature = new Signature("TRY", SCALAR, BIGINT.getTypeSignature());
+
+        RowExpression tryExpression =  new CallExpression(signature, BIGINT, ImmutableList.of(new ConstantExpression(1L, BIGINT)));
+        assertEquals(optimizer.optimize(tryExpression), new ConstantExpression(1L, BIGINT));
+
+        tryExpression =  new CallExpression(signature, BIGINT, ImmutableList.of(new InputReferenceExpression(1, BIGINT)));
+        assertEquals(optimizer.optimize(tryExpression), new InputReferenceExpression(1, BIGINT));
     }
 
     @Test
