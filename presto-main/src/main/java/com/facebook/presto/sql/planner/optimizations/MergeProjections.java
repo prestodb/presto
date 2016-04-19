@@ -25,6 +25,7 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.TryExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -59,9 +60,11 @@ public class MergeProjections
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            // only merge if the source is completely deterministic
+            // only merge if the source is completely deterministic or if the current node does not have a TRY
             // todo perform partial merge, pushing down expressions that have deterministic sources
-            if (source instanceof ProjectNode && ((ProjectNode) source).getAssignments().values().stream().allMatch(DeterminismEvaluator::isDeterministic)) {
+            if (source instanceof ProjectNode &&
+                    ((ProjectNode) source).getAssignments().values().stream().allMatch(DeterminismEvaluator::isDeterministic) &&
+                    node.getAssignments().values().stream().noneMatch(e -> e instanceof TryExpression)) {
                 ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
                 for (Map.Entry<Symbol, Expression> projection : node.getAssignments().entrySet()) {
                     Expression inlined = ExpressionTreeRewriter.rewriteWith(new ExpressionSymbolInliner(((ProjectNode) source).getAssignments()), projection.getValue());
