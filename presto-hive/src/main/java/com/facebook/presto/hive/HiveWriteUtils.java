@@ -36,6 +36,7 @@ import com.google.common.primitives.Ints;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
+import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.Order;
@@ -117,6 +118,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.writableLongObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.writableStringObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.writableTimestampObjectInspector;
+import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getVarcharTypeInfo;
 import static org.joda.time.DateTimeZone.UTC;
 
 public final class HiveWriteUtils
@@ -474,6 +476,7 @@ public final class HiveWriteUtils
             case TIMESTAMP:
             case BINARY:
             case DECIMAL:
+            case VARCHAR:
                 return true;
         }
         return false;
@@ -504,8 +507,18 @@ public final class HiveWriteUtils
             return writableDoubleObjectInspector;
         }
 
-        if (type.equals(VarcharType.VARCHAR)) {
-            return writableStringObjectInspector;
+        if (type instanceof VarcharType) {
+            VarcharType varcharType = (VarcharType) type;
+            int varcharLength = varcharType.getLength();
+            // VARCHAR columns with the length less than or equal to 65535 are supported natively by Hive
+            if (varcharLength <= HiveVarchar.MAX_VARCHAR_LENGTH) {
+                return getPrimitiveWritableObjectInspector(getVarcharTypeInfo(varcharLength));
+            }
+            // Unbounded VARCHAR is not supported by Hive.
+            // Values for such columns must be stored as STRING in Hive
+            else if (varcharLength == VarcharType.MAX_LENGTH) {
+                return writableStringObjectInspector;
+            }
         }
 
         if (type.equals(VarbinaryType.VARBINARY)) {
