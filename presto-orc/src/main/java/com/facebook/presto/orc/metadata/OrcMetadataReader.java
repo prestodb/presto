@@ -19,6 +19,7 @@ import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
@@ -30,6 +31,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
@@ -88,7 +90,8 @@ public class OrcMetadataReader
                 footer.getRowIndexStride(),
                 toStripeInformation(footer.getStripesList()),
                 toType(footer.getTypesList()),
-                toColumnStatistics(footer.getStatisticsList(), false));
+                toColumnStatistics(footer.getStatisticsList(), false),
+                toUserMetadata(footer.getMetadataList()));
     }
 
     private static List<StripeInformation> toStripeInformation(List<OrcProto.StripeInformation> types)
@@ -177,6 +180,15 @@ public class OrcMetadataReader
             return ImmutableList.of();
         }
         return ImmutableList.copyOf(Iterables.transform(columnStatistics, statistics -> toColumnStatistics(statistics, isRowGroup)));
+    }
+
+    private Map<String, Slice> toUserMetadata(List<OrcProto.UserMetadataItem> metadataList)
+    {
+        ImmutableMap.Builder<String, Slice> mapBuilder = ImmutableMap.builder();
+        for (OrcProto.UserMetadataItem item : metadataList) {
+            mapBuilder.put(item.getName(), Slices.wrappedBuffer(item.getValue().toByteArray()));
+        }
+        return mapBuilder.build();
     }
 
     private static BooleanStatistics toBooleanStatistics(OrcProto.BucketStatistics bucketStatistics)

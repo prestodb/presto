@@ -199,6 +199,7 @@ public class OrcReader
                 metadataReader,
                 maxMergeDistance,
                 maxReadSize,
+                footer.getUserMetadata(),
                 systemMemoryUsage);
     }
 
