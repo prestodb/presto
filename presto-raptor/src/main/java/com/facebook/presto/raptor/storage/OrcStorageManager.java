@@ -97,17 +97,20 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.propagateIfInstanceOf;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.lang.Math.min;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.Executors.newFixedThreadPool;
+import static java.util.stream.Collectors.toList;
 import static org.joda.time.DateTimeZone.UTC;
 
 public class OrcStorageManager
         implements StorageManager
 {
     private static final long MAX_ROWS = 1_000_000_000;
+    private static final JsonCodec<OrcFileMetadata> METADATA_CODEC = jsonCodec(OrcFileMetadata.class);
 
     private final String nodeId;
     private final StorageService storageService;
@@ -396,20 +399,42 @@ public class OrcStorageManager
 
     private List<ColumnInfo> getColumnInfo(OrcReader reader)
     {
-        // TODO: These should be stored as proper metadata.
-        // XXX: Relying on ORC types will not work when more Presto types are supported.
+        Optional<OrcFileMetadata> metadata = getOrcFileMetadata(reader);
+        if (metadata.isPresent()) {
+            return getColumnInfoFromOrcUserMetadata(metadata.get());
+        }
 
-        List<String> names = reader.getColumnNames();
-        Type rowType = getType(reader.getFooter().getTypes(), 0);
-        if (names.size() != rowType.getTypeParameters().size()) {
+        // support for legacy files without metadata
+        return getColumnInfoFromOrcColumnTypes(reader.getColumnNames(), reader.getFooter().getTypes());
+    }
+
+    private List<ColumnInfo> getColumnInfoFromOrcColumnTypes(List<String> orcColumnNames, List<OrcType> orcColumnTypes)
+    {
+        Type rowType = getType(orcColumnTypes, 0);
+        if (orcColumnNames.size() != rowType.getTypeParameters().size()) {
             throw new PrestoException(RAPTOR_ERROR, "Column names and types do not match");
         }
 
         ImmutableList.Builder<ColumnInfo> list = ImmutableList.builder();
-        for (int i = 0; i < names.size(); i++) {
-            list.add(new ColumnInfo(Long.parseLong(names.get(i)), rowType.getTypeParameters().get(i)));
+        for (int i = 0; i < orcColumnNames.size(); i++) {
+            list.add(new ColumnInfo(Long.parseLong(orcColumnNames.get(i)), rowType.getTypeParameters().get(i)));
         }
         return list.build();
+    }
+
+    private static Optional<OrcFileMetadata> getOrcFileMetadata(OrcReader reader)
+    {
+        return Optional.ofNullable(reader.getFooter().getUserMetadata().get(OrcFileMetadata.KEY))
+                .map(slice -> METADATA_CODEC.fromJson(slice.getBytes()));
+    }
+
+    private List<ColumnInfo> getColumnInfoFromOrcUserMetadata(OrcFileMetadata orcFileMetadata)
+    {
+        return orcFileMetadata.getColumnTypes().entrySet()
+                .stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(entry -> new ColumnInfo(entry.getKey(), typeManager.getType(entry.getValue())))
+                .collect(toList());
     }
 
     private Type getType(List<OrcType> types, int index)
