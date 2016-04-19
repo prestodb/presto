@@ -20,7 +20,6 @@ import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.Parameter;
 import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Scope;
-import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.TryCatch;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.PrestoException;
@@ -56,12 +55,10 @@ public class TryCodeGenerator
     private static final String EXCEPTION_HANDLER_NAME = "tryExpressionExceptionHandler";
 
     private final Map<CallExpression, MethodDefinition> tryMethodsMap;
-    private final List<? extends Variable> inputParameters;
 
-    public TryCodeGenerator(Map<CallExpression, MethodDefinition> tryMethodsMap, List<? extends Variable> inputParameters)
+    public TryCodeGenerator(Map<CallExpression, MethodDefinition> tryMethodsMap)
     {
         this.tryMethodsMap = tryMethodsMap;
-        this.inputParameters = inputParameters;
     }
 
     @Override
@@ -77,11 +74,14 @@ public class TryCodeGenerator
                 .comment("load required variables")
                 .getVariable(context.getScope().getVariable("this"));
 
-        inputParameters.stream()
+        MethodDefinition definition = tryMethodsMap.get(innerCallExpression);
+
+        definition.getParameters().stream()
+                .map(parameter -> context.getScope().getVariable(parameter.getName()))
                 .forEach(bytecodeBlock::getVariable);
 
-        bytecodeBlock.comment("call dynamic try method: " + tryMethodsMap.get(innerCallExpression).getName())
-                .invokeVirtual(tryMethodsMap.get(innerCallExpression))
+        bytecodeBlock.comment("call dynamic try method: " + definition.getName())
+                .invokeVirtual(definition)
                 .append(unboxPrimitiveIfNecessary(context.getScope(), Primitives.wrap(innerCallExpression.getType().getJavaType())));
 
         return bytecodeBlock;

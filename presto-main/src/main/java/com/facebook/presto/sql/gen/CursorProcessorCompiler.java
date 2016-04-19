@@ -204,7 +204,6 @@ public class CursorProcessorCompiler
                     cachedInstanceBinder,
                     fieldReferenceCompiler(cursor, wasNull),
                     metadata.getFunctionRegistry(),
-                    inputParameters,
                     tryMethodMap.build());
 
             MethodDefinition tryMethod = defineTryMethod(
@@ -241,7 +240,6 @@ public class CursorProcessorCompiler
                 cachedInstanceBinder,
                 fieldReferenceCompiler(cursor, wasNullVariable),
                 metadata.getFunctionRegistry(),
-                ImmutableList.of(session, cursor, wasNullVariable),
                 tryMethodMap);
 
         LabelNode end = new LabelNode("end");
@@ -282,7 +280,6 @@ public class CursorProcessorCompiler
                 cachedInstanceBinder,
                 fieldReferenceCompiler(cursor, wasNullVariable),
                 metadata.getFunctionRegistry(),
-                ImmutableList.of(session, cursor, wasNullVariable),
                 tryMethodMap);
 
         body.getVariable(output)
