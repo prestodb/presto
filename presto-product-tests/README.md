@@ -107,16 +107,29 @@ following command:
 
 ```
 ./mvnw install -DskipTests
-presto-product-tests/bin/run_on_docker.sh <profile> -x quarantine,big_query
+presto-product-tests/bin/run_on_docker.sh <profile> -x quarantine,big_query,mysql_connector,postgresql_connector
 ```
 
-where `<profile>` is one of either:
+where [profile](#profile) is one of either:
 - **multinode** - pseudo-distributed Hadoop installation running on a
  single Docker container and a distributed Presto installation running on
- multiple Docker containers.
+ multiple Docker containers. For multinode the default configuration is 1 coordinator and 1 worker.
 - **singlenode** - pseudo-distributed Hadoop installation running on a
  single Docker container and a single node installation of Presto also running
  on a single Docker container.
+- **singlenode-hdfs-impersonation** - pseudo-distributed Hadoop installation running on a
+ single Docker container and a single node installation of Presto also running
+ on a single Docker container. Presto impersonates the user who is running the query when accessing HDFS.
+- **singlenode-kerberos-hdfs-impersonation** - pseudo-distributed kerberized Hadoop installation running on a
+ single Docker container and a single node installation of kerberized Presto also running
+ on a single Docker container. This profile has kerberos impersonation. Presto impersonates the user who
+ is running the query when accessing HDFS.
+- **singlenode-kerberos-hdfs-no-impersonation** - pseudo-distributed Hadoop installation running on a
+ single Docker container and a single node installation of kerberized Presto also running
+ on a single Docker container. This profile runs kerberos without impersonation.
+
+Complete documentation for presto can be found at [Presto](https://prestodb.io/docs/current/index.html).
+The hive connector documentation can be found at [hive-connector](https://prestodb.io/docs/current/connector/hive.html)
 
 The `run_on_docker.sh` script can also run individual product tests. Presto
 product tests are either [Java based](https://github.com/prestodb/tempto#java-based-tests)
@@ -246,8 +259,7 @@ running the debugger.
 ## Troubleshooting
 
 Use the `docker-compose` and `docker` utilities to control and troubleshoot
-containers. In the following examples `<profile>` is either `singlenode` or
-`multinode`.
+containers. In the following examples ``<profile>`` is [profile](#profile).
 
 1. Use the following command to view output from running containers:
 
