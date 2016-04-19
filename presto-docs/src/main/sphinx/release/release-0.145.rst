@@ -7,6 +7,8 @@ General Changes
 
 * Add support for the ``integer`` type to the Presto engine and the Hive,
   Raptor, Redis, Kafka, Cassandra and example-http connectors.
+* Add ``driver.max-page-partitioning-buffer-size`` config to control buffer size
+  used to repartition pages for exchanges.
 
 CLI Changes
 -----------
