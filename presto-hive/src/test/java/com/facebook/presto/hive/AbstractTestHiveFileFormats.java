@@ -240,6 +240,7 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("t_string", javaStringObjectInspector, "test", Slices.utf8Slice("test")))
             .add(new TestColumn("t_empty_varchar", javaHiveVarcharObjectInspector, new HiveVarchar("", HiveVarchar.MAX_VARCHAR_LENGTH), Slices.EMPTY_SLICE))
             .add(new TestColumn("t_varchar", javaHiveVarcharObjectInspector, new HiveVarchar("test", HiveVarchar.MAX_VARCHAR_LENGTH), Slices.utf8Slice("test")))
+            .add(new TestColumn("t_varchar_max_length", javaHiveVarcharObjectInspector, new HiveVarchar(VARCHAR_MAX_LENGTH_STRING, HiveVarchar.MAX_VARCHAR_LENGTH), Slices.utf8Slice(VARCHAR_MAX_LENGTH_STRING)))
             .add(new TestColumn("t_tinyint", javaByteObjectInspector, (byte) 1, 1))
             .add(new TestColumn("t_smallint", javaShortObjectInspector, (short) 2, 2))
             .add(new TestColumn("t_int", javaIntObjectInspector, 3, 3))
