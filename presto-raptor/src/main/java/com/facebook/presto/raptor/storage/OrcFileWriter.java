@@ -22,6 +22,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -101,6 +102,12 @@ public class OrcFileWriter
 
     public OrcFileWriter(List<Long> columnIds, List<Type> columnTypes, File target, JsonCodec<OrcFileMetadata> orcFileMetadataCodec)
     {
+        this(columnIds, columnTypes, target, orcFileMetadataCodec, true);
+    }
+
+    @VisibleForTesting
+    OrcFileWriter(List<Long> columnIds, List<Type> columnTypes, File target, JsonCodec<OrcFileMetadata> orcFileMetadataCodec, boolean storeInformationInMetadata)
+    {
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
         checkArgument(columnIds.size() == columnTypes.size(), "ids and types mismatch");
         checkArgument(isUnique(columnIds), "ids must be unique");
@@ -114,13 +121,12 @@ public class OrcFileWriter
         properties.setProperty(META_TABLE_COLUMN_TYPES, Joiner.on(':').join(hiveTypeNames));
 
         serializer = createSerializer(CONFIGURATION, properties);
-        recordWriter = createRecordWriter(new Path(target.toURI()), CONFIGURATION, columnIds, columnTypes, orcFileMetadataCodec);
+        recordWriter = createRecordWriter(new Path(target.toURI()), CONFIGURATION, columnIds, columnTypes, orcFileMetadataCodec, storeInformationInMetadata);
 
         tableInspector = getStandardStructObjectInspector(columnNames, getJavaObjectInspectors(storageTypes));
         structFields = ImmutableList.copyOf(tableInspector.getAllStructFieldRefs());
         orcRow = tableInspector.create();
     }
-
     public void appendPages(List<Page> pages)
     {
         for (Page page : pages) {
@@ -189,15 +195,18 @@ public class OrcFileWriter
         return serde;
     }
 
-    private static RecordWriter createRecordWriter(Path target, Configuration conf, List<Long> columnIds, List<Type> columnTypes, JsonCodec<OrcFileMetadata> orcFileMetadataCodec)
+    private static RecordWriter createRecordWriter(Path target, Configuration conf, List<Long> columnIds, List<Type> columnTypes, JsonCodec<OrcFileMetadata> orcFileMetadataCodec, boolean storeInformationInMetadata)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(FileSystem.class.getClassLoader());
                 FileSystem fileSystem = new SyncingFileSystem(CONFIGURATION)) {
             OrcFile.WriterOptions options = new OrcWriterOptions(conf)
                     .memory(new NullMemoryManager(conf))
                     .fileSystem(fileSystem)
-                    .callback(createFileMetadataCallback(columnIds, columnTypes, orcFileMetadataCodec))
                     .compress(SNAPPY);
+
+            if (storeInformationInMetadata) {
+                options = options.callback(createFileMetadataCallback(columnIds, columnTypes, orcFileMetadataCodec));
+            }
 
             return WRITER_CONSTRUCTOR.newInstance(target, options);
         }
