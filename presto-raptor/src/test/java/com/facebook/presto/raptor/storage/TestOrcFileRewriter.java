@@ -249,6 +249,81 @@ public class TestOrcFileRewriter
     }
 
     @Test
+    public void testRewriteWithoutMetadata()
+            throws Exception
+    {
+        List<Long> columnIds = ImmutableList.of(3L, 7L);
+        List<Type> columnTypes = ImmutableList.of(BIGINT, VARCHAR);
+
+        File file = new File(temporary, randomUUID().toString());
+        try (OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file, false)) {
+            List<Page> pages = rowPagesBuilder(columnTypes)
+                    .row(123L, "hello")
+                    .row(777L, "sky")
+                    .build();
+            writer.appendPages(pages);
+        }
+
+        try (OrcDataSource dataSource = fileOrcDataSource(file)) {
+            OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
+
+            assertEquals(reader.getReaderRowCount(), 2);
+            assertEquals(reader.getFileRowCount(), 2);
+            assertEquals(reader.getSplitLength(), file.length());
+
+            assertEquals(reader.nextBatch(), 2);
+
+            Block column0 = reader.readBlock(BIGINT, 0);
+            assertEquals(column0.getPositionCount(), 2);
+            for (int i = 0; i < 2; i++) {
+                assertEquals(column0.isNull(i), false);
+            }
+            assertEquals(BIGINT.getLong(column0, 0), 123L);
+            assertEquals(BIGINT.getLong(column0, 1), 777L);
+
+            Block column1 = reader.readBlock(VARCHAR, 1);
+            assertEquals(column1.getPositionCount(), 2);
+            for (int i = 0; i < 2; i++) {
+                assertEquals(column1.isNull(i), false);
+            }
+            assertEquals(VARCHAR.getSlice(column1, 0), utf8Slice("hello"));
+            assertEquals(VARCHAR.getSlice(column1, 1), utf8Slice("sky"));
+
+            assertFalse(reader.getUserMetadata().containsKey(OrcFileMetadata.KEY));
+        }
+
+        BitSet rowsToDelete = new BitSet(5);
+        rowsToDelete.set(1);
+
+        File newFile = new File(temporary, randomUUID().toString());
+        OrcFileInfo info = OrcFileRewriter.rewrite(file, newFile, rowsToDelete);
+        assertEquals(info.getRowCount(), 1);
+        assertEquals(info.getUncompressedSize(), 13);
+
+        try (OrcDataSource dataSource = fileOrcDataSource(newFile)) {
+            OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
+
+            assertEquals(reader.getReaderRowCount(), 1);
+            assertEquals(reader.getFileRowCount(), 1);
+            assertEquals(reader.getSplitLength(), newFile.length());
+
+            assertEquals(reader.nextBatch(), 1);
+
+            Block column0 = reader.readBlock(BIGINT, 0);
+            assertEquals(column0.getPositionCount(), 1);
+            assertEquals(column0.isNull(0), false);
+            assertEquals(BIGINT.getLong(column0, 0), 123L);
+
+            Block column1 = reader.readBlock(VARCHAR, 1);
+            assertEquals(column1.getPositionCount(), 1);
+            assertEquals(column1.isNull(0), false);
+            assertEquals(VARCHAR.getSlice(column1, 0), utf8Slice("hello"));
+
+            assertFalse(reader.getUserMetadata().containsKey(OrcFileMetadata.KEY));
+        }
+    }
+
+    @Test
     public void testRewriteAllRowsDeleted()
             throws Exception
     {

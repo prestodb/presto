@@ -22,6 +22,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -103,6 +104,12 @@ public class OrcFileWriter
 
     public OrcFileWriter(List<Long> columnIds, List<Type> columnTypes, File target)
     {
+        this(columnIds, columnTypes, target, true);
+    }
+
+    @VisibleForTesting
+    OrcFileWriter(List<Long> columnIds, List<Type> columnTypes, File target, boolean writeMetadata)
+    {
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
         checkArgument(columnIds.size() == columnTypes.size(), "ids and types mismatch");
         checkArgument(isUnique(columnIds), "ids must be unique");
@@ -116,7 +123,7 @@ public class OrcFileWriter
         properties.setProperty(META_TABLE_COLUMN_TYPES, Joiner.on(':').join(hiveTypeNames));
 
         serializer = createSerializer(CONFIGURATION, properties);
-        recordWriter = createRecordWriter(new Path(target.toURI()), CONFIGURATION, columnIds, columnTypes);
+        recordWriter = createRecordWriter(new Path(target.toURI()), CONFIGURATION, columnIds, columnTypes, writeMetadata);
 
         tableInspector = getStandardStructObjectInspector(columnNames, getJavaObjectInspectors(storageTypes));
         structFields = ImmutableList.copyOf(tableInspector.getAllStructFieldRefs());
@@ -191,15 +198,18 @@ public class OrcFileWriter
         return serde;
     }
 
-    private static RecordWriter createRecordWriter(Path target, Configuration conf, List<Long> columnIds, List<Type> columnTypes)
+    private static RecordWriter createRecordWriter(Path target, Configuration conf, List<Long> columnIds, List<Type> columnTypes, boolean writeMetadata)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(FileSystem.class.getClassLoader());
                 FileSystem fileSystem = new SyncingFileSystem(CONFIGURATION)) {
             OrcFile.WriterOptions options = new OrcWriterOptions(conf)
                     .memory(new NullMemoryManager(conf))
                     .fileSystem(fileSystem)
-                    .callback(createFileMetadataCallback(columnIds, columnTypes))
                     .compress(SNAPPY);
+
+            if (writeMetadata) {
+                options.callback(createFileMetadataCallback(columnIds, columnTypes));
+            }
 
             return WRITER_CONSTRUCTOR.newInstance(target, options);
         }
