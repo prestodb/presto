@@ -320,8 +320,8 @@ public class QueryMonitor
             return null;
         }
         catch (IOException e) {
-            // StringWriter and LengthLimitedWriter can't throw IOException
-            throw Throwables.propagate(e);
+            log.warn(e, "Unexpected exception");
+            return null;
         }
     }
 
@@ -364,7 +364,7 @@ public class QueryMonitor
         }
 
         public static class LengthLimitExceededException
-                extends RuntimeException
+                extends IOException
         {
         }
     }

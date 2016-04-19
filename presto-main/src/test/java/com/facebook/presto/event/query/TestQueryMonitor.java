@@ -20,6 +20,9 @@ import com.google.common.base.Strings;
 import io.airlift.json.ObjectMapperProvider;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
+import java.util.List;
+
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 
@@ -28,10 +31,17 @@ public class TestQueryMonitor
     @Test
     public void testToJsonWithLengthLimit()
     {
-        TestClass testClass = new TestClass(Strings.repeat("a", 1000));
         ObjectMapper objectMapper = new ObjectMapperProvider().get();
+
+        TestClass testClass = new TestClass(Strings.repeat("a", 1000));
         assertNull(QueryMonitor.toJsonWithLengthLimit(objectMapper, testClass, 1011));
         assertNotNull(QueryMonitor.toJsonWithLengthLimit(objectMapper, testClass, 1012));
+
+        TestClassComplex testClassComplex = new TestClassComplex(Collections.nCopies(10, testClass));
+        // 9000 tests correct handling when the signaling exception is wrapped. 10000 can't catch it.
+        assertNull(QueryMonitor.toJsonWithLengthLimit(objectMapper, testClassComplex, 9000));
+        assertNull(QueryMonitor.toJsonWithLengthLimit(objectMapper, testClassComplex, 10000));
+        assertNotNull(QueryMonitor.toJsonWithLengthLimit(objectMapper, testClassComplex, 10140));
     }
 
     public static class TestClass
@@ -48,6 +58,23 @@ public class TestQueryMonitor
         public String getValue()
         {
             return value;
+        }
+    }
+
+    public static class TestClassComplex
+    {
+        private final List<TestClass> list;
+
+        @JsonCreator
+        public TestClassComplex(@JsonProperty("list") List<TestClass> list)
+        {
+            this.list = list;
+        }
+
+        @JsonProperty
+        public List<TestClass> getList()
+        {
+            return list;
         }
     }
 }
