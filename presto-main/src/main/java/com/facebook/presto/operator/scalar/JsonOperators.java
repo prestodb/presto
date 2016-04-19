@@ -255,11 +255,11 @@ public final class JsonOperators
     public static Slice castFromVarchar(@SqlType(VARCHAR) Slice slice) throws IOException
     {
         try {
-            SliceOutput dynamicSliceOutput = new DynamicSliceOutput(slice.length() + 2);
-            try (JsonGenerator jsonGenerator = JSON_FACTORY.createGenerator(dynamicSliceOutput)) {
+            SliceOutput output = new DynamicSliceOutput(slice.length() + 2);
+            try (JsonGenerator jsonGenerator = JSON_FACTORY.createGenerator(output)) {
                 jsonGenerator.writeString(slice.toStringUtf8());
             }
-            return dynamicSliceOutput.slice();
+            return output.slice();
         }
         catch (IOException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", slice.toStringUtf8(), JSON));
@@ -287,11 +287,11 @@ public final class JsonOperators
     public static Slice castFromBigint(@SqlType(BIGINT) long value) throws IOException
     {
         try {
-            SliceOutput dynamicSliceOutput = new DynamicSliceOutput(20);
-            try (JsonGenerator jsonGenerator = JSON_FACTORY.createGenerator(dynamicSliceOutput)) {
+            SliceOutput output = new DynamicSliceOutput(20);
+            try (JsonGenerator jsonGenerator = JSON_FACTORY.createGenerator(output)) {
                 jsonGenerator.writeNumber(value);
             }
-            return dynamicSliceOutput.slice();
+            return output.slice();
         }
         catch (IOException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
@@ -303,11 +303,11 @@ public final class JsonOperators
     public static Slice castFromDouble(@SqlType(DOUBLE) double value) throws IOException
     {
         try {
-            SliceOutput dynamicSliceOutput = new DynamicSliceOutput(32);
-            try (JsonGenerator jsonGenerator = JSON_FACTORY.createGenerator(dynamicSliceOutput)) {
+            SliceOutput output = new DynamicSliceOutput(32);
+            try (JsonGenerator jsonGenerator = JSON_FACTORY.createGenerator(output)) {
                 jsonGenerator.writeNumber(value);
             }
-            return dynamicSliceOutput.slice();
+            return output.slice();
         }
         catch (IOException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
@@ -319,11 +319,11 @@ public final class JsonOperators
     public static Slice castFromBoolean(@SqlType(BOOLEAN) boolean value) throws IOException
     {
         try {
-            SliceOutput dynamicSliceOutput = new DynamicSliceOutput(5);
-            try (JsonGenerator jsonGenerator = JSON_FACTORY.createGenerator(dynamicSliceOutput)) {
+            SliceOutput output = new DynamicSliceOutput(5);
+            try (JsonGenerator jsonGenerator = JSON_FACTORY.createGenerator(output)) {
                 jsonGenerator.writeBoolean(value);
             }
-            return dynamicSliceOutput.slice();
+            return output.slice();
         }
         catch (IOException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
