@@ -327,7 +327,7 @@ public class TaskContext
         }
 
         long startNanos = this.startNanos.get();
-        if (startNanos < createNanos) {
+        if (startNanos == 0) {
             startNanos = System.nanoTime();
         }
         Duration queuedTime = new Duration(startNanos - createNanos, NANOSECONDS);
