@@ -19,9 +19,12 @@ import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.airlift.json.JsonCodec;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -43,6 +46,7 @@ import static com.facebook.presto.tests.StructuralTestUtil.arrayBlocksEqual;
 import static com.facebook.presto.tests.StructuralTestUtil.mapBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.mapBlocksEqual;
 import static com.google.common.io.Files.createTempDir;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.airlift.testing.FileUtils.deleteRecursively;
@@ -53,6 +57,8 @@ import static org.testng.Assert.assertTrue;
 public class TestShardWriter
 {
     private File directory;
+
+    private static final JsonCodec<OrcFileMetadata> METADATA_CODEC = jsonCodec(OrcFileMetadata.class);
 
     @BeforeClass
     public void setup()
@@ -158,6 +164,18 @@ public class TestShardWriter
             assertEquals(reader.nextBatch(), -1);
             assertEquals(reader.getReaderPosition(), 3);
             assertEquals(reader.getFilePosition(), reader.getFilePosition());
+
+            OrcFileMetadata orcFileMetadata = METADATA_CODEC.fromJson(reader.getUserMetadata().get(OrcFileMetadata.KEY).getBytes());
+            assertEquals(orcFileMetadata, new OrcFileMetadata(ImmutableMap.<Long, TypeSignature>builder()
+                    .put(1L, BIGINT.getTypeSignature())
+                    .put(2L, VARCHAR.getTypeSignature())
+                    .put(4L, VARBINARY.getTypeSignature())
+                    .put(6L, DOUBLE.getTypeSignature())
+                    .put(7L, BOOLEAN.getTypeSignature())
+                    .put(8L, arrayType.getTypeSignature())
+                    .put(9L, mapType.getTypeSignature())
+                    .put(10L, arrayOfArrayType.getTypeSignature())
+                    .build()));
         }
 
         File crcFile = new File(file.getParentFile(), "." + file.getName() + ".crc");

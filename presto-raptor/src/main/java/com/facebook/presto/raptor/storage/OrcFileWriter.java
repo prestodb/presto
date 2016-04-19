@@ -19,11 +19,14 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -46,6 +49,7 @@ import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
+import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -82,6 +86,7 @@ public class OrcFileWriter
 {
     private static final Configuration CONFIGURATION = new Configuration();
     private static final Constructor<? extends RecordWriter> WRITER_CONSTRUCTOR = getOrcWriterConstructor();
+    private static final JsonCodec<OrcFileMetadata> METADATA_CODEC = JsonCodec.jsonCodec(OrcFileMetadata.class);
 
     private final List<Type> columnTypes;
 
@@ -110,7 +115,7 @@ public class OrcFileWriter
         properties.setProperty(META_TABLE_COLUMN_TYPES, Joiner.on(':').join(hiveTypeNames));
 
         serializer = createSerializer(CONFIGURATION, properties);
-        recordWriter = createRecordWriter(new Path(target.toURI()), CONFIGURATION);
+        recordWriter = createRecordWriter(new Path(target.toURI()), CONFIGURATION, columnIds, columnTypes);
 
         tableInspector = getStandardStructObjectInspector(columnNames, getJavaObjectInspectors(storageTypes));
         structFields = ImmutableList.copyOf(tableInspector.getAllStructFieldRefs());
@@ -185,13 +190,14 @@ public class OrcFileWriter
         return serde;
     }
 
-    private static RecordWriter createRecordWriter(Path target, Configuration conf)
+    private static RecordWriter createRecordWriter(Path target, Configuration conf, List<Long> columnIds, List<Type> columnTypes)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(FileSystem.class.getClassLoader());
                 FileSystem fileSystem = new SyncingFileSystem(CONFIGURATION)) {
             OrcFile.WriterOptions options = new OrcWriterOptions(conf)
                     .memory(new NullMemoryManager(conf))
                     .fileSystem(fileSystem)
+                    .callback(createFileMetadataCallback(columnIds, columnTypes))
                     .compress(SNAPPY);
 
             return WRITER_CONSTRUCTOR.newInstance(target, options);
@@ -199,6 +205,29 @@ public class OrcFileWriter
         catch (ReflectiveOperationException | IOException e) {
             throw new PrestoException(RAPTOR_ERROR, "Failed to create writer", e);
         }
+    }
+
+    private static OrcFile.WriterCallback createFileMetadataCallback(final List<Long> columnIds, final List<Type> columnTypes)
+    {
+        return new OrcFile.WriterCallback()
+        {
+            @Override
+            public void preStripeWrite(OrcFile.WriterContext context)
+                    throws IOException
+            {}
+
+            @Override
+            public void preFooterWrite(OrcFile.WriterContext context)
+                    throws IOException
+            {
+                ImmutableMap.Builder<Long, TypeSignature> columnTypesMap = ImmutableMap.builder();
+                for (int i = 0; i < columnIds.size(); i++) {
+                    columnTypesMap.put(columnIds.get(i), columnTypes.get(i).getTypeSignature());
+                }
+                byte[] bytes = METADATA_CODEC.toJsonBytes(new OrcFileMetadata(columnTypesMap.build()));
+                context.getWriter().addUserMetadata(OrcFileMetadata.KEY, ByteBuffer.wrap(bytes));
+            }
+        };
     }
 
     private static Constructor<? extends RecordWriter> getOrcWriterConstructor()
