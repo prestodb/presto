@@ -14,12 +14,20 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.OrcTester.TempFile;
+import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.IntegerStatistics;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.spi.block.Block;
+import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
+import org.apache.hadoop.hive.ql.io.orc.NullMemoryManager;
+import org.apache.hadoop.hive.ql.io.orc.OrcFile;
 import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
+import org.apache.hadoop.hive.ql.io.orc.OrcWriterOptions;
 import org.apache.hadoop.hive.ql.io.orc.Writer;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.Serializer;
@@ -31,12 +39,16 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.nio.ByteBuffer;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
 import static com.facebook.presto.orc.OrcTester.createCustomOrcRecordReader;
 import static com.facebook.presto.orc.OrcTester.createOrcRecordWriter;
 import static com.facebook.presto.orc.OrcTester.createSettableStructObjectInspector;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static org.apache.hadoop.hive.ql.io.orc.CompressionKind.SNAPPY;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaLongObjectInspector;
 import static org.testng.Assert.assertEquals;
 
@@ -160,6 +172,30 @@ public class TestOrcReaderPositions
         }
     }
 
+    @Test
+    public void testReadUserMetadata()
+            throws Exception
+    {
+        try (TempFile tempFile = new TempFile()) {
+            Map<String, String> metadata = ImmutableMap.of(
+                    "a", "ala",
+                    "b", "ma",
+                    "c", "kota"
+            );
+            createFileWithJustUserMetadata(tempFile.getFile(), metadata);
+
+            OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), new DataSize(1, DataSize.Unit.MEGABYTE), new DataSize(1, DataSize.Unit.MEGABYTE), new DataSize(1, DataSize.Unit.MEGABYTE));
+            OrcReader orcReader = new OrcReader(orcDataSource, new OrcMetadataReader(), new DataSize(1, DataSize.Unit.MEGABYTE), new DataSize(1, DataSize.Unit.MEGABYTE));
+            Footer footer = orcReader.getFooter();
+
+            Map<String, String> readMetadata = footer.getUserMetadata().entrySet().stream().collect(Collectors.toMap(
+                    Map.Entry::getKey,
+                    entry -> entry.getValue().toStringAscii()
+            ));
+            assertEquals(readMetadata, metadata);
+        }
+    }
+
     private static void assertCurrentBatch(OrcRecordReader reader, int stripe)
             throws IOException
     {
@@ -191,6 +227,34 @@ public class TestOrcReaderPositions
         }
 
         writer.close(false);
+    }
+
+    private static void createFileWithJustUserMetadata(File file, Map<String, String> metadata)
+            throws IOException
+    {
+        Configuration conf = new Configuration();
+        OrcFile.WriterOptions writerOptions = new OrcWriterOptions(conf)
+                .memory(new NullMemoryManager(conf))
+                .inspector(createSettableStructObjectInspector("test", javaLongObjectInspector))
+                .callback(new OrcFile.WriterCallback()
+                {
+                    @Override
+                    public void preStripeWrite(OrcFile.WriterContext context)
+                            throws IOException
+                    {}
+
+                    @Override
+                    public void preFooterWrite(OrcFile.WriterContext context)
+                            throws IOException
+                    {
+                        for (Map.Entry<String, String> entry : metadata.entrySet()) {
+                            context.getWriter().addUserMetadata(entry.getKey(), ByteBuffer.wrap(entry.getValue().getBytes()));
+                        }
+                    }
+                })
+                .compress(SNAPPY);
+        Writer writer = OrcFile.createWriter(new Path("file://" + file.getPath()), writerOptions);
+        writer.close();
     }
 
     private static void flushWriter(FileSinkOperator.RecordWriter writer)
