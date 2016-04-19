@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -321,13 +322,31 @@ public class TypeSignature
 
         TypeSignature other = (TypeSignature) o;
 
+        // TODO remove this hack together with hack from toString()
+        if (magicVarcharEquals(other, this)) {
+            return true;
+        }
+
         return Objects.equals(this.base.toLowerCase(Locale.ENGLISH), other.base.toLowerCase(Locale.ENGLISH)) &&
                 Objects.equals(this.parameters, other.parameters);
+    }
+
+    private boolean magicVarcharEquals(TypeSignature b, TypeSignature a)
+    {
+        // `varchar` and `varchar(MAX_LONG)` are equivalent
+        return this.getBase().equals(StandardTypes.VARCHAR)
+                && b.getBase().equals(StandardTypes.VARCHAR)
+                && ((a.getParameters().isEmpty() && b.getParameters().equals(Arrays.asList(TypeSignatureParameter.of(VarcharType.MAX_LENGTH))))
+                || (b.getParameters().isEmpty() && this.getParameters().equals(Arrays.asList(TypeSignatureParameter.of(VarcharType.MAX_LENGTH)))));
     }
 
     @Override
     public int hashCode()
     {
+        // TODO remove this hack together with hack from toString()
+        if (getBase().equals(StandardTypes.VARCHAR) && parameters.isEmpty()) {
+            return VarcharType.createUnboundedVarcharType().getTypeSignature().hashCode();
+        }
         return Objects.hash(base.toLowerCase(Locale.ENGLISH), parameters);
     }
 }
