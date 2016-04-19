@@ -5,6 +5,7 @@ Release 0.145
 General Changes
 ---------------
 
+* Fix potential memory leak in coordinator query history.
 * Add support for the ``integer`` type to the Presto engine and the Hive,
   Raptor, Redis, Kafka, Cassandra and example-http connectors.
 * Add ``driver.max-page-partitioning-buffer-size`` config to control buffer size
