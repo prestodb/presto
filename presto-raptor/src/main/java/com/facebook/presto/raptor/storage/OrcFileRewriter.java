@@ -21,6 +21,7 @@ import io.airlift.log.Logger;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.ql.io.orc.OrcFile;
 import org.apache.hadoop.hive.ql.io.orc.OrcFile.WriterOptions;
 import org.apache.hadoop.hive.ql.io.orc.OrcStruct;
 import org.apache.hadoop.hive.ql.io.orc.Reader;
@@ -35,6 +36,7 @@ import org.apache.hadoop.io.Text;
 import java.io.File;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.List;
 import java.util.Map;
@@ -78,6 +80,23 @@ public final class OrcFileRewriter
             WriterOptions writerOptions = writerOptions(CONFIGURATION)
                     .fileSystem(fileSystem)
                     .compress(reader.getCompression())
+                    .callback(new OrcFile.WriterCallback()
+                    {
+                        @Override
+                        public void preStripeWrite(OrcFile.WriterContext context)
+                                throws IOException
+                        {}
+
+                        @Override
+                        public void preFooterWrite(OrcFile.WriterContext context)
+                                throws IOException
+                        {
+                            if (reader.hasMetadataValue(OrcFileMetadata.KEY)) {
+                                ByteBuffer orcFileMetadata = reader.getMetadataValue(OrcFileMetadata.KEY);
+                                context.getWriter().addUserMetadata(OrcFileMetadata.KEY, orcFileMetadata);
+                            }
+                        }
+                    })
                     .inspector(reader.getObjectInspector());
 
             long start = System.nanoTime();

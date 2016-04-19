@@ -19,9 +19,11 @@ import com.facebook.presto.raptor.storage.OrcFileRewriter.OrcFileInfo;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -159,6 +161,16 @@ public class TestOrcFileRewriter
             assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column4, 4), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 9, 10))));
 
             assertEquals(reader.nextBatch(), -1);
+
+            OrcFileMetadata orcFileMetadata = orcFileMetadataCodec.fromJson(reader.getUserMetadata().get(OrcFileMetadata.KEY).getBytes());
+            assertEquals(orcFileMetadata, new OrcFileMetadata(ImmutableMap.<Long, TypeSignature>builder()
+                    .put(3L, BIGINT.getTypeSignature())
+                    .put(7L, VARCHAR.getTypeSignature())
+                    .put(9L, arrayType.getTypeSignature())
+                    .put(10L, mapType.getTypeSignature())
+                    .put(11L, arrayOfArrayType.getTypeSignature())
+                    .build()
+            ));
         }
 
         BitSet rowsToDelete = new BitSet(5);
@@ -221,6 +233,16 @@ public class TestOrcFileRewriter
             assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column4, 1), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 7))));
 
             assertEquals(reader.nextBatch(), -1);
+
+            OrcFileMetadata orcFileMetadata = orcFileMetadataCodec.fromJson(reader.getUserMetadata().get(OrcFileMetadata.KEY).getBytes());
+            assertEquals(orcFileMetadata, new OrcFileMetadata(ImmutableMap.<Long, TypeSignature>builder()
+                    .put(3L, BIGINT.getTypeSignature())
+                    .put(7L, VARCHAR.getTypeSignature())
+                    .put(9L, arrayType.getTypeSignature())
+                    .put(10L, mapType.getTypeSignature())
+                    .put(11L, arrayOfArrayType.getTypeSignature())
+                    .build()
+            ));
         }
     }
 
@@ -293,4 +315,3 @@ public class TestOrcFileRewriter
         assertEquals(info.getUncompressedSize(), 55);
     }
 }
-
