@@ -27,7 +27,6 @@ import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
@@ -59,6 +58,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.airlift.testing.FileUtils.createTempDir;
 import static io.airlift.testing.FileUtils.deleteRecursively;
 import static java.lang.String.format;
@@ -122,7 +122,7 @@ public class HiveFileFormatBenchmark
         columnNames = columns.stream().map(LineItemColumn::getColumnName).collect(toList());
         columnTypes = columns.stream().map(HiveFileFormatBenchmark::getColumnType).collect(toList());
         noDateColumnTypes = columnTypes.stream()
-                .map(type -> DateType.DATE.equals(type) ? VarcharType.VARCHAR : type)
+                .map(type -> DateType.DATE.equals(type) ? createUnboundedVarcharType() : type)
                 .collect(toList());
         columns.stream().map(HiveFileFormatBenchmark::getColumnType).collect(toList());
         PageBuilder pageBuilder = new PageBuilder(columnTypes);
@@ -146,15 +146,15 @@ public class HiveFileFormatBenchmark
                         break;
                     case DATE:
                         DateType.DATE.writeLong(blockBuilder, column.getDate(lineItem));
-                        VarcharType.VARCHAR.writeString(noDateBlockBuilder, column.getString(lineItem));
+                        createUnboundedVarcharType().writeString(noDateBlockBuilder, column.getString(lineItem));
                         break;
                     case DOUBLE:
                         DoubleType.DOUBLE.writeDouble(blockBuilder, column.getDouble(lineItem));
                         DoubleType.DOUBLE.writeDouble(noDateBlockBuilder, column.getDouble(lineItem));
                         break;
                     case VARCHAR:
-                        VarcharType.VARCHAR.writeSlice(blockBuilder, Slices.utf8Slice(column.getString(lineItem)));
-                        VarcharType.VARCHAR.writeSlice(noDateBlockBuilder, Slices.utf8Slice(column.getString(lineItem)));
+                        createUnboundedVarcharType().writeSlice(blockBuilder, Slices.utf8Slice(column.getString(lineItem)));
+                        createUnboundedVarcharType().writeSlice(noDateBlockBuilder, Slices.utf8Slice(column.getString(lineItem)));
                         break;
                     default:
                         throw new IllegalArgumentException("Unsupported type " + column.getType());
@@ -238,7 +238,7 @@ public class HiveFileFormatBenchmark
             case DOUBLE:
                 return DoubleType.DOUBLE;
             case VARCHAR:
-                return VarcharType.VARCHAR;
+                return createUnboundedVarcharType();
         }
         throw new IllegalArgumentException("Unsupported type " + input.getType());
     }

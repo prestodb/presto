@@ -53,7 +53,7 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Maps.immutableEntry;
@@ -133,7 +133,7 @@ final class HiveBucketing
                         long doubleValue = doubleToLongBits(DOUBLE.getDouble(block, position));
                         return (int) ((doubleValue >>> 32) ^ doubleValue);
                     case STRING:
-                        return hashBytes(0, VARCHAR.getSlice(block, position));
+                        return hashBytes(0, createUnboundedVarcharType().getSlice(block, position));
                     case DATE:
                         // day offset from 1970-01-01
                         long days = DATE.getLong(block, position);

@@ -29,7 +29,7 @@ import static com.facebook.presto.spi.predicate.Range.range;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 
@@ -94,13 +94,13 @@ public class TestTupleDomainParquetPredicate
     public void testString()
             throws Exception
     {
-        assertEquals(getDomain(VARCHAR, 0, null), all(VARCHAR));
+        assertEquals(getDomain(createUnboundedVarcharType(), 0, null), all(createUnboundedVarcharType()));
 
-        assertEquals(getDomain(VARCHAR, 10, stringColumnStats("taco", "taco")), singleValue(VARCHAR, utf8Slice("taco")));
+        assertEquals(getDomain(createUnboundedVarcharType(), 10, stringColumnStats("taco", "taco")), singleValue(createUnboundedVarcharType(), utf8Slice("taco")));
 
-        assertEquals(getDomain(VARCHAR, 10, stringColumnStats("apple", "taco")), create(ValueSet.ofRanges(range(VARCHAR, utf8Slice("apple"), true, utf8Slice("taco"), true)), false));
+        assertEquals(getDomain(createUnboundedVarcharType(), 10, stringColumnStats("apple", "taco")), create(ValueSet.ofRanges(range(createUnboundedVarcharType(), utf8Slice("apple"), true, utf8Slice("taco"), true)), false));
 
-        assertEquals(getDomain(VARCHAR, 10, stringColumnStats("中国", "美利坚")), create(ValueSet.ofRanges(range(VARCHAR, utf8Slice("中国"), true, utf8Slice("美利坚"), true)), false));
+        assertEquals(getDomain(createUnboundedVarcharType(), 10, stringColumnStats("中国", "美利坚")), create(ValueSet.ofRanges(range(createUnboundedVarcharType(), utf8Slice("中国"), true, utf8Slice("美利坚"), true)), false));
     }
 
     private static BinaryStatistics stringColumnStats(String minimum, String maximum)

@@ -71,7 +71,7 @@ import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.tests.StructuralTestUtil.arrayBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.rowBlockOf;
 import static com.google.common.base.Predicates.not;
@@ -259,9 +259,9 @@ public class TestHiveFileFormats
     public void testParquetThrift(int rowCount)
             throws Exception
     {
-        RowType nameType = new RowType(ImmutableList.of(VARCHAR, VARCHAR), Optional.empty());
-        RowType phoneType = new RowType(ImmutableList.of(VARCHAR, VARCHAR), Optional.empty());
-        RowType personType = new RowType(ImmutableList.of(nameType, INTEGER, VARCHAR, new ArrayType(phoneType)), Optional.empty());
+        RowType nameType = new RowType(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType()), Optional.empty());
+        RowType phoneType = new RowType(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType()), Optional.empty());
+        RowType personType = new RowType(ImmutableList.of(nameType, INTEGER, createUnboundedVarcharType(), new ArrayType(phoneType)), Optional.empty());
 
         List<TestColumn> testColumns = ImmutableList.of(
                 new TestColumn(
@@ -287,11 +287,11 @@ public class TestHiveFileFormats
                         ),
                         null,
                         arrayBlockOf(personType,
-                                rowBlockOf(ImmutableList.of(nameType, INTEGER, VARCHAR, new ArrayType(phoneType)),
-                                        rowBlockOf(ImmutableList.of(VARCHAR, VARCHAR), "Bob", "Roberts"),
+                                rowBlockOf(ImmutableList.of(nameType, INTEGER, createUnboundedVarcharType(), new ArrayType(phoneType)),
+                                        rowBlockOf(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType()), "Bob", "Roberts"),
                                         0,
                                         "bob.roberts@example.com",
-                                        arrayBlockOf(phoneType, rowBlockOf(ImmutableList.of(VARCHAR, VARCHAR), "1234567890", null))
+                                        arrayBlockOf(phoneType, rowBlockOf(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType()), "1234567890", null))
                                 )
                         )
                 )

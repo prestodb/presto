@@ -23,7 +23,7 @@ import javax.inject.Inject;
 import java.util.List;
 
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionProperty;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 
 public final class HiveSessionProperties
 {
@@ -135,7 +135,7 @@ public final class HiveSessionProperties
         return new PropertyMetadata<>(
                 name,
                 description,
-                VARCHAR,
+                createUnboundedVarcharType(),
                 DataSize.class,
                 defaultValue,
                 hidden,

@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Locale.ENGLISH;
 
 public class HiveTableProperties
@@ -47,7 +47,7 @@ public class HiveTableProperties
                 new PropertyMetadata<>(
                         STORAGE_FORMAT_PROPERTY,
                         "Hive storage format for the table",
-                        VARCHAR,
+                        createUnboundedVarcharType(),
                         HiveStorageFormat.class,
                         config.getHiveStorageFormat(),
                         false,
@@ -55,7 +55,7 @@ public class HiveTableProperties
                 new PropertyMetadata<>(
                         PARTITIONED_BY_PROPERTY,
                         "Partition columns",
-                        typeManager.getParameterizedType(ARRAY, ImmutableList.of(VARCHAR.getTypeSignature()), ImmutableList.of()),
+                        typeManager.getParameterizedType(ARRAY, ImmutableList.of(createUnboundedVarcharType().getTypeSignature()), ImmutableList.of()),
                         List.class,
                         ImmutableList.of(),
                         false,
@@ -65,7 +65,7 @@ public class HiveTableProperties
                 new PropertyMetadata<>(
                         CLUSTERED_BY_PROPERTY,
                         "Bucketing columns",
-                        typeManager.getParameterizedType(ARRAY, ImmutableList.of(VARCHAR.getTypeSignature()), ImmutableList.of()),
+                        typeManager.getParameterizedType(ARRAY, ImmutableList.of(createUnboundedVarcharType().getTypeSignature()), ImmutableList.of()),
                         List.class,
                         ImmutableList.of(),
                         false,

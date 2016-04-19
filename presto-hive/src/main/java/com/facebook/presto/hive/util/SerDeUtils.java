@@ -25,7 +25,6 @@ import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.slice.Slices;
 import org.apache.hadoop.hive.serde2.io.DateWritable;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
@@ -57,7 +56,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
+import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -75,7 +74,7 @@ public final class SerDeUtils
     {
         switch (inspector.getCategory()) {
             case PRIMITIVE:
-                serializePrimitive(builder, object, (PrimitiveObjectInspector) inspector);
+                serializePrimitive(type, builder, object, (PrimitiveObjectInspector) inspector);
                 return null;
             case LIST:
                 return serializeList(type, builder, object, (ListObjectInspector) inspector);
@@ -87,7 +86,7 @@ public final class SerDeUtils
         throw new RuntimeException("Unknown object inspector category: " + inspector.getCategory());
     }
 
-    private static void serializePrimitive(BlockBuilder builder, Object object, PrimitiveObjectInspector inspector)
+    private static void serializePrimitive(Type type, BlockBuilder builder, Object object, PrimitiveObjectInspector inspector)
     {
         requireNonNull(builder, "parent builder is null");
 
@@ -119,10 +118,10 @@ public final class SerDeUtils
                 DoubleType.DOUBLE.writeDouble(builder, ((DoubleObjectInspector) inspector).get(object));
                 return;
             case STRING:
-                VarcharType.VARCHAR.writeSlice(builder, Slices.utf8Slice(((StringObjectInspector) inspector).getPrimitiveJavaObject(object)));
+                type.writeSlice(builder, Slices.utf8Slice(((StringObjectInspector) inspector).getPrimitiveJavaObject(object)));
                 return;
             case VARCHAR:
-                VarcharType.VARCHAR.writeSlice(builder, Slices.utf8Slice(((HiveVarcharObjectInspector) inspector).getPrimitiveJavaObject(object).getValue()));
+                type.writeSlice(builder, Slices.utf8Slice(((HiveVarcharObjectInspector) inspector).getPrimitiveJavaObject(object).getValue()));
                 return;
             case DATE:
                 DateType.DATE.writeLong(builder, formatDateAsLong(object, (DateObjectInspector) inspector));
@@ -134,8 +133,7 @@ public final class SerDeUtils
                 VARBINARY.writeSlice(builder, Slices.wrappedBuffer(((BinaryObjectInspector) inspector).getPrimitiveJavaObject(object)));
                 return;
             case DECIMAL:
-                // TODO: optimize so Type doesn't have to be instantiated
-                DecimalType decimalType = createDecimalType(inspector.precision(), inspector.scale());
+                DecimalType decimalType = checkType(type, DecimalType.class, "type");
                 HiveDecimalWritable hiveDecimal = ((HiveDecimalObjectInspector) inspector).getPrimitiveWritableObject(object);
                 if (decimalType.isShort()) {
                     decimalType.writeLong(builder, DecimalUtils.getShortDecimalValue(hiveDecimal, decimalType.getScale()));
