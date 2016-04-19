@@ -33,6 +33,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
 
@@ -49,6 +50,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
 import static com.facebook.presto.orc.OrcRecordReader.LinearProbeRangeFinder.createTinyStripesRangeFinder;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.Slices.copyOf;
 import static java.util.Comparator.comparingLong;
 import static java.util.Objects.requireNonNull;
 
@@ -78,6 +80,8 @@ public class OrcRecordReader
     private long currentGroupRowCount;
     private long nextRowInGroup;
 
+    private final Map<String, Slice> userMetadata;
+
     private final AbstractAggregatedMemoryContext systemMemoryUsage;
 
     public OrcRecordReader(
@@ -98,6 +102,7 @@ public class OrcRecordReader
             MetadataReader metadataReader,
             DataSize maxMergeDistance,
             DataSize maxReadSize,
+            Map<String, Slice> userMetadata,
             AbstractAggregatedMemoryContext systemMemoryUsage)
             throws IOException
     {
@@ -167,6 +172,10 @@ public class OrcRecordReader
                 .map(StripeInfo::getStripe)
                 .mapToLong(StripeInformation::getNumberOfRows)
                 .sum();
+
+        this.userMetadata = ImmutableMap.copyOf(requireNonNull(userMetadata, "userMetadata is null").entrySet().stream().collect(Collectors.toMap(
+                Map.Entry::getKey,
+                entry -> copyOf(entry.getValue()))));
 
         this.systemMemoryUsage = requireNonNull(systemMemoryUsage, "systemMemoryUsage is null").newAggregatedMemoryContext();
         this.currentStripeSystemMemoryContext = systemMemoryUsage.newAggregatedMemoryContext();
@@ -315,6 +324,11 @@ public class OrcRecordReader
     {
         checkArgument(index < streamReaders.length, "index does not exist");
         return streamReaders[index];
+    }
+
+    public Map<String, Slice> getUserMetadata()
+    {
+        return userMetadata;
     }
 
     private boolean advanceToNextRowGroup()
