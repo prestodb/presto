@@ -22,11 +22,13 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.google.common.collect.Lists.transform;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -188,6 +190,10 @@ public class TestTypeSignature
     {
         assertEquals(VARCHAR.getTypeSignature().toString(), "varchar");
         assertEquals(createVarcharType(42).getTypeSignature().toString(), "varchar(42)");
+        assertEquals(parseTypeSignature("varchar"), createUnboundedVarcharType().getTypeSignature());
+        assertEquals(createUnboundedVarcharType().getTypeSignature(), parseTypeSignature("varchar"));
+        assertEquals(parseTypeSignature("varchar").hashCode(), createUnboundedVarcharType().getTypeSignature().hashCode());
+        assertNotEquals(createUnboundedVarcharType().getTypeSignature(), parseTypeSignature("varchar(10)"));
     }
 
     @Test
