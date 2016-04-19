@@ -60,7 +60,7 @@ public class TestExecuteResource
             throws Exception
     {
         String expected = "{\"columns\":[" +
-                "{\"name\":\"foo\",\"type\":\"bigint\",\"typeSignature\":{\"rawType\":\"bigint\",\"arguments\":[],\"typeArguments\":[],\"literalArguments\":[]}}," +
+                "{\"name\":\"foo\",\"type\":\"integer\",\"typeSignature\":{\"rawType\":\"bigint\",\"arguments\":[],\"typeArguments\":[],\"literalArguments\":[]}}," +
                 "{\"name\":\"bar\",\"type\":\"varchar(3)\",\"typeSignature\":" +
                     "{\"rawType\":\"varchar\",\"arguments\":[{\"kind\":\"LONG_LITERAL\",\"value\":3}],\"typeArguments\":[],\"literalArguments\":[]}}," +
                 "{\"name\":\"baz\",\"type\":\"array(bigint)\",\"typeSignature\":" +

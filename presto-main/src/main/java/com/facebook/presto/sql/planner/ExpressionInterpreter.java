@@ -96,6 +96,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
@@ -124,6 +125,8 @@ public class ExpressionInterpreter
     // identity-based cache for LIKE expressions with constant pattern and escape char
     private final IdentityHashMap<LikePredicate, Regex> likePatternCache = new IdentityHashMap<>();
     private final IdentityHashMap<InListExpression, Set<?>> inListCache = new IdentityHashMap<>();
+
+    private static final Set<Type> AMBIGUOUS_LITERAL_TYPES = ImmutableSet.of(BIGINT);
 
     public static ExpressionInterpreter expressionInterpreter(Expression expression, Metadata metadata, Session session, IdentityHashMap<Expression, Type> expressionTypes)
     {
@@ -956,6 +959,11 @@ public class ExpressionInterpreter
             Type type = metadata.getType(parseTypeSignature(node.getType()));
             if (type == null) {
                 throw new IllegalArgumentException("Unsupported type: " + node.getType());
+            }
+
+            // hack!!! don't optimize casts when the type information resulting from processing expressions with literals will be incorrect
+            if (optimize && AMBIGUOUS_LITERAL_TYPES.contains(type)) {
+                return node;
             }
 
             Signature operator = metadata.getFunctionRegistry().getCoercion(expressionTypes.get(node.getExpression()), type);

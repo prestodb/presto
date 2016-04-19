@@ -579,6 +579,11 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitLongLiteral(LongLiteral node, StackableAstVisitorContext<AnalysisContext> context)
         {
+            if (node.getValue() > Integer.MIN_VALUE && node.getValue() < Integer.MAX_VALUE) {
+                expressionTypes.put(node, INTEGER);
+                return INTEGER;
+            }
+
             expressionTypes.put(node, BIGINT);
             return BIGINT;
         }
@@ -707,14 +712,14 @@ public class ExpressionAnalyzer
 
                     if (frame.getStart().getValue().isPresent()) {
                         Type type = process(frame.getStart().getValue().get(), context);
-                        if (!type.equals(BIGINT)) {
+                        if (!(type.equals(BIGINT) || type.equals(INTEGER))) {
                             throw new SemanticException(TYPE_MISMATCH, node, "Window frame start value type must be BIGINT (actual %s)", type);
                         }
                     }
 
                     if (frame.getEnd().isPresent() && frame.getEnd().get().getValue().isPresent()) {
                         Type type = process(frame.getEnd().get().getValue().get(), context);
-                        if (!type.equals(BIGINT)) {
+                        if (!(type.equals(BIGINT) || type.equals(INTEGER))) {
                             throw new SemanticException(TYPE_MISMATCH, node, "Window frame end value type must be BIGINT (actual %s)", type);
                         }
                     }
