@@ -19,9 +19,12 @@ import com.facebook.presto.raptor.storage.OrcFileRewriter.OrcFileInfo;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.airlift.json.JsonCodec;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -43,6 +46,7 @@ import static com.facebook.presto.tests.StructuralTestUtil.arrayBlocksEqual;
 import static com.facebook.presto.tests.StructuralTestUtil.mapBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.mapBlocksEqual;
 import static com.google.common.io.Files.createTempDir;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.FileUtils.deleteRecursively;
 import static java.nio.file.Files.readAllBytes;
@@ -54,6 +58,8 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestOrcFileRewriter
 {
+    private static final JsonCodec<OrcFileMetadata> METADATA_CODEC = jsonCodec(OrcFileMetadata.class);
+
     private File temporary;
 
     @BeforeClass
@@ -157,6 +163,16 @@ public class TestOrcFileRewriter
             assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column4, 4), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 9, 10))));
 
             assertEquals(reader.nextBatch(), -1);
+
+            OrcFileMetadata orcFileMetadata = METADATA_CODEC.fromJson(reader.getUserMetadata().get(OrcFileMetadata.KEY).getBytes());
+            assertEquals(orcFileMetadata, new OrcFileMetadata(ImmutableMap.<Long, TypeSignature>builder()
+                    .put(3L, BIGINT.getTypeSignature())
+                    .put(7L, VARCHAR.getTypeSignature())
+                    .put(9L, arrayType.getTypeSignature())
+                    .put(10L, mapType.getTypeSignature())
+                    .put(11L, arrayOfArrayType.getTypeSignature())
+                    .build()
+            ));
         }
 
         BitSet rowsToDelete = new BitSet(5);
@@ -219,6 +235,16 @@ public class TestOrcFileRewriter
             assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column4, 1), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 7))));
 
             assertEquals(reader.nextBatch(), -1);
+
+            OrcFileMetadata orcFileMetadata = METADATA_CODEC.fromJson(reader.getUserMetadata().get(OrcFileMetadata.KEY).getBytes());
+            assertEquals(orcFileMetadata, new OrcFileMetadata(ImmutableMap.<Long, TypeSignature>builder()
+                    .put(3L, BIGINT.getTypeSignature())
+                    .put(7L, VARCHAR.getTypeSignature())
+                    .put(9L, arrayType.getTypeSignature())
+                    .put(10L, mapType.getTypeSignature())
+                    .put(11L, arrayOfArrayType.getTypeSignature())
+                    .build()
+            ));
         }
     }
 

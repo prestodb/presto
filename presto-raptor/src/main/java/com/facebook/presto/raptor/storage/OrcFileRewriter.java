@@ -35,6 +35,7 @@ import org.apache.hadoop.io.Text;
 import java.io.File;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.List;
 import java.util.Map;
@@ -83,6 +84,10 @@ public final class OrcFileRewriter
             long start = System.nanoTime();
             try (Closer<RecordReader, IOException> recordReader = closer(reader.rows(), RecordReader::close);
                     Closer<Writer, IOException> writer = closer(createWriter(path(output), writerOptions), Writer::close)) {
+                if (reader.hasMetadataValue(OrcFileMetadata.KEY)) {
+                    ByteBuffer orcFileMetadata = reader.getMetadataValue(OrcFileMetadata.KEY);
+                    writer.get().addUserMetadata(OrcFileMetadata.KEY, orcFileMetadata);
+                }
                 OrcFileInfo fileInfo = rewrite(recordReader.get(), writer.get(), rowsToDelete, inputRowCount);
                 log.debug("Rewrote file %s in %s (input rows: %s, output rows: %s)", input.getName(), nanosSince(start), inputRowCount, inputRowCount - deleteRowCount);
                 return fileInfo;
