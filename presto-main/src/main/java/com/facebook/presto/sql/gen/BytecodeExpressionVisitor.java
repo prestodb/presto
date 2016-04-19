@@ -17,14 +17,12 @@ import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.Scope;
-import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
 
-import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
@@ -51,7 +49,6 @@ public class BytecodeExpressionVisitor
     private final CachedInstanceBinder cachedInstanceBinder;
     private final RowExpressionVisitor<Scope, BytecodeNode> fieldReferenceCompiler;
     private final FunctionRegistry registry;
-    private final List<? extends Variable> expressionInputs;
     private final Map<CallExpression, MethodDefinition> tryExpressionsMap;
 
     public BytecodeExpressionVisitor(
@@ -59,14 +56,12 @@ public class BytecodeExpressionVisitor
             CachedInstanceBinder cachedInstanceBinder,
             RowExpressionVisitor<Scope, BytecodeNode> fieldReferenceCompiler,
             FunctionRegistry registry,
-            List<? extends Variable> expressionInputs,
             Map<CallExpression, MethodDefinition> tryExpressionsMap)
     {
         this.callSiteBinder = callSiteBinder;
         this.cachedInstanceBinder = cachedInstanceBinder;
         this.fieldReferenceCompiler = fieldReferenceCompiler;
         this.registry = registry;
-        this.expressionInputs = expressionInputs;
         this.tryExpressionsMap = tryExpressionsMap;
     }
 
@@ -92,7 +87,7 @@ public class BytecodeExpressionVisitor
                     generator = new SwitchCodeGenerator();
                     break;
                 case TRY:
-                    generator = new TryCodeGenerator(tryExpressionsMap, expressionInputs);
+                    generator = new TryCodeGenerator(tryExpressionsMap);
                     break;
                 // functions that take null as input
                 case IS_NULL:
