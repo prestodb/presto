@@ -47,7 +47,7 @@ public class TypedSet
 
     public TypedSet(Type elementType, int expectedSize)
     {
-        checkArgument(expectedSize > 0, "expectedSize must be > 0");
+        checkArgument(expectedSize >= 0, "expectedSize must not be negative");
         this.elementType = requireNonNull(elementType, "elementType must not be null");
         this.elementBlock = elementType.createBlockBuilder(new BlockBuilderStatus(), expectedSize);
 

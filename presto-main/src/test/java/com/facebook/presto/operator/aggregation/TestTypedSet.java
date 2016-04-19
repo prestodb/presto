@@ -36,11 +36,11 @@ public class TestTypedSet
     public void testConstructor()
             throws Exception
     {
-        for (int i = -2; i <= 0; i++) {
+        for (int i = -2; i <= -1; i++) {
             try {
                 //noinspection ResultOfObjectAllocationIgnored
                 new TypedSet(BIGINT, i);
-                fail("Should throw exception if expectedSize <= 0");
+                fail("Should throw exception if expectedSize < 0");
             }
             catch (IllegalArgumentException e) {
                 // ignored
