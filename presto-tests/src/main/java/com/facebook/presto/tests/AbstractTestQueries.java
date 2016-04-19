@@ -4313,6 +4313,14 @@ public abstract class AbstractTestQueries
                 "SELECT SUM(CASE WHEN CAST(round(totalprice/100) AS BIGINT) BETWEEN 2 AND 36 THEN 1 ELSE 0 END) FROM orders");
     }
 
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Q/ by zero\\E.*")
+    public void testTryNoMergeProjections()
+        throws Exception
+    {
+        computeActual(
+                "SELECT TRY(x) FROM (SELECT 1/y as x FROM (VALUES 1, 2, 3, 0, 4) t(y))");
+    }
+
     @Test
     public void testNoFrom()
             throws Exception
