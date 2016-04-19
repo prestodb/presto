@@ -222,7 +222,7 @@ public class TaskManagerConfig
     @NotNull
     public DataSize getMaxPagePartitioningBufferSize()
     {
-        return sinkMaxBufferSize;
+        return maxPagePartitioningBufferSize;
     }
 
     @Config("driver.max-page-partitioning-buffer-size")

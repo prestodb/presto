@@ -97,7 +97,7 @@ public class TestTaskManagerConfig
                 .setInfoMaxAge(new Duration(22, TimeUnit.MINUTES))
                 .setClientTimeout(new Duration(10, TimeUnit.SECONDS))
                 .setSinkMaxBufferSize(new DataSize(42, Unit.MEGABYTE))
-                .setMaxPagePartitioningBufferSize(new DataSize(42, Unit.MEGABYTE))
+                .setMaxPagePartitioningBufferSize(new DataSize(40, Unit.MEGABYTE))
                 .setWriterCount(3)
                 .setTaskDefaultConcurrency(7)
                 .setTaskJoinConcurrency(8)
