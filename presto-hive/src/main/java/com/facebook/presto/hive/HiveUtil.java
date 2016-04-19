@@ -78,16 +78,6 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALU
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_SERDE_NOT_FOUND;
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
-import static com.facebook.presto.hive.HiveType.HIVE_BOOLEAN;
-import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
-import static com.facebook.presto.hive.HiveType.HIVE_DATE;
-import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;
-import static com.facebook.presto.hive.HiveType.HIVE_FLOAT;
-import static com.facebook.presto.hive.HiveType.HIVE_INT;
-import static com.facebook.presto.hive.HiveType.HIVE_LONG;
-import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
-import static com.facebook.presto.hive.HiveType.HIVE_STRING;
-import static com.facebook.presto.hive.HiveType.HIVE_TIMESTAMP;
 import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -98,15 +88,12 @@ import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Lists.transform;
-import static io.airlift.slice.Slices.utf8Slice;
-import static java.lang.Boolean.parseBoolean;
 import static java.lang.Double.parseDouble;
 import static java.lang.Integer.parseInt;
 import static java.lang.Long.parseLong;
@@ -367,97 +354,91 @@ public final class HiveUtil
         return bytes.length == 2 && bytes[0] == '\\' && bytes[1] == 'N';
     }
 
-    public static NullableValue parsePartitionValue(String partitionName, String value, HiveType hiveType, DateTimeZone timeZone)
+    public static NullableValue parsePartitionValue(String partitionName, String value, Type type, DateTimeZone timeZone)
     {
         boolean isNull = HIVE_DEFAULT_DYNAMIC_PARTITION.equals(value);
 
-        Optional<DecimalType> decimalType = getDecimalType(hiveType);
-        if (decimalType.isPresent()) {
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
             if (isNull) {
-                return NullableValue.asNull(decimalType.get());
+                return NullableValue.asNull(decimalType);
             }
-            if (decimalType.get().isShort()) {
+            if (decimalType.isShort()) {
                 if (value.isEmpty()) {
-                    return NullableValue.of(decimalType.get(), 0L);
+                    return NullableValue.of(decimalType, 0L);
                 }
-                return NullableValue.of(decimalType.get(), shortDecimalPartitionKey(value, decimalType.get(), partitionName));
+                return NullableValue.of(decimalType, shortDecimalPartitionKey(value, decimalType, partitionName));
             }
             else {
                 if (value.isEmpty()) {
-                    return NullableValue.of(decimalType.get(), Decimals.encodeUnscaledValue(BigInteger.ZERO));
+                    return NullableValue.of(decimalType, Decimals.encodeUnscaledValue(BigInteger.ZERO));
                 }
-                return NullableValue.of(decimalType.get(), longDecimalPartitionKey(value, decimalType.get(), partitionName));
+                return NullableValue.of(decimalType, longDecimalPartitionKey(value, decimalType, partitionName));
             }
         }
 
-        try {
-            if (HIVE_BOOLEAN.equals(hiveType)) {
-                if (isNull) {
-                    return NullableValue.asNull(BOOLEAN);
-                }
-                if (value.isEmpty()) {
-                    return NullableValue.of(BOOLEAN, false);
-                }
-                return NullableValue.of(BOOLEAN, parseBoolean(value));
+        if (BOOLEAN.equals(type)) {
+            if (isNull) {
+                return NullableValue.asNull(BOOLEAN);
             }
-
-            if (HIVE_BYTE.equals(hiveType) || HIVE_SHORT.equals(hiveType) || HIVE_INT.equals(hiveType)) {
-                if (isNull) {
-                    return NullableValue.asNull(INTEGER);
-                }
-                if (value.isEmpty()) {
-                    return NullableValue.of(INTEGER, 0L);
-                }
-                return NullableValue.of(INTEGER, parseLong(value));
+            if (value.isEmpty()) {
+                return NullableValue.of(BOOLEAN, false);
             }
-
-            if (HIVE_LONG.equals(hiveType)) {
-                if (isNull) {
-                    return NullableValue.asNull(BIGINT);
-                }
-                if (value.isEmpty()) {
-                    return NullableValue.of(BIGINT, 0L);
-                }
-                return NullableValue.of(BIGINT, parseLong(value));
-            }
-
-            if (HIVE_DATE.equals(hiveType)) {
-                if (isNull) {
-                    return NullableValue.asNull(DATE);
-                }
-                return NullableValue.of(DATE, parseHiveDate(value));
-            }
-
-            if (HIVE_TIMESTAMP.equals(hiveType)) {
-                if (isNull) {
-                    return NullableValue.asNull(TIMESTAMP);
-                }
-                return NullableValue.of(TIMESTAMP, parseHiveTimestamp(value, timeZone));
-            }
-
-            if (HIVE_FLOAT.equals(hiveType) || HIVE_DOUBLE.equals(hiveType)) {
-                if (isNull) {
-                    return NullableValue.asNull(DOUBLE);
-                }
-                if (value.isEmpty()) {
-                    return NullableValue.of(DOUBLE, 0.0);
-                }
-                return NullableValue.of(DOUBLE, parseDouble(value));
-            }
-
-            if (HIVE_STRING.equals(hiveType)) {
-                if (isNull) {
-                    return NullableValue.asNull(VARCHAR);
-                }
-                return NullableValue.of(VARCHAR, utf8Slice(value));
-            }
-        }
-        catch (RuntimeException e) {
-            throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format(
-                    "Invalid partition value '%s' for Hive type [%s] partition key: %s", value, hiveType, partitionName));
+            return NullableValue.of(BOOLEAN, booleanPartitionKey(value, partitionName));
         }
 
-        throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type [%s] for partition: %s", hiveType, partitionName));
+        if (INTEGER.equals(type)) {
+            if (isNull) {
+                return NullableValue.asNull(INTEGER);
+            }
+            if (value.isEmpty()) {
+                return NullableValue.of(INTEGER, 0L);
+            }
+            return NullableValue.of(INTEGER, integerPartitionKey(value, partitionName));
+        }
+
+        if (BIGINT.equals(type)) {
+            if (isNull) {
+                return NullableValue.asNull(BIGINT);
+            }
+            if (value.isEmpty()) {
+                return NullableValue.of(BIGINT, 0L);
+            }
+            return NullableValue.of(BIGINT, bigintPartitionKey(value, partitionName));
+        }
+
+        if (DATE.equals(type)) {
+            if (isNull) {
+                return NullableValue.asNull(DATE);
+            }
+            return NullableValue.of(DATE, datePartitionKey(value, partitionName));
+        }
+
+        if (TIMESTAMP.equals(type)) {
+            if (isNull) {
+                return NullableValue.asNull(TIMESTAMP);
+            }
+            return NullableValue.of(TIMESTAMP, timestampPartitionKey(value, timeZone, partitionName));
+        }
+
+        if (DOUBLE.equals(type)) {
+            if (isNull) {
+                return NullableValue.asNull(DOUBLE);
+            }
+            if (value.isEmpty()) {
+                return NullableValue.of(DOUBLE, 0.0);
+            }
+            return NullableValue.of(DOUBLE, doublePartitionKey(value, partitionName));
+        }
+
+        if (type instanceof VarcharType) {
+            if (isNull) {
+                return NullableValue.asNull(type);
+            }
+            return NullableValue.of(type, varcharPartitionKey(value, partitionName, type));
+        }
+
+        throw new PrestoException(NOT_SUPPORTED, format("Unsupported Type [%s] for partition: %s", type, partitionName));
     }
 
     public static boolean isPrestoView(Table table)

@@ -24,6 +24,7 @@ import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -63,13 +64,16 @@ public class HivePartitionManager
     private final DateTimeZone timeZone;
     private final boolean assumeCanonicalPartitionKeys;
     private final int domainCompactionThreshold;
+    private final TypeManager typeManager;
 
     @Inject
     public HivePartitionManager(
             HiveConnectorId connectorId,
+            TypeManager typeManager,
             HiveClientConfig hiveClientConfig)
     {
         this(connectorId,
+                typeManager,
                 hiveClientConfig.getDateTimeZone(),
                 hiveClientConfig.getMaxOutstandingSplits(),
                 hiveClientConfig.isAssumeCanonicalPartitionKeys(),
@@ -78,6 +82,7 @@ public class HivePartitionManager
 
     public HivePartitionManager(
             HiveConnectorId connectorId,
+            TypeManager typeManager,
             DateTimeZone timeZone,
             int maxOutstandingSplits,
             boolean assumeCanonicalPartitionKeys,
@@ -89,6 +94,7 @@ public class HivePartitionManager
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
         checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
         this.domainCompactionThreshold = domainCompactionThreshold;
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     public HivePartitionResult getPartitions(ConnectorSession session, HiveMetastore metastore, ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> effectivePredicate)
@@ -165,7 +171,7 @@ public class HivePartitionManager
         ImmutableMap.Builder<ColumnHandle, NullableValue> builder = ImmutableMap.builder();
         for (int i = 0; i < partitionColumns.size(); i++) {
             HiveColumnHandle column = partitionColumns.get(i);
-            NullableValue parsedValue = parsePartitionValue(partitionName, partitionValues.get(i), column.getHiveType(), timeZone);
+            NullableValue parsedValue = parsePartitionValue(partitionName, partitionValues.get(i), typeManager.getType(column.getTypeSignature()), timeZone);
 
             Domain allowedDomain = domains.get(column);
             if (allowedDomain != null && !allowedDomain.includesNullableValue(parsedValue.getValue())) {

@@ -188,6 +188,7 @@ public class TestHiveIntegrationSmokeTest
                 ", _decimal_short DECIMAL(3,2)" +
                 ", _decimal_long DECIMAL(30,10)" +
                 ", _partition_string VARCHAR" +
+                ", _partition_varchar VARCHAR(65535)" +
                 ", _partition_integer INTEGER" +
                 ", _partition_bigint BIGINT" +
                 ", _partition_decimal_short DECIMAL(3,2)" +
@@ -195,7 +196,7 @@ public class TestHiveIntegrationSmokeTest
                 ") " +
                 "WITH (" +
                 "format = '" + storageFormat + "', " +
-                "partitioned_by = ARRAY[ '_partition_string', '_partition_integer', '_partition_bigint', '_partition_decimal_short', '_partition_decimal_long' ]" +
+                "partitioned_by = ARRAY[ '_partition_string', '_partition_varchar', '_partition_integer', '_partition_bigint', '_partition_decimal_short', '_partition_decimal_long' ]" +
                 ") ";
 
         assertUpdate(createTable);
@@ -203,7 +204,7 @@ public class TestHiveIntegrationSmokeTest
         TableMetadata tableMetadata = getTableMetadata("test_partitioned_table");
         assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
 
-        List<String> partitionedBy = ImmutableList.of("_partition_string", "_partition_integer", "_partition_bigint", "_partition_decimal_short", "_partition_decimal_long");
+        List<String> partitionedBy = ImmutableList.of("_partition_string", "_partition_varchar", "_partition_integer", "_partition_bigint", "_partition_decimal_short", "_partition_decimal_long");
         assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), partitionedBy);
         for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
             boolean partitionKey = partitionedBy.contains(columnMetadata.getName());
@@ -213,6 +214,7 @@ public class TestHiveIntegrationSmokeTest
         assertColumnType(tableMetadata, "_string", createUnboundedVarcharType());
         assertColumnType(tableMetadata, "_varchar", createVarcharType(65535));
         assertColumnType(tableMetadata, "_partition_string", createUnboundedVarcharType());
+        assertColumnType(tableMetadata, "_partition_varchar", createVarcharType(65535));
 
         MaterializedResult result = computeActual("SELECT * from test_partitioned_table");
         assertEquals(result.getRowCount(), 0);
@@ -228,6 +230,7 @@ public class TestHiveIntegrationSmokeTest
                 ", CAST('3.14' AS DECIMAL(3,2)) _decimal_short" +
                 ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _decimal_long" +
                 ", 'foo' _partition_string" +
+                ", 'bar' _partition_varchar" +
                 ", CAST(1 AS INTEGER) _partition_integer" +
                 ", 1 _partition_bigint" +
                 ", CAST('3.14' AS DECIMAL(3,2)) _partition_decimal_short" +
@@ -751,8 +754,8 @@ public class TestHiveIntegrationSmokeTest
     {
         assertUpdate("" +
                 "CREATE TABLE test_show_columns_partition_key\n" +
-                "(grape bigint, orange bigint, pear varchar(65535), mango integer, apple varchar)\n" +
-                "WITH (partitioned_by = ARRAY['apple'])");
+                "(grape bigint, orange bigint, pear varchar(65535), mango integer, apple varchar, pineapple varchar(65535))\n" +
+                "WITH (partitioned_by = ARRAY['apple', 'pineapple'])");
 
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM test_show_columns_partition_key");
         MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR)
@@ -761,6 +764,7 @@ public class TestHiveIntegrationSmokeTest
                 .row("pear", "varchar(65535)", "")
                 .row("mango", "integer", "")
                 .row("apple", "varchar", "Partition Key")
+                .row("pineapple", "varchar(65535)", "Partition Key")
                 .build();
         assertEquals(actual, expected);
     }
