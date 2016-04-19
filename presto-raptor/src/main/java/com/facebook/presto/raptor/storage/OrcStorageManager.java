@@ -118,6 +118,7 @@ public class OrcStorageManager
     private final DataSize maxShardSize;
     private final TypeManager typeManager;
     private final ExecutorService deletionExecutor;
+    private final JsonCodec<OrcFileMetadata> orcFileMetadataCodec;
 
     @Inject
     public OrcStorageManager(
@@ -131,7 +132,8 @@ public class OrcStorageManager
             BackupManager backgroundBackupManager,
             ShardRecoveryManager recoveryManager,
             ShardRecorder shardRecorder,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            JsonCodec<OrcFileMetadata> orcFileMetadataCodec)
     {
         this(currentNodeId.toString(),
                 storageService,
@@ -142,6 +144,7 @@ public class OrcStorageManager
                 recoveryManager,
                 shardRecorder,
                 typeManager,
+                orcFileMetadataCodec,
                 connectorId.toString(),
                 config.getDeletionThreads(),
                 config.getShardRecoveryTimeout(),
@@ -159,6 +162,7 @@ public class OrcStorageManager
             ShardRecoveryManager recoveryManager,
             ShardRecorder shardRecorder,
             TypeManager typeManager,
+            JsonCodec<OrcFileMetadata> orcFileMetadataCodec,
             String connectorId,
             int deletionThreads,
             Duration shardRecoveryTimeout,
@@ -181,6 +185,7 @@ public class OrcStorageManager
         this.shardRecorder = requireNonNull(shardRecorder, "shardRecorder is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.deletionExecutor = newFixedThreadPool(deletionThreads, daemonThreadsNamed("raptor-delete-" + connectorId + "-%s"));
+        this.orcFileMetadataCodec = requireNonNull(orcFileMetadataCodec, "orcFileMetadataCodec is null");
     }
 
     @PreDestroy
@@ -593,7 +598,7 @@ public class OrcStorageManager
                 File stagingFile = storageService.getStagingFile(shardUuid);
                 storageService.createParents(stagingFile);
                 stagingFiles.add(stagingFile);
-                writer = new OrcFileWriter(columnIds, columnTypes, stagingFile);
+                writer = new OrcFileWriter(columnIds, columnTypes, stagingFile, orcFileMetadataCodec);
             }
         }
     }

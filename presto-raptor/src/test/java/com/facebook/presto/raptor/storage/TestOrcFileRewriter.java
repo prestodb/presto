@@ -22,6 +22,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
+import io.airlift.json.JsonCodec;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -55,6 +56,7 @@ import static org.testng.Assert.assertTrue;
 public class TestOrcFileRewriter
 {
     private File temporary;
+    private JsonCodec<OrcFileMetadata> orcFileMetadataCodec = JsonCodec.jsonCodec(OrcFileMetadata.class);
 
     @BeforeClass
     public void setup()
@@ -81,7 +83,7 @@ public class TestOrcFileRewriter
         List<Type> columnTypes = ImmutableList.of(BIGINT, VARCHAR, arrayType, mapType, arrayOfArrayType);
 
         File file = new File(temporary, randomUUID().toString());
-        try (OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file)) {
+        try (OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file, orcFileMetadataCodec)) {
             List<Page> pages = rowPagesBuilder(columnTypes)
                     .row(123L, "hello", arrayBlockOf(BIGINT, 1, 2), mapBlockOf(VARCHAR, BOOLEAN, "k1", true), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5)))
                     .row(777L, "sky", arrayBlockOf(BIGINT, 3, 4), mapBlockOf(VARCHAR, BOOLEAN, "k2", false), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 6)))
@@ -230,7 +232,7 @@ public class TestOrcFileRewriter
         List<Type> columnTypes = ImmutableList.of(BIGINT);
 
         File file = new File(temporary, randomUUID().toString());
-        try (OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file)) {
+        try (OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file, orcFileMetadataCodec)) {
             writer.appendPages(rowPagesBuilder(columnTypes).row(123L).row(456L).build());
         }
 
@@ -254,7 +256,7 @@ public class TestOrcFileRewriter
         List<Type> columnTypes = ImmutableList.of(BIGINT);
 
         File file = new File(temporary, randomUUID().toString());
-        try (OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file)) {
+        try (OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file, orcFileMetadataCodec)) {
             writer.appendPages(rowPagesBuilder(columnTypes).row(123L).row(456L).build());
         }
 
@@ -276,7 +278,7 @@ public class TestOrcFileRewriter
         List<Type> columnTypes = ImmutableList.of(BOOLEAN, BIGINT, DOUBLE, VARCHAR, VARBINARY);
 
         File file = new File(temporary, randomUUID().toString());
-        try (OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file)) {
+        try (OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file, orcFileMetadataCodec)) {
             List<Page> pages = rowPagesBuilder(columnTypes)
                     .row(true, 123L, 98.7, "hello", utf8Slice("abc"))
                     .row(false, 456L, 65.4, "world", utf8Slice("xyz"))
@@ -291,3 +293,4 @@ public class TestOrcFileRewriter
         assertEquals(info.getUncompressedSize(), 55);
     }
 }
+

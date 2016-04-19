@@ -602,6 +602,7 @@ public class TestOrcStorageManager
                 recoveryManager,
                 shardRecorder,
                 new TypeRegistry(),
+                JsonCodec.jsonCodec(OrcFileMetadata.class),
                 CONNECTOR_ID,
                 DELETION_THREADS,
                 SHARD_RECOVERY_TIMEOUT,

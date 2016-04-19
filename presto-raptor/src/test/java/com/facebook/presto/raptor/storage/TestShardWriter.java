@@ -19,9 +19,12 @@ import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.airlift.json.JsonCodec;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -53,6 +56,8 @@ import static org.testng.Assert.assertTrue;
 public class TestShardWriter
 {
     private File directory;
+
+    private JsonCodec<OrcFileMetadata> orcFileMetadataCodec = JsonCodec.jsonCodec(OrcFileMetadata.class);
 
     @BeforeClass
     public void setup()
@@ -87,7 +92,7 @@ public class TestShardWriter
                 .row(456L, "bye \u2603", wrappedBuffer(bytes3), Double.NaN, false, arrayBlockOf(BIGINT), mapBlockOf(VARCHAR, BOOLEAN, "k3", false), arrayBlockOf(arrayType, arrayBlockOf(BIGINT)));
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(new EmptyClassLoader());
-             OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file)) {
+             OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file, orcFileMetadataCodec)) {
             writer.appendPages(rowPagesBuilder.build());
         }
 
@@ -158,6 +163,19 @@ public class TestShardWriter
             assertEquals(reader.nextBatch(), -1);
             assertEquals(reader.getReaderPosition(), 3);
             assertEquals(reader.getFilePosition(), reader.getFilePosition());
+
+            OrcFileMetadata orcFileMetadata = orcFileMetadataCodec.fromJson(reader.getUserMetadata().get(OrcFileMetadata.KEY).getBytes());
+            assertEquals(orcFileMetadata, new OrcFileMetadata(ImmutableMap.<Long, TypeSignature>builder()
+                    .put(1L, BIGINT.getTypeSignature())
+                    .put(2L, VARCHAR.getTypeSignature())
+                    .put(4L, VARBINARY.getTypeSignature())
+                    .put(6L, DOUBLE.getTypeSignature())
+                    .put(7L, BOOLEAN.getTypeSignature())
+                    .put(8L, arrayType.getTypeSignature())
+                    .put(9L, mapType.getTypeSignature())
+                    .put(10L, arrayOfArrayType.getTypeSignature())
+                    .build()
+            ));
         }
 
         File crcFile = new File(file.getParentFile(), "." + file.getName() + ".crc");
@@ -174,7 +192,7 @@ public class TestShardWriter
 
         File file = new File(directory, System.nanoTime() + ".orc");
 
-        try (OrcFileWriter ignored = new OrcFileWriter(columnIds, columnTypes, file)) {
+        try (OrcFileWriter ignored = new OrcFileWriter(columnIds, columnTypes, file, orcFileMetadataCodec)) {
             // no rows
         }
 
