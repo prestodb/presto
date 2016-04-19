@@ -61,7 +61,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static java.lang.String.format;
@@ -148,7 +148,7 @@ public class TestHivePageSink
                         DOUBLE.writeDouble(blockBuilder, column.getDouble(lineItem));
                         break;
                     case VARCHAR:
-                        VARCHAR.writeSlice(blockBuilder, Slices.utf8Slice(column.getString(lineItem)));
+                        createUnboundedVarcharType().writeSlice(blockBuilder, Slices.utf8Slice(column.getString(lineItem)));
                         break;
                     default:
                         throw new IllegalArgumentException("Unsupported type " + column.getType());

@@ -564,7 +564,7 @@ public final class HiveWriteUtils
         }
 
         if (type instanceof VarcharType) {
-            return new VarcharFieldSetter(rowInspector, row, field);
+            return new VarcharFieldSetter(rowInspector, row, field, type);
         }
 
         if (type.equals(VarbinaryType.VARBINARY)) {
@@ -691,16 +691,18 @@ public final class HiveWriteUtils
             extends FieldSetter
     {
         private final Text value = new Text();
+        private final Type type;
 
-        public VarcharFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field)
+        public VarcharFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field, Type type)
         {
             super(rowInspector, row, field);
+            this.type = type;
         }
 
         @Override
         public void setField(Block block, int position)
         {
-            value.set(VarcharType.VARCHAR.getSlice(block, position).getBytes());
+            value.set(type.getSlice(block, position).getBytes());
             rowInspector.setStructFieldData(row, field, value);
         }
     }
