@@ -13,25 +13,16 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableMap;
 
 import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunner;
-import static com.facebook.presto.raptor.RaptorQueryRunner.createSampledSession;
 
-public class TestRaptorIntegrationSmokeTest
-        extends AbstractTestIntegrationSmokeTest
+public class TestRaptorIntegrationSmokeTestBucketed
+        extends TestRaptorIntegrationSmokeTest
 {
-    @SuppressWarnings("unused")
-    public TestRaptorIntegrationSmokeTest()
+    public TestRaptorIntegrationSmokeTestBucketed()
             throws Exception
     {
-        this(createRaptorQueryRunner(ImmutableMap.of(), true, false));
-    }
-
-    protected TestRaptorIntegrationSmokeTest(QueryRunner queryRunner)
-    {
-        super(queryRunner, createSampledSession());
+        super(createRaptorQueryRunner(ImmutableMap.of(), true, true));
     }
 }
