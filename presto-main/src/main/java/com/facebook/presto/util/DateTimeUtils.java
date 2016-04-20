@@ -53,10 +53,22 @@ public final class DateTimeUtils
     {
     }
 
+    private static void checkYear(String value)
+    {
+        int endOfYearField = value.indexOf('-');
+        if (endOfYearField > 0) {
+            Integer year = Integer.valueOf(value.substring(0, endOfYearField));
+            if (year == 0) {
+                throw new IllegalArgumentException("Invalid format: year " + year + " is not in valid range");
+            }
+        }
+    }
+
     private static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date().withZoneUTC();
 
     public static int parseDate(String value)
     {
+        checkYear(value);
         return (int) TimeUnit.MILLISECONDS.toDays(DATE_FORMATTER.parseMillis(value));
     }
 
@@ -114,6 +126,7 @@ public final class DateTimeUtils
 
     public static long parseTimestampLiteral(TimeZoneKey timeZoneKey, String value)
     {
+        checkYear(value);
         try {
             DateTime dateTime = TIMESTAMP_WITH_TIME_ZONE_FORMATTER.parseDateTime(value);
             return packDateTimeWithZone(dateTime);
@@ -125,12 +138,14 @@ public final class DateTimeUtils
 
     public static long parseTimestampWithTimeZone(TimeZoneKey timeZoneKey, String timestampWithTimeZone)
     {
+        checkYear(timestampWithTimeZone);
         DateTime dateTime = TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).withOffsetParsed().parseDateTime(timestampWithTimeZone);
         return packDateTimeWithZone(dateTime);
     }
 
     public static long parseTimestampWithoutTimeZone(TimeZoneKey timeZoneKey, String value)
     {
+        checkYear(value);
         return TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).parseMillis(value);
     }
 
