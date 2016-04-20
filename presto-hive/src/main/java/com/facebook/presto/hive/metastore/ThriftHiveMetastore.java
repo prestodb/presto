@@ -434,16 +434,16 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public Optional<Partition> getPartition(String databaseName, String tableName, String partitionName)
+    public Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues)
     {
-        requireNonNull(partitionName, "partitionName is null");
+        requireNonNull(partitionValues, "partitionValues is null");
         try {
             return retry()
                     .stopOn(NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
-                    .run("getPartitionsByNames", stats.getGetPartitionByName().wrap(() -> {
+                    .run("getPartition", stats.getGetPartition().wrap(() -> {
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                            return Optional.of(client.getPartitionByName(databaseName, tableName, partitionName));
+                            return Optional.of(client.getPartition(databaseName, tableName, partitionValues));
                         }
                     }));
         }
