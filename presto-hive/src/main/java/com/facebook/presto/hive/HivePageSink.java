@@ -460,7 +460,7 @@ public class HivePageSink
         // attempt to get the existing partition (if this is an existing partitioned table)
         Optional<Partition> partition = Optional.empty();
         if (!partitionRow.isEmpty() && table != null) {
-            partition = metastore.getPartition(schemaName, tableName, partitionName.get());
+            partition = metastore.getPartition(schemaName, tableName, partitionValues);
         }
 
         boolean isNew;

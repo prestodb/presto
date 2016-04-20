@@ -46,6 +46,8 @@ public class MockHiveMetastoreClient
     static final String TEST_TABLE = "testtbl";
     static final String TEST_PARTITION1 = "key=testpartition1";
     static final String TEST_PARTITION2 = "key=testpartition2";
+    static final List<String> TEST_PARTITION_VALUES1 = ImmutableList.of("testpartition1");
+    static final List<String> TEST_PARTITION_VALUES2 = ImmutableList.of("testpartition2");
 
     private static final StorageDescriptor DEFAULT_STORAGE_DESCRIPTOR =
             new StorageDescriptor(ImmutableList.of(), "", null, null, false, 0, new SerDeInfo(TEST_TABLE, null, ImmutableMap.of()), null, null, ImmutableMap.of());
@@ -163,14 +165,14 @@ public class MockHiveMetastoreClient
     }
 
     @Override
-    public Partition getPartitionByName(String dbName, String tableName, String partName)
+    public Partition getPartition(String dbName, String tableName, List<String> partitionValues)
             throws TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
             throw new RuntimeException();
         }
-        if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE) || !ImmutableSet.of(TEST_PARTITION1, TEST_PARTITION2).contains(partName)) {
+        if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE) || !ImmutableSet.of(TEST_PARTITION_VALUES1, TEST_PARTITION_VALUES2).contains(partitionValues)) {
             throw new NoSuchObjectException();
         }
         return new Partition(null, TEST_DATABASE, TEST_TABLE, 0, 0, DEFAULT_STORAGE_DESCRIPTOR, ImmutableMap.of());

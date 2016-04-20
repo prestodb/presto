@@ -60,7 +60,7 @@ public interface HiveMetastore
 
     Optional<List<String>> getPartitionNamesByParts(String databaseName, String tableName, List<String> parts);
 
-    Optional<Partition> getPartition(String databaseName, String tableName, String partitionName);
+    Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues);
 
     List<Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames);
 

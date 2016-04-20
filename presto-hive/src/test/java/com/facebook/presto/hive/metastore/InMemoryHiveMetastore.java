@@ -42,6 +42,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -253,7 +254,7 @@ public class InMemoryHiveMetastore
             if (partition.getParameters() == null) {
                 partition.setParameters(ImmutableMap.of());
             }
-            this.partitions.put(new PartitionName(databaseName, tableName, partitionName), partition);
+            this.partitions.put(PartitionName.partition(databaseName, tableName, partitionName), partition);
         }
     }
 
@@ -291,9 +292,9 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public Optional<Partition> getPartition(String databaseName, String tableName, String partitionName)
+    public Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues)
     {
-        PartitionName name = new PartitionName(databaseName, tableName, partitionName);
+        PartitionName name = PartitionName.partition(databaseName, tableName, partitionValues);
         Partition partition = partitions.get(name);
         if (partition == null) {
             return Optional.empty();
@@ -334,7 +335,7 @@ public class InMemoryHiveMetastore
     {
         ImmutableList.Builder<Partition> builder = ImmutableList.builder();
         for (String name : partitionNames) {
-            PartitionName partitionName = new PartitionName(databaseName, tableName, name);
+            PartitionName partitionName = PartitionName.partition(databaseName, tableName, name);
             Partition partition = partitions.get(partitionName);
             if (partition == null) {
                 return ImmutableList.of();
@@ -443,18 +444,30 @@ public class InMemoryHiveMetastore
     {
         private final String schemaName;
         private final String tableName;
-        private final String partitionName;
+        private final List<String> partitionValues;
+        private final String partitionName; // does not participate in equals and hashValue
 
-        public PartitionName(String schemaName, String tableName, String partitionName)
+        private PartitionName(String schemaName, String tableName, List<String> partitionValues, String partitionName)
         {
-            this.schemaName = schemaName.toLowerCase(US);
-            this.tableName = tableName.toLowerCase(US);
+            this.schemaName = requireNonNull(schemaName, "schemaName is null").toLowerCase(US);
+            this.tableName = requireNonNull(tableName, "tableName is null").toLowerCase(US);
+            this.partitionValues = requireNonNull(partitionValues, "partitionValues is null");
             this.partitionName = partitionName;
+        }
+
+        public static PartitionName partition(String schemaName, String tableName, String partitionName)
+        {
+            return new PartitionName(schemaName.toLowerCase(US), tableName.toLowerCase(US), toPartitionValues(partitionName), partitionName);
+        }
+
+        public static PartitionName partition(String schemaName, String tableName, List<String> partitionValues)
+        {
+            return new PartitionName(schemaName.toLowerCase(US), tableName.toLowerCase(US), partitionValues, null);
         }
 
         public String getPartitionName()
         {
-            return partitionName;
+            return requireNonNull(partitionName, "partitionName is null");
         }
 
         public boolean matches(String schemaName, String tableName)
@@ -473,7 +486,7 @@ public class InMemoryHiveMetastore
         @Override
         public int hashCode()
         {
-            return Objects.hash(schemaName, tableName, partitionName);
+            return Objects.hash(schemaName, tableName, partitionValues);
         }
 
         @Override
@@ -488,7 +501,7 @@ public class InMemoryHiveMetastore
             PartitionName other = (PartitionName) obj;
             return Objects.equals(this.schemaName, other.schemaName)
                     && Objects.equals(this.tableName, other.tableName)
-                    && Objects.equals(this.partitionName, other.partitionName);
+                    && Objects.equals(this.partitionValues, other.partitionValues);
         }
 
         @Override

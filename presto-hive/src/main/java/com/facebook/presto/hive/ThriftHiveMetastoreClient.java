@@ -141,10 +141,10 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
-    public Partition getPartitionByName(String databaseName, String tableName, String partitionName)
+    public Partition getPartition(String databaseName, String tableName, List<String> partitionValues)
             throws TException
     {
-        return client.get_partition_by_name(databaseName, tableName, partitionName);
+        return client.get_partition(databaseName, tableName, partitionValues);
     }
 
     @Override
