@@ -27,6 +27,7 @@ import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -35,7 +36,6 @@ import io.airlift.slice.Slices;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
 
 import static com.facebook.presto.plugin.blackhole.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -44,14 +44,11 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public final class BlackHolePageSourceProvider
         implements ConnectorPageSourceProvider
 {
-    private static final Set<Type> SUPPORTED_TYPES = ImmutableSet.of(BIGINT, DOUBLE, BOOLEAN, DATE, TIMESTAMP, VARCHAR, VARBINARY);
-
     @Override
     public ConnectorPageSource createPageSource(
             ConnectorTransactionHandle transactionHandle,
@@ -73,9 +70,9 @@ public final class BlackHolePageSourceProvider
                 blackHoleSplit.getPagesCount()));
     }
 
-    private Page generateZeroPage(List<Type> types, int rowsCount, int fieldsLength)
+    private Page generateZeroPage(List<Type> types, int rowsCount, int fieldLength)
     {
-        byte[] constantBytes = new byte[fieldsLength];
+        byte[] constantBytes = new byte[fieldLength];
         Arrays.fill(constantBytes, (byte) 42);
         Slice constantSlice = Slices.wrappedBuffer(constantBytes);
 
@@ -89,13 +86,19 @@ public final class BlackHolePageSourceProvider
 
     private Block createZeroBlock(Type type, int rowsCount, Slice constantSlice)
     {
-        checkArgument(SUPPORTED_TYPES.contains(type), "Unsupported type [%s]", type);
+        checkArgument(isSupportedType(type), "Unsupported type [%s]", type);
         BlockBuilder builder;
 
         if (type instanceof FixedWidthType) {
             builder = type.createBlockBuilder(new BlockBuilderStatus(), rowsCount);
         }
         else {
+            // do not exceed varchar limit
+            if (type instanceof VarcharType) {
+                if (constantSlice.length() > ((VarcharType) type).getLength()) {
+                    constantSlice = constantSlice.slice(0, ((VarcharType) type).getLength());
+                }
+            }
             builder = type.createBlockBuilder(new BlockBuilderStatus(), rowsCount, constantSlice.length());
         }
 
@@ -118,5 +121,11 @@ public final class BlackHolePageSourceProvider
             }
         }
         return builder.build();
+    }
+
+    private boolean isSupportedType(Type type)
+    {
+        return ImmutableSet.of(BIGINT, DOUBLE, BOOLEAN, DATE, TIMESTAMP, VARBINARY).contains(type)
+                || type instanceof VarcharType;
     }
 }

@@ -165,7 +165,8 @@ public class TestBlackHoleSmoke
                 .build();
 
         assertThatQueryReturnsValue(
-                format("CREATE TABLE nation WITH ( %s = 8, %s = 1, %s = 1, %s = 1 ) as SELECT * FROM tpch.tiny.nation",
+                format("CREATE TABLE nation WITH ( %s = 8, %s = 1, %s = 1, %s = 1 ) AS " +
+                        "SELECT nationkey, name, regionkey, comment, 'abc' short_varchar FROM tpch.tiny.nation",
                         FIELD_LENGTH_PROPERTY,
                         ROWS_PER_PAGE_PROPERTY,
                         PAGES_PER_SPLIT_PROPERTY,
@@ -176,11 +177,12 @@ public class TestBlackHoleSmoke
         MaterializedResult rows = queryRunner.execute(session, "SELECT * FROM nation");
         assertEquals(rows.getRowCount(), 1);
         MaterializedRow row = Iterables.getOnlyElement(rows);
-        assertEquals(row.getFieldCount(), 4);
+        assertEquals(row.getFieldCount(), 5);
         assertEquals(row.getField(0), 0L);
         assertEquals(row.getField(1), "********");
         assertEquals(row.getField(2), 0L);
         assertEquals(row.getField(3), "********");
+        assertEquals(row.getField(4), "***"); // this one is shorter due to column type being VARCHAR(3)
 
         assertThatQueryReturnsValue("DROP TABLE nation", true);
     }
