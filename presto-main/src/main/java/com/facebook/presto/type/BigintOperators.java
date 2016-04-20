@@ -33,6 +33,7 @@ import static com.facebook.presto.metadata.OperatorType.MODULUS;
 import static com.facebook.presto.metadata.OperatorType.MULTIPLY;
 import static com.facebook.presto.metadata.OperatorType.NEGATION;
 import static com.facebook.presto.metadata.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.metadata.OperatorType.SATURATED_FLOOR_CAST;
 import static com.facebook.presto.metadata.OperatorType.SUBTRACT;
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
@@ -186,6 +187,13 @@ public final class BigintOperators
         catch (IllegalArgumentException e) {
             throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
         }
+    }
+
+    @ScalarOperator(SATURATED_FLOOR_CAST)
+    @SqlType(StandardTypes.INTEGER)
+    public static long saturatedFloorCastToInteger(@SqlType(StandardTypes.BIGINT) long value)
+    {
+        return Ints.saturatedCast(value);
     }
 
     @ScalarOperator(CAST)
