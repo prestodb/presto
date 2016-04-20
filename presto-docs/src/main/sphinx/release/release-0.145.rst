@@ -11,6 +11,12 @@ General Changes
 * Add ``driver.max-page-partitioning-buffer-size`` config to control buffer size
   used to repartition pages for exchanges.
 
+Verifier Changes
+----------------
+
+* Change verifier to only run read-only queries by default. This behavior can be
+  changed with the ``control.query-types`` and ``test.query-types`` config flags.
+
 CLI Changes
 -----------
 
