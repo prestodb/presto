@@ -48,6 +48,8 @@ public final class DoubleOperators
 {
     private static final double MIN_LONG_AS_DOUBLE = -0x1p63;
     private static final double MAX_LONG_AS_DOUBLE_PLUS_ONE = 0x1p63;
+    private static final double MIN_INT_AS_DOUBLE = -0x1p31;
+    private static final double MAX_INT_AS_DOUBLE = 0x1p31 - 1.0;
 
     private DoubleOperators()
     {
@@ -207,5 +209,18 @@ public final class DoubleOperators
             return Long.MAX_VALUE;
         }
         return DoubleMath.roundToLong(value, FLOOR);
+    }
+
+    @ScalarOperator(SATURATED_FLOOR_CAST)
+    @SqlType(StandardTypes.INTEGER)
+    public static long saturatedFloorCastToInteger(@SqlType(StandardTypes.DOUBLE) double value)
+    {
+        if (value <= MIN_INT_AS_DOUBLE) {
+            return Integer.MIN_VALUE;
+        }
+        if (MAX_INT_AS_DOUBLE - value <= 1) {
+            return Integer.MAX_VALUE;
+        }
+        return DoubleMath.roundToInt(value, FLOOR);
     }
 }
