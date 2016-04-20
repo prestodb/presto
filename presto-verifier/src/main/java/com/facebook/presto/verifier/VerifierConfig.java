@@ -152,7 +152,7 @@ public class VerifierConfig
         return controlQueryTypes;
     }
 
-    @ConfigDescription("The types of control queries allowed to run [READ, MODIFY, WRITE, DELETE]")
+    @ConfigDescription("The types of control queries allowed to run [CREATE, READ, MODIFY]")
     @Config("control.query-types")
     public VerifierConfig setControlQueryTypes(String types)
     {
@@ -175,7 +175,7 @@ public class VerifierConfig
         return testQueryTypes;
     }
 
-    @ConfigDescription("The types of control queries allowed to run [READ, MODIFY, WRITE, DELETE]")
+    @ConfigDescription("The types of control queries allowed to run [CREATE, READ, MODIFY]")
     @Config("test.query-types")
     public VerifierConfig setTestQueryTypes(String types)
     {
