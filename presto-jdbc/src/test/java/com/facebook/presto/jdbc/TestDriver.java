@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.plugin.blackhole.BlackHolePlugin;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.tpch.TpchMetadata;
@@ -41,6 +42,7 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.GregorianCalendar;
 import java.util.List;
+import java.util.Properties;
 import java.util.Set;
 
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -1161,6 +1163,21 @@ public class TestDriver
         }
     }
 
+    @Test
+    public void testConnectionPropertiesHeader()
+            throws Exception
+    {
+        Properties props = new Properties();
+        props.setProperty("user", "test");
+        props.setProperty("token", "xxxyyyy");
+        try (PrestoConnection connection = (PrestoConnection) createConnection(props)) {
+            try (StatementClient client = connection.startQuery("SELECT 123")) {
+                List<String> connectionProperties = client.getConnectionProperties();
+                assertTrue(connectionProperties.contains("token=xxxyyyy"));
+            }
+        }
+    }
+
     @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = ".* does not exist")
     public void testBadQuery()
             throws Exception
@@ -1228,6 +1245,13 @@ public class TestDriver
     {
         String url = format("jdbc:presto://%s", server.getAddress());
         return DriverManager.getConnection(url, "test", null);
+    }
+
+    private Connection createConnection(Properties prop)
+            throws SQLException
+    {
+        String url = format("jdbc:presto://%s", server.getAddress());
+        return DriverManager.getConnection(url, prop);
     }
 
     private Connection createConnection(String catalog)

@@ -14,6 +14,7 @@
 package com.facebook.presto.jdbc;
 
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableMap;
 
 import java.io.Closeable;
 import java.net.URI;
@@ -48,6 +49,7 @@ public class PrestoDriver
     private static final String DRIVER_URL_START = "jdbc:presto:";
 
     private static final String USER_PROPERTY = "user";
+    private static final String PASSWORD_PROPERTY = "password";
 
     private final QueryExecutor queryExecutor;
 
@@ -86,7 +88,16 @@ public class PrestoDriver
             throw new SQLException(format("Username property (%s) must be set", USER_PROPERTY));
         }
 
-        return new PrestoConnection(parseDriverUrl(url), user, queryExecutor);
+        ImmutableMap.Builder<String, String> connectionProperties = ImmutableMap.builder();
+        for (String key : info.stringPropertyNames()) {
+            // Disable passing user, password properties
+            if (key.equals(USER_PROPERTY) || key.equals(PASSWORD_PROPERTY)) {
+                continue;
+            }
+            connectionProperties.put(key, info.getProperty(key));
+        }
+
+        return new PrestoConnection(parseDriverUrl(url), user, connectionProperties.build(), queryExecutor);
     }
 
     @Override
