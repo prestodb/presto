@@ -1287,6 +1287,45 @@ public class TestDomainTranslator
                 Range.lessThan(BIGINT, 99L), Range.greaterThan(BIGINT, 99L)), true));
     }
 
+    @Test
+    public void testDecimalComparedToDouble()
+            throws Exception
+    {
+        // greater than or equal
+        testSimpleComparison(greaterThanOrEqual(N, doubleLiteral(44.555678)), N, Range.greaterThan(createDecimalType(4, 2), shortDecimal("44.55")));
+        testSimpleComparison(greaterThanOrEqual(N, doubleLiteral(99.99)), N, Range.greaterThanOrEqual(createDecimalType(4, 2), shortDecimal("99.99")));
+        testSimpleComparison(greaterThanOrEqual(N, doubleLiteral(9999.999)), N, Range.greaterThan(createDecimalType(4, 2), shortDecimal("99.99")));
+
+        // greater than
+        testSimpleComparison(greaterThan(N, doubleLiteral(44.555678)), N, Range.greaterThan(createDecimalType(4, 2), shortDecimal("44.55")));
+        testSimpleComparison(greaterThan(N, doubleLiteral(44.55)), N, Range.greaterThan(createDecimalType(4, 2), shortDecimal("44.55")));
+        testSimpleComparison(greaterThan(N, doubleLiteral(9999.999)), N, Range.greaterThan(createDecimalType(4, 2), shortDecimal("99.99")));
+
+        // less than or equal
+        testSimpleComparison(lessThanOrEqual(N, doubleLiteral(-44.555678)), N, Range.lessThanOrEqual(createDecimalType(4, 2), shortDecimal("-44.56")));
+        testSimpleComparison(lessThanOrEqual(N, doubleLiteral(-99.99)), N, Range.lessThanOrEqual(createDecimalType(4, 2), shortDecimal("-99.99")));
+        testSimpleComparison(lessThanOrEqual(N, doubleLiteral(-9999.999)), N, Range.lessThan(createDecimalType(4, 2), shortDecimal("-99.99")));
+
+        // less than
+        testSimpleComparison(lessThan(N, doubleLiteral(-44.555678)), N, Range.lessThanOrEqual(createDecimalType(4, 2), shortDecimal("-44.56")));
+        testSimpleComparison(lessThan(N, doubleLiteral(-99.99)), N, Range.lessThan(createDecimalType(4, 2), shortDecimal("-99.99")));
+        testSimpleComparison(lessThan(N, doubleLiteral(-9999.999)), N, Range.lessThan(createDecimalType(4, 2), shortDecimal("-99.99")));
+
+        // equal
+        testSimpleComparison(equal(N, doubleLiteral(-44.555678)), N, Domain.none(createDecimalType(4, 2)));
+        testSimpleComparison(equal(N, doubleLiteral(99.99)), N, Range.equal(createDecimalType(4, 2), shortDecimal("99.99")));
+
+        // not equal
+        testSimpleComparison(notEqual(N, doubleLiteral(-44.555678)), N, Domain.notNull(createDecimalType(4, 2)));
+        testSimpleComparison(notEqual(N, doubleLiteral(99.99)), N, Domain.create(ValueSet.ofRanges(
+                Range.lessThan(createDecimalType(4, 2), shortDecimal("99.99")), Range.greaterThan(createDecimalType(4, 2), shortDecimal("99.99"))), false));
+
+        // is distinct from
+        testSimpleComparison(isDistinctFrom(N, doubleLiteral(-44.555678)), N, Domain.all(createDecimalType(4, 2)));
+        testSimpleComparison(isDistinctFrom(N, doubleLiteral(99.99)), N, Domain.create(ValueSet.ofRanges(
+                Range.lessThan(createDecimalType(4, 2), shortDecimal("99.99")), Range.greaterThan(createDecimalType(4, 2), shortDecimal("99.99"))), true));
+    }
+
     private static ExtractionResult fromPredicate(Expression originalPredicate)
     {
         return DomainTranslator.fromPredicate(METADATA, TEST_SESSION, originalPredicate, TYPES);

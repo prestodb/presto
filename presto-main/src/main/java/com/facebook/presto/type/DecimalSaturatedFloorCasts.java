@@ -29,6 +29,7 @@ import static com.facebook.presto.spi.type.Decimals.bigIntegerTenToNth;
 import static com.facebook.presto.spi.type.Decimals.decodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
+import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static java.math.BigInteger.ONE;
 import static java.math.RoundingMode.FLOOR;
 
@@ -82,9 +83,13 @@ public final class DecimalSaturatedFloorCasts
 
     private static BigInteger bigintToBigintFloorSaturatedCast(BigInteger value, int sourceScale, int resultPrecision, int resultScale)
     {
-        BigDecimal bigDecimal = new BigDecimal(value, sourceScale);
-        bigDecimal = bigDecimal.setScale(resultScale, FLOOR);
-        BigInteger unscaledValue = bigDecimal.unscaledValue();
+        return bigDecimalToBigintFloorSaturatedCast(new BigDecimal(value, sourceScale), resultPrecision, resultScale);
+    }
+
+    private static BigInteger bigDecimalToBigintFloorSaturatedCast(BigDecimal bigDecimal, int resultPrecision, int resultScale)
+    {
+        BigDecimal rescaledValue = bigDecimal.setScale(resultScale, FLOOR);
+        BigInteger unscaledValue = rescaledValue.unscaledValue();
         BigInteger maxUnscaledValue = bigIntegerTenToNth(resultPrecision).subtract(ONE);
         if (unscaledValue.compareTo(maxUnscaledValue) > 0) {
             return maxUnscaledValue;
@@ -132,5 +137,35 @@ public final class DecimalSaturatedFloorCasts
             return Long.MIN_VALUE;
         }
         return unscaledValue.longValueExact();
+    }
+
+    public static final SqlScalarFunction DOUBLE_TO_DECIMAL_SATURATED_FLOOR_CAST = SqlScalarFunction.builder(DecimalSaturatedFloorCasts.class)
+            .signature(Signature.builder()
+                    .kind(SCALAR)
+                    .operatorType(SATURATED_FLOOR_CAST)
+                    .argumentTypes(DOUBLE)
+                    .literalParameters("result_precision", "result_scale")
+                    .returnType("decimal(result_precision,result_scale)")
+                    .build()
+            )
+            .implementation(b -> b
+                    .methods("doubleToShortDecimal", "doubleToLongDecimal")
+                    .withExtraParameters((context) -> {
+                        int resultPrecision = Ints.checkedCast(context.getLiteral("result_precision"));
+                        int resultScale = Ints.checkedCast(context.getLiteral("result_scale"));
+                        return ImmutableList.of(resultPrecision, resultScale);
+                    })
+            ).build();
+
+    @UsedByGeneratedCode
+    public static long doubleToShortDecimal(double value, int resultPrecision, int resultScale)
+    {
+        return bigDecimalToBigintFloorSaturatedCast(BigDecimal.valueOf(value), resultPrecision, resultScale).longValueExact();
+    }
+
+    @UsedByGeneratedCode
+    public static Slice doubleToLongDecimal(double value, int resultPrecision, int resultScale)
+    {
+        return encodeUnscaledValue(bigDecimalToBigintFloorSaturatedCast(BigDecimal.valueOf(value), resultPrecision, resultScale));
     }
 }
