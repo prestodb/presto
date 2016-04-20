@@ -66,6 +66,7 @@ import com.facebook.presto.operator.scalar.MapConcatFunction;
 import com.facebook.presto.operator.scalar.MapEqualOperator;
 import com.facebook.presto.operator.scalar.MapKeys;
 import com.facebook.presto.operator.scalar.MapNotEqualOperator;
+import com.facebook.presto.operator.scalar.MapToMapCast;
 import com.facebook.presto.operator.scalar.MapValues;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.RegexpFunctions;
@@ -394,6 +395,7 @@ public class FunctionRegistry
                 .scalar(MapValues.class)
                 .scalar(MapCardinalityFunction.class)
                 .scalar(MapConcatFunction.class)
+                .scalar(MapToMapCast.class)
                 .functions(ARRAY_CONTAINS, ARRAY_JOIN, ARRAY_JOIN_WITH_NULL_REPLACEMENT)
                 .functions(ARRAY_TO_ARRAY_CAST, ARRAY_LESS_THAN)
                 .functions(ARRAY_TO_ELEMENT_CONCAT_FUNCTION, ELEMENT_TO_ARRAY_CONCAT_FUNCTION)
