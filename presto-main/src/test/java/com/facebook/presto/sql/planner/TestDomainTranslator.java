@@ -62,6 +62,7 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -100,6 +101,7 @@ public class TestDomainTranslator
     private static final Symbol L = new Symbol("l");
     private static final Symbol M = new Symbol("m");
     private static final Symbol N = new Symbol("n");
+    private static final Symbol O = new Symbol("o");
 
     private static final Map<Symbol, Type> TYPES = ImmutableMap.<Symbol, Type>builder()
             .put(A, BIGINT)
@@ -116,6 +118,7 @@ public class TestDomainTranslator
             .put(L, VARBINARY)
             .put(M, createDecimalType(10, 5))
             .put(N, createDecimalType(4, 2))
+            .put(O, INTEGER)
             .build();
 
     private static final long TIMESTAMP_VALUE = new DateTime(2013, 3, 30, 1, 5, 0, 0, DateTimeZone.UTC).getMillis();
@@ -1207,6 +1210,43 @@ public class TestDomainTranslator
         testSimpleComparison(isDistinctFrom(A, doubleLiteral(-2.0)), A, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, -2L), Range.greaterThan(BIGINT, -2L)), true));
         testSimpleComparison(isDistinctFrom(A, doubleLiteral(0x1p64)), A, Domain.all(BIGINT));
         testSimpleComparison(isDistinctFrom(A, doubleLiteral(-0x1p64)), A, Domain.all(BIGINT));
+    }
+
+    @Test
+    public void testIntegerComparedToDoubleExpression()
+            throws Exception
+    {
+        // greater than or equal
+        testSimpleComparison(greaterThanOrEqual(O, doubleLiteral(2.5)), O, Range.greaterThan(INTEGER, 2L));
+        testSimpleComparison(greaterThanOrEqual(O, doubleLiteral(2.0)), O, Range.greaterThanOrEqual(INTEGER, 2L));
+        testSimpleComparison(greaterThanOrEqual(O, doubleLiteral(0x1p32)), O, Range.greaterThan(INTEGER, (long) Integer.MAX_VALUE));
+
+        // greater than
+        testSimpleComparison(greaterThan(O, doubleLiteral(2.5)), O, Range.greaterThan(INTEGER, 2L));
+        testSimpleComparison(greaterThan(O, doubleLiteral(2.0)), O, Range.greaterThan(INTEGER, 2L));
+        testSimpleComparison(greaterThan(O, doubleLiteral(0x1p32)), O, Range.greaterThan(INTEGER, (long) Integer.MAX_VALUE));
+
+        // less than or equal
+        testSimpleComparison(lessThanOrEqual(O, doubleLiteral(-2.5)), O, Range.lessThanOrEqual(INTEGER, -3L));
+        testSimpleComparison(lessThanOrEqual(O, doubleLiteral(-2.0)), O, Range.lessThanOrEqual(INTEGER, -2L));
+        testSimpleComparison(lessThanOrEqual(O, doubleLiteral(-0x1p32)), O, Range.lessThan(INTEGER, (long) Integer.MIN_VALUE));
+
+        // less than
+        testSimpleComparison(lessThan(O, doubleLiteral(-2.5)), O, Range.lessThanOrEqual(INTEGER, -3L));
+        testSimpleComparison(lessThan(O, doubleLiteral(-2.0)), O, Range.lessThan(INTEGER, -2L));
+        testSimpleComparison(lessThan(O, doubleLiteral(-0x1p32)), O, Range.lessThan(INTEGER, (long) Integer.MIN_VALUE));
+
+        // equal
+        testSimpleComparison(equal(O, doubleLiteral(2.5)), O, Domain.none(INTEGER));
+        testSimpleComparison(equal(O, doubleLiteral(2.0)), O, Range.equal(INTEGER, 2L));
+
+        // not equal
+        testSimpleComparison(notEqual(O, doubleLiteral(2.5)), O, Domain.notNull(INTEGER));
+        testSimpleComparison(notEqual(O, doubleLiteral(2.0)), O, Domain.create(ValueSet.ofRanges(Range.lessThan(INTEGER, 2L), Range.greaterThan(INTEGER, 2L)), false));
+
+        // is distinct from
+        testSimpleComparison(isDistinctFrom(O, doubleLiteral(2.5)), O, Domain.all(INTEGER));
+        testSimpleComparison(isDistinctFrom(O, doubleLiteral(2.0)), O, Domain.create(ValueSet.ofRanges(Range.lessThan(INTEGER, 2L), Range.greaterThan(INTEGER, 2L)), true));
     }
 
     @Test
