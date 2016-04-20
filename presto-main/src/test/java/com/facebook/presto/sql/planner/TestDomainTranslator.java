@@ -1250,6 +1250,39 @@ public class TestDomainTranslator
     }
 
     @Test
+    public void testIntegerComparedToBigintExpression()
+            throws Exception
+    {
+        // greater than or equal
+        testSimpleComparison(greaterThanOrEqual(O, bigintLiteral(2L)), O, Range.greaterThanOrEqual(INTEGER, 2L));
+        testSimpleComparison(greaterThanOrEqual(O, bigintLiteral(Integer.MAX_VALUE + 1L)), O, Range.greaterThan(INTEGER, (long) Integer.MAX_VALUE));
+
+        // greater than
+        testSimpleComparison(greaterThan(O, bigintLiteral(2L)), O, Range.greaterThan(INTEGER, 2L));
+        testSimpleComparison(greaterThan(O, bigintLiteral(Integer.MAX_VALUE + 1L)), O, Range.greaterThan(INTEGER, (long) Integer.MAX_VALUE));
+
+        // less than or equal
+        testSimpleComparison(lessThanOrEqual(O, bigintLiteral(-2L)), O, Range.lessThanOrEqual(INTEGER, -2L));
+        testSimpleComparison(lessThanOrEqual(O, bigintLiteral(Integer.MIN_VALUE - 1L)), O, Range.lessThan(INTEGER, (long) Integer.MIN_VALUE));
+
+        // less than
+        testSimpleComparison(lessThan(O, bigintLiteral(-2L)), O, Range.lessThan(INTEGER, -2L));
+        testSimpleComparison(lessThan(O, bigintLiteral(Integer.MIN_VALUE - 1L)), O, Range.lessThan(INTEGER, (long) Integer.MIN_VALUE));
+
+        // equal
+        testSimpleComparison(equal(O, bigintLiteral(Integer.MIN_VALUE - 1L)), O, Domain.none(INTEGER));
+        testSimpleComparison(equal(O, bigintLiteral(-2L)), O, Range.equal(INTEGER, -2L));
+
+        // not equal
+        testSimpleComparison(notEqual(O, bigintLiteral(Integer.MAX_VALUE + 1L)), O, Domain.notNull(INTEGER));
+        testSimpleComparison(notEqual(O, bigintLiteral(2L)), O, Domain.create(ValueSet.ofRanges(Range.lessThan(INTEGER, 2L), Range.greaterThan(INTEGER, 2L)), false));
+
+        // is distinct from
+        testSimpleComparison(isDistinctFrom(O, bigintLiteral(Integer.MAX_VALUE + 1L)), O, Domain.all(INTEGER));
+        testSimpleComparison(isDistinctFrom(O, bigintLiteral(2L)), O, Domain.create(ValueSet.ofRanges(Range.lessThan(INTEGER, 2L), Range.greaterThan(INTEGER, 2L)), true));
+    }
+
+    @Test
     public void testDecimalComparedToWiderDecimal()
             throws Exception
     {
