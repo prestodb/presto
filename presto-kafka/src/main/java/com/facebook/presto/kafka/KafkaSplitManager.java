@@ -25,7 +25,6 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import io.airlift.log.Logger;
 import kafka.api.PartitionOffsetRequestInfo;
 import kafka.cluster.Broker;
@@ -100,8 +99,6 @@ public class KafkaSplitManager
                 SimpleConsumer leaderConsumer = consumerManager.getConsumer(partitionLeader);
                 // Kafka contains a reverse list of "end - start" pairs for the splits
 
-                List<HostAddress> partitionNodes = ImmutableList.copyOf(Lists.transform(part.isr(), KafkaSplitManager::brokerToHostAddress));
-
                 long[] offsets = findAllOffsets(leaderConsumer,  metadata.topic(), part.partitionId());
 
                 for (int i = offsets.length - 1; i > 0; i--) {
@@ -113,7 +110,7 @@ public class KafkaSplitManager
                             part.partitionId(),
                             offsets[i],
                             offsets[i - 1],
-                            partitionNodes);
+                            partitionLeader);
                     splits.add(split);
                 }
             }
@@ -142,11 +139,6 @@ public class KafkaSplitManager
         }
 
         return offsetResponse.offsets(topicName, partitionId);
-    }
-
-    private static HostAddress brokerToHostAddress(Broker broker)
-    {
-        return HostAddress.fromParts(broker.host(), broker.port());
     }
 
     private static <T> T selectRandom(Iterable<T> iterable)

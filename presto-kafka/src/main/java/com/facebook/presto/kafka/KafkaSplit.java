@@ -26,8 +26,7 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Represents a kafka specific {@link ConnectorSplit}. Each split is mapped to a segment file on disk (based off the segment offset start() and end() values) so that
- * a partition can be processed by reading segment files off different Kafka nodes (in case of replication) and by different workers. Otherwise, a Kafka topic could only
- * be processed along partition boundaries.
+ * a partition can be processed by reading segment files from partition leader. Otherwise, a Kafka topic could only be processed along partition boundaries.
  * <p/>
  * When planning to process a Kafka topic with Presto, using smaller than the recommended segment size (default is 1G) allows Presto to optimize early and process a topic
  * with more workers in parallel.
@@ -42,7 +41,7 @@ public class KafkaSplit
     private final int partitionId;
     private final long start;
     private final long end;
-    private final List<HostAddress> nodes;
+    private final HostAddress leader;
 
     @JsonCreator
     public KafkaSplit(
@@ -53,7 +52,7 @@ public class KafkaSplit
             @JsonProperty("partitionId") int partitionId,
             @JsonProperty("start") long start,
             @JsonProperty("end") long end,
-            @JsonProperty("nodes") List<HostAddress> nodes)
+            @JsonProperty("leader") HostAddress leader)
     {
         this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.topicName = requireNonNull(topicName, "topicName is null");
@@ -62,7 +61,7 @@ public class KafkaSplit
         this.partitionId = partitionId;
         this.start = start;
         this.end = end;
-        this.nodes = ImmutableList.copyOf(requireNonNull(nodes, "addresses is null"));
+        this.leader = requireNonNull(leader, "leader address is null");
     }
 
     @JsonProperty
@@ -108,9 +107,9 @@ public class KafkaSplit
     }
 
     @JsonProperty
-    public List<HostAddress> getNodes()
+    public HostAddress getLeader()
     {
-        return nodes;
+        return leader;
     }
 
     @Override
@@ -122,7 +121,7 @@ public class KafkaSplit
     @Override
     public List<HostAddress> getAddresses()
     {
-        return nodes;
+        return ImmutableList.of(leader);
     }
 
     @Override
@@ -142,7 +141,7 @@ public class KafkaSplit
                 .add("partitionId", partitionId)
                 .add("start", start)
                 .add("end", end)
-                .add("nodes", nodes)
+                .add("leader", leader)
                 .toString();
     }
 }
