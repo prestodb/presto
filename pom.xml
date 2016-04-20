@@ -961,14 +961,14 @@
             <plugin>
                 <groupId>io.takari.maven.plugins</groupId>
                 <artifactId>presto-maven-plugin</artifactId>
-                <version>0.1.7</version>
+                <version>0.1.8</version>
                 <extensions>true</extensions>
             </plugin>
 
             <plugin>
                 <groupId>io.takari.maven.plugins</groupId>
                 <artifactId>provisio-maven-plugin</artifactId>
-                <version>0.1.27</version>
+                <version>0.1.28</version>
                 <extensions>true</extensions>
             </plugin>
 
