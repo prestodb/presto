@@ -93,7 +93,7 @@ public class ExpressionOptimizer
             else {
                 switch (signature.getName()) {
                     // TODO: optimize these special forms
-                    case IF:
+                    case IF: {
                         checkState(call.getArguments().size() == 3, "IF function should have 3 arguments. Get " + call.getArguments().size());
                         RowExpression optimizedOperand = call.getArguments().get(0).accept(this, context);
                         if (optimizedOperand instanceof ConstantExpression) {
@@ -107,11 +107,21 @@ public class ExpressionOptimizer
                                 return call.getArguments().get(2).accept(this, context);
                             }
                         }
-                    case TRY:
+                        List<RowExpression> arguments = call.getArguments().stream()
+                                .map(argument -> argument.accept(this, null))
+                                .collect(toImmutableList());
+                        return call(signature, call.getType(), arguments);
+                    }
+                    case TRY: {
                         checkState(call.getArguments().size() == 1, "try call expressions must have a single argument");
                         if (!(Iterables.getOnlyElement(call.getArguments()) instanceof CallExpression)) {
-                            return Iterables.getOnlyElement(call.getArguments());
+                            return Iterables.getOnlyElement(call.getArguments()).accept(this, null);
                         }
+                        List<RowExpression> arguments = call.getArguments().stream()
+                                .map(argument -> argument.accept(this, null))
+                                .collect(toImmutableList());
+                        return call(signature, call.getType(), arguments);
+                    }
                     case NULL_IF:
                     case SWITCH:
                     case "WHEN":
@@ -121,11 +131,12 @@ public class ExpressionOptimizer
                     case COALESCE:
                     case "AND":
                     case "OR":
-                    case IN:
+                    case IN: {
                         List<RowExpression> arguments = call.getArguments().stream()
                                 .map(argument -> argument.accept(this, null))
                                 .collect(toImmutableList());
                         return call(signature, call.getType(), arguments);
+                    }
                     default:
                         function = registry.getScalarFunctionImplementation(signature);
                 }
