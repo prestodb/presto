@@ -30,10 +30,10 @@ public class FeaturesConfig
     private boolean optimizeSingleDistinct = true;
     private boolean pushTableWriteThroughUnion = true;
     private boolean intermediateAggregationsEnabled;
-
     private boolean columnarProcessing;
     private boolean columnarProcessingDictionary;
     private boolean dictionaryAggregation;
+    private boolean optimizeJoinedAggregations;
 
     private String resourceGroupManager = FILE_BASED_RESOURCE_GROUP_MANAGER;
 
@@ -192,6 +192,18 @@ public class FeaturesConfig
     public FeaturesConfig setDictionaryAggregation(boolean dictionaryAggregation)
     {
         this.dictionaryAggregation = dictionaryAggregation;
+        return this;
+    }
+
+    public boolean isOptimizeJoinedAggregations()
+    {
+        return optimizeJoinedAggregations;
+    }
+
+    @Config("optimizer.optimize-joined-aggregations")
+    public FeaturesConfig setOptimizeJoinedAggregations(boolean optimizeJoinedAggregations)
+    {
+        this.optimizeJoinedAggregations = optimizeJoinedAggregations;
         return this;
     }
 }

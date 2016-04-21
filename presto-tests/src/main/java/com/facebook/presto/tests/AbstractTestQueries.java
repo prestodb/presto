@@ -1620,6 +1620,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testJoinedAggregations()
+            throws Exception
+    {
+        assertQuery("SELECT * FROM (SELECT orderstatus, min(totalprice) FROM orders GROUP BY orderstatus) a JOIN (SELECT orderstatus, max(custkey * 5) - min(orderkey * 10) FROM orders GROUP BY orderstatus) b ON (a.orderstatus = b.orderstatus)");
+    }
+
+    @Test
     public void testJoinWithRightConstantEquality()
             throws Exception
     {

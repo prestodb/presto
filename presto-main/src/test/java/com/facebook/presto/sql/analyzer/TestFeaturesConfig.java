@@ -42,7 +42,8 @@ public class TestFeaturesConfig
                 .setColumnarProcessing(false)
                 .setColumnarProcessingDictionary(false)
                 .setDictionaryAggregation(false)
-                .setResourceGroupManager(FILE_BASED_RESOURCE_GROUP_MANAGER));
+                .setResourceGroupManager(FILE_BASED_RESOURCE_GROUP_MANAGER)
+                .setOptimizeJoinedAggregations(false));
     }
 
     @Test
@@ -62,6 +63,7 @@ public class TestFeaturesConfig
                 .put("optimizer.columnar-processing-dictionary", "true")
                 .put("optimizer.dictionary-aggregation", "true")
                 .put("resource-group-manager", "test")
+                .put("optimizer.optimize-joined-aggregations", "true")
                 .build();
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("experimental-syntax-enabled", "true")
@@ -77,6 +79,7 @@ public class TestFeaturesConfig
                 .put("optimizer.columnar-processing-dictionary", "true")
                 .put("optimizer.dictionary-aggregation", "true")
                 .put("resource-group-manager", "test")
+                .put("optimizer.optimize-joined-aggregations", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -92,7 +95,8 @@ public class TestFeaturesConfig
                 .setColumnarProcessing(true)
                 .setColumnarProcessingDictionary(true)
                 .setDictionaryAggregation(true)
-                .setResourceGroupManager("test");
+                .setResourceGroupManager("test")
+                .setOptimizeJoinedAggregations(true);
 
         assertFullMapping(properties, expected);
         assertDeprecatedEquivalence(FeaturesConfig.class, properties, propertiesLegacy);
