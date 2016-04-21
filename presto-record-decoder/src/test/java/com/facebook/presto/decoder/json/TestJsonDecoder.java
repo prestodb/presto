@@ -20,7 +20,6 @@ import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
@@ -60,7 +59,7 @@ public class TestJsonDecoder
         byte[] json = ByteStreams.toByteArray(TestJsonDecoder.class.getResourceAsStream("/decoder/json/message.json"));
 
         JsonRowDecoder rowDecoder = new JsonRowDecoder(PROVIDER.get());
-        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", VarcharType.VARCHAR, "source", null, null, false, false, false);
+        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", createVarcharType(100), "source", null, null, false, false, false);
         DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", createVarcharType(10), "user/screen_name", null, null, false, false, false);
         DecoderTestColumnHandle row3 = new DecoderTestColumnHandle("", 2, "row3", BigintType.BIGINT, "id", null, null, false, false, false);
         DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", BigintType.BIGINT, "user/statuses_count", null, null, false, false, false);
@@ -88,7 +87,7 @@ public class TestJsonDecoder
         byte[] json = "{}".getBytes(StandardCharsets.UTF_8);
 
         JsonRowDecoder rowDecoder = new JsonRowDecoder(PROVIDER.get());
-        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", VarcharType.VARCHAR, "very/deep/varchar", null, null, false, false, false);
+        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", createVarcharType(100), "very/deep/varchar", null, null, false, false, false);
         DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", BigintType.BIGINT, "no_bigint", null, null, false, false, false);
         DecoderTestColumnHandle row3 = new DecoderTestColumnHandle("", 2, "row3", DoubleType.DOUBLE, "double/is_missing", null, null, false, false, false);
         DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", BooleanType.BOOLEAN, "hello", null, null, false, false, false);
@@ -114,9 +113,9 @@ public class TestJsonDecoder
         byte[] json = "{\"a_number\":481516,\"a_string\":\"2342\"}".getBytes(StandardCharsets.UTF_8);
 
         JsonRowDecoder rowDecoder = new JsonRowDecoder(PROVIDER.get());
-        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", VarcharType.VARCHAR, "a_number", null, null, false, false, false);
+        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", createVarcharType(100), "a_number", null, null, false, false, false);
         DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", BigintType.BIGINT, "a_number", null, null, false, false, false);
-        DecoderTestColumnHandle row3 = new DecoderTestColumnHandle("", 2, "row3", VarcharType.VARCHAR, "a_string", null, null, false, false, false);
+        DecoderTestColumnHandle row3 = new DecoderTestColumnHandle("", 2, "row3", createVarcharType(100), "a_string", null, null, false, false, false);
         DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", BigintType.BIGINT, "a_string", null, null, false, false, false);
 
         List<DecoderColumnHandle> columns = ImmutableList.of(row1, row2, row3, row4);
