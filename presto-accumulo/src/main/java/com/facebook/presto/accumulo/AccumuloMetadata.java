@@ -527,9 +527,18 @@ public class AccumuloMetadata
      */
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
     {
+        // List all tables if schema is null
         if (prefix.getSchemaName() == null) {
             return listTables(session, prefix.getSchemaName());
         }
-        return ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+
+        // Make sure requested table exists, returning the single table of it does
+        SchemaTableName table = new SchemaTableName(prefix.getSchemaName(), prefix.getTableName());
+        if (getTableHandle(session, table) != null) {
+            return ImmutableList.of(table);
+        }
+
+        // Else, return empty list
+        return ImmutableList.of();
     }
 }
