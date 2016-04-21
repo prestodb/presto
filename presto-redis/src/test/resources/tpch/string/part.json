@@ -6,7 +6,6 @@
         "fields": [
             {
                 "name": "redis_key",
-                "dataFormat": "VARCHAR",
                 "type": "VARCHAR(64)",
                 "hidden": "true"
             }
