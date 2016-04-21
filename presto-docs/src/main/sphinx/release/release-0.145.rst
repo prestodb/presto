@@ -6,10 +6,15 @@ General Changes
 ---------------
 
 * Fix potential memory leak in coordinator query history.
+* Fix column resolution issue when qualified name refers to a view.
+* Fail arithmetic operations on overflow.
 * Add support for the ``integer`` type to the Presto engine and the Hive,
   Raptor, Redis, Kafka, Cassandra and example-http connectors.
+* Add initial support for the ``decimal`` data type.
 * Add ``driver.max-page-partitioning-buffer-size`` config to control buffer size
   used to repartition pages for exchanges.
+* Improve performance for distributed JOIN and GROUP BY queries with billions
+  of groups.
 
 Verifier Changes
 ----------------
@@ -28,3 +33,5 @@ Hive Changes
 ------------
 
 * Fix bug when grouping on a bucketed column which causes incorrect results.
+* Add ``max_split_size`` and ``max_initial_split_size`` session properties to control
+  the size of generated splits.
