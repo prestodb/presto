@@ -19,7 +19,6 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -27,6 +26,7 @@ import io.airlift.slice.Slices;
 import java.util.Objects;
 import java.util.Set;
 
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -73,7 +73,7 @@ public class KafkaInternalFieldDescription
     /**
      * <tt>_message</tt> - Represents the full topic as a text column. Format is UTF-8 which may be wrong for some topics. TODO: make charset configurable.
      */
-    public static final KafkaInternalFieldDescription MESSAGE_FIELD = new KafkaInternalFieldDescription("_message", VarcharType.VARCHAR, "Message text");
+    public static final KafkaInternalFieldDescription MESSAGE_FIELD = new KafkaInternalFieldDescription("_message", createUnboundedVarcharType(), "Message text");
 
     /**
      * <tt>_message_length</tt> - length in bytes of the message.
@@ -88,7 +88,7 @@ public class KafkaInternalFieldDescription
     /**
      * <tt>_key</tt> - Represents the key as a text column. Format is UTF-8 which may be wrong for topics. TODO: make charset configurable.
      */
-    public static final KafkaInternalFieldDescription KEY_FIELD = new KafkaInternalFieldDescription("_key", VarcharType.VARCHAR, "Key text");
+    public static final KafkaInternalFieldDescription KEY_FIELD = new KafkaInternalFieldDescription("_key", createUnboundedVarcharType(), "Key text");
 
     /**
      * <tt>_key_length</tt> - length in bytes of the key.

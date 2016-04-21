@@ -29,7 +29,7 @@
             {
                 "name": "orderstatus",
                 "mapping": "orderstatus",
-                "type": "VARCHAR"
+                "type": "VARCHAR(1)"
             },
             {
                 "name": "totalprice",
@@ -45,12 +45,12 @@
             {
                 "name": "orderpriority",
                 "mapping": "orderpriority",
-                "type": "VARCHAR"
+                "type": "VARCHAR(15)"
             },
             {
                 "name": "clerk",
                 "mapping": "clerk",
-                "type": "VARCHAR"
+                "type": "VARCHAR(15)"
             },
             {
                 "name": "shippriority",
@@ -60,7 +60,7 @@
             {
                 "name": "comment",
                 "mapping": "comment",
-                "type": "VARCHAR"
+                "type": "VARCHAR(79)"
             }
         ]
     }

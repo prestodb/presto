@@ -24,12 +24,12 @@
             {
                 "name": "name",
                 "mapping": "name",
-                "type": "VARCHAR"
+                "type": "VARCHAR(25)"
             },
             {
                 "name": "address",
                 "mapping": "address",
-                "type": "VARCHAR"
+                "type": "VARCHAR(40)"
             },
             {
                 "name": "nationkey",
@@ -39,7 +39,7 @@
             {
                 "name": "phone",
                 "mapping": "phone",
-                "type": "VARCHAR"
+                "type": "VARCHAR(15)"
             },
             {
                 "name": "acctbal",
@@ -49,12 +49,12 @@
             {
                 "name": "mktsegment",
                 "mapping": "mktsegment",
-                "type": "VARCHAR"
+                "type": "VARCHAR(10)"
             },
             {
                 "name": "comment",
                 "mapping": "comment",
-                "type": "VARCHAR"
+                "type": "VARCHAR(117)"
             }
         ]
     }
