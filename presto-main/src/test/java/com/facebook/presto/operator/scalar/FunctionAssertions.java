@@ -232,6 +232,17 @@ public final class FunctionAssertions
         }
     }
 
+    public void assertFunctionString(String projection, Type expectedType, String expected)
+    {
+        Object actual = selectSingleValue(projection, expectedType, compiler);
+        try {
+            assertEquals(actual.toString(), expected);
+        }
+        catch (Throwable e) {
+            throw e;
+        }
+    }
+
     public void tryEvaluate(String expression, Type expectedType)
     {
         tryEvaluate(expression, expectedType, session);

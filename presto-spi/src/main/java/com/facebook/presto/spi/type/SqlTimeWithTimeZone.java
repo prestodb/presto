@@ -15,17 +15,19 @@ package com.facebook.presto.spi.type;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 import java.util.TimeZone;
 
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackZoneKey;
-import static com.facebook.presto.spi.type.TimeZoneIndex.getTimeZoneForKey;
 
 public final class SqlTimeWithTimeZone
 {
+    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss.SSS VV");
+
     private final long millisUtc;
     private final TimeZoneKey timeZoneKey;
 
@@ -81,8 +83,6 @@ public final class SqlTimeWithTimeZone
     @Override
     public String toString()
     {
-        SimpleDateFormat format = new SimpleDateFormat("HH:mm:ss.SSS");
-        format.setTimeZone(getTimeZoneForKey(timeZoneKey));
-        return format.format(new Date(millisUtc)) + " " + timeZoneKey.getId();
+        return Instant.ofEpochMilli(millisUtc).atZone(ZoneId.of(timeZoneKey.getId())).format(formatter);
     }
 }
