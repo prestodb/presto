@@ -16,11 +16,13 @@ package com.facebook.presto.decoder.csv;
 import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.FieldValueProvider;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
 import java.util.Set;
 
+import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
@@ -92,7 +94,14 @@ public class CsvFieldDecoder
             @Override
             public Slice getSlice()
             {
-                return isNull() ? EMPTY_SLICE : utf8Slice(value);
+                if (isNull()) {
+                    return EMPTY_SLICE;
+                }
+                Slice slice = utf8Slice(value);
+                if (columnHandle.getType() instanceof VarcharType) {
+                    slice = truncateToLength(slice, columnHandle.getType());
+                }
+                return slice;
             }
         };
     }
