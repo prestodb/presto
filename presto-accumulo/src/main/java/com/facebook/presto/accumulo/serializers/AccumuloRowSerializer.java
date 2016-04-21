@@ -551,9 +551,8 @@ public interface AccumuloRowSerializer
                 Slice slice = (Slice) TypeUtils.readNativeValue(type, block, position);
                 return type.equals(VarcharType.VARCHAR) ? slice.toStringUtf8() : slice.getBytes();
             }
-            else {
-                return TypeUtils.readNativeValue(type, block, position);
-            }
+
+            return TypeUtils.readNativeValue(type, block, position);
         }
     }
 }

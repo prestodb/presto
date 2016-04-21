@@ -89,17 +89,15 @@ public class TestKeyValueIterator
                 currKVP = iter.next();
                 return true;
             }
-            else {
-                return false;
-            }
+
+            return false;
         }
 
         if (currKVP != null) {
             return true;
         }
-        else {
-            return false;
-        }
+
+        return false;
     }
 
     @Override

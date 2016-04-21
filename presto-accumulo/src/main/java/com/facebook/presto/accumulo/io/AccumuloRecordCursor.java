@@ -360,9 +360,8 @@ public class AccumuloRecordCursor
         if (Types.isArrayType(type)) {
             return serializer.getArray(fieldToColumnName[field], type);
         }
-        else {
-            return serializer.getMap(fieldToColumnName[field], type);
-        }
+
+        return serializer.getMap(fieldToColumnName[field], type);
     }
 
     /**

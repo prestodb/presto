@@ -208,9 +208,8 @@ public class AccumuloClient
         if (AccumuloTableProperties.isExternal(meta.getProperties())) {
             return createExternalTable(meta);
         }
-        else {
-            return createInternalTable(meta);
-        }
+
+        return createInternalTable(meta);
     }
 
     /**

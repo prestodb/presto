@@ -514,9 +514,8 @@ public class AccumuloMetadata
 
             return new ConnectorTableMetadata(stn, table.getColumnsMetadata());
         }
-        else {
-            return null;
-        }
+
+        return null;
     }
 
     /**

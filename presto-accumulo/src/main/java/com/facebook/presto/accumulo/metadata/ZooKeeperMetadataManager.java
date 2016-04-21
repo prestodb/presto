@@ -325,9 +325,7 @@ public class ZooKeeperMetadataManager
             if (curator.checkExists().forPath(path) != null) {
                 return super.isAccumuloTable(curator.getData().forPath(path));
             }
-            else {
-                return false;
-            }
+            return false;
         }
         catch (Exception e) {
             throw new PrestoException(ZOOKEEPER_ERROR,
@@ -348,9 +346,7 @@ public class ZooKeeperMetadataManager
             if (curator.checkExists().forPath(path) != null) {
                 return super.isAccumuloView(curator.getData().forPath(path));
             }
-            else {
-                return false;
-            }
+            return false;
         }
         catch (Exception e) {
             throw new PrestoException(ZOOKEEPER_ERROR,
