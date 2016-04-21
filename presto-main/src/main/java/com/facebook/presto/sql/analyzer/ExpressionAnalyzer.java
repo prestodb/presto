@@ -124,8 +124,6 @@ import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_MINUTE;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.RowType.RowField;
-import static com.facebook.presto.type.TypeRegistry.canCoerce;
-import static com.facebook.presto.type.TypeRegistry.getCommonSuperTypeSignature;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
 import static com.facebook.presto.util.DateTimeUtils.timeHasTimeZone;
@@ -146,6 +144,7 @@ public class ExpressionAnalyzer
     private final IdentityHashMap<Expression, Type> expressionTypes = new IdentityHashMap<>();
     private final Set<SubqueryExpression> scalarSubqueries = newIdentityHashSet();
     private final IdentityHashMap<Expression, Type> expressionCoercions = new IdentityHashMap<>();
+    private final Set<Expression> typeOnlyCoercions = newIdentityHashSet();
     private final Set<InPredicate> subqueryInPredicates = newIdentityHashSet();
     private final Session session;
 
@@ -175,6 +174,11 @@ public class ExpressionAnalyzer
     public IdentityHashMap<Expression, Type> getExpressionCoercions()
     {
         return expressionCoercions;
+    }
+
+    public Set<Expression> getTypeOnlyCoercions()
+    {
+        return typeOnlyCoercions;
     }
 
     public Set<InPredicate> getSubqueryInPredicates()
@@ -428,7 +432,7 @@ public class ExpressionAnalyzer
             Type firstType = process(node.getFirst(), context);
             Type secondType = process(node.getSecond(), context);
 
-            if (!getCommonSuperTypeSignature(firstType.getTypeSignature(), secondType.getTypeSignature()).isPresent()) {
+            if (!typeManager.getCommonSuperType(firstType, secondType).isPresent()) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Types are not comparable with NULLIF: %s vs %s", firstType, secondType);
             }
 
@@ -971,10 +975,13 @@ public class ExpressionAnalyzer
         {
             Type actualType = process(expression, context);
             if (!actualType.equals(expectedType)) {
-                if (!canCoerce(actualType, expectedType)) {
+                if (!typeManager.canCoerce(actualType, expectedType)) {
                     throw new SemanticException(TYPE_MISMATCH, expression, message + " must evaluate to a %s (actual: %s)", expectedType, actualType);
                 }
                 expressionCoercions.put(expression, expectedType);
+                if (typeManager.isTypeOnlyCoercion(actualType, expectedType)) {
+                    typeOnlyCoercions.add(expression);
+                }
             }
         }
 
@@ -1000,12 +1007,18 @@ public class ExpressionAnalyzer
             }
 
             // coerce types if possible
-            if (canCoerce(firstType, secondType)) {
+            if (typeManager.canCoerce(firstType, secondType)) {
                 expressionCoercions.put(first, secondType);
+                if (typeManager.isTypeOnlyCoercion(firstType, secondType)) {
+                    typeOnlyCoercions.add(first);
+                }
                 return secondType;
             }
-            if (canCoerce(secondType, firstType)) {
+            if (typeManager.canCoerce(secondType, firstType)) {
                 expressionCoercions.put(second, firstType);
+                if (typeManager.isTypeOnlyCoercion(secondType, firstType)) {
+                    typeOnlyCoercions.add(second);
+                }
                 return firstType;
             }
             throw new SemanticException(TYPE_MISMATCH, node, message, firstType, secondType);
@@ -1027,10 +1040,13 @@ public class ExpressionAnalyzer
             for (Expression expression : expressions) {
                 Type type = process(expression, context);
                 if (!type.equals(superType)) {
-                    if (!canCoerce(type, superType)) {
+                    if (!typeManager.canCoerce(type, superType)) {
                         throw new SemanticException(TYPE_MISMATCH, expression, message, superType);
                     }
                     expressionCoercions.put(expression, superType);
+                    if (typeManager.isTypeOnlyCoercion(type, superType)) {
+                        typeOnlyCoercions.add(expression);
+                    }
                 }
             }
 
@@ -1131,7 +1147,8 @@ public class ExpressionAnalyzer
                 analyzer.getExpressionCoercions(),
                 analyzer.getSubqueryInPredicates(),
                 analyzer.getScalarSubqueries(),
-                analyzer.getResolvedNames().keySet());
+                analyzer.getResolvedNames().keySet(),
+                analyzer.getTypeOnlyCoercions());
     }
 
     public static ExpressionAnalysis analyzeExpression(
@@ -1150,10 +1167,11 @@ public class ExpressionAnalyzer
 
         IdentityHashMap<Expression, Type> expressionTypes = analyzer.getExpressionTypes();
         IdentityHashMap<Expression, Type> expressionCoercions = analyzer.getExpressionCoercions();
+        Set<Expression> typeOnlyCoercions = analyzer.getTypeOnlyCoercions();
         IdentityHashMap<FunctionCall, Signature> resolvedFunctions = analyzer.getResolvedFunctions();
 
         analysis.addTypes(expressionTypes);
-        analysis.addCoercions(expressionCoercions);
+        analysis.addCoercions(expressionCoercions, typeOnlyCoercions);
         analysis.addFunctionSignatures(resolvedFunctions);
 
         analysis.addResolvedNames(analyzer.getResolvedNames());
@@ -1163,7 +1181,8 @@ public class ExpressionAnalyzer
                 expressionCoercions,
                 analyzer.getSubqueryInPredicates(),
                 analyzer.getScalarSubqueries(),
-                analyzer.getColumnReferences());
+                analyzer.getColumnReferences(),
+                analyzer.getTypeOnlyCoercions());
     }
 
     public static ExpressionAnalyzer create(

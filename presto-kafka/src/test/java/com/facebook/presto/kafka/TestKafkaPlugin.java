@@ -94,6 +94,12 @@ public class TestKafkaPlugin
         }
 
         @Override
+        public boolean isTypeOnlyCoercion(Type actualType, Type expectedType)
+        {
+            return false;
+        }
+
+        @Override
         public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
         {
             return Optional.empty();

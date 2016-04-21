@@ -98,6 +98,18 @@ public class TestMongoPlugin
         }
 
         @Override
+        public boolean isTypeOnlyCoercion(Type actualType, Type expectedType)
+        {
+            return false;
+        }
+
+        @Override
+        public Optional<Type> coerceTypeBase(Type sourceType, String resultTypeBase)
+        {
+            return Optional.empty();
+        }
+
+        @Override
         public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
         {
             return Optional.empty();
