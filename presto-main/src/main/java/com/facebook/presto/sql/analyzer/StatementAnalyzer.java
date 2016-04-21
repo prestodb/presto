@@ -115,7 +115,6 @@ import com.facebook.presto.sql.tree.WithQuery;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
 import com.facebook.presto.type.RowType;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -214,7 +213,6 @@ import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.sql.tree.ShowCreate.Type.TABLE;
 import static com.facebook.presto.sql.tree.ShowCreate.Type.VIEW;
 import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
-import static com.facebook.presto.type.TypeRegistry.canCoerce;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
@@ -718,7 +716,7 @@ class StatementAnalyzer
         return new RelationType(Field.newUnqualified("rows", BIGINT));
     }
 
-    private static boolean typesMatchForInsert(Iterable<Type> tableTypes, Iterable<Type> queryTypes)
+    private boolean typesMatchForInsert(Iterable<Type> tableTypes, Iterable<Type> queryTypes)
     {
         if (Iterables.size(tableTypes) != Iterables.size(queryTypes)) {
             return false;
@@ -730,7 +728,7 @@ class StatementAnalyzer
             Type tableType = tableTypesIterator.next();
             Type queryType = queryTypesIterator.next();
 
-            if (!canCoerce(queryType.getTypeSignature(), tableType.getTypeSignature())) {
+            if (!metadata.getTypeManager().canCoerce(queryType, tableType)) {
                 return false;
             }
         }
@@ -1330,7 +1328,7 @@ class StatementAnalyzer
             // to re-analyze coercions that might be necessary
             analyzer = ExpressionAnalyzer.create(analysis, session, metadata, sqlParser, accessControl, experimentalSyntaxEnabled);
             analyzer.analyze((Expression) optimizedExpression, output, context);
-            analysis.addCoercions(analyzer.getExpressionCoercions());
+            analysis.addCoercions(analyzer.getExpressionCoercions(), analyzer.getTypeOnlyCoercions());
 
             Set<Expression> postJoinConjuncts = new HashSet<>();
             final Set<InPredicate> leftJoinInPredicates = new HashSet<>();
@@ -1398,10 +1396,10 @@ class StatementAnalyzer
             throw new SemanticException(TYPE_MISMATCH, node, "Join criteria has incompatible types: %s, %s", leftType.getDisplayName(), rightType.getDisplayName());
         }
         if (!leftType.equals(superType.get())) {
-            analysis.addCoercion(leftExpression, superType.get());
+            analysis.addCoercion(leftExpression, superType.get(), metadata.getTypeManager().isTypeOnlyCoercion(leftType, rightType));
         }
         if (!rightType.equals(superType.get())) {
-            analysis.addCoercion(rightExpression, superType.get());
+            analysis.addCoercion(rightExpression, superType.get(), metadata.getTypeManager().isTypeOnlyCoercion(rightType, leftType));
         }
     }
 
@@ -1447,15 +1445,17 @@ class StatementAnalyzer
                 for (int i = 0; i < items.size(); i++) {
                     Type expectedType = fieldTypes.get(i);
                     Expression item = items.get(i);
-                    if (!analysis.getType(item).equals(expectedType)) {
-                        analysis.addCoercion(item, expectedType);
+                    Type actualType = analysis.getType(item);
+                    if (!actualType.equals(expectedType)) {
+                        analysis.addCoercion(item, expectedType, metadata.getTypeManager().isTypeOnlyCoercion(actualType, expectedType));
                     }
                 }
             }
             else {
+                Type actualType = analysis.getType(row);
                 Type expectedType = fieldTypes.get(0);
-                if (!analysis.getType(row).equals(expectedType)) {
-                    analysis.addCoercion(row, expectedType);
+                if (!actualType.equals(expectedType)) {
+                    analysis.addCoercion(row, expectedType, metadata.getTypeManager().isTypeOnlyCoercion(actualType, expectedType));
                 }
             }
         }
@@ -1844,7 +1844,7 @@ class StatementAnalyzer
                 throw new SemanticException(TYPE_MISMATCH, predicate, "WHERE clause must evaluate to a boolean: actual type %s", predicateType);
             }
             // coerce null to boolean
-            analysis.addCoercion(predicate, BOOLEAN);
+            analysis.addCoercion(predicate, BOOLEAN, false);
         }
 
         analysis.setWhere(node, predicate);
@@ -1982,7 +1982,7 @@ class StatementAnalyzer
         }
     }
 
-    private static boolean isViewStale(List<ViewDefinition.ViewColumn> columns, Collection<Field> fields)
+    private boolean isViewStale(List<ViewDefinition.ViewColumn> columns, Collection<Field> fields)
     {
         if (columns.size() != fields.size()) {
             return true;
@@ -1993,7 +1993,7 @@ class StatementAnalyzer
             ViewDefinition.ViewColumn column = columns.get(i);
             Field field = fieldList.get(i);
             if (!column.getName().equals(field.getName().orElse(null)) ||
-                    !TypeRegistry.canCoerce(field.getType(), column.getType())) {
+                    !metadata.getTypeManager().canCoerce(field.getType(), column.getType())) {
                 return true;
             }
         }

@@ -59,7 +59,6 @@ import static com.facebook.presto.type.MapParametricType.MAP;
 import static com.facebook.presto.type.RegexpType.REGEXP;
 import static com.facebook.presto.type.RowParametricType.ROW;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Collections.emptyList;
@@ -171,7 +170,7 @@ public final class TypeRegistry
 
     public void addType(Type type)
     {
-        verifyTypeClass(type);
+        requireNonNull(type, "type is null");
         Type existingType = types.putIfAbsent(type.getTypeSignature(), type);
         checkState(existingType == null || existingType.equals(type), "Type %s is already registered", type);
     }
@@ -181,26 +180,6 @@ public final class TypeRegistry
         String name = parametricType.getName().toLowerCase(Locale.ENGLISH);
         checkArgument(!parametricTypes.containsKey(name), "Parametric type already registered: %s", name);
         parametricTypes.putIfAbsent(name, parametricType);
-    }
-
-    public static void verifyTypeClass(Type type)
-    {
-        requireNonNull(type, "type is null");
-    }
-
-    public static boolean canCoerce(List<? extends Type> actualTypes, List<Type> expectedTypes)
-    {
-        if (actualTypes.size() != expectedTypes.size()) {
-            return false;
-        }
-        for (int i = 0; i < expectedTypes.size(); i++) {
-            Type expectedType = expectedTypes.get(i);
-            Type actualType = actualTypes.get(i);
-            if (!canCoerce(actualType, expectedType)) {
-                return false;
-            }
-        }
-        return true;
     }
 
     private static boolean canCastTypeBase(String fromTypeBase, String toTypeBase)
@@ -242,20 +221,17 @@ public final class TypeRegistry
         return firstTypeBase.equals(StandardTypes.ARRAY) || firstTypeBase.equals(StandardTypes.MAP);
     }
 
-    public static boolean isTypeOnlyCoercion(Type actualType, Type expectedType)
+    @Override
+    public boolean isTypeOnlyCoercion(Type actualType, Type expectedType)
     {
-        return isTypeOnlyCoercion(actualType.getTypeSignature(), expectedType.getTypeSignature());
+        return canCoerce(actualType, expectedType) && isTypeOnlyCoercion(actualType.getTypeSignature(), expectedType.getTypeSignature());
     }
 
     /*
      * Return true if actualType can be coerced to expectedType AND they are both binary compatible (so it's only type coercion)
      */
-    public static boolean isTypeOnlyCoercion(TypeSignature actualType, TypeSignature expectedType)
+    private static boolean isTypeOnlyCoercion(TypeSignature actualType, TypeSignature expectedType)
     {
-        if (!canCoerce(actualType, expectedType)) {
-            return false;
-        }
-
         if (actualType.equals(expectedType)) {
             return true;
         }
@@ -305,32 +281,23 @@ public final class TypeRegistry
         return false;
     }
 
-    public static boolean canCoerce(Type actualType, Type expectedType)
-    {
-        return canCoerce(actualType.getTypeSignature(), expectedType.getTypeSignature());
-    }
-
-    public static boolean canCoerce(TypeSignature actualType, TypeSignature expectedType)
-    {
-        Optional<TypeSignature> commonSuperTypeSignature = getCommonSuperTypeSignature(actualType, expectedType);
-        return commonSuperTypeSignature.isPresent() && commonSuperTypeSignature.get().equals(expectedType);
-    }
-
     @Override
-    public Optional<Type> getCommonSuperType(List<? extends Type> types)
+    public boolean canCoerce(Type actual, TypeSignature expected)
     {
-        checkArgument(!types.isEmpty(), "types is empty");
-        Optional<TypeSignature> commonSuperTypeSignature = getCommonSuperTypeSignature(
-                types.stream()
-                        .map(Type::getTypeSignature)
-                        .collect(toImmutableList()));
-        return commonSuperTypeSignature.map(this::getType);
+        Optional<TypeSignature> commonSuperTypeSignature = getCommonSuperTypeSignature(actual.getTypeSignature(), expected);
+        return commonSuperTypeSignature.isPresent() && commonSuperTypeSignature.get().equals(expected);
     }
 
     @Override
     public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
     {
         return getCommonSuperTypeSignature(firstType.getTypeSignature(), secondType.getTypeSignature()).map(this::getType);
+    }
+
+    @Override
+    public Optional<Type> getCommonSuperType(Type firstType, TypeSignature secondType)
+    {
+        return getCommonSuperTypeSignature(firstType.getTypeSignature(), secondType).map(this::getType);
     }
 
     private static Optional<String> getCommonSuperTypeBase(String firstTypeBase, String secondTypeBase)
@@ -345,22 +312,11 @@ public final class TypeRegistry
         return Optional.empty();
     }
 
-    public static Optional<TypeSignature> getCommonSuperTypeSignature(List<? extends TypeSignature> typeSignatures)
+    private static Optional<TypeSignature> getCommonSuperTypeSignature(TypeSignature firstType, TypeSignature secondType)
     {
-        checkArgument(!typeSignatures.isEmpty(), "typeSignatures is empty");
-        TypeSignature superTypeSignature = UNKNOWN.getTypeSignature();
-        for (TypeSignature typeSignature : typeSignatures) {
-            Optional<TypeSignature> commonSuperTypeSignature = getCommonSuperTypeSignature(superTypeSignature, typeSignature);
-            if (!commonSuperTypeSignature.isPresent()) {
-                return Optional.empty();
-            }
-            superTypeSignature = commonSuperTypeSignature.get();
+        if (firstType.equals(secondType)) {
+            return Optional.of(secondType);
         }
-        return Optional.of(superTypeSignature);
-    }
-
-    public static Optional<TypeSignature> getCommonSuperTypeSignature(TypeSignature firstType, TypeSignature secondType)
-    {
         // Special handling for UnknownType is necessary because we forbid cast between types with different number of type parameters.
         // Without this, cast from null to map(bigint, bigint) will not be allowed.
         if (UnknownType.NAME.equals(firstType.getBase())) {

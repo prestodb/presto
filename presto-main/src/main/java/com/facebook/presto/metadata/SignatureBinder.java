@@ -31,8 +31,6 @@ import java.util.Optional;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.type.TypeCalculation.calculateLiteralValue;
-import static com.facebook.presto.type.TypeRegistry.canCoerce;
-import static com.facebook.presto.type.TypeRegistry.getCommonSuperTypeSignature;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getLast;
 import static java.util.Objects.requireNonNull;
@@ -164,7 +162,7 @@ public class SignatureBinder
             if (actual.equals(UnknownType.UNKNOWN) && isTypeParametrized(expected)) {
                 return true;
             }
-            Optional<Type> coercedType = coerceType(actualArgumentSignature, expected);
+            Optional<Type> coercedType = coerceType(actual, expected);
             if (coercedType.isPresent()) {
                 return matchAndBindTypeParameters(expected, coercedType.get(), variableBinder);
             }
@@ -323,11 +321,11 @@ public class SignatureBinder
         return false;
     }
 
-    private Optional<Type> coerceType(TypeSignature actual, TypeSignature expected)
+    private Optional<Type> coerceType(Type actual, TypeSignature expected)
     {
         // TODO: this must be calculated in TypeRegistry
         // TODO: Going to be removed after TypeRegistry refactor
-        if (actual.getBase().equals(UnknownType.NAME)) {
+        if (actual.getTypeSignature().getBase().equals(UnknownType.NAME)) {
             if (expected.getBase().equals(StandardTypes.DECIMAL)) {
                 return Optional.of(createDecimalType(1, 0));
             }
@@ -339,17 +337,11 @@ public class SignatureBinder
             return Optional.empty();
         }
 
-        if (!canCoerce(actual, expected)) {
+        if (!typeManager.canCoerce(actual, expected)) {
             return Optional.empty();
         }
 
-        Optional<TypeSignature> commonType = getCommonSuperTypeSignature(actual, expected);
-        checkState(commonType.isPresent(), "common supper type signature hasn't been found");
-        checkState(baseTypesAreEqual(expected, commonType.get()),
-                "base types are supposed to be equal after coercion");
-        Type type = typeManager.getType(commonType.get());
-        checkState(type != null, "type signature for concrete type must be calculated here");
-        return Optional.of(type);
+        return typeManager.getCommonSuperType(actual, expected);
     }
 
     private boolean isTypeParametrized(TypeSignature expectedSignature)

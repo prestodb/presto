@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.type;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
@@ -33,7 +34,42 @@ public interface TypeManager
      */
     List<Type> getTypes();
 
-    Optional<Type> getCommonSuperType(List<? extends Type> types);
-
     Optional<Type> getCommonSuperType(Type firstType, Type secondType);
+
+    default Optional<Type> getCommonSuperType(List<? extends Type> types)
+    {
+        if (types.isEmpty()) {
+            throw new IllegalArgumentException("types is empty");
+        }
+        Iterator<? extends Type> typeIterator = types.iterator();
+        Type result = typeIterator.next();
+        while (typeIterator.hasNext()) {
+            Optional<Type> commonSupperType = getCommonSuperType(result, typeIterator.next());
+            if (!commonSupperType.isPresent()) {
+                return Optional.empty();
+            }
+            result = commonSupperType.get();
+        }
+        return Optional.of(result);
+    }
+
+    default boolean canCoerce(Type actualType, Type expectedType)
+    {
+        Optional<Type> commonSuperType = getCommonSuperType(actualType, expectedType);
+        return commonSuperType.isPresent() && commonSuperType.get().equals(expectedType);
+    }
+
+    boolean isTypeOnlyCoercion(Type actualType, Type expectedType);
+
+    @Deprecated
+    default boolean canCoerce(Type actual, TypeSignature expected)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Deprecated
+    default Optional<Type> getCommonSuperType(Type firstType, TypeSignature secondType)
+    {
+        throw new UnsupportedOperationException();
+    }
 }
