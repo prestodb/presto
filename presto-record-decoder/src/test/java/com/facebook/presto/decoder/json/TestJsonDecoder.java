@@ -35,6 +35,7 @@ import java.util.Set;
 
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkIsNull;
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkValue;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -60,7 +61,7 @@ public class TestJsonDecoder
 
         JsonRowDecoder rowDecoder = new JsonRowDecoder(PROVIDER.get());
         DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", VarcharType.VARCHAR, "source", null, null, false, false, false);
-        DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", VarcharType.VARCHAR, "user/screen_name", null, null, false, false, false);
+        DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", createVarcharType(10), "user/screen_name", null, null, false, false, false);
         DecoderTestColumnHandle row3 = new DecoderTestColumnHandle("", 2, "row3", BigintType.BIGINT, "id", null, null, false, false, false);
         DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", BigintType.BIGINT, "user/statuses_count", null, null, false, false, false);
         DecoderTestColumnHandle row5 = new DecoderTestColumnHandle("", 4, "row5", BooleanType.BOOLEAN, "user/geo_enabled", null, null, false, false, false);
@@ -74,7 +75,7 @@ public class TestJsonDecoder
         assertEquals(providers.size(), columns.size());
 
         checkValue(providers, row1, "<a href=\"http://twitterfeed.com\" rel=\"nofollow\">twitterfeed</a>");
-        checkValue(providers, row2, "EKentuckyNews");
+        checkValue(providers, row2, "EKentuckyN");
         checkValue(providers, row3, 493857959588286460L);
         checkValue(providers, row4, 7630);
         checkValue(providers, row5, true);
