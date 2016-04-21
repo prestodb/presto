@@ -19,8 +19,9 @@ import com.facebook.presto.accumulo.model.AccumuloTableHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
-import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import javax.inject.Inject;
 
@@ -55,13 +56,14 @@ public class AccumuloPageSinkProvider
     /**
      * Creates a page sink for the given output table handle
      *
+     * @param transactionHandle Transaction handle
      * @param session Current client session
      * @param outputTableHandle Output table handle
      * @return A new page sink
      */
     @Override
-    public ConnectorPageSink createPageSink(ConnectorSession session,
-            ConnectorOutputTableHandle outputTableHandle)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
     {
         AccumuloTableHandle tHandle =
                 checkType(outputTableHandle, AccumuloTableHandle.class, "tHandle");
@@ -71,14 +73,15 @@ public class AccumuloPageSinkProvider
     /**
      * Creates a page sink for the given insert table handle
      *
+     * @param transactionHandle Transaction handle
      * @param session Current client session
      * @param insertTableHandle Insert table handle
      * @return A new page sink
      */
     @Override
-    public ConnectorPageSink createPageSink(ConnectorSession session,
-            ConnectorInsertTableHandle insertTableHandle)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
     {
-        return createPageSink(session, checkType(insertTableHandle, ConnectorOutputTableHandle.class, "tHandle"));
+        return createPageSink(transactionHandle, session, checkType(insertTableHandle, ConnectorOutputTableHandle.class, "tHandle"));
     }
 }

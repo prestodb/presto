@@ -24,6 +24,7 @@ import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 /**
  * Presto class to provide and validate various handles throughout the connector
@@ -65,5 +66,11 @@ public class AccumuloHandleResolver
     public Class<? extends ConnectorSplit> getSplitClass()
     {
         return AccumuloSplit.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorTransactionHandle> getTransactionHandleClass()
+    {
+        return AccumuloTransactionHandle.class;
     }
 }

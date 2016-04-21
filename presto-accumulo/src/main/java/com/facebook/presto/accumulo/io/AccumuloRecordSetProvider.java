@@ -18,10 +18,11 @@ import com.facebook.presto.accumulo.conf.AccumuloConfig;
 import com.facebook.presto.accumulo.model.AccumuloColumnHandle;
 import com.facebook.presto.accumulo.model.AccumuloSplit;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
@@ -55,13 +56,15 @@ public class AccumuloRecordSetProvider
     /**
      * Gets a record set to read data from the given split and columns.
      *
+     * @param transactionHandle Transaction handle
      * @param session Current client session
      * @param split Split to read
      * @param columns Column handles of the table
      */
+
     @Override
-    public RecordSet getRecordSet(ConnectorSession session, ConnectorSplit split,
-            List<? extends ColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
         requireNonNull(split, "split is null");
         requireNonNull(columns, "columns is null");

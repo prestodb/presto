@@ -22,10 +22,11 @@ import com.facebook.presto.accumulo.model.TabletSplitMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.TupleDomain.ColumnDomain;
@@ -68,13 +69,14 @@ public class AccumuloSplitManager
     /**
      * Gets the source of splits from the given Presto table layout
      *
+     * @param transactionHandle Transaction handle
      * @param session Current client session
      * @param layout Table layout
      * @return Split source to pass splits to Presto for scan
      */
     @Override
-    public ConnectorSplitSource getSplits(ConnectorSession session,
-            ConnectorTableLayoutHandle layout)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session, ConnectorTableLayoutHandle layout)
     {
         AccumuloTableLayoutHandle layoutHandle =
                 checkType(layout, AccumuloTableLayoutHandle.class, "layout");

@@ -17,19 +17,26 @@ import com.facebook.presto.accumulo.conf.AccumuloSessionProperties;
 import com.facebook.presto.accumulo.conf.AccumuloTableProperties;
 import com.facebook.presto.accumulo.io.AccumuloPageSinkProvider;
 import com.facebook.presto.accumulo.io.AccumuloRecordSetProvider;
-import com.facebook.presto.spi.Connector;
-import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorPageSinkProvider;
-import com.facebook.presto.spi.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
+import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.session.PropertyMetadata;
+import com.facebook.presto.spi.transaction.IsolationLevel;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
+import static com.facebook.presto.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
+import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -43,6 +50,7 @@ public class AccumuloConnector
 
     private final LifeCycleManager lifeCycleManager;
     private final AccumuloMetadata metadata;
+    private final AccumuloMetadataFactory metadataFactory;
     private final AccumuloSplitManager splitManager;
     private final AccumuloRecordSetProvider recordSetProvider;
     private final AccumuloHandleResolver handleResolver;
@@ -50,12 +58,15 @@ public class AccumuloConnector
     private final AccumuloSessionProperties sessionProperties;
     private final AccumuloTableProperties tableProperties;
 
+    private final ConcurrentMap<ConnectorTransactionHandle, AccumuloMetadata> transactions = new ConcurrentHashMap<>();
+
     /**
      * Creates a new instance of AccumuloConnector, brought to you by Guice.
      *
      * @param lifeCycleManager Manages the life cycle
      * @param metadata Provides metadata operations for creating tables, dropping tables, returing table
      * metadata, etc
+     * @param metadataFactory Factory for making Metadata
      * @param splitManager Splits tables into parallel operations for scans
      * @param recordSetProvider Converts splits into rows of data
      * @param handleResolver Defines various handles for Presto to instantiate
@@ -65,12 +76,14 @@ public class AccumuloConnector
      */
     @Inject
     public AccumuloConnector(LifeCycleManager lifeCycleManager, AccumuloMetadata metadata,
-            AccumuloSplitManager splitManager, AccumuloRecordSetProvider recordSetProvider,
-            AccumuloHandleResolver handleResolver, AccumuloPageSinkProvider pageSinkProvider,
-            AccumuloSessionProperties sessionProperties, AccumuloTableProperties tableProperties)
+            AccumuloMetadataFactory metadataFactory, AccumuloSplitManager splitManager,
+            AccumuloRecordSetProvider recordSetProvider, AccumuloHandleResolver handleResolver,
+            AccumuloPageSinkProvider pageSinkProvider, AccumuloSessionProperties sessionProperties,
+            AccumuloTableProperties tableProperties)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.metadataFactory = requireNonNull(metadataFactory, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
         this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
@@ -80,14 +93,57 @@ public class AccumuloConnector
     }
 
     /**
-     * Gets the metadata, an instance of {@link AccumuloMetadata}
+     * Gets the metadata from the given transaction, an instance of {@link AccumuloMetadata}
      *
+     * @param transactionHandle Transaction handle to retrieve metadata
      * @return Metadata
      */
     @Override
-    public ConnectorMetadata getMetadata()
+    public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
     {
+        ConnectorMetadata metadata = transactions.get(transactionHandle);
+        checkArgument(metadata != null, "no such transaction: %s", transactionHandle);
         return metadata;
+    }
+
+    /**
+     * Begins a new transaction
+     *
+     * @param isolationLevel Requested isolation level
+     * @param readOnly If the transaction is read only
+     * @return Transaction handle
+     */
+    @Override
+    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+    {
+        checkConnectorSupports(READ_UNCOMMITTED, isolationLevel);
+        ConnectorTransactionHandle transaction = new AccumuloTransactionHandle();
+        transactions.put(transaction, metadataFactory.create());
+        return transaction;
+    }
+
+    /**
+     * Commits the transaction
+     *
+     * @param transactionHandle Transaction to commit
+     */
+    @Override
+    public void commit(ConnectorTransactionHandle transactionHandle)
+    {
+        checkArgument(transactions.remove(transactionHandle) != null, "no such transaction: %s", transactionHandle);
+    }
+
+    /**
+     * Rollsback the transaction
+     *
+     * @param transactionHandle Transaction to rollback
+     */
+    @Override
+    public void rollback(ConnectorTransactionHandle transactionHandle)
+    {
+        AccumuloMetadata metadata = transactions.remove(transactionHandle);
+        checkArgument(metadata != null, "no such transaction: %s", transactionHandle);
+        metadata.rollback();
     }
 
     /**
