@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -41,11 +42,12 @@ public class HiveBucketProperty
     {
         boolean bucketColsSet = storageDescriptor.isSetBucketCols() && !storageDescriptor.getBucketCols().isEmpty();
         boolean numBucketsSet = storageDescriptor.isSetNumBuckets() && storageDescriptor.getNumBuckets() > 0;
-        if (bucketColsSet != numBucketsSet) {
-            throw new PrestoException(HiveErrorCode.HIVE_INVALID_METADATA, "Only one of bucketCols and numBuckets is set in metadata of table/partition " + tablePartitionName);
+        if (!numBucketsSet) {
+            // In Hive, a table is considered as not bucketed when its bucketCols is set but its numBucket is not set.
+            return Optional.empty();
         }
         if (!bucketColsSet) {
-            return Optional.empty();
+            throw new PrestoException(HIVE_INVALID_METADATA, "Table/partition metadata has 'numBuckets' set, but 'bucketCols' is not set: " + tablePartitionName);
         }
         return Optional.of(new HiveBucketProperty(storageDescriptor.getBucketCols(), storageDescriptor.getNumBuckets()));
     }
