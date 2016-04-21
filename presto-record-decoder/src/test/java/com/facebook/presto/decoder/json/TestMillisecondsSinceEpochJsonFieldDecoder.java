@@ -18,7 +18,6 @@ import com.facebook.presto.decoder.DecoderTestColumnHandle;
 import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
@@ -33,6 +32,7 @@ import java.util.Set;
 import static com.facebook.presto.decoder.FieldDecoder.DEFAULT_FIELD_DECODER_NAME;
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkIsNull;
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkValue;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -64,13 +64,13 @@ public class TestMillisecondsSinceEpochJsonFieldDecoder
 
         JsonRowDecoder rowDecoder = new JsonRowDecoder(PROVIDER.get());
         DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", BigintType.BIGINT, "a_number", DEFAULT_FIELD_DECODER_NAME, null, false, false, false);
-        DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", VarcharType.VARCHAR, "a_string", DEFAULT_FIELD_DECODER_NAME, null, false, false, false);
+        DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", createVarcharType(100), "a_string", DEFAULT_FIELD_DECODER_NAME, null, false, false, false);
 
         DecoderTestColumnHandle row3 = new DecoderTestColumnHandle("", 2, "row3", BigintType.BIGINT, "a_number", MillisecondsSinceEpochJsonFieldDecoder.NAME, null, false, false, false);
         DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", BigintType.BIGINT, "a_string", MillisecondsSinceEpochJsonFieldDecoder.NAME, null, false, false, false);
 
-        DecoderTestColumnHandle row5 = new DecoderTestColumnHandle("", 4, "row5", VarcharType.VARCHAR, "a_number", MillisecondsSinceEpochJsonFieldDecoder.NAME, null, false, false, false);
-        DecoderTestColumnHandle row6 = new DecoderTestColumnHandle("", 5, "row6", VarcharType.VARCHAR, "a_string", MillisecondsSinceEpochJsonFieldDecoder.NAME, null, false, false, false);
+        DecoderTestColumnHandle row5 = new DecoderTestColumnHandle("", 4, "row5", createVarcharType(100), "a_number", MillisecondsSinceEpochJsonFieldDecoder.NAME, null, false, false, false);
+        DecoderTestColumnHandle row6 = new DecoderTestColumnHandle("", 5, "row6", createVarcharType(100), "a_string", MillisecondsSinceEpochJsonFieldDecoder.NAME, null, false, false, false);
 
         List<DecoderColumnHandle> columns = ImmutableList.of(row1, row2, row3, row4, row5, row6);
         Set<FieldValueProvider> providers = new HashSet<>();
@@ -104,13 +104,13 @@ public class TestMillisecondsSinceEpochJsonFieldDecoder
 
         JsonRowDecoder rowDecoder = new JsonRowDecoder(PROVIDER.get());
         DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", BigintType.BIGINT, "a_number", DEFAULT_FIELD_DECODER_NAME, null, false, false, false);
-        DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", VarcharType.VARCHAR, "a_string", DEFAULT_FIELD_DECODER_NAME, null, false, false, false);
+        DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", createVarcharType(100), "a_string", DEFAULT_FIELD_DECODER_NAME, null, false, false, false);
 
         DecoderTestColumnHandle row3 = new DecoderTestColumnHandle("", 2, "row3", BigintType.BIGINT, "a_number", MillisecondsSinceEpochJsonFieldDecoder.NAME, null, false, false, false);
         DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", BigintType.BIGINT, "a_string", MillisecondsSinceEpochJsonFieldDecoder.NAME, null, false, false, false);
 
-        DecoderTestColumnHandle row5 = new DecoderTestColumnHandle("", 4, "row5", VarcharType.VARCHAR, "a_number", MillisecondsSinceEpochJsonFieldDecoder.NAME, null, false, false, false);
-        DecoderTestColumnHandle row6 = new DecoderTestColumnHandle("", 5, "row6", VarcharType.VARCHAR, "a_string", MillisecondsSinceEpochJsonFieldDecoder.NAME, null, false, false, false);
+        DecoderTestColumnHandle row5 = new DecoderTestColumnHandle("", 4, "row5", createVarcharType(100), "a_number", MillisecondsSinceEpochJsonFieldDecoder.NAME, null, false, false, false);
+        DecoderTestColumnHandle row6 = new DecoderTestColumnHandle("", 5, "row6", createVarcharType(100), "a_string", MillisecondsSinceEpochJsonFieldDecoder.NAME, null, false, false, false);
 
         List<DecoderColumnHandle> columns = ImmutableList.of(row1, row2, row3, row4, row5, row6);
         Set<FieldValueProvider> providers = new HashSet<>();
