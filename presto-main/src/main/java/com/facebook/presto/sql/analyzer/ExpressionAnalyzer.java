@@ -28,6 +28,7 @@ import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DependencyExtractor;
@@ -575,7 +576,7 @@ public class ExpressionAnalyzer
         protected Type visitArrayConstructor(ArrayConstructor node, StackableAstVisitorContext<AnalysisContext> context)
         {
             Type type = coerceToSingleType(context, "All ARRAY elements must be the same type: %s", node.getValues());
-            Type arrayType = typeManager.getParameterizedType(ARRAY.getName(), ImmutableList.of(type.getTypeSignature()), ImmutableList.of());
+            Type arrayType = typeManager.getParameterizedType(ARRAY.getName(), ImmutableList.of(TypeSignatureParameter.of(type.getTypeSignature())));
             expressionTypes.put(node, arrayType);
             return arrayType;
         }

@@ -29,14 +29,6 @@ public interface TypeManager
     Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters);
 
     /**
-     * Gets the type with the specified base type, and the given parameters, or null if not found.
-     * <p>
-     * This method is deprecated and {@link #getParameterizedType(String, java.util.List)} should be used.
-     */
-    @Deprecated
-    Type getParameterizedType(String baseTypeName, List<TypeSignature> typeParameters, List<String> literalParameters);
-
-    /**
      * Gets a list of all registered types.
      */
     List<Type> getTypes();
