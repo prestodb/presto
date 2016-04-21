@@ -76,10 +76,16 @@ import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.StandardErrorCode.USER_ERROR;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_DNE;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_EXISTS;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.COLUMN_NOT_FOUND;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.MINI_ACCUMULO;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.VIEW_ALREADY_EXISTS;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.VIEW_IS_TABLE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -143,7 +149,7 @@ public class AccumuloClient
                         accumulo.stop();
                     }
                     catch (IOException | InterruptedException e) {
-                        throw new PrestoException(INTERNAL_ERROR, "Failed to shut down MAC instance", e);
+                        throw new PrestoException(MINI_ACCUMULO, "Failed to shut down MAC instance", e);
                     }
 
                     try {
@@ -151,7 +157,7 @@ public class AccumuloClient
                         FileUtils.forceDelete(macDir);
                     }
                     catch (IOException e) {
-                        throw new PrestoException(INTERNAL_ERROR, "Failed to clean up MAC directory", e);
+                        throw new PrestoException(MINI_ACCUMULO, "Failed to clean up MAC directory", e);
                     }
                 }));
             }
@@ -162,7 +168,7 @@ public class AccumuloClient
             }
         }
         catch (AccumuloException | AccumuloSecurityException | InterruptedException | IOException e) {
-            throw new PrestoException(INTERNAL_ERROR, "Failed to get conn to Accumulo", e);
+            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to get conn to Accumulo", e);
         }
 
         return conn;
@@ -247,8 +253,8 @@ public class AccumuloClient
                         || Types.isMapType(Types.getValueType(column.getType()))
                         || Types.isArrayType(Types.getKeyType(column.getType()))
                         || Types.isArrayType(Types.getValueType(column.getType()))) {
-                    throw new PrestoException(NOT_SUPPORTED,
-                            "Key/value types of a map pairs must be plain types");
+                    throw new PrestoException(VALIDATION,
+                            "Key/value types of a MAP column must be plain types");
                 }
             }
 
@@ -259,13 +265,13 @@ public class AccumuloClient
 
         // Validate the columns are distinct
         if (columnNames.size() != meta.getColumns().size()) {
-            throw new PrestoException(USER_ERROR, "Duplicate column names are not supported");
+            throw new PrestoException(VALIDATION, "Duplicate column names are not supported");
         }
 
         // Column generation is for internal tables only
         if (AccumuloTableProperties.getColumnMapping(meta.getProperties()) == null &&
                 AccumuloTableProperties.isExternal(meta.getProperties())) {
-            throw new PrestoException(USER_ERROR,
+            throw new PrestoException(VALIDATION,
                     "Column generation for external tables is not supported, must specify " +
                             AccumuloTableProperties.COLUMN_MAPPING);
         }
@@ -296,11 +302,11 @@ public class AccumuloClient
                         .filter(x -> x.getName().equalsIgnoreCase(col)).collect(Collectors.toList());
 
                 if (matched.size() != 1) {
-                    throw new PrestoException(USER_ERROR, "Unknown column in locality group: " + col);
+                    throw new PrestoException(VALIDATION, "Unknown column in locality group: " + col);
                 }
 
                 if (matched.get(0).getName().equalsIgnoreCase(rowIdColumn)) {
-                    throw new PrestoException(USER_ERROR, "Row ID column cannot be in a locality group");
+                    throw new PrestoException(VALIDATION, "Row ID column cannot be in a locality group");
                 }
             }
         }
@@ -316,25 +322,19 @@ public class AccumuloClient
         String table = AccumuloTable.getFullTableName(meta.getTable());
         String indexTable = Indexer.getIndexTableName(meta.getTable());
         String metricsTable = Indexer.getMetricsTableName(meta.getTable());
-        try {
-            if (!conn.tableOperations().exists(table)) {
-                throw new PrestoException(USER_ERROR,
-                        "Cannot create external table w/o an Accumulo table. Create the "
-                                + "Accumulo table first.");
-            }
-
-            if (AccumuloTableProperties.getIndexColumns(meta.getProperties()).size() > 0) {
-                if (!conn.tableOperations().exists(indexTable) || !conn.tableOperations().exists(metricsTable)) {
-                    throw new PrestoException(USER_ERROR,
-                            "External table is indexed but the index table and/or index metrics table "
-                                    + "do not exist.  Create these tables as well and configure the "
-                                    + "correct iterators and locality groups. See the README");
-                }
-            }
+        if (!conn.tableOperations().exists(table)) {
+            throw new PrestoException(ACCUMULO_TABLE_DNE,
+                    "Cannot create external table w/o an Accumulo table. Create the "
+                            + "Accumulo table first.");
         }
-        catch (Exception e) {
-            throw new PrestoException(INTERNAL_ERROR,
-                    "Accumulo error when validating external tables", e);
+
+        if (AccumuloTableProperties.getIndexColumns(meta.getProperties()).size() > 0) {
+            if (!conn.tableOperations().exists(indexTable) || !conn.tableOperations().exists(metricsTable)) {
+                throw new PrestoException(ACCUMULO_TABLE_DNE,
+                        "External table is indexed but the index table and/or index metrics table "
+                                + "do not exist.  Create these tables as well and configure the "
+                                + "correct iterators and locality groups. See the README");
+            }
         }
     }
 
@@ -647,11 +647,11 @@ public class AccumuloClient
 
         // Validate table existence
         if (!tableManager.exists(oldTable.getFullTableName())) {
-            throw new PrestoException(INTERNAL_ERROR, format("Table %s does not exist", oldTable.getFullTableName()));
+            throw new PrestoException(ACCUMULO_TABLE_DNE, format("Table %s does not exist", oldTable.getFullTableName()));
         }
 
         if (tableManager.exists(newTable.getFullTableName())) {
-            throw new PrestoException(INTERNAL_ERROR, format("Table %s already exists", newTable.getFullTableName()));
+            throw new PrestoException(ACCUMULO_TABLE_EXISTS, format("Table %s already exists", newTable.getFullTableName()));
         }
 
         // Rename index tables (which will also validate table existence)
@@ -678,19 +678,19 @@ public class AccumuloClient
         }
 
         if (!tableManager.exists(oldTable.getIndexTableName())) {
-            throw new PrestoException(INTERNAL_ERROR, format("Table %s does not exist", oldTable.getIndexTableName()));
+            throw new PrestoException(ACCUMULO_TABLE_DNE, format("Table %s does not exist", oldTable.getIndexTableName()));
         }
 
         if (tableManager.exists(newTable.getIndexTableName())) {
-            throw new PrestoException(INTERNAL_ERROR, format("Table %s already exists", newTable.getIndexTableName()));
+            throw new PrestoException(ACCUMULO_TABLE_EXISTS, format("Table %s already exists", newTable.getIndexTableName()));
         }
 
         if (!tableManager.exists(oldTable.getMetricsTableName())) {
-            throw new PrestoException(INTERNAL_ERROR, format("Table %s does not exist", oldTable.getMetricsTableName()));
+            throw new PrestoException(ACCUMULO_TABLE_DNE, format("Table %s does not exist", oldTable.getMetricsTableName()));
         }
 
         if (tableManager.exists(newTable.getMetricsTableName())) {
-            throw new PrestoException(INTERNAL_ERROR, format("Table %s already exists", newTable.getMetricsTableName()));
+            throw new PrestoException(ACCUMULO_TABLE_EXISTS, format("Table %s already exists", newTable.getMetricsTableName()));
         }
 
         tableManager.renameAccumuloTable(oldTable.getIndexTableName(), newTable.getIndexTableName());
@@ -707,11 +707,11 @@ public class AccumuloClient
     {
         if (getSchemaNames().contains(viewName.getSchemaName())) {
             if (getViewNames(viewName.getSchemaName()).contains(viewName.getTableName())) {
-                throw new PrestoException(ALREADY_EXISTS, "View already exists");
+                throw new PrestoException(VIEW_ALREADY_EXISTS, "View already exists");
             }
 
             if (getTableNames(viewName.getSchemaName()).contains(viewName.getTableName())) {
-                throw new PrestoException(ALREADY_EXISTS, "View already exists as data table");
+                throw new PrestoException(VIEW_IS_TABLE, "View already exists as data table");
             }
         }
 
@@ -770,7 +770,7 @@ public class AccumuloClient
             }
         }
 
-        throw new PrestoException(USER_ERROR,
+        throw new PrestoException(COLUMN_NOT_FOUND,
                 format("Failed to find source column %s to rename to %s", source, target));
     }
 
@@ -909,7 +909,8 @@ public class AccumuloClient
             return tabletSplits;
         }
         catch (Exception e) {
-            throw new PrestoException(INTERNAL_ERROR, "Failed to get splits", e);
+            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR,
+                    "Failed to get splits from Accumulo", e);
         }
     }
 

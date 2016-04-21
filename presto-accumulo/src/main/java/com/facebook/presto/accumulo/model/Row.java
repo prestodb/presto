@@ -36,8 +36,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -189,7 +189,7 @@ public class Row
         String[] fields = StringUtils.split(str, delimiter);
 
         if (fields.length != schema.getLength()) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT,
+            throw new PrestoException(VALIDATION,
                     String.format(
                             "Number of split tokens is not equal to schema length.  "
                                     + "Expected %s received %s. Schema: %s, fields {%s}, delimiter %s",

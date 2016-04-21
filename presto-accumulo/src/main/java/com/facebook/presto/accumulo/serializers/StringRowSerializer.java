@@ -32,7 +32,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -275,7 +275,7 @@ public class StringRowSerializer
             setLong(t, (Long) v);
         }
         else if (type.equals(BOOLEAN)) {
-            setBoolean(t, v.equals(Boolean.TRUE) ? true : false);
+            setBoolean(t, v.equals(Boolean.TRUE));
         }
         else if (type.equals(DATE)) {
             setDate(t, (Date) v);
@@ -297,7 +297,7 @@ public class StringRowSerializer
         }
         else {
             throw new PrestoException(NOT_SUPPORTED,
-                    format("StringLexicoder is unable to encode type %s, object is %s", type, v));
+                    format("StringLexicoder does not support encoding type %s, object is %s", type, v));
         }
 
         return t.copyBytes();
@@ -342,7 +342,7 @@ public class StringRowSerializer
         }
         else {
             throw new PrestoException(NOT_SUPPORTED,
-                    format("StringLexicoder is unable to encode type %s, object is %s", type, v));
+                    format("StringLexicoder does not support decoding type %s, object is %s", type, v));
         }
     }
 }

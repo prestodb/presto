@@ -56,9 +56,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.StandardErrorCode.USER_ERROR;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -122,7 +122,7 @@ public class AccumuloPageSink
             }
         }
         catch (TableNotFoundException | AccumuloException | AccumuloSecurityException e) {
-            throw new PrestoException(INTERNAL_ERROR,
+            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR,
                     "Accumulo error when creating BatchWriter and/or Indexer", e);
         }
     }
@@ -146,7 +146,7 @@ public class AccumuloPageSink
         Text value = new Text();
         Field rField = row.getField(rowIdOrdinal);
         if (rField.isNull()) {
-            throw new PrestoException(USER_ERROR, "Column mapped as the Accumulo row ID cannot be null");
+            throw new PrestoException(VALIDATION, "Column mapped as the Accumulo row ID cannot be null");
         }
 
         setText(rField, value, serializer);
@@ -257,7 +257,7 @@ public class AccumuloPageSink
             else {
                 // Else, this Mutation contains only a row ID and will throw an exception if
                 // added so, we throw one here with a more descriptive message!
-                throw new PrestoException(NOT_SUPPORTED,
+                throw new PrestoException(VALIDATION,
                         "At least one non-recordkey column must contain a non-null value");
             }
         }

@@ -44,8 +44,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.NOT_SUPPORTED;
 
 /**
  * Class to contain a single field within a Presto {@link Row}.
@@ -473,7 +473,7 @@ public class Field
             return "'" + value.toString().replaceAll("'", "''") + "'";
         }
         else {
-            throw new PrestoException(INTERNAL_ERROR,
+            throw new PrestoException(NOT_SUPPORTED,
                     "Unsupported PrestoType " + type);
         }
     }
@@ -525,7 +525,7 @@ public class Field
 
             if (!(v instanceof Integer)) {
                 throw new PrestoException(INTERNAL_ERROR,
-                        "Object is not a Integer, but " + v.getClass());
+                        "Object is not a Long or Integer, but " + v.getClass());
             }
         }
         else if (t instanceof BooleanType) {
@@ -562,7 +562,7 @@ public class Field
 
             if (!(v instanceof Time)) {
                 throw new PrestoException(INTERNAL_ERROR,
-                        "Object is not a Time, but " + v.getClass());
+                        "Object is not a Long or Time, but " + v.getClass());
             }
         }
         else if (t instanceof TimestampType) {
@@ -572,7 +572,7 @@ public class Field
 
             if (!(v instanceof Timestamp)) {
                 throw new PrestoException(INTERNAL_ERROR,
-                        "Object is not a Timestamp, but " + v.getClass());
+                        "Object is not a Long or Timestamp, but " + v.getClass());
             }
         }
         else if (t instanceof VarbinaryType) {
@@ -582,7 +582,7 @@ public class Field
 
             if (!(v instanceof byte[])) {
                 throw new PrestoException(INTERNAL_ERROR,
-                        "Object is not a byte[], but " + v.getClass());
+                        "Object is not a Slice byte[], but " + v.getClass());
             }
         }
         else if (t instanceof VarcharType) {
@@ -592,7 +592,7 @@ public class Field
 
             if (!(v instanceof String)) {
                 throw new PrestoException(INTERNAL_ERROR,
-                        "Object is not a String, but " + v.getClass());
+                        "Object is not a Slice or String, but " + v.getClass());
             }
         }
         else {

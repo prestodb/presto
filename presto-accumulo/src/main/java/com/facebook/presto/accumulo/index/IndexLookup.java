@@ -47,7 +47,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.INTERNAL_ERROR;
 
 /**
  * Class to assist the Presto connector, and maybe external applications, leverage the secondary
@@ -285,7 +285,7 @@ public class IndexLookup
         for (Entry<Key, Value> entry : scan) {
             if (numRows > 0) {
                 throw new PrestoException(INTERNAL_ERROR,
-                        "Should have received only one entry");
+                        "Should have received only one entry when scanning for number of rows in metrics table");
             }
             numRows = Long.parseLong(entry.getValue().toString());
         }

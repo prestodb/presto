@@ -30,7 +30,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.ZOOKEEPER_ERROR;
 
 /**
  * An implementation of {@link AccumuloMetadataManager} that persists metadata to Apache ZooKeeper.
@@ -69,7 +69,7 @@ public class ZooKeeperMetadataManager
             }
         }
         catch (Exception e) {
-            throw new PrestoException(INTERNAL_ERROR,
+            throw new PrestoException(ZOOKEEPER_ERROR,
                     "ZK error checking metadata root", e);
         }
         checkRoot.close();
@@ -85,7 +85,7 @@ public class ZooKeeperMetadataManager
             }
         }
         catch (Exception e) {
-            throw new PrestoException(INTERNAL_ERROR,
+            throw new PrestoException(ZOOKEEPER_ERROR,
                     "ZK error checking/creating default schema", e);
         }
     }
@@ -99,7 +99,7 @@ public class ZooKeeperMetadataManager
             return schemas;
         }
         catch (Exception e) {
-            throw new PrestoException(INTERNAL_ERROR, "Error fetching schemas",
+            throw new PrestoException(ZOOKEEPER_ERROR, "Error fetching schemas",
                     e);
         }
     }
@@ -113,7 +113,7 @@ public class ZooKeeperMetadataManager
             exists = curator.checkExists().forPath(schemaPath) != null;
         }
         catch (Exception e) {
-            throw new PrestoException(INTERNAL_ERROR,
+            throw new PrestoException(ZOOKEEPER_ERROR,
                     "Error checking if schema exists", e);
         }
 
@@ -126,12 +126,12 @@ public class ZooKeeperMetadataManager
                 return tables;
             }
             catch (Exception e) {
-                throw new PrestoException(INTERNAL_ERROR,
+                throw new PrestoException(ZOOKEEPER_ERROR,
                         "Error fetching schemas", e);
             }
         }
         else {
-            throw new PrestoException(INTERNAL_ERROR,
+            throw new PrestoException(ZOOKEEPER_ERROR,
                     "No metadata for schema" + schema);
         }
     }
@@ -149,7 +149,7 @@ public class ZooKeeperMetadataManager
             }
         }
         catch (Exception e) {
-            throw new PrestoException(INTERNAL_ERROR, "Error fetching table", e);
+            throw new PrestoException(ZOOKEEPER_ERROR, "Error fetching table", e);
         }
     }
 
@@ -162,7 +162,7 @@ public class ZooKeeperMetadataManager
             exists = curator.checkExists().forPath(schemaPath) != null;
         }
         catch (Exception e) {
-            throw new PrestoException(INTERNAL_ERROR,
+            throw new PrestoException(ZOOKEEPER_ERROR,
                     "Error checking if schema exists", e);
         }
 
@@ -175,12 +175,12 @@ public class ZooKeeperMetadataManager
                 return tables;
             }
             catch (Exception e) {
-                throw new PrestoException(INTERNAL_ERROR,
+                throw new PrestoException(ZOOKEEPER_ERROR,
                         "Error fetching schemas", e);
             }
         }
         else {
-            throw new PrestoException(INTERNAL_ERROR,
+            throw new PrestoException(ZOOKEEPER_ERROR,
                     "No metadata for schema" + schema);
         }
     }
@@ -198,7 +198,7 @@ public class ZooKeeperMetadataManager
             }
         }
         catch (Exception e) {
-            throw new PrestoException(INTERNAL_ERROR, "Error fetching view", e);
+            throw new PrestoException(ZOOKEEPER_ERROR, "Error fetching view", e);
         }
     }
 
@@ -215,15 +215,15 @@ public class ZooKeeperMetadataManager
             }
         }
         catch (Exception e) {
-            throw new PrestoException(INTERNAL_ERROR,
-                    "ZK error when checking if table already exists: " + e.getMessage(), e);
+            throw new PrestoException(ZOOKEEPER_ERROR,
+                    "ZK error when checking if table already exists", e);
         }
 
         try {
             curator.create().creatingParentsIfNeeded().forPath(tablePath, toJsonBytes(table));
         }
         catch (Exception e) {
-            throw new PrestoException(INTERNAL_ERROR,
+            throw new PrestoException(ZOOKEEPER_ERROR,
                     "Error creating table znode in ZooKeeper", e);
         }
     }
@@ -235,7 +235,7 @@ public class ZooKeeperMetadataManager
             curator.delete().deletingChildrenIfNeeded().forPath(getTablePath(stName));
         }
         catch (Exception e) {
-            throw new PrestoException(INTERNAL_ERROR,
+            throw new PrestoException(ZOOKEEPER_ERROR,
                     "ZK error when deleting table metadata", e);
         }
     }
@@ -253,15 +253,15 @@ public class ZooKeeperMetadataManager
             }
         }
         catch (Exception e) {
-            throw new PrestoException(INTERNAL_ERROR,
-                    "ZK error when checking if view already exists: " + e.getMessage(), e);
+            throw new PrestoException(ZOOKEEPER_ERROR,
+                    "ZK error when checking if view already exists", e);
         }
 
         try {
             curator.create().creatingParentsIfNeeded().forPath(viewPath, toJsonBytes(view));
         }
         catch (Exception e) {
-            throw new PrestoException(INTERNAL_ERROR,
+            throw new PrestoException(ZOOKEEPER_ERROR,
                     "Error creating view znode in ZooKeeper", e);
         }
     }
@@ -273,7 +273,7 @@ public class ZooKeeperMetadataManager
             curator.delete().deletingChildrenIfNeeded().forPath(getTablePath(stName));
         }
         catch (Exception e) {
-            throw new PrestoException(INTERNAL_ERROR,
+            throw new PrestoException(ZOOKEEPER_ERROR,
                     "ZK error when deleting view metadata", e);
         }
     }
@@ -313,8 +313,8 @@ public class ZooKeeperMetadataManager
             return super.isAccumuloTable(curator.getData().forPath(schemaPath + "/" + table));
         }
         catch (Exception e) {
-            throw new PrestoException(INTERNAL_ERROR,
-                    "Error checking if schema exists", e);
+            throw new PrestoException(ZOOKEEPER_ERROR,
+                    "Error checking if path is an AccumuloTable object", e);
         }
     }
 
@@ -331,8 +331,8 @@ public class ZooKeeperMetadataManager
             return super.isAccumuloView(curator.getData().forPath(schemaPath + "/" + table));
         }
         catch (Exception e) {
-            throw new PrestoException(INTERNAL_ERROR,
-                    "Error checking if schema exists", e);
+            throw new PrestoException(ZOOKEEPER_ERROR,
+                    "Error checking if path is an AccumuloView object", e);
         }
     }
 }

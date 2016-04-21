@@ -29,9 +29,9 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
-import static com.facebook.presto.spi.StandardErrorCode.USER_ERROR;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -219,8 +219,8 @@ public class AccumuloTable
             // Validate this column does not already exist
             for (AccumuloColumnHandle col : columns) {
                 if (col.getName().equals(newColumn.getName())) {
-                    throw new PrestoException(ALREADY_EXISTS,
-                            "Column " + newColumn.getName() + " already exists in table");
+                    throw new PrestoException(VALIDATION,
+                            format("Column %s already exists in table", col.getName()));
                 }
             }
 
@@ -237,8 +237,8 @@ public class AccumuloTable
             for (AccumuloColumnHandle col : columns) {
                 // Validate this column does not already exist
                 if (col.getName().equals(newColumn.getName())) {
-                    throw new PrestoException(ALREADY_EXISTS,
-                            "Column " + newColumn.getName() + " already exists in table");
+                    throw new PrestoException(VALIDATION,
+                            format("Column %s already exists in table", col.getName()));
                 }
 
                 // Add the new column here
@@ -342,7 +342,7 @@ public class AccumuloTable
             return (AccumuloRowSerializer) Class.forName(serializerClassName).newInstance();
         }
         catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
-            throw new PrestoException(USER_ERROR,
+            throw new PrestoException(VALIDATION,
                     "Configured serializer class not found", e);
         }
     }

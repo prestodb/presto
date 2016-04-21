@@ -21,7 +21,7 @@ import com.facebook.presto.spi.type.Type;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.facebook.presto.spi.StandardErrorCode.USER_ERROR;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.COLUMN_NOT_FOUND;
 import static java.lang.String.format;
 
 /**
@@ -116,7 +116,7 @@ public class RowSchema
             }
         }
 
-        throw new PrestoException(USER_ERROR, "No column with name " + name);
+        throw new PrestoException(COLUMN_NOT_FOUND, format("No column with name %s", name));
     }
 
     /**

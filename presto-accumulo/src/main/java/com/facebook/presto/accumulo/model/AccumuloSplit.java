@@ -39,7 +39,7 @@ import org.apache.hadoop.io.DataOutputBuffer;
 import java.io.IOException;
 import java.util.List;
 
-import static com.facebook.presto.spi.StandardErrorCode.USER_ERROR;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.Lists.newArrayList;
 import static java.util.Objects.requireNonNull;
@@ -232,7 +232,7 @@ public class AccumuloSplit
             return (Class<? extends AccumuloRowSerializer>) Class.forName(serializerClassName);
         }
         catch (ClassNotFoundException e) {
-            throw new PrestoException(USER_ERROR,
+            throw new PrestoException(VALIDATION,
                     "Configured serializer class not found", e);
         }
     }

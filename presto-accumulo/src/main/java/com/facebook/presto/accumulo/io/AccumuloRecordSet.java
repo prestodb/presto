@@ -39,7 +39,9 @@ import org.apache.accumulo.core.security.Authorizations;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -84,7 +86,7 @@ public class AccumuloRecordSet
             this.serializer = split.getSerializerClass().newInstance();
         }
         catch (Exception e) {
-            throw new PrestoException(INTERNAL_ERROR,
+            throw new PrestoException(VALIDATION,
                     "Failed to factory serializer class.  Is it on the classpath?", e);
         }
 
@@ -104,7 +106,8 @@ public class AccumuloRecordSet
             scan.setRanges(split.getRanges());
         }
         catch (Exception e) {
-            throw new PrestoException(INTERNAL_ERROR, e);
+            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR,
+                    format("Failed to create batch scanner for table %s", split.getFullTableName()), e);
         }
     }
 

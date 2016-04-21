@@ -49,8 +49,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_EXISTS;
 import static com.facebook.presto.accumulo.Types.checkType;
-import static com.facebook.presto.spi.StandardErrorCode.USER_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -160,7 +160,7 @@ public class AccumuloMetadata
             SchemaTableName newTableName)
     {
         if (client.getTable(newTableName) != null) {
-            throw new PrestoException(USER_ERROR,
+            throw new PrestoException(ACCUMULO_TABLE_EXISTS,
                     "Table " + newTableName + " already exists");
         }
 

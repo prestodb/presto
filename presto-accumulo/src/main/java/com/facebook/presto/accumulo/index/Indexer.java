@@ -63,8 +63,8 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.USER_ERROR;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
 import static java.nio.ByteBuffer.wrap;
 
 /**
@@ -224,7 +224,7 @@ public class Indexer
 
         // If there are no indexed columns, throw an exception
         if (indexColumns.size() == 0) {
-            throw new PrestoException(USER_ERROR,
+            throw new PrestoException(VALIDATION,
                     "No indexed columns in table metadata. Have you declared this table as indexed?");
         }
 

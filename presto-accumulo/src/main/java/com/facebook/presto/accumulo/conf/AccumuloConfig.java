@@ -24,10 +24,9 @@ import org.apache.commons.configuration.PropertiesConfiguration;
 import javax.validation.constraints.NotNull;
 
 import java.io.File;
-import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
 
-import static com.facebook.presto.spi.StandardErrorCode.USER_ERROR;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
 import static java.lang.String.format;
 
 /**
@@ -191,10 +190,8 @@ public class AccumuloConfig
                     : (AccumuloMetadataManager) Class.forName(metaManClass)
                     .getConstructor(AccumuloConfig.class).newInstance(this);
         }
-        catch (InstantiationException | IllegalAccessException | ClassNotFoundException
-                | IllegalArgumentException | InvocationTargetException | NoSuchMethodException
-                | SecurityException e) {
-            throw new PrestoException(USER_ERROR, e);
+        catch (Exception e) {
+            throw new PrestoException(VALIDATION, "Failed to factory metadata manager from config", e);
         }
     }
 

@@ -30,7 +30,7 @@ import org.apache.hadoop.io.Text;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
 
 /**
  * This class is a light wrapper for Accumulo's Connector object.
@@ -63,7 +63,7 @@ public class AccumuloTableManager
             }
         }
         catch (AccumuloException | AccumuloSecurityException | NamespaceExistsException e) {
-            throw new PrestoException(INTERNAL_ERROR, "Failed to check for existence or create Accumulo namespace", e);
+            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to check for existence or create Accumulo namespace", e);
         }
     }
 
@@ -89,7 +89,7 @@ public class AccumuloTableManager
             conn.tableOperations().create(table);
         }
         catch (AccumuloException | AccumuloSecurityException | TableExistsException e) {
-            throw new PrestoException(INTERNAL_ERROR, "Failed to create Accumulo table", e);
+            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to create Accumulo table", e);
         }
     }
 
@@ -110,7 +110,7 @@ public class AccumuloTableManager
             LOG.info("Set locality groups to %s", groups);
         }
         catch (AccumuloException | AccumuloSecurityException | TableNotFoundException e) {
-            throw new PrestoException(INTERNAL_ERROR, "Failed to set locality groups", e);
+            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to set locality groups", e);
         }
     }
 
@@ -126,7 +126,7 @@ public class AccumuloTableManager
             conn.tableOperations().attachIterator(table, setting);
         }
         catch (AccumuloSecurityException | AccumuloException | TableNotFoundException e) {
-            throw new PrestoException(INTERNAL_ERROR, "Failed to set iterator on table " + table, e);
+            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to set iterator on table " + table, e);
         }
     }
 
@@ -141,7 +141,7 @@ public class AccumuloTableManager
             conn.tableOperations().delete(tableName);
         }
         catch (AccumuloException | AccumuloSecurityException | TableNotFoundException e) {
-            throw new PrestoException(INTERNAL_ERROR, "Failed to delete Accumulo table", e);
+            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to delete Accumulo table", e);
         }
     }
 
@@ -158,7 +158,7 @@ public class AccumuloTableManager
         }
         catch (AccumuloSecurityException | TableNotFoundException | AccumuloException
                 | TableExistsException e) {
-            throw new PrestoException(INTERNAL_ERROR, "Failed to rename table", e);
+            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to rename table", e);
         }
     }
 }
