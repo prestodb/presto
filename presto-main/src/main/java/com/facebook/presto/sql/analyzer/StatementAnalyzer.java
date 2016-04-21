@@ -891,8 +891,9 @@ class StatementAnalyzer
 
             analysis.addRelationCoercion(table, outputFields.stream().map(Field::getType).toArray(Type[]::new));
 
-            analysis.setOutputDescriptor(table, new RelationType(outputFields));
-            return descriptor;
+            RelationType outputType = new RelationType(outputFields);
+            analysis.setOutputDescriptor(table, outputType);
+            return outputType;
         }
 
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);
