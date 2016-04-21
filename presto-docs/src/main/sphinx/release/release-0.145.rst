@@ -19,6 +19,8 @@ General Changes
   used to repartition pages for exchanges.
 * Improve performance for distributed JOIN and GROUP BY queries with billions
   of groups.
+* Improve reliability in highly congested networks by adjusting the default
+  connection idle timeouts.
 
 Verifier Changes
 ----------------
