@@ -4169,7 +4169,7 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
 
-        MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR)
+        MaterializedResult expectedUnparametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "")
                 .row("custkey", "bigint", "")
                 .row("orderstatus", "varchar", "")
@@ -4181,7 +4181,21 @@ public abstract class AbstractTestQueries
                 .row("comment", "varchar", "")
                 .build();
 
-        assertEquals(actual, expected);
+        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "bigint", "")
+                .row("custkey", "bigint", "")
+                .row("orderstatus", "varchar(1)", "")
+                .row("totalprice", "double",  "")
+                .row("orderdate", "date", "")
+                .row("orderpriority", "varchar(5)", "")
+                .row("clerk", "varchar(25)", "")
+                .row("shippriority", "integer", "")
+                .row("comment", "varchar(115)", "")
+                .build();
+
+        // Until we migrate all connectors to parametrized varchar we check two options
+        assertTrue(actual.equals(expectedParametrizedVarchar) || actual.equals(expectedUnparametrizedVarchar),
+                format("%s does not matche neither of %s and %s", actual, expectedParametrizedVarchar, expectedUnparametrizedVarchar));
     }
 
     @Test
