@@ -107,7 +107,7 @@ public class ZooKeeperMetadataManager
     @Override
     public Set<String> getTableNames(String schema)
     {
-        final String schemaPath = "/" + schema;
+        String schemaPath = getSchemaPath(schema);
         boolean exists;
         try {
             exists = curator.checkExists().forPath(schemaPath) != null;
@@ -121,7 +121,7 @@ public class ZooKeeperMetadataManager
             try {
                 Set<String> tables = new HashSet<>();
                 tables.addAll(curator.getChildren().forPath(schemaPath).stream()
-                        .filter(x -> isAccumuloTable(schemaPath, x))
+                        .filter(x -> isAccumuloTable(new SchemaTableName(schema, x)))
                         .collect(Collectors.toList()));
                 return tables;
             }
@@ -156,7 +156,7 @@ public class ZooKeeperMetadataManager
     @Override
     public Set<String> getViewNames(String schema)
     {
-        final String schemaPath = "/" + schema;
+        String schemaPath = getSchemaPath(schema);
         boolean exists;
         try {
             exists = curator.checkExists().forPath(schemaPath) != null;
@@ -170,7 +170,7 @@ public class ZooKeeperMetadataManager
             try {
                 Set<String> tables = new HashSet<>();
                 tables.addAll(curator.getChildren().forPath(schemaPath).stream()
-                        .filter(x -> isAccumuloView(schemaPath, x))
+                        .filter(x -> isAccumuloView(new SchemaTableName(schema, x)))
                         .collect(Collectors.toList()));
                 return tables;
             }
@@ -189,8 +189,9 @@ public class ZooKeeperMetadataManager
     public AccumuloView getView(SchemaTableName stName)
     {
         try {
-            if (curator.checkExists().forPath(getTablePath(stName)) != null) {
-                return toAccumuloView(curator.getData().forPath(getTablePath(stName)));
+            String tablePath = getTablePath(stName);
+            if (curator.checkExists().forPath(tablePath) != null) {
+                return toAccumuloView(curator.getData().forPath(tablePath));
             }
             else {
                 LOG.info("No metadata for view " + stName);
@@ -205,7 +206,7 @@ public class ZooKeeperMetadataManager
     @Override
     public void createTableMetadata(AccumuloTable table)
     {
-        SchemaTableName stn = new SchemaTableName(table.getSchema(), table.getTable());
+        SchemaTableName stn = table.getSchemaTableName();
         String tablePath = getTablePath(stn);
 
         try {
@@ -243,7 +244,7 @@ public class ZooKeeperMetadataManager
     @Override
     public void createViewMetadata(AccumuloView view)
     {
-        SchemaTableName stn = new SchemaTableName(view.getSchema(), view.getTable());
+        SchemaTableName stn = view.getSchemaTableName();
         String viewPath = getTablePath(stn);
 
         try {
@@ -281,12 +282,23 @@ public class ZooKeeperMetadataManager
     /**
      * Gets the schema znode for the given schema table name
      *
+     * @param schema Schema table name
+     * @return The path for the schema node
+     */
+    private String getSchemaPath(String schema)
+    {
+        return "/" + schema.toLowerCase();
+    }
+
+    /**
+     * Gets the schema znode for the given schema table name
+     *
      * @param stn Schema table name
      * @return The path for the schema node
      */
     private String getSchemaPath(SchemaTableName stn)
     {
-        return "/" + stn.getSchemaName();
+        return getSchemaPath(stn.getSchemaName());
     }
 
     /**
@@ -297,38 +309,48 @@ public class ZooKeeperMetadataManager
      */
     private String getTablePath(SchemaTableName stn)
     {
-        return getSchemaPath(stn) + '/' + stn.getTableName();
+        return getSchemaPath(stn) + '/' + stn.getTableName().toLowerCase();
     }
 
     /**
      * Gets a Boolean value indicating if the given znode contains data for an {@link AccumuloTable} object
      *
-     * @param schemaPath ZNode for the Schema
-     * @param table Table name
+     * @param stn Schema table name
      * @return True if an AccumuloTable, false otherwise
      */
-    private boolean isAccumuloTable(String schemaPath, String table)
+    private boolean isAccumuloTable(SchemaTableName stn)
     {
         try {
-            return super.isAccumuloTable(curator.getData().forPath(schemaPath + "/" + table));
+            String path = getTablePath(stn);
+            if (curator.checkExists().forPath(path) != null) {
+                return super.isAccumuloTable(curator.getData().forPath(path));
+            }
+            else {
+                return false;
+            }
         }
         catch (Exception e) {
             throw new PrestoException(ZOOKEEPER_ERROR,
-                    "Error checking if path is an AccumuloTable object", e);
+                    "Error checking if path %s is an AccumuloTable object", e);
         }
     }
 
     /**
      * Gets a Boolean value indicating if the given znode contains data for an {@link AccumuloView} object
      *
-     * @param schemaPath ZNode for the Schema
-     * @param table Table name
+     * @param stn Schema table name
      * @return True if an AccumuloView, false otherwise
      */
-    private boolean isAccumuloView(String schemaPath, String table)
+    private boolean isAccumuloView(SchemaTableName stn)
     {
         try {
-            return super.isAccumuloView(curator.getData().forPath(schemaPath + "/" + table));
+            String path = getTablePath(stn);
+            if (curator.checkExists().forPath(path) != null) {
+                return super.isAccumuloView(curator.getData().forPath(path));
+            }
+            else {
+                return false;
+            }
         }
         catch (Exception e) {
             throw new PrestoException(ZOOKEEPER_ERROR,

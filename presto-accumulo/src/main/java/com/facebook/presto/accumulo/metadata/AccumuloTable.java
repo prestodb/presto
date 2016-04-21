@@ -50,7 +50,7 @@ public class AccumuloTable
     private final List<ColumnMetadata> columnsMetadata;
     private final String serializerClassName;
     private final String scanAuthorizations;
-    private final SchemaTableName schemaTableName;
+    private SchemaTableName schemaTableName;
 
     /***
      * Creates a new instance of AccumuloTable
@@ -152,6 +152,7 @@ public class AccumuloTable
     public void setTable(String table)
     {
         this.table = table;
+        this.schemaTableName = new SchemaTableName(getSchema(), getTable());
     }
 
     /**

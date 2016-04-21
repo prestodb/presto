@@ -15,7 +15,9 @@
  */
 package com.facebook.presto.accumulo.metadata;
 
+import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
@@ -32,6 +34,7 @@ public class AccumuloView
     private final String schema;
     private final String table;
     private final String data;
+    private final SchemaTableName schemaTableName;
 
     /**
      * Creates a new instance of {@link AccumuloView}
@@ -46,6 +49,7 @@ public class AccumuloView
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
         this.data = requireNonNull(data, "data is null");
+        this.schemaTableName = new SchemaTableName(schema, table);
     }
 
     /**
@@ -79,6 +83,17 @@ public class AccumuloView
     public String getData()
     {
         return data;
+    }
+
+    /**
+     * Gets the table name as a {@link SchemaTableName}
+     *
+     * @return Schema table name
+     */
+    @JsonIgnore
+    public SchemaTableName getSchemaTableName()
+    {
+        return schemaTableName;
     }
 
     @Override

@@ -299,7 +299,7 @@ public class AccumuloMetadata
     @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName stName)
     {
-        if (!listSchemaNames(session).contains(stName.getSchemaName())) {
+        if (!listSchemaNames(session).contains(stName.getSchemaName().toLowerCase())) {
             return null;
         }
 
