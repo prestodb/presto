@@ -24,22 +24,22 @@
             {
                 "name": "name",
                 "mapping": "name",
-                "type": "VARCHAR"
+                "type": "VARCHAR(55)"
             },
             {
                 "name": "mfgr",
                 "mapping": "mfgr",
-                "type": "VARCHAR"
+                "type": "VARCHAR(25)"
             },
             {
                 "name": "brand",
                 "mapping": "brand",
-                "type": "VARCHAR"
+                "type": "VARCHAR(10)"
             },
             {
                 "name": "type",
                 "mapping": "type",
-                "type": "VARCHAR"
+                "type": "VARCHAR(25)"
             },
             {
                 "name": "size",
@@ -49,7 +49,7 @@
             {
                 "name": "container",
                 "mapping": "container",
-                "type": "VARCHAR"
+                "type": "VARCHAR(10)"
             },
             {
                 "name": "retailprice",
@@ -59,7 +59,7 @@
             {
                 "name": "comment",
                 "mapping": "comment",
-                "type": "VARCHAR"
+                "type": "VARCHAR(23)"
             }
         ]
     }
