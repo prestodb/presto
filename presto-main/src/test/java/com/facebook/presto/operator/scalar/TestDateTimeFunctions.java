@@ -820,9 +820,49 @@ public class TestDateTimeFunctions
                 toTimestampWithTimeZone(new DateTime(2013, 5, 17, 0, 35, 10, 0, DATE_TIME_ZONE)));
     }
 
+    @Test
+    public void testDateTimeOutputString()
+    {
+        // SqlDate
+        assertFunctionString("date '2012-12-31'", DateType.DATE, "2012-12-31");
+        assertFunctionString("date '0000-12-31'", DateType.DATE, "0000-12-31");
+        assertFunctionString("date '0000-09-23'", DateType.DATE, "0000-09-23");
+        assertFunctionString("date '0001-10-25'", DateType.DATE, "0001-10-25");
+        assertFunctionString("date '1560-04-29'", DateType.DATE, "1560-04-29");
+
+        // SqlTime
+        assertFunctionString("time '00:00:00'", TimeType.TIME, "00:00:00.000");
+        assertFunctionString("time '01:02:03'", TimeType.TIME, "01:02:03.000");
+        assertFunctionString("time '23:23:23.233'", TimeType.TIME, "23:23:23.233");
+        assertFunctionString("time '23:59:59.999'", TimeType.TIME, "23:59:59.999");
+
+        // SqlTimeWithTimeZone
+        assertFunctionString("time '00:00:00 UTC'", TIME_WITH_TIME_ZONE, "00:00:00.000 UTC");
+        assertFunctionString("time '01:02:03 Asia/Shanghai'", TIME_WITH_TIME_ZONE, "01:02:03.000 Asia/Shanghai");
+        assertFunctionString("time '23:23:23.233 America/Los_Angeles'", TIME_WITH_TIME_ZONE, "23:23:23.233 America/Los_Angeles");
+        assertFunctionString(WEIRD_TIME_LITERAL, TIME_WITH_TIME_ZONE, "03:04:05.321 +07:09");
+
+        // SqlTimestamp
+        assertFunctionString("timestamp '0000-01-02 01:02:03'", TimestampType.TIMESTAMP, "0000-01-02 01:02:03.000");
+        assertFunctionString("timestamp '2012-12-31 00:00:00'", TimestampType.TIMESTAMP, "2012-12-31 00:00:00.000");
+        assertFunctionString("timestamp '1234-05-06 23:23:23.233'", TimestampType.TIMESTAMP, "1234-05-06 23:23:23.233");
+        assertFunctionString("timestamp '2333-02-23 23:59:59.999'", TimestampType.TIMESTAMP, "2333-02-23 23:59:59.999");
+
+        // SqlTimestampWithTimeZone
+        assertFunctionString("timestamp '2012-12-31 00:00:00 UTC'", TIMESTAMP_WITH_TIME_ZONE, "2012-12-31 00:00:00.000 UTC");
+        assertFunctionString("timestamp '0000-01-02 01:02:03 Asia/Shanghai'", TIMESTAMP_WITH_TIME_ZONE, "0000-01-02 01:02:03.000 Asia/Shanghai");
+        assertFunctionString("timestamp '1234-05-06 23:23:23.233 America/Los_Angeles'", TIMESTAMP_WITH_TIME_ZONE, "1234-05-06 23:23:23.233 America/Los_Angeles");
+        assertFunctionString("timestamp '2333-02-23 23:59:59.999 Asia/Tokyo'", TIMESTAMP_WITH_TIME_ZONE, "2333-02-23 23:59:59.999 Asia/Tokyo");
+    }
+
     private void assertFunction(String projection, Type expectedType, Object expected)
     {
         functionAssertions.assertFunction(projection, expectedType, expected);
+    }
+
+    private void assertFunctionString(String projection, Type expectedType, String expected)
+    {
+        functionAssertions.assertFunctionString(projection, expectedType, expected);
     }
 
     private SqlDate toDate(DateTime dateDate)
