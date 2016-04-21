@@ -86,12 +86,6 @@ public class TestMongoPlugin
         }
 
         @Override
-        public Type getParameterizedType(String baseTypeName, List<TypeSignature> typeParameters, List<String> literalParameters)
-        {
-            return null;
-        }
-
-        @Override
         public List<Type> getTypes()
         {
             return ImmutableList.of();

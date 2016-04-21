@@ -20,13 +20,14 @@ import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
@@ -76,7 +77,6 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -837,18 +837,23 @@ public class OrcTester
 
     private static Type arrayType(Type elementType)
     {
-        return TYPE_MANAGER.getParameterizedType(ARRAY, ImmutableList.of(elementType.getTypeSignature()), ImmutableList.of());
+        return TYPE_MANAGER.getParameterizedType(ARRAY, ImmutableList.of(TypeSignatureParameter.of(elementType.getTypeSignature())));
     }
 
     private static Type mapType(Type keyType, Type valueType)
     {
-        return TYPE_MANAGER.getParameterizedType(MAP, ImmutableList.of(keyType.getTypeSignature(), valueType.getTypeSignature()), ImmutableList.of());
+        return TYPE_MANAGER.getParameterizedType(MAP, ImmutableList.of(TypeSignatureParameter.of(keyType.getTypeSignature()), TypeSignatureParameter.of(valueType.getTypeSignature())));
     }
 
     private static Type rowType(Type... fieldTypes)
     {
-        TypeSignature[] typeSignatures = Arrays.stream(fieldTypes).map(Type::getTypeSignature).toArray(TypeSignature[]::new);
-        return TYPE_MANAGER.getParameterizedType(ROW, ImmutableList.copyOf(typeSignatures), ImmutableList.of());
+        ImmutableList.Builder<TypeSignatureParameter> typeSignatureParameters = ImmutableList.builder();
+        for (int i = 0; i < fieldTypes.length; i++) {
+            String filedName = "field_" + i;
+            Type fieldType = fieldTypes[i];
+            typeSignatureParameters.add(TypeSignatureParameter.of(new NamedTypeSignature(filedName, fieldType.getTypeSignature())));
+        }
+        return TYPE_MANAGER.getParameterizedType(ROW, typeSignatureParameters.build());
     }
 
     public static <A, B extends A> B checkType(A value, Class<B> target, String name)

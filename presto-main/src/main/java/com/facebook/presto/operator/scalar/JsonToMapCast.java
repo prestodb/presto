@@ -26,6 +26,7 @@ import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -60,7 +61,7 @@ public class JsonToMapCast
         checkArgument(arity == 1, "Expected arity to be 1");
         Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = boundVariables.getTypeVariable("V");
-        Type mapType = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(keyType.getTypeSignature(), valueType.getTypeSignature()), ImmutableList.of());
+        Type mapType = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.of(keyType.getTypeSignature()), TypeSignatureParameter.of(valueType.getTypeSignature())));
         checkCondition(canCastFromJson(mapType), INVALID_CAST_ARGUMENT, "Cannot cast JSON to %s", mapType);
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(mapType);
         return new ScalarFunctionImplementation(true, ImmutableList.of(false), methodHandle, isDeterministic());

@@ -24,6 +24,7 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -129,7 +130,7 @@ public class BlackHoleConnector
                 new PropertyMetadata<>(
                         DISTRIBUTED_ON,
                         "Distribution columns",
-                        typeManager.getParameterizedType(ARRAY, ImmutableList.of(createUnboundedVarcharType().getTypeSignature()), ImmutableList.of()),
+                        typeManager.getParameterizedType(ARRAY, ImmutableList.of(TypeSignatureParameter.of(createUnboundedVarcharType().getTypeSignature()))),
                         List.class,
                         ImmutableList.of(),
                         false,

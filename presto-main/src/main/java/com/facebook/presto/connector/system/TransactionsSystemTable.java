@@ -26,6 +26,7 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.transaction.TransactionInfo;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
@@ -63,7 +64,7 @@ public class TransactionsSystemTable
                 .column("create_time", TIMESTAMP)
                 .column("idle_time_secs", BIGINT)
                 .column("written_catalog", VARCHAR)
-                .column("catalogs", typeManager.getParameterizedType(ARRAY, ImmutableList.of(VARCHAR.getTypeSignature()), ImmutableList.of()))
+                .column("catalogs", typeManager.getParameterizedType(ARRAY, ImmutableList.of(TypeSignatureParameter.of(VARCHAR.getTypeSignature()))))
                 .build();
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
     }

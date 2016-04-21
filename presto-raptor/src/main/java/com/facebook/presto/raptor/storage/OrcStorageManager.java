@@ -39,10 +39,12 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -428,17 +430,18 @@ public class OrcStorageManager
                 return DecimalType.createDecimalType(type.getPrecision().get(), type.getScale().get());
             case LIST:
                 TypeSignature elementType = getType(types, type.getFieldTypeIndex(0)).getTypeSignature();
-                return typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(elementType), ImmutableList.of());
+                return typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(TypeSignatureParameter.of(elementType)));
             case MAP:
                 TypeSignature keyType = getType(types, type.getFieldTypeIndex(0)).getTypeSignature();
                 TypeSignature valueType = getType(types, type.getFieldTypeIndex(1)).getTypeSignature();
-                return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(keyType, valueType), ImmutableList.of());
+                return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.of(keyType), TypeSignatureParameter.of(valueType)));
             case STRUCT:
-                ImmutableList.Builder<TypeSignature> fieldTypes = ImmutableList.builder();
+                List<String> fieldNames = type.getFieldNames();
+                ImmutableList.Builder<TypeSignatureParameter> fieldTypes = ImmutableList.builder();
                 for (int i = 0; i < type.getFieldCount(); i++) {
-                    fieldTypes.add(getType(types, type.getFieldTypeIndex(i)).getTypeSignature());
+                    fieldTypes.add(TypeSignatureParameter.of(new NamedTypeSignature(fieldNames.get(i), getType(types, type.getFieldTypeIndex(i)).getTypeSignature())));
                 }
-                return typeManager.getParameterizedType(StandardTypes.ROW, fieldTypes.build(), ImmutableList.copyOf(type.getFieldNames()));
+                return typeManager.getParameterizedType(StandardTypes.ROW, fieldTypes.build());
         }
         throw new PrestoException(RAPTOR_ERROR, "Unhandled ORC type: " + type);
     }

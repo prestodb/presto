@@ -15,6 +15,7 @@ package com.facebook.presto.raptor;
 
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
@@ -114,7 +115,7 @@ public class RaptorTableProperties
         return new PropertyMetadata<>(
                 name,
                 description,
-                typeManager.getParameterizedType(ARRAY, ImmutableList.of(VARCHAR.getTypeSignature()), ImmutableList.of()),
+                typeManager.getParameterizedType(ARRAY, ImmutableList.of(TypeSignatureParameter.of(VARCHAR.getTypeSignature()))),
                 List.class,
                 ImmutableList.of(),
                 false,

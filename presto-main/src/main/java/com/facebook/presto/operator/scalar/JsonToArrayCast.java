@@ -25,6 +25,7 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.type.ArrayType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -57,7 +58,7 @@ public class JsonToArrayCast
     {
         checkArgument(arity == 1, "Expected arity to be 1");
         Type type = boundVariables.getTypeVariable("T");
-        Type arrayType = typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(type.getTypeSignature()), ImmutableList.of());
+        Type arrayType = typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(TypeSignatureParameter.of(type.getTypeSignature())));
         checkCondition(canCastFromJson(arrayType), INVALID_CAST_ARGUMENT, "Cannot cast JSON to %s", arrayType);
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(arrayType);
         return new ScalarFunctionImplementation(true, ImmutableList.of(false), methodHandle, isDeterministic());

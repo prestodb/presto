@@ -57,12 +57,14 @@ import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.TestingConnectorSession;
@@ -180,12 +182,15 @@ public abstract class AbstractTestHiveClient
     protected static final String INVALID_TABLE = "totally_invalid_table_name";
     protected static final String INVALID_COLUMN = "totally_invalid_column_name";
 
-    private static final Type ARRAY_TYPE = TYPE_MANAGER.getParameterizedType(ARRAY, ImmutableList.of(createUnboundedVarcharType().getTypeSignature()), ImmutableList.of());
-    private static final Type MAP_TYPE = TYPE_MANAGER.getParameterizedType(MAP, ImmutableList.of(createUnboundedVarcharType().getTypeSignature(), BIGINT.getTypeSignature()), ImmutableList.of());
+    private static final Type ARRAY_TYPE = TYPE_MANAGER.getParameterizedType(ARRAY, ImmutableList.of(TypeSignatureParameter.of(createUnboundedVarcharType().getTypeSignature())));
+    private static final Type MAP_TYPE = TYPE_MANAGER.getParameterizedType(MAP, ImmutableList.of(TypeSignatureParameter.of(createUnboundedVarcharType().getTypeSignature()), TypeSignatureParameter.of(BIGINT.getTypeSignature())));
     private static final Type ROW_TYPE = TYPE_MANAGER.getParameterizedType(
             ROW,
-            ImmutableList.of(createUnboundedVarcharType().getTypeSignature(), BIGINT.getTypeSignature(), BOOLEAN.getTypeSignature()),
-            ImmutableList.of("f_string", "f_bigint", "f_boolean"));
+            ImmutableList.of(
+                    TypeSignatureParameter.of(new NamedTypeSignature("f_string", createUnboundedVarcharType().getTypeSignature())),
+                    TypeSignatureParameter.of(new NamedTypeSignature("f_bigint", BIGINT.getTypeSignature())),
+                    TypeSignatureParameter.of(new NamedTypeSignature("f_boolean", BOOLEAN.getTypeSignature())))
+    );
 
     private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS = ImmutableList.<ColumnMetadata>builder()
             .add(new ColumnMetadata("id", BIGINT))
