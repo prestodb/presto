@@ -18,6 +18,7 @@ import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
@@ -32,6 +33,7 @@ import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
@@ -122,7 +124,14 @@ public class JsonFieldDecoder
         public Slice getSlice()
         {
             String textValue = value.isValueNode() ? value.asText() : value.toString();
-            return isNull() ? EMPTY_SLICE : utf8Slice(textValue);
+            if (isNull()) {
+                return EMPTY_SLICE;
+            }
+            Slice slice = utf8Slice(textValue);
+            if (columnHandle.getType() instanceof VarcharType) {
+                slice = truncateToLength(slice, columnHandle.getType());
+            }
+            return slice;
         }
     }
 
