@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.type.TypeRegistry.isTypeOnlyCoercion;
 import static com.google.common.base.Preconditions.checkState;
 
 /**
@@ -149,7 +148,6 @@ class TranslationMap
             public Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
                 Expression rewrittenExpression = treeRewriter.defaultRewrite(node, context);
-
                 return coerceIfNecessary(node, rewrittenExpression);
             }
 
@@ -192,12 +190,11 @@ class TranslationMap
             {
                 Type coercion = analysis.getCoercion(original);
                 if (coercion != null) {
-                    Type type = analysis.getType(original);
                     rewritten = new Cast(
                             rewritten,
                             coercion.getTypeSignature().toString(),
                             false,
-                            isTypeOnlyCoercion(type, coercion));
+                            analysis.isTypeOnlyCoercion(original));
                 }
                 return rewritten;
             }
