@@ -21,6 +21,8 @@ import io.airlift.slice.Slice;
 
 import java.util.Set;
 
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
+import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
@@ -92,7 +94,14 @@ public class CsvFieldDecoder
             @Override
             public Slice getSlice()
             {
-                return isNull() ? EMPTY_SLICE : utf8Slice(value);
+                if (isNull()) {
+                    return EMPTY_SLICE;
+                }
+                Slice slice = utf8Slice(value);
+                if (isVarcharType(columnHandle.getType())) {
+                    slice = truncateToLength(slice, columnHandle.getType());
+                }
+                return slice;
             }
         };
     }

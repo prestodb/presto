@@ -20,7 +20,6 @@ import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -32,6 +31,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkValue;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -54,9 +54,9 @@ public class TestCsvDecoder
         String csv = "\"row 1\",row2,\"row3\",100,\"200\",300,4.5";
 
         CsvRowDecoder rowDecoder = new CsvRowDecoder();
-        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", VarcharType.VARCHAR, "0", null, null, false, false, false);
-        DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", VarcharType.VARCHAR, "1", null, null, false, false, false);
-        DecoderTestColumnHandle row3 = new DecoderTestColumnHandle("", 2, "row3", VarcharType.VARCHAR, "2", null, null, false, false, false);
+        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", createVarcharType(2), "0", null, null, false, false, false);
+        DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", createVarcharType(10), "1", null, null, false, false, false);
+        DecoderTestColumnHandle row3 = new DecoderTestColumnHandle("", 2, "row3", createVarcharType(10), "2", null, null, false, false, false);
         DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", BigintType.BIGINT, "3", null, null, false, false, false);
         DecoderTestColumnHandle row5 = new DecoderTestColumnHandle("", 4, "row5", BigintType.BIGINT, "4", null, null, false, false, false);
         DecoderTestColumnHandle row6 = new DecoderTestColumnHandle("", 5, "row6", BigintType.BIGINT, "5", null, null, false, false, false);
@@ -70,7 +70,7 @@ public class TestCsvDecoder
 
         assertEquals(providers.size(), columns.size());
 
-        checkValue(providers, row1, "row 1");
+        checkValue(providers, row1, "ro");
         checkValue(providers, row2, "row2");
         checkValue(providers, row3, "row3");
         checkValue(providers, row4, 100);
@@ -121,7 +121,7 @@ public class TestCsvDecoder
 
         CsvRowDecoder rowDecoder = new CsvRowDecoder();
 
-        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", VarcharType.VARCHAR, "0", null, null, false, false, false);
+        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", createVarcharType(10), "0", null, null, false, false, false);
         DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", BigintType.BIGINT, "1", null, null, false, false, false);
         DecoderTestColumnHandle row3 = new DecoderTestColumnHandle("", 2, "row3", DoubleType.DOUBLE, "2", null, null, false, false, false);
         DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", BooleanType.BOOLEAN, "3", null, null, false, false, false);
