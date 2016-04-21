@@ -39,7 +39,7 @@
             {
                 "name": "comment",
                 "mapping": "comment",
-                "type": "VARCHAR"
+                "type": "VARCHAR(199)"
             }
         ]
     }
