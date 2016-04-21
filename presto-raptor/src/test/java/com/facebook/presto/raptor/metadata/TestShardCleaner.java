@@ -193,7 +193,7 @@ public class TestShardCleaner
     {
         assertEquals(cleaner.getLocalShardsCleaned().getTotalCount(), 0);
 
-        ShardDao shardDao = dbi.onDemand(ShardDao.class);
+        TestingShardDao shardDao = dbi.onDemand(TestingShardDao.class);
         MetadataDao metadataDao = dbi.onDemand(MetadataDao.class);
 
         long tableId = metadataDao.insertTable("test", "test", false, null);
