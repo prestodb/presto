@@ -215,14 +215,14 @@ public class ClusterMemoryManager
         return ImmutableMap.copyOf(pools);
     }
 
-    private boolean isClusterOutOfMemory()
+    private synchronized boolean isClusterOutOfMemory()
     {
         ClusterMemoryPool reservedPool = pools.get(RESERVED_POOL);
         ClusterMemoryPool generalPool = pools.get(GENERAL_POOL);
         return reservedPool != null && generalPool != null && reservedPool.getAssignedQueries() > 0 && generalPool.getBlockedNodes() > 0;
     }
 
-    private MemoryPoolAssignmentsRequest updateAssignments(Iterable<QueryExecution> queries)
+    private synchronized MemoryPoolAssignmentsRequest updateAssignments(Iterable<QueryExecution> queries)
     {
         ClusterMemoryPool reservedPool = pools.get(RESERVED_POOL);
         ClusterMemoryPool generalPool = pools.get(GENERAL_POOL);
@@ -280,7 +280,7 @@ public class ClusterMemoryManager
 
     private void updateNodes(MemoryPoolAssignmentsRequest assignments)
     {
-        ImmutableSet.Builder builder = new ImmutableSet.Builder();
+        ImmutableSet.Builder<Node> builder = ImmutableSet.builder();
         Set<Node> aliveNodes = builder
                 .addAll(nodeManager.getNodes(ACTIVE))
                 .addAll(nodeManager.getNodes(SHUTTING_DOWN))
