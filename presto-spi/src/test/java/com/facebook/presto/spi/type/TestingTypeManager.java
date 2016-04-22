@@ -71,4 +71,10 @@ public class TestingTypeManager
     {
         return false;
     }
+
+    @Override
+    public Optional<Type> coerceTypeBase(Type sourceType, String resultTypeBase)
+    {
+        throw new UnsupportedOperationException();
+    }
 }

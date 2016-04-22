@@ -104,6 +104,12 @@ public class TestRedisPlugin
         {
             return Optional.empty();
         }
+
+        @Override
+        public Optional<Type> coerceTypeBase(Type sourceType, String resultTypeBase)
+        {
+            throw new UnsupportedOperationException();
+        }
     }
 
     private static class TestingNodeManager
