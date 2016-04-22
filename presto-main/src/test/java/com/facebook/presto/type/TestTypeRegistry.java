@@ -54,6 +54,7 @@ public class TestTypeRegistry
         assertTrue(isTypeOnlyCoercion("decimal(2,1)", "decimal(3,1)"));
         assertFalse(isTypeOnlyCoercion("decimal(23,1)", "decimal(22,1)"));
         assertFalse(isTypeOnlyCoercion("decimal(3,1)", "decimal(2,1)"));
+        assertFalse(isTypeOnlyCoercion("decimal(3,1)", "decimal(22,1)"));
 
         assertTrue(isTypeOnlyCoercion("array(decimal(22,1))", "array(decimal(23,1))"));
         assertTrue(isTypeOnlyCoercion("array(decimal(2,1))", "array(decimal(3,1))"));
