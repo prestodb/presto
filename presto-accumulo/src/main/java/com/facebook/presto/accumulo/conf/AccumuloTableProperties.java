@@ -106,7 +106,8 @@ public final class AccumuloTableProperties
                                 : (x.equals("string") ? StringRowSerializer.class.getName()
                                 : (x.equals("lexicoder")
                                 ? LexicoderRowSerializer.class.getName()
-                                : (String) x)));
+                                : (String) x)),
+                        object -> object);
 
         PropertyMetadata<String> s7 = stringSessionProperty(SCAN_AUTHS,
                 "Scan-time authorizations set on the batch scanner. Default is all scan authorizations for the user",

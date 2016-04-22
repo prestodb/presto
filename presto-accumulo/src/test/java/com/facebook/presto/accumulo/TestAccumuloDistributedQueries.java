@@ -24,11 +24,8 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.util.List;
-
 import static com.facebook.presto.accumulo.AccumuloQueryRunner.createAccumuloQueryRunner;
 import static com.facebook.presto.accumulo.AccumuloQueryRunner.dropTpchTables;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -70,16 +67,35 @@ public class TestAccumuloDistributedQueries
         assertUpdate("CREATE TABLE test_table_1 AS SELECT 'abcdefg' a, 1 b", 1);
         assertUpdate("CREATE VIEW test_view_1 AS SELECT a FROM test_table_1");
 
-        assertQuery("SELECT * FROM test_view_1", "VALUES 'abcdefg'");
+        assertQuery("SELECT a FROM test_view_1", "VALUES 'abcdefg'");
 
         // replace table with a version that's implicitly coercible to the previous one
         assertUpdate("DROP TABLE test_table_1");
         assertUpdate("CREATE TABLE test_table_1 AS SELECT 'abc' a, 1 b", 1);
 
-        assertQuery("SELECT * FROM test_view_1", "VALUES 'abc'");
+        assertQuery("SELECT a FROM test_view_1", "VALUES 'abc'");
 
         assertUpdate("DROP VIEW test_view_1");
         assertUpdate("DROP TABLE test_table_1");
+    }
+
+    @Override
+    public void testCompatibleTypeChangeForView2()
+            throws Exception
+    {
+        assertUpdate("CREATE TABLE test_table_2 AS SELECT BIGINT '1' v, 2 w", 1);
+        assertUpdate("CREATE VIEW test_view_2 AS SELECT * FROM test_table_2");
+
+        assertQuery("SELECT v FROM test_view_2", "VALUES 1");
+
+        // replace table with a version that's implicitly coercible to the previous one
+        assertUpdate("DROP TABLE test_table_2");
+        assertUpdate("CREATE TABLE test_table_2 AS SELECT INTEGER '1' v, 2 w", 1);
+
+        assertQuery("SELECT v FROM test_view_2 WHERE v = 1", "VALUES 1");
+
+        assertUpdate("DROP VIEW test_view_2");
+        assertUpdate("DROP TABLE test_table_2");
     }
 
     @Override
@@ -460,17 +476,6 @@ public class TestAccumuloDistributedQueries
         assertEquals("integer", actual.getMaterializedRows().get(7).getField(1));
         assertEquals("comment", actual.getMaterializedRows().get(8).getField(0));
         assertEquals("varchar", actual.getMaterializedRows().get(8).getField(1));
-    }
-
-    // Copied from abstract base class
-    private void assertTableColumnNames(String tableName, String... columnNames)
-    {
-        MaterializedResult result = computeActual("DESCRIBE " + tableName);
-        List<String> expected = ImmutableList.copyOf(columnNames);
-        List<String> actual = result.getMaterializedRows().stream()
-                .map(row -> (String) row.getField(0))
-                .collect(toImmutableList());
-        assertEquals(actual, expected);
     }
 
     // Copied from abstract base class
