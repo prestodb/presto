@@ -52,6 +52,7 @@ public class SimpleJoinProbe
     private final int positionCount;
     private final Block[] blocks;
     private final Block[] probeBlocks;
+    private final Page page;
     private final Page probePage;
     private final Optional<Block> probeHashBlock;
 
@@ -72,7 +73,8 @@ public class SimpleJoinProbe
         for (int i = 0; i < probeJoinChannels.size(); i++) {
             probeBlocks[i] = blocks[probeJoinChannels.get(i)];
         }
-        this.probePage = new Page(probeBlocks);
+        this.page = page;
+        this.probePage = new Page(page.getPositionCount(), probeBlocks);
         this.probeHashBlock = hashChannel.isPresent() ? Optional.of(page.getBlock(hashChannel.get())) : Optional.empty();
     }
 
@@ -107,9 +109,9 @@ public class SimpleJoinProbe
         }
         if (probeHashBlock.isPresent()) {
             long rawHash = BIGINT.getLong(probeHashBlock.get(), position);
-            return lookupSource.getJoinPosition(position, probePage, rawHash);
+            return lookupSource.getJoinPosition(position, probePage, page, rawHash);
         }
-        return lookupSource.getJoinPosition(position, probePage);
+        return lookupSource.getJoinPosition(position, probePage, page);
     }
 
     private boolean currentRowContainsNull()
@@ -120,5 +122,17 @@ public class SimpleJoinProbe
             }
         }
         return false;
+    }
+
+    @Override
+    public int getPosition()
+    {
+        return position;
+    }
+
+    @Override
+    public Page getPage()
+    {
+        return page;
     }
 }
