@@ -61,15 +61,5 @@ public interface TypeManager
 
     boolean isTypeOnlyCoercion(Type actualType, Type expectedType);
 
-    @Deprecated
-    default boolean canCoerce(Type actual, TypeSignature expected)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Deprecated
-    default Optional<Type> getCommonSuperType(Type firstType, TypeSignature secondType)
-    {
-        throw new UnsupportedOperationException();
-    }
+    Optional<Type> coerceTypeBase(Type sourceType, String resultTypeBase);
 }
