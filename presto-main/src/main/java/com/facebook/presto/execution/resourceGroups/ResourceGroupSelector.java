@@ -14,13 +14,11 @@
 package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.presto.SessionRepresentation;
-import com.facebook.presto.execution.QueryQueueDefinition;
 import com.facebook.presto.sql.tree.Statement;
 
-import java.util.List;
 import java.util.Optional;
 
 public interface ResourceGroupSelector
 {
-    Optional<List<QueryQueueDefinition>> match(Statement statement, SessionRepresentation session);
+    Optional<ResourceGroupId> match(Statement statement, SessionRepresentation session);
 }

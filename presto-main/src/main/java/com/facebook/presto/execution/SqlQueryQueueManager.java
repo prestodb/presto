@@ -14,7 +14,6 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
@@ -41,14 +40,14 @@ public class SqlQueryQueueManager
         implements QueryQueueManager
 {
     private final ConcurrentMap<QueueKey, QueryQueue> queryQueues = new ConcurrentHashMap<>();
-    private final List<ResourceGroupSelector> selectors;
+    private final List<QueryQueueRule> rules;
     private final MBeanExporter mbeanExporter;
 
     @Inject
-    public SqlQueryQueueManager(List<? extends ResourceGroupSelector> selectors, MBeanExporter mbeanExporter)
+    public SqlQueryQueueManager(List<QueryQueueRule> rules, MBeanExporter mbeanExporter)
     {
         this.mbeanExporter = requireNonNull(mbeanExporter, "mbeanExporter is null");
-        this.selectors = ImmutableList.copyOf(selectors);
+        this.rules = ImmutableList.copyOf(rules);
     }
 
     @Override
@@ -71,8 +70,8 @@ public class SqlQueryQueueManager
     // Queues returned have already been created and added queryQueues
     private List<QueryQueue> selectQueues(Statement statement, Session session, Executor executor)
     {
-        for (ResourceGroupSelector selector : selectors) {
-            Optional<List<QueryQueueDefinition>> queues = selector.match(statement, session.toSessionRepresentation());
+        for (QueryQueueRule rule : rules) {
+            Optional<List<QueryQueueDefinition>> queues = rule.match(session.toSessionRepresentation());
             if (queues.isPresent()) {
                 return getOrCreateQueues(session, executor, queues.get());
             }

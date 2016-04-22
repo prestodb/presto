@@ -14,13 +14,9 @@
 package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.presto.SessionRepresentation;
-import com.facebook.presto.execution.QueryQueueDefinition;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableMap;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -44,7 +40,7 @@ public class StaticSelector
     }
 
     @Override
-    public Optional<List<QueryQueueDefinition>> match(Statement statement, SessionRepresentation session)
+    public Optional<ResourceGroupId> match(Statement statement, SessionRepresentation session)
     {
         if (userRegex.isPresent() && !userRegex.get().matcher(session.getUser()).matches()) {
             return Optional.empty();
@@ -63,15 +59,6 @@ public class StaticSelector
             }
         }
 
-        // TODO: this should be cleaned up once queueing system is removed
-        List<QueryQueueDefinition> definitions = new ArrayList<>();
-        for (String segment : group.expandTemplate(session).getSegments()) {
-            // queued/concurrent limits are not used, as they will be set by the ResourceGroupConfigurationManager
-            definitions.add(new QueryQueueDefinition(segment, 1, 1));
-        }
-
-        Collections.reverse(definitions);
-
-        return Optional.of(definitions);
+        return Optional.of(group.expandTemplate(session));
     }
 }
