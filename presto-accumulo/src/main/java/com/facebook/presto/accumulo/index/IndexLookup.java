@@ -23,7 +23,6 @@ import com.facebook.presto.accumulo.model.TabletSplitMetadata;
 import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import org.apache.accumulo.core.client.BatchScanner;
@@ -37,6 +36,7 @@ import org.apache.accumulo.core.security.Authorizations;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.io.Text;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -223,6 +223,11 @@ public class IndexLookup
                             rowIdRanges);
         }
 
+        if (idxRanges.size() == 0) {
+            LOG.info("Query would return no results, returning empty list of splits");
+            return true;
+        }
+
         // Okay, we now check how many rows we would scan by using the index vs. the overall number
         // of rows
         long numEntries = idxRanges.size();
@@ -353,7 +358,7 @@ public class IndexLookup
         }
 
         // Return the final ranges for all constraint pairs
-        return ImmutableList.copyOf(finalRanges);
+        return new ArrayList<>(finalRanges);
     }
 
     /**
