@@ -64,7 +64,7 @@ public final class RegexpFunctions
         return regex;
     }
 
-    @Description("returns substrings matching a regular expression")
+    @Description("returns whether the pattern is contained within the string")
     @ScalarFunction
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean regexpLike(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Regex pattern)
