@@ -31,6 +31,7 @@ import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryQueueManager;
+import com.facebook.presto.execution.QueryQueueRule;
 import com.facebook.presto.execution.QueryQueueRuleFactory;
 import com.facebook.presto.execution.RenameColumnTask;
 import com.facebook.presto.execution.RenameTableTask;
@@ -144,7 +145,7 @@ public class CoordinatorModule
         }
         else {
             binder.bind(QueryQueueManager.class).to(SqlQueryQueueManager.class).in(Scopes.SINGLETON);
-            binder.bind(new TypeLiteral<List<? extends ResourceGroupSelector>>() {}).toProvider(QueryQueueRuleFactory.class).in(Scopes.SINGLETON);
+            binder.bind(new TypeLiteral<List<QueryQueueRule>>() {}).toProvider(QueryQueueRuleFactory.class).in(Scopes.SINGLETON);
         }
         newExporter(binder).export(QueryManager.class).withGeneratedName();
         configBinder(binder).bindConfig(QueryManagerConfig.class);

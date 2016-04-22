@@ -14,8 +14,6 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.SessionRepresentation;
-import com.facebook.presto.execution.resourceGroups.ResourceGroupSelector;
-import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -31,7 +29,6 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class QueryQueueRule
-        implements ResourceGroupSelector
 {
     @Nullable
     private final Pattern userRegex;
@@ -64,8 +61,7 @@ public class QueryQueueRule
         return new QueryQueueRule(userRegex, sourceRegex, sessionPropertyRegexes, queues.build());
     }
 
-    @Override
-    public Optional<List<QueryQueueDefinition>> match(Statement statement, SessionRepresentation session)
+    public Optional<List<QueryQueueDefinition>> match(SessionRepresentation session)
     {
         if (userRegex != null && !userRegex.matcher(session.getUser()).matches()) {
             return Optional.empty();

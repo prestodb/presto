@@ -16,7 +16,6 @@ package com.facebook.presto.execution.resourceGroups;
 import com.facebook.presto.Session;
 import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.execution.QueryExecution;
-import com.facebook.presto.execution.QueryQueueDefinition;
 import com.facebook.presto.execution.QueryQueueManager;
 import com.facebook.presto.execution.SqlQueryManagerStats;
 import com.facebook.presto.execution.resourceGroups.ResourceGroup.RootResourceGroup;
@@ -30,8 +29,6 @@ import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -43,7 +40,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.spi.StandardErrorCode.USER_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -69,18 +66,9 @@ public class ResourceGroupManager
     @Override
     public boolean submit(Statement statement, QueryExecution queryExecution, Executor executor, SqlQueryManagerStats stats)
     {
-        List<QueryQueueDefinition> queues = selectQueues(statement, queryExecution.getSession());
-
-        queues = new ArrayList<>(queues);
-        Collections.reverse(queues);
-        ResourceGroupId groupId = new ResourceGroupId(queues.get(0).getExpandedTemplate(queryExecution.getSession()));
-        createGroupIfNecessary(groupId, queryExecution.getSession().toSessionRepresentation(), executor);
-        for (QueryQueueDefinition queue : queues.subList(1, queues.size())) {
-            groupId = new ResourceGroupId(groupId, queue.getExpandedTemplate(queryExecution.getSession()));
-            createGroupIfNecessary(groupId, queryExecution.getSession().toSessionRepresentation(), executor);
-        }
-
-        return groups.get(groupId).add(queryExecution);
+        ResourceGroupId group = selectGroup(statement, queryExecution.getSession());
+        createGroupIfNecessary(group, queryExecution.getSession().toSessionRepresentation(), executor);
+        return groups.get(group).add(queryExecution);
     }
 
     @PreDestroy
@@ -114,6 +102,7 @@ public class ResourceGroupManager
         if (!groups.containsKey(id)) {
             ResourceGroup group;
             if (id.getParent().isPresent()) {
+                createGroupIfNecessary(id.getParent().get(), session, executor);
                 ResourceGroup parent = groups.get(id.getParent().get());
                 requireNonNull(parent, "parent is null");
                 group = parent.getOrCreateSubGroup(id.getLastSegment());
@@ -128,17 +117,14 @@ public class ResourceGroupManager
         }
     }
 
-    // Queues returned have already been created and added queryQueues
-    private List<QueryQueueDefinition> selectQueues(Statement statement, Session session)
+    private ResourceGroupId selectGroup(Statement statement, Session session)
     {
         for (ResourceGroupSelector selector : selectors) {
-            Optional<List<QueryQueueDefinition>> queues = selector.match(statement, session.toSessionRepresentation());
-            if (queues.isPresent()) {
-                List<QueryQueueDefinition> definitions = queues.get();
-                checkState(!definitions.isEmpty(), selector + " returned empty list of queue definitions");
-                return definitions;
+            Optional<ResourceGroupId> group = selector.match(statement, session.toSessionRepresentation());
+            if (group.isPresent()) {
+                return group.get();
             }
         }
-        throw new PrestoException(USER_ERROR, "Query did not match any selection rule");
+        throw new PrestoException(QUERY_REJECTED, "Query did not match any selection rule");
     }
 }

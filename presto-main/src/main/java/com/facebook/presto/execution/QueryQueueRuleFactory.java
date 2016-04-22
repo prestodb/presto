@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.execution.resourceGroups.ResourceGroupSelector;
 import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -50,9 +49,9 @@ import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class QueryQueueRuleFactory
-        implements Provider<List<? extends ResourceGroupSelector>>
+        implements Provider<List<QueryQueueRule>>
 {
-    private final List<? extends ResourceGroupSelector> selectors;
+    private final List<QueryQueueRule> selectors;
 
     @Inject
     public QueryQueueRuleFactory(QueryManagerConfig config, ObjectMapper mapper)
@@ -151,7 +150,7 @@ public class QueryQueueRuleFactory
 
     @Override
     @Provides
-    public List<? extends ResourceGroupSelector> get()
+    public List<QueryQueueRule> get()
     {
         return selectors;
     }
