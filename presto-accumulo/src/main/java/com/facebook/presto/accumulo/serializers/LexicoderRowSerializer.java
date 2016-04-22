@@ -304,6 +304,9 @@ public class LexicoderRowSerializer
         else if (type.equals(DATE) && v instanceof Date) {
             toEncode = ((Date) v).getTime();
         }
+        else if (type.equals(INTEGER) && v instanceof Long) {
+            toEncode = ((Long) v).intValue();
+        }
         else if (type.equals(TIME) && v instanceof Time) {
             toEncode = ((Time) v).getTime();
         }

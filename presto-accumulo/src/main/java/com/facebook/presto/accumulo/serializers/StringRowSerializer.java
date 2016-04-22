@@ -37,6 +37,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -282,6 +283,12 @@ public class StringRowSerializer
         }
         else if (type.equals(DOUBLE)) {
             setDouble(t, (Double) v);
+        }
+        else if (type.equals(INTEGER) && v instanceof Integer) {
+            setInt(t, (Integer) v);
+        }
+        else if (type.equals(INTEGER) && v instanceof Long) {
+            setInt(t, (Integer) v);
         }
         else if (type.equals(TIME)) {
             setTime(t, (Time) v);
