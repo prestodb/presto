@@ -122,6 +122,7 @@ import static org.apache.hadoop.mapreduce.lib.output.FileOutputFormat.COMPRESS_C
 import static org.apache.hadoop.mapreduce.lib.output.FileOutputFormat.COMPRESS_TYPE;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 @Test(groups = "hive")
@@ -173,7 +174,6 @@ public abstract class AbstractTestHiveFileFormats
     private static final BigDecimal EXPECTED_DECIMAL_PRECISION_38 = new BigDecimal("1234567890123456789012.1234567800000000");
 
     // TODO: support null values and determine if timestamp and binary are allowed as partition keys
-    public static final int NUM_ROWS = 1000;
     public static final List<TestColumn> TEST_COLUMNS = ImmutableList.<TestColumn>builder()
             .add(new TestColumn("p_empty_string", javaStringObjectInspector, "", Slices.EMPTY_SLICE, true))
             .add(new TestColumn("p_string", javaStringObjectInspector, "test", Slices.utf8Slice("test"), true))
@@ -496,10 +496,10 @@ public abstract class AbstractTestHiveFileFormats
         return new FileSplit(path, 0, file.length(), new String[0]);
     }
 
-    protected void checkCursor(RecordCursor cursor, List<TestColumn> testColumns, int numRows)
+    protected void checkCursor(RecordCursor cursor, List<TestColumn> testColumns, int rowCount)
             throws IOException
     {
-        for (int row = 0; row < numRows; row++) {
+        for (int row = 0; row < rowCount; row++) {
             assertTrue(cursor.advanceNextPosition());
             for (int i = 0, testColumnsSize = testColumns.size(); i < testColumnsSize; i++) {
                 TestColumn testColumn = testColumns.get(i);
@@ -571,14 +571,15 @@ public abstract class AbstractTestHiveFileFormats
                 }
             }
         }
+        assertFalse(cursor.advanceNextPosition());
     }
 
-    protected void checkPageSource(ConnectorPageSource pageSource, List<TestColumn> testColumns, List<Type> types)
+    protected void checkPageSource(ConnectorPageSource pageSource, List<TestColumn> testColumns, List<Type> types, int rowCount)
             throws IOException
     {
         try {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, types);
-
+            assertEquals(result.getMaterializedRows().size(), rowCount);
             for (MaterializedRow row : result) {
                 for (int i = 0, testColumnsSize = testColumns.size(); i < testColumnsSize; i++) {
                     TestColumn testColumn = testColumns.get(i);
