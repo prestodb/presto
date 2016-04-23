@@ -20,6 +20,7 @@ import com.amazonaws.services.s3.AmazonS3EncryptionClient;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.EncryptionMaterials;
 import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
+import com.facebook.presto.hive.PrestoS3FileSystem.UnrecoverableS3OperationException;
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.base.Throwables;
 import org.apache.hadoop.conf.Configuration;
@@ -309,6 +310,13 @@ public class TestPrestoS3FileSystem
             fs.initialize(new URI("s3n://test-bucket/"), config);
             assertInstanceOf(fs.getS3Client(), AmazonS3EncryptionClient.class);
         }
+    }
+
+    @Test(expectedExceptions = UnrecoverableS3OperationException.class, expectedExceptionsMessageRegExp = ".*\\Q (Path: /tmp/test/path)\\E")
+    public void testUnrecoverableS3ExceptionMessage()
+            throws Exception
+    {
+        throw new UnrecoverableS3OperationException(new Path("/tmp/test/path"), new IOException("test io exception"));
     }
 
     private static AWSCredentialsProvider getAwsCredentialsProvider(PrestoS3FileSystem fs)
