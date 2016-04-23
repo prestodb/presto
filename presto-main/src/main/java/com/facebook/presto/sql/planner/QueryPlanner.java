@@ -270,10 +270,8 @@ class QueryPlanner
         Expression rewrittenBeforeSubqueries = subPlan.rewrite(predicate);
         subPlan = handleSubqueries(subPlan, rewrittenBeforeSubqueries, node);
         Expression rewrittenAfterSubqueries = subPlan.rewrite(predicate);
-        return new PlanBuilder(
-                subPlan.getTranslations(),
-                new FilterNode(idAllocator.getNextId(), subPlan.getRoot(), rewrittenAfterSubqueries),
-                subPlan.getSampleWeight());
+
+        return subPlan.withNewRoot(new FilterNode(idAllocator.getNextId(), subPlan.getRoot(), rewrittenAfterSubqueries));
     }
 
     private PlanBuilder project(PlanBuilder subPlan, Iterable<FieldOrExpression> expressions)
@@ -434,7 +432,7 @@ class QueryPlanner
         if (groupingSets.size() > 1) {
             Symbol groupIdSymbol = symbolAllocator.newSymbol("groupId", BIGINT);
             GroupIdNode groupId = new GroupIdNode(idAllocator.getNextId(), subPlan.getRoot(), subPlan.getRoot().getOutputSymbols(), groupingSetsSymbols, groupIdSymbol);
-            subPlan = new PlanBuilder(subPlan.getTranslations(), groupId, subPlan.getSampleWeight());
+            subPlan = subPlan.withNewRoot(groupId);
             distinctGroupingSymbolsBuilder.add(groupIdSymbol);
         }
         List<Symbol> distinctGroupingSymbols = distinctGroupingSymbolsBuilder.build().asList();
@@ -467,12 +465,13 @@ class QueryPlanner
             for (Expression expression : entry.getKey()) {
                 builder.add(subPlan.translate(expression));
             }
-            MarkDistinctNode markDistinct = new MarkDistinctNode(idAllocator.getNextId(),
-                    subPlan.getRoot(),
-                    entry.getValue(),
-                    builder.build(),
-                    Optional.empty());
-            subPlan = new PlanBuilder(subPlan.getTranslations(), markDistinct, subPlan.getSampleWeight());
+            subPlan = subPlan.withNewRoot(
+                    new MarkDistinctNode(
+                            idAllocator.getNextId(),
+                            subPlan.getRoot(),
+                            entry.getValue(),
+                            builder.build(),
+                            Optional.empty()));
         }
 
         double confidence = approximationConfidence.orElse(1.0);
@@ -774,19 +773,19 @@ class QueryPlanner
         if (node.getSelect().isDistinct()) {
             checkState(outputs.containsAll(orderBy), "Expected ORDER BY terms to be in SELECT. Broken analysis");
 
-            AggregationNode aggregation = new AggregationNode(idAllocator.getNextId(),
-                    subPlan.getRoot(),
-                    subPlan.getRoot().getOutputSymbols(),
-                    ImmutableMap.<Symbol, FunctionCall>of(),
-                    ImmutableMap.<Symbol, Signature>of(),
-                    ImmutableMap.<Symbol, Symbol>of(),
-                    ImmutableList.of(subPlan.getRoot().getOutputSymbols()),
-                    AggregationNode.Step.SINGLE,
-                    Optional.empty(),
-                    1.0,
-                    Optional.empty());
-
-            return new PlanBuilder(subPlan.getTranslations(), aggregation, subPlan.getSampleWeight());
+            return subPlan.withNewRoot(
+                    new AggregationNode(
+                            idAllocator.getNextId(),
+                            subPlan.getRoot(),
+                            subPlan.getRoot().getOutputSymbols(),
+                            ImmutableMap.of(),
+                            ImmutableMap.of(),
+                            ImmutableMap.of(),
+                            ImmutableList.of(subPlan.getRoot().getOutputSymbols()),
+                            AggregationNode.Step.SINGLE,
+                            Optional.empty(),
+                            1.0,
+                            Optional.empty()));
         }
 
         return subPlan;
@@ -830,7 +829,7 @@ class QueryPlanner
             planNode = new SortNode(idAllocator.getNextId(), subPlan.getRoot(), orderBySymbols.build(), orderings);
         }
 
-        return new PlanBuilder(subPlan.getTranslations(), planNode, subPlan.getSampleWeight());
+        return subPlan.withNewRoot(planNode);
     }
 
     private PlanBuilder limit(PlanBuilder subPlan, Query node)
@@ -846,12 +845,9 @@ class QueryPlanner
     private PlanBuilder limit(PlanBuilder subPlan, List<SortItem> orderBy, Optional<String> limit)
     {
         if (orderBy.isEmpty() && limit.isPresent()) {
-            if (limit.get().equalsIgnoreCase("all")) {
-                return subPlan;
-            }
-            else {
+            if (!limit.get().equalsIgnoreCase("all")) {
                 long limitValue = Long.parseLong(limit.get());
-                return new PlanBuilder(subPlan.getTranslations(), new LimitNode(idAllocator.getNextId(), subPlan.getRoot(), limitValue), subPlan.getSampleWeight());
+                subPlan = subPlan.withNewRoot(new LimitNode(idAllocator.getNextId(), subPlan.getRoot(), limitValue));
             }
         }
 

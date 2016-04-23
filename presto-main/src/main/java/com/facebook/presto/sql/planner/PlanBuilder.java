@@ -38,6 +38,11 @@ class PlanBuilder
         this.sampleWeight = sampleWeight;
     }
 
+    public PlanBuilder withNewRoot(PlanNode root)
+    {
+        return new PlanBuilder(translations, root, sampleWeight);
+    }
+
     public Optional<Symbol> getSampleWeight()
     {
         return sampleWeight;
