@@ -14,11 +14,13 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.operator.Description;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.AbstractFixedWidthType;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.type.DateTimeOperators;
 import com.facebook.presto.type.SqlType;
 import com.google.common.primitives.Ints;
 import org.joda.time.DateTime;
@@ -40,7 +42,6 @@ public final class SequenceFunction
                 "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than start");
 
         int length = Ints.checkedCast((stop - start) / step + 1L);
-        checkCondition(length > 0, INVALID_FUNCTION_ARGUMENT, "length of sequence is 0");
 
         BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), length);
         for (long i = 0, value = start; i < length; ++i, value += step) {
@@ -78,7 +79,8 @@ public final class SequenceFunction
 
     @ScalarFunction("sequence")
     @SqlType("array(timestamp)")
-    public static Block sequenceTimestampYearToMonth(@SqlType(StandardTypes.TIMESTAMP) long start,
+    public static Block sequenceTimestampYearToMonth(ConnectorSession session,
+                                                     @SqlType(StandardTypes.TIMESTAMP) long start,
                                                      @SqlType(StandardTypes.TIMESTAMP) long end,
                                                      @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long step)
     {
@@ -88,15 +90,11 @@ public final class SequenceFunction
 
         int interval = Ints.checkedCast(step);
 
-        DateTime startDate = new DateTime(start);
-        DateTime endDate = new DateTime(end);
-
-        int length = Months.monthsBetween(startDate, endDate).getMonths() / interval + 1;
-        checkCondition(length > 0, INVALID_FUNCTION_ARGUMENT, "length of sequence is 0");
+        int length = Months.monthsBetween(new DateTime(start), new DateTime(end)).getMonths() / interval + 1;
 
         BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), length);
         for (int i = 0; i < length; ++i) {
-            BIGINT.writeLong(blockBuilder, startDate.plusMonths(i * interval).getMillis());
+            BIGINT.writeLong(blockBuilder, DateTimeOperators.timestampPlusIntervalYearToMonth(session, start, i * interval));
         }
 
         return blockBuilder.build();

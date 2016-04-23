@@ -87,5 +87,5 @@ Array Functions
 
 .. function:: sequence(start timestamp, stop timestamp, step interval) -> array<timestamp>
 
-    Generate a sequence of timestamps from `start` to `stop` incrementing be `step`. The type of the `step` parameter
+    Generate a sequence of timestamps from `start` to `stop` incrementing by `step`. The type of the `step` parameter
     can be either `INTERVAL DAY TO SECOND` or `INTERVAL YEAR TO MONTH`.
