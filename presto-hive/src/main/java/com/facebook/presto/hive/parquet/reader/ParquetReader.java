@@ -148,7 +148,7 @@ public class ParquetReader
             int totalSize = Ints.checkedCast(metadata.getTotalSize());
             byte[] buffer = new byte[totalSize];
             dataSource.readFully(startingPosition, buffer);
-            ParquetColumnChunkDescriptor descriptor = new ParquetColumnChunkDescriptor(columnDescriptor, metadata, startingPosition, totalSize);
+            ParquetColumnChunkDescriptor descriptor = new ParquetColumnChunkDescriptor(columnDescriptor, metadata, totalSize);
             ParquetColumnChunk columnChunk = new ParquetColumnChunk(descriptor, buffer, 0);
             columnReader.setPageReader(columnChunk.readAllPages());
         }
