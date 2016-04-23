@@ -251,7 +251,7 @@ public final class DecimalCasts
     {
         BigInteger decimalBigInteger = BigInteger.valueOf(value).multiply(BigInteger.valueOf(tenToScale));
         if (overflows(decimalBigInteger, (int) precision)) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast BIGINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast INTEGER '%s' to DECIMAL(%s, %s)", value, precision, scale));
         }
         return encodeUnscaledValue(decimalBigInteger);
     }
