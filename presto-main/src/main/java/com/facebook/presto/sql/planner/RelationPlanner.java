@@ -23,7 +23,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
-import com.facebook.presto.sql.analyzer.FieldOrExpression;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -415,27 +414,15 @@ class RelationPlanner
     protected RelationPlan visitQuery(Query node, Void context)
     {
         Optional<Double> approximationConfidence = node.getApproximate().map(Approximate::getConfidence).map(confidence -> Double.valueOf(confidence) / 100.0);
-        PlanBuilder subPlan = new QueryPlanner(analysis, symbolAllocator, idAllocator, metadata, session, approximationConfidence).process(node, null);
-
-        ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
-        for (FieldOrExpression fieldOrExpression : analysis.getOutputExpressions(node)) {
-            outputSymbols.add(subPlan.translate(fieldOrExpression));
-        }
-
-        return new RelationPlan(subPlan.getRoot(), analysis.getOutputDescriptor(node), outputSymbols.build(), subPlan.getSampleWeight());
+        return new QueryPlanner(analysis, symbolAllocator, idAllocator, metadata, session, approximationConfidence)
+                .plan(node);
     }
 
     @Override
     protected RelationPlan visitQuerySpecification(QuerySpecification node, Void context)
     {
-        PlanBuilder subPlan = new QueryPlanner(analysis, symbolAllocator, idAllocator, metadata, session, Optional.empty()).process(node, null);
-
-        ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
-        for (FieldOrExpression fieldOrExpression : analysis.getOutputExpressions(node)) {
-            outputSymbols.add(subPlan.translate(fieldOrExpression));
-        }
-
-        return new RelationPlan(subPlan.getRoot(), analysis.getOutputDescriptor(node), outputSymbols.build(), subPlan.getSampleWeight());
+        return new QueryPlanner(analysis, symbolAllocator, idAllocator, metadata, session, Optional.empty())
+                .plan(node);
     }
 
     @Override

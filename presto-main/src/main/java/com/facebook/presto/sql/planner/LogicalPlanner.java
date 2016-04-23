@@ -297,7 +297,7 @@ public class LogicalPlanner
     private RelationPlan createDeletePlan(Analysis analysis, Delete node)
     {
         QueryPlanner planner = new QueryPlanner(analysis, symbolAllocator, idAllocator, metadata, session, Optional.empty());
-        DeleteNode deleteNode = planner.planDelete(node);
+        DeleteNode deleteNode = planner.plan(node);
 
         List<Symbol> outputs = ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT));
         TableFinishNode commitNode = new TableFinishNode(idAllocator.getNextId(), deleteNode, deleteNode.getTarget(), outputs);
