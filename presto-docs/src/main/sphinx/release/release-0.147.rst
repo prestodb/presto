@@ -2,6 +2,11 @@
 Release 0.147
 =============
 
+General Changes
+---------------
+
+* Support ``LIKE`` clause for :doc:`/sql/show-catalogs` and :doc:`/sql/show-schemas`.
+
 Hive Changes
 ------------
 

@@ -295,9 +295,16 @@ class StatementAnalyzer
             throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
         }
 
+        Optional<Expression> predicate = Optional.empty();
+        Optional<String> likePattern = node.getLikePattern();
+        if (likePattern.isPresent()) {
+            predicate = Optional.of(new LikePredicate(nameReference("schema_name"), new StringLiteral(likePattern.get()), null));
+        }
+
         Query query = simpleQuery(
                 selectList(aliasedName("schema_name", "Schema")),
                 from(node.getCatalog().orElseGet(() -> session.getCatalog().get()), TABLE_SCHEMATA),
+                predicate,
                 ordering(ascending("schema_name")));
 
         return process(query, context);
@@ -310,9 +317,17 @@ class StatementAnalyzer
                 .map(name -> row(new StringLiteral(name)))
                 .collect(toList());
 
+        Optional<Expression> predicate = Optional.empty();
+        Optional<String> likePattern = node.getLikePattern();
+        if (likePattern.isPresent()) {
+            predicate = Optional.of(new LikePredicate(nameReference("Catalog"), new StringLiteral(likePattern.get()), null));
+        }
+
         Query query = simpleQuery(
                 selectList(new AllColumns()),
-                aliased(new Values(rows), "catalogs", ImmutableList.of("Catalog")));
+                aliased(new Values(rows), "catalogs", ImmutableList.of("Catalog")),
+                predicate,
+                ordering(ascending("Catalog")));
 
         return process(query, context);
     }
