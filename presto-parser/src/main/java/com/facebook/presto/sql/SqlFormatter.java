@@ -519,6 +519,10 @@ public final class SqlFormatter
         {
             builder.append("SHOW CATALOGS");
 
+            node.getLikePattern().ifPresent((value) ->
+                    builder.append(" LIKE ")
+                            .append(formatStringLiteral(value)));
+
             return null;
         }
 
@@ -531,6 +535,10 @@ public final class SqlFormatter
                 builder.append(" FROM ")
                         .append(node.getCatalog().get());
             }
+
+            node.getLikePattern().ifPresent((value) ->
+                    builder.append(" LIKE ")
+                            .append(formatStringLiteral(value)));
 
             return null;
         }
