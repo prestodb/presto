@@ -87,11 +87,6 @@ public class ParquetReader
         return currentPosition;
     }
 
-    public long getFileRowCount()
-    {
-        return fileRowCount;
-    }
-
     public int nextBatch()
             throws IOException, InterruptedException
     {
