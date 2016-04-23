@@ -149,7 +149,7 @@ public class ParquetReader
                 return metadata;
             }
         }
-        throw new ParquetCorruptionException("Malformed Parquet file. Could not find column metadata %s", columnDescriptor);
+        throw new ParquetCorruptionException("Metadata is missing for column: %s", columnDescriptor);
     }
 
     private void initializeColumnReaders()
