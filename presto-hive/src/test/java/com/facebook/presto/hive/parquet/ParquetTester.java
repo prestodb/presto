@@ -172,10 +172,7 @@ public class ParquetTester
         ParquetDataSource dataSource = new HdfsParquetDataSource(path, size, inputStream);
 
         ParquetReader parquetReader = new ParquetReader(fileSchema,
-                                                        fileMetaData.getKeyValueMetaData(),
-                                                        fileSchema,
                                                         parquetMetadata.getBlocks(),
-                                                        jobConf,
                                                         dataSource);
         assertEquals(parquetReader.getPosition(), 0);
 

@@ -19,7 +19,6 @@ import com.facebook.presto.hive.parquet.RichColumnDescriptor;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.primitives.Ints;
-import org.apache.hadoop.conf.Configuration;
 import parquet.column.ColumnDescriptor;
 import parquet.hadoop.metadata.BlockMetaData;
 import parquet.hadoop.metadata.ColumnChunkMetaData;
@@ -41,8 +40,6 @@ public class ParquetReader
 {
     public static final int MAX_VECTOR_LENGTH = 1024;
 
-    private final MessageType fileSchema;
-    private final Map<String, String> extraMetadata;
     private final MessageType requestedSchema;
     private final List<BlockMetaData> blocks;
     private final ParquetDataSource dataSource;
@@ -55,16 +52,11 @@ public class ParquetReader
     private long nextRowInGroup;
     private Map<ColumnDescriptor, ParquetColumnReader> columnReadersMap = new HashMap<>();
 
-    public ParquetReader(MessageType fileSchema,
-            Map<String, String> extraMetadata,
-            MessageType requestedSchema,
+    public ParquetReader(MessageType requestedSchema,
             List<BlockMetaData> blocks,
-            Configuration configuration,
             ParquetDataSource dataSource)
             throws IOException
     {
-        this.fileSchema = fileSchema;
-        this.extraMetadata = extraMetadata;
         this.requestedSchema = requestedSchema;
         this.blocks = blocks;
         this.dataSource = dataSource;

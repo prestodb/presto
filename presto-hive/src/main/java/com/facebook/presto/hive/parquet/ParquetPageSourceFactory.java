@@ -191,11 +191,8 @@ public class ParquetPageSourceFactory
             }
 
             ParquetReader parquetReader = new ParquetReader(
-                    fileMetaData.getSchema(),
-                    fileMetaData.getKeyValueMetaData(),
                     requestedSchema,
                     blocks,
-                    configuration,
                     dataSource);
 
             return new ParquetPageSource(
