@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.parquet.reader;
 
-import com.facebook.presto.hive.parquet.ParquetCodecFactory;
 import com.facebook.presto.hive.parquet.ParquetCorruptionException;
 import com.facebook.presto.hive.parquet.ParquetDataSource;
 import com.facebook.presto.hive.parquet.RichColumnDescriptor;
@@ -47,7 +46,6 @@ public class ParquetReader
     private final MessageType requestedSchema;
     private final List<BlockMetaData> blocks;
     private final ParquetDataSource dataSource;
-    private final ParquetCodecFactory codecFactory;
 
     private int currentBlock;
     private BlockMetaData currentBlockMetadata;
@@ -70,7 +68,6 @@ public class ParquetReader
         this.requestedSchema = requestedSchema;
         this.blocks = blocks;
         this.dataSource = dataSource;
-        codecFactory = new ParquetCodecFactory(configuration);
         for (BlockMetaData block : blocks) {
             fileRowCount += block.getRowCount();
         }
@@ -81,12 +78,7 @@ public class ParquetReader
     public void close()
             throws IOException
     {
-        try {
-            dataSource.close();
-        }
-        finally {
-            codecFactory.release();
-        }
+        dataSource.close();
     }
 
     public float getProgress()
@@ -157,7 +149,7 @@ public class ParquetReader
             byte[] buffer = new byte[totalSize];
             dataSource.readFully(startingPosition, buffer);
             ParquetColumnChunkDescriptor descriptor = new ParquetColumnChunkDescriptor(columnDescriptor, metadata, startingPosition, totalSize);
-            ParquetColumnChunk columnChunk = new ParquetColumnChunk(descriptor, buffer, 0, codecFactory);
+            ParquetColumnChunk columnChunk = new ParquetColumnChunk(descriptor, buffer, 0);
             columnReader.setPageReader(columnChunk.readAllPages());
         }
         return columnReader.readBlock(type);
