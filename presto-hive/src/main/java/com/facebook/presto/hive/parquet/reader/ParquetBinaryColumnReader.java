@@ -25,6 +25,8 @@ import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
+import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static io.airlift.slice.Slices.wrappedBuffer;
 
 public class ParquetBinaryColumnReader
         extends ParquetColumnReader
@@ -47,10 +49,10 @@ public class ParquetBinaryColumnReader
                 Binary binary = valuesReader.readBytes();
                 Slice value;
                 if (binary.length() == 0) {
-                    value = Slices.EMPTY_SLICE;
+                    value = EMPTY_SLICE;
                 }
                 else {
-                    value = Slices.wrappedBuffer(binary.getBytes());
+                    value = wrappedBuffer(binary.getBytes());
                 }
                 if (isVarcharType(type)) {
                     value = truncateToLength(value, type);
