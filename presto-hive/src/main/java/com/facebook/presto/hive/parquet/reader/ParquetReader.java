@@ -115,10 +115,9 @@ public class ParquetReader
         }
         currentBlockMetadata = blocks.get(currentBlock);
         currentBlock = currentBlock + 1;
-        long rowCount = currentBlockMetadata.getRowCount();
 
         nextRowInGroup = 0L;
-        currentGroupRowCount = rowCount;
+        currentGroupRowCount = currentBlockMetadata.getRowCount();
         columnReadersMap.clear();
         initializeColumnReaders();
         return true;
