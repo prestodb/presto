@@ -23,26 +23,33 @@ public class ShowSchemas
         extends Statement
 {
     private final Optional<String> catalog;
+    private final Optional<String> likePattern;
 
-    public ShowSchemas(Optional<String> catalog)
+    public ShowSchemas(Optional<String> catalog, Optional<String> likePattern)
     {
-        this(Optional.empty(), catalog);
+        this(Optional.empty(), catalog, likePattern);
     }
 
-    public ShowSchemas(NodeLocation location, Optional<String> catalog)
+    public ShowSchemas(NodeLocation location, Optional<String> catalog, Optional<String> likePattern)
     {
-        this(Optional.of(location), catalog);
+        this(Optional.of(location), catalog, likePattern);
     }
 
-    private ShowSchemas(Optional<NodeLocation> location, Optional<String> catalog)
+    private ShowSchemas(Optional<NodeLocation> location, Optional<String> catalog, Optional<String> likePattern)
     {
         super(location);
         this.catalog = requireNonNull(catalog, "catalog is null");
+        this.likePattern = requireNonNull(likePattern, "likePattern is null");
     }
 
     public Optional<String> getCatalog()
     {
         return catalog;
+    }
+
+    public Optional<String> getLikePattern()
+    {
+        return likePattern;
     }
 
     @Override

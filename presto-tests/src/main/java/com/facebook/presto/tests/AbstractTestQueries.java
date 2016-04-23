@@ -4124,6 +4124,14 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testShowCatalogsLike()
+            throws Exception
+    {
+        MaterializedResult result = computeActual(format("SHOW CATALOGS LIKE '%s'", getSession().getCatalog().get()));
+        assertEquals(result.getOnlyColumnAsSet(), ImmutableSet.of(getSession().getCatalog().get()));
+    }
+
+    @Test
     public void testShowSchemas()
             throws Exception
     {
@@ -4140,6 +4148,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testShowSchemasLike()
+            throws Exception
+    {
+        MaterializedResult result = computeActual(format("SHOW SCHEMAS LIKE '%s'", getSession().getSchema().get()));
+        assertEquals(result.getOnlyColumnAsSet(), ImmutableSet.of(getSession().getSchema().get()));
+    }
+
     public void testShowTables()
             throws Exception
     {

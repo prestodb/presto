@@ -729,16 +729,17 @@ public class TestSqlParser
     public void testShowCatalogs()
             throws Exception
     {
-        assertStatement("SHOW CATALOGS", new ShowCatalogs());
+        assertStatement("SHOW CATALOGS", new ShowCatalogs(Optional.empty()));
+        assertStatement("SHOW CATALOGS LIKE '%'", new ShowCatalogs(Optional.of("%")));
     }
 
     @Test
     public void testShowSchemas()
             throws Exception
     {
-        assertStatement("SHOW SCHEMAS", new ShowSchemas(Optional.<String>empty()));
-        assertStatement("SHOW SCHEMAS FROM foo", new ShowSchemas(Optional.of("foo")));
-        assertStatement("SHOW SCHEMAS IN foo", new ShowSchemas(Optional.of("foo")));
+        assertStatement("SHOW SCHEMAS", new ShowSchemas(Optional.<String>empty(), Optional.empty()));
+        assertStatement("SHOW SCHEMAS FROM foo", new ShowSchemas(Optional.of("foo"), Optional.empty()));
+        assertStatement("SHOW SCHEMAS IN foo LIKE '%'", new ShowSchemas(Optional.of("foo"), Optional.of("%")));
     }
 
     @Test

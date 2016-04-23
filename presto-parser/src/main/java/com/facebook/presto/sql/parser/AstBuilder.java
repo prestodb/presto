@@ -554,13 +554,19 @@ class AstBuilder
     @Override
     public Node visitShowSchemas(SqlBaseParser.ShowSchemasContext context)
     {
-        return new ShowSchemas(getLocation(context), getTextIfPresent(context.identifier()));
+        return new ShowSchemas(
+                getLocation(context),
+                getTextIfPresent(context.identifier()),
+                getTextIfPresent(context.pattern)
+                        .map(AstBuilder::unquote));
     }
 
     @Override
     public Node visitShowCatalogs(SqlBaseParser.ShowCatalogsContext context)
     {
-        return new ShowCatalogs(getLocation(context));
+        return new ShowCatalogs(getLocation(context),
+                getTextIfPresent(context.pattern)
+                        .map(AstBuilder::unquote));
     }
 
     @Override
