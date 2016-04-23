@@ -16,11 +16,10 @@ package com.facebook.presto.hive.parquet;
 import io.airlift.compress.Decompressor;
 import io.airlift.compress.lzo.LzoDecompressor;
 import io.airlift.compress.snappy.SnappyDecompressor;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import parquet.hadoop.metadata.CompressionCodecName;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.zip.GZIPInputStream;
@@ -70,14 +69,14 @@ public final class ParquetCompressionUtils
     private static Slice decompressGzip(Slice input, int uncompressedSize)
             throws IOException
     {
-        ByteArrayOutputStream uncompressedStream = new ByteArrayOutputStream();
+        DynamicSliceOutput sliceOutput = new DynamicSliceOutput(uncompressedSize);
         byte[] buffer = new byte[uncompressedSize];
-        try (InputStream gzipInputStream = new GZIPInputStream(new ByteArrayInputStream(input.getBytes()))) {
+        try (InputStream gzipInputStream = new GZIPInputStream(input.getInput())) {
             int bytesRead;
             while ((bytesRead = gzipInputStream.read(buffer)) != -1) {
-                uncompressedStream.write(buffer, 0, bytesRead);
+                sliceOutput.write(buffer, 0, bytesRead);
             }
-            return wrappedBuffer(uncompressedStream.toByteArray());
+            return sliceOutput.getUnderlyingSlice();
         }
     }
 }
