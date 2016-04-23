@@ -43,7 +43,6 @@ import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Cast;
-import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FrameBound;
@@ -86,7 +85,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
 class QueryPlanner
-        extends DefaultTraversalVisitor<PlanBuilder, Void>
 {
     private final Analysis analysis;
     private final SymbolAllocator symbolAllocator;
@@ -112,8 +110,7 @@ class QueryPlanner
         this.approximationConfidence = approximationConfidence;
     }
 
-    @Override
-    protected PlanBuilder visitQuery(Query query, Void context)
+    public RelationPlan plan(Query query)
     {
         PlanBuilder builder = planQueryBody(query);
 
@@ -127,11 +124,14 @@ class QueryPlanner
         builder = project(builder, analysis.getOutputExpressions(query));
         builder = limit(builder, query);
 
-        return builder;
+        return new RelationPlan(
+                builder.getRoot(),
+                analysis.getOutputDescriptor(query),
+                computeOutputs(builder, analysis.getOutputExpressions(query)),
+                builder.getSampleWeight());
     }
 
-    @Override
-    protected PlanBuilder visitQuerySpecification(QuerySpecification node, Void context)
+    public RelationPlan plan(QuerySpecification node)
     {
         PlanBuilder builder = planFrom(node);
 
@@ -152,45 +152,14 @@ class QueryPlanner
         builder = project(builder, analysis.getOutputExpressions(node));
         builder = limit(builder, node);
 
-        return builder;
+        return new RelationPlan(
+                builder.getRoot(),
+                analysis.getOutputDescriptor(node),
+                computeOutputs(builder, analysis.getOutputExpressions(node)),
+                builder.getSampleWeight());
     }
 
-    private PlanBuilder planQueryBody(Query query)
-    {
-        RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session)
-                .process(query.getQueryBody(), null);
-
-        TranslationMap translations = new TranslationMap(relationPlan, analysis);
-
-        // Make field->symbol mapping from underlying relation plan available for translations
-        // This makes it possible to rewrite FieldOrExpressions that reference fields from the QuerySpecification directly
-        translations.setFieldMappings(relationPlan.getOutputSymbols());
-
-        return new PlanBuilder(translations, relationPlan.getRoot(), relationPlan.getSampleWeight());
-    }
-
-    private PlanBuilder planFrom(QuerySpecification node)
-    {
-        RelationPlan relationPlan;
-
-        if (node.getFrom().isPresent()) {
-            relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session)
-                    .process(node.getFrom().get(), null);
-        }
-        else {
-            relationPlan = planImplicitTable();
-        }
-
-        TranslationMap translations = new TranslationMap(relationPlan, analysis);
-
-        // Make field->symbol mapping from underlying relation plan available for translations
-        // This makes it possible to rewrite FieldOrExpressions that reference fields from the FROM clause directly
-        translations.setFieldMappings(relationPlan.getOutputSymbols());
-
-        return new PlanBuilder(translations, relationPlan.getRoot(), relationPlan.getSampleWeight());
-    }
-
-    public DeleteNode planDelete(Delete node)
+    public DeleteNode plan(Delete node)
     {
         RelationType descriptor = analysis.getOutputDescriptor(node.getTable());
         TableHandle handle = analysis.getTableHandle(node.getTable());
@@ -235,6 +204,50 @@ class QueryPlanner
                 symbolAllocator.newSymbol("fragment", VARBINARY));
 
         return new DeleteNode(idAllocator.getNextId(), builder.getRoot(), new DeleteHandle(handle), rowId, outputs);
+    }
+
+    private List<Symbol> computeOutputs(PlanBuilder builder, List<FieldOrExpression> outputExpressions)
+    {
+        ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
+        for (FieldOrExpression fieldOrExpression : outputExpressions) {
+            outputSymbols.add(builder.translate(fieldOrExpression));
+        }
+        return outputSymbols.build();
+    }
+
+    private PlanBuilder planQueryBody(Query query)
+    {
+        RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session)
+                .process(query.getQueryBody(), null);
+
+        TranslationMap translations = new TranslationMap(relationPlan, analysis);
+
+        // Make field->symbol mapping from underlying relation plan available for translations
+        // This makes it possible to rewrite FieldOrExpressions that reference fields from the QuerySpecification directly
+        translations.setFieldMappings(relationPlan.getOutputSymbols());
+
+        return new PlanBuilder(translations, relationPlan.getRoot(), relationPlan.getSampleWeight());
+    }
+
+    private PlanBuilder planFrom(QuerySpecification node)
+    {
+        RelationPlan relationPlan;
+
+        if (node.getFrom().isPresent()) {
+            relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session)
+                    .process(node.getFrom().get(), null);
+        }
+        else {
+            relationPlan = planImplicitTable();
+        }
+
+        TranslationMap translations = new TranslationMap(relationPlan, analysis);
+
+        // Make field->symbol mapping from underlying relation plan available for translations
+        // This makes it possible to rewrite FieldOrExpressions that reference fields from the FROM clause directly
+        translations.setFieldMappings(relationPlan.getOutputSymbols());
+
+        return new PlanBuilder(translations, relationPlan.getRoot(), relationPlan.getSampleWeight());
     }
 
     private RelationPlan planImplicitTable()
