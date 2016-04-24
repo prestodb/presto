@@ -6,8 +6,7 @@
         "fields": [
             {
                 "name": "redis_key",
-                "dataFormat": "VARCHAR",
-                "type": "VARCHAR",
+                "type": "VARCHAR(64)",
                 "hidden": "true"
             }
         ]
@@ -28,7 +27,7 @@
             {
                 "name": "orderstatus",
                 "mapping": "orderstatus",
-                "type": "VARCHAR"
+                "type": "VARCHAR(1)"
             },
             {
                 "name": "totalprice",
@@ -38,18 +37,18 @@
             {
                 "name": "orderdate",
                 "mapping": "orderdate",
-                "type": "VARCHAR",
+                "type": "DATE",
                 "dataFormat": "iso8601"
             },
             {
                 "name": "orderpriority",
                 "mapping": "orderpriority",
-                "type": "VARCHAR"
+                "type": "VARCHAR(15)"
             },
             {
                 "name": "clerk",
                 "mapping": "clerk",
-                "type": "VARCHAR"
+                "type": "VARCHAR(15)"
             },
             {
                 "name": "shippriority",
@@ -59,7 +58,7 @@
             {
                 "name": "comment",
                 "mapping": "comment",
-                "type": "VARCHAR"
+                "type": "VARCHAR(79)"
             }
         ]
     }

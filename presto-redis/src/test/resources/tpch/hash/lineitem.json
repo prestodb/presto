@@ -6,8 +6,7 @@
         "fields": [
             {
                 "name": "redis_key",
-                "dataFormat": "VARCHAR",
-                "type": "VARCHAR",
+                "type": "VARCHAR(64)",
                 "hidden": "true"
             }
         ]
@@ -58,45 +57,45 @@
             {
                 "name": "returnflag",
                 "mapping": "returnflag",
-                "type": "VARCHAR"
+                "type": "VARCHAR(1)"
             },
             {
                 "name": "linestatus",
                 "mapping": "linestatus",
-                "type": "VARCHAR"
+                "type": "VARCHAR(1)"
             },
             {
                 "name": "shipdate",
                 "mapping": "shipdate",
-                "type": "VARCHAR",
+                "type": "DATE",
                 "dataFormat": "iso8601"
             },
             {
                 "name": "commitdate",
                 "mapping": "commitdate",
-                "type": "VARCHAR",
+                "type": "DATE",
                 "dataFormat": "iso8601"
             },
             {
                 "name": "receiptdate",
                 "mapping": "receiptdate",
-                "type": "VARCHAR",
+                "type": "DATE",
                 "dataFormat": "iso8601"
             },
             {
                 "name": "shipinstruct",
                 "mapping": "shipinstruct",
-                "type": "VARCHAR"
+                "type": "VARCHAR(25)"
             },
             {
                 "name": "shipmode",
                 "mapping": "shipmode",
-                "type": "VARCHAR"
+                "type": "VARCHAR(1)"
             },
             {
                 "name": "comment",
                 "mapping": "comment",
-                "type": "VARCHAR"
+                "type": "VARCHAR(44)"
             }
         ]
     }
