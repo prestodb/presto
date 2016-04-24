@@ -1958,37 +1958,35 @@ class StatementAnalyzer
 
         ImmutableList.Builder<FieldOrExpression> orderByFieldsBuilder = ImmutableList.builder();
 
-        if (!items.isEmpty()) {
-            for (SortItem item : items) {
-                Expression expression = item.getSortKey();
+        for (SortItem item : items) {
+            Expression expression = item.getSortKey();
 
-                FieldOrExpression orderByField;
-                if (expression instanceof LongLiteral) {
-                    // this is an ordinal in the output tuple
+            FieldOrExpression orderByField;
+            if (expression instanceof LongLiteral) {
+                // this is an ordinal in the output tuple
 
-                    long ordinal = ((LongLiteral) expression).getValue();
-                    if (ordinal < 1 || ordinal > tupleDescriptor.getVisibleFieldCount()) {
-                        throw new SemanticException(INVALID_ORDINAL, expression, "ORDER BY position %s is not in select list", ordinal);
-                    }
-
-                    orderByField = new FieldOrExpression(Ints.checkedCast(ordinal - 1));
-                }
-                else {
-                    // otherwise, just use the expression as is
-                    orderByField = new FieldOrExpression(expression);
-                    ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
-                            metadata,
-                            accessControl, sqlParser,
-                            tupleDescriptor,
-                            analysis,
-                            experimentalSyntaxEnabled,
-                            context,
-                            orderByField.getExpression());
-                    analysis.recordSubqueries(node, expressionAnalysis);
+                long ordinal = ((LongLiteral) expression).getValue();
+                if (ordinal < 1 || ordinal > tupleDescriptor.getVisibleFieldCount()) {
+                    throw new SemanticException(INVALID_ORDINAL, expression, "ORDER BY position %s is not in select list", ordinal);
                 }
 
-                orderByFieldsBuilder.add(orderByField);
+                orderByField = new FieldOrExpression(Ints.checkedCast(ordinal - 1));
             }
+            else {
+                // otherwise, just use the expression as is
+                orderByField = new FieldOrExpression(expression);
+                ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
+                        metadata,
+                        accessControl, sqlParser,
+                        tupleDescriptor,
+                        analysis,
+                        experimentalSyntaxEnabled,
+                        context,
+                        orderByField.getExpression());
+                analysis.recordSubqueries(node, expressionAnalysis);
+            }
+
+            orderByFieldsBuilder.add(orderByField);
         }
 
         analysis.setOrderByExpressions(node, orderByFieldsBuilder.build());
