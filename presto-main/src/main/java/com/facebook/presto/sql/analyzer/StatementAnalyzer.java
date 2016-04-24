@@ -1034,22 +1034,24 @@ class StatementAnalyzer
 
         AnalysisContext context = new AnalysisContext(parentContext);
 
-        RelationType tupleDescriptor = analyzeFrom(node, context);
+        RelationType sourceType = analyzeFrom(node, context);
 
-        node.getWhere().ifPresent(where -> analyzeWhere(node, tupleDescriptor, context, where));
+        node.getWhere().ifPresent(where -> analyzeWhere(node, sourceType, context, where));
 
-        List<FieldOrExpression> outputExpressions = analyzeSelect(node, tupleDescriptor, context);
-        List<List<FieldOrExpression>> groupByExpressions = analyzeGroupBy(node, tupleDescriptor, context, outputExpressions);
-        List<FieldOrExpression> orderByExpressions = analyzeOrderBy(node, tupleDescriptor, context, outputExpressions);
-        analyzeHaving(node, tupleDescriptor, context);
+        List<FieldOrExpression> outputExpressions = analyzeSelect(node, sourceType, context);
+        List<List<FieldOrExpression>> groupByExpressions = analyzeGroupBy(node, sourceType, context, outputExpressions);
 
-        analyzeAggregations(node, tupleDescriptor, groupByExpressions, outputExpressions, orderByExpressions, context, analysis.getColumnReferences());
+        RelationType outputType = computeOutputDescriptor(node, sourceType);
+
+        List<FieldOrExpression> orderByExpressions = analyzeOrderBy(node, sourceType, outputType, context, outputExpressions);
+        analyzeHaving(node, sourceType, context);
+
+        analyzeAggregations(node, sourceType, groupByExpressions, outputExpressions, orderByExpressions, context, analysis.getColumnReferences());
         analyzeWindowFunctions(node, outputExpressions, orderByExpressions);
 
-        RelationType descriptor = computeOutputDescriptor(node, tupleDescriptor);
-        analysis.setOutputDescriptor(node, descriptor);
+        analysis.setOutputDescriptor(node, outputType);
 
-        return descriptor;
+        return outputType;
     }
 
     @Override
@@ -1437,7 +1439,7 @@ class StatementAnalyzer
         }
     }
 
-    private List<FieldOrExpression> analyzeOrderBy(QuerySpecification node, RelationType tupleDescriptor, AnalysisContext context, List<FieldOrExpression> outputExpressions)
+    private List<FieldOrExpression> analyzeOrderBy(QuerySpecification node, RelationType sourceType, RelationType outputType, AnalysisContext context, List<FieldOrExpression> outputExpressions)
     {
         List<SortItem> items = node.getOrderBy();
 
@@ -1482,20 +1484,13 @@ class StatementAnalyzer
                         throw new SemanticException(INVALID_ORDINAL, expression, "ORDER BY position %s is not in select list", ordinal);
                     }
 
-                    orderByExpression = outputExpressions.get(Ints.checkedCast(ordinal - 1));
+                    int field = Ints.checkedCast(ordinal - 1);
+                    Type type = outputType.getFieldByIndex(field).getType();
+                    if (!type.isOrderable()) {
+                        throw new SemanticException(TYPE_MISMATCH, node, "The type of expression in position %s is not orderable (actual: %s), and therefore cannot be used in ORDER BY", ordinal, type);
+                    }
 
-                    if (orderByExpression.isExpression()) {
-                        Type type = analysis.getType(orderByExpression.getExpression());
-                        if (!type.isOrderable()) {
-                            throw new SemanticException(TYPE_MISMATCH, node, "The type of expression in position %s is not orderable (actual: %s), and therefore cannot be used in ORDER BY: %s", ordinal, type, orderByExpression);
-                        }
-                    }
-                    else {
-                        Type type = tupleDescriptor.getFieldByIndex(orderByExpression.getFieldIndex()).getType();
-                        if (!type.isOrderable()) {
-                            throw new SemanticException(TYPE_MISMATCH, node, "The type of expression in position %s is not orderable (actual: %s), and therefore cannot be used in ORDER BY", ordinal, type);
-                        }
-                    }
+                    orderByExpression = outputExpressions.get(field);
                 }
 
                 // otherwise, just use the expression as is
@@ -1504,7 +1499,7 @@ class StatementAnalyzer
                 }
 
                 if (orderByExpression.isExpression()) {
-                    ExpressionAnalysis expressionAnalysis = analyzeExpression(orderByExpression.getExpression(), tupleDescriptor, context);
+                    ExpressionAnalysis expressionAnalysis = analyzeExpression(orderByExpression.getExpression(), sourceType, context);
                     analysis.recordSubqueries(node, expressionAnalysis);
 
                     Type type = expressionAnalysis.getType(orderByExpression.getExpression());
