@@ -17,6 +17,7 @@ import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.resourceGroups.FileResourceGroupsModule;
+import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.FlatNetworkTopology;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NetworkTopology;
@@ -103,6 +104,7 @@ public class TestingPrestoServer
     private final Metadata metadata;
     private final TestingAccessControlManager accessControl;
     private final ProcedureTester procedureTester;
+    private final Optional<ResourceGroupManager> resourceGroupManager;
     private final SplitManager splitManager;
     private final ClusterMemoryManager clusterMemoryManager;
     private final LocalMemoryManager localMemoryManager;
@@ -259,6 +261,13 @@ public class TestingPrestoServer
         accessControl = injector.getInstance(TestingAccessControlManager.class);
         procedureTester = injector.getInstance(ProcedureTester.class);
         splitManager = injector.getInstance(SplitManager.class);
+        FeaturesConfig config = injector.getInstance(FeaturesConfig.class);
+        if (config.isResourceGroupsEnabled()) {
+            resourceGroupManager = Optional.of(injector.getInstance(ResourceGroupManager.class));
+        }
+        else {
+            resourceGroupManager = Optional.empty();
+        }
         clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
         localMemoryManager = injector.getInstance(LocalMemoryManager.class);
         nodeManager = injector.getInstance(InternalNodeManager.class);
@@ -353,6 +362,11 @@ public class TestingPrestoServer
     public SplitManager getSplitManager()
     {
         return splitManager;
+    }
+
+    public Optional<ResourceGroupManager> getResourceGroupManager()
+    {
+        return resourceGroupManager;
     }
 
     public LocalMemoryManager getLocalMemoryManager()

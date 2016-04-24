@@ -41,6 +41,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -61,6 +62,12 @@ public class ResourceGroupManager
     {
         this.selectors = ImmutableList.copyOf(selectors);
         this.configurationManager = requireNonNull(configurationManager, "configurationManager is null");
+    }
+
+    public ResourceGroupInfo getResourceGroupInfo(ResourceGroupId id)
+    {
+        checkArgument(groups.containsKey(id), "Group %s does not exist", id);
+        return groups.get(id).getInfo();
     }
 
     @Override

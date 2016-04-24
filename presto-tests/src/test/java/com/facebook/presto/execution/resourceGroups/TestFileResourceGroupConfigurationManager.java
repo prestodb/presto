@@ -15,13 +15,18 @@ package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.presto.execution.resourceGroups.FileResourceGroupConfigurationManager.ManagerSpec;
 import com.facebook.presto.execution.resourceGroups.ResourceGroup.RootResourceGroup;
+import com.facebook.presto.tests.DistributedQueryRunner;
 import com.fasterxml.jackson.databind.JsonMappingException;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -31,6 +36,27 @@ import static org.testng.Assert.fail;
 
 public class TestFileResourceGroupConfigurationManager
 {
+    @Test(timeOut = 60_000)
+    public void testMemoryFraction()
+            throws Exception
+    {
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+        builder.put("experimental.resource-groups-enabled", "true");
+        builder.put("resource-groups.config-file", getResourceFilePath("resource_groups_memory_percentage.json"));
+        Map<String, String> properties = builder.build();
+
+        try (DistributedQueryRunner queryRunner = createQueryRunner(properties)) {
+            queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
+            while (true) {
+                TimeUnit.SECONDS.sleep(1);
+                ResourceGroupInfo global = queryRunner.getCoordinator().getResourceGroupManager().get().getResourceGroupInfo(ResourceGroupId.fromString("global"));
+                if (global.getSoftMemoryLimit().toBytes() > 0) {
+                    break;
+                }
+            }
+        }
+    }
+
     @Test
     public void testInvalid()
     {
@@ -60,10 +86,17 @@ public class TestFileResourceGroupConfigurationManager
 
     private FileResourceGroupConfigurationManager parse(String fileName)
     {
-        String path = this.getClass().getClassLoader().getResource(fileName).getPath();
         ResourceGroupConfig config = new ResourceGroupConfig();
-        config.setConfigFile(path);
-        return new FileResourceGroupConfigurationManager(config, jsonCodec(ManagerSpec.class));
+        config.setConfigFile(getResourceFilePath(fileName));
+        return new FileResourceGroupConfigurationManager(
+                (poolId, listener) -> { },
+                config,
+                jsonCodec(ManagerSpec.class));
+    }
+
+    private String getResourceFilePath(String fileName)
+    {
+        return this.getClass().getClassLoader().getResource(fileName).getPath();
     }
 
     private void assertFails(String fileName, String expectedPattern)

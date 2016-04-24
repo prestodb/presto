@@ -14,6 +14,7 @@
 package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.presto.SessionRepresentation;
+import com.facebook.presto.memory.ClusterMemoryPoolManager;
 import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -23,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 
+import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 import javax.inject.Provider;
 
@@ -35,10 +37,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -48,8 +53,13 @@ public class FileResourceGroupConfigurationManager
     private final List<ResourceGroupSpec> rootGroups;
     private final List<? extends ResourceGroupSelector> selectors;
 
+    @GuardedBy("generalPoolMemoryFraction")
+    private final Map<ConfigurableResourceGroup, Double> generalPoolMemoryFraction = new HashMap<>();
+    @GuardedBy("generalPoolMemoryFraction")
+    private long generalPoolBytes;
+
     @Inject
-    public FileResourceGroupConfigurationManager(ResourceGroupConfig config, JsonCodec<ManagerSpec> codec)
+    public FileResourceGroupConfigurationManager(ClusterMemoryPoolManager memoryPoolManager, ResourceGroupConfig config, JsonCodec<ManagerSpec> codec)
     {
         requireNonNull(config, "config is null");
         requireNonNull(codec, "codec is null");
@@ -68,6 +78,16 @@ public class FileResourceGroupConfigurationManager
             selectors.add(new StaticSelector(spec.getUserRegex(), spec.getSourceRegex(), spec.getSessionPropertyRegexes(), spec.getGroup()));
         }
         this.selectors = selectors.build();
+
+        memoryPoolManager.addChangeListener(GENERAL_POOL, poolInfo -> {
+            synchronized (generalPoolMemoryFraction) {
+                for (Map.Entry<ConfigurableResourceGroup, Double> entry : generalPoolMemoryFraction.entrySet()) {
+                    double bytes = poolInfo.getMaxBytes() * entry.getValue();
+                    entry.getKey().setSoftMemoryLimit(new DataSize(bytes, BYTE));
+                }
+                generalPoolBytes = poolInfo.getMaxBytes();
+            }
+        });
     }
 
     @Override
@@ -102,7 +122,16 @@ public class FileResourceGroupConfigurationManager
             candidates = nextCandidates;
         }
         checkState(match != null, "No matching configuration found for: %s", group.getId());
-        group.setSoftMemoryLimit(match.getSoftMemoryLimit());
+        if (match.getSoftMemoryLimit().isPresent()) {
+            group.setSoftMemoryLimit(match.getSoftMemoryLimit().get());
+        }
+        else {
+            synchronized (generalPoolMemoryFraction) {
+                double fraction = match.getSoftMemoryLimitFraction().get();
+                generalPoolMemoryFraction.put(group, fraction);
+                group.setSoftMemoryLimit(new DataSize(generalPoolBytes * fraction, BYTE));
+            }
+        }
         group.setMaxQueuedQueries(match.getMaxQueued());
         group.setMaxRunningQueries(match.getMaxRunning());
     }
@@ -145,8 +174,11 @@ public class FileResourceGroupConfigurationManager
 
     public static class ResourceGroupSpec
     {
+        private static final Pattern PERCENT_PATTERN = Pattern.compile("(\\d{1,3}(:?\\.\\d+)?)%");
+
         private final ResourceGroupNameTemplate name;
-        private final DataSize softMemoryLimit;
+        private final Optional<DataSize> softMemoryLimit;
+        private final Optional<Double> softMemoryLimitFraction;
         private final int maxQueued;
         private final int maxRunning;
         private final List<ResourceGroupSpec> subGroups;
@@ -154,7 +186,7 @@ public class FileResourceGroupConfigurationManager
         @JsonCreator
         public ResourceGroupSpec(
                 @JsonProperty("name") ResourceGroupNameTemplate name,
-                @JsonProperty("softMemoryLimit") DataSize softMemoryLimit,
+                @JsonProperty("softMemoryLimit") String softMemoryLimit,
                 @JsonProperty("maxQueued") int maxQueued,
                 @JsonProperty("maxRunning") int maxRunning,
                 @JsonProperty("subGroups") Optional<List<ResourceGroupSpec>> subGroups)
@@ -164,7 +196,20 @@ public class FileResourceGroupConfigurationManager
             this.maxQueued = maxQueued;
             checkArgument(maxRunning >= 0, "maxRunning is negative");
             this.maxRunning = maxRunning;
-            this.softMemoryLimit = requireNonNull(softMemoryLimit, "softMemoryLimit is null");
+            requireNonNull(softMemoryLimit, "softMemoryLimit is null");
+            Optional<DataSize> absoluteSize;
+            Optional<Double> fraction;
+            Matcher matcher = PERCENT_PATTERN.matcher(softMemoryLimit);
+            if (matcher.matches()) {
+                absoluteSize = Optional.empty();
+                fraction = Optional.of(Double.parseDouble(matcher.group(1)) / 100.0);
+            }
+            else {
+                absoluteSize = Optional.of(DataSize.valueOf(softMemoryLimit));
+                fraction = Optional.empty();
+            }
+            this.softMemoryLimit = absoluteSize;
+            this.softMemoryLimitFraction = fraction;
             this.subGroups = ImmutableList.copyOf(requireNonNull(subGroups, "subGroups is null").orElse(ImmutableList.of()));
             Set<ResourceGroupNameTemplate> names = new HashSet<>();
             for (ResourceGroupSpec subGroup : this.subGroups) {
@@ -173,9 +218,14 @@ public class FileResourceGroupConfigurationManager
             }
         }
 
-        public DataSize getSoftMemoryLimit()
+        public Optional<DataSize> getSoftMemoryLimit()
         {
             return softMemoryLimit;
+        }
+
+        public Optional<Double> getSoftMemoryLimitFraction()
+        {
+            return softMemoryLimitFraction;
         }
 
         public int getMaxQueued()

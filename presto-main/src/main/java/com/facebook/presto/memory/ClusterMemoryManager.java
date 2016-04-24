@@ -41,12 +41,16 @@ import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededGlobalLimit;
 import static com.facebook.presto.SystemSessionProperties.RESOURCE_OVERCOMMIT;
@@ -68,8 +72,10 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ClusterMemoryManager
+        implements ClusterMemoryPoolManager
 {
     private static final Logger log = Logger.get(ClusterMemoryManager.class);
+    private final ExecutorService listenerExecutor = Executors.newSingleThreadExecutor();
     private final NodeManager nodeManager;
     private final LocationFactory locationFactory;
     private final HttpClient httpClient;
@@ -87,6 +93,9 @@ public class ClusterMemoryManager
     private final AtomicLong clusterMemoryBytes = new AtomicLong();
     private final AtomicLong queriesKilledDueToOutOfMemory = new AtomicLong();
     private final Map<String, RemoteNodeMemory> nodes = new HashMap<>();
+
+    @GuardedBy("this")
+    private final Map<MemoryPoolId, List<Consumer<MemoryPoolInfo>>> changeListeners = new HashMap<>();
 
     @GuardedBy("this")
     private final Map<MemoryPoolId, ClusterMemoryPool> pools = new HashMap<>();
@@ -123,6 +132,12 @@ public class ClusterMemoryManager
         this.enabled = serverConfig.isCoordinator();
         this.killOnOutOfMemoryDelay = config.getKillOnOutOfMemoryDelay();
         this.killOnOutOfMemory = config.isKillOnOutOfMemory();
+    }
+
+    @Override
+    public synchronized void addChangeListener(MemoryPoolId poolId, Consumer<MemoryPoolInfo> listener)
+    {
+        changeListeners.computeIfAbsent(poolId, id -> new ArrayList<>()).add(listener);
     }
 
     public synchronized void process(Iterable<QueryExecution> queries)
@@ -332,6 +347,11 @@ public class ClusterMemoryManager
         for (MemoryPoolId removed : removedPools) {
             unexport(pools.get(removed));
             pools.remove(removed);
+            if (changeListeners.containsKey(removed)) {
+                for (Consumer<MemoryPoolInfo> listener : changeListeners.get(removed)) {
+                    listenerExecutor.execute(() -> listener.accept(new MemoryPoolInfo(0, 0, ImmutableMap.of())));
+                }
+            }
         }
         for (MemoryPoolId id : activePoolIds) {
             ClusterMemoryPool pool = pools.computeIfAbsent(id, poolId -> {
@@ -346,16 +366,27 @@ public class ClusterMemoryManager
                 return newPool;
             });
             pool.update(nodeMemoryInfos, queryCounts.getOrDefault(pool.getId(), 0));
+            if (changeListeners.containsKey(id)) {
+                MemoryPoolInfo info = pool.getInfo();
+                for (Consumer<MemoryPoolInfo> listener : changeListeners.get(id)) {
+                    listenerExecutor.execute(() -> listener.accept(info));
+                }
+            }
         }
     }
 
     @PreDestroy
     public synchronized void destroy()
     {
-        for (ClusterMemoryPool pool : pools.values()) {
-            unexport(pool);
+        try {
+            for (ClusterMemoryPool pool : pools.values()) {
+                unexport(pool);
+            }
+            pools.clear();
         }
-        pools.clear();
+        finally {
+            listenerExecutor.shutdownNow();
+        }
     }
 
     private void unexport(ClusterMemoryPool pool)

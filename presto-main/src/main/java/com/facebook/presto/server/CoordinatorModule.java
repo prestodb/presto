@@ -43,7 +43,6 @@ import com.facebook.presto.execution.SqlQueryQueueManager;
 import com.facebook.presto.execution.StartTransactionTask;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupConfig;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
-import com.facebook.presto.execution.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.execution.scheduler.AllAtOnceExecutionPolicy;
 import com.facebook.presto.execution.scheduler.ExecutionPolicy;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
@@ -140,6 +139,7 @@ public class CoordinatorModule
         binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
         if (resourceGroups) {
+            binder.bind(ResourceGroupManager.class).in(Scopes.SINGLETON);
             configBinder(binder).bindConfig(ResourceGroupConfig.class);
             binder.bind(QueryQueueManager.class).to(ResourceGroupManager.class).in(Scopes.SINGLETON);
         }

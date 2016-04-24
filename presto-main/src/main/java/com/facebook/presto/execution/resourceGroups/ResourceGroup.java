@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -31,6 +32,7 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -84,6 +86,24 @@ public class ResourceGroup
         else {
             id = new ResourceGroupId(name);
             root = this;
+        }
+    }
+
+    public ResourceGroupInfo getInfo()
+    {
+        synchronized (root) {
+            List<ResourceGroupInfo> infos = subGroups.values().stream()
+                    .map(ResourceGroup::getInfo)
+                    .collect(Collectors.toList());
+            return new ResourceGroupInfo(
+                    id,
+                    new DataSize(softMemoryLimitBytes, BYTE),
+                    maxRunningQueries,
+                    maxQueuedQueries,
+                    runningQueries.size() + descendantRunningQueries,
+                    queuedQueries.size() + descendantQueuedQueries,
+                    new DataSize(cachedMemoryUsageBytes, BYTE),
+                    infos);
         }
     }
 
