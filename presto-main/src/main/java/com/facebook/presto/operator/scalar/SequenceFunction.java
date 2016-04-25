@@ -23,8 +23,7 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.DateTimeOperators;
 import com.facebook.presto.type.SqlType;
 import com.google.common.primitives.Ints;
-import org.joda.time.DateTime;
-import org.joda.time.Months;
+import io.airlift.slice.Slices;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -71,10 +70,10 @@ public final class SequenceFunction
     @ScalarFunction("sequence")
     @SqlType("array(timestamp)")
     public static Block sequenceTimestampDayToSecond(@SqlType(StandardTypes.TIMESTAMP) long start,
-                                                     @SqlType(StandardTypes.TIMESTAMP) long end,
+                                                     @SqlType(StandardTypes.TIMESTAMP) long stop,
                                                      @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long step)
     {
-        return fixedWidthSequence(start, end, step, TIMESTAMP);
+        return fixedWidthSequence(start, stop, step, TIMESTAMP);
     }
 
     @ScalarFunction("sequence")
@@ -88,13 +87,11 @@ public final class SequenceFunction
         checkCondition(step > 0 ? end >= start : end <= start, INVALID_FUNCTION_ARGUMENT,
                 "sequence end value should be greater than or equal to start value if step is greater than zero otherwise end should be less than start");
 
-        int interval = Ints.checkedCast(step);
+        long length = DateTimeFunctions.diffTimestamp(session, Slices.utf8Slice("month"), start, end) / step + 1L;
 
-        int length = Months.monthsBetween(new DateTime(start), new DateTime(end)).getMonths() / interval + 1;
-
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), length);
-        for (int i = 0; i < length; ++i) {
-            BIGINT.writeLong(blockBuilder, DateTimeOperators.timestampPlusIntervalYearToMonth(session, start, i * interval));
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), Ints.checkedCast(length));
+        for (long i = 0, value = 0; i < length; ++i, value += step) {
+            BIGINT.writeLong(blockBuilder, DateTimeOperators.timestampPlusIntervalYearToMonth(session, start, value));
         }
 
         return blockBuilder.build();
