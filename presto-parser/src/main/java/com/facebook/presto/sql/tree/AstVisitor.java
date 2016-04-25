@@ -422,7 +422,7 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitInputReference(InputReference node, C context)
+    protected R visitFieldReference(FieldReference node, C context)
     {
         return visitExpression(node, context);
     }

@@ -15,42 +15,30 @@ package com.facebook.presto.sql.tree;
 
 import java.util.Optional;
 
-/**
- * A reference to an execution engine channel.
- * <p>
- * This is used to replace a {@link QualifiedNameReference} with a direct reference to the physical
- * channel and field to avoid unnecessary lookups in a symbol->channel map during evaluation
- */
-public class InputReference
+import static com.google.common.base.Preconditions.checkArgument;
+
+public class FieldReference
         extends Expression
 {
-    private final int channel;
+    private final int fieldIndex;
 
-    public InputReference(int channel)
+    public FieldReference(int fieldIndex)
     {
-        this(Optional.empty(), channel);
+        super(Optional.empty());
+        checkArgument(fieldIndex >= 0, "fieldIndex must be >= 0");
+
+        this.fieldIndex = fieldIndex;
     }
 
-    public InputReference(NodeLocation location, int channel)
+    public int getFieldIndex()
     {
-        this(Optional.of(location), channel);
-    }
-
-    private InputReference(Optional<NodeLocation> location, int channel)
-    {
-        super(location);
-        this.channel = channel;
-    }
-
-    public int getChannel()
-    {
-        return channel;
+        return fieldIndex;
     }
 
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return visitor.visitInputReference(this, context);
+        return visitor.visitFieldReference(this, context);
     }
 
     @Override
@@ -63,14 +51,14 @@ public class InputReference
             return false;
         }
 
-        InputReference that = (InputReference) o;
+        FieldReference that = (FieldReference) o;
 
-        return channel == that.channel;
+        return fieldIndex == that.fieldIndex;
     }
 
     @Override
     public int hashCode()
     {
-        return channel;
+        return fieldIndex;
     }
 }

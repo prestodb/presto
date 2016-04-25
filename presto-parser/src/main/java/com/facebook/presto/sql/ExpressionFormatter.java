@@ -41,7 +41,7 @@ import com.facebook.presto.sql.tree.GroupingSets;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.InputReference;
+import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
@@ -280,10 +280,10 @@ public final class ExpressionFormatter
         }
 
         @Override
-        public String visitInputReference(InputReference node, Boolean unmangleNames)
+        public String visitFieldReference(FieldReference node, Boolean unmangleNames)
         {
             // add colon so this won't parse
-            return ":input(" + node.getChannel() + ")";
+            return ":input(" + node.getFieldIndex() + ")";
         }
 
         @Override

@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
-import com.facebook.presto.sql.tree.InputReference;
+import com.facebook.presto.sql.tree.FieldReference;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
@@ -25,9 +25,9 @@ public class InputReferenceExtractor
     private final ImmutableSet.Builder<Integer> inputChannels = ImmutableSet.builder();
 
     @Override
-    protected Void visitInputReference(InputReference node, Void context)
+    protected Void visitFieldReference(FieldReference node, Void context)
     {
-        inputChannels.add(node.getChannel());
+        inputChannels.add(node.getFieldIndex());
         return null;
     }
 
