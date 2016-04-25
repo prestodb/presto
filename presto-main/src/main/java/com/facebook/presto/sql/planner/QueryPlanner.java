@@ -49,6 +49,7 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.OrderBy;
@@ -601,7 +602,39 @@ class QueryPlanner
         if (needPostProjectionCoercion) {
             return explicitCoercionFields(subPlan, distinctGroupingColumns, analysis.getAggregates(node));
         }
-        return subPlan;
+
+        // 4. Project and re-write all grouping functions
+        return handleGroupingOperations(subPlan, node, groupIdSymbol);
+    }
+
+    private PlanBuilder handleGroupingOperations(PlanBuilder subPlan, QuerySpecification node, Optional<Symbol> groupIdSymbol)
+    {
+        if (analysis.getGroupingOperations(node).isEmpty()) {
+            return subPlan;
+        }
+
+        TranslationMap newTranslations = subPlan.copyTranslations();
+
+        Assignments.Builder projections = Assignments.builder();
+        projections.putIdentities(subPlan.getRoot().getOutputSymbols());
+
+        for (GroupingOperation groupingOperation : analysis.getGroupingOperations(node)) {
+            Expression rewritten = GroupingOperationRewriter.rewriteGroupingOperation(groupingOperation, node, analysis, metadata, groupIdSymbol);
+            Type coercion = analysis.getCoercion(groupingOperation);
+            Symbol symbol = symbolAllocator.newSymbol(rewritten, analysis.getTypeWithCoercions(groupingOperation));
+            if (coercion != null) {
+                rewritten = new Cast(
+                        rewritten,
+                        coercion.getTypeSignature().toString(),
+                        false,
+                        metadata.getTypeManager().isTypeOnlyCoercion(analysis.getType(groupingOperation), coercion));
+            }
+            projections.put(symbol, rewritten);
+            newTranslations.addIntermediateMapping(groupingOperation, rewritten);
+            newTranslations.put(rewritten, symbol);
+        }
+
+        return new PlanBuilder(newTranslations, new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), projections.build()), analysis.getParameters());
     }
 
     private PlanBuilder window(PlanBuilder subPlan, OrderBy node)

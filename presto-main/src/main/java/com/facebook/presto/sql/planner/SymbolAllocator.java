@@ -18,6 +18,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.primitives.Ints;
@@ -103,6 +104,9 @@ public class SymbolAllocator
         }
         else if (expression instanceof SymbolReference) {
             nameHint = ((SymbolReference) expression).getName();
+        }
+        else if (expression instanceof GroupingOperation) {
+            nameHint = "grouping_operation";
         }
 
         return newSymbol(nameHint, type, suffix);

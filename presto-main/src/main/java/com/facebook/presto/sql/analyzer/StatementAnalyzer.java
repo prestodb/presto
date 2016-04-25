@@ -65,6 +65,7 @@ import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Grant;
 import com.facebook.presto.sql.tree.GroupingElement;
+import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
@@ -144,6 +145,7 @@ import static com.facebook.presto.sql.analyzer.AggregationAnalyzer.verifySourceA
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExpressionsOfType;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
 import static com.facebook.presto.sql.analyzer.ScopeReferenceExtractor.hasReferencesToScope;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
@@ -152,6 +154,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_TYPE_UNK
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_FRAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_TYPES;
@@ -878,6 +881,7 @@ class StatementAnalyzer
             sourceExpressions.addAll(outputExpressions);
             node.getHaving().ifPresent(sourceExpressions::add);
 
+            analyzeGroupingOperations(node, sourceExpressions, orderByExpressions);
             List<FunctionCall> aggregations = analyzeAggregations(node, sourceScope, orderByScope, groupByExpressions, sourceExpressions, orderByExpressions);
             analyzeWindowFunctions(node, outputExpressions, orderByExpressions);
 
@@ -887,7 +891,7 @@ class StatementAnalyzer
                 // Original ORDER BY scope "sees" FROM query fields. However, during planning
                 // and when aggregation is present, ORDER BY expressions should only be resolvable against
                 // output scope, group by expressions and aggregation expressions.
-                computeAndAssignOrderByScopeWithAggregation(node.getOrderBy().get(), outputScope, aggregations, groupByExpressions);
+                computeAndAssignOrderByScopeWithAggregation(node.getOrderBy().get(), outputScope, aggregations, groupByExpressions, analysis.getGroupingOperations(node));
             }
 
             return outputScope;
@@ -1069,7 +1073,7 @@ class StatementAnalyzer
                     analysis.addCoercion(expression, BOOLEAN, false);
                 }
 
-                Analyzer.verifyNoAggregatesOrWindowFunctions(metadata.getFunctionRegistry(), expression, "JOIN clause");
+                Analyzer.verifyNoAggregateWindowOrGroupingFunctions(metadata.getFunctionRegistry(), expression, "JOIN clause");
 
                 analysis.recordSubqueries(node, expressionAnalysis);
                 analysis.setJoinCriteria(node, expression);
@@ -1493,7 +1497,7 @@ class StatementAnalyzer
                     groupByExpression = groupingColumn;
                 }
 
-                Analyzer.verifyNoAggregatesOrWindowFunctions(metadata.getFunctionRegistry(), groupByExpression, "GROUP BY clause");
+                Analyzer.verifyNoAggregateWindowOrGroupingFunctions(metadata.getFunctionRegistry(), groupByExpression, "GROUP BY clause");
                 Type type = analysis.getType(groupByExpression);
                 if (!type.isComparable()) {
                     throw new SemanticException(TYPE_MISMATCH, node, "%s is not comparable, and therefore cannot be used in GROUP BY", type);
@@ -1567,7 +1571,7 @@ class StatementAnalyzer
             return orderByScope;
         }
 
-        private Scope computeAndAssignOrderByScopeWithAggregation(OrderBy node, Scope outputScope, List<FunctionCall> aggregations, List<List<Expression>> groupByExpressions)
+        private Scope computeAndAssignOrderByScopeWithAggregation(OrderBy node, Scope outputScope, List<FunctionCall> aggregations, List<List<Expression>> groupByExpressions, List<GroupingOperation> groupingOperations)
         {
             // This scope is only used for planning. When aggregation is present then
             // only output fields, groups and aggregation expressions should be visible from ORDER BY expression
@@ -1576,6 +1580,7 @@ class StatementAnalyzer
                     .flatMap(List::stream)
                     .forEach(orderByAggregationExpressionsBuilder::add);
             orderByAggregationExpressionsBuilder.addAll(aggregations);
+            orderByAggregationExpressionsBuilder.addAll(groupingOperations);
 
             // Don't add aggregate expression that contains references to output column because the names would clash in TranslationMap during planning.
             List<Expression> orderByExpressionsReferencingOutputScope = AstUtils.preOrder(node)
@@ -1660,7 +1665,7 @@ class StatementAnalyzer
 
         public void analyzeWhere(Node node, Scope scope, Expression predicate)
         {
-            Analyzer.verifyNoAggregatesOrWindowFunctions(metadata.getFunctionRegistry(), predicate, "WHERE clause");
+            Analyzer.verifyNoAggregateWindowOrGroupingFunctions(metadata.getFunctionRegistry(), predicate, "WHERE clause");
 
             ExpressionAnalysis expressionAnalysis = analyzeExpression(predicate, scope);
             analysis.recordSubqueries(node, expressionAnalysis);
@@ -1684,6 +1689,21 @@ class StatementAnalyzer
             }
 
             return createScope(scope);
+        }
+
+        private void analyzeGroupingOperations(QuerySpecification node, List<Expression> outputExpressions, List<Expression> orderByExpressions)
+        {
+            List<GroupingOperation> groupingOperations = extractExpressionsOfType(Iterables.concat(outputExpressions, orderByExpressions), GroupingOperation.class);
+            boolean isGroupingOperationPresent = !groupingOperations.isEmpty();
+
+            if (isGroupingOperationPresent && !node.getGroupBy().isPresent()) {
+                throw new SemanticException(
+                        INVALID_PROCEDURE_ARGUMENTS,
+                        node,
+                        "A GROUPING() operation can only be used with a corresponding GROUPING SET/CUBE/ROLLUP/GROUP BY clause");
+            }
+
+            analysis.setGroupingOperations(node, groupingOperations);
         }
 
         private List<FunctionCall> analyzeAggregations(
@@ -1729,12 +1749,11 @@ class StatementAnalyzer
 
             toExtractBuilder.addAll(node.getSelect().getSelectItems().stream()
                     .filter(SingleColumn.class::isInstance)
-                    .collect(Collectors.toList()));
+                    .collect(toImmutableList()));
 
-            getSortItemsFromOrderBy(node.getOrderBy()).stream().map(toExtractBuilder::add);
+            toExtractBuilder.addAll(getSortItemsFromOrderBy(node.getOrderBy()));
 
-            node.getHaving()
-                    .ifPresent(toExtractBuilder::add);
+            node.getHaving().ifPresent(toExtractBuilder::add);
 
             List<FunctionCall> aggregates = extractAggregateFunctions(toExtractBuilder.build(), metadata.getFunctionRegistry());
 

@@ -33,6 +33,7 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
@@ -73,12 +74,14 @@ import static com.facebook.presto.sql.analyzer.LambdaReferenceExtractor.hasRefer
 import static com.facebook.presto.sql.analyzer.ScopeReferenceExtractor.getReferencesToScope;
 import static com.facebook.presto.sql.analyzer.ScopeReferenceExtractor.hasReferencesToScope;
 import static com.facebook.presto.sql.analyzer.ScopeReferenceExtractor.isFieldFromScope;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATION_FUNCTION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_AGGREGATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_AGGREGATION;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_GROUPING;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -567,6 +570,31 @@ class AggregationAnalyzer
             List<Expression> parameters = analysis.getParameters();
             checkArgument(node.getPosition() < parameters.size(), "Invalid parameter number %s, max values is %s", node.getPosition(), parameters.size() - 1);
             return process(parameters.get(node.getPosition()), context);
+        }
+
+        public Boolean visitGroupingOperation(GroupingOperation node, Void context)
+        {
+            // ensure that no output fields are referenced from ORDER BY clause
+            if (orderByScope.isPresent()) {
+                node.getGroupingColumns().forEach(groupingColumn -> verifyNoOrderByReferencesToOutputColumns(
+                        groupingColumn,
+                        REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_GROUPING,
+                        "Invalid reference to output projection attribute from ORDER BY grouping"
+                ));
+            }
+
+            Optional<Expression> argumentNotInGroupBy = node.getGroupingColumns().stream()
+                    .filter(argument -> !columnReferences.containsKey(argument) || !isGroupingKey(argument))
+                    .findAny();
+            if (argumentNotInGroupBy.isPresent()) {
+                throw new SemanticException(
+                        INVALID_PROCEDURE_ARGUMENTS,
+                        node,
+                        "The arguments to GROUPING() must be expressions referenced by the GROUP BY at the associated query level. Mismatch due to %s.",
+                        argumentNotInGroupBy.get()
+                );
+            }
+            return true;
         }
 
         @Override

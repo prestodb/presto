@@ -40,6 +40,7 @@ import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.GroupingElement;
+import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.GroupingSets;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.IfExpression;
@@ -633,6 +634,11 @@ public final class ExpressionFormatter
                     .append(process(node.getSubquery(), context))
                     .append(")")
                     .toString();
+        }
+
+        public String visitGroupingOperation(GroupingOperation node, Void context)
+        {
+            return "GROUPING (" + joinExpressions(node.getGroupingColumns()) + ")";
         }
 
         private String formatBinaryExpression(String operator, Expression left, Expression right)
