@@ -154,7 +154,7 @@ public final class SqlFormatter
                 while (queries.hasNext()) {
                     WithQuery query = queries.next();
                     append(indent, query.getName());
-                    appendAliasColumns(builder, query.getColumnNames());
+                    query.getColumnNames().ifPresent(columnNames -> appendAliasColumns(builder, columnNames));
                     builder.append(" AS ");
                     process(new TableSubquery(query.getQuery()), indent);
                     builder.append('\n');

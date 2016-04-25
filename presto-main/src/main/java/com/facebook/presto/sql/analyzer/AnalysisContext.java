@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Preconditions;
 
 import java.util.HashMap;
@@ -22,7 +22,7 @@ import java.util.Map;
 public class AnalysisContext
 {
     private final AnalysisContext parent;
-    private final Map<String, Query> namedQueries = new HashMap<>();
+    private final Map<String, WithQuery> namedQueries = new HashMap<>();
     private RelationType lateralTupleDescriptor = new RelationType();
     private boolean approximate;
 
@@ -57,15 +57,15 @@ public class AnalysisContext
         this.approximate = approximate;
     }
 
-    public void addNamedQuery(String name, Query query)
+    public void addNamedQuery(String name, WithQuery withQuery)
     {
         Preconditions.checkState(!namedQueries.containsKey(name), "Named query already registered: %s", name);
-        namedQueries.put(name, query);
+        namedQueries.put(name, withQuery);
     }
 
-    public Query getNamedQuery(String name)
+    public WithQuery getNamedQuery(String name)
     {
-        Query result = namedQueries.get(name);
+        WithQuery result = namedQueries.get(name);
 
         if (result == null && parent != null) {
             return parent.getNamedQuery(name);
