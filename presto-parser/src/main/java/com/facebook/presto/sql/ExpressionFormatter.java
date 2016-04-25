@@ -38,6 +38,7 @@ import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.GroupingElement;
+import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.GroupingSets;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
@@ -560,6 +561,12 @@ public final class ExpressionFormatter
                     return "UNBOUNDED FOLLOWING";
             }
             throw new IllegalArgumentException("unhandled type: " + node.getType());
+        }
+
+        @Override
+        public String visitGroupingOperation(GroupingOperation node, Boolean unmangleNames)
+        {
+            return "GROUPING (" + joinExpressions(node.getGroupingColumns(), unmangleNames) + ")";
         }
 
         private String formatBinaryExpression(String operator, Expression left, Expression right, boolean unmangleNames)

@@ -601,4 +601,9 @@ public abstract class AstVisitor<R, C>
     {
         return visitGroupingElement(node, context);
     }
+
+    protected R visitGroupingOperation(GroupingOperation node, C context)
+    {
+        return visitExpression(node, context);
+    }
 }

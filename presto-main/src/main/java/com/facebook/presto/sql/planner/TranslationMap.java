@@ -15,19 +15,28 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
+import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FieldReference;
+import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GroupingOperation;
+import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.QuerySpecification;
+import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -242,5 +251,38 @@ class TranslationMap
                 return rewritten;
             }
         }, expression);
+    }
+
+    // TODO: this is a hack. grouping() is not really a function and this transformation should
+    // be rewritten once a new IR is added.
+    public FunctionCall rewriteGroupingOperationToFunctionCall(GroupingOperation expression, QuerySpecification node)
+    {
+        List<Expression> groupingOrdinals;
+        ImmutableList.Builder<Expression> groupingOrdinalsBuilder = ImmutableList.builder();
+        groupingOrdinalsBuilder.addAll(expression.getGroupingColumns().stream()
+                .map(groupingOperationColumn -> analysis.getFieldIndex(groupingOperationColumn).get())
+                .map(columnOrdinal -> new LongLiteral(Integer.toString(columnOrdinal)))
+                .collect(Collectors.toList()));
+        groupingOrdinals = groupingOrdinalsBuilder.build();
+
+        List<List<Expression>> groupingSetOrdinals;
+        ImmutableList.Builder<List<Expression>> groupingSetOrdinalsBuilder = ImmutableList.builder();
+        for (List<Expression> groupingSet : analysis.getGroupingSets(node)) {
+            ImmutableList.Builder<Expression> ordinalsBuilder = ImmutableList.builder();
+            ordinalsBuilder.addAll(groupingSet.stream()
+                    .map(groupingSetColumn -> analysis.getFieldIndex(groupingSetColumn).get())
+                    .map(columnOrdinal -> new LongLiteral(Integer.toString(columnOrdinal)))
+                    .collect(Collectors.toList())
+            );
+            groupingSetOrdinalsBuilder.add(ordinalsBuilder.build());
+        }
+        groupingSetOrdinals = groupingSetOrdinalsBuilder.build();
+
+        List<Expression> arguments = Arrays.asList(
+                new LongLiteral("0"),
+                new ArrayConstructor(groupingOrdinals),
+                new ArrayConstructor(groupingSetOrdinals.stream().map(ArrayConstructor::new).collect(Collectors.toList()))
+        );
+        return new FunctionCall(expression.getLocation().get(), new QualifiedName("grouping"), arguments);
     }
 }

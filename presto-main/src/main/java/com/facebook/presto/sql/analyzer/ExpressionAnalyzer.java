@@ -52,6 +52,7 @@ import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -757,19 +758,7 @@ public class ExpressionAnalyzer
                 argumentTypes.add(process(expression, context).getTypeSignature());
             }
 
-            Signature function;
-            try {
-                function = functionRegistry.resolveFunction(node.getName(), argumentTypes.build(), context.getContext().isApproximate());
-            }
-            catch (PrestoException e) {
-                if (e.getErrorCode().getCode() == StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
-                    throw new SemanticException(SemanticErrorCode.FUNCTION_NOT_FOUND, node, e.getMessage());
-                }
-                if (e.getErrorCode().getCode() == StandardErrorCode.AMBIGUOUS_FUNCTION_CALL.toErrorCode().getCode()) {
-                    throw new SemanticException(SemanticErrorCode.AMBIGUOUS_FUNCTION_CALL, node, e.getMessage());
-                }
-                throw e;
-            }
+            Signature function = resolveFunction(node, context.getContext().isApproximate(), argumentTypes.build(), functionRegistry);
 
             for (int i = 0; i < node.getArguments().size(); i++) {
                 Expression expression = node.getArguments().get(i);
@@ -944,6 +933,16 @@ public class ExpressionAnalyzer
         }
 
         @Override
+        public Type visitGroupingOperation(GroupingOperation node, StackableAstVisitorContext<AnalysisContext> context)
+        {
+            for (Expression columnArgument : node.getGroupingColumns()) {
+                process(columnArgument, context);
+            }
+            expressionTypes.put(node, BIGINT);
+            return BIGINT;
+        }
+
+        @Override
         protected Type visitExpression(Expression node, StackableAstVisitorContext<AnalysisContext> context)
         {
             throw new SemanticException(NOT_SUPPORTED, node, "not yet implemented: " + node.getClass().getName());
@@ -1063,6 +1062,24 @@ public class ExpressionAnalyzer
 
             return superType;
         }
+    }
+
+    public static Signature resolveFunction(FunctionCall node, boolean isApproximate, List<TypeSignature> argumentTypes, FunctionRegistry functionRegistry)
+    {
+        Signature function;
+        try {
+            function = functionRegistry.resolveFunction(node.getName(), argumentTypes, isApproximate);
+        }
+        catch (PrestoException e) {
+            if (e.getErrorCode().getCode() == StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
+                throw new SemanticException(SemanticErrorCode.FUNCTION_NOT_FOUND, node, e.getMessage());
+            }
+            if (e.getErrorCode().getCode() == StandardErrorCode.AMBIGUOUS_FUNCTION_CALL.toErrorCode().getCode()) {
+                throw new SemanticException(SemanticErrorCode.AMBIGUOUS_FUNCTION_CALL, node, e.getMessage());
+            }
+            throw e;
+        }
+        return function;
     }
 
     public static IdentityHashMap<Expression, Type> getExpressionTypes(

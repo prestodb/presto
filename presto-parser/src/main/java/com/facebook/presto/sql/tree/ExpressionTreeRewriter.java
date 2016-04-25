@@ -752,6 +752,28 @@ public final class ExpressionTreeRewriter<C>
 
             return node;
         }
+
+        @Override
+        public Expression visitGroupingOperation(GroupingOperation node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteGroupingOperation(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            ImmutableList.Builder<Expression> builder = ImmutableList.builder();
+            for (Expression columnArgument : node.getGroupingColumns()) {
+                builder.add(rewrite(columnArgument, context.get()));
+            }
+
+            if (!sameElements(node.getGroupingColumns(), builder.build())) {
+                return new GroupingOperation(node.getLocation(), builder.build());
+            }
+
+            return node;
+        }
     }
 
     public static class Context<C>

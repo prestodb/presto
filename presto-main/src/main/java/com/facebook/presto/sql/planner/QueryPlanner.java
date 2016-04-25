@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationType;
@@ -44,6 +45,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
@@ -53,23 +55,29 @@ import com.facebook.presto.sql.tree.SortItem.NullOrdering;
 import com.facebook.presto.sql.tree.SortItem.Ordering;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.type.ArrayType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.resolveFunction;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -113,10 +121,10 @@ class QueryPlanner
         builder = handleSubqueries(builder, query, orderBy);
         List<Expression> outputs = analysis.getOutputExpressions(query);
         builder = handleSubqueries(builder, query, outputs);
-        builder = project(builder, Iterables.concat(orderBy, outputs));
+        builder = project(builder, Iterables.concat(orderBy, outputs), query);
 
         builder = sort(builder, query);
-        builder = project(builder, analysis.getOutputExpressions(query));
+        builder = project(builder, analysis.getOutputExpressions(query), query);
         builder = limit(builder, query);
 
         return new RelationPlan(
@@ -140,11 +148,11 @@ class QueryPlanner
         builder = handleSubqueries(builder, node, orderBy);
         List<Expression> outputs = analysis.getOutputExpressions(node);
         builder = handleSubqueries(builder, node, outputs);
-        builder = project(builder, Iterables.concat(orderBy, outputs));
+        builder = project(builder, Iterables.concat(orderBy, outputs), node);
 
         builder = distinct(builder, node, outputs, orderBy);
         builder = sort(builder, node);
-        builder = project(builder, analysis.getOutputExpressions(node));
+        builder = project(builder, analysis.getOutputExpressions(node), node);
         builder = limit(builder, node);
 
         return new RelationPlan(
@@ -269,7 +277,7 @@ class QueryPlanner
         return subPlan.withNewRoot(new FilterNode(idAllocator.getNextId(), subPlan.getRoot(), rewrittenAfterSubqueries));
     }
 
-    private PlanBuilder project(PlanBuilder subPlan, Iterable<Expression> expressions)
+    private PlanBuilder project(PlanBuilder subPlan, Iterable<Expression> expressions, Node node)
     {
         TranslationMap outputTranslations = new TranslationMap(subPlan.getRelationPlan(), analysis);
 
@@ -277,6 +285,32 @@ class QueryPlanner
         for (Expression expression : expressions) {
             Symbol symbol = symbolAllocator.newSymbol(expression, analysis.getTypeWithCoercions(expression));
 
+            if (expression instanceof GroupingOperation && node instanceof QuerySpecification) {
+                FunctionCall rewrittenExpression = subPlan.rewriteGroupingOperationToFunctionCall((GroupingOperation) expression, (QuerySpecification) node);
+                ImmutableList.Builder<Expression> outputExpressionBuilder = ImmutableList.builder();
+                outputExpressionBuilder.addAll(analysis.getOutputExpressions(node).stream()
+                        .filter((outputExpression) -> !(outputExpression instanceof GroupingOperation))
+                        .collect(Collectors.toList()));
+                outputExpressionBuilder.add(rewrittenExpression);
+                analysis.setOutputExpressions(node, outputExpressionBuilder.build());
+
+                IdentityHashMap<Expression, Type> expressionTypes = new IdentityHashMap<>();
+                IdentityHashMap<FunctionCall, Signature> functionSignatures = new IdentityHashMap<>();
+                List<TypeSignature> functionTypes = Arrays.asList(
+                        BIGINT.getTypeSignature(),
+                        (new ArrayType(INTEGER)).getTypeSignature(),
+                        (new ArrayType(new ArrayType(INTEGER))).getTypeSignature()
+                );
+                Signature functionSignature = resolveFunction(rewrittenExpression, false, functionTypes, metadata.getFunctionRegistry());
+
+                expressionTypes.put(rewrittenExpression, BIGINT);
+                functionSignatures.put(rewrittenExpression, functionSignature);
+
+                analysis.addTypes(expressionTypes);
+                analysis.addFunctionSignatures(functionSignatures);
+
+                expression = rewrittenExpression;
+            }
             projections.put(symbol, subPlan.rewrite(expression));
             outputTranslations.put(expression, symbol);
         }
@@ -365,7 +399,7 @@ class QueryPlanner
         subPlan = handleSubqueries(subPlan, node, inputs);
 
         if (!Iterables.isEmpty(inputs)) { // avoid an empty projection if the only aggregation is COUNT (which has no arguments)
-            subPlan = project(subPlan, inputs);
+            subPlan = project(subPlan, inputs, node);
         }
 
         // 2. Aggregate

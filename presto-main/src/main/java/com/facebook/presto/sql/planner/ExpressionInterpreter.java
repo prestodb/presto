@@ -882,7 +882,7 @@ public class ExpressionInterpreter
             }
 
             // do not optimize non-deterministic functions
-            if (optimize && (!function.isDeterministic() || hasUnresolvedValue(argumentValues))) {
+            if (optimize && (!function.isDeterministic() || hasUnresolvedValue(argumentValues) || node.getName().toString().equals("grouping"))) {
                 return new FunctionCall(node.getName(), node.getWindow(), node.isDistinct(), toExpressions(argumentValues, argumentTypes));
             }
             return invoke(session, function, argumentValues);
@@ -1066,7 +1066,7 @@ public class ExpressionInterpreter
                 return new Row(toExpressions(values, parameterTypes));
             }
             else {
-                BlockBuilder blockBuilder =  new InterleavedBlockBuilder(parameterTypes, new BlockBuilderStatus(), cardinality);
+                BlockBuilder blockBuilder = new InterleavedBlockBuilder(parameterTypes, new BlockBuilderStatus(), cardinality);
                 for (int i = 0; i < cardinality; ++i) {
                     writeNativeValue(parameterTypes.get(i), blockBuilder, values.get(i));
                 }
