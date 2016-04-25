@@ -184,9 +184,9 @@ public class ParquetPageSourceFactory
 
             return new ParquetPageSource(
                     parquetReader,
+                    dataSource,
                     fileSchema,
                     requestedSchema,
-                    path,
                     length,
                     schema,
                     columns,
