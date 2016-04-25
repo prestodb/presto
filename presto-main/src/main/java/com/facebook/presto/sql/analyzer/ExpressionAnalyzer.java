@@ -53,7 +53,7 @@ import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.InputReference;
+import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
@@ -907,9 +907,9 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        public Type visitInputReference(InputReference node, StackableAstVisitorContext<AnalysisContext> context)
+        public Type visitFieldReference(FieldReference node, StackableAstVisitorContext<AnalysisContext> context)
         {
-            Type type = tupleDescriptor.getFieldByIndex(node.getChannel()).getType();
+            Type type = tupleDescriptor.getFieldByIndex(node.getFieldIndex()).getType();
             expressionTypes.put(node, type);
             return type;
         }

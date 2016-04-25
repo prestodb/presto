@@ -52,7 +52,7 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.InputReference;
+import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
@@ -261,7 +261,7 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Void visitInputReference(InputReference node, Void context)
+        protected Void visitFieldReference(FieldReference node, Void context)
         {
             throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
         }
@@ -272,11 +272,11 @@ public class ExpressionInterpreter
             extends AstVisitor<Object, Object>
     {
         @Override
-        public Object visitInputReference(InputReference node, Object context)
+        public Object visitFieldReference(FieldReference node, Object context)
         {
             Type type = expressionTypes.get(node);
 
-            int channel = node.getChannel();
+            int channel = node.getFieldIndex();
             if (context instanceof PagePositionContext) {
                 PagePositionContext pagePositionContext = (PagePositionContext) context;
                 int position = pagePositionContext.getPosition();
