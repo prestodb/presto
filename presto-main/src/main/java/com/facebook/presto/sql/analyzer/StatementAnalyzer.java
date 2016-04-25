@@ -844,18 +844,44 @@ class StatementAnalyzer
             // is this a reference to a WITH query?
             String name = table.getName().getSuffix();
 
-            Query query = context.getNamedQuery(name);
-            if (query != null) {
+            WithQuery withQuery = context.getNamedQuery(name);
+            if (withQuery != null) {
+                Query query = withQuery.getQuery();
                 analysis.registerNamedQuery(table, query);
 
                 // re-alias the fields with the name assigned to the query in the WITH declaration
                 RelationType queryDescriptor = analysis.getOutputDescriptor(query);
-                ImmutableList.Builder<Field> fields = ImmutableList.builder();
-                for (Field field : queryDescriptor.getAllFields()) {
-                    fields.add(Field.newQualified(QualifiedName.of(name), field.getName(), field.getType(), false));
+
+                List<Field> fields;
+                if (withQuery.getColumnNames().isPresent()) {
+                    // if columns are explicitly aliased -> WITH cte(alias1, alias2 ...)
+                    ImmutableList.Builder<Field> fieldBuilder = ImmutableList.builder();
+
+                    int field = 0;
+                    for (String columnName : withQuery.getColumnNames().get()) {
+                        Field inputField = queryDescriptor.getFieldByIndex(field);
+                        fieldBuilder.add(Field.newQualified(
+                                QualifiedName.of(name),
+                                Optional.of(columnName),
+                                inputField.getType(),
+                                false));
+
+                        field++;
+                    }
+
+                    fields = fieldBuilder.build();
+                }
+                else {
+                    fields = queryDescriptor.getAllFields().stream()
+                            .map(field -> Field.newQualified(
+                                    QualifiedName.of(name),
+                                    field.getName(),
+                                    field.getType(),
+                                    field.isHidden()))
+                            .collect(toImmutableList());
                 }
 
-                RelationType descriptor = new RelationType(fields.build());
+                RelationType descriptor = new RelationType(fields);
                 analysis.setOutputDescriptor(table, descriptor);
                 return descriptor;
             }
@@ -1910,10 +1936,6 @@ class StatementAnalyzer
         }
 
         for (WithQuery withQuery : with.getQueries()) {
-            if (withQuery.getColumnNames() != null && !withQuery.getColumnNames().isEmpty()) {
-                throw new SemanticException(NOT_SUPPORTED, withQuery, "Column alias not supported in WITH queries");
-            }
-
             Query query = withQuery.getQuery();
             process(query, context);
 
@@ -1922,7 +1944,16 @@ class StatementAnalyzer
                 throw new SemanticException(DUPLICATE_RELATION, withQuery, "WITH query name '%s' specified more than once", name);
             }
 
-            context.addNamedQuery(name, query);
+            // check if all or none of the columns are explicitly alias
+            if (withQuery.getColumnNames().isPresent()) {
+                List<String> columnNames = withQuery.getColumnNames().get();
+                RelationType queryDescriptor = analysis.getOutputDescriptor(query);
+                if (columnNames.size() != queryDescriptor.getVisibleFieldCount()) {
+                    throw new SemanticException(MISMATCHED_COLUMN_ALIASES, withQuery, "WITH column alias list has %s entries but WITH query(%s) has %s columns", columnNames.size(), name, queryDescriptor.getVisibleFieldCount());
+                }
+            }
+
+            context.addNamedQuery(name, withQuery);
         }
     }
 

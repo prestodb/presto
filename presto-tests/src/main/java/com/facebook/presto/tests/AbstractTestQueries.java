@@ -3745,13 +3745,17 @@ public abstract class AbstractTestQueries
                 "SELECT 123, 123 FROM orders LIMIT 1");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testWithColumnAliasing()
             throws Exception
     {
         assertQuery(
-                "WITH a (id) AS (SELECT 123 FROM orders LIMIT 1) SELECT * FROM a",
+                "WITH a (id) AS (SELECT 123 FROM orders LIMIT 1) SELECT id FROM a",
                 "SELECT 123 FROM orders LIMIT 1");
+
+        assertQuery(
+                "WITH t (a, b, c) AS (SELECT 1, custkey x, orderkey FROM orders) SELECT c, b, a FROM t",
+                "SELECT orderkey, custkey, 1 FROM orders");
     }
 
     @Test

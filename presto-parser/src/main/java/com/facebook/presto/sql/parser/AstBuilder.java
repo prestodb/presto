@@ -341,7 +341,7 @@ class AstBuilder
     @Override
     public Node visitNamedQuery(SqlBaseParser.NamedQueryContext context)
     {
-        return new WithQuery(getLocation(context), context.name.getText(), (Query) visit(context.query()), getColumnAliases(context.columnAliases()));
+        return new WithQuery(getLocation(context), context.name.getText(), (Query) visit(context.query()), Optional.ofNullable(getColumnAliases(context.columnAliases())));
     }
 
     @Override
