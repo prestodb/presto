@@ -55,6 +55,7 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.Grant;
 import com.facebook.presto.sql.tree.GroupBy;
+import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.GroupingSets;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Insert;
@@ -1074,6 +1075,27 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty()));
 
+        assertStatement("SELECT a, b, GROUPING(a, b) FROM table1 GROUP BY GROUPING SETS ((a), (b))",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(
+                                        DereferenceExpression.from(QualifiedName.of("a")),
+                                        DereferenceExpression.from(QualifiedName.of("b")),
+                                        new GroupingOperation(
+                                                Optional.empty(),
+                                                ImmutableList.of(QualifiedName.of("a"), QualifiedName.of("b"))
+                                        )
+                                ),
+                                Optional.of(new Table(QualifiedName.of("table1"))),
+                                Optional.empty(),
+                                Optional.of(new GroupBy(false, ImmutableList.of(new GroupingSets(ImmutableList.of(ImmutableList.of(QualifiedName.of("a")), ImmutableList.of(QualifiedName.of("b"))))))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty()));
+
         assertStatement("SELECT * FROM table1 GROUP BY ALL GROUPING SETS ((a, b), (a), ()), CUBE (c), ROLLUP (d)",
                 new Query(
                         Optional.empty(),
@@ -1113,6 +1135,12 @@ public class TestSqlParser
                                 Optional.empty()),
                         Optional.empty(),
                         Optional.empty()));
+    }
+
+    @Test
+    public void testGroupingFunctionWithExpressions()
+    {
+        assertInvalidStatement("SELECT grouping(a+2) FROM (VALUES (1)) AS t (a) GROUP BY a+2", "line 1:18: mismatched input '+' expecting {'.', ')', ','}");
     }
 
     @Test
@@ -1945,6 +1973,24 @@ public class TestSqlParser
     {
         assertParsed(query, expected, SQL_PARSER.createStatement(query));
         assertFormattedSql(SQL_PARSER, expected);
+    }
+
+    private static void assertInvalidStatement(String query, String expectedMessage)
+    {
+        try {
+            SQL_PARSER.createStatement(query);
+            fail(format("Expected statement to fail: %s", query));
+        }
+        catch (RuntimeException ex) {
+            assertExceptionMessage(query, ex, expectedMessage);
+        }
+    }
+
+    private static void assertExceptionMessage(String sql, Exception exception, String expectedMessage)
+    {
+        if (!exception.getMessage().equals(expectedMessage)) {
+            fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), expectedMessage, sql));
+        }
     }
 
     private static void assertExpression(String expression, Expression expected)

@@ -54,6 +54,7 @@ import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
@@ -105,6 +106,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.operator.scalar.GroupingOperationFunction.MAX_NUMBER_GROUPING_ARGUMENTS_BIGINT;
+import static com.facebook.presto.operator.scalar.GroupingOperationFunction.MAX_NUMBER_GROUPING_ARGUMENTS_INTEGER;
 import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -122,10 +125,11 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
-import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoAggregatesOrWindowFunctions;
+import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MULTIPLE_FIELDS_FROM_SUBQUERY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.STANDALONE_LAMBDA;
@@ -1038,7 +1042,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitLambdaExpression(LambdaExpression node, StackableAstVisitorContext<Context> context)
         {
-            verifyNoAggregatesOrWindowFunctions(functionRegistry, node.getBody(), "Lambda expression");
+            verifyNoAggregateWindowOrGroupingFunctions(functionRegistry, node.getBody(), "Lambda expression");
             if (!context.getContext().isExpectingLambda()) {
                 throw new SemanticException(STANDALONE_LAMBDA, node, "Lambda expression should always be used inside a function");
             }
@@ -1096,6 +1100,26 @@ public class ExpressionAnalyzer
         protected Type visitNode(Node node, StackableAstVisitorContext<Context> context)
         {
             throw new SemanticException(NOT_SUPPORTED, node, "not yet implemented: " + node.getClass().getName());
+        }
+
+        public Type visitGroupingOperation(GroupingOperation node, StackableAstVisitorContext<Context> context)
+        {
+            if (node.getGroupingColumns().size() > MAX_NUMBER_GROUPING_ARGUMENTS_BIGINT) {
+                throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, node, String.format("GROUPING supports up to %d column arguments", MAX_NUMBER_GROUPING_ARGUMENTS_BIGINT));
+            }
+
+            for (Expression columnArgument : node.getGroupingColumns()) {
+                process(columnArgument, context);
+            }
+
+            if (node.getGroupingColumns().size() <= MAX_NUMBER_GROUPING_ARGUMENTS_INTEGER) {
+                expressionTypes.put(node, INTEGER);
+                return INTEGER;
+            }
+            else {
+                expressionTypes.put(node, BIGINT);
+                return BIGINT;
+            }
         }
 
         private Type getOperator(StackableAstVisitorContext<Context> context, Expression node, OperatorType operatorType, Expression... arguments)

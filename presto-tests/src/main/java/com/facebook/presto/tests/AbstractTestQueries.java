@@ -1841,6 +1841,148 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGrouping()
+            throws Exception
+    {
+        assertQuery(
+            "SELECT a, b as t, sum(c), grouping(a, b) + grouping(a) " +
+                    "FROM (VALUES ('h', 'j', 11), ('k', 'l', 7)) AS t (a, b, c) " +
+                    "GROUP BY GROUPING SETS ( (a), (b)) " +
+                    "ORDER BY grouping(b) ASC",
+            "VALUES (NULL, 'j', 11, 3), (NULL, 'l', 7, 3), ('h', NULL, 11, 1), ('k', NULL, 7, 1)");
+
+        assertQuery(
+            "SELECT a, sum(b), grouping(a) FROM (VALUES ('h', 11, 0), ('k', 7, 0)) AS t (a, b, c) GROUP BY GROUPING SETS (a)",
+            "VALUES ('h', 11, 0), ('k', 7, 0)");
+
+        assertQuery(
+            "SELECT a, b, sum(c), grouping(a, b) FROM (VALUES ('h', 'j', 11), ('k', 'l', 7) ) AS t (a, b, c) GROUP BY GROUPING SETS ( (a), (b)) HAVING grouping(a, b) > 1 ",
+            "VALUES (NULL, 'j', 11, 2), (NULL, 'l', 7, 2)");
+
+        assertQuery("SELECT a, grouping(a) * 1.0 FROM (VALUES (1) ) AS t (a) GROUP BY a",
+                "VALUES (1, 0.0)");
+
+        assertQuery("SELECT a, grouping(a), grouping(a) FROM (VALUES (1) ) AS t (a) GROUP BY a",
+                "VALUES (1, 0, 0)");
+
+        assertQuery("SELECT grouping(a) FROM (VALUES ('h', 'j', 11), ('k', 'l', 7)) AS t (a, b, c) GROUP BY GROUPING SETS (a,c), c*2",
+                    "VALUES (0), (1), (0), (1)");
+    }
+
+    @Test
+    public void testGroupingWithFortyArguments()
+    {
+        // This test ensures we correctly pick the bigint implementation version of the grouping
+        // function which supports up to 62 columns. Semantically it is exactly the same as
+        // TestGroupingOperationFunction#testMoreThanThirtyTwoArguments. That test is a little easier to
+        // understand and verify.
+        String fortyLetterSequence = "aa, ab, ac, ad, ae, af, ag, ah, ai, aj, ak, al, am, an, ao, ap, aq, ar, asa, at, au, av, aw, ax, ay, az, " +
+                "ba, bb, bc, bd, be, bf, bg, bh, bi, bj, bk, bl, bm, bn";
+        String fortyIntegers = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, " +
+                "31, 32, 33, 34, 35, 36, 37, 38, 39, 40";
+        // 20, 2, 13, 33, 40, 9 , 14 (corresponding indices from left to right in the above fortyLetterSequence)
+        String groupingSet1 = "at, ab, am, bg, bn, ai, an";
+        // 28, 4, 5, 29, 31, 10 (corresponding indices from left to right in the above fortyLetterSequence)
+        String groupingSet2 = "bb, ad, ae, bc, be, aj";
+        String query = String.format(
+                "SELECT grouping(%s) FROM (VALUES (%s)) AS t(%s) GROUP BY GROUPING SETS ((%s), (%s), (%s))",
+                fortyLetterSequence,
+                fortyIntegers,
+                fortyLetterSequence,
+                fortyLetterSequence,
+                groupingSet1,
+                groupingSet2);
+
+        assertQuery(query, "VALUES (0), (822283861886), (995358664191)");
+    }
+
+    @Test
+    public void testGroupingInWindowFunction()
+            throws Exception
+    {
+        assertQuery(
+            "SELECT orderkey, custkey, sum(totalprice), grouping(orderkey)+grouping(custkey) as g, " +
+                "       rank() OVER (PARTITION BY grouping(orderkey)+grouping(custkey), " +
+                "       CASE WHEN grouping(orderkey) = 0 THEN custkey END ORDER BY orderkey ASC) as r " +
+                "FROM orders " +
+                "GROUP BY ROLLUP (orderkey, custkey) " +
+                "ORDER BY orderkey, custkey " +
+                "LIMIT 10",
+            "VALUES (1, 370, 172799.49, 0, 1), " +
+                "       (1, NULL, 172799.49, 1, 1), " +
+                "       (2, 781, 38426.09, 0, 1), " +
+                "       (2, NULL, 38426.09, 1, 2), " +
+                "       (3, 1234, 205654.30, 0, 1), " +
+                "       (3, NULL, 205654.30, 1, 3), " +
+                "       (4, 1369, 56000.91, 0, 1), " +
+                "       (4, NULL, 56000.91, 1, 4), " +
+                "       (5, 445, 105367.67, 0, 1), " +
+                "       (5, NULL, 105367.67, 1, 5)");
+    }
+
+    @Test
+    public void testGroupingInTableSubquery()
+            throws Exception
+    {
+        // In addition to testing grouping() in subqueries, the following tests also
+        // ensure correct behavior in the case of alternating GROUPING SETS and GROUP BY
+        // clauses in the same plan. This is significant because grouping() with GROUP BY
+        // works only with a special re-write that should not happen in the presence of
+        // GROUPING SETS.
+
+        // Inner query has a single GROUP BY and outer query has GROUPING SETS
+        assertQuery(
+            "SELECT orderkey, custkey, sum(agg_price) as outer_sum, grouping(orderkey, custkey), g " +
+                "FROM " +
+                "    (SELECT orderkey, custkey, sum(totalprice) as agg_price, grouping(custkey, orderkey) as g " +
+                "        FROM orders " +
+                "        GROUP BY orderkey, custkey " +
+                "        ORDER BY agg_price ASC " +
+                "        LIMIT 5) as t " +
+                "GROUP BY GROUPING SETS ((orderkey, custkey), g) " +
+                "ORDER BY outer_sum",
+            "VALUES (35271, 334, 874.89, 0, NULL), " +
+                "       (28647, 1351, 924.33, 0, NULL), " +
+                "       (58145, 862, 929.03, 0, NULL), " +
+                "       (8354, 634, 974.04, 0, NULL), " +
+                "       (37415, 301, 986.63, 0, NULL), " +
+                "       (NULL, NULL, 4688.92, 3, 0)");
+
+        // Inner query has GROUPING SETS and outer query has GROUP BY
+        assertQuery(
+            "SELECT orderkey, custkey, g, sum(agg_price) as outer_sum, grouping(orderkey, custkey) " +
+                "FROM " +
+                "    (SELECT orderkey, custkey, sum(totalprice) as agg_price, grouping(custkey, orderkey) as g " +
+                "     FROM orders " +
+                "     GROUP BY GROUPING SETS ((custkey), (orderkey)) " +
+                "     ORDER BY agg_price ASC " +
+                "     LIMIT 5) as t " +
+                "GROUP BY orderkey, custkey, g",
+            "VALUES (28647, NULL, 2, 924.33, 0), " +
+                "       (8354, NULL, 2, 974.04, 0), " +
+                "       (37415, NULL, 2, 986.63, 0), " +
+                "       (58145, NULL, 2, 929.03, 0), " +
+                "       (35271, NULL, 2, 874.89, 0)");
+
+        // Inner query has GROUPING SETS but no grouping and outer query has a simple GROUP BY
+        assertQuery(
+            "SELECT orderkey, custkey, sum(agg_price) as outer_sum, grouping(orderkey, custkey) " +
+                "FROM " +
+                "   (SELECT orderkey, custkey, sum(totalprice) as agg_price " +
+                "    FROM orders " +
+                "    GROUP BY GROUPING SETS ((custkey), (orderkey)) " +
+                "    ORDER BY agg_price ASC NULLS FIRST) as t " +
+                "GROUP BY orderkey, custkey " +
+                "ORDER BY outer_sum ASC NULLS FIRST " +
+                "LIMIT 5",
+            "VALUES (35271, NULL, 874.89, 0), " +
+                "       (28647, NULL, 924.33, 0), " +
+                "       (58145, NULL, 929.03, 0), " +
+                "       (8354,  NULL, 974.04, 0), " +
+                "       (37415, NULL, 986.63, 0)");
+    }
+
+    @Test
     public void testIntersect()
     {
         assertQuery(
