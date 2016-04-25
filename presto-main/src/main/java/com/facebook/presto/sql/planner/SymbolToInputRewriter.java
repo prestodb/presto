@@ -17,11 +17,16 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FieldReference;
+import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.StringLiteral;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
@@ -43,5 +48,19 @@ public class SymbolToInputRewriter
         Preconditions.checkArgument(channel != null, "Cannot resolve symbol %s", node.getName());
 
         return new FieldReference(channel);
+    }
+
+    @Override
+    public Expression rewriteGroupingOperation(GroupingOperation node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+    {
+        Integer channel = symbolToChannelMapping.get(new Symbol("groupid"));
+        Preconditions.checkArgument(channel != null, "Cannot resolve symbol groupid");
+        List<String> groupingColumnStrings = node.getGroupingColumns().stream()
+                .map(Expression::toString)
+                .collect(Collectors.toList());
+        return new GroupingOperation(
+                node.getLocation(),
+                Arrays.asList(new FieldReference(channel), new StringLiteral(String.join(" ", groupingColumnStrings))),
+                node.getGroupingColumns());
     }
 }
