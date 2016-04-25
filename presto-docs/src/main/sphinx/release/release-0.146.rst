@@ -6,6 +6,7 @@ General Changes
 ---------------
 
 * Require at least 4096 file descriptors to run Presto.
+* Support casting between map types.
 
 Hive Changes
 ------------
