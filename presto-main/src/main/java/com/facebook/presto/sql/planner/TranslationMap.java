@@ -15,12 +15,12 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
-import com.facebook.presto.sql.analyzer.FieldOrExpression;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
@@ -116,22 +116,15 @@ class TranslationMap
         }, mapped);
     }
 
-    public Expression rewrite(FieldOrExpression fieldOrExpression)
-    {
-        if (fieldOrExpression.isFieldReference()) {
-            int fieldIndex = fieldOrExpression.getFieldIndex();
-            Symbol symbol = fieldSymbols[fieldIndex];
-            checkState(symbol != null, "No mapping for field '%s'", fieldIndex);
-
-            return new QualifiedNameReference(symbol.toQualifiedName());
-        }
-        else {
-            return rewrite(fieldOrExpression.getExpression());
-        }
-    }
-
     public void put(Expression expression, Symbol symbol)
     {
+        if (expression instanceof FieldReference) {
+            int fieldIndex = ((FieldReference) expression).getFieldIndex();
+            fieldSymbols[fieldIndex] = symbol;
+            expressionMappings.put(new QualifiedNameReference(rewriteBase.getSymbol(fieldIndex).toQualifiedName()), symbol);
+            return;
+        }
+
         Expression translated = translateNamesToSymbols(expression);
         expressionMappings.put(translated, symbol);
 
@@ -139,36 +132,18 @@ class TranslationMap
         analysis.getFieldIndex(expression).ifPresent(index -> fieldSymbols[index] = symbol);
     }
 
-    public void put(FieldOrExpression fieldOrExpression, Symbol symbol)
-    {
-        if (fieldOrExpression.isFieldReference()) {
-            int fieldIndex = fieldOrExpression.getFieldIndex();
-            fieldSymbols[fieldIndex] = symbol;
-            expressionMappings.put(new QualifiedNameReference(rewriteBase.getSymbol(fieldIndex).toQualifiedName()), symbol);
-        }
-        else {
-            put(fieldOrExpression.getExpression(), symbol);
-        }
-    }
-
     public Symbol get(Expression expression)
     {
+        if (expression instanceof FieldReference) {
+            int field = ((FieldReference) expression).getFieldIndex();
+            Preconditions.checkArgument(fieldSymbols[field] != null, "No mapping for field: %s", field);
+            return fieldSymbols[field];
+        }
+
         Expression translated = translateNamesToSymbols(expression);
 
         Preconditions.checkArgument(expressionMappings.containsKey(translated), "No mapping for expression: %s", expression);
         return expressionMappings.get(translated);
-    }
-
-    public Symbol get(FieldOrExpression fieldOrExpression)
-    {
-        if (fieldOrExpression.isFieldReference()) {
-            int field = fieldOrExpression.getFieldIndex();
-            Preconditions.checkArgument(fieldSymbols[field] != null, "No mapping for field: %s", field);
-            return fieldSymbols[field];
-        }
-        else {
-            return get(fieldOrExpression.getExpression());
-        }
     }
 
     private Expression translateNamesToSymbols(Expression expression)
@@ -192,6 +167,14 @@ class TranslationMap
                 }
 
                 return rewrittenExpression;
+            }
+
+            @Override
+            public Expression rewriteFieldReference(FieldReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Symbol symbol = rewriteBase.getSymbol(node.getFieldIndex());
+                checkState(symbol != null, "No symbol mapping for node '%s' (%s)", node, node.getFieldIndex());
+                return new QualifiedNameReference(symbol.toQualifiedName());
             }
 
             @Override
