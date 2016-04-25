@@ -27,6 +27,7 @@ import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
+import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
@@ -64,10 +65,8 @@ import java.util.Set;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_AGGREGATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Predicates.equalTo;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -84,7 +83,7 @@ class AggregationAnalyzer
 
     private final RelationType tupleDescriptor;
 
-    public AggregationAnalyzer(List<FieldOrExpression> groupByExpressions, Metadata metadata, RelationType tupleDescriptor, Set<Expression> columnReferences)
+    public AggregationAnalyzer(List<Expression> groupByExpressions, Metadata metadata, RelationType tupleDescriptor, Set<Expression> columnReferences)
     {
         requireNonNull(groupByExpressions, "groupByExpressions is null");
         requireNonNull(metadata, "metadata is null");
@@ -94,16 +93,13 @@ class AggregationAnalyzer
         this.tupleDescriptor = tupleDescriptor;
         this.metadata = metadata;
         this.columnReferences = ImmutableSet.copyOf(columnReferences);
-        this.expressions = groupByExpressions.stream()
-                .filter(FieldOrExpression::isExpression)
-                .map(FieldOrExpression::getExpression)
-                .collect(toImmutableList());
-
+        this.expressions = ImmutableList.copyOf(groupByExpressions);
         ImmutableList.Builder<Integer> fieldIndexes = ImmutableList.builder();
 
         fieldIndexes.addAll(groupByExpressions.stream()
-                .filter(FieldOrExpression::isFieldReference)
-                .map(FieldOrExpression::getFieldIndex)
+                .filter(FieldReference.class::isInstance)
+                .map(FieldReference.class::cast)
+                .map(FieldReference::getFieldIndex)
                 .iterator());
 
         // For a query like "SELECT * FROM T GROUP BY a", groupByExpressions will contain "a",
@@ -127,11 +123,6 @@ class AggregationAnalyzer
             }
         }
         this.fieldIndexes = fieldIndexes.build();
-    }
-
-    public boolean analyze(int fieldIndex)
-    {
-        return Iterables.any(fieldIndexes, equalTo(fieldIndex));
     }
 
     public void analyze(Expression expression)
@@ -373,6 +364,12 @@ class AggregationAnalyzer
 
             Field field = Iterables.getOnlyElement(fields);
             return fieldIndexes.contains(tupleDescriptor.indexOf(field));
+        }
+
+        @Override
+        protected Boolean visitFieldReference(FieldReference node, Void context)
+        {
+            return fieldIndexes.contains(node.getFieldIndex());
         }
 
         @Override

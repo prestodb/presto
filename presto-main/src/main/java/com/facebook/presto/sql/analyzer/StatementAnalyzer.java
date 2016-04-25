@@ -58,6 +58,7 @@ import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainOption;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupBy;
@@ -174,7 +175,6 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_WINDOW_FUNCTION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NON_NUMERIC_SAMPLE_PERCENTAGE;
@@ -805,7 +805,7 @@ class StatementAnalyzer
 
         // Input fields == Output fields
         analysis.setOutputDescriptor(node, descriptor);
-        analysis.setOutputExpressions(node, descriptorToFields(descriptor));
+        analysis.setOutputExpressions(node, descriptorToFields(descriptor, context));
         analysis.setStatement(node);
 
         return descriptor;
@@ -1038,12 +1038,12 @@ class StatementAnalyzer
 
         node.getWhere().ifPresent(where -> analyzeWhere(node, sourceType, context, where));
 
-        List<FieldOrExpression> outputExpressions = analyzeSelect(node, sourceType, context);
-        List<List<FieldOrExpression>> groupByExpressions = analyzeGroupBy(node, sourceType, context, outputExpressions);
+        List<Expression> outputExpressions = analyzeSelect(node, sourceType, context);
+        List<List<Expression>> groupByExpressions = analyzeGroupBy(node, sourceType, context, outputExpressions);
 
         RelationType outputType = computeOutputDescriptor(node, sourceType);
 
-        List<FieldOrExpression> orderByExpressions = analyzeOrderBy(node, sourceType, outputType, context, outputExpressions);
+        List<Expression> orderByExpressions = analyzeOrderBy(node, sourceType, outputType, context, outputExpressions);
         analyzeHaving(node, sourceType, context);
 
         analyzeAggregations(node, sourceType, groupByExpressions, outputExpressions, orderByExpressions, context, analysis.getColumnReferences());
@@ -1336,15 +1336,13 @@ class StatementAnalyzer
         return descriptor;
     }
 
-    private void analyzeWindowFunctions(QuerySpecification node, List<FieldOrExpression> outputExpressions, List<FieldOrExpression> orderByExpressions)
+    private void analyzeWindowFunctions(QuerySpecification node, List<Expression> outputExpressions, List<Expression> orderByExpressions)
     {
         WindowFunctionExtractor extractor = new WindowFunctionExtractor();
 
-        for (FieldOrExpression fieldOrExpression : Iterables.concat(outputExpressions, orderByExpressions)) {
-            if (fieldOrExpression.isExpression()) {
-                extractor.process(fieldOrExpression.getExpression(), null);
-                new WindowFunctionValidator().process(fieldOrExpression.getExpression(), analysis);
-            }
+        for (Expression expression : Iterables.concat(outputExpressions, orderByExpressions)) {
+            extractor.process(expression, null);
+            new WindowFunctionValidator().process(expression, analysis);
         }
 
         List<FunctionCall> windowFunctions = extractor.getWindowFunctions();
@@ -1439,11 +1437,11 @@ class StatementAnalyzer
         }
     }
 
-    private List<FieldOrExpression> analyzeOrderBy(QuerySpecification node, RelationType sourceType, RelationType outputType, AnalysisContext context, List<FieldOrExpression> outputExpressions)
+    private List<Expression> analyzeOrderBy(QuerySpecification node, RelationType sourceType, RelationType outputType, AnalysisContext context, List<Expression> outputExpressions)
     {
         List<SortItem> items = node.getOrderBy();
 
-        ImmutableList.Builder<FieldOrExpression> orderByExpressionsBuilder = ImmutableList.builder();
+        ImmutableList.Builder<Expression> orderByExpressionsBuilder = ImmutableList.builder();
 
         if (!items.isEmpty()) {
             // Compute aliased output terms so we can resolve order by expressions against them first
@@ -1461,7 +1459,7 @@ class StatementAnalyzer
             for (SortItem item : items) {
                 Expression expression = item.getSortKey();
 
-                FieldOrExpression orderByExpression = null;
+                Expression orderByExpression = null;
                 if (expression instanceof QualifiedNameReference && !((QualifiedNameReference) expression).getName().getPrefix().isPresent()) {
                     // if this is a simple name reference, try to resolve against output columns
 
@@ -1471,7 +1469,7 @@ class StatementAnalyzer
                         throw new SemanticException(AMBIGUOUS_ATTRIBUTE, expression, "'%s' in ORDER BY is ambiguous", name.getSuffix());
                     }
                     if (expressions.size() == 1) {
-                        orderByExpression = new FieldOrExpression(Iterables.getOnlyElement(expressions));
+                        orderByExpression = Iterables.getOnlyElement(expressions);
                     }
 
                     // otherwise, couldn't resolve name against output aliases, so fall through...
@@ -1495,24 +1493,22 @@ class StatementAnalyzer
 
                 // otherwise, just use the expression as is
                 if (orderByExpression == null) {
-                    orderByExpression = new FieldOrExpression(expression);
+                    orderByExpression = expression;
                 }
 
-                if (orderByExpression.isExpression()) {
-                    ExpressionAnalysis expressionAnalysis = analyzeExpression(orderByExpression.getExpression(), sourceType, context);
-                    analysis.recordSubqueries(node, expressionAnalysis);
+                ExpressionAnalysis expressionAnalysis = analyzeExpression(orderByExpression, sourceType, context);
+                analysis.recordSubqueries(node, expressionAnalysis);
 
-                    Type type = expressionAnalysis.getType(orderByExpression.getExpression());
-                    if (!type.isOrderable()) {
-                        throw new SemanticException(TYPE_MISMATCH, node, "Type %s is not orderable, and therefore cannot be used in ORDER BY: %s", type, expression);
-                    }
+                Type type = expressionAnalysis.getType(orderByExpression);
+                if (!type.isOrderable()) {
+                    throw new SemanticException(TYPE_MISMATCH, node, "Type %s is not orderable, and therefore cannot be used in ORDER BY: %s", type, expression);
                 }
 
                 orderByExpressionsBuilder.add(orderByExpression);
             }
         }
 
-        List<FieldOrExpression> orderByExpressions = orderByExpressionsBuilder.build();
+        List<Expression> orderByExpressions = orderByExpressionsBuilder.build();
         analysis.setOrderByExpressions(node, orderByExpressions);
 
         if (node.getSelect().isDistinct() && !outputExpressions.containsAll(orderByExpressions)) {
@@ -1521,7 +1517,7 @@ class StatementAnalyzer
         return orderByExpressions;
     }
 
-    private List<List<FieldOrExpression>> analyzeGroupBy(QuerySpecification node, RelationType tupleDescriptor, AnalysisContext context, List<FieldOrExpression> outputExpressions)
+    private List<List<Expression>> analyzeGroupBy(QuerySpecification node, RelationType tupleDescriptor, AnalysisContext context, List<Expression> outputExpressions)
     {
         List<Set<Expression>> computedGroupingSets = ImmutableList.of(); // empty list = no aggregations
 
@@ -1539,7 +1535,7 @@ class StatementAnalyzer
             computedGroupingSets = ImmutableList.of(ImmutableSet.of());
         }
 
-        List<List<FieldOrExpression>> analyzedGroupingSets = computedGroupingSets.stream()
+        List<List<Expression>> analyzedGroupingSets = computedGroupingSets.stream()
                 .map(groupingSet -> analyzeGroupingColumns(groupingSet, node, tupleDescriptor, context, outputExpressions))
                 .collect(toImmutableList());
 
@@ -1579,12 +1575,12 @@ class StatementAnalyzer
         return groupingSetsCrossProduct;
     }
 
-    private List<FieldOrExpression> analyzeGroupingColumns(Set<Expression> groupingColumns, QuerySpecification node, RelationType tupleDescriptor, AnalysisContext context, List<FieldOrExpression> outputExpressions)
+    private List<Expression> analyzeGroupingColumns(Set<Expression> groupingColumns, QuerySpecification node, RelationType tupleDescriptor, AnalysisContext context, List<Expression> outputExpressions)
     {
-        ImmutableList.Builder<FieldOrExpression> groupingColumnsBuilder = ImmutableList.builder();
+        ImmutableList.Builder<Expression> groupingColumnsBuilder = ImmutableList.builder();
         for (Expression groupingColumn : groupingColumns) {
             // first, see if this is an ordinal
-            FieldOrExpression groupByExpression;
+            Expression groupByExpression;
 
             if (groupingColumn instanceof LongLiteral) {
                 long ordinal = ((LongLiteral) groupingColumn).getValue();
@@ -1597,17 +1593,11 @@ class StatementAnalyzer
             else {
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(groupingColumn, tupleDescriptor, context);
                 analysis.recordSubqueries(node, expressionAnalysis);
-                groupByExpression = new FieldOrExpression(groupingColumn);
+                groupByExpression = groupingColumn;
             }
 
-            Type type;
-            if (groupByExpression.isExpression()) {
-                Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, groupByExpression.getExpression(), "GROUP BY");
-                type = analysis.getType(groupByExpression.getExpression());
-            }
-            else {
-                type = tupleDescriptor.getFieldByIndex(groupByExpression.getFieldIndex()).getType();
-            }
+            Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, groupByExpression, "GROUP BY");
+            Type type = analysis.getType(groupByExpression);
             if (!type.isComparable()) {
                 throw new SemanticException(TYPE_MISMATCH, node, "%s is not comparable, and therefore cannot be used in GROUP BY", type);
             }
@@ -1658,9 +1648,9 @@ class StatementAnalyzer
         return new RelationType(outputFields.build());
     }
 
-    private List<FieldOrExpression> analyzeSelect(QuerySpecification node, RelationType tupleDescriptor, AnalysisContext context)
+    private List<Expression> analyzeSelect(QuerySpecification node, RelationType tupleDescriptor, AnalysisContext context)
     {
-        ImmutableList.Builder<FieldOrExpression> outputExpressionBuilder = ImmutableList.builder();
+        ImmutableList.Builder<Expression> outputExpressionBuilder = ImmutableList.builder();
 
         for (SelectItem item : node.getSelect().getSelectItems()) {
             if (item instanceof AllColumns) {
@@ -1677,10 +1667,13 @@ class StatementAnalyzer
 
                 for (Field field : fields) {
                     int fieldIndex = tupleDescriptor.indexOf(field);
-                    outputExpressionBuilder.add(new FieldOrExpression(fieldIndex));
+                    FieldReference expression = new FieldReference(fieldIndex);
+                    outputExpressionBuilder.add(expression);
+                    ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, tupleDescriptor, context);
 
-                    if (node.getSelect().isDistinct() && !field.getType().isComparable()) {
-                        throw new SemanticException(TYPE_MISMATCH, node.getSelect(), "DISTINCT can only be applied to comparable types (actual: %s)", field.getType());
+                    Type type = expressionAnalysis.getType(expression);
+                    if (node.getSelect().isDistinct() && !type.isComparable()) {
+                        throw new SemanticException(TYPE_MISMATCH, node.getSelect(), "DISTINCT can only be applied to comparable types (actual: %s)", type);
                     }
                 }
             }
@@ -1688,7 +1681,7 @@ class StatementAnalyzer
                 SingleColumn column = (SingleColumn) item;
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(column.getExpression(), tupleDescriptor, context);
                 analysis.recordSubqueries(node, expressionAnalysis);
-                outputExpressionBuilder.add(new FieldOrExpression(column.getExpression()));
+                outputExpressionBuilder.add(column.getExpression());
 
                 Type type = expressionAnalysis.getType(column.getExpression());
                 if (node.getSelect().isDistinct() && !type.isComparable()) {
@@ -1700,7 +1693,7 @@ class StatementAnalyzer
             }
         }
 
-        ImmutableList<FieldOrExpression> result = outputExpressionBuilder.build();
+        ImmutableList<Expression> result = outputExpressionBuilder.build();
         analysis.setOutputExpressions(node, result);
 
         return result;
@@ -1738,9 +1731,9 @@ class StatementAnalyzer
 
     private void analyzeAggregations(QuerySpecification node,
             RelationType tupleDescriptor,
-            List<List<FieldOrExpression>> groupingSets,
-            List<FieldOrExpression> outputExpressions,
-            List<FieldOrExpression> orderByExpressions,
+            List<List<Expression>> groupingSets,
+            List<Expression> outputExpressions,
+            List<Expression> orderByExpressions,
             AnalysisContext context,
             Set<Expression> columnReferences)
     {
@@ -1759,17 +1752,17 @@ class StatementAnalyzer
             //     SELECT f(a) GROUP BY a
             //     SELECT f(a + 1) GROUP BY a + 1
             //     SELECT a + sum(b) GROUP BY a
-            ImmutableList<FieldOrExpression> distinctGroupingColumns = groupingSets.stream()
+            ImmutableList<Expression> distinctGroupingColumns = groupingSets.stream()
                     .flatMap(Collection::stream)
                     .distinct()
                     .collect(toImmutableList());
 
-            for (FieldOrExpression fieldOrExpression : Iterables.concat(outputExpressions, orderByExpressions)) {
-                verifyAggregations(node, distinctGroupingColumns, tupleDescriptor, fieldOrExpression, columnReferences);
+            for (Expression expression : Iterables.concat(outputExpressions, orderByExpressions)) {
+                verifyAggregations(node, distinctGroupingColumns, tupleDescriptor, expression, columnReferences);
             }
 
             if (node.getHaving().isPresent()) {
-                verifyAggregations(node, distinctGroupingColumns, tupleDescriptor, new FieldOrExpression(node.getHaving().get()), columnReferences);
+                verifyAggregations(node, distinctGroupingColumns, tupleDescriptor, node.getHaving().get(), columnReferences);
             }
         }
     }
@@ -1799,33 +1792,13 @@ class StatementAnalyzer
 
     private void verifyAggregations(
             QuerySpecification node,
-            List<FieldOrExpression> groupByExpressions,
+            List<Expression> groupByExpressions,
             RelationType tupleDescriptor,
-            FieldOrExpression fieldOrExpression,
+            Expression expression,
             Set<Expression> columnReferences)
     {
         AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, metadata, tupleDescriptor, columnReferences);
-
-        if (fieldOrExpression.isExpression()) {
-            analyzer.analyze(fieldOrExpression.getExpression());
-        }
-        else {
-            int fieldIndex = fieldOrExpression.getFieldIndex();
-            if (!analyzer.analyze(fieldIndex)) {
-                Field field = tupleDescriptor.getFieldByIndex(fieldIndex);
-
-                if (field.getRelationAlias().isPresent()) {
-                    if (field.getName().isPresent()) {
-                        throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, node, "Column '%s.%s' not in GROUP BY clause", field.getRelationAlias().get(), field.getName().get());
-                    }
-                    throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, node, "Columns from '%s' not in GROUP BY clause", field.getRelationAlias().get());
-                }
-                if (field.getName().isPresent()) {
-                    throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, node, "Column '%s' not in GROUP BY clause", field.getName().get());
-                }
-                throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, node, "Some columns from FROM clause not in GROUP BY clause");
-            }
-        }
+        analyzer.analyze(expression);
     }
 
     private RelationType analyzeView(Query query, QualifiedObjectName name, Optional<String> catalog, Optional<String> schema, Optional<String> owner, Table node)
@@ -1909,11 +1882,13 @@ class StatementAnalyzer
                 expression);
     }
 
-    private static List<FieldOrExpression> descriptorToFields(RelationType tupleDescriptor)
+    private List<Expression> descriptorToFields(RelationType tupleDescriptor, AnalysisContext context)
     {
-        ImmutableList.Builder<FieldOrExpression> builder = ImmutableList.builder();
+        ImmutableList.Builder<Expression> builder = ImmutableList.builder();
         for (int fieldIndex = 0; fieldIndex < tupleDescriptor.getAllFieldCount(); fieldIndex++) {
-            builder.add(new FieldOrExpression(fieldIndex));
+            FieldReference expression = new FieldReference(fieldIndex);
+            builder.add(expression);
+            analyzeExpression(expression, tupleDescriptor, context);
         }
         return builder.build();
     }
@@ -1956,12 +1931,11 @@ class StatementAnalyzer
     {
         List<SortItem> items = node.getOrderBy();
 
-        ImmutableList.Builder<FieldOrExpression> orderByFieldsBuilder = ImmutableList.builder();
+        ImmutableList.Builder<Expression> orderByFieldsBuilder = ImmutableList.builder();
 
         for (SortItem item : items) {
             Expression expression = item.getSortKey();
 
-            FieldOrExpression orderByField;
             if (expression instanceof LongLiteral) {
                 // this is an ordinal in the output tuple
 
@@ -1970,23 +1944,20 @@ class StatementAnalyzer
                     throw new SemanticException(INVALID_ORDINAL, expression, "ORDER BY position %s is not in select list", ordinal);
                 }
 
-                orderByField = new FieldOrExpression(Ints.checkedCast(ordinal - 1));
-            }
-            else {
-                // otherwise, just use the expression as is
-                orderByField = new FieldOrExpression(expression);
-                ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
-                        metadata,
-                        accessControl, sqlParser,
-                        tupleDescriptor,
-                        analysis,
-                        experimentalSyntaxEnabled,
-                        context,
-                        orderByField.getExpression());
-                analysis.recordSubqueries(node, expressionAnalysis);
+                expression = new FieldReference(Ints.checkedCast(ordinal - 1));
             }
 
-            orderByFieldsBuilder.add(orderByField);
+            ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
+                    metadata,
+                    accessControl, sqlParser,
+                    tupleDescriptor,
+                    analysis,
+                    experimentalSyntaxEnabled,
+                    context,
+                    expression);
+            analysis.recordSubqueries(node, expressionAnalysis);
+
+            orderByFieldsBuilder.add(expression);
         }
 
         analysis.setOrderByExpressions(node, orderByFieldsBuilder.build());
