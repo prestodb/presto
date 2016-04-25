@@ -252,6 +252,9 @@ public interface ConnectorMetadata
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support deletes");
     }
 
+    default void beginSelect(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<ConnectorTableLayoutHandle> layoutHandle, Collection<ColumnHandle> columnHandles)
+    {}
+
     /**
      * Finish delete query
      *

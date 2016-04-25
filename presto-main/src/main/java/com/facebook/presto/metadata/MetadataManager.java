@@ -23,6 +23,7 @@ import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
@@ -586,6 +587,24 @@ public class MetadataManager
         ConnectorEntry entry = lookupConnectorFor(tableHandle);
         ConnectorMetadata metadata = entry.getMetadata(session);
         metadata.finishDelete(session.toConnectorSession(entry.getCatalog()), tableHandle.getConnectorHandle(), fragments);
+    }
+
+    @Override
+    public void beginSelect(Session session, TableHandle tableHandle, Optional<TableLayoutHandle> layoutHandle, Collection<ColumnHandle> columnHandles)
+    {
+        ConnectorEntry entry = lookupConnectorFor(tableHandle);
+        ConnectorMetadata metadata = entry.getMetadata(session);
+        metadata.beginSelect(session.toConnectorSession(entry.getCatalog()), tableHandle.getConnectorHandle(), convertToConnectorTableLayoutHandle(layoutHandle), columnHandles);
+    }
+
+    private static Optional<ConnectorTableLayoutHandle> convertToConnectorTableLayoutHandle(
+            Optional<TableLayoutHandle> tableLayoutHandle)
+    {
+        if (!tableLayoutHandle.isPresent()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(tableLayoutHandle.get().getConnectorHandle());
     }
 
     @Override

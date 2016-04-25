@@ -192,6 +192,8 @@ public interface Metadata
      */
     void finishDelete(Session session, TableHandle tableHandle, Collection<Slice> fragments);
 
+    void beginSelect(Session session, TableHandle tableHandle, Optional<TableLayoutHandle> layoutHandle, Collection<ColumnHandle> columnHandles);
+
     /**
      * Gets all the loaded catalogs
      *
