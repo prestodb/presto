@@ -21,6 +21,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.rewrite.StatementRewrite;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -29,7 +30,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getAggregateExtractorFunction;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING;
 import static java.util.Objects.requireNonNull;
 
 public class Analyzer
@@ -70,7 +71,7 @@ public class Analyzer
         return analysis;
     }
 
-    static void verifyNoAggregatesOrWindowFunctions(FunctionRegistry functionRegistry, Expression predicate, String clause)
+    static void verifyNoAggregateWindowOrGroupingFunctions(FunctionRegistry functionRegistry, Expression predicate, String clause)
     {
         List<FunctionCall> aggregates = ExpressionTreeUtils.extractExpressionsOfTypeUsingPredicate(
                 ImmutableList.of(predicate),
@@ -82,12 +83,17 @@ public class Analyzer
                 FunctionCall.class,
                 ExpressionTreeUtils::isWindowFunction);
 
+        List<GroupingOperation> groupingOperations = ExpressionTreeUtils.extractExpressionsOfType(
+                ImmutableList.of(predicate),
+                GroupingOperation.class);
+
         List<Expression> found = ImmutableList.copyOf(Iterables.concat(
                 aggregates,
-                windowExpressions));
+                windowExpressions,
+                groupingOperations));
 
         if (!found.isEmpty()) {
-            throw new SemanticException(CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS, predicate, "%s cannot contain aggregations or window functions: %s", clause, found);
+            throw new SemanticException(CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING, predicate, "%s cannot contain aggregations, window functions or grouping operations: %s", clause, found);
         }
     }
 }
