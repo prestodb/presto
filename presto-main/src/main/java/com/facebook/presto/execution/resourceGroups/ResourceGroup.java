@@ -19,14 +19,11 @@ import io.airlift.units.DataSize;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
@@ -54,7 +51,7 @@ public class ResourceGroup
     // Sub groups with queued queries, that have capacity to run them
     // That is, they must return true when internalStartNext() is called on them
     @GuardedBy("root")
-    private final Queue<ResourceGroup> eligibleSubGroups = new LinkedHashQueue<>();
+    private final Queue<ResourceGroup> eligibleSubGroups = new FifoQueue<>();
     @GuardedBy("root")
     private final Set<ResourceGroup> dirtySubGroups = new HashSet<>();
     @GuardedBy("root")
@@ -70,7 +67,7 @@ public class ResourceGroup
     @GuardedBy("root")
     private long cachedMemoryUsageBytes;
     @GuardedBy("root")
-    private final Queue<QueryExecution> queuedQueries = new LinkedHashQueue<>();
+    private final Queue<QueryExecution> queuedQueries = new FifoQueue<>();
     @GuardedBy("root")
     private final Set<QueryExecution> runningQueries = new HashSet<>();
 
@@ -427,139 +424,6 @@ public class ResourceGroup
             while (internalStartNext()) {
                 // start all the queries we can
             }
-        }
-    }
-
-    // A queue with constant time contains(E) and remove(E)
-    private static final class LinkedHashQueue<E>
-            implements Queue<E>
-    {
-        private final Set<E> delegate = new LinkedHashSet<>();
-
-        @Override
-        public boolean add(E element)
-        {
-            return delegate.add(element);
-        }
-
-        @Override
-        public boolean offer(E element)
-        {
-            return delegate.add(element);
-        }
-
-        @Override
-        public E remove()
-        {
-            E element = poll();
-            if (element == null) {
-                throw new NoSuchElementException();
-            }
-            return element;
-        }
-
-        @Override
-        public boolean contains(Object element)
-        {
-            return delegate.contains(element);
-        }
-
-        @Override
-        public boolean remove(Object element)
-        {
-            return delegate.remove(element);
-        }
-
-        @Override
-        public boolean containsAll(Collection<?> elements)
-        {
-            return delegate.containsAll(elements);
-        }
-
-        @Override
-        public boolean addAll(Collection<? extends E> elements)
-        {
-            return delegate.addAll(elements);
-        }
-
-        @Override
-        public boolean removeAll(Collection<?> elements)
-        {
-            return delegate.removeAll(elements);
-        }
-
-        @Override
-        public boolean retainAll(Collection<?> elements)
-        {
-            return delegate.retainAll(elements);
-        }
-
-        @Override
-        public void clear()
-        {
-            delegate.clear();
-        }
-
-        @Override
-        public E poll()
-        {
-            Iterator<E> iterator = iterator();
-            if (!iterator.hasNext()) {
-                return null;
-            }
-            E element = iterator.next();
-            iterator.remove();
-            return element;
-        }
-
-        @Override
-        public E element()
-        {
-            E element = peek();
-            if (element == null) {
-                throw new NoSuchElementException();
-            }
-            return element;
-        }
-
-        @Override
-        public E peek()
-        {
-            Iterator<E> iterator = iterator();
-            if (!iterator.hasNext()) {
-                return null;
-            }
-            return iterator.next();
-        }
-
-        @Override
-        public Iterator<E> iterator()
-        {
-            return delegate.iterator();
-        }
-
-        @Override
-        public Object[] toArray()
-        {
-            return delegate.toArray();
-        }
-
-        @Override
-        public <T> T[] toArray(T[] array)
-        {
-            return delegate.toArray(array);
-        }
-
-        @Override
-        public int size()
-        {
-            return delegate.size();
-        }
-
-        @Override
-        public boolean isEmpty()
-        {
-            return delegate.isEmpty();
         }
     }
 }
