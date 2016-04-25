@@ -5,8 +5,10 @@ Release 0.146
 General Changes
 ---------------
 
+* Fix error in :func:`map_concat` when the second map is empty.
 * Require at least 4096 file descriptors to run Presto.
 * Support casting between map types.
+* Add :doc:`/connector/mongodb`.
 
 Hive Changes
 ------------
@@ -19,3 +21,13 @@ Hive Changes
   only enforced when ``hive.security=none`` is set, which is the default
   security system. Specifically, the ``sql-standard`` authorization system
   does not enforce these settings.
+
+Black Hole Changes
+------------------
+
+* Add support for ``varchar(n)``.
+
+Cassandra Changes
+-----------------
+
+* Add support for Cassandra 3.0.
