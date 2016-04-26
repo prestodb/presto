@@ -102,7 +102,6 @@ import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
-import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.node.NodeInfo;
@@ -120,6 +119,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static io.airlift.concurrent.BoundedThreadPool.newBoundedThreadPool;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
@@ -379,17 +379,9 @@ public class ServerMainModule
     @Provides
     @Singleton
     @ForAsyncHttp
-    public static ExecutorService createAsyncHttpResponseCoreExecutor()
+    public static ExecutorService createAsyncHttpResponseCoreExecutor(TaskManagerConfig config)
     {
-        return newCachedThreadPool(daemonThreadsNamed("async-http-response-%s"));
-    }
-
-    @Provides
-    @Singleton
-    @ForAsyncHttp
-    public static BoundedExecutor createAsyncHttpResponseExecutor(@ForAsyncHttp ExecutorService coreExecutor, TaskManagerConfig config)
-    {
-        return new BoundedExecutor(coreExecutor, config.getHttpResponseThreads());
+        return newBoundedThreadPool(config.getHttpResponseThreads(), daemonThreadsNamed("async-http-response-%s"));
     }
 
     @Provides
