@@ -69,25 +69,25 @@ public class BenchmarkBigIntOperators
     @Benchmark
     public Object overflowChecksAdd()
     {
-        return execute((x, y) -> BigintOperators.add(x, y));
+        return execute(BigintOperators::add);
     }
 
     @Benchmark
     public Object overflowChecksSubtract()
     {
-        return execute((x, y) -> BigintOperators.subtract(x, y));
+        return execute(BigintOperators::subtract);
     }
 
     @Benchmark
     public Object overflowChecksMultiply()
     {
-        return execute((x, y) -> BigintOperators.multiply(x, y));
+        return execute(BigintOperators::multiply);
     }
 
     @Benchmark
     public Object overflowChecksDivide()
     {
-        return execute((x, y) -> BigintOperators.divide(x, y));
+        return execute(BigintOperators::divide);
     }
 
     @Benchmark
@@ -99,31 +99,56 @@ public class BenchmarkBigIntOperators
     @Benchmark
     public Object baseLineAdd()
     {
-        return execute((x, y) -> x + y);
+        return execute(BenchmarkBigIntOperators::addBaseline);
     }
 
     @Benchmark
     public Object baseLineSubtract()
     {
-        return execute((x, y) -> x - y);
+        return execute(BenchmarkBigIntOperators::subtractBaseline);
     }
 
     @Benchmark
     public Object baseLineMultiply()
     {
-        return execute((x, y) -> x * y);
+        return execute(BenchmarkBigIntOperators::multiplyBaseline);
     }
 
     @Benchmark
     public Object baseLineDivide()
     {
-        return execute((x, y) -> x / y);
+        return execute(BenchmarkBigIntOperators::divideBaseline);
     }
 
     @Benchmark
     public Object baseLineNegate()
     {
-        return executeSingleOperand(x -> -x);
+        return executeSingleOperand(BenchmarkBigIntOperators::negateBaseLine);
+    }
+
+    private static long addBaseline(long first, long second)
+    {
+        return first + second;
+    }
+
+    private static long subtractBaseline(long first, long second)
+    {
+        return first - second;
+    }
+
+    private static long multiplyBaseline(long first, long second)
+    {
+        return first * second;
+    }
+
+    private static long divideBaseline(long first, long second)
+    {
+        return first / second;
+    }
+
+    private static long negateBaseLine(long x)
+    {
+        return -x;
     }
 
     private Object execute(LongBinaryOperator operator)
