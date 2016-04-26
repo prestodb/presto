@@ -15,12 +15,15 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
@@ -28,13 +31,17 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.RegexpType.REGEXP;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestTypeRegistry
 {
@@ -129,6 +136,41 @@ public class TestTypeRegistry
         assertCommonSuperType("row(a bigint,b double,c varchar)", "row(a bigint,b double,c varchar)", "row(a bigint,b double,c varchar)");
 
         assertCommonSuperType("varchar(42)", "varchar(44)", "varchar(44)");
+    }
+
+    @Test
+    public void testCanCoerceIsTransitive()
+            throws Exception
+    {
+        Set<Type> types = getStandardPrimitiveTypes();
+        for (Type sourceType : types) {
+            for (Type resultType : types) {
+                if (typeRegistry.canCoerce(sourceType, resultType)) {
+                    for (Type transitiveType : types) {
+                        if (typeRegistry.canCoerce(transitiveType, sourceType) && !typeRegistry.canCoerce(transitiveType, resultType)) {
+                            fail(format("'%s' -> '%s' coercion is missing when transitive coercion is possible: '%s' -> '%s' -> '%s'",
+                                    transitiveType, resultType, transitiveType, sourceType, resultType));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private Set<Type> getStandardPrimitiveTypes()
+    {
+        ImmutableSet.Builder<Type> builder = ImmutableSet.builder();
+        // add unparametrized types
+        builder.addAll(typeRegistry.getTypes());
+        // add corner cases for parametrized types
+        builder.add(createDecimalType(1, 0));
+        builder.add(createDecimalType(17, 0));
+        builder.add(createDecimalType(38, 0));
+        builder.add(createDecimalType(17, 17));
+        builder.add(createDecimalType(38, 38));
+        builder.add(createVarcharType(0));
+        builder.add(createUnboundedVarcharType());
+        return builder.build();
     }
 
     private void assertCommonSuperType(Type firstType, Type secondType, Type expected)
