@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
+import com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy;
 import io.airlift.units.DataSize;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -33,4 +34,12 @@ public interface ConfigurableResourceGroup
     int getMaxQueuedQueries();
 
     void setMaxQueuedQueries(int maxQueuedQueries);
+
+    int getSchedulingWeight();
+
+    void setSchedulingWeight(int weight);
+
+    SubGroupSchedulingPolicy getSchedulingPolicy();
+
+    void setSchedulingPolicy(SubGroupSchedulingPolicy policy);
 }

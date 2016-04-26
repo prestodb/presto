@@ -15,12 +15,21 @@ package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.presto.execution.MockQueryExecution;
 import com.facebook.presto.execution.resourceGroups.ResourceGroup.RootResourceGroup;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
+import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.testng.annotations.Test;
+
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Set;
 
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
+import static com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy.WEIGHTED;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.testing.Assertions.assertGreaterThan;
+import static io.airlift.testing.Assertions.assertLessThan;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.testng.Assert.assertEquals;
@@ -147,5 +156,70 @@ public class TestResourceGroups
         root.processQueuedQueries();
         assertEquals(query2.getState(), RUNNING);
         assertEquals(query3.getState(), RUNNING);
+    }
+
+    @Test(timeOut = 10_000)
+    public void testWeightedScheduling()
+    {
+        RootResourceGroup root = new RootResourceGroup("root", directExecutor());
+        root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        root.setMaxQueuedQueries(4);
+        // Start with zero capacity, so that nothing starts running until we've added all the queries
+        root.setMaxRunningQueries(0);
+        root.setSchedulingPolicy(WEIGHTED);
+        ResourceGroup group1 = root.getOrCreateSubGroup("1");
+        group1.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        group1.setMaxQueuedQueries(2);
+        group1.setMaxRunningQueries(2);
+        ResourceGroup group2 = root.getOrCreateSubGroup("2");
+        group2.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        group2.setMaxQueuedQueries(2);
+        group2.setMaxRunningQueries(2);
+        group2.setSchedulingWeight(2);
+
+        Set<MockQueryExecution> group1Queries = fillGroupTo(group1, ImmutableSet.of(), 2);
+        Set<MockQueryExecution> group2Queries = fillGroupTo(group2, ImmutableSet.of(), 2);
+        root.setMaxRunningQueries(1);
+
+        int group2Ran = 0;
+        for (int i = 0; i < 1000; i++) {
+            for (Iterator<MockQueryExecution> iterator = group1Queries.iterator(); iterator.hasNext(); ) {
+                MockQueryExecution query = iterator.next();
+                if (query.getState() == RUNNING) {
+                    query.complete();
+                    iterator.remove();
+                }
+            }
+            for (Iterator<MockQueryExecution> iterator = group2Queries.iterator(); iterator.hasNext(); ) {
+                MockQueryExecution query = iterator.next();
+                if (query.getState() == RUNNING) {
+                    query.complete();
+                    iterator.remove();
+                    group2Ran++;
+                }
+            }
+            root.processQueuedQueries();
+            group1Queries = fillGroupTo(group1, group1Queries, 2);
+            group2Queries = fillGroupTo(group2, group2Queries, 2);
+        }
+
+        // group1 has a weight of 1 and group2 has a weight of 2, so group2 should account for (2 / (1 + 2)) of the queries.
+        // since this is stochastic, we check that the result of 1000 trials are 2/3 with 99.9999% confidence
+        BinomialDistribution binomial = new BinomialDistribution(1000, 2.0 / 3.0);
+        int lowerBound = binomial.inverseCumulativeProbability(0.000001);
+        int upperBound = binomial.inverseCumulativeProbability(0.999999);
+        assertLessThan(group2Ran, upperBound);
+        assertGreaterThan(group2Ran, lowerBound);
+    }
+
+    private static Set<MockQueryExecution> fillGroupTo(ResourceGroup group, Set<MockQueryExecution> existingQueries, int count)
+    {
+        Set<MockQueryExecution> queries = new HashSet<>(existingQueries);
+        while (queries.size() < count) {
+            MockQueryExecution query = new MockQueryExecution(0);
+            queries.add(query);
+            group.add(query);
+        }
+        return queries;
     }
 }

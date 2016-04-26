@@ -14,6 +14,7 @@
 package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.presto.SessionRepresentation;
+import com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy;
 import com.facebook.presto.memory.ClusterMemoryPoolManager;
 import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -134,6 +135,12 @@ public class FileResourceGroupConfigurationManager
         }
         group.setMaxQueuedQueries(match.getMaxQueued());
         group.setMaxRunningQueries(match.getMaxRunning());
+        if (match.getSchedulingPolicy().isPresent()) {
+            group.setSchedulingPolicy(match.getSchedulingPolicy().get());
+        }
+        if (match.getSchedulingWeight().isPresent()) {
+            group.setSchedulingWeight(match.getSchedulingWeight().get());
+        }
     }
 
     @Override
@@ -181,6 +188,8 @@ public class FileResourceGroupConfigurationManager
         private final Optional<Double> softMemoryLimitFraction;
         private final int maxQueued;
         private final int maxRunning;
+        private final Optional<SubGroupSchedulingPolicy> schedulingPolicy;
+        private final Optional<Integer> schedulingWeight;
         private final List<ResourceGroupSpec> subGroups;
 
         @JsonCreator
@@ -189,6 +198,8 @@ public class FileResourceGroupConfigurationManager
                 @JsonProperty("softMemoryLimit") String softMemoryLimit,
                 @JsonProperty("maxQueued") int maxQueued,
                 @JsonProperty("maxRunning") int maxRunning,
+                @JsonProperty("schedulingPolicy") Optional<String> schedulingPolicy,
+                @JsonProperty("schedulingWeight") Optional<Integer> schedulingWeight,
                 @JsonProperty("subGroups") Optional<List<ResourceGroupSpec>> subGroups)
         {
             this.name = requireNonNull(name, "name is null");
@@ -196,6 +207,8 @@ public class FileResourceGroupConfigurationManager
             this.maxQueued = maxQueued;
             checkArgument(maxRunning >= 0, "maxRunning is negative");
             this.maxRunning = maxRunning;
+            this.schedulingPolicy = requireNonNull(schedulingPolicy, "schedulingPolicy is null").map(value -> SubGroupSchedulingPolicy.valueOf(value.toUpperCase()));
+            this.schedulingWeight = requireNonNull(schedulingWeight, "schedulingWeight is null");
             requireNonNull(softMemoryLimit, "softMemoryLimit is null");
             Optional<DataSize> absoluteSize;
             Optional<Double> fraction;
@@ -236,6 +249,16 @@ public class FileResourceGroupConfigurationManager
         public int getMaxRunning()
         {
             return maxRunning;
+        }
+
+        public Optional<SubGroupSchedulingPolicy> getSchedulingPolicy()
+        {
+            return schedulingPolicy;
+        }
+
+        public Optional<Integer> getSchedulingWeight()
+        {
+            return schedulingWeight;
         }
 
         public ResourceGroupNameTemplate getName()
