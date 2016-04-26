@@ -299,7 +299,7 @@ public class ScanFilterAndProjectOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final CursorProcessor cursorProcessor;
+        private final Supplier<CursorProcessor> cursorProcessor;
         private final Supplier<PageProcessor> pageProcessor;
         private final PlanNodeId sourceId;
         private final PageSourceProvider pageSourceProvider;
@@ -312,7 +312,7 @@ public class ScanFilterAndProjectOperator
                 PlanNodeId planNodeId,
                 PlanNodeId sourceId,
                 PageSourceProvider pageSourceProvider,
-                CursorProcessor cursorProcessor,
+                Supplier<CursorProcessor> cursorProcessor,
                 Supplier<PageProcessor> pageProcessor,
                 Iterable<ColumnHandle> columns,
                 List<Type> types)
@@ -348,7 +348,7 @@ public class ScanFilterAndProjectOperator
                     operatorContext,
                     sourceId,
                     pageSourceProvider,
-                    cursorProcessor,
+                    cursorProcessor.get(),
                     pageProcessor.get(),
                     columns,
                     types);
