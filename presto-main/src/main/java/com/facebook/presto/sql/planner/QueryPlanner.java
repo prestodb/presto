@@ -703,6 +703,15 @@ class QueryPlanner
         SubqueryExpression subqueryExpression = (SubqueryExpression) inPredicate.getValueList();
         RelationPlanner relationPlanner = new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session);
         RelationPlan valueListRelation = relationPlanner.process(subqueryExpression.getQuery(), null);
+
+        //add implicit coercion for inPredicate valueList subquery
+        Type coercion = analysis.getCoercion(subqueryExpression);
+        if (coercion != null) {
+            ProjectNode casted = coercionScalarSubquery(valueListRelation.getRoot(), subqueryExpression, valueListRelation);
+            translations.put(subqueryExpression, getOnlyElement(casted.getOutputSymbols()));
+            valueListRelation = new RelationPlan(casted, analysis.getOutputDescriptor(subqueryExpression.getQuery()), casted.getOutputSymbols(), subPlan.getSampleWeight());
+        }
+
         Symbol filteringSourceJoinSymbol = getOnlyElement(valueListRelation.getRoot().getOutputSymbols());
 
         Symbol semiJoinOutputSymbol = symbolAllocator.newSymbol("semijoinresult", BOOLEAN);
@@ -744,7 +753,14 @@ class QueryPlanner
 
     private PlanBuilder appendScalarSubqueryJoin(PlanBuilder builder, SubqueryExpression scalarSubquery)
     {
-        EnforceSingleRowNode enforceSingleRowNode = new EnforceSingleRowNode(idAllocator.getNextId(), createRelationPlan(scalarSubquery).getRoot());
+        RelationPlan relationPlan = createRelationPlan(scalarSubquery);
+        PlanNode enforceSingleRowNode = new EnforceSingleRowNode(idAllocator.getNextId(), relationPlan.getRoot());
+
+        //add implicit coercion for scalar subquery
+        Type coercion = analysis.getCoercion(scalarSubquery);
+        if (coercion != null) {
+            enforceSingleRowNode = coercionScalarSubquery(enforceSingleRowNode, scalarSubquery, relationPlan);
+        }
 
         TranslationMap translations = copyTranslations(builder);
         translations.put(scalarSubquery, getOnlyElement(enforceSingleRowNode.getOutputSymbols()));
@@ -766,6 +782,25 @@ class QueryPlanner
                             Optional.empty()),
                     builder.getSampleWeight());
         }
+    }
+
+    private ProjectNode coercionScalarSubquery(PlanNode node, SubqueryExpression scalarSubquery, RelationPlan relationPlan)
+    {
+        TranslationMap translations = new TranslationMap(relationPlan, analysis);
+        translations.setFieldMappings(relationPlan.getOutputSymbols());
+
+        Symbol output = getOnlyElement(node.getOutputSymbols());
+        translations.put(scalarSubquery, output);
+
+        PlanBuilder subPlan = new PlanBuilder(translations, relationPlan.getRoot(), relationPlan.getSampleWeight());
+
+        ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
+        projections.putAll(coerce(ImmutableList.of(scalarSubquery), subPlan, translations));
+
+        return new ProjectNode(
+                idAllocator.getNextId(),
+                node,
+                projections.build());
     }
 
     private PlanBuilder distinct(PlanBuilder subPlan, QuerySpecification node, List<FieldOrExpression> outputs, List<FieldOrExpression> orderBy)
