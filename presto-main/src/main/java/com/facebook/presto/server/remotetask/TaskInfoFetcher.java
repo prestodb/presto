@@ -162,8 +162,13 @@ public class TaskInfoFetcher
     {
         TaskStatus taskStatus = getTaskInfo().getTaskStatus();
 
-        // stopped or done?
-        if (!running || isDone(getTaskInfo())) {
+        if (!running) {
+            return;
+        }
+
+        // we already have the final task info
+        if (isDone(getTaskInfo())) {
+            stop();
             return;
         }
 
