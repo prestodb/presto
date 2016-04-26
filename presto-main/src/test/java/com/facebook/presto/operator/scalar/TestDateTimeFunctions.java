@@ -47,6 +47,7 @@ import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static java.lang.Math.toIntExact;
@@ -244,9 +245,9 @@ public class TestDateTimeFunctions
     @Test
     public void testToISO8601()
     {
-        assertFunction("to_iso8601(" + TIMESTAMP_LITERAL + ")", VARCHAR, TIMESTAMP_ISO8601_STRING);
-        assertFunction("to_iso8601(" + WEIRD_TIMESTAMP_LITERAL + ")", VARCHAR, WEIRD_TIMESTAMP_ISO8601_STRING);
-        assertFunction("to_iso8601(" + DATE_LITERAL + ")", VARCHAR, DATE_ISO8601_STRING);
+        assertFunction("to_iso8601(" + TIMESTAMP_LITERAL + ")", createVarcharType(35), TIMESTAMP_ISO8601_STRING);
+        assertFunction("to_iso8601(" + WEIRD_TIMESTAMP_LITERAL + ")", createVarcharType(35), WEIRD_TIMESTAMP_ISO8601_STRING);
+        assertFunction("to_iso8601(" + DATE_LITERAL + ")", createVarcharType(16), DATE_ISO8601_STRING);
     }
 
     @Test

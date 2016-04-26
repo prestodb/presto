@@ -431,8 +431,8 @@ public class TestExpressionInterpreter
             throws Exception
     {
         // integer
-        assertOptimizedEquals("cast(123 as VARCHAR)", "'123'");
-        assertOptimizedEquals("cast(-123 as VARCHAR)", "'-123'");
+        assertOptimizedEquals("cast(123 as VARCHAR(20))", "'123'");
+        assertOptimizedEquals("cast(-123 as VARCHAR(20))", "'-123'");
 
         // bigint
         assertOptimizedEquals("cast(BIGINT '123' as VARCHAR)", "'123'");
