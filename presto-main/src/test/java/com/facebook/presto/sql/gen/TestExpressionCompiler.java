@@ -471,6 +471,56 @@ public class TestExpressionCompiler
     }
 
     @Test
+    public void testBinaryOperatorsDecimalInteger()
+            throws Exception
+    {
+        for (BigDecimal left : decimalLefts) {
+            for (Integer right : intRights) {
+                assertExecute(generateExpression("%s = %s", left, right), BOOLEAN, left == null || right == null ? null : left.equals(new BigDecimal(right)));
+                assertExecute(generateExpression("%s <> %s", left, right), BOOLEAN, left == null || right == null ? null : !left.equals(new BigDecimal(right)));
+                assertExecute(generateExpression("%s > %s", left, right), BOOLEAN, left == null || right == null ? null : left.compareTo(new BigDecimal(right)) > 0);
+                assertExecute(generateExpression("%s < %s", left, right), BOOLEAN, left == null || right == null ? null : left.compareTo(new BigDecimal(right)) < 0);
+                assertExecute(generateExpression("%s >= %s", left, right), BOOLEAN, left == null || right == null ? null : left.compareTo(new BigDecimal(right)) >= 0);
+                assertExecute(generateExpression("%s <= %s", left, right), BOOLEAN, left == null || right == null ? null : left.compareTo(new BigDecimal(right)) <= 0);
+
+                assertExecute(generateExpression("nullif(%s, %s)", left, right), BigDecimal.class.cast(nullIf(left, right)));
+
+                assertExecute(generateExpression("%s is distinct from %s", left, right), BOOLEAN,
+                        !Objects.equals(left, right == null ? null : new BigDecimal(right)));
+
+                // arithmetic operators are already tested in TestDecimalOperators
+            }
+        }
+
+        Futures.allAsList(futures).get();
+    }
+
+    @Test
+    public void testBinaryOperatorsIntegerDecimal()
+            throws Exception
+    {
+        for (Integer left : intLefts) {
+            for (BigDecimal right : decimalRights) {
+                assertExecute(generateExpression("%s = %s", left, right), BOOLEAN, left == null || right == null ? null : new BigDecimal(left).equals(right));
+                assertExecute(generateExpression("%s <> %s", left, right), BOOLEAN, left == null || right == null ? null : !new BigDecimal(left).equals(right));
+                assertExecute(generateExpression("%s > %s", left, right), BOOLEAN, left == null || right == null ? null : new BigDecimal(left).compareTo(right) > 0);
+                assertExecute(generateExpression("%s < %s", left, right), BOOLEAN, left == null || right == null ? null : new BigDecimal(left).compareTo(right) < 0);
+                assertExecute(generateExpression("%s >= %s", left, right), BOOLEAN, left == null || right == null ? null : new BigDecimal(left).compareTo(right) >= 0);
+                assertExecute(generateExpression("%s <= %s", left, right), BOOLEAN, left == null || right == null ? null : new BigDecimal(left).compareTo(right) <= 0);
+
+                assertExecute(generateExpression("nullif(%s, %s)", left, right), INTEGER, left);
+
+                assertExecute(generateExpression("%s is distinct from %s", left, right), BOOLEAN,
+                        !Objects.equals(left == null ? null : new BigDecimal(left), right));
+
+                // arithmetic operators are already tested in TestDecimalOperators
+            }
+        }
+
+        Futures.allAsList(futures).get();
+    }
+
+    @Test
     public void testBinaryOperatorsDecimalDouble()
             throws Exception
     {
@@ -1397,6 +1447,16 @@ public class TestExpressionCompiler
     private List<String> generateExpression(String expressionPattern, BigDecimal left, Long right)
     {
         return formatExpression(expressionPattern, left, getDecimalType(left).toString(), right, "bigint");
+    }
+
+    private List<String> generateExpression(String expressionPattern, Integer left, BigDecimal right)
+    {
+        return formatExpression(expressionPattern, left, "integer", right, getDecimalType(right).toString());
+    }
+
+    private List<String> generateExpression(String expressionPattern, BigDecimal left, Integer right)
+    {
+        return formatExpression(expressionPattern, left, getDecimalType(left).toString(), right, "integer");
     }
 
     private List<String> generateExpression(String expressionPattern, Double left, BigDecimal right)

@@ -384,6 +384,8 @@ public final class TypeRegistry
                         return Optional.of(BIGINT);
                     case StandardTypes.DOUBLE:
                         return Optional.of(DOUBLE);
+                    case StandardTypes.DECIMAL:
+                        return Optional.of(createDecimalType(10, 0));
                     default:
                         return Optional.empty();
                 }
