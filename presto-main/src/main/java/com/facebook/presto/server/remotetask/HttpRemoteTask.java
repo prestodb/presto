@@ -306,7 +306,6 @@ public final class HttpRemoteTask
                 Collection<Split> splits = entry.getValue();
 
                 checkState(!noMoreSplits.contains(sourceId), "noMoreSplits has already been set for %s", sourceId);
-                checkState(!noMoreSplits.contains(sourceId), "noMoreSplits has already been set for %s", sourceId);
                 int added = 0;
                 for (Split split : splits) {
                     if (pendingSplits.put(sourceId, new ScheduledSplit(nextSplitId.getAndIncrement(), split))) {
