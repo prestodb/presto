@@ -608,7 +608,7 @@ public final class FunctionAssertions
                 SQL_PARSER, INPUT_TYPES, ImmutableList.of(filter, projection));
 
         try {
-            CursorProcessor cursorProcessor = compiler.compileCursorProcessor(
+            Supplier<CursorProcessor> cursorProcessor = compiler.compileCursorProcessor(
                     toRowExpression(filter, expressionTypes),
                     ImmutableList.of(toRowExpression(projection, expressionTypes)),
                     SOURCE_ID);
