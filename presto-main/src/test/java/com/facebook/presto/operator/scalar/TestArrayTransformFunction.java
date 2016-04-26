@@ -84,7 +84,7 @@ public class TestArrayTransformFunction
         assertFunction("transform(ARRAY [25, 26], x -> x + 1)", new ArrayType(INTEGER), ImmutableList.of(26, 27));
         assertFunction("transform(ARRAY [25, 26], x -> x + 1.0)", new ArrayType(DOUBLE), ImmutableList.of(26.0, 27.0));
         assertFunction("transform(ARRAY [25, 26], x -> x = 25)", new ArrayType(BOOLEAN), ImmutableList.of(true, false));
-        assertFunction("transform(ARRAY [25, 26], x -> to_base(x, 16))", new ArrayType(createUnboundedVarcharType()), ImmutableList.of("19", "1a"));
+        assertFunction("transform(ARRAY [25, 26], x -> to_base(x, 16))", new ArrayType(createVarcharType(64)), ImmutableList.of("19", "1a"));
         assertFunction("transform(ARRAY [25, 26], x -> ARRAY[x + 1])", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(26), ImmutableList.of(27)));
 
         assertFunction("transform(ARRAY [25.6, 27.3], x -> CAST(x AS BIGINT))", new ArrayType(BIGINT), ImmutableList.of(26L, 27L));

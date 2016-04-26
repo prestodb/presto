@@ -14,10 +14,13 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.ColorType;
+import com.facebook.presto.type.Constraint;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
 
@@ -81,8 +84,9 @@ public final class ColorFunctions
     private ColorFunctions() {}
 
     @ScalarFunction
+    @LiteralParameters("x")
     @SqlType(ColorType.NAME)
-    public static long color(@SqlType(StandardTypes.VARCHAR) Slice color)
+    public static long color(@SqlType("varchar(x)") Slice color)
     {
         int rgb = parseRgb(color);
 
@@ -150,8 +154,12 @@ public final class ColorFunctions
     }
 
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice render(@SqlType(StandardTypes.VARCHAR) Slice value, @SqlType(ColorType.NAME) long color)
+    @LiteralParameters({"x", "y"})
+    @Constraint(variable = "y", expression = "x + 15")
+    // Color formatting uses 15 characters. Note that if the ansiColorEscape function implementation
+    // changes, this value may be invalidated.
+    @SqlType("varchar(y)")
+    public static Slice render(@SqlType("varchar(x)") Slice value, @SqlType(ColorType.NAME) long color)
     {
         StringBuilder builder = new StringBuilder(value.length());
 
@@ -164,35 +172,35 @@ public final class ColorFunctions
     }
 
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
+    @SqlType("varchar(35)")
     public static Slice render(@SqlType(StandardTypes.BIGINT) long value, @SqlType(ColorType.NAME) long color)
     {
         return render(utf8Slice(Long.toString(value)), color);
     }
 
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
+    @SqlType("varchar(41)")
     public static Slice render(@SqlType(StandardTypes.DOUBLE) double value, @SqlType(ColorType.NAME) long color)
     {
         return render(utf8Slice(Double.toString(value)), color);
     }
 
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
+    @SqlType("varchar(16)")
     public static Slice render(@SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         return value ? RENDERED_TRUE : RENDERED_FALSE;
     }
 
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
+    @SqlType(VarcharType.VARCHAR_UNBOUNDED)
     public static Slice bar(@SqlType(StandardTypes.DOUBLE) double percent, @SqlType(StandardTypes.BIGINT) long width)
     {
         return bar(percent, width, rgb(255, 0, 0), rgb(0, 255, 0));
     }
 
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
+    @SqlType(VarcharType.VARCHAR_UNBOUNDED)
     public static Slice bar(
             @SqlType(StandardTypes.DOUBLE) double percent,
             @SqlType(StandardTypes.BIGINT) long width,

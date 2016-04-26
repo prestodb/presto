@@ -524,7 +524,7 @@ public class TestSignatureBinder
     }
 
     @Test
-    public void testBindToUnparametrizedVarchar()
+    public void testBindToUnparametrizedVarcharIsImpossible()
             throws Exception
     {
         Signature function = functionSignature()
