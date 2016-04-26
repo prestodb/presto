@@ -32,7 +32,6 @@ import com.facebook.presto.spi.Node;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.Multimap;
-import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.http.client.HttpClient;
 import io.airlift.json.JsonCodec;
@@ -43,14 +42,13 @@ import org.weakref.jmx.Nested;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 
+import static io.airlift.concurrent.BoundedThreadPool.newBoundedThreadPool;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 public class HttpRemoteTaskFactory
@@ -64,8 +62,7 @@ public class HttpRemoteTaskFactory
     private final Duration minErrorDuration;
     private final Duration taskStatusRefreshMaxWait;
     private final Duration taskInfoUpdateInterval;
-    private final ExecutorService coreExecutor;
-    private final Executor executor;
+    private final ExecutorService executor;
     private final ThreadPoolExecutorMBean executorMBean;
     private final ScheduledExecutorService updateScheduledExecutor;
     private final ScheduledExecutorService errorScheduledExecutor;
@@ -89,9 +86,8 @@ public class HttpRemoteTaskFactory
         this.minErrorDuration = config.getRemoteTaskMinErrorDuration();
         this.taskStatusRefreshMaxWait = taskConfig.getStatusRefreshMaxWait();
         this.taskInfoUpdateInterval = taskConfig.getInfoUpdateInterval();
-        this.coreExecutor = newCachedThreadPool(daemonThreadsNamed("remote-task-callback-%s"));
-        this.executor = new BoundedExecutor(coreExecutor, config.getRemoteTaskMaxCallbackThreads());
-        this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) coreExecutor);
+        this.executor = newBoundedThreadPool(config.getRemoteTaskMaxCallbackThreads(), daemonThreadsNamed("remote-task-callback-%s"));
+        this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
         this.stats = requireNonNull(stats, "stats is null");
 
         this.updateScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("task-info-update-scheduler-%s"));
@@ -108,7 +104,7 @@ public class HttpRemoteTaskFactory
     @PreDestroy
     public void stop()
     {
-        coreExecutor.shutdownNow();
+        executor.shutdownNow();
         updateScheduledExecutor.shutdownNow();
         errorScheduledExecutor.shutdownNow();
     }
