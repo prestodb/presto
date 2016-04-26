@@ -38,14 +38,32 @@ import java.util.function.LongUnaryOperator;
 @BenchmarkMode(Mode.Throughput)
 public class BenchmarkBigIntOperators
 {
-    private long[] leftOperands;
-    private long[] rightOperands;
+    private long leftOperand0;
+    private long leftOperand1;
+    private long leftOperand2;
+    private long leftOperand3;
+    private long leftOperand4;
+
+    private long rightOperand0;
+    private long rightOperand1;
+    private long rightOperand2;
+    private long rightOperand3;
+    private long rightOperand4;
 
     @Setup
     public void setup()
     {
-        leftOperands = new long[] { 1, 20, 33, 407, 7890 };
-        rightOperands = new long[] { 123456, 9003, 809, 67, 5};
+        leftOperand0 = 1;
+        leftOperand1 = 20;
+        leftOperand2 = 33;
+        leftOperand3 = 407;
+        leftOperand4 = 7890;
+
+        rightOperand0 = 123456;
+        rightOperand1 = 9003;
+        rightOperand2 = 809;
+        rightOperand3 = 67;
+        rightOperand4 = 5;
     }
 
     @Benchmark
@@ -111,47 +129,47 @@ public class BenchmarkBigIntOperators
     private Object execute(LongBinaryOperator operator)
     {
         long result = 0;
-        result += operator.applyAsLong(leftOperands[0], rightOperands[0]);
-        result += operator.applyAsLong(leftOperands[1], rightOperands[0]);
-        result += operator.applyAsLong(leftOperands[2], rightOperands[0]);
-        result += operator.applyAsLong(leftOperands[3], rightOperands[0]);
-        result += operator.applyAsLong(leftOperands[4], rightOperands[0]);
-        result += operator.applyAsLong(leftOperands[0], rightOperands[1]);
-        result += operator.applyAsLong(leftOperands[1], rightOperands[1]);
-        result += operator.applyAsLong(leftOperands[2], rightOperands[1]);
-        result += operator.applyAsLong(leftOperands[3], rightOperands[1]);
-        result += operator.applyAsLong(leftOperands[4], rightOperands[1]);
-        result += operator.applyAsLong(leftOperands[0], rightOperands[2]);
-        result += operator.applyAsLong(leftOperands[1], rightOperands[2]);
-        result += operator.applyAsLong(leftOperands[2], rightOperands[2]);
-        result += operator.applyAsLong(leftOperands[3], rightOperands[2]);
-        result += operator.applyAsLong(leftOperands[4], rightOperands[2]);
-        result += operator.applyAsLong(leftOperands[0], rightOperands[3]);
-        result += operator.applyAsLong(leftOperands[1], rightOperands[3]);
-        result += operator.applyAsLong(leftOperands[2], rightOperands[3]);
-        result += operator.applyAsLong(leftOperands[3], rightOperands[3]);
-        result += operator.applyAsLong(leftOperands[4], rightOperands[3]);
-        result += operator.applyAsLong(leftOperands[0], rightOperands[4]);
-        result += operator.applyAsLong(leftOperands[1], rightOperands[4]);
-        result += operator.applyAsLong(leftOperands[2], rightOperands[4]);
-        result += operator.applyAsLong(leftOperands[3], rightOperands[4]);
-        result += operator.applyAsLong(leftOperands[4], rightOperands[4]);
+        result += operator.applyAsLong(leftOperand0, rightOperand0);
+        result += operator.applyAsLong(leftOperand1, rightOperand0);
+        result += operator.applyAsLong(leftOperand2, rightOperand0);
+        result += operator.applyAsLong(leftOperand3, rightOperand0);
+        result += operator.applyAsLong(leftOperand4, rightOperand0);
+        result += operator.applyAsLong(leftOperand0, rightOperand1);
+        result += operator.applyAsLong(leftOperand1, rightOperand1);
+        result += operator.applyAsLong(leftOperand2, rightOperand1);
+        result += operator.applyAsLong(leftOperand3, rightOperand1);
+        result += operator.applyAsLong(leftOperand4, rightOperand1);
+        result += operator.applyAsLong(leftOperand0, rightOperand2);
+        result += operator.applyAsLong(leftOperand1, rightOperand2);
+        result += operator.applyAsLong(leftOperand2, rightOperand2);
+        result += operator.applyAsLong(leftOperand3, rightOperand2);
+        result += operator.applyAsLong(leftOperand4, rightOperand2);
+        result += operator.applyAsLong(leftOperand0, rightOperand3);
+        result += operator.applyAsLong(leftOperand1, rightOperand3);
+        result += operator.applyAsLong(leftOperand2, rightOperand3);
+        result += operator.applyAsLong(leftOperand3, rightOperand3);
+        result += operator.applyAsLong(leftOperand4, rightOperand3);
+        result += operator.applyAsLong(leftOperand0, rightOperand4);
+        result += operator.applyAsLong(leftOperand1, rightOperand4);
+        result += operator.applyAsLong(leftOperand2, rightOperand4);
+        result += operator.applyAsLong(leftOperand3, rightOperand4);
+        result += operator.applyAsLong(leftOperand4, rightOperand4);
         return result;
     }
 
     private Object executeSingleOperand(LongUnaryOperator operator)
     {
         long result = 0;
-        result += operator.applyAsLong(leftOperands[0]);
-        result += operator.applyAsLong(leftOperands[1]);
-        result += operator.applyAsLong(leftOperands[2]);
-        result += operator.applyAsLong(leftOperands[3]);
-        result += operator.applyAsLong(leftOperands[4]);
-        result += operator.applyAsLong(rightOperands[0]);
-        result += operator.applyAsLong(rightOperands[1]);
-        result += operator.applyAsLong(rightOperands[2]);
-        result += operator.applyAsLong(rightOperands[3]);
-        result += operator.applyAsLong(rightOperands[4]);
+        result += operator.applyAsLong(leftOperand0);
+        result += operator.applyAsLong(leftOperand1);
+        result += operator.applyAsLong(leftOperand2);
+        result += operator.applyAsLong(leftOperand3);
+        result += operator.applyAsLong(leftOperand4);
+        result += operator.applyAsLong(rightOperand0);
+        result += operator.applyAsLong(rightOperand1);
+        result += operator.applyAsLong(rightOperand2);
+        result += operator.applyAsLong(rightOperand3);
+        result += operator.applyAsLong(rightOperand4);
         return result;
     }
 
