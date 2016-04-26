@@ -25,6 +25,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -120,6 +121,10 @@ public class TestTypeRegistry
 
         assertTrue(canCoerce("decimal(3,2)", "double"));
         assertTrue(canCoerce("decimal(22,1)", "double"));
+
+        assertFalse(canCoerce("integer", "decimal(9,0)"));
+        assertTrue(canCoerce("integer", "decimal(10,0)"));
+        assertTrue(canCoerce("integer", "decimal(37,1)"));
     }
 
     @Test
@@ -159,6 +164,11 @@ public class TestTypeRegistry
 
         assertCommonSuperType("decimal(3,2)", "double", "double");
         assertCommonSuperType("decimal(22,1)", "double", "double");
+
+        assertCommonSuperType("integer", "decimal(23,1)", "decimal(23,1)");
+        assertCommonSuperType("integer", "decimal(9,0)", "decimal(10,0)");
+        assertCommonSuperType("integer", "decimal(10,0)", "decimal(10,0)");
+        assertCommonSuperType("integer", "decimal(37,1)", "decimal(37,1)");
     }
 
     @Test
@@ -167,6 +177,7 @@ public class TestTypeRegistry
     {
         assertEquals(typeRegistry.coerceTypeBase(createDecimalType(21, 1), "decimal"), Optional.of(createDecimalType(21, 1)));
         assertEquals(typeRegistry.coerceTypeBase(BIGINT, "decimal"), Optional.of(createDecimalType(19, 0)));
+        assertEquals(typeRegistry.coerceTypeBase(INTEGER, "decimal"), Optional.of(createDecimalType(10, 0)));
     }
 
     @Test
