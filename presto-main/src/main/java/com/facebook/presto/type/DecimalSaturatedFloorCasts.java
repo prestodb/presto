@@ -30,6 +30,7 @@ import static com.facebook.presto.spi.type.Decimals.decodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
+import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
 import static java.math.BigInteger.ONE;
 import static java.math.RoundingMode.FLOOR;
 
@@ -167,5 +168,46 @@ public final class DecimalSaturatedFloorCasts
     public static Slice doubleToLongDecimal(double value, int resultPrecision, int resultScale)
     {
         return encodeUnscaledValue(bigDecimalToBigintFloorSaturatedCast(BigDecimal.valueOf(value), resultPrecision, resultScale));
+    }
+
+    public static final SqlScalarFunction DECIMAL_TO_INTEGER_SATURATED_FLOOR_CAST = SqlScalarFunction.builder(DecimalSaturatedFloorCasts.class)
+            .signature(Signature.builder()
+                    .kind(SCALAR)
+                    .operatorType(SATURATED_FLOOR_CAST)
+                    .literalParameters("source_precision", "source_scale")
+                    .argumentTypes("decimal(source_precision,source_scale)")
+                    .returnType(INTEGER)
+                    .build()
+            )
+            .implementation(b -> b
+                    .methods("shortDecimalToInteger", "longDecimalToInteger")
+                    .withExtraParameters((context) -> {
+                        int sourceScale = Ints.checkedCast(context.getLiteral("source_scale"));
+                        return ImmutableList.of(sourceScale);
+                    })
+            ).build();
+
+    @UsedByGeneratedCode
+    public static long shortDecimalToInteger(long value, int sourceScale)
+    {
+        return decimalToIntegerSaturatedFloorCast(new BigDecimal(BigInteger.valueOf(value), sourceScale));
+    }
+
+    @UsedByGeneratedCode
+    public static long longDecimalToInteger(Slice value, int sourceScale)
+    {
+        return decimalToIntegerSaturatedFloorCast(new BigDecimal(decodeUnscaledValue(value), sourceScale));
+    }
+
+    private static int decimalToIntegerSaturatedFloorCast(BigDecimal bigDecimal)
+    {
+        BigInteger unscaledValue = bigDecimal.setScale(0, FLOOR).unscaledValue();
+        if (unscaledValue.compareTo(BigInteger.valueOf(Integer.MAX_VALUE)) > 0) {
+            return Integer.MAX_VALUE;
+        }
+        if (unscaledValue.compareTo(BigInteger.valueOf(Integer.MIN_VALUE)) < 0) {
+            return Integer.MIN_VALUE;
+        }
+        return unscaledValue.intValueExact();
     }
 }
