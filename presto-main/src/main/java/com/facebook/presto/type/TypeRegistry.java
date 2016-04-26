@@ -558,6 +558,12 @@ public final class TypeRegistry
             ));
         }
 
+        if (typeSignaturePair.is(StandardTypes.DECIMAL, StandardTypes.INTEGER)) {
+            return getCommonSuperTypeForDecimals(new TypeSignaturePair(
+                    typeSignaturePair.get(StandardTypes.DECIMAL), createDecimalTypeSignature(10, 0)
+            ));
+        }
+
         if (typeSignaturePair.is(StandardTypes.DECIMAL, StandardTypes.DECIMAL)) {
             return getCommonSuperTypeForDecimals(typeSignaturePair);
         }

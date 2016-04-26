@@ -25,6 +25,7 @@ import java.util.Optional;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -132,6 +133,12 @@ public class TestTypeRegistry
         assertTrue(TypeRegistry.canCoerce(parseTypeSignature("decimal(22,1)"), DOUBLE.getTypeSignature()));
         assertTrue(TypeRegistry.canCoerce(parseTypeSignature("decimal"), DOUBLE.getTypeSignature()));
         assertTrue(TypeRegistry.canCoerce(decimalPS, DOUBLE.getTypeSignature()));
+
+        assertFalse(TypeRegistry.canCoerce(INTEGER.getTypeSignature(), parseTypeSignature("decimal(9,0)")));
+        assertTrue(TypeRegistry.canCoerce(INTEGER.getTypeSignature(), parseTypeSignature("decimal(10,0)")));
+        assertTrue(TypeRegistry.canCoerce(INTEGER.getTypeSignature(), parseTypeSignature("decimal(37,1)")));
+        assertTrue(TypeRegistry.canCoerce(INTEGER.getTypeSignature(), parseTypeSignature("decimal")));
+        assertTrue(TypeRegistry.canCoerce(INTEGER.getTypeSignature(), decimalPS));
     }
 
     @Test
@@ -181,6 +188,13 @@ public class TestTypeRegistry
         assertCommonSuperType("decimal(22,1)", "double", "double");
         assertCommonSuperType("decimal", "double", "double");
         assertCommonSuperType(decimalPS, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature());
+
+        assertCommonSuperType(INTEGER.getTypeSignature(), parseTypeSignature("decimal(23,1)"), parseTypeSignature("decimal(23,1)"));
+        assertCommonSuperType(INTEGER.getTypeSignature(), parseTypeSignature("decimal(9,0)"), parseTypeSignature("decimal(10,0)"));
+        assertCommonSuperType(INTEGER.getTypeSignature(), parseTypeSignature("decimal(10,0)"), parseTypeSignature("decimal(10,0)"));
+        assertCommonSuperType(INTEGER.getTypeSignature(), parseTypeSignature("decimal(37,1)"), parseTypeSignature("decimal(37,1)"));
+        assertCommonSuperType(INTEGER.getTypeSignature(), parseTypeSignature("decimal"), parseTypeSignature("decimal(10,0)"));
+        assertCommonSuperType(INTEGER.getTypeSignature(), decimalPS, parseTypeSignature("decimal(10,0)"));
     }
 
     private void assertCommonSuperType(Type firstType, Type secondType, Type expected)
