@@ -14,8 +14,6 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.Description;
-import com.facebook.presto.operator.aggregation.GenericAggregationFunctionFactory;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.scalar.JsonPath;
 import com.facebook.presto.operator.scalar.ReflectionParametricScalar;
 import com.facebook.presto.operator.scalar.ScalarFunction;
@@ -110,27 +108,9 @@ public class FunctionListBuilder
         return this;
     }
 
-    public FunctionListBuilder aggregate(List<InternalAggregationFunction> functions)
-    {
-        for (InternalAggregationFunction function : functions) {
-            aggregate(function);
-        }
-        return this;
-    }
-
-    public FunctionListBuilder aggregate(InternalAggregationFunction function)
-    {
-        String name = function.name();
-        name = name.toLowerCase(ENGLISH);
-
-        String description = getDescription(function.getClass());
-        functions.add(SqlAggregationFunction.create(name, description, function));
-        return this;
-    }
-
     public FunctionListBuilder aggregate(Class<?> aggregationDefinition)
     {
-        functions.addAll(GenericAggregationFunctionFactory.fromAggregationDefinition(aggregationDefinition, typeManager).listFunctions());
+        functions.addAll(SqlAggregationFunction.createByAnnotations(aggregationDefinition));
         return this;
     }
 

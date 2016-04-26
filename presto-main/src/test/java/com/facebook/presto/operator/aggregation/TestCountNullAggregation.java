@@ -34,8 +34,7 @@ public class TestCountNullAggregation
     @BeforeClass
     public void setup()
     {
-        InternalAggregationFunction function = new AggregationCompiler().generateAggregationFunction(CountNull.class);
-        functionRegistry.addFunctions(new FunctionListBuilder(new TypeRegistry()).aggregate(function).getFunctions());
+        functionRegistry.addFunctions(new FunctionListBuilder(new TypeRegistry()).aggregate(CountNull.class).getFunctions());
     }
 
     @Override
