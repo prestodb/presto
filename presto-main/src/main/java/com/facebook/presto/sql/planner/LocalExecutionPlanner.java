@@ -1109,7 +1109,7 @@ public class LocalExecutionPlanner
 
             try {
                 if (columns != null) {
-                    CursorProcessor cursorProcessor = compiler.compileCursorProcessor(translatedFilter, translatedProjections, sourceNode.getId());
+                    Supplier<CursorProcessor> cursorProcessor = compiler.compileCursorProcessor(translatedFilter, translatedProjections, sourceNode.getId());
                     Supplier<PageProcessor> pageProcessor = compiler.compilePageProcessor(translatedFilter, translatedProjections);
 
                     SourceOperatorFactory operatorFactory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
@@ -1181,7 +1181,7 @@ public class LocalExecutionPlanner
                         planNodeId,
                         sourceNode.getId(),
                         pageSourceProvider,
-                        new GenericCursorProcessor(filterFunction, projectionFunctions),
+                        () -> new GenericCursorProcessor(filterFunction, projectionFunctions),
                         () -> new GenericPageProcessor(filterFunction, projectionFunctions),
                         columns,
                         toTypes(projectionFunctions));

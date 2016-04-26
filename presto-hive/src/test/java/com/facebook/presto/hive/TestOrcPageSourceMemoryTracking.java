@@ -419,7 +419,7 @@ public class TestOrcPageSourceMemoryTracking
                     new PlanNodeId("test"),
                     new PlanNodeId("0"),
                     (session, split, columnHandles) -> pageSource,
-                    new GenericCursorProcessor(FilterFunctions.TRUE_FUNCTION, projections),
+                    () -> new GenericCursorProcessor(FilterFunctions.TRUE_FUNCTION, projections),
                     () -> new GenericPageProcessor(FilterFunctions.TRUE_FUNCTION, projections),
                     columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList()),
                     types
