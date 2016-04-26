@@ -26,11 +26,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy.FAIR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -41,6 +41,8 @@ import static java.util.Objects.requireNonNull;
 public class ResourceGroup
         implements ConfigurableResourceGroup
 {
+    public static final int DEFAULT_WEIGHT = 1;
+
     private final ResourceGroup root;
     private final Optional<ResourceGroup> parent;
     private final ResourceGroupId id;
@@ -51,7 +53,7 @@ public class ResourceGroup
     // Sub groups with queued queries, that have capacity to run them
     // That is, they must return true when internalStartNext() is called on them
     @GuardedBy("root")
-    private final Queue<ResourceGroup> eligibleSubGroups = new FifoQueue<>();
+    private UpdateablePriorityQueue<ResourceGroup> eligibleSubGroups = new FifoQueue<>();
     @GuardedBy("root")
     private final Set<ResourceGroup> dirtySubGroups = new HashSet<>();
     @GuardedBy("root")
@@ -67,9 +69,13 @@ public class ResourceGroup
     @GuardedBy("root")
     private long cachedMemoryUsageBytes;
     @GuardedBy("root")
-    private final Queue<QueryExecution> queuedQueries = new FifoQueue<>();
+    private int schedulingWeight = DEFAULT_WEIGHT;
+    @GuardedBy("root")
+    private final UpdateablePriorityQueue<QueryExecution> queuedQueries = new FifoQueue<>();
     @GuardedBy("root")
     private final Set<QueryExecution> runningQueries = new HashSet<>();
+    @GuardedBy("root")
+    private SubGroupSchedulingPolicy schedulingPolicy = FAIR;
 
     protected ResourceGroup(Optional<ResourceGroup> parent, String name, Executor executor)
     {
@@ -168,6 +174,62 @@ public class ResourceGroup
         }
     }
 
+    @Override
+    public int getSchedulingWeight()
+    {
+        synchronized (root) {
+            return schedulingWeight;
+        }
+    }
+
+    @Override
+    public void setSchedulingWeight(int weight)
+    {
+        checkArgument(weight > 0, "weight must be positive");
+        synchronized (root) {
+            this.schedulingWeight = weight;
+            if (parent.isPresent() && parent.get().eligibleSubGroups.contains(this)) {
+                parent.get().eligibleSubGroups.addOrUpdate(this, weight);
+            }
+        }
+    }
+
+    @Override
+    public SubGroupSchedulingPolicy getSchedulingPolicy()
+    {
+        synchronized (root) {
+            return schedulingPolicy;
+        }
+    }
+
+    @Override
+    public void setSchedulingPolicy(SubGroupSchedulingPolicy policy)
+    {
+        synchronized (root) {
+            if (policy == schedulingPolicy) {
+                return;
+            }
+
+            UpdateablePriorityQueue<ResourceGroup> queue;
+            switch (policy) {
+                case FAIR:
+                    queue = new FifoQueue<>();
+                    break;
+                case WEIGHTED:
+                    queue = new StochasticPriorityQueue<>();
+                    break;
+                default:
+                    throw new UnsupportedOperationException("Unsupported scheduling policy: " + policy);
+            }
+            while (!eligibleSubGroups.isEmpty()) {
+                ResourceGroup group = eligibleSubGroups.poll();
+                queue.addOrUpdate(group, group.getSchedulingWeight());
+            }
+            eligibleSubGroups = queue;
+            schedulingPolicy = policy;
+        }
+    }
+
     public ResourceGroup getOrCreateSubGroup(String name)
     {
         requireNonNull(name, "name is null");
@@ -223,7 +285,7 @@ public class ResourceGroup
     {
         checkState(Thread.holdsLock(root), "Must hold lock to enqueue a query");
         synchronized (root) {
-            queuedQueries.add(query);
+            queuedQueries.addOrUpdate(query, DEFAULT_WEIGHT);
             ResourceGroup group = this;
             while (group.parent.isPresent()) {
                 group.parent.get().descendantQueuedQueries++;
@@ -241,7 +303,7 @@ public class ResourceGroup
                 return;
             }
             if (isEligibleToStartNext()) {
-                parent.get().eligibleSubGroups.add(this);
+                parent.get().eligibleSubGroups.addOrUpdate(this, schedulingWeight);
             }
             else {
                 parent.get().eligibleSubGroups.remove(this);
@@ -340,7 +402,7 @@ public class ResourceGroup
             descendantQueuedQueries--;
             // Don't call updateEligibility here, as we're in a recursive call, and don't want to repeatedly update our ancestors.
             if (subGroup.isEligibleToStartNext()) {
-                eligibleSubGroups.add(subGroup);
+                eligibleSubGroups.addOrUpdate(subGroup, subGroup.getSchedulingWeight());
             }
             return true;
         }
@@ -425,5 +487,11 @@ public class ResourceGroup
                 // start all the queries we can
             }
         }
+    }
+
+    public enum SubGroupSchedulingPolicy
+    {
+        FAIR,
+        WEIGHTED
     }
 }

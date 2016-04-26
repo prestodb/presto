@@ -25,6 +25,9 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.execution.resourceGroups.ResourceGroup.DEFAULT_WEIGHT;
+import static com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy.FAIR;
+import static com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy.WEIGHTED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -82,6 +85,15 @@ public class TestFileResourceGroupConfigurationManager
         assertEquals(global.getSoftMemoryLimit(), new DataSize(1, MEGABYTE));
         assertEquals(global.getMaxQueuedQueries(), 1000);
         assertEquals(global.getMaxRunningQueries(), 100);
+        assertEquals(global.getSchedulingPolicy(), WEIGHTED);
+        assertEquals(global.getSchedulingWeight(), DEFAULT_WEIGHT);
+        ResourceGroup sub = global.getOrCreateSubGroup("sub");
+        manager.configure(sub, testSessionBuilder().build().toSessionRepresentation());
+        assertEquals(sub.getSoftMemoryLimit(), new DataSize(2, MEGABYTE));
+        assertEquals(sub.getMaxRunningQueries(), 3);
+        assertEquals(sub.getMaxQueuedQueries(), 4);
+        assertEquals(sub.getSchedulingPolicy(), FAIR);
+        assertEquals(sub.getSchedulingWeight(), 5);
     }
 
     private FileResourceGroupConfigurationManager parse(String fileName)
