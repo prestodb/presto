@@ -16,7 +16,6 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.operator.aggregation.state.DigestAndPercentileState;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.SqlType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.stats.QuantileDigest;
@@ -32,9 +31,21 @@ import static com.google.common.base.Preconditions.checkState;
 @AggregationFunction("approx_percentile")
 public final class ApproximateDoublePercentileAggregations
 {
-    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateDoublePercentileAggregations.class, DOUBLE, ImmutableList.<Type>of(DOUBLE, DOUBLE));
-    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateDoublePercentileAggregations.class, DOUBLE, ImmutableList.<Type>of(DOUBLE, BIGINT, DOUBLE));
-    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY = new AggregationCompiler().generateAggregationFunction(ApproximateDoublePercentileAggregations.class, DOUBLE, ImmutableList.<Type>of(DOUBLE, BIGINT, DOUBLE, DOUBLE));
+    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION =
+            AggregationCompiler.generateAggregationBindableFunction(
+                    ApproximateDoublePercentileAggregations.class,
+                    DOUBLE.getTypeSignature(),
+                    ImmutableList.of(DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature())).getOnlySpecialization();
+    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION =
+            AggregationCompiler.generateAggregationBindableFunction(
+                    ApproximateDoublePercentileAggregations.class,
+                    DOUBLE.getTypeSignature(),
+                    ImmutableList.of(DOUBLE.getTypeSignature(), BIGINT.getTypeSignature(), DOUBLE.getTypeSignature())).getOnlySpecialization();
+    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY =
+            AggregationCompiler.generateAggregationBindableFunction(
+                    ApproximateDoublePercentileAggregations.class,
+                    DOUBLE.getTypeSignature(),
+                    ImmutableList.of(DOUBLE.getTypeSignature(), BIGINT.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature())).getOnlySpecialization();
 
     private ApproximateDoublePercentileAggregations() {}
 

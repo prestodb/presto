@@ -19,6 +19,7 @@ import com.facebook.presto.operator.aggregation.InputFunction;
 import com.facebook.presto.operator.aggregation.OutputFunction;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.type.LiteralParameters;
 import com.facebook.presto.type.SqlType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -44,7 +45,8 @@ public final class EvaluateClassifierPredictionsAggregation
     }
 
     @InputFunction
-    public static void input(EvaluateClassifierPredictionsState state, @SqlType(StandardTypes.VARCHAR) Slice truth, @SqlType(StandardTypes.VARCHAR) Slice prediction)
+    @LiteralParameters({"x", "y"})
+    public static void input(EvaluateClassifierPredictionsState state, @SqlType("varchar(x)") Slice truth, @SqlType("varchar(y)") Slice prediction)
     {
         if (truth.equals(prediction)) {
             String key = truth.toStringUtf8();

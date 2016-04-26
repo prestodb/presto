@@ -18,18 +18,13 @@ import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.type.SqlType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
 import javax.annotation.Nullable;
 
-import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
@@ -39,8 +34,6 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.SAMPLE_WEIGHT;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -257,49 +250,39 @@ public class AggregationMetadata
             this.sqlType = sqlType;
         }
 
-        public static ParameterMetadata fromAnnotations(Annotation[] annotations, String methodName, TypeManager typeManager, boolean sampleWeightAllowed)
+        public static ParameterMetadata fromSqlType(Type sqlType, boolean isBlock, boolean isNullable, String methodName)
         {
-            List<Annotation> baseTypes = Arrays.asList(annotations).stream()
-                    .filter(annotation -> annotation instanceof SqlType || annotation instanceof BlockIndex || annotation instanceof SampleWeight)
-                    .collect(toImmutableList());
-
-            checkArgument(baseTypes.size() == 1, "Parameter of %s must have exactly one of @SqlType, @BlockIndex, and @SampleWeight", methodName);
-
-            boolean nullable = Arrays.asList(annotations).stream().anyMatch(annotation -> annotation instanceof NullablePosition);
-            boolean isBlock = Arrays.asList(annotations).stream().anyMatch(annotation -> annotation instanceof BlockPosition);
-
-            Annotation annotation = baseTypes.get(0);
-            checkArgument((!isBlock  && !nullable) || (annotation instanceof SqlType),
-                    "%s contains a parameter with @BlockPosition and/or @NullablePosition that is not @SqlType", methodName);
-            if (annotation instanceof SqlType) {
-                TypeSignature signature = parseTypeSignature(((SqlType) annotation).value());
-                if (isBlock) {
-                    if (nullable) {
-                        return new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, typeManager.getType(signature));
-                    }
-                    else {
-                        return new ParameterMetadata(BLOCK_INPUT_CHANNEL, typeManager.getType(signature));
-                    }
+            if (isBlock) {
+                if (isNullable) {
+                    return new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, sqlType);
                 }
                 else {
-                    if (nullable) {
-                        throw new IllegalArgumentException(methodName + " contains a parameter with @NullablePosition that is not @BlockPosition");
-                    }
-                    else {
-                        return new ParameterMetadata(INPUT_CHANNEL, typeManager.getType(signature));
-                    }
+                    return new ParameterMetadata(BLOCK_INPUT_CHANNEL, sqlType);
                 }
             }
-            else if (annotation instanceof BlockIndex) {
-                return new ParameterMetadata(BLOCK_INDEX);
-            }
-            else if (annotation instanceof SampleWeight) {
-                checkArgument(sampleWeightAllowed, "@SampleWeight only allowed in approximate aggregations");
-                return new ParameterMetadata(SAMPLE_WEIGHT);
-            }
             else {
-                throw new IllegalArgumentException("Unsupported annotation: " + annotation);
+                if (isNullable) {
+                    throw new IllegalArgumentException(methodName + " contains a parameter with @NullablePosition that is not @BlockPosition");
+                }
+                else {
+                    return new ParameterMetadata(INPUT_CHANNEL, sqlType);
+                }
             }
+        }
+
+        public static ParameterMetadata forBlockIndexParameter()
+        {
+            return new ParameterMetadata(BLOCK_INDEX);
+        }
+
+        public static ParameterMetadata forSampleWeightParameter()
+        {
+            return new ParameterMetadata(SAMPLE_WEIGHT);
+        }
+
+        public static ParameterMetadata forStateParameter()
+        {
+            return new ParameterMetadata(STATE);
         }
 
         public ParameterType getParameterType()

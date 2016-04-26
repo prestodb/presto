@@ -14,6 +14,7 @@
 package com.facebook.presto.ml;
 
 import com.facebook.presto.RowPageBuilder;
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.ml.type.ClassifierParametricType;
 import com.facebook.presto.ml.type.ClassifierType;
 import com.facebook.presto.ml.type.ModelType;
@@ -64,7 +65,7 @@ public class TestLearnAggregations
             throws Exception
     {
         Type mapType = typeManager.getParameterizedType("map", ImmutableList.of(TypeSignatureParameter.of(parseTypeSignature(StandardTypes.BIGINT)), TypeSignatureParameter.of(parseTypeSignature(StandardTypes.DOUBLE))));
-        InternalAggregationFunction aggregation = new AggregationCompiler(typeManager).generateAggregationFunction(LearnClassifierAggregation.class, ClassifierType.BIGINT_CLASSIFIER, ImmutableList.of(BigintType.BIGINT, mapType));
+        InternalAggregationFunction aggregation = AggregationCompiler.generateAggregationBindableFunction(LearnClassifierAggregation.class, ClassifierType.BIGINT_CLASSIFIER.getTypeSignature(), ImmutableList.of(BigintType.BIGINT.getTypeSignature(), mapType.getTypeSignature())).getOnlySpecialization(typeManager);
         assertLearnClassifer(aggregation.bind(ImmutableList.of(0, 1), Optional.empty(), Optional.empty(), 1.0).createAccumulator());
     }
 
@@ -73,7 +74,9 @@ public class TestLearnAggregations
             throws Exception
     {
         Type mapType = typeManager.getParameterizedType("map", ImmutableList.of(TypeSignatureParameter.of(parseTypeSignature(StandardTypes.BIGINT)), TypeSignatureParameter.of(parseTypeSignature(StandardTypes.DOUBLE))));
-        InternalAggregationFunction aggregation = new AggregationCompiler(typeManager).generateAggregationFunction(LearnLibSvmClassifierAggregation.class, ClassifierType.BIGINT_CLASSIFIER, ImmutableList.of(BigintType.BIGINT, mapType, VarcharType.VARCHAR));
+        InternalAggregationFunction aggregation =
+                AggregationCompiler.generateAggregationBindableFunction(LearnLibSvmClassifierAggregation.class, ClassifierType.BIGINT_CLASSIFIER.getTypeSignature(), ImmutableList.of(BigintType.BIGINT.getTypeSignature(), mapType.getTypeSignature(), VarcharType.getParametrizedVarcharSignature("x")))
+                        .specialize(BoundVariables.builder().setLongVariable("x", (long) Integer.MAX_VALUE).build(), 1, typeManager);
         assertLearnClassifer(aggregation.bind(ImmutableList.of(0, 1, 2), Optional.empty(), Optional.empty(), 1.0).createAccumulator());
     }
 

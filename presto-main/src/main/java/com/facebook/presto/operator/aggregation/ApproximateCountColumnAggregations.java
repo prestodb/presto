@@ -17,6 +17,7 @@ import com.facebook.presto.operator.aggregation.state.AccumulatorState;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.type.LiteralParameters;
 import com.facebook.presto.type.SqlType;
 import io.airlift.slice.Slices;
 
@@ -51,7 +52,8 @@ public final class ApproximateCountColumnAggregations
     }
 
     @InputFunction
-    public static void varcharInput(ApproximateCountState state, @BlockPosition @SqlType(StandardTypes.VARCHAR) Block block, @BlockIndex int index, @SampleWeight long sampleWeight)
+    @LiteralParameters("x")
+    public static void varcharInput(ApproximateCountState state, @BlockPosition @SqlType("varchar(x)") Block block, @BlockIndex int index, @SampleWeight long sampleWeight)
     {
         state.setCount(state.getCount() + sampleWeight);
         state.setSamples(state.getSamples() + 1);

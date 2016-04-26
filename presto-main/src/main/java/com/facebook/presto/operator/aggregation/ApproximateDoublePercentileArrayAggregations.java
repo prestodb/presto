@@ -17,7 +17,6 @@ import com.facebook.presto.operator.aggregation.state.DigestAndPercentileArraySt
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.SqlType;
 import com.google.common.collect.ImmutableList;
@@ -33,8 +32,16 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 @AggregationFunction("approx_percentile")
 public final class ApproximateDoublePercentileArrayAggregations
 {
-    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateDoublePercentileArrayAggregations.class, new ArrayType(DOUBLE), ImmutableList.<Type>of(DOUBLE, new ArrayType(DOUBLE)));
-    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateDoublePercentileArrayAggregations.class, new ArrayType(DOUBLE), ImmutableList.<Type>of(DOUBLE, BIGINT, new ArrayType(DOUBLE)));
+    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION =
+            AggregationCompiler.generateAggregationBindableFunction(
+                    ApproximateDoublePercentileArrayAggregations.class,
+                    new ArrayType(DOUBLE).getTypeSignature(),
+                    ImmutableList.of(DOUBLE.getTypeSignature(), new ArrayType(DOUBLE).getTypeSignature())).getOnlySpecialization();
+    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION =
+            AggregationCompiler.generateAggregationBindableFunction(
+                    ApproximateDoublePercentileArrayAggregations.class,
+                    new ArrayType(DOUBLE).getTypeSignature(),
+                    ImmutableList.of(DOUBLE.getTypeSignature(), BIGINT.getTypeSignature(), new ArrayType(DOUBLE).getTypeSignature())).getOnlySpecialization();
 
     private ApproximateDoublePercentileArrayAggregations() {}
 
