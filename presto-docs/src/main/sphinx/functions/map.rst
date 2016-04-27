@@ -18,6 +18,8 @@ Map Functions
 
         SELECT MAP(ARRAY[1,3], ARRAY[2,4]); => {1 -> 2, 3 -> 4}
 
+    See also :func:`map_agg` and :func:`multimap_agg` for creating a map as an aggregation.
+
 .. function:: cardinality(x) -> bigint
     :noindex:
 
@@ -30,8 +32,6 @@ Map Functions
 .. function:: map_values(x<K,V>) -> array<V>
 
     Returns all the values in the map ``x``.
-
-See also :func:`map_agg` and :func:`multimap_agg` for creating a map as an aggregation.
 
 .. function:: map_concat(x<K,V>, y<K,V>) -> map<K,V>
 

@@ -2,11 +2,11 @@
 MongoDB Connector
 =================
 
-This connector allows the use of Mongodb collections as tables in Presto.
+This connector allows the use of MongoDB collections as tables in Presto.
 
 .. note::
 
-    Mongodb 2.6+ is supported although it is highly recommend to use 3.0 or later.
+    MongoDB 2.6+ is supported although it is highly recommend to use 3.0 or later.
 
 Configuration
 -------------
@@ -52,7 +52,7 @@ Property Name                         Description
 ``mongodb.cursor-batch-size``         The number of elements to return in a batch
 ===================================== ==============================================================
 
-``Mongodb.seeds``
+``mongodb.seeds``
 ^^^^^^^^^^^^^^^^^
 
 Comma-separated list of ``hostname[:port]`` all mongod servers in the same replica set or a list of mongos servers in the same sharded cluster. If port is not specified, port 27017 will be used.
@@ -64,7 +64,7 @@ This property is required; there is no default and at least one seed must be def
 
 As the MongoDB is a document database, there's no fixed schema information in the system. So a special collection in each MongoDB database should defines the schema of all tables. Please refer the :ref:`table-definition-label` section for the details.
 
-At startup, this plugin tries guessin fields' types, but it might not be correct for your collection. In that case, you need to modify it manually. ``CREATE TABLE`` and ``CREATE TABLE AS SELECT`` will create an entry for you.
+At startup, this connector tries guessing fields' types, but it might not be correct for your collection. In that case, you need to modify it manually. ``CREATE TABLE`` and ``CREATE TABLE AS SELECT`` will create an entry for you.
 
 This property is optional; the default is ``_schema``.
 
@@ -73,7 +73,7 @@ This property is optional; the default is ``_schema``.
 
 A comma separated list of ``username:password@collection`` credentials
 
-This property is optional; no default value
+This property is optional; no default value.
 
 ``mongodb.min-connections-per-host``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -93,42 +93,45 @@ This property is optional; the default is ``100``.
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The maximum wait time in milliseconds that a thread may wait for a connection to become available.
-A value of 0 means that it will not wait. A negative value means to wait indefinitely for a connection to become available.
+A value of ``0`` means that it will not wait. A negative value means to wait indefinitely for a connection to become available.
 
 This property is optional; the default is ``120000``.
 
 ``mongodb.connection-timeout``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The connection timeout in milliseconds. A value of 0 means no timeout. It is used solely when establishing a new connection Socket.connect(java.net.SocketAddress, int)
+The connection timeout in milliseconds. A value of ``0`` means no timeout. It is used solely when establishing a new connection.
 
 This property is optional; the default is ``10000``.
 
 ``mongodb.socket-timeout``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The socket timeout in milliseconds. It is used for I/O socket read and write operations Socket.setSoTimeout(int)
+The socket timeout in milliseconds. It is used for I/O socket read and write operations.
 
 This property is optional; the default is ``0`` and means no timeout.
 
 ``mongodb.socket-keep-alive``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This flag controls the socket keep alive feature that keeps a connection alive through firewalls Socket.setKeepAlive(boolean)
+This flag controls the socket keep alive feature that keeps a connection alive through firewalls.
 
 This property is optional; the default is ``false``.
 
 ``mongodb.read-preference``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The read preference to use for queries, map-reduce, aggregation, and count. The available values are PRIMARY, PRIMARY_PREFERRED, SECONDARY, SECONDARY_PREFERRED and NEAREST.
+The read preference to use for queries, map-reduce, aggregation, and count.
+The available values are ``PRIMARY``, ``PRIMARY_PREFERRED``, ``SECONDARY``, ``SECONDARY_PREFERRED`` and ``NEAREST``.
 
 This property is optional; the default is ``PRIMARY``.
 
 ``mongodb.write-concern``
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The write concern to use. The available values are ACKNOWLEDGED, FSYNC_SAFE, FSYNCED, JOURNAL_SAFEY, JOURNALED, MAJORITY, NORMAL, REPLICA_ACKNOWLEDGED , REPLICAS_SAFE and UNACKNOWLEDGED.
+The write concern to use. The available values are
+``ACKNOWLEDGED``, ``FSYNC_SAFE``, ``FSYNCED``, ``JOURNAL_SAFEY``, ``JOURNALED``, ``MAJORITY``,
+``NORMAL``, ``REPLICA_ACKNOWLEDGED``, ``REPLICAS_SAFE`` and ``UNACKNOWLEDGED``.
 
 This property is optional; the default is ``ACKNOWLEDGED``.
 
@@ -141,7 +144,7 @@ The required replica set name. With this option set, the MongoClient instance wi
 #. Make sure that the set name reported by all members matches the required set name.
 #. Refuse to service any requests if any member of the seed list is not part of a replica set with the required name.
 
-This property is optional; no default value
+This property is optional; no default value.
 
 ``mongodb.required-replica-set``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -151,8 +154,7 @@ If batchSize is 0, Driver's default will be used.
 If batchSize is positive, it represents the size of each batch of objects retrieved. It can be adjusted to optimize performance and limit data transfer.
 If batchSize is negative, it will limit of number objects returned, that fit within the max batch size limit (usually 4MB), and cursor will be closed. For example if batchSize is -10, then the server will return a maximum of 10 documents and as many as can fit in 4MB, then close the cursor.
 
-.. note::
-    Do not use a batch size of 1.
+.. note:: Do not use a batch size of ``1``.
 
 This property is optional; the default is ``0``.
 
@@ -164,8 +166,10 @@ Table Definition
 MongoDB maintains table definitions on the special collection where ``mongodb.schema-collection`` configuration value specifies.
 
 .. note::
+
     There's no way for the plugin to detect a collection is deleted.
-    You need to delete the entry by ``db.getCollection("_schema").remove( { table: deleted_table_name })`` at the Mongo Shell. Or please drop a collection by ``drop table table_name`` at Presto shell.
+    You need to delete the entry by ``db.getCollection("_schema").remove( { table: deleted_table_name })`` in the Mongo Shell.
+    Or drop a collection by running ``DROP TABLE table_name`` using Presto.
 
 A schema collection consists of a MongoDB document for a table.
 
@@ -211,8 +215,8 @@ There is no limit on field descriptions for either key or message.
 
 ObjectId
 --------
-MongoDB collection has the special filed ``_id``. The plugin tries to follow the same rules for this special field, so there will be hidden field ``_id``.
 
+MongoDB collection has the special field ``_id``. The connector tries to follow the same rules for this special field, so there will be hidden field ``_id``.
 
 .. code-block:: sql
 
@@ -223,22 +227,29 @@ MongoDB collection has the special filed ``_id``. The plugin tries to follow the
         orderdate date
     );
 
-    insert into orders values( 1, 'bad', 50.0, current_date);
-    insert into orders values( 2, 'good', 100.0, current_date);
-    select _id, * from orders3;
+    INSERT INTO orders VALUES(1, 'bad', 50.0, current_date);
+    INSERT INTO orders VALUES(2, 'good', 100.0, current_date);
+    SELECT _id, * FROM orders3;
+
+.. code-block:: none
 
                      _id                 | orderkey | orderstatus | totalprice | orderdate
     -------------------------------------+----------+-------------+------------+------------
      55 b1 51 63 38 64 d6 43 8c 61 a9 ce |        1 | bad         |       50.0 | 2015-07-23
      55 b1 51 67 38 64 d6 43 8c 61 a9 cf |        2 | good        |      100.0 | 2015-07-23
-     (2 rows)
+    (2 rows)
 
-     select _id, * from orders3 where _id = ObjectId('55b151633864d6438c61a9ce');
+.. code-block:: sql
+
+    SELECT _id, * FROM orders3 WHERE _id = ObjectId('55b151633864d6438c61a9ce');
+
+.. code-block:: none
 
                      _id                 | orderkey | orderstatus | totalprice | orderdate
     -------------------------------------+----------+-------------+------------+------------
      55 b1 51 63 38 64 d6 43 8c 61 a9 ce |        1 | bad         |       50.0 | 2015-07-23
-     (1 row)
+    (1 row)
 
 .. note::
-    Unfortunately there's no way to represent _id field more fancy like `55b151633864d6438c61a9ce`
+
+    Unfortunately, there is no way to represent ``_id`` fields more fancy like ``55b151633864d6438c61a9ce``.
