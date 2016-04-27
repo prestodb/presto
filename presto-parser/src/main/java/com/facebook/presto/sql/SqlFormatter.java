@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.presto.sql.parser.ParsingException;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
@@ -42,6 +44,7 @@ import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
@@ -62,6 +65,7 @@ import com.facebook.presto.sql.tree.ShowSession;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.StartTransaction;
+import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.TransactionAccessMode;
@@ -137,6 +141,17 @@ public final class SqlFormatter
         protected Void visitUnnest(Unnest node, Integer indent)
         {
             builder.append(node.toString());
+            return null;
+        }
+
+        @Override
+        protected Void visitPrepare(Prepare node, Integer indent)
+        {
+            append(indent, "PREPARE ");
+            builder.append(node.getName());
+            builder.append(" FROM");
+            builder.append("\n");
+            process(node.getStatement(), indent + 1);
             return null;
         }
 
@@ -887,5 +902,24 @@ public final class SqlFormatter
             Joiner.on(", ").appendTo(builder, columns);
             builder.append(')');
         }
+    }
+
+    public static String getFormattedSql(Statement statement, SqlParser sqlParser)
+    {
+        String sql = formatSql(statement);
+
+        // verify round-trip
+        Statement parsed;
+        try {
+            parsed = sqlParser.createStatement(sql);
+        }
+        catch (ParsingException e) {
+            throw new ParsingException("Formatted query does not parse: " + statement);
+        }
+        if (!statement.equals(parsed)) {
+            throw new ParsingException("Query does not round-trip: " + statement);
+        }
+
+        return sql;
     }
 }
