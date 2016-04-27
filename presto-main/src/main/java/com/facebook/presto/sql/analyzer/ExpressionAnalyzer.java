@@ -566,16 +566,23 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitMapConstructor(MapConstructor node, StackableAstVisitorContext<AnalysisContext> context)
         {
-            ImmutableList.Builder<TypeSignature> keyTypes = ImmutableList.builder();
-            ImmutableList.Builder<TypeSignature> valueTypes = ImmutableList.builder();
+
             List<Expression> keys = node.getKeys();
-            List<Expression> values = node.getValues();
-            int numberOfPairs = keys.size();
-            for (int i = 0; i < numberOfPairs; ++i) {
-                keyTypes.add(process(keys.get(i), context).getTypeSignature());
-                valueTypes.add(process(values.get(i), context).getTypeSignature());
+            ImmutableList.Builder<TypeSignature> keyTypes = ImmutableList.builder();
+
+            for (Expression keyExpression : keys) {
+                keyTypes.add(process(keyExpression, context).getTypeSignature());
             }
+
             Type keyType = coerceToSingleType(context, "All MAP keys must be the same type", keys);
+
+            List<Expression> values = node.getValues();
+            ImmutableList.Builder<TypeSignature> valueTypes = ImmutableList.builder();
+
+            for (Expression valueExpression : values) {
+                valueTypes.add(process(valueExpression, context).getTypeSignature());
+            }
+
             Type valueType = coerceToSingleType(context, "All MAP values must be the same type", values);
             Type mapType = typeManager.getParameterizedType(MAP.getName(), ImmutableList.of(keyType.getTypeSignature(), valueType.getTypeSignature()), ImmutableList.of());
             expressionTypes.put(node, mapType);
