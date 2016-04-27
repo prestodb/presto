@@ -20,6 +20,7 @@ import com.facebook.presto.execution.CommitTask;
 import com.facebook.presto.execution.CreateTableTask;
 import com.facebook.presto.execution.CreateViewTask;
 import com.facebook.presto.execution.DataDefinitionTask;
+import com.facebook.presto.execution.DeallocateTask;
 import com.facebook.presto.execution.DropTableTask;
 import com.facebook.presto.execution.DropViewTask;
 import com.facebook.presto.execution.ForQueryExecution;
@@ -68,6 +69,7 @@ import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
+import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
@@ -233,6 +235,7 @@ public class CoordinatorModule
         bindDataDefinitionTask(binder, executionBinder, Grant.class, GrantTask.class);
         bindDataDefinitionTask(binder, executionBinder, Revoke.class, RevokeTask.class);
         bindDataDefinitionTask(binder, executionBinder, Prepare.class, PrepareTask.class);
+        bindDataDefinitionTask(binder, executionBinder, Deallocate.class, DeallocateTask.class);
 
         MapBinder<String, ExecutionPolicy> executionPolicyBinder = newMapBinder(binder, String.class, ExecutionPolicy.class);
         executionPolicyBinder.addBinding("all-at-once").to(AllAtOnceExecutionPolicy.class);

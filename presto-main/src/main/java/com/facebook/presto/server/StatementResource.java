@@ -96,6 +96,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_ADDED_PREPARE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_TRANSACTION_ID;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_DEALLOCATED_PREPARE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
 import static com.facebook.presto.server.ResourceUtil.assertRequest;
@@ -226,6 +227,17 @@ public class StatementResource
             }
         }
 
+        // add deallocated prepare statements
+        for (String name : query.getDeallocatedPreparedStatements()) {
+            try {
+                String encodedName = URLEncoder.encode(name, "UTF-8");
+                response.header(PRESTO_DEALLOCATED_PREPARE, encodedName);
+            }
+            catch (UnsupportedEncodingException e) {
+                throw new AssertionError(e);
+            }
+        }
+
         // add new transaction ID
         query.getStartedTransactionId()
                 .ifPresent(transactionId -> response.header(PRESTO_STARTED_TRANSACTION_ID, transactionId));
@@ -279,6 +291,9 @@ public class StatementResource
 
         @GuardedBy("this")
         private Map<String, String> addedPreparedStatements;
+
+        @GuardedBy("this")
+        private Set<String> deallocatedPreparedStatements;
 
         @GuardedBy("this")
         private Optional<TransactionId> startedTransactionId;
@@ -336,6 +351,11 @@ public class StatementResource
         public synchronized Map<String, String> getAddedPreparedStatements()
         {
             return addedPreparedStatements;
+        }
+
+        public synchronized Set<String> getDeallocatedPreparedStatements()
+        {
+            return deallocatedPreparedStatements;
         }
 
         public synchronized Optional<TransactionId> getStartedTransactionId()
@@ -430,6 +450,7 @@ public class StatementResource
 
             // update preparedStatements
             addedPreparedStatements = queryInfo.getAddedPreparedStatements();
+            deallocatedPreparedStatements = queryInfo.getDeallocatedPreparedStatements();
 
             // update startedTransactionId
             startedTransactionId = queryInfo.getStartedTransactionId();
