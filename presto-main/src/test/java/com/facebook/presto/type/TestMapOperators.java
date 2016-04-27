@@ -135,6 +135,7 @@ public class TestMapOperators
                 new MapType(createVarcharType(1), DOUBLE), ImmutableMap.of("a", 2 * 3.0, "b", 3.4 * 1.2, "c", 2 / 2.0));
         assertFunction("CARDINALITY({'a': 2 * 3.0, 'b': 3.4 * 1.2, 'c': 2 / 2.0})", BIGINT, 3L);
         assertFunction("MAP_KEYS({'a': 2 * 3.0, 'b': 3.4 * 1.2, 'c': 2 / 2.0})", new ArrayType(createVarcharType(1)), ImmutableList.of("a", "b", "c"));
+        assertFunction("{}", new MapType(UNKNOWN, UNKNOWN), ImmutableMap.of());
     }
 
     @Test
