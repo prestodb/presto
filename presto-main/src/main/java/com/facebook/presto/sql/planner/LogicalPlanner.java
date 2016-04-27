@@ -37,6 +37,7 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
+import com.facebook.presto.sql.planner.sanity.PlanSanityChecker;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.Delete;
@@ -97,7 +98,7 @@ public class LogicalPlanner
         PlanNode root = planStatement(analysis, analysis.getStatement());
 
         // make sure we produce a valid plan. This is mainly to catch programming errors
-        PlanSanityChecker.validate(root);
+        PlanSanityChecker.validatePlan(root);
 
         for (PlanOptimizer optimizer : planOptimizers) {
             root = optimizer.optimize(root, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator);
@@ -105,7 +106,7 @@ public class LogicalPlanner
         }
 
         // make sure we produce a valid plan after optimizations run. This is mainly to catch programming errors
-        PlanSanityChecker.validate(root);
+        PlanSanityChecker.validatePlan(root);
 
         return new Plan(root, symbolAllocator);
     }
