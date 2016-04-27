@@ -193,7 +193,7 @@ public final class ExpressionFormatter
             for (int i = 0; i < numberOfPairs; ++i) {
                 mapElementStrings.add(format("%s: %s", formatSql(keys.get(i), unmangleNames), formatSql(values.get(i), unmangleNames)));
             }
-            return format("{%s}", Joiner.on(",").join(mapElementStrings.build()));
+            return format("{%s}", Joiner.on(", ").join(mapElementStrings.build()));
         }
 
         @Override
