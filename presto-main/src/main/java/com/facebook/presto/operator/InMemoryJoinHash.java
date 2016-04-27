@@ -43,7 +43,7 @@ public final class InMemoryJoinHash
     private final int[] positionLinks;
     private final long size;
 
-    public InMemoryJoinHash(LongArrayList addresses, PagesHashStrategy pagesHashStrategy)
+    public InMemoryJoinHash(LongArrayList addresses, PagesHashStrategy pagesHashStrategy, int hashBuildConcurrency)
     {
         this.addresses = requireNonNull(addresses, "addresses is null");
         this.pagesHashStrategy = requireNonNull(pagesHashStrategy, "pagesHashStrategy is null");
@@ -52,7 +52,7 @@ public final class InMemoryJoinHash
         // reserve memory for the arrays
         int hashSize = HashCommon.arraySize(addresses.size(), 0.75f);
         size = sizeOfIntArray(hashSize) + sizeOfBooleanArray(hashSize) + sizeOfIntArray(addresses.size())
-                +  sizeOf(addresses.elements()) + pagesHashStrategy.getSizeInBytes();
+                +  sizeOf(addresses.elements()) + pagesHashStrategy.getSizeInBytes() / hashBuildConcurrency;
 
         mask = hashSize - 1;
         key = new int[hashSize];
