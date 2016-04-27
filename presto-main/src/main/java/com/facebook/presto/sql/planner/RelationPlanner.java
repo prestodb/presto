@@ -325,10 +325,7 @@ class RelationPlanner
         translationMap.putExpressionMappingsFrom(leftPlanBuilder.getTranslations());
         translationMap.putExpressionMappingsFrom(rightPlanBuilder.getTranslations());
         PlanBuilder rootPlanBuilder = new PlanBuilder(translationMap, root, sampleWeight);
-        List<InPredicate> inPredicates = analysis.getInPredicates(node);
-        if (inPredicates != null) {
-            rootPlanBuilder = appendSemiJoins(rootPlanBuilder, inPredicates);
-        }
+        rootPlanBuilder = appendSemiJoins(rootPlanBuilder, analysis.getInPredicateSubqueries(node));
         for (Expression expression : complexJoinExpressions) {
             postInnerJoinConditions.add(rootPlanBuilder.rewrite(expression));
         }

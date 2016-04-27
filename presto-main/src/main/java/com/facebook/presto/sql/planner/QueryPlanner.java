@@ -642,7 +642,7 @@ class QueryPlanner
     {
         builder = appendSemiJoins(
                 builder,
-                analysis.getInPredicates(node)
+                analysis.getInPredicateSubqueries(node)
                         .stream()
                         .filter(inPredicate -> nodeContains(expression, inPredicate.getValueList()))
                         .collect(toImmutableSet()));
