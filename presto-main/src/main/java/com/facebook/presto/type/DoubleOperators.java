@@ -17,6 +17,7 @@ import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.google.common.math.DoubleMath;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 
@@ -34,15 +35,22 @@ import static com.facebook.presto.metadata.OperatorType.MODULUS;
 import static com.facebook.presto.metadata.OperatorType.MULTIPLY;
 import static com.facebook.presto.metadata.OperatorType.NEGATION;
 import static com.facebook.presto.metadata.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.metadata.OperatorType.SATURATED_FLOOR_CAST;
 import static com.facebook.presto.metadata.OperatorType.SUBTRACT;
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.String.valueOf;
+import static java.math.RoundingMode.FLOOR;
 
 public final class DoubleOperators
 {
+    private static final double MIN_LONG_AS_DOUBLE = -0x1p63;
+    private static final double MAX_LONG_AS_DOUBLE_PLUS_ONE = 0x1p63;
+    private static final double MIN_INT_AS_DOUBLE = -0x1p31;
+    private static final double MAX_INT_AS_DOUBLE = 0x1p31 - 1.0;
+
     private DoubleOperators()
     {
     }
@@ -188,5 +196,31 @@ public final class DoubleOperators
     public static long hashCode(@SqlType(StandardTypes.DOUBLE) double value)
     {
         return doubleToLongBits(value);
+    }
+
+    @ScalarOperator(SATURATED_FLOOR_CAST)
+    @SqlType(StandardTypes.BIGINT)
+    public static long saturatedFloorCastToBigint(@SqlType(StandardTypes.DOUBLE) double value)
+    {
+        if (value <= MIN_LONG_AS_DOUBLE) {
+            return Long.MIN_VALUE;
+        }
+        if (MAX_LONG_AS_DOUBLE_PLUS_ONE - value <= 1) {
+            return Long.MAX_VALUE;
+        }
+        return DoubleMath.roundToLong(value, FLOOR);
+    }
+
+    @ScalarOperator(SATURATED_FLOOR_CAST)
+    @SqlType(StandardTypes.INTEGER)
+    public static long saturatedFloorCastToInteger(@SqlType(StandardTypes.DOUBLE) double value)
+    {
+        if (value <= MIN_INT_AS_DOUBLE) {
+            return Integer.MIN_VALUE;
+        }
+        if (MAX_INT_AS_DOUBLE - value <= 1) {
+            return Integer.MAX_VALUE;
+        }
+        return DoubleMath.roundToInt(value, FLOOR);
     }
 }

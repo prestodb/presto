@@ -24,6 +24,7 @@ import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.airlift.slice.XxHash64;
 
 import java.math.BigInteger;
 import java.util.List;
@@ -31,6 +32,7 @@ import java.util.List;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.OperatorType.ADD;
 import static com.facebook.presto.metadata.OperatorType.DIVIDE;
+import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
 import static com.facebook.presto.metadata.OperatorType.MODULUS;
 import static com.facebook.presto.metadata.OperatorType.MULTIPLY;
 import static com.facebook.presto.metadata.OperatorType.NEGATION;
@@ -47,6 +49,8 @@ import static java.math.BigInteger.ZERO;
 
 public final class DecimalOperators
 {
+    public static final SqlScalarFunction DECIMAL_ADD_OPERATOR = decimalAddOperator();
+    public static final SqlScalarFunction DECIMAL_SUBTRACT_OPERATOR = decimalSubtractOperator();
     public static final SqlScalarFunction DECIMAL_MULTIPLY_OPERATOR = decimalMultiplyOperator();
     public static final SqlScalarFunction DECIMAL_DIVIDE_OPERATOR = decimalDivideOperator();
     public static final SqlScalarFunction DECIMAL_MODULUS_OPERATOR = decimalModulusOperator();
@@ -55,78 +59,144 @@ public final class DecimalOperators
     {
     }
 
-    @ScalarOperator(ADD)
-    public static final class Add
+    private static SqlScalarFunction decimalAddOperator()
     {
-        public Add() {}
-
-        @UsedByGeneratedCode
-        @LiteralParameters({"p", "s", "p2"})
-        @Constraint(variable = "p2", expression = "min(38, p + 1)")
-        @SqlType("decimal(p2, s)")
-        public long addShortShortShort(@SqlType("decimal(p, s)") long a, @SqlType("decimal(p, s)") long b)
-        {
-            return a + b;
-        }
-
-        @UsedByGeneratedCode
-        @LiteralParameters({"p", "s", "p2"})
-        @Constraint(variable = "p2", expression = "min(38, p + 1)")
-        @SqlType("decimal(p2, s)")
-        public Slice addShortShortLong(@SqlType("decimal(p, s)") long a, @SqlType("decimal(p, s)") long b)
-        {
-            BigInteger result = BigInteger.valueOf(a).add(BigInteger.valueOf(b));
-            return Decimals.encodeUnscaledValue(result);
-        }
-
-        @UsedByGeneratedCode
-        @LiteralParameters({"p", "s", "p2"})
-        @Constraint(variable = "p2", expression = "min(38, p + 1)")
-        @SqlType("decimal(p2, s)")
-        public Slice addLongLongLong(@SqlType("decimal(p, s)") Slice a, @SqlType("decimal(p, s)") Slice b)
-        {
-            BigInteger aBigInteger = Decimals.decodeUnscaledValue(a);
-            BigInteger bBigInteger = Decimals.decodeUnscaledValue(b);
-            BigInteger result = aBigInteger.add(bBigInteger);
-            checkOverflow(result);
-            return Decimals.encodeUnscaledValue(result);
-        }
+        Signature signature = Signature.builder()
+                .kind(SCALAR)
+                .operatorType(ADD)
+                .literalParameters("a_precision", "a_scale", "b_precision", "b_scale", "r_precision", "r_scale")
+                .longVariableConstraints(
+                        longVariableExpression("r_precision", "min(38, max(a_precision - a_scale, b_precision - b_scale) + max(a_scale, b_scale) + 1)"),
+                        longVariableExpression("r_scale", "max(a_scale, b_scale)"))
+                .argumentTypes("decimal(a_precision, a_scale)", "decimal(b_precision, b_scale)")
+                .returnType("decimal(r_precision, r_scale)")
+                .build();
+        return SqlScalarFunction.builder(DecimalOperators.class)
+                .signature(signature)
+                .implementation(b -> b
+                        .methods("addShortShortShort")
+                        .withExtraParameters(DecimalOperators::shortRescaleExtraParameters)
+                )
+                .implementation(b -> b
+                        .methods("addShortShortLong", "addLongLongLong", "addShortLongLong", "addLongShortLong")
+                        .withExtraParameters(DecimalOperators::longRescaleExtraParameters)
+                )
+                .build();
     }
 
-    @ScalarOperator(SUBTRACT)
-    public static final class Subtract
+    @UsedByGeneratedCode
+    public static long addShortShortShort(long a, long b, long aRescale, long bRescale)
     {
-        @UsedByGeneratedCode
-        @LiteralParameters({"p", "s", "p2"})
-        @Constraint(variable = "p2", expression = "min(38, p + 1)")
-        @SqlType("decimal(p2, s)")
-        public static long subtractShortShortShort(@SqlType("decimal(p, s)") long a, @SqlType("decimal(p, s)") long b)
-        {
-            return a - b;
-        }
+        return a * aRescale + b * bRescale;
+    }
 
-        @UsedByGeneratedCode
-        @LiteralParameters({"p", "s", "p2"})
-        @Constraint(variable = "p2", expression = "min(38, p + 1)")
-        @SqlType("decimal(p2, s)")
-        public static Slice subtractShortShortLong(@SqlType("decimal(p, s)") long a, @SqlType("decimal(p, s)") long b)
-        {
-            BigInteger result = BigInteger.valueOf(a).subtract(BigInteger.valueOf(b));
-            return Decimals.encodeUnscaledValue(result);
-        }
+    @UsedByGeneratedCode
+    public static Slice addShortShortLong(long a, long b, BigInteger aRescale, BigInteger bRescale)
+    {
+        BigInteger aBigInteger = BigInteger.valueOf(a);
+        BigInteger bBigInteger = BigInteger.valueOf(b);
+        return internalAddLongLongLong(aBigInteger, bBigInteger, aRescale, bRescale);
+    }
 
-        @UsedByGeneratedCode
-        @LiteralParameters({"p", "s", "p2"})
-        @Constraint(variable = "p2", expression = "min(38, p + 1)")
-        @SqlType("decimal(p2, s)")
-        public static Slice subtractLongLongLong(@SqlType("decimal(p, s)") Slice a, @SqlType("decimal(p, s)") Slice b)
-        {
-            BigInteger aBigInteger = Decimals.decodeUnscaledValue(a);
-            BigInteger bBigInteger = Decimals.decodeUnscaledValue(b);
-            BigInteger result = aBigInteger.subtract(bBigInteger);
-            checkOverflow(result);
-            return Decimals.encodeUnscaledValue(result);
-        }
+    @UsedByGeneratedCode
+    public static Slice addLongLongLong(Slice a, Slice b, BigInteger aRescale, BigInteger bRescale)
+    {
+        BigInteger aBigInteger = Decimals.decodeUnscaledValue(a);
+        BigInteger bBigInteger = Decimals.decodeUnscaledValue(b);
+        return internalAddLongLongLong(aBigInteger, bBigInteger, aRescale, bRescale);
+    }
+
+    @UsedByGeneratedCode
+    public static Slice addShortLongLong(long a, Slice b, BigInteger aRescale, BigInteger bRescale)
+    {
+        BigInteger aBigInteger = BigInteger.valueOf(a);
+        BigInteger bBigInteger = Decimals.decodeUnscaledValue(b);
+        return internalAddLongLongLong(aBigInteger, bBigInteger, aRescale, bRescale);
+    }
+
+    @UsedByGeneratedCode
+    public static Slice addLongShortLong(Slice a, long b, BigInteger aRescale, BigInteger bRescale)
+    {
+        BigInteger aBigInteger = Decimals.decodeUnscaledValue(a);
+        BigInteger bBigInteger = BigInteger.valueOf(b);
+        return internalAddLongLongLong(aBigInteger, bBigInteger, aRescale, bRescale);
+    }
+
+    private static Slice internalAddLongLongLong(BigInteger aBigInteger, BigInteger bBigInteger, BigInteger aRescale, BigInteger bRescale)
+    {
+        BigInteger result = aBigInteger.multiply(aRescale).add(bBigInteger.multiply(bRescale));
+        checkOverflow(result);
+        return Decimals.encodeUnscaledValue(result);
+    }
+
+    private static SqlScalarFunction decimalSubtractOperator()
+    {
+        Signature signature = Signature.builder()
+                .kind(SCALAR)
+                .operatorType(SUBTRACT)
+                .literalParameters("a_precision", "a_scale", "b_precision", "b_scale", "r_precision", "r_scale")
+                .longVariableConstraints(
+                        longVariableExpression("r_precision", "min(38, max(a_precision - a_scale, b_precision - b_scale) + max(a_scale, b_scale) + 1)"),
+                        longVariableExpression("r_scale", "max(a_scale, b_scale)"))
+                .argumentTypes("decimal(a_precision, a_scale)", "decimal(b_precision, b_scale)")
+                .returnType("decimal(r_precision, r_scale)")
+                .build();
+        return SqlScalarFunction.builder(DecimalOperators.class)
+                .signature(signature)
+                .implementation(b -> b
+                        .methods("subtractShortShortShort")
+                        .withExtraParameters(DecimalOperators::shortRescaleExtraParameters)
+                )
+                .implementation(b -> b
+                        .methods("subtractShortShortLong", "subtractLongLongLong", "subtractShortLongLong", "subtractLongShortLong")
+                        .withExtraParameters(DecimalOperators::longRescaleExtraParameters)
+                )
+                .build();
+    }
+
+    @UsedByGeneratedCode
+    public static long subtractShortShortShort(long a, long b, long aRescale, long bRescale)
+    {
+        return a * aRescale - b * bRescale;
+    }
+
+    @UsedByGeneratedCode
+    public static Slice subtractShortShortLong(long a, long b, BigInteger aRescale, BigInteger bRescale)
+    {
+        BigInteger aBigInteger = BigInteger.valueOf(a);
+        BigInteger bBigInteger = BigInteger.valueOf(b);
+        return internalSubtractLongLongLong(aBigInteger, bBigInteger, aRescale, bRescale);
+    }
+
+    @UsedByGeneratedCode
+    public static Slice subtractLongLongLong(Slice a, Slice b, BigInteger aRescale, BigInteger bRescale)
+    {
+        BigInteger aBigInteger = Decimals.decodeUnscaledValue(a);
+        BigInteger bBigInteger = Decimals.decodeUnscaledValue(b);
+        return internalSubtractLongLongLong(aBigInteger, bBigInteger, aRescale, bRescale);
+    }
+
+    @UsedByGeneratedCode
+    public static Slice subtractShortLongLong(long a, Slice b, BigInteger aRescale, BigInteger bRescale)
+    {
+        BigInteger aBigInteger = BigInteger.valueOf(a);
+        BigInteger bBigInteger = Decimals.decodeUnscaledValue(b);
+        return internalSubtractLongLongLong(aBigInteger, bBigInteger, aRescale, bRescale);
+    }
+
+    @UsedByGeneratedCode
+    public static Slice subtractLongShortLong(Slice a, long b, BigInteger aRescale, BigInteger bRescale)
+    {
+        BigInteger aBigInteger = Decimals.decodeUnscaledValue(a);
+        BigInteger bBigInteger = BigInteger.valueOf(b);
+        return internalSubtractLongLongLong(aBigInteger, bBigInteger, aRescale, bRescale);
+    }
+
+    private static Slice internalSubtractLongLongLong(BigInteger aBigInteger, BigInteger bBigInteger, BigInteger aRescale, BigInteger bRescale)
+    {
+        BigInteger result = aBigInteger.multiply(aRescale).subtract(bBigInteger.multiply(bRescale));
+        checkOverflow(result);
+        return Decimals.encodeUnscaledValue(result);
     }
 
     private static SqlScalarFunction decimalMultiplyOperator()
@@ -217,7 +287,7 @@ public final class DecimalOperators
                         .withExtraParameters(DecimalOperators::shortDivideRescaleExtraParameter)
                 )
                 .implementation(b -> b
-                        .methods("divideShortShortLong", "divideLongLongLong", "divideShortLongLong", "divideLongShortLong")
+                        .methods("divideShortLongShort", "divideLongShortShort", "divideShortShortLong", "divideLongLongLong", "divideShortLongLong", "divideLongShortLong")
                         .withExtraParameters(DecimalOperators::longDivideRescaleExtraParameter)
                 )
                 .build();
@@ -263,6 +333,32 @@ public final class DecimalOperators
                     return result / 10;
                 }
             }
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(DIVISION_BY_ZERO, e);
+        }
+    }
+
+    @UsedByGeneratedCode
+    public static long divideShortLongShort(long a, Slice b, BigInteger aRescale)
+    {
+        BigInteger aBigInteger = BigInteger.valueOf(a);
+        BigInteger bBigInteger = Decimals.decodeUnscaledValue(b);
+        return internalDivideShortResult(aBigInteger, bBigInteger, aRescale);
+    }
+
+    @UsedByGeneratedCode
+    public static long divideLongShortShort(Slice a, long b, BigInteger aRescale)
+    {
+        BigInteger aBigInteger = Decimals.decodeUnscaledValue(a);
+        BigInteger bBigInteger = BigInteger.valueOf(b);
+        return internalDivideShortResult(aBigInteger, bBigInteger, aRescale);
+    }
+
+    private static long internalDivideShortResult(BigInteger aBigInteger, BigInteger bBigInteger, BigInteger aRescale)
+    {
+        try {
+            return internalDivideDecimals(aBigInteger.multiply(aRescale), bBigInteger).longValue();
         }
         catch (ArithmeticException e) {
             throw new PrestoException(DIVISION_BY_ZERO, e);
@@ -330,6 +426,30 @@ public final class DecimalOperators
         }
     }
 
+    private static BigInteger internalDivideDecimals(BigInteger aBigInteger, BigInteger bBigInteger)
+    {
+        BigInteger result = aBigInteger.divide(bBigInteger);
+        BigInteger resultModTen = result.mod(TEN);
+        if (result.signum() > 0) {
+            if (resultModTen.compareTo(BigInteger.valueOf(5)) >= 0) {
+                result = result.divide(TEN).add(ONE);
+            }
+            else {
+                result = result.divide(TEN);
+            }
+        }
+        else {
+            if (resultModTen.compareTo(BigInteger.valueOf(5)) < 0 && !resultModTen.equals(ZERO)) {
+                result = result.divide(TEN).subtract(ONE);
+            }
+            else {
+                result = result.divide(TEN);
+            }
+        }
+        checkOverflow(result);
+        return result;
+    }
+
     private static SqlScalarFunction decimalModulusOperator()
     {
         Signature signature = Signature.builder()
@@ -350,6 +470,13 @@ public final class DecimalOperators
                         .withExtraParameters(DecimalOperators::longRescaleExtraParameters)
                 )
                 .build();
+    }
+
+    private static List<Object> shortRescaleExtraParameters(SpecializeContext context)
+    {
+        long aRescale = longTenToNth(rescaleFactor(context.getLiteral("a_scale"), context.getLiteral("b_scale")));
+        long bRescale = longTenToNth(rescaleFactor(context.getLiteral("b_scale"), context.getLiteral("a_scale")));
+        return ImmutableList.of(aRescale, bRescale);
     }
 
     private static List<Object> longRescaleExtraParameters(SpecializeContext context)
@@ -449,6 +576,24 @@ public final class DecimalOperators
         {
             BigInteger argBigInteger = Decimals.decodeUnscaledValue(arg);
             return Decimals.encodeUnscaledValue(argBigInteger.negate());
+        }
+    }
+
+    @ScalarOperator(HASH_CODE)
+    public static final class HashCode
+    {
+        @LiteralParameters({"p", "s"})
+        @SqlType("bigint")
+        public static long hashCode(@SqlType("decimal(p, s)") long value)
+        {
+            return value;
+        }
+
+        @LiteralParameters({"p", "s"})
+        @SqlType("bigint")
+        public static long hashCode(@SqlType("decimal(p, s)") Slice value)
+        {
+            return XxHash64.hash(value);
         }
     }
 }

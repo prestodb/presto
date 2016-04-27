@@ -18,14 +18,20 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.DecimalParseResult;
+import com.facebook.presto.spi.type.Decimals;
+import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import io.airlift.slice.Slice;
 
+import java.math.BigInteger;
 import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -38,6 +44,13 @@ public abstract class AbstractTestFunctions
     protected void assertFunction(String projection, Type expectedType, Object expected)
     {
         functionAssertions.assertFunction(projection, expectedType, expected);
+    }
+
+    protected void assertDecimalFunction(String statement, SqlDecimal expectedResult)
+    {
+        assertFunction(statement,
+                createDecimalType(expectedResult.getPrecision(), expectedResult.getScale()),
+                expectedResult);
     }
 
     protected void assertInvalidFunction(String projection, Type expectedType, String message)
@@ -116,6 +129,25 @@ public abstract class AbstractTestFunctions
                 .scalar(clazz)
                 .getFunctions();
         metadata.getFunctionRegistry().addFunctions(functions);
+    }
+
+    protected SqlDecimal decimal(String decimalString)
+    {
+        DecimalParseResult parseResult = Decimals.parseIncludeLeadingZerosInPrecision(decimalString);
+        BigInteger unscaledValue;
+        if (parseResult.getType().isShort()) {
+            unscaledValue = BigInteger.valueOf((Long) parseResult.getObject());
+        }
+        else {
+            unscaledValue = Decimals.decodeUnscaledValue((Slice) parseResult.getObject());
+        }
+        return new SqlDecimal(unscaledValue, parseResult.getType().getPrecision(), parseResult.getType().getScale());
+    }
+
+    protected SqlDecimal maxPrecisionDecimal(long value)
+    {
+        final String maxPrecisionFormat = "%0" + (Decimals.MAX_PRECISION + (value < 0 ? 1 : 0)) + "d";
+        return decimal(String.format(maxPrecisionFormat, value));
     }
 
     private void evaluateInvalid(String projection)

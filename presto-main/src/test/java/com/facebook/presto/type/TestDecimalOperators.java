@@ -14,14 +14,16 @@
 
 package com.facebook.presto.type;
 
+import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 
 public class TestDecimalOperators
-        extends AbstractTestDecimalFunctions
+        extends AbstractTestFunctions
 {
     @Test
     public void testAdd()
@@ -57,11 +59,15 @@ public class TestDecimalOperators
 
         // overflow tests
         assertInvalidFunction("DECIMAL '99999999999999999999999999999999999999' + DECIMAL '1'", NUMERIC_VALUE_OUT_OF_RANGE);
-        assertInvalidCast("DECIMAL '.1' + DECIMAL '99999999999999999999999999999999999999'", "Cannot cast DECIMAL '99999999999999999999999999999999999999' to DECIMAL(38, 1)");
+        assertInvalidFunction("DECIMAL '.1' + DECIMAL '99999999999999999999999999999999999999'", NUMERIC_VALUE_OUT_OF_RANGE);
         assertInvalidFunction("DECIMAL '1' + DECIMAL '99999999999999999999999999999999999999'", NUMERIC_VALUE_OUT_OF_RANGE);
-        assertInvalidCast("DECIMAL '99999999999999999999999999999999999999' + DECIMAL '.1'", "Cannot cast DECIMAL '99999999999999999999999999999999999999' to DECIMAL(38, 1)");
+        assertInvalidFunction("DECIMAL '99999999999999999999999999999999999999' + DECIMAL '.1'", NUMERIC_VALUE_OUT_OF_RANGE);
         assertInvalidFunction("DECIMAL '99999999999999999999999999999999999999' + DECIMAL '99999999999999999999999999999999999999'", NUMERIC_VALUE_OUT_OF_RANGE);
         assertInvalidFunction("DECIMAL '-99999999999999999999999999999999999999' + DECIMAL '-99999999999999999999999999999999999999'", NUMERIC_VALUE_OUT_OF_RANGE);
+
+        // test null
+        assertFunction("NULL + DECIMAL '-2'", createDecimalType(2, 0), null);
+        assertFunction("DECIMAL '12345678901234567.890123456789012345678' + NULL", createDecimalType(38, 21), null);
     }
 
     @Test
@@ -97,10 +103,14 @@ public class TestDecimalOperators
 
         // overflow tests
         assertInvalidFunction("DECIMAL '-99999999999999999999999999999999999999' - DECIMAL '1'", NUMERIC_VALUE_OUT_OF_RANGE);
-        assertInvalidCast("DECIMAL '.1' - DECIMAL '99999999999999999999999999999999999999'", "Cannot cast DECIMAL '99999999999999999999999999999999999999' to DECIMAL(38, 1)");
+        assertInvalidFunction("DECIMAL '.1' - DECIMAL '99999999999999999999999999999999999999'", NUMERIC_VALUE_OUT_OF_RANGE);
         assertInvalidFunction("DECIMAL '-1' - DECIMAL '99999999999999999999999999999999999999'", NUMERIC_VALUE_OUT_OF_RANGE);
-        assertInvalidCast("DECIMAL '99999999999999999999999999999999999999' - DECIMAL '.1'", "Cannot cast DECIMAL '99999999999999999999999999999999999999' to DECIMAL(38, 1)");
+        assertInvalidFunction("DECIMAL '99999999999999999999999999999999999999' - DECIMAL '.1'", NUMERIC_VALUE_OUT_OF_RANGE);
         assertInvalidFunction("DECIMAL '-99999999999999999999999999999999999999' - DECIMAL '99999999999999999999999999999999999999'", NUMERIC_VALUE_OUT_OF_RANGE);
+
+        // test null
+        assertFunction("NULL - DECIMAL '-2'", createDecimalType(2, 0), null);
+        assertFunction("DECIMAL '12345678901234567.890123456789012345678' - NULL", createDecimalType(38, 21), null);
     }
 
     @Test
@@ -145,6 +155,10 @@ public class TestDecimalOperators
         assertInvalidFunction("DECIMAL '.12345678901234567890123456789012345678' * DECIMAL '9'", NUMERIC_VALUE_OUT_OF_RANGE);
         assertInvalidFunction("DECIMAL '12345678901234567890123456789012345678' * DECIMAL '-9'", NUMERIC_VALUE_OUT_OF_RANGE);
         assertInvalidFunction("DECIMAL '.12345678901234567890123456789012345678' * DECIMAL '-9'", NUMERIC_VALUE_OUT_OF_RANGE);
+
+        // test null
+        assertFunction("NULL * DECIMAL '-2'", createDecimalType(2, 0), null);
+        assertFunction("DECIMAL '12345678901234567.890123456789012345678' * NULL", createDecimalType(38, 21), null);
     }
 
     @Test
@@ -165,6 +179,9 @@ public class TestDecimalOperators
         assertDecimalFunction("DECIMAL '200.00000' / DECIMAL '-0.3'", decimal("-0666.66667"));
         assertDecimalFunction("DECIMAL '10' / DECIMAL '.00000001'", decimal("1000000000.00000000"));
         assertDecimalFunction("DECIMAL '99999999999999999' / DECIMAL '1'", decimal("99999999999999999"));
+        assertDecimalFunction("DECIMAL '1' / DECIMAL '99999999999999999999999999999999999999'", decimal("0"));
+        assertDecimalFunction("DECIMAL '9' / DECIMAL '00000000000000003'", decimal("3"));
+        assertDecimalFunction("DECIMAL '9.0' / DECIMAL '3.0'", decimal("03.0"));
 
         // long short -> long
         assertDecimalFunction("DECIMAL '200000000000000000000000000000000000' / DECIMAL '0.30'", decimal("666666666666666666666666666666666666.67"));
@@ -176,6 +193,9 @@ public class TestDecimalOperators
         // short long -> long
         assertDecimalFunction("DECIMAL '1' / DECIMAL '.000000000000000001'", decimal("1000000000000000000.000000000000000000"));
         assertDecimalFunction("DECIMAL '-1' / DECIMAL '.000000000000000001'", decimal("-1000000000000000000.000000000000000000"));
+
+        // short long -> short
+        assertDecimalFunction("DECIMAL '9' / DECIMAL '00000000000000003.0'", decimal("03.0"));
 
         // long long -> long
         assertDecimalFunction("DECIMAL '99999999999999999999999999999999999999' / DECIMAL '11111111111111111111111111111111111111'", decimal("00000000000000000000000000000000000009"));
@@ -193,6 +213,10 @@ public class TestDecimalOperators
         assertInvalidFunction("DECIMAL '1.000000000000000000000000000000000000' / DECIMAL '0'", DIVISION_BY_ZERO);
         assertInvalidFunction("DECIMAL '1.000000000000000000000000000000000000' / DECIMAL '0.0000000000000000000000000000000000000'", DIVISION_BY_ZERO);
         assertInvalidFunction("DECIMAL '1' / DECIMAL '0.0000000000000000000000000000000000000'", DIVISION_BY_ZERO);
+
+        // test null
+        assertFunction("NULL / DECIMAL '-2'", createDecimalType(1, 0), null);
+        assertFunction("DECIMAL '12345678901234567.890123456789012345678' / NULL", createDecimalType(38, 21), null);
     }
 
     @Test
@@ -258,6 +282,11 @@ public class TestDecimalOperators
         assertInvalidFunction("DECIMAL '1.000000000000000000000000000000000000' % DECIMAL '0.0000000000000000000000000000000000000'", DIVISION_BY_ZERO);
         assertInvalidFunction("DECIMAL '1' % DECIMAL '0.0000000000000000000000000000000000000'", DIVISION_BY_ZERO);
         assertInvalidFunction("DECIMAL '1' % CAST(0 AS DECIMAL(38,0))", DIVISION_BY_ZERO);
+        assertInvalidFunction("DECIMAL '1' % DECIMAL '00000000000000000000000000000000000000'", DIVISION_BY_ZERO);
+
+        // test null
+        assertFunction("NULL % DECIMAL '-2'", createDecimalType(1, 0), null);
+        assertFunction("DECIMAL '12345678901234567.890123456789012345678' % NULL", createDecimalType(22, 21), null);
     }
 
     @Test
@@ -313,6 +342,10 @@ public class TestDecimalOperators
         assertFunction("DECIMAL '000000000000000.00000000000000000' = DECIMAL '-000000000000000000000000.0000000'", BOOLEAN, true);
         assertFunction("DECIMAL '00000000038.0000000000000000000000' = DECIMAL '000000000037.00000000000000000000000'", BOOLEAN, false);
         assertFunction("DECIMAL '-00000000038.0000000000000000000000' = DECIMAL '00000000038.0000000000000000000000'", BOOLEAN, false);
+
+        // test null
+        assertFunction("NULL = DECIMAL '-2'", BOOLEAN, null);
+        assertFunction("DECIMAL '12345678901234567.890123456789012345678' = NULL", BOOLEAN, null);
     }
 
     @Test
@@ -353,6 +386,10 @@ public class TestDecimalOperators
         assertFunction("DECIMAL '000000000000000000000.000000000000000' != DECIMAL '-000000000.0000000000000000000000000'", BOOLEAN, false);
         assertFunction("DECIMAL '00000000038.0000000000000000000000' != DECIMAL '000000000037.00000000000000000000000'", BOOLEAN, true);
         assertFunction("DECIMAL '00000000000037.00000000000000000000' != DECIMAL '-00000000000037.00000000000000000000'", BOOLEAN, true);
+
+        // test null
+        assertFunction("NULL != DECIMAL '-2'", BOOLEAN, null);
+        assertFunction("DECIMAL '12345678901234567.890123456789012345678' != NULL", BOOLEAN, null);
     }
 
     @Test
@@ -400,6 +437,10 @@ public class TestDecimalOperators
         assertFunction("DECIMAL '00000000037.0000000000000000000000' < DECIMAL '38.0000000000000000000000'", BOOLEAN, true);
         assertFunction("DECIMAL '00000000037.0000000000000000000000' < DECIMAL '000000000037.00000000000000000000001'", BOOLEAN, true);
         assertFunction("DECIMAL '-00000000000100.000000000000' < DECIMAL '0000000020.0000000000000'", BOOLEAN, true);
+
+        // test null
+        assertFunction("NULL < DECIMAL '-2'", BOOLEAN, null);
+        assertFunction("DECIMAL '12345678901234567.890123456789012345678' < NULL", BOOLEAN, null);
     }
 
     @Test
@@ -447,6 +488,10 @@ public class TestDecimalOperators
         assertFunction("DECIMAL '00000000037.0000000000000000000000' > DECIMAL '36.0000000000000000000000'", BOOLEAN, true);
         assertFunction("DECIMAL '00000000037.0000000000000000000000' > DECIMAL '000000000036.9999999999999999999999'", BOOLEAN, true);
         assertFunction("DECIMAL '000000000000100.0000000000000000000000' > DECIMAL '-0000000020.00000000000000000000000'", BOOLEAN, true);
+
+        // test null
+        assertFunction("NULL > DECIMAL '-2'", BOOLEAN, null);
+        assertFunction("DECIMAL '12345678901234567.890123456789012345678' > NULL", BOOLEAN, null);
     }
 
     @Test
@@ -494,6 +539,10 @@ public class TestDecimalOperators
         assertFunction("DECIMAL '00000000037.0000000000000000000000' <= DECIMAL '38.0000000000000000000000'", BOOLEAN, true);
         assertFunction("DECIMAL '00000000037.0000000000000000000000' <= DECIMAL '000000000037.00000000000000000000001'", BOOLEAN, true);
         assertFunction("DECIMAL '-00000000000100.000000000000' <= DECIMAL '0000000020.0000000000000'", BOOLEAN, true);
+
+        // test null
+        assertFunction("NULL <= DECIMAL '-2'", BOOLEAN, null);
+        assertFunction("DECIMAL '12345678901234567.890123456789012345678' <= NULL", BOOLEAN, null);
     }
 
     @Test
@@ -541,6 +590,10 @@ public class TestDecimalOperators
         assertFunction("DECIMAL '00000000037.0000000000000000000000' >= DECIMAL '36.0000000000000000000000'", BOOLEAN, true);
         assertFunction("DECIMAL '00000000037.0000000000000000000000' >= DECIMAL '000000000036.9999999999999999'", BOOLEAN, true);
         assertFunction("DECIMAL '000000000000100.0000000000000000000000' >= DECIMAL '-0000000020.00000000000000000000000'", BOOLEAN, true);
+
+        // test null
+        assertFunction("NULL >= DECIMAL '-2'", BOOLEAN, null);
+        assertFunction("DECIMAL '12345678901234567.890123456789012345678' >= NULL", BOOLEAN, null);
     }
 
     @Test
@@ -581,5 +634,10 @@ public class TestDecimalOperators
         assertFunction("DECIMAL '1.00000000000000000000' BETWEEN DECIMAL '-5.00000000000000000000'  AND DECIMAL '5.00000000000000000000'", BOOLEAN, true);
         assertFunction("DECIMAL '-6.00000000000000000000' BETWEEN DECIMAL '-5.00000000000000000000'  AND DECIMAL '5.00000000000000000000'", BOOLEAN, false);
         assertFunction("DECIMAL '6.00000000000000000000' BETWEEN DECIMAL '-5.00000000000000000000'  AND DECIMAL '5.00000000000000000000'", BOOLEAN, false);
+
+        // test null
+        assertFunction("NULL BETWEEN DECIMAL '-5.00000000000000000000'  AND DECIMAL '5.00000000000000000000'", BOOLEAN, null);
+        assertFunction("DECIMAL '1.00000000000000000000' BETWEEN NULL  AND DECIMAL '5.00000000000000000000'", BOOLEAN, null);
+        assertFunction("DECIMAL '1.00000000000000000000' BETWEEN DECIMAL '-5.00000000000000000000'  AND NULL", BOOLEAN, null);
     }
 }

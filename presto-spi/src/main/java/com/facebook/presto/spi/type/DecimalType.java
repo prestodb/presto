@@ -22,6 +22,7 @@ import java.util.List;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.Decimals.MAX_PRECISION;
 import static com.facebook.presto.spi.type.Decimals.MAX_SHORT_PRECISION;
+import static com.facebook.presto.spi.type.StandardTypes.DECIMAL;
 import static java.util.Collections.unmodifiableList;
 
 public abstract class DecimalType
@@ -40,6 +41,9 @@ public abstract class DecimalType
         }
     }
 
+    private final int precision;
+    private final int scale;
+
     public static DecimalType createDecimalType(int precision)
     {
         return createDecimalType(precision, DEFAULT_SCALE);
@@ -50,8 +54,10 @@ public abstract class DecimalType
         return createDecimalType(DEFAULT_PRECISION, DEFAULT_SCALE);
     }
 
-    private final int precision;
-    private final int scale;
+    public static TypeSignature createDecimalTypeSignature(int precision, int scale)
+    {
+        return new TypeSignature(DECIMAL, buildTypeParameters(precision, scale));
+    }
 
     DecimalType(int precision, int scale, Class<?> javaType, int fixedSize)
     {

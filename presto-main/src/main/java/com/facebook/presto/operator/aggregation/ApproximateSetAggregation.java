@@ -19,6 +19,7 @@ import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
+import com.facebook.presto.type.UnknownType;
 import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
 
@@ -55,6 +56,11 @@ public final class ApproximateSetAggregation
         state.addMemoryUsage(-hll.estimatedInMemorySize());
         hll.add(value);
         state.addMemoryUsage(hll.estimatedInMemorySize());
+    }
+
+    @InputFunction
+    public static void input(HyperLogLogState state, @SqlType(UnknownType.NAME) Void value)
+    {
     }
 
     private static HyperLogLog getOrCreateHyperLogLog(HyperLogLogState state)
