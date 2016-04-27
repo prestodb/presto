@@ -37,7 +37,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
@@ -50,7 +50,7 @@ public class TestJmxSplitManager
     private final Node localNode = new TestingNode("host1");
     private final Set<Node> nodes = ImmutableSet.of(localNode, new TestingNode("host2"), new TestingNode("host3"));
 
-    private final JmxColumnHandle columnHandle = new JmxColumnHandle("test", "node", VARCHAR);
+    private final JmxColumnHandle columnHandle = new JmxColumnHandle("test", "node", createUnboundedVarcharType());
     private final JmxTableHandle tableHandle = new JmxTableHandle("test", "objectName", ImmutableList.of(columnHandle));
     private final JmxSplitManager splitManager = new JmxSplitManager("test", new TestingNodeManager());
     private final JmxMetadata metadata = new JmxMetadata("test", getPlatformMBeanServer());
@@ -62,7 +62,7 @@ public class TestJmxSplitManager
     {
         for (Node node : nodes) {
             String nodeIdentifier = node.getNodeIdentifier();
-            TupleDomain<ColumnHandle> nodeTupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(columnHandle, NullableValue.of(VARCHAR, utf8Slice(nodeIdentifier))));
+            TupleDomain<ColumnHandle> nodeTupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(columnHandle, NullableValue.of(createUnboundedVarcharType(), utf8Slice(nodeIdentifier))));
             ConnectorTableLayoutHandle layout = new JmxTableLayoutHandle(tableHandle, nodeTupleDomain);
 
             ConnectorSplitSource splitSource = splitManager.getSplits(JmxTransactionHandle.INSTANCE, SESSION, layout);
