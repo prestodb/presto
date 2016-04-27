@@ -43,6 +43,9 @@ public final class TestGroups
     public static final String STRING_FUNCTIONS = "string_functions";
     public static final String MATH_FUNCTIONS = "math_functions";
     public static final String STORAGE_FORMATS = "storage_formats";
+    public static final String PROFILE_SPECIFIC_TESTS = "profile_specific_tests";
+    public static final String HDFS_IMPERSONATION = "hdfs_impersonation";
+    public static final String HDFS_NO_IMPERSONATION = "hdfs_no_impersonation";
 
     private TestGroups() {}
 }
