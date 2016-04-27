@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.sql.planner.Symbol;
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ListMultimap;
 
@@ -23,11 +22,10 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 
 @Immutable
-public class UnionNode
+public class IntersectNode
         extends SetOperationNode
 {
-    @JsonCreator
-    public UnionNode(
+    public IntersectNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("sources") List<PlanNode> sources,
             @JsonProperty("outputToInputs") ListMultimap<Symbol, Symbol> outputToInputs,
@@ -39,6 +37,6 @@ public class UnionNode
     @Override
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {
-        return visitor.visitUnion(this, context);
+        return visitor.visitPlan(this, context);
     }
 }

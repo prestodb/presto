@@ -54,6 +54,7 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = UnnestNode.class, name = "unnest"),
         @JsonSubTypes.Type(value = ExchangeNode.class, name = "exchange"),
         @JsonSubTypes.Type(value = UnionNode.class, name = "union"),
+        @JsonSubTypes.Type(value = IntersectNode.class, name = "intersect"),
         @JsonSubTypes.Type(value = EnforceSingleRowNode.class, name = "scalar"),
         @JsonSubTypes.Type(value = GroupIdNode.class, name = "groupid"),
         @JsonSubTypes.Type(value = ExplainAnalyzeNode.class, name = "explainAnalyze"),

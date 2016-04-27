@@ -26,7 +26,6 @@ public class Intersect
         extends SetOperation
 {
     private final List<Relation> relations;
-    private final boolean distinct;
 
     public Intersect(List<Relation> relations, boolean distinct)
     {
@@ -40,21 +39,15 @@ public class Intersect
 
     private Intersect(Optional<NodeLocation> location, List<Relation> relations, boolean distinct)
     {
-        super(location);
+        super(location, distinct);
         requireNonNull(relations, "relations is null");
 
         this.relations = ImmutableList.copyOf(relations);
-        this.distinct = distinct;
     }
 
     public List<Relation> getRelations()
     {
         return relations;
-    }
-
-    public boolean isDistinct()
-    {
-        return distinct;
     }
 
     @Override
@@ -68,7 +61,7 @@ public class Intersect
     {
         return toStringHelper(this)
                 .add("relations", relations)
-                .add("distinct", distinct)
+                .add("distinct", isDistinct())
                 .toString();
     }
 
@@ -83,12 +76,12 @@ public class Intersect
         }
         Intersect o = (Intersect) obj;
         return Objects.equals(relations, o.relations) &&
-                Objects.equals(distinct, o.distinct);
+                Objects.equals(isDistinct(), o.isDistinct());
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(relations, distinct);
+        return Objects.hash(relations, isDistinct());
     }
 }

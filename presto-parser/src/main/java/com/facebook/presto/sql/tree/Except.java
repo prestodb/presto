@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -24,7 +27,6 @@ public class Except
 {
     private final Relation left;
     private final Relation right;
-    private final boolean distinct;
 
     public Except(Relation left, Relation right, boolean distinct)
     {
@@ -38,13 +40,12 @@ public class Except
 
     private Except(Optional<NodeLocation> location, Relation left, Relation right, boolean distinct)
     {
-        super(location);
+        super(location, distinct);
         requireNonNull(left, "left is null");
         requireNonNull(right, "right is null");
 
         this.left = left;
         this.right = right;
-        this.distinct = distinct;
     }
 
     public Relation getLeft()
@@ -57,15 +58,16 @@ public class Except
         return right;
     }
 
-    public boolean isDistinct()
-    {
-        return distinct;
-    }
-
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitExcept(this, context);
+    }
+
+    @Override
+    public List<Relation> getRelations()
+    {
+        return ImmutableList.of(left, right);
     }
 
     @Override
@@ -74,7 +76,7 @@ public class Except
         return toStringHelper(this)
                 .add("left", left)
                 .add("right", right)
-                .add("distinct", distinct)
+                .add("distinct", isDistinct())
                 .toString();
     }
 
@@ -90,12 +92,12 @@ public class Except
         Except o = (Except) obj;
         return Objects.equals(left, o.left) &&
                 Objects.equals(right, o.right) &&
-                Objects.equals(distinct, o.distinct);
+                Objects.equals(isDistinct(), o.isDistinct());
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(left, right, distinct);
+        return Objects.hash(left, right, isDistinct());
     }
 }
