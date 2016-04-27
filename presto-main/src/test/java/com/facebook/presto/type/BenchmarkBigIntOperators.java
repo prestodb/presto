@@ -30,8 +30,6 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.concurrent.TimeUnit;
-import java.util.function.LongBinaryOperator;
-import java.util.function.LongUnaryOperator;
 
 import static com.facebook.presto.metadata.OperatorType.ADD;
 import static com.facebook.presto.metadata.OperatorType.DIVIDE;
