@@ -6,6 +6,7 @@
       "maxRunning": 100,
       "maxQueued": 1000,
       "schedulingPolicy": "weighted",
+      "jmxExport": true,
       "subGroups": [
         {
           "name": "sub",

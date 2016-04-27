@@ -23,6 +23,9 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
+import org.weakref.jmx.JmxException;
+import org.weakref.jmx.MBeanExporter;
+import org.weakref.jmx.ObjectNames;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -55,11 +58,13 @@ public class ResourceGroupManager
     private final ConcurrentMap<ResourceGroupId, ResourceGroup> groups = new ConcurrentHashMap<>();
     private final List<ResourceGroupSelector> selectors;
     private final ResourceGroupConfigurationManager configurationManager;
+    private final MBeanExporter exporter;
     private final AtomicBoolean started = new AtomicBoolean();
 
     @Inject
-    public ResourceGroupManager(List<? extends ResourceGroupSelector> selectors, ResourceGroupConfigurationManager configurationManager)
+    public ResourceGroupManager(List<? extends ResourceGroupSelector> selectors, ResourceGroupConfigurationManager configurationManager, MBeanExporter exporter)
     {
+        this.exporter = requireNonNull(exporter, "exporter is null");
         this.selectors = ImmutableList.copyOf(selectors);
         this.configurationManager = requireNonNull(configurationManager, "configurationManager is null");
     }
@@ -115,12 +120,28 @@ public class ResourceGroupManager
                 group = parent.getOrCreateSubGroup(id.getLastSegment());
             }
             else {
-                RootResourceGroup root = new RootResourceGroup(id.getSegments().get(0), executor);
+                RootResourceGroup root = new RootResourceGroup(id.getSegments().get(0), this::exportGroup, executor);
                 group = root;
                 rootGroups.add(root);
             }
             configurationManager.configure(group, session);
             checkState(groups.put(id, group) == null, "Unexpected existing resource group");
+        }
+    }
+
+    private void exportGroup(ResourceGroup group, Boolean export)
+    {
+        String objectName = ObjectNames.builder(ResourceGroup.class, group.getId().toString()).build();
+        try {
+            if (export) {
+                exporter.export(objectName, group);
+            }
+            else {
+                exporter.unexport(objectName);
+            }
+        }
+        catch (JmxException e) {
+            log.error(e, "Error %s resource group %s", export ? "exporting" : "unexporting", group.getId());
         }
     }
 
