@@ -21,7 +21,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
@@ -42,7 +41,6 @@ public class ParallelHashBuilder
     private final List<Integer> hashChannels;
     private final Optional<Integer> hashChannel;
     private final int expectedPositions;
-    private final List<SettableFuture<PagesIndex>> pagesIndexFutures;
     private final List<SettableFuture<SharedLookupSource>> lookupSourceFutures;
     private final LookupSourceSupplier lookupSourceSupplier;
     private final List<Type> types;
@@ -61,13 +59,10 @@ public class ParallelHashBuilder
         this.expectedPositions = expectedPositions;
 
         checkArgument(Integer.bitCount(partitionCount) == 1, "partitionCount must be a power of 2");
-        ImmutableList.Builder<SettableFuture<PagesIndex>> pagesIndexFutures = ImmutableList.builder();
         ImmutableList.Builder<SettableFuture<SharedLookupSource>> lookupSourceFutures = ImmutableList.builder();
         for (int i = 0; i < partitionCount; i++) {
-            pagesIndexFutures.add(SettableFuture.create());
             lookupSourceFutures.add(SettableFuture.create());
         }
-        this.pagesIndexFutures = pagesIndexFutures.build();
         this.lookupSourceFutures = lookupSourceFutures.build();
 
         lookupSourceSupplier = new ParallelLookupSourceSupplier(types, hashChannels, this.lookupSourceFutures);
@@ -78,7 +73,7 @@ public class ParallelHashBuilder
         return new ParallelHashCollectOperatorFactory(
                 operatorId,
                 planNodeId,
-                pagesIndexFutures,
+                lookupSourceFutures,
                 types,
                 hashChannels,
                 hashChannel,
@@ -91,10 +86,7 @@ public class ParallelHashBuilder
                 0,
                 planNodeId,
                 types,
-                pagesIndexFutures,
-                lookupSourceFutures,
-                hashChannels,
-                hashChannel);
+                lookupSourceFutures);
     }
 
     public LookupSourceSupplier getLookupSourceSupplier()
@@ -107,7 +99,7 @@ public class ParallelHashBuilder
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final List<SettableFuture<PagesIndex>> partitionFutures;
+        private final List<SettableFuture<SharedLookupSource>> lookupSourceFutures;
         private final List<Type> types;
         private final List<Integer> hashChannels;
         private final Optional<Integer> hashChannel;
@@ -118,7 +110,7 @@ public class ParallelHashBuilder
         public ParallelHashCollectOperatorFactory(
                 int operatorId,
                 PlanNodeId planNodeId,
-                List<SettableFuture<PagesIndex>> partitionFutures,
+                List<SettableFuture<SharedLookupSource>> lookupSourceFutures,
                 List<Type> types,
                 List<Integer> hashChannels,
                 Optional<Integer> hashChannel,
@@ -126,7 +118,7 @@ public class ParallelHashBuilder
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.partitionFutures = partitionFutures;
+            this.lookupSourceFutures = lookupSourceFutures;
             this.types = types;
             this.hashChannels = hashChannels;
             this.hashChannel = hashChannel;
@@ -146,7 +138,7 @@ public class ParallelHashBuilder
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, ParallelHashBuilder.class.getSimpleName());
             return new ParallelHashCollectOperator(
                     operatorContext,
-                    partitionFutures,
+                    lookupSourceFutures,
                     types,
                     hashChannels,
                     hashChannel,
@@ -170,27 +162,31 @@ public class ParallelHashBuilder
             implements Operator
     {
         private final OperatorContext operatorContext;
-        private final List<SettableFuture<PagesIndex>> partitionFutures;
+        private final List<SettableFuture<SharedLookupSource>> lookupSourceFutures;
 
         private final HashGenerator hashGenerator;
         private final int parallelStreamMask;
         private final PagesIndex[] partitions;
         private final List<Type> types;
+        private final List<Integer> hashChannels;
+        private final Optional<Integer> hashChannel;
 
         private boolean finished;
 
         public ParallelHashCollectOperator(
                 OperatorContext operatorContext,
-                List<SettableFuture<PagesIndex>> partitionFutures,
+                List<SettableFuture<SharedLookupSource>> lookupSourceFutures,
                 List<Type> types,
                 List<Integer> hashChannels,
                 Optional<Integer> hashChannel,
                 int expectedPositions)
         {
             this.operatorContext = operatorContext;
-            this.partitionFutures = partitionFutures;
+            this.lookupSourceFutures = lookupSourceFutures;
 
             this.types = types;
+            this.hashChannels = hashChannels;
+            this.hashChannel = hashChannel;
 
             if (hashChannel.isPresent()) {
                 this.hashGenerator = new PrecomputedHashGenerator(hashChannel.get());
@@ -203,8 +199,8 @@ public class ParallelHashBuilder
                 this.hashGenerator = new InterpretedHashGenerator(hashChannelTypes.build(), Ints.toArray(hashChannels));
             }
 
-            parallelStreamMask = partitionFutures.size() - 1;
-            partitions = new PagesIndex[partitionFutures.size()];
+            parallelStreamMask = lookupSourceFutures.size() - 1;
+            partitions = new PagesIndex[lookupSourceFutures.size()];
             for (int partition = 0; partition < partitions.length; partition++) {
                 this.partitions[partition] = new PagesIndex(types, expectedPositions);
             }
@@ -229,8 +225,22 @@ public class ParallelHashBuilder
                 return;
             }
 
+            long size = 0;
+            LookupSource[] lookupSources = new LookupSource[partitions.length];
             for (int partition = 0; partition < partitions.length; partition++) {
-                partitionFutures.get(partition).set(partitions[partition]);
+                LookupSource source = partitions[partition].createLookupSource(hashChannels, hashChannel);
+                size += source.getInMemorySizeInBytes();
+                lookupSources[partition] = source;
+            }
+            // After this point the SharedLookupSources will take over our memory reservation, and ours will be zero
+            operatorContext.transferMemoryToTaskContext(size);
+
+            for (int partition = 0; partition < partitions.length; partition++) {
+                SharedLookupSource sharedLookupSource = new SharedLookupSource(lookupSources[partition], operatorContext);
+                if (!lookupSourceFutures.get(partition).set(sharedLookupSource)) {
+                    sharedLookupSource.freeMemory();
+                    sharedLookupSource.close();
+                }
             }
 
             finished = true;
@@ -266,7 +276,7 @@ public class ParallelHashBuilder
             long size = 0;
             for (int partition = 0; partition < partitions.length; partition++) {
                 PagesIndex index = partitions[partition];
-                index.addPage(page, partition, partitionIds);
+                index.addPage(page, partition, partitionIds, partitions.length);
                 size += index.getEstimatedSize().toBytes();
             }
 
@@ -287,10 +297,7 @@ public class ParallelHashBuilder
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final List<Type> types;
-        private final List<ListenableFuture<PagesIndex>> partitionFutures;
         private final List<SettableFuture<SharedLookupSource>> lookupSourceFutures;
-        private final List<Integer> hashChannels;
-        private final Optional<Integer> hashChannel;
 
         private int partition;
         private boolean closed;
@@ -299,19 +306,12 @@ public class ParallelHashBuilder
                 int operatorId,
                 PlanNodeId planNodeId,
                 List<Type> types,
-                List<? extends ListenableFuture<PagesIndex>> partitionFutures,
-                List<SettableFuture<SharedLookupSource>> lookupSourceFutures,
-                List<Integer> hashChannels,
-                Optional<Integer> hashChannel)
+                List<SettableFuture<SharedLookupSource>> lookupSourceFutures)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.types = types;
-            this.partitionFutures = ImmutableList.copyOf(partitionFutures);
             this.lookupSourceFutures = lookupSourceFutures;
-
-            this.hashChannels = hashChannels;
-            this.hashChannel = hashChannel;
         }
 
         @Override
@@ -330,10 +330,7 @@ public class ParallelHashBuilder
             ParallelHashBuilderOperator parallelHashBuilderOperator = new ParallelHashBuilderOperator(
                     operatorContext,
                     types,
-                    partitionFutures.get(partition),
-                    lookupSourceFutures.get(partition),
-                    hashChannels,
-                    hashChannel);
+                    lookupSourceFutures.get(partition));
 
             partition++;
 
@@ -358,28 +355,18 @@ public class ParallelHashBuilder
     {
         private final OperatorContext operatorContext;
         private final List<Type> types;
-        private final ListenableFuture<PagesIndex> pagesIndexFuture;
         private final SettableFuture<SharedLookupSource> lookupSourceFuture;
-        private final List<Integer> hashChannels;
-        private final Optional<Integer> hashChannel;
 
         private boolean finished;
 
         public ParallelHashBuilderOperator(
                 OperatorContext operatorContext,
                 List<Type> types,
-                ListenableFuture<PagesIndex> pagesIndexFuture,
-                SettableFuture<SharedLookupSource> lookupSourceFuture,
-                List<Integer> hashChannels,
-                Optional<Integer> hashChannel)
+                SettableFuture<SharedLookupSource> lookupSourceFuture)
         {
             this.operatorContext = operatorContext;
             this.types = types;
-            this.pagesIndexFuture = pagesIndexFuture;
             this.lookupSourceFuture = lookupSourceFuture;
-
-            this.hashChannels = hashChannels;
-            this.hashChannel = hashChannel;
         }
 
         @Override
@@ -397,10 +384,10 @@ public class ParallelHashBuilder
         @Override
         public ListenableFuture<?> isBlocked()
         {
-            if (pagesIndexFuture.isDone()) {
+            if (lookupSourceFuture.isDone()) {
                 return NOT_BLOCKED;
             }
-            return pagesIndexFuture;
+            return lookupSourceFuture;
         }
 
         @Override
@@ -408,15 +395,6 @@ public class ParallelHashBuilder
         {
             if (finished) {
                 return;
-            }
-
-            PagesIndex pagesIndex = Futures.getUnchecked(pagesIndexFuture);
-            // After this point the SharedLookupSource will take over our memory reservation, and ours will be zero
-            SharedLookupSource sharedLookupSource = new SharedLookupSource(pagesIndex.createLookupSource(hashChannels, hashChannel), operatorContext);
-
-            if (!lookupSourceFuture.set(sharedLookupSource)) {
-                sharedLookupSource.freeMemory();
-                sharedLookupSource.close();
             }
 
             finished = true;

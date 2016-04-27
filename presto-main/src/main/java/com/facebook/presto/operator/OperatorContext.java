@@ -32,6 +32,7 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
 import java.util.Optional;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -89,6 +90,7 @@ public class OperatorContext
 
     private final AtomicReference<Supplier<Object>> infoSupplier = new AtomicReference<>();
     private final boolean collectTimings;
+    private final AtomicBoolean memoryTransferred = new AtomicBoolean(false);
 
     public OperatorContext(int operatorId, PlanNodeId planNodeId, String operatorType, DriverContext driverContext, Executor executor, long maxMemoryReservation)
     {
@@ -301,6 +303,11 @@ public class OperatorContext
 
     public void transferMemoryToTaskContext(long taskBytes)
     {
+        if (!memoryTransferred.compareAndSet(false, true)) {
+            // already transferred
+            return;
+        }
+
         long bytes = memoryReservation.getAndSet(0);
         driverContext.transferMemoryToTaskContext(bytes);
 
