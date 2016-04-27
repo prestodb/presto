@@ -32,7 +32,7 @@ import java.util.List;
 import static com.facebook.presto.connector.jmx.Types.checkType;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.predicate.TupleDomain.fromFixedValues;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -62,7 +62,7 @@ public class JmxSplitManager
         List<ConnectorSplit> splits = nodeManager.getNodes(ACTIVE)
                 .stream()
                 .filter(node -> {
-                    NullableValue value = NullableValue.of(VARCHAR, utf8Slice(node.getNodeIdentifier()));
+                    NullableValue value = NullableValue.of(createUnboundedVarcharType(), utf8Slice(node.getNodeIdentifier()));
                     return predicate.overlaps(fromFixedValues(ImmutableMap.of(nodeColumnHandle, value)));
                 })
                 .map(node -> new JmxSplit(tableHandle, ImmutableList.of(node.getHostAndPort())))
