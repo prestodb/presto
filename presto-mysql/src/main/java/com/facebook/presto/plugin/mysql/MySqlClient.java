@@ -18,6 +18,7 @@ import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import com.mysql.jdbc.Driver;
@@ -37,6 +38,9 @@ import static java.util.Locale.ENGLISH;
 public class MySqlClient
         extends BaseJdbcClient
 {
+    // todo possibly make it configurable
+    public static final int MAX_IN_ROW_VARCHAR_LENGTH = 10000;
+
     @Inject
     public MySqlClient(JdbcConnectorId connectorId, BaseJdbcConfig config, MySqlConfig mySqlConfig)
             throws SQLException
@@ -111,10 +115,24 @@ public class MySqlClient
     @Override
     protected String toSqlType(Type type)
     {
+        if (type instanceof VarcharType) {
+            VarcharType varcharType = (VarcharType) type;
+            if (varcharType.getLength() <= MAX_IN_ROW_VARCHAR_LENGTH) {
+                return "varchar(" + varcharType.getLength() + ")";
+            }
+            else if (varcharType.getLength() <= 65535) {
+                return "text";
+            }
+            else if (varcharType.getLength() <= 16777215) {
+                return "mediumtext";
+            }
+            else {
+                return "longtext";
+            }
+        }
+
         String sqlType = super.toSqlType(type);
         switch (sqlType) {
-            case "varchar":
-                return "mediumtext";
             case "varbinary":
                 return "mediumblob";
             case "time with timezone":

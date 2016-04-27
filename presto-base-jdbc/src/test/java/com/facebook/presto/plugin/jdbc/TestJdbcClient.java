@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.plugin.jdbc.TestingDatabase.CONNECTOR_ID;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -73,6 +74,7 @@ public class TestJdbcClient
         assertEquals(table.getSchemaTableName(), schemaTableName);
         assertEquals(jdbcClient.getColumns(table), ImmutableList.of(
                 new JdbcColumnHandle(CONNECTOR_ID, "TEXT", VARCHAR),
+                new JdbcColumnHandle(CONNECTOR_ID, "TEXT_SHORT", createVarcharType(32)),
                 new JdbcColumnHandle(CONNECTOR_ID, "VALUE", BIGINT)));
     }
 
