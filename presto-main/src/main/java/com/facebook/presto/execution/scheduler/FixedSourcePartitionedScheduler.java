@@ -94,9 +94,9 @@ public class FixedSourcePartitionedScheduler
         }
 
         @Override
-        public Multimap<Node, Split> computeAssignments(Set<Split> splits)
+        public Multimap<Node, Split> computeAssignments(Set<Split> splits, int limit)
         {
-            return nodeSelector.computeAssignments(splits, remoteTasks.get(), partitioning);
+            return nodeSelector.computeAssignments(splits, remoteTasks.get(), partitioning, limit);
         }
 
         @Override

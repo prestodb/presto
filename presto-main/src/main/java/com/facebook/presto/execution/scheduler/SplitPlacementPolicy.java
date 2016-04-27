@@ -22,7 +22,7 @@ import java.util.Set;
 
 public interface SplitPlacementPolicy
 {
-    Multimap<Node, Split> computeAssignments(Set<Split> splits);
+    Multimap<Node, Split> computeAssignments(Set<Split> splits, int limit);
 
     void lockDownNodes();
 

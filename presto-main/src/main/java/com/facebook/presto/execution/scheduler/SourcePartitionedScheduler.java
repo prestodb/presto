@@ -29,6 +29,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.OutputBuffers.BROADCAST_PARTITION_ID;
+import static com.facebook.presto.SystemSessionProperties.getSourceNodeCount;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -94,7 +95,7 @@ public class SourcePartitionedScheduler
         }
 
         // assign the splits
-        Multimap<Node, Split> splitAssignment = splitPlacementPolicy.computeAssignments(pendingSplits);
+        Multimap<Node, Split> splitAssignment = splitPlacementPolicy.computeAssignments(pendingSplits, getSourceNodeCount(stage.getSession()));
         Set<RemoteTask> newTasks = assignSplits(splitAssignment);
 
         // remove assigned splits

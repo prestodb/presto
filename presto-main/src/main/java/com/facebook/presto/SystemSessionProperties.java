@@ -15,6 +15,7 @@ package com.facebook.presto;
 
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.TaskManagerConfig;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -37,6 +38,7 @@ public final class SystemSessionProperties
     public static final String DISTRIBUTED_JOIN = "distributed_join";
     public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
     public static final String HASH_PARTITION_COUNT = "hash_partition_count";
+    public static final String SOURCE_NODE_COUNT = "source_node_count";
     public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
     public static final String TASK_WRITER_COUNT = "task_writer_count";
     public static final String TASK_JOIN_CONCURRENCY = "task_join_concurrency";
@@ -63,7 +65,7 @@ public final class SystemSessionProperties
 
     public SystemSessionProperties()
     {
-        this(new QueryManagerConfig(), new TaskManagerConfig(), new MemoryManagerConfig(), new FeaturesConfig());
+        this(new QueryManagerConfig(), new TaskManagerConfig(), new MemoryManagerConfig(), new FeaturesConfig(), new NodeSchedulerConfig());
     }
 
     @Inject
@@ -71,7 +73,8 @@ public final class SystemSessionProperties
             QueryManagerConfig queryManagerConfig,
             TaskManagerConfig taskManagerConfig,
             MemoryManagerConfig memoryManagerConfig,
-            FeaturesConfig featuresConfig)
+            FeaturesConfig featuresConfig,
+            NodeSchedulerConfig nodeSchedulerConfig)
     {
         sessionProperties = ImmutableList.of(
                 stringSessionProperty(
@@ -98,6 +101,11 @@ public final class SystemSessionProperties
                         HASH_PARTITION_COUNT,
                         "Number of partitions for distributed joins and aggregations",
                         queryManagerConfig.getInitialHashPartitions(),
+                        false),
+                integerSessionProperty(
+                        SOURCE_NODE_COUNT,
+                        "Minimum number of nodes for source splits distribution",
+                        nodeSchedulerConfig.getMinCandidates(),
                         false),
                 booleanSessionProperty(
                         PREFER_STREAMING_OPERATORS,
@@ -241,6 +249,11 @@ public final class SystemSessionProperties
     public static int getHashPartitionCount(Session session)
     {
         return session.getProperty(HASH_PARTITION_COUNT, Integer.class);
+    }
+
+    public static int getSourceNodeCount(Session session)
+    {
+        return session.getProperty(SOURCE_NODE_COUNT, Integer.class);
     }
 
     public static boolean preferStreamingOperators(Session session)
