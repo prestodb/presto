@@ -49,6 +49,7 @@ import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.MapConstructor;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
@@ -179,6 +180,20 @@ public final class ExpressionFormatter
                 valueStrings.add(formatSql(value, unmangleNames));
             }
             return "ARRAY[" + Joiner.on(",").join(valueStrings.build()) + "]";
+        }
+
+        @Override
+        protected String visitMapConstructor(MapConstructor node, Boolean unmangleNames)
+        {
+            ImmutableList.Builder<String> mapElementStrings = ImmutableList.builder();
+            List<Expression> keys = node.getKeys();
+            List<Expression> values = node.getValues();
+            int numberOfPairs = keys.size();
+
+            for (int i = 0; i < numberOfPairs; ++i) {
+                mapElementStrings.add(format("%s: %s", formatSql(keys.get(i), unmangleNames), formatSql(values.get(i), unmangleNames)));
+            }
+            return format("{%s}", Joiner.on(",").join(mapElementStrings.build()));
         }
 
         @Override

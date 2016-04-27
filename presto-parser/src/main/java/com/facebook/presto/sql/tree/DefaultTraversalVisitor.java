@@ -77,6 +77,20 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitMapConstructor(MapConstructor node, C context)
+    {
+        for (Expression keyExpression : node.getKeys()) {
+            process(keyExpression, context);
+        }
+
+        for (Expression valueExpression : node.getValues()) {
+            process(valueExpression, context);
+        }
+
+        return null;
+    }
+
+    @Override
     protected R visitSubscriptExpression(SubscriptExpression node, C context)
     {
         process(node.getBase(), context);

@@ -75,6 +75,7 @@ import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.MapConstructor;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeLocation;
@@ -952,6 +953,14 @@ class AstBuilder
     public Node visitArrayConstructor(SqlBaseParser.ArrayConstructorContext context)
     {
         return new ArrayConstructor(getLocation(context), visit(context.expression(), Expression.class));
+    }
+
+    @Override
+    public Node visitMapConstructor(SqlBaseParser.MapConstructorContext context)
+    {
+        return new MapConstructor(getLocation(context),
+                visit(context.mapKey(), Expression.class),
+                visit(context.mapValue(), Expression.class));
     }
 
     @Override

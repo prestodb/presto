@@ -256,6 +256,7 @@ primaryExpression
     | booleanValue                                                                   #booleanLiteral
     | STRING                                                                         #stringLiteral
     | BINARY_LITERAL                                                                 #binaryLiteral
+    | '{' (mapKey ':' mapValue (',' mapKey ':' mapValue)*)? '}'                      #mapConstructor
     | POSITION '(' valueExpression IN valueExpression ')'                            #position
     | '(' expression (',' expression)+ ')'                                           #rowConstructor
     | ROW '(' expression (',' expression)* ')'                                       #rowConstructor
@@ -281,6 +282,14 @@ primaryExpression
     | NORMALIZE '(' valueExpression (',' normalForm)? ')'                            #normalize
     | EXTRACT '(' identifier FROM valueExpression ')'                                #extract
     | '(' expression ')'                                                             #parenthesizedExpression
+    ;
+
+mapKey
+    : expression
+    ;
+
+mapValue
+    : expression
     ;
 
 timeZoneSpecifier

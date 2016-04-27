@@ -126,6 +126,18 @@ public class TestMapOperators
     }
 
     @Test
+    public void testLiteral()
+            throws Exception
+    {
+        assertFunction("{'a': 1}", new MapType(createVarcharType(1), INTEGER), ImmutableMap.of("a", 1));
+        assertFunction("{'a': 1, 'b': 3}", new MapType(createVarcharType(1), INTEGER), ImmutableMap.of("a", 1, "b", 3));
+        assertFunction("{'a': 2 * 3.0, 'b': 3.4 * 1.2, 'c': 2 / 2.0}",
+                new MapType(createVarcharType(1), DOUBLE), ImmutableMap.of("a", 2 * 3.0, "b", 3.4 * 1.2, "c", 2 / 2.0));
+        assertFunction("CARDINALITY({'a': 2 * 3.0, 'b': 3.4 * 1.2, 'c': 2 / 2.0})", BIGINT, 3L);
+        assertFunction("MAP_KEYS({'a': 2 * 3.0, 'b': 3.4 * 1.2, 'c': 2 / 2.0})", new ArrayType(createVarcharType(1)), ImmutableList.of("a", "b", "c"));
+    }
+
+    @Test
     public void testCardinality()
             throws Exception
     {
