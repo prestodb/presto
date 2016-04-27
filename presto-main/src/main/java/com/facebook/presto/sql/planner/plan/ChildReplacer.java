@@ -251,6 +251,12 @@ public class ChildReplacer
     }
 
     @Override
+    public PlanNode visitIntersect(IntersectNode node, List<PlanNode> newChildren)
+    {
+        return new IntersectNode(node.getId(), newChildren, node.getSymbolMapping(), node.getOutputSymbols());
+    }
+
+    @Override
     public PlanNode visitDelete(DeleteNode node, List<PlanNode> newChildren)
     {
         return new DeleteNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getTarget(), node.getRowId(), node.getOutputSymbols());

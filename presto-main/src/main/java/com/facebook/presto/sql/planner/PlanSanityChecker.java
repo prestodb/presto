@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
+import com.facebook.presto.sql.planner.plan.IntersectNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
@@ -36,6 +37,7 @@ import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.planner.plan.SetOperationNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -499,15 +501,26 @@ public final class PlanSanityChecker
         @Override
         public Void visitUnion(UnionNode node, Void context)
         {
+            return visitSetOperation(node, context);
+        }
+
+        private Void visitSetOperation(SetOperationNode node, Void context)
+        {
             for (int i = 0; i < node.getSources().size(); i++) {
                 PlanNode subplan = node.getSources().get(i);
-                checkDependencies(subplan.getOutputSymbols(), node.sourceOutputLayout(i), "UNION subplan must provide all of the necessary symbols");
+                checkDependencies(subplan.getOutputSymbols(), node.sourceOutputLayout(i), "%s subplan must provide all of the necessary symbols", node.getClass().getSimpleName());
                 subplan.accept(this, context); // visit child
             }
 
             verifyUniqueId(node);
 
             return null;
+        }
+
+        @Override
+        public Void visitIntersect(IntersectNode node, Void context)
+        {
+            return visitSetOperation(node, context);
         }
 
         @Override

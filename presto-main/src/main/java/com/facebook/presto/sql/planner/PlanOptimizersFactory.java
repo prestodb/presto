@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.optimizations.CountConstantOptimizer;
 import com.facebook.presto.sql.planner.optimizations.DesugaringOptimizer;
 import com.facebook.presto.sql.planner.optimizations.EmptyDeleteOptimizer;
 import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
+import com.facebook.presto.sql.planner.optimizations.ImplementIntersectAsUnion;
 import com.facebook.presto.sql.planner.optimizations.ImplementSampleAsFilter;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.optimizations.LimitPushDown;
@@ -71,6 +72,7 @@ public class PlanOptimizersFactory
                 new UnaliasSymbolReferences(),
                 new PruneIdentityProjections(),
                 new SetFlatteningOptimizer(),
+                new ImplementIntersectAsUnion(),
                 new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
                 new PredicatePushDown(metadata, sqlParser),
                 new MergeProjections(),
