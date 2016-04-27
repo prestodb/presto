@@ -32,6 +32,7 @@ import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
+import com.facebook.presto.sql.planner.plan.IntersectNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
@@ -638,6 +639,12 @@ public class PruneUnreferencedOutputs
             }
 
             return new UnionNode(node.getId(), rewrittenSubPlans.build(), rewrittenSymbolMapping, ImmutableList.copyOf(rewrittenSymbolMapping.keySet()));
+        }
+
+        @Override
+        public PlanNode visitIntersect(IntersectNode node, RewriteContext<Set<Symbol>> context)
+        {
+            return new IntersectNode(node.getId(), node.getSources(), node.getSymbolMapping(), ImmutableList.copyOf(node.getSymbolMapping().keySet()));
         }
 
         @Override
