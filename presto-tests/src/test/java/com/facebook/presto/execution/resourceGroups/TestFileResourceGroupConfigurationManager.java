@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.execution.resourceGroups.ResourceGroup.DEFAULT_WEIGHT;
@@ -72,7 +73,7 @@ public class TestFileResourceGroupConfigurationManager
     public void testMissing()
     {
         ResourceGroupConfigurationManager manager = parse("resource_groups_config.json");
-        ResourceGroup missing = new RootResourceGroup("missing", directExecutor());
+        ResourceGroup missing = new RootResourceGroup("missing", (group, export) -> { }, directExecutor());
         manager.configure(missing, testSessionBuilder().build().toSessionRepresentation());
     }
 
@@ -80,13 +81,17 @@ public class TestFileResourceGroupConfigurationManager
     public void testConfiguration()
     {
         ResourceGroupConfigurationManager manager = parse("resource_groups_config.json");
-        ResourceGroup global = new RootResourceGroup("global", directExecutor());
+        AtomicBoolean exported = new AtomicBoolean();
+        ResourceGroup global = new RootResourceGroup("global", (group, export) -> exported.set(export), directExecutor());
         manager.configure(global, testSessionBuilder().build().toSessionRepresentation());
         assertEquals(global.getSoftMemoryLimit(), new DataSize(1, MEGABYTE));
         assertEquals(global.getMaxQueuedQueries(), 1000);
         assertEquals(global.getMaxRunningQueries(), 100);
         assertEquals(global.getSchedulingPolicy(), WEIGHTED);
         assertEquals(global.getSchedulingWeight(), DEFAULT_WEIGHT);
+        assertEquals(global.getJmxExport(), true);
+        assertEquals(exported.get(), true);
+        exported.set(false);
         ResourceGroup sub = global.getOrCreateSubGroup("sub");
         manager.configure(sub, testSessionBuilder().build().toSessionRepresentation());
         assertEquals(sub.getSoftMemoryLimit(), new DataSize(2, MEGABYTE));
@@ -94,6 +99,8 @@ public class TestFileResourceGroupConfigurationManager
         assertEquals(sub.getMaxQueuedQueries(), 4);
         assertEquals(sub.getSchedulingPolicy(), FAIR);
         assertEquals(sub.getSchedulingWeight(), 5);
+        assertEquals(sub.getJmxExport(), false);
+        assertEquals(exported.get(), false);
     }
 
     private FileResourceGroupConfigurationManager parse(String fileName)

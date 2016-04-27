@@ -46,7 +46,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testFairEligibility()
     {
-        RootResourceGroup root = new RootResourceGroup("root", directExecutor());
+        RootResourceGroup root = new RootResourceGroup("root", (group, export) -> { }, directExecutor());
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(4);
         root.setMaxRunningQueries(1);
@@ -101,7 +101,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testFairQueuing()
     {
-        RootResourceGroup root = new RootResourceGroup("root", directExecutor());
+        RootResourceGroup root = new RootResourceGroup("root", (group, export) -> { }, directExecutor());
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(4);
         root.setMaxRunningQueries(1);
@@ -143,7 +143,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testMemoryLimit()
     {
-        RootResourceGroup root = new RootResourceGroup("root", directExecutor());
+        RootResourceGroup root = new RootResourceGroup("root", (group, export) -> { }, directExecutor());
         root.setSoftMemoryLimit(new DataSize(1, BYTE));
         root.setMaxQueuedQueries(4);
         root.setMaxRunningQueries(3);
@@ -168,7 +168,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testPriorityScheduling()
     {
-        RootResourceGroup root = new RootResourceGroup("root", directExecutor());
+        RootResourceGroup root = new RootResourceGroup("root", (group, export) -> { }, directExecutor());
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(100);
         // Start with zero capacity, so that nothing starts running until we've added all the queries
@@ -217,7 +217,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testWeightedScheduling()
     {
-        RootResourceGroup root = new RootResourceGroup("root", directExecutor());
+        RootResourceGroup root = new RootResourceGroup("root", (group, export) -> { }, directExecutor());
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(4);
         // Start with zero capacity, so that nothing starts running until we've added all the queries

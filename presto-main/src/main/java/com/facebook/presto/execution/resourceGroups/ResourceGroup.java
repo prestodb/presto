@@ -15,6 +15,7 @@ package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.presto.execution.QueryExecution;
 import io.airlift.units.DataSize;
+import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -28,6 +29,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryPriority;
@@ -49,6 +51,7 @@ public class ResourceGroup
     private final ResourceGroup root;
     private final Optional<ResourceGroup> parent;
     private final ResourceGroupId id;
+    private final BiConsumer<ResourceGroup, Boolean> jmxExportListener;
     private final Executor executor;
 
     @GuardedBy("root")
@@ -79,10 +82,13 @@ public class ResourceGroup
     private final Set<QueryExecution> runningQueries = new HashSet<>();
     @GuardedBy("root")
     private SubGroupSchedulingPolicy schedulingPolicy = FAIR;
+    @GuardedBy("root")
+    private boolean jmxExport;
 
-    protected ResourceGroup(Optional<ResourceGroup> parent, String name, Executor executor)
+    protected ResourceGroup(Optional<ResourceGroup> parent, String name, BiConsumer<ResourceGroup, Boolean> jmxExportListener, Executor executor)
     {
         this.parent = requireNonNull(parent, "parent is null");
+        this.jmxExportListener = requireNonNull(jmxExportListener, "jmxExportListener is null");
         this.executor = requireNonNull(executor, "executor is null");
         requireNonNull(name, "name is null");
         if (parent.isPresent()) {
@@ -119,6 +125,22 @@ public class ResourceGroup
         return id;
     }
 
+    @Managed
+    public int getRunningQueries()
+    {
+        synchronized (root) {
+            return runningQueries.size() + descendantRunningQueries;
+        }
+    }
+
+    @Managed
+    public int getQueuedQueries()
+    {
+        synchronized (root) {
+            return queuedQueries.size() + descendantQueuedQueries;
+        }
+    }
+
     @Override
     public DataSize getSoftMemoryLimit()
     {
@@ -139,6 +161,7 @@ public class ResourceGroup
         }
     }
 
+    @Managed
     @Override
     public int getMaxRunningQueries()
     {
@@ -147,6 +170,7 @@ public class ResourceGroup
         }
     }
 
+    @Managed
     @Override
     public void setMaxRunningQueries(int maxRunningQueries)
     {
@@ -160,6 +184,7 @@ public class ResourceGroup
         }
     }
 
+    @Managed
     @Override
     public int getMaxQueuedQueries()
     {
@@ -168,6 +193,7 @@ public class ResourceGroup
         }
     }
 
+    @Managed
     @Override
     public void setMaxQueuedQueries(int maxQueuedQueries)
     {
@@ -253,6 +279,23 @@ public class ResourceGroup
         }
     }
 
+    @Override
+    public boolean getJmxExport()
+    {
+        synchronized (root) {
+            return jmxExport;
+        }
+    }
+
+    @Override
+    public void setJmxExport(boolean export)
+    {
+        synchronized (root) {
+            jmxExport = export;
+        }
+        jmxExportListener.accept(this, export);
+    }
+
     public ResourceGroup getOrCreateSubGroup(String name)
     {
         requireNonNull(name, "name is null");
@@ -261,7 +304,7 @@ public class ResourceGroup
             if (subGroups.containsKey(name)) {
                 return subGroups.get(name);
             }
-            ResourceGroup subGroup = new ResourceGroup(Optional.of(this), name, executor);
+            ResourceGroup subGroup = new ResourceGroup(Optional.of(this), name, jmxExportListener, executor);
             // Sub group must use query priority to ensure ordering
             if (schedulingPolicy == QUERY_PRIORITY) {
                 subGroup.setSchedulingPolicy(QUERY_PRIORITY);
@@ -524,9 +567,9 @@ public class ResourceGroup
     public static final class RootResourceGroup
             extends ResourceGroup
     {
-        public RootResourceGroup(String name, Executor executor)
+        public RootResourceGroup(String name, BiConsumer<ResourceGroup, Boolean> jmxExportListener, Executor executor)
         {
-            super(Optional.empty(), name, executor);
+            super(Optional.empty(), name, jmxExportListener, executor);
         }
 
         public synchronized void processQueuedQueries()

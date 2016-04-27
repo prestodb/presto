@@ -141,6 +141,9 @@ public class FileResourceGroupConfigurationManager
         if (match.getSchedulingWeight().isPresent()) {
             group.setSchedulingWeight(match.getSchedulingWeight().get());
         }
+        if (match.getJmxExport().isPresent()) {
+            group.setJmxExport(match.getJmxExport().get());
+        }
     }
 
     @Override
@@ -191,6 +194,7 @@ public class FileResourceGroupConfigurationManager
         private final Optional<SubGroupSchedulingPolicy> schedulingPolicy;
         private final Optional<Integer> schedulingWeight;
         private final List<ResourceGroupSpec> subGroups;
+        private final Optional<Boolean> jmxExport;
 
         @JsonCreator
         public ResourceGroupSpec(
@@ -200,8 +204,10 @@ public class FileResourceGroupConfigurationManager
                 @JsonProperty("maxRunning") int maxRunning,
                 @JsonProperty("schedulingPolicy") Optional<String> schedulingPolicy,
                 @JsonProperty("schedulingWeight") Optional<Integer> schedulingWeight,
-                @JsonProperty("subGroups") Optional<List<ResourceGroupSpec>> subGroups)
+                @JsonProperty("subGroups") Optional<List<ResourceGroupSpec>> subGroups,
+                @JsonProperty("jmxExport") Optional<Boolean> jmxExport)
         {
+            this.jmxExport = requireNonNull(jmxExport, "jmxExport is null");
             this.name = requireNonNull(name, "name is null");
             checkArgument(maxQueued >= 0, "maxQueued is negative");
             this.maxQueued = maxQueued;
@@ -269,6 +275,11 @@ public class FileResourceGroupConfigurationManager
         public List<ResourceGroupSpec> getSubGroups()
         {
             return subGroups;
+        }
+
+        public Optional<Boolean> getJmxExport()
+        {
+            return jmxExport;
         }
     }
 

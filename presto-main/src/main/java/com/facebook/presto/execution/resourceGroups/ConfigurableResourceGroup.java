@@ -42,4 +42,8 @@ public interface ConfigurableResourceGroup
     SubGroupSchedulingPolicy getSchedulingPolicy();
 
     void setSchedulingPolicy(SubGroupSchedulingPolicy policy);
+
+    boolean getJmxExport();
+
+    void setJmxExport(boolean export);
 }
