@@ -279,7 +279,7 @@ public class TestShardEjector
         }
 
         @Override
-        public void deleteShard(UUID uuid)
+        public boolean deleteShard(UUID uuid)
         {
             throw new UnsupportedOperationException();
         }

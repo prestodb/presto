@@ -49,9 +49,9 @@ public class ManagedBackupStore
     }
 
     @Override
-    public void deleteShard(UUID uuid)
+    public boolean deleteShard(UUID uuid)
     {
-        deleteShard.run(() -> store.deleteShard(uuid));
+        return deleteShard.run(() -> store.deleteShard(uuid));
     }
 
     @Override

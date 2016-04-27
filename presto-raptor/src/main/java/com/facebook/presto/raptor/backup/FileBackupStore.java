@@ -84,10 +84,10 @@ public class FileBackupStore
     }
 
     @Override
-    public void deleteShard(UUID uuid)
+    public boolean deleteShard(UUID uuid)
     {
         try {
-            deleteIfExists(getBackupFile(uuid).toPath());
+            return deleteIfExists(getBackupFile(uuid).toPath());
         }
         catch (IOException e) {
             throw new PrestoException(RAPTOR_BACKUP_ERROR, "Failed to delete backup shard: " + uuid, e);
