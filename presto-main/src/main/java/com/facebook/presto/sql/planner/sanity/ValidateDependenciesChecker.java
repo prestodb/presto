@@ -11,8 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner;
+package com.facebook.presto.sql.planner.sanity;
 
+import com.facebook.presto.sql.planner.DependencyExtractor;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
@@ -65,11 +67,11 @@ import static com.google.common.base.Preconditions.checkArgument;
 /**
  * Ensures that all dependencies (i.e., symbols in expressions) for a plan node are provided by its source nodes
  */
-public final class PlanSanityChecker
+public final class ValidateDependenciesChecker
+        implements PlanSanityChecker.Checker
 {
-    private PlanSanityChecker() {}
-
-    public static void validate(PlanNode plan)
+    @Override
+    public void validate(PlanNode plan)
     {
         plan.accept(new Visitor(), null);
     }
