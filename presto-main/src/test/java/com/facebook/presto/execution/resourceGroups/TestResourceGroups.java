@@ -20,18 +20,25 @@ import io.airlift.units.DataSize;
 import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Random;
 import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
 
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
+import static com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy.QUERY_PRIORITY;
 import static com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy.WEIGHTED;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.Collections.reverse;
 import static org.testng.Assert.assertEquals;
 
 public class TestResourceGroups
@@ -156,6 +163,55 @@ public class TestResourceGroups
         root.processQueuedQueries();
         assertEquals(query2.getState(), RUNNING);
         assertEquals(query3.getState(), RUNNING);
+    }
+
+    @Test(timeOut = 10_000)
+    public void testPriorityScheduling()
+    {
+        RootResourceGroup root = new RootResourceGroup("root", directExecutor());
+        root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        root.setMaxQueuedQueries(100);
+        // Start with zero capacity, so that nothing starts running until we've added all the queries
+        root.setMaxRunningQueries(0);
+        root.setSchedulingPolicy(QUERY_PRIORITY);
+        ResourceGroup group1 = root.getOrCreateSubGroup("1");
+        group1.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        group1.setMaxQueuedQueries(100);
+        group1.setMaxRunningQueries(1);
+        ResourceGroup group2 = root.getOrCreateSubGroup("2");
+        group2.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        group2.setMaxQueuedQueries(100);
+        group2.setMaxRunningQueries(1);
+
+        SortedMap<Integer, MockQueryExecution> queries = new TreeMap<>();
+
+        Random random = new Random();
+        for (int i = 0; i < 100; i++) {
+            int priority;
+            do {
+                priority = random.nextInt(1_000_000) + 1;
+            } while (queries.containsKey(priority));
+
+            MockQueryExecution query = new MockQueryExecution(0, priority);
+            if (random.nextBoolean()) {
+                group1.add(query);
+            }
+            else {
+                group2.add(query);
+            }
+            queries.put(priority, query);
+        }
+
+        root.setMaxRunningQueries(1);
+
+        List<MockQueryExecution> orderedQueries = new ArrayList<>(queries.values());
+        reverse(orderedQueries);
+
+        for (MockQueryExecution query : orderedQueries) {
+            root.processQueuedQueries();
+            assertEquals(query.getState(), RUNNING);
+            query.complete();
+        }
     }
 
     @Test(timeOut = 10_000)

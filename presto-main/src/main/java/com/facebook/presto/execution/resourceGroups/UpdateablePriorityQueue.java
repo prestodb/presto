@@ -23,6 +23,8 @@ interface UpdateablePriorityQueue<E>
 
     E poll();
 
+    E peek();
+
     int size();
 
     boolean isEmpty();

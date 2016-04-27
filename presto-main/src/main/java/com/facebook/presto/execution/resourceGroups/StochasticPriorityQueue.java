@@ -121,6 +121,12 @@ final class StochasticPriorityQueue<E>
     }
 
     @Override
+    public E peek()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public int size()
     {
         return index.size();

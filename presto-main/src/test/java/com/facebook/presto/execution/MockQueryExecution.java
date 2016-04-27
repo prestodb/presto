@@ -16,15 +16,18 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.SystemSessionProperties.QUERY_PRIORITY;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 public class MockQueryExecution
         implements QueryExecution
@@ -32,10 +35,19 @@ public class MockQueryExecution
     private final List<StateChangeListener<QueryState>> listeners = new ArrayList<>();
     private QueryState state = QUEUED;
     private final long memoryUsage;
+    private final Session session;
 
     public MockQueryExecution(long memoryUsage)
     {
+        this(memoryUsage, 1);
+    }
+
+    public MockQueryExecution(long memoryUsage, int priority)
+    {
         this.memoryUsage = memoryUsage;
+        this.session = testSessionBuilder()
+                .setSystemProperties(ImmutableMap.of(QUERY_PRIORITY, String.valueOf(priority)))
+                .build();
     }
 
     public void complete()
@@ -96,7 +108,7 @@ public class MockQueryExecution
     @Override
     public Session getSession()
     {
-        throw new UnsupportedOperationException();
+        return session;
     }
 
     @Override
