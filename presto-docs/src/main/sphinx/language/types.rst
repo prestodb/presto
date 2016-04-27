@@ -42,11 +42,9 @@ DECIMAL
 VARCHAR
 -------
 
-    Variable length character data.
+    Variable length character data with an optional maximum length.
 
-    .. note::
-
-        Character strings with length are not yet supported: ``varchar(n)``
+    Example type definitions: ``varchar``, ``varchar(20)``
 
 VARBINARY
 ---------
