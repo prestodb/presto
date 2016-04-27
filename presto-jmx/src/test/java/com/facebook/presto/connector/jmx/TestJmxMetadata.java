@@ -20,7 +20,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
 import static java.util.Locale.ENGLISH;
@@ -56,8 +56,8 @@ public class TestJmxMetadata
         assertEquals(handle.getObjectName(), RUNTIME_OBJECT);
 
         List<JmxColumnHandle> columns = handle.getColumns();
-        assertTrue(columns.contains(new JmxColumnHandle("test", "node", VARCHAR)));
-        assertTrue(columns.contains(new JmxColumnHandle("test", "Name", VARCHAR)));
+        assertTrue(columns.contains(new JmxColumnHandle("test", "node", createUnboundedVarcharType())));
+        assertTrue(columns.contains(new JmxColumnHandle("test", "Name", createUnboundedVarcharType())));
         assertTrue(columns.contains(new JmxColumnHandle("test", "StartTime", BigintType.BIGINT)));
     }
 }

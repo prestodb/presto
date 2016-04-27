@@ -18,7 +18,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.connector.jmx.MetadataUtil.COLUMN_CODEC;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static org.testng.Assert.assertEquals;
 
 public class TestJmxColumnHandle
@@ -26,7 +26,7 @@ public class TestJmxColumnHandle
     @Test
     public void testJsonRoundTrip()
     {
-        JmxColumnHandle handle = new JmxColumnHandle("connectorId", "columnName", VARCHAR);
+        JmxColumnHandle handle = new JmxColumnHandle("connectorId", "columnName", createUnboundedVarcharType());
         String json = COLUMN_CODEC.toJson(handle);
         JmxColumnHandle copy = COLUMN_CODEC.fromJson(json);
         assertEquals(copy, handle);
@@ -37,14 +37,14 @@ public class TestJmxColumnHandle
     {
         EquivalenceTester.equivalenceTester()
                 .addEquivalentGroup(
-                        new JmxColumnHandle("connectorId", "columnName", VARCHAR),
-                        new JmxColumnHandle("connectorId", "columnName", VARCHAR))
+                        new JmxColumnHandle("connectorId", "columnName", createUnboundedVarcharType()),
+                        new JmxColumnHandle("connectorId", "columnName", createUnboundedVarcharType()))
                 .addEquivalentGroup(
-                        new JmxColumnHandle("connectorIdX", "columnName", VARCHAR),
-                        new JmxColumnHandle("connectorIdX", "columnName", VARCHAR))
+                        new JmxColumnHandle("connectorIdX", "columnName", createUnboundedVarcharType()),
+                        new JmxColumnHandle("connectorIdX", "columnName", createUnboundedVarcharType()))
                 .addEquivalentGroup(
-                        new JmxColumnHandle("connectorId", "columnNameX", VARCHAR),
-                        new JmxColumnHandle("connectorId", "columnNameX", VARCHAR))
+                        new JmxColumnHandle("connectorId", "columnNameX", createUnboundedVarcharType()),
+                        new JmxColumnHandle("connectorId", "columnNameX", createUnboundedVarcharType()))
                 .addEquivalentGroup(
                         new JmxColumnHandle("connectorId", "columnName", BIGINT),
                         new JmxColumnHandle("connectorId", "columnName", BIGINT))

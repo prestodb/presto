@@ -21,14 +21,14 @@ import java.util.List;
 
 import static com.facebook.presto.connector.jmx.MetadataUtil.TABLE_CODEC;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static org.testng.Assert.assertEquals;
 
 public class TestJmxTableHandle
 {
     public static final List<JmxColumnHandle> COLUMNS = ImmutableList.<JmxColumnHandle>builder()
             .add(new JmxColumnHandle("connectorId", "id", BIGINT))
-            .add(new JmxColumnHandle("connectorId", "name", VARCHAR))
+            .add(new JmxColumnHandle("connectorId", "name", createUnboundedVarcharType()))
             .build();
     public static final JmxTableHandle TABLE = new JmxTableHandle("connectorId", "objectName", COLUMNS);
 
