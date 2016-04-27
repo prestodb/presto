@@ -82,6 +82,11 @@ public abstract class AstVisitor<R, C>
         return visitNode(node, context);
     }
 
+    protected R visitPrepare(Prepare node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitQuery(Query node, C context)
     {
         return visitStatement(node, context);

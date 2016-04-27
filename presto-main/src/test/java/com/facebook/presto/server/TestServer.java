@@ -36,6 +36,7 @@ import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_JOIN;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
@@ -97,6 +98,7 @@ public class TestServer
                 .setHeader(PRESTO_SCHEMA, "schema")
                 .addHeader(PRESTO_SESSION, QUERY_MAX_MEMORY + "=1GB")
                 .addHeader(PRESTO_SESSION, DISTRIBUTED_JOIN + "=true," + HASH_PARTITION_COUNT + " = 43")
+                .addHeader(PRESTO_PREPARED_STATEMENT, "foo=select * from bar")
                 .build();
 
         QueryResults queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
@@ -109,6 +111,11 @@ public class TestServer
                 .put(QUERY_MAX_MEMORY, "1GB")
                 .put(DISTRIBUTED_JOIN, "true")
                 .put(HASH_PARTITION_COUNT, "43")
+                .build());
+
+        // verify prepared statements
+        assertEquals(queryInfo.getSession().getPreparedStatements(), ImmutableMap.builder()
+                .put("foo", "select * from bar")
                 .build());
 
         ImmutableList.Builder<List<Object>> data = ImmutableList.builder();

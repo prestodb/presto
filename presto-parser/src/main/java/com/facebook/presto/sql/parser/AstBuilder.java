@@ -81,6 +81,7 @@ import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
@@ -323,6 +324,13 @@ class AstBuilder
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
                 visit(context.callArgument(), CallArgument.class));
+    }
+
+    @Override
+    public Node visitPrepare(SqlBaseParser.PrepareContext context)
+    {
+        String name = context.identifier().getText();
+        return new Prepare(getLocation(context), name, (Statement) visit(context.statement()));
     }
 
     // ********************** query expressions ********************
