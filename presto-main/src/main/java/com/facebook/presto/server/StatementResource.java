@@ -76,13 +76,16 @@ import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -90,6 +93,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_ADDED_PREPARE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
@@ -210,6 +214,18 @@ public class StatementResource
         query.getResetSessionProperties().stream()
                 .forEach(name -> response.header(PRESTO_CLEAR_SESSION, name));
 
+        // add added prepare statements
+        for (Entry<String, String> entry : query.getAddedPreparedStatements().entrySet()) {
+            try {
+                String encodedKey = URLEncoder.encode(entry.getKey(), "UTF-8");
+                String encodedValue = URLEncoder.encode(entry.getValue(), "UTF-8");
+                response.header(PRESTO_ADDED_PREPARE, encodedKey + '=' + encodedValue);
+            }
+            catch (UnsupportedEncodingException e) {
+                throw new AssertionError(e);
+            }
+        }
+
         // add new transaction ID
         query.getStartedTransactionId()
                 .ifPresent(transactionId -> response.header(PRESTO_STARTED_TRANSACTION_ID, transactionId));
@@ -262,6 +278,9 @@ public class StatementResource
         private Set<String> resetSessionProperties;
 
         @GuardedBy("this")
+        private Map<String, String> addedPreparedStatements;
+
+        @GuardedBy("this")
         private Optional<TransactionId> startedTransactionId;
 
         @GuardedBy("this")
@@ -312,6 +331,11 @@ public class StatementResource
         public synchronized Set<String> getResetSessionProperties()
         {
             return resetSessionProperties;
+        }
+
+        public synchronized Map<String, String> getAddedPreparedStatements()
+        {
+            return addedPreparedStatements;
         }
 
         public synchronized Optional<TransactionId> getStartedTransactionId()
@@ -403,6 +427,9 @@ public class StatementResource
             // update setSessionProperties
             setSessionProperties = queryInfo.getSetSessionProperties();
             resetSessionProperties = queryInfo.getResetSessionProperties();
+
+            // update preparedStatements
+            addedPreparedStatements = queryInfo.getAddedPreparedStatements();
 
             // update startedTransactionId
             startedTransactionId = queryInfo.getStartedTransactionId();

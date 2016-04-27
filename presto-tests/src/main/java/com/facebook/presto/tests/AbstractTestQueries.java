@@ -4151,6 +4151,7 @@ public abstract class AbstractTestQueries
         assertExplainDdl("ALTER TABLE orders RENAME TO new_name");
         assertExplainDdl("ALTER TABLE orders RENAME COLUMN orderkey TO new_column_name");
         assertExplainDdl("SET SESSION foo = 'bar'");
+        assertExplainDdl("PREPARE my_query FROM SELECT * FROM orders", "PREPARE my_query");
         assertExplainDdl("RESET SESSION foo");
         assertExplainDdl("START TRANSACTION");
         assertExplainDdl("COMMIT");

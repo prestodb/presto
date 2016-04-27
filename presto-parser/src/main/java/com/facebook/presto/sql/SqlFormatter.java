@@ -42,6 +42,7 @@ import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
@@ -144,6 +145,17 @@ public final class SqlFormatter
         protected Void visitUnnest(Unnest node, Integer indent)
         {
             builder.append(node.toString());
+            return null;
+        }
+
+        @Override
+        protected Void visitPrepare(Prepare node, Integer indent)
+        {
+            append(indent, "PREPARE ");
+            builder.append(node.getName());
+            builder.append(" FROM");
+            builder.append("\n");
+            process(node.getStatement(), indent + 1);
             return null;
         }
 
