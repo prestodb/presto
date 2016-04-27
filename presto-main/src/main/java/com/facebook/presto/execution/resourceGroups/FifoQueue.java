@@ -54,6 +54,16 @@ final class FifoQueue<E>
     }
 
     @Override
+    public E peek()
+    {
+        Iterator<E> iterator = delegate.iterator();
+        if (!iterator.hasNext()) {
+            return null;
+        }
+        return iterator.next();
+    }
+
+    @Override
     public int size()
     {
         return delegate.size();

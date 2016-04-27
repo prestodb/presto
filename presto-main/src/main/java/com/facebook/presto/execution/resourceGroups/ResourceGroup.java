@@ -30,7 +30,10 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.getQueryPriority;
 import static com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy.FAIR;
+import static com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy.QUERY_PRIORITY;
+import static com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy.WEIGHTED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -71,7 +74,7 @@ public class ResourceGroup
     @GuardedBy("root")
     private int schedulingWeight = DEFAULT_WEIGHT;
     @GuardedBy("root")
-    private final UpdateablePriorityQueue<QueryExecution> queuedQueries = new FifoQueue<>();
+    private UpdateablePriorityQueue<QueryExecution> queuedQueries = new FifoQueue<>();
     @GuardedBy("root")
     private final Set<QueryExecution> runningQueries = new HashSet<>();
     @GuardedBy("root")
@@ -188,7 +191,7 @@ public class ResourceGroup
         checkArgument(weight > 0, "weight must be positive");
         synchronized (root) {
             this.schedulingWeight = weight;
-            if (parent.isPresent() && parent.get().eligibleSubGroups.contains(this)) {
+            if (parent.isPresent() && parent.get().schedulingPolicy == WEIGHTED && parent.get().eligibleSubGroups.contains(this)) {
                 parent.get().eligibleSubGroups.addOrUpdate(this, weight);
             }
         }
@@ -210,22 +213,42 @@ public class ResourceGroup
                 return;
             }
 
+            if (parent.isPresent() && parent.get().schedulingPolicy == QUERY_PRIORITY) {
+                checkArgument(policy == QUERY_PRIORITY, "Parent of %s uses query priority scheduling, so %s must also", id, id);
+            }
+
             UpdateablePriorityQueue<ResourceGroup> queue;
+            UpdateablePriorityQueue<QueryExecution> queryQueue;
             switch (policy) {
                 case FAIR:
                     queue = new FifoQueue<>();
+                    queryQueue = new FifoQueue<>();
                     break;
                 case WEIGHTED:
                     queue = new StochasticPriorityQueue<>();
+                    queryQueue = new StochasticPriorityQueue<>();
+                    break;
+                case QUERY_PRIORITY:
+                    // Sub groups must use query priority to ensure ordering
+                    for (ResourceGroup group : subGroups.values()) {
+                        group.setSchedulingPolicy(QUERY_PRIORITY);
+                    }
+                    queue = new IndexedPriorityQueue<>();
+                    queryQueue = new IndexedPriorityQueue<>();
                     break;
                 default:
                     throw new UnsupportedOperationException("Unsupported scheduling policy: " + policy);
             }
             while (!eligibleSubGroups.isEmpty()) {
                 ResourceGroup group = eligibleSubGroups.poll();
-                queue.addOrUpdate(group, group.getSchedulingWeight());
+                queue.addOrUpdate(group, getSubGroupSchedulingPriority(policy, group));
             }
             eligibleSubGroups = queue;
+            while (!queuedQueries.isEmpty()) {
+                QueryExecution query = queuedQueries.poll();
+                queryQueue.addOrUpdate(query, getQueryPriority(query.getSession()));
+            }
+            queuedQueries = queryQueue;
             schedulingPolicy = policy;
         }
     }
@@ -239,6 +262,10 @@ public class ResourceGroup
                 return subGroups.get(name);
             }
             ResourceGroup subGroup = new ResourceGroup(Optional.of(this), name, executor);
+            // Sub group must use query priority to ensure ordering
+            if (schedulingPolicy == QUERY_PRIORITY) {
+                subGroup.setSchedulingPolicy(QUERY_PRIORITY);
+            }
             subGroups.put(name, subGroup);
             return subGroup;
         }
@@ -285,7 +312,7 @@ public class ResourceGroup
     {
         checkState(Thread.holdsLock(root), "Must hold lock to enqueue a query");
         synchronized (root) {
-            queuedQueries.addOrUpdate(query, DEFAULT_WEIGHT);
+            queuedQueries.addOrUpdate(query, getQueryPriority(query.getSession()));
             ResourceGroup group = this;
             while (group.parent.isPresent()) {
                 group.parent.get().descendantQueuedQueries++;
@@ -303,7 +330,7 @@ public class ResourceGroup
                 return;
             }
             if (isEligibleToStartNext()) {
-                parent.get().eligibleSubGroups.addOrUpdate(this, schedulingWeight);
+                parent.get().eligibleSubGroups.addOrUpdate(this, getSubGroupSchedulingPriority(parent.get().schedulingPolicy, this));
             }
             else {
                 parent.get().eligibleSubGroups.remove(this);
@@ -402,9 +429,19 @@ public class ResourceGroup
             descendantQueuedQueries--;
             // Don't call updateEligibility here, as we're in a recursive call, and don't want to repeatedly update our ancestors.
             if (subGroup.isEligibleToStartNext()) {
-                eligibleSubGroups.addOrUpdate(subGroup, subGroup.getSchedulingWeight());
+                eligibleSubGroups.addOrUpdate(subGroup, getSubGroupSchedulingPriority(schedulingPolicy, subGroup));
             }
             return true;
+        }
+    }
+
+    private static int getSubGroupSchedulingPriority(SubGroupSchedulingPolicy policy, ResourceGroup group)
+    {
+        if (policy == QUERY_PRIORITY) {
+            return group.getHighestQueryPriority();
+        }
+        else {
+            return group.getSchedulingWeight();
         }
     }
 
@@ -424,6 +461,18 @@ public class ResourceGroup
                 return false;
             }
             return !queuedQueries.isEmpty() || !eligibleSubGroups.isEmpty();
+        }
+    }
+
+    private int getHighestQueryPriority()
+    {
+        checkState(Thread.holdsLock(root), "Must hold lock");
+        synchronized (root) {
+            checkState(queuedQueries instanceof IndexedPriorityQueue, "Queued queries not ordered");
+            if (queuedQueries.isEmpty()) {
+                return 0;
+            }
+            return getQueryPriority(queuedQueries.peek().getSession());
         }
     }
 
@@ -492,6 +541,7 @@ public class ResourceGroup
     public enum SubGroupSchedulingPolicy
     {
         FAIR,
-        WEIGHTED
+        WEIGHTED,
+        QUERY_PRIORITY
     }
 }

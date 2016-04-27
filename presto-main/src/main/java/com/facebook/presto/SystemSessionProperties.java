@@ -33,6 +33,7 @@ import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionPro
 import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 
 public final class SystemSessionProperties
@@ -59,6 +60,7 @@ public final class SystemSessionProperties
     public static final String INITIAL_SPLITS_PER_NODE = "initial_splits_per_node";
     public static final String SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL = "split_concurrency_adjustment_interval";
     public static final String OPTIMIZE_METADATA_QUERIES = "optimize_metadata_queries";
+    public static final String QUERY_PRIORITY = "query_priority";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -203,6 +205,11 @@ public final class SystemSessionProperties
                         "Enable optimization for metadata queries",
                         featuresConfig.isOptimizeMetadataQueries(),
                         false),
+                integerSessionProperty(
+                        QUERY_PRIORITY,
+                        "The priority of queries. Larger numbers are higher priority",
+                        1,
+                        false),
                 booleanSessionProperty(
                         PLAN_WITH_TABLE_NODE_PARTITIONING,
                         "Experimental: Adapt plan to pre-partitioned tables",
@@ -313,6 +320,13 @@ public final class SystemSessionProperties
     public static int getInitialSplitsPerNode(Session session)
     {
         return session.getProperty(INITIAL_SPLITS_PER_NODE, Integer.class);
+    }
+
+    public static int getQueryPriority(Session session)
+    {
+        Integer priority = session.getProperty(QUERY_PRIORITY, Integer.class);
+        checkArgument(priority > 0, "Query priority must be positive");
+        return priority;
     }
 
     public static Duration getSplitConcurrencyAdjustmentInterval(Session session)
