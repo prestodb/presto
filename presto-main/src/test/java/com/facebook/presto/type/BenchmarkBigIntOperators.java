@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.operator.scalar.ScalarOperator;
+import com.facebook.presto.spi.type.StandardTypes;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -30,6 +32,12 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 import java.util.concurrent.TimeUnit;
 import java.util.function.LongBinaryOperator;
 import java.util.function.LongUnaryOperator;
+
+import static com.facebook.presto.metadata.OperatorType.ADD;
+import static com.facebook.presto.metadata.OperatorType.DIVIDE;
+import static com.facebook.presto.metadata.OperatorType.MULTIPLY;
+import static com.facebook.presto.metadata.OperatorType.NEGATION;
+import static com.facebook.presto.metadata.OperatorType.SUBTRACT;
 
 @State(Scope.Thread)
 @Fork(2)
@@ -69,133 +77,326 @@ public class BenchmarkBigIntOperators
     @Benchmark
     public Object overflowChecksAdd()
     {
-        return execute(BigintOperators::add);
+        long result = 0;
+        result += BigintOperators.add(leftOperand0, rightOperand0);
+        result += BigintOperators.add(leftOperand1, rightOperand0);
+        result += BigintOperators.add(leftOperand2, rightOperand0);
+        result += BigintOperators.add(leftOperand3, rightOperand0);
+        result += BigintOperators.add(leftOperand4, rightOperand0);
+        result += BigintOperators.add(leftOperand0, rightOperand1);
+        result += BigintOperators.add(leftOperand1, rightOperand1);
+        result += BigintOperators.add(leftOperand2, rightOperand1);
+        result += BigintOperators.add(leftOperand3, rightOperand1);
+        result += BigintOperators.add(leftOperand4, rightOperand1);
+        result += BigintOperators.add(leftOperand0, rightOperand2);
+        result += BigintOperators.add(leftOperand1, rightOperand2);
+        result += BigintOperators.add(leftOperand2, rightOperand2);
+        result += BigintOperators.add(leftOperand3, rightOperand2);
+        result += BigintOperators.add(leftOperand4, rightOperand2);
+        result += BigintOperators.add(leftOperand0, rightOperand3);
+        result += BigintOperators.add(leftOperand1, rightOperand3);
+        result += BigintOperators.add(leftOperand2, rightOperand3);
+        result += BigintOperators.add(leftOperand3, rightOperand3);
+        result += BigintOperators.add(leftOperand4, rightOperand3);
+        result += BigintOperators.add(leftOperand0, rightOperand4);
+        result += BigintOperators.add(leftOperand1, rightOperand4);
+        result += BigintOperators.add(leftOperand2, rightOperand4);
+        result += BigintOperators.add(leftOperand3, rightOperand4);
+        result += BigintOperators.add(leftOperand4, rightOperand4);
+        return result;
     }
 
     @Benchmark
     public Object overflowChecksSubtract()
     {
-        return execute(BigintOperators::subtract);
+        long result = 0;
+        result += BigintOperators.subtract(leftOperand0, rightOperand0);
+        result += BigintOperators.subtract(leftOperand1, rightOperand0);
+        result += BigintOperators.subtract(leftOperand2, rightOperand0);
+        result += BigintOperators.subtract(leftOperand3, rightOperand0);
+        result += BigintOperators.subtract(leftOperand4, rightOperand0);
+        result += BigintOperators.subtract(leftOperand0, rightOperand1);
+        result += BigintOperators.subtract(leftOperand1, rightOperand1);
+        result += BigintOperators.subtract(leftOperand2, rightOperand1);
+        result += BigintOperators.subtract(leftOperand3, rightOperand1);
+        result += BigintOperators.subtract(leftOperand4, rightOperand1);
+        result += BigintOperators.subtract(leftOperand0, rightOperand2);
+        result += BigintOperators.subtract(leftOperand1, rightOperand2);
+        result += BigintOperators.subtract(leftOperand2, rightOperand2);
+        result += BigintOperators.subtract(leftOperand3, rightOperand2);
+        result += BigintOperators.subtract(leftOperand4, rightOperand2);
+        result += BigintOperators.subtract(leftOperand0, rightOperand3);
+        result += BigintOperators.subtract(leftOperand1, rightOperand3);
+        result += BigintOperators.subtract(leftOperand2, rightOperand3);
+        result += BigintOperators.subtract(leftOperand3, rightOperand3);
+        result += BigintOperators.subtract(leftOperand4, rightOperand3);
+        result += BigintOperators.subtract(leftOperand0, rightOperand4);
+        result += BigintOperators.subtract(leftOperand1, rightOperand4);
+        result += BigintOperators.subtract(leftOperand2, rightOperand4);
+        result += BigintOperators.subtract(leftOperand3, rightOperand4);
+        result += BigintOperators.subtract(leftOperand4, rightOperand4);
+        return result;
     }
 
     @Benchmark
     public Object overflowChecksMultiply()
     {
-        return execute(BigintOperators::multiply);
+        long result = 0;
+        result += BigintOperators.multiply(leftOperand0, rightOperand0);
+        result += BigintOperators.multiply(leftOperand1, rightOperand0);
+        result += BigintOperators.multiply(leftOperand2, rightOperand0);
+        result += BigintOperators.multiply(leftOperand3, rightOperand0);
+        result += BigintOperators.multiply(leftOperand4, rightOperand0);
+        result += BigintOperators.multiply(leftOperand0, rightOperand1);
+        result += BigintOperators.multiply(leftOperand1, rightOperand1);
+        result += BigintOperators.multiply(leftOperand2, rightOperand1);
+        result += BigintOperators.multiply(leftOperand3, rightOperand1);
+        result += BigintOperators.multiply(leftOperand4, rightOperand1);
+        result += BigintOperators.multiply(leftOperand0, rightOperand2);
+        result += BigintOperators.multiply(leftOperand1, rightOperand2);
+        result += BigintOperators.multiply(leftOperand2, rightOperand2);
+        result += BigintOperators.multiply(leftOperand3, rightOperand2);
+        result += BigintOperators.multiply(leftOperand4, rightOperand2);
+        result += BigintOperators.multiply(leftOperand0, rightOperand3);
+        result += BigintOperators.multiply(leftOperand1, rightOperand3);
+        result += BigintOperators.multiply(leftOperand2, rightOperand3);
+        result += BigintOperators.multiply(leftOperand3, rightOperand3);
+        result += BigintOperators.multiply(leftOperand4, rightOperand3);
+        result += BigintOperators.multiply(leftOperand0, rightOperand4);
+        result += BigintOperators.multiply(leftOperand1, rightOperand4);
+        result += BigintOperators.multiply(leftOperand2, rightOperand4);
+        result += BigintOperators.multiply(leftOperand3, rightOperand4);
+        result += BigintOperators.multiply(leftOperand4, rightOperand4);
+        return result;
     }
 
     @Benchmark
     public Object overflowChecksDivide()
     {
-        return execute(BigintOperators::divide);
+        long result = 0;
+        result += BigintOperators.divide(leftOperand0, rightOperand0);
+        result += BigintOperators.divide(leftOperand1, rightOperand0);
+        result += BigintOperators.divide(leftOperand2, rightOperand0);
+        result += BigintOperators.divide(leftOperand3, rightOperand0);
+        result += BigintOperators.divide(leftOperand4, rightOperand0);
+        result += BigintOperators.divide(leftOperand0, rightOperand1);
+        result += BigintOperators.divide(leftOperand1, rightOperand1);
+        result += BigintOperators.divide(leftOperand2, rightOperand1);
+        result += BigintOperators.divide(leftOperand3, rightOperand1);
+        result += BigintOperators.divide(leftOperand4, rightOperand1);
+        result += BigintOperators.divide(leftOperand0, rightOperand2);
+        result += BigintOperators.divide(leftOperand1, rightOperand2);
+        result += BigintOperators.divide(leftOperand2, rightOperand2);
+        result += BigintOperators.divide(leftOperand3, rightOperand2);
+        result += BigintOperators.divide(leftOperand4, rightOperand2);
+        result += BigintOperators.divide(leftOperand0, rightOperand3);
+        result += BigintOperators.divide(leftOperand1, rightOperand3);
+        result += BigintOperators.divide(leftOperand2, rightOperand3);
+        result += BigintOperators.divide(leftOperand3, rightOperand3);
+        result += BigintOperators.divide(leftOperand4, rightOperand3);
+        result += BigintOperators.divide(leftOperand0, rightOperand4);
+        result += BigintOperators.divide(leftOperand1, rightOperand4);
+        result += BigintOperators.divide(leftOperand2, rightOperand4);
+        result += BigintOperators.divide(leftOperand3, rightOperand4);
+        result += BigintOperators.divide(leftOperand4, rightOperand4);
+        return result;
     }
 
     @Benchmark
     public Object overflowChecksNegate()
     {
-        return executeSingleOperand(x -> BigintOperators.negate(x));
+        long result = 0;
+        result += BigintOperators.negate(leftOperand0);
+        result += BigintOperators.negate(leftOperand1);
+        result += BigintOperators.negate(leftOperand2);
+        result += BigintOperators.negate(leftOperand3);
+        result += BigintOperators.negate(leftOperand4);
+        result += BigintOperators.negate(rightOperand0);
+        result += BigintOperators.negate(rightOperand1);
+        result += BigintOperators.negate(rightOperand2);
+        result += BigintOperators.negate(rightOperand3);
+        result += BigintOperators.negate(rightOperand4);
+        return result;
     }
 
     @Benchmark
     public Object baseLineAdd()
     {
-        return execute(BenchmarkBigIntOperators::addBaseline);
+        long result = 0;
+        result += addBaseline(leftOperand0, rightOperand0);
+        result += addBaseline(leftOperand1, rightOperand0);
+        result += addBaseline(leftOperand2, rightOperand0);
+        result += addBaseline(leftOperand3, rightOperand0);
+        result += addBaseline(leftOperand4, rightOperand0);
+        result += addBaseline(leftOperand0, rightOperand1);
+        result += addBaseline(leftOperand1, rightOperand1);
+        result += addBaseline(leftOperand2, rightOperand1);
+        result += addBaseline(leftOperand3, rightOperand1);
+        result += addBaseline(leftOperand4, rightOperand1);
+        result += addBaseline(leftOperand0, rightOperand2);
+        result += addBaseline(leftOperand1, rightOperand2);
+        result += addBaseline(leftOperand2, rightOperand2);
+        result += addBaseline(leftOperand3, rightOperand2);
+        result += addBaseline(leftOperand4, rightOperand2);
+        result += addBaseline(leftOperand0, rightOperand3);
+        result += addBaseline(leftOperand1, rightOperand3);
+        result += addBaseline(leftOperand2, rightOperand3);
+        result += addBaseline(leftOperand3, rightOperand3);
+        result += addBaseline(leftOperand4, rightOperand3);
+        result += addBaseline(leftOperand0, rightOperand4);
+        result += addBaseline(leftOperand1, rightOperand4);
+        result += addBaseline(leftOperand2, rightOperand4);
+        result += addBaseline(leftOperand3, rightOperand4);
+        result += addBaseline(leftOperand4, rightOperand4);
+        return result;
     }
 
     @Benchmark
     public Object baseLineSubtract()
     {
-        return execute(BenchmarkBigIntOperators::subtractBaseline);
+        long result = 0;
+        result += subtractBaseline(leftOperand0, rightOperand0);
+        result += subtractBaseline(leftOperand1, rightOperand0);
+        result += subtractBaseline(leftOperand2, rightOperand0);
+        result += subtractBaseline(leftOperand3, rightOperand0);
+        result += subtractBaseline(leftOperand4, rightOperand0);
+        result += subtractBaseline(leftOperand0, rightOperand1);
+        result += subtractBaseline(leftOperand1, rightOperand1);
+        result += subtractBaseline(leftOperand2, rightOperand1);
+        result += subtractBaseline(leftOperand3, rightOperand1);
+        result += subtractBaseline(leftOperand4, rightOperand1);
+        result += subtractBaseline(leftOperand0, rightOperand2);
+        result += subtractBaseline(leftOperand1, rightOperand2);
+        result += subtractBaseline(leftOperand2, rightOperand2);
+        result += subtractBaseline(leftOperand3, rightOperand2);
+        result += subtractBaseline(leftOperand4, rightOperand2);
+        result += subtractBaseline(leftOperand0, rightOperand3);
+        result += subtractBaseline(leftOperand1, rightOperand3);
+        result += subtractBaseline(leftOperand2, rightOperand3);
+        result += subtractBaseline(leftOperand3, rightOperand3);
+        result += subtractBaseline(leftOperand4, rightOperand3);
+        result += subtractBaseline(leftOperand0, rightOperand4);
+        result += subtractBaseline(leftOperand1, rightOperand4);
+        result += subtractBaseline(leftOperand2, rightOperand4);
+        result += subtractBaseline(leftOperand3, rightOperand4);
+        result += subtractBaseline(leftOperand4, rightOperand4);
+        return result;
     }
 
     @Benchmark
     public Object baseLineMultiply()
     {
-        return execute(BenchmarkBigIntOperators::multiplyBaseline);
+        long result = 0;
+        result += multiplyBaseline(leftOperand0, rightOperand0);
+        result += multiplyBaseline(leftOperand1, rightOperand0);
+        result += multiplyBaseline(leftOperand2, rightOperand0);
+        result += multiplyBaseline(leftOperand3, rightOperand0);
+        result += multiplyBaseline(leftOperand4, rightOperand0);
+        result += multiplyBaseline(leftOperand0, rightOperand1);
+        result += multiplyBaseline(leftOperand1, rightOperand1);
+        result += multiplyBaseline(leftOperand2, rightOperand1);
+        result += multiplyBaseline(leftOperand3, rightOperand1);
+        result += multiplyBaseline(leftOperand4, rightOperand1);
+        result += multiplyBaseline(leftOperand0, rightOperand2);
+        result += multiplyBaseline(leftOperand1, rightOperand2);
+        result += multiplyBaseline(leftOperand2, rightOperand2);
+        result += multiplyBaseline(leftOperand3, rightOperand2);
+        result += multiplyBaseline(leftOperand4, rightOperand2);
+        result += multiplyBaseline(leftOperand0, rightOperand3);
+        result += multiplyBaseline(leftOperand1, rightOperand3);
+        result += multiplyBaseline(leftOperand2, rightOperand3);
+        result += multiplyBaseline(leftOperand3, rightOperand3);
+        result += multiplyBaseline(leftOperand4, rightOperand3);
+        result += multiplyBaseline(leftOperand0, rightOperand4);
+        result += multiplyBaseline(leftOperand1, rightOperand4);
+        result += multiplyBaseline(leftOperand2, rightOperand4);
+        result += multiplyBaseline(leftOperand3, rightOperand4);
+        result += multiplyBaseline(leftOperand4, rightOperand4);
+        return result;
     }
 
     @Benchmark
     public Object baseLineDivide()
     {
-        return execute(BenchmarkBigIntOperators::divideBaseline);
+        long result = 0;
+        result += divideBaseline(leftOperand0, rightOperand0);
+        result += divideBaseline(leftOperand1, rightOperand0);
+        result += divideBaseline(leftOperand2, rightOperand0);
+        result += divideBaseline(leftOperand3, rightOperand0);
+        result += divideBaseline(leftOperand4, rightOperand0);
+        result += divideBaseline(leftOperand0, rightOperand1);
+        result += divideBaseline(leftOperand1, rightOperand1);
+        result += divideBaseline(leftOperand2, rightOperand1);
+        result += divideBaseline(leftOperand3, rightOperand1);
+        result += divideBaseline(leftOperand4, rightOperand1);
+        result += divideBaseline(leftOperand0, rightOperand2);
+        result += divideBaseline(leftOperand1, rightOperand2);
+        result += divideBaseline(leftOperand2, rightOperand2);
+        result += divideBaseline(leftOperand3, rightOperand2);
+        result += divideBaseline(leftOperand4, rightOperand2);
+        result += divideBaseline(leftOperand0, rightOperand3);
+        result += divideBaseline(leftOperand1, rightOperand3);
+        result += divideBaseline(leftOperand2, rightOperand3);
+        result += divideBaseline(leftOperand3, rightOperand3);
+        result += divideBaseline(leftOperand4, rightOperand3);
+        result += divideBaseline(leftOperand0, rightOperand4);
+        result += divideBaseline(leftOperand1, rightOperand4);
+        result += divideBaseline(leftOperand2, rightOperand4);
+        result += divideBaseline(leftOperand3, rightOperand4);
+        result += divideBaseline(leftOperand4, rightOperand4);
+        return result;
     }
 
     @Benchmark
     public Object baseLineNegate()
     {
-        return executeSingleOperand(BenchmarkBigIntOperators::negateBaseLine);
+        long result = 0;
+        result += negateBaseLine(leftOperand0);
+        result += negateBaseLine(leftOperand1);
+        result += negateBaseLine(leftOperand2);
+        result += negateBaseLine(leftOperand3);
+        result += negateBaseLine(leftOperand4);
+        result += negateBaseLine(rightOperand0);
+        result += negateBaseLine(rightOperand1);
+        result += negateBaseLine(rightOperand2);
+        result += negateBaseLine(rightOperand3);
+        result += negateBaseLine(rightOperand4);
+        return result;
     }
 
-    private static long addBaseline(long first, long second)
+    @ScalarOperator(ADD)
+    @SqlType(StandardTypes.BIGINT)
+    private static long addBaseline(@SqlType(StandardTypes.BIGINT) long first, @SqlType(StandardTypes.BIGINT) long second)
     {
         return first + second;
     }
 
-    private static long subtractBaseline(long first, long second)
+    @ScalarOperator(SUBTRACT)
+    @SqlType(StandardTypes.BIGINT)
+    private static long subtractBaseline(@SqlType(StandardTypes.BIGINT) long first, @SqlType(StandardTypes.BIGINT) long second)
     {
         return first - second;
     }
 
-    private static long multiplyBaseline(long first, long second)
+    @ScalarOperator(MULTIPLY)
+    @SqlType(StandardTypes.BIGINT)
+    private static long multiplyBaseline(@SqlType(StandardTypes.BIGINT) long first, @SqlType(StandardTypes.BIGINT) long second)
     {
         return first * second;
     }
 
-    private static long divideBaseline(long first, long second)
+    @ScalarOperator(DIVIDE)
+    @SqlType(StandardTypes.BIGINT)
+    private static long divideBaseline(@SqlType(StandardTypes.BIGINT) long first, @SqlType(StandardTypes.BIGINT) long second)
     {
         return first / second;
     }
 
-    private static long negateBaseLine(long x)
+    @ScalarOperator(NEGATION)
+    @SqlType(StandardTypes.BIGINT)
+    private static long negateBaseLine(@SqlType(StandardTypes.BIGINT) long x)
     {
         return -x;
-    }
-
-    private Object execute(LongBinaryOperator operator)
-    {
-        long result = 0;
-        result += operator.applyAsLong(leftOperand0, rightOperand0);
-        result += operator.applyAsLong(leftOperand1, rightOperand0);
-        result += operator.applyAsLong(leftOperand2, rightOperand0);
-        result += operator.applyAsLong(leftOperand3, rightOperand0);
-        result += operator.applyAsLong(leftOperand4, rightOperand0);
-        result += operator.applyAsLong(leftOperand0, rightOperand1);
-        result += operator.applyAsLong(leftOperand1, rightOperand1);
-        result += operator.applyAsLong(leftOperand2, rightOperand1);
-        result += operator.applyAsLong(leftOperand3, rightOperand1);
-        result += operator.applyAsLong(leftOperand4, rightOperand1);
-        result += operator.applyAsLong(leftOperand0, rightOperand2);
-        result += operator.applyAsLong(leftOperand1, rightOperand2);
-        result += operator.applyAsLong(leftOperand2, rightOperand2);
-        result += operator.applyAsLong(leftOperand3, rightOperand2);
-        result += operator.applyAsLong(leftOperand4, rightOperand2);
-        result += operator.applyAsLong(leftOperand0, rightOperand3);
-        result += operator.applyAsLong(leftOperand1, rightOperand3);
-        result += operator.applyAsLong(leftOperand2, rightOperand3);
-        result += operator.applyAsLong(leftOperand3, rightOperand3);
-        result += operator.applyAsLong(leftOperand4, rightOperand3);
-        result += operator.applyAsLong(leftOperand0, rightOperand4);
-        result += operator.applyAsLong(leftOperand1, rightOperand4);
-        result += operator.applyAsLong(leftOperand2, rightOperand4);
-        result += operator.applyAsLong(leftOperand3, rightOperand4);
-        result += operator.applyAsLong(leftOperand4, rightOperand4);
-        return result;
-    }
-
-    private Object executeSingleOperand(LongUnaryOperator operator)
-    {
-        long result = 0;
-        result += operator.applyAsLong(leftOperand0);
-        result += operator.applyAsLong(leftOperand1);
-        result += operator.applyAsLong(leftOperand2);
-        result += operator.applyAsLong(leftOperand3);
-        result += operator.applyAsLong(leftOperand4);
-        result += operator.applyAsLong(rightOperand0);
-        result += operator.applyAsLong(rightOperand1);
-        result += operator.applyAsLong(rightOperand2);
-        result += operator.applyAsLong(rightOperand3);
-        result += operator.applyAsLong(rightOperand4);
-        return result;
     }
 
     public static void main(String[] args)
