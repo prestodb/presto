@@ -566,7 +566,6 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitMapConstructor(MapConstructor node, StackableAstVisitorContext<AnalysisContext> context)
         {
-
             List<Expression> keys = node.getKeys();
             ImmutableList.Builder<TypeSignature> keyTypes = ImmutableList.builder();
 
