@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.sanity;
 import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -516,6 +517,20 @@ public final class EnsureSymbolDependenciesPlanSanityChecker
         public Void visitEnforceSingleRow(EnforceSingleRowNode node, Void context)
         {
             node.getSource().accept(this, context); // visit child
+
+            verifyUniqueId(node);
+
+            return null;
+        }
+
+        @Override
+        public Void visitApply(ApplyNode node, Void context)
+        {
+            node.getInput().accept(this, context); // visit child
+            //TODO handle correlated parameters in expression
+            node.getSubquery().accept(this, context); // visit child
+
+            checkDependencies(node.getInput().getOutputSymbols(), node.getCorrelation().keySet(), "APPLY input must provide all the necessary correlation symbols for subquery");
 
             verifyUniqueId(node);
 
