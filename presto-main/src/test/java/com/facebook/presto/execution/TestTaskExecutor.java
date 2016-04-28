@@ -130,15 +130,20 @@ public class TestTaskExecutor
             beginPhase.register();
             Phaser verificationComplete = new Phaser();
             verificationComplete.register();
-            TestingJob driver = new TestingJob(beginPhase, verificationComplete, 10);
+            TestingJob driver1 = new TestingJob(beginPhase, verificationComplete, 10);
+            TestingJob driver2 = new TestingJob(beginPhase, verificationComplete, 10);
 
             // force enqueue a split
-            taskExecutor.enqueueSplits(taskHandle, true, ImmutableList.of(driver));
+            taskExecutor.enqueueSplits(taskHandle, true, ImmutableList.of(driver1));
             assertEquals(taskHandle.getRunningSplits(), 0);
 
             // normal enqueue a split
-            taskExecutor.enqueueSplits(taskHandle, false, ImmutableList.of(driver));
+            taskExecutor.enqueueSplits(taskHandle, false, ImmutableList.of(driver2));
             assertEquals(taskHandle.getRunningSplits(), 1);
+
+            // let the split continue to run
+            beginPhase.arriveAndDeregister();
+            verificationComplete.arriveAndDeregister();
         }
         finally {
             taskExecutor.stop();
