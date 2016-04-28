@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -414,6 +415,16 @@ public class UnaliasSymbolReferences
             PlanNode source = context.rewrite(node.getSource());
 
             return new EnforceSingleRowNode(node.getId(), source);
+        }
+
+        @Override
+        public PlanNode visitApply(ApplyNode node, RewriteContext<Void> context)
+        {
+            PlanNode source = context.rewrite(node.getInput());
+            PlanNode subquery = context.rewrite(node.getSubquery());
+            List<Symbol> canonicalCorrelation = Lists.transform(node.getCorrelation(), this::canonicalize);
+
+            return new ApplyNode(node.getId(), source, subquery, canonicalCorrelation);
         }
 
         @Override

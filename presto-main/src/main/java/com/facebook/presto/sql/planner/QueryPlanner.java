@@ -25,16 +25,15 @@ import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.DeleteHandle;
@@ -639,13 +638,13 @@ class QueryPlanner
 
     private PlanBuilder handleSubqueries(PlanBuilder builder, Expression expression, Node node)
     {
-        builder = appendSemiJoins(
+        builder = appendInPredicateApplyNodes(
                 builder,
                 analysis.getInPredicateSubqueries(node)
                         .stream()
                         .filter(inPredicate -> nodeContains(expression, inPredicate.getValueList()))
                         .collect(toImmutableSet()));
-        builder = appendScalarSubqueryJoins(
+        builder = appendScalarSubqueryApplyNodes(
                 builder,
                 analysis.getScalarSubqueries(node)
                         .stream()
@@ -654,50 +653,32 @@ class QueryPlanner
         return builder;
     }
 
-    private PlanBuilder appendSemiJoins(PlanBuilder subPlan, Set<InPredicate> inPredicates)
+    private PlanBuilder appendInPredicateApplyNodes(PlanBuilder subPlan, Set<InPredicate> inPredicates)
     {
         for (InPredicate inPredicate : inPredicates) {
-            subPlan = appendSemiJoin(subPlan, inPredicate);
+            subPlan = appendInPredicateApplyNode(subPlan, inPredicate);
         }
         return subPlan;
     }
 
-    /**
-     * Semijoins are planned as follows:
-     * 1) SQL constructs that need to be semijoined are extracted during Analysis phase (currently only InPredicates so far)
-     * 2) Create a new SemiJoinNode that connects the semijoin lookup field with the planned subquery and have it output a new boolean
-     * symbol for the result of the semijoin.
-     * 3) Add an entry to the TranslationMap that notes to map the InPredicate into semijoin output symbol
-     * <p/>
-     * Currently, we only support semijoins deriving from InPredicates, but we will probably need
-     * to add support for more SQL constructs in the future.
-     */
-    private PlanBuilder appendSemiJoin(PlanBuilder subPlan, InPredicate inPredicate)
+    private PlanBuilder appendInPredicateApplyNode(PlanBuilder subPlan, InPredicate inPredicate)
     {
-        TranslationMap translations = copyTranslations(subPlan);
-
         subPlan = appendProjections(subPlan, ImmutableList.of(inPredicate.getValue()));
-        Symbol sourceJoinSymbol = subPlan.translate(inPredicate.getValue());
 
         checkState(inPredicate.getValueList() instanceof SubqueryExpression);
-        SubqueryExpression subqueryExpression = (SubqueryExpression) inPredicate.getValueList();
-        RelationPlanner relationPlanner = new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session);
-        RelationPlan valueListRelation = relationPlanner.process(subqueryExpression.getQuery(), null);
-        Symbol filteringSourceJoinSymbol = getOnlyElement(valueListRelation.getRoot().getOutputSymbols());
+        RelationPlan valueListRelation = createRelationPlan((SubqueryExpression) inPredicate.getValueList());
 
-        Symbol semiJoinOutputSymbol = symbolAllocator.newSymbol("semijoinresult", BOOLEAN);
+        TranslationMap translationMap = copyTranslations(subPlan);
+        QualifiedNameReference valueList = getOnlyElement(valueListRelation.getOutputSymbols()).toQualifiedNameReference();
+        translationMap.setExpressionAsAlreadyTranslated(valueList);
+        translationMap.put(inPredicate, new InPredicate(inPredicate.getValue(), valueList));
 
-        translations.put(inPredicate, semiJoinOutputSymbol);
-
-        return new PlanBuilder(translations,
-                new SemiJoinNode(idAllocator.getNextId(),
+        return new PlanBuilder(translationMap,
+                // TODO handle correlation
+                new ApplyNode(idAllocator.getNextId(),
                         subPlan.getRoot(),
                         valueListRelation.getRoot(),
-                        sourceJoinSymbol,
-                        filteringSourceJoinSymbol,
-                        semiJoinOutputSymbol,
-                        Optional.empty(),
-                        Optional.empty()),
+                        ImmutableList.of()),
                 subPlan.getSampleWeight());
     }
 
@@ -708,28 +689,21 @@ class QueryPlanner
         return translations;
     }
 
-    private RelationPlan createRelationPlan(SubqueryExpression subqueryExpression)
-    {
-        return new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session)
-                .process(subqueryExpression.getQuery(), null);
-    }
-
-    private PlanBuilder appendScalarSubqueryJoins(PlanBuilder builder, Set<SubqueryExpression> scalarSubqueries)
+    private PlanBuilder appendScalarSubqueryApplyNodes(PlanBuilder builder, Set<SubqueryExpression> scalarSubqueries)
     {
         for (SubqueryExpression scalarSubquery : scalarSubqueries) {
-            builder = appendScalarSubqueryJoin(builder, scalarSubquery);
+            builder = appendScalarSubqueryApplyNode(builder, scalarSubquery);
         }
         return builder;
     }
 
-    private PlanBuilder appendScalarSubqueryJoin(PlanBuilder builder, SubqueryExpression scalarSubquery)
+    private PlanBuilder appendScalarSubqueryApplyNode(PlanBuilder builder, SubqueryExpression scalarSubquery)
     {
         EnforceSingleRowNode enforceSingleRowNode = new EnforceSingleRowNode(idAllocator.getNextId(), createRelationPlan(scalarSubquery).getRoot());
 
         TranslationMap translations = copyTranslations(builder);
         translations.put(scalarSubquery, getOnlyElement(enforceSingleRowNode.getOutputSymbols()));
 
-        // Cross join current (root) relation with subquery
         PlanNode root = builder.getRoot();
         if (root.getOutputSymbols().isEmpty()) {
             // there is nothing to join with - e.g. SELECT (SELECT 1)
@@ -737,15 +711,19 @@ class QueryPlanner
         }
         else {
             return new PlanBuilder(translations,
-                    new JoinNode(idAllocator.getNextId(),
-                            JoinNode.Type.FULL,
+                    // TODO handle parameter list
+                    new ApplyNode(idAllocator.getNextId(),
                             root,
                             enforceSingleRowNode,
-                            ImmutableList.of(),
-                            Optional.empty(),
-                            Optional.empty()),
+                            ImmutableList.of()),
                     builder.getSampleWeight());
         }
+    }
+
+    private RelationPlan createRelationPlan(SubqueryExpression subqueryExpression)
+    {
+        return new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session)
+                .process(subqueryExpression.getQuery(), null);
     }
 
     private PlanBuilder distinct(PlanBuilder subPlan, QuerySpecification node, List<Expression> outputs, List<Expression> orderBy)

@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -689,6 +690,12 @@ public class HashGenerationOptimizer
                     "Node %s declares hash symbols not in the output",
                     result.getNode().getClass().getSimpleName());
             return result;
+        }
+
+        @Override
+        public PlanWithProperties visitApply(ApplyNode node, HashComputationSet context)
+        {
+            throw new UnsupportedOperationException("Apply node is unsupported");
         }
     }
 

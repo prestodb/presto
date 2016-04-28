@@ -58,6 +58,7 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = EnforceSingleRowNode.class, name = "scalar"),
         @JsonSubTypes.Type(value = GroupIdNode.class, name = "groupid"),
         @JsonSubTypes.Type(value = ExplainAnalyzeNode.class, name = "explainAnalyze"),
+        @JsonSubTypes.Type(value = ApplyNode.class, name = "apply"),
 })
 public abstract class PlanNode
 {

@@ -25,7 +25,8 @@ public final class PlanSanityChecker
 {
     private static final List<Checker> CHECKERS = ImmutableList.of(
             new ValidateDependenciesChecker(),
-            new NoSubqueryExpressionLeftChecker());
+            new NoSubqueryExpressionLeftChecker(),
+            new NoApplyNodeLeftChecker());
 
     private PlanSanityChecker() {}
 
