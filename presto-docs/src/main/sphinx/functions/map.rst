@@ -9,6 +9,13 @@ The ``[]`` operator is used to retrieve the value corresponding to a given key f
 
     SELECT name_to_age_map['Bob'] AS bob_age
 
+Map Literals
+------------
+
+Map literal values can be constructed using a syntax similar to Python's `dictionary displays <https://docs.python.org/3.5/reference/expressions.html#dictionary-displays>`_::
+
+    SELECT {'a': 1, 'b': 2, 'c': 3} AS dict
+
 Map Functions
 -------------
 
