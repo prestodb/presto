@@ -267,4 +267,11 @@ public class ChildReplacer
     {
         return new EnforceSingleRowNode(node.getId(), Iterables.getOnlyElement(newChildren));
     }
+
+    @Override
+    public PlanNode visitApply(ApplyNode node, List<PlanNode> newChildren)
+    {
+        checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
+        return new ApplyNode(node.getId(), newChildren.get(0), newChildren.get(1), node.getCorrelation());
+    }
 }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
@@ -24,11 +25,20 @@ import com.google.common.collect.ImmutableSet;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.sql.planner.ExpressionExtractor.extractExpressions;
 import static java.util.Objects.requireNonNull;
 
 public final class DependencyExtractor
 {
     private DependencyExtractor() {}
+
+    public static Set<Symbol> extractUnique(PlanNode node)
+    {
+        ImmutableSet.Builder<Symbol> uniqueSymbols = ImmutableSet.builder();
+        extractExpressions(node).forEach(expression -> uniqueSymbols.addAll(extractUnique(expression)));
+
+        return uniqueSymbols.build();
+    }
 
     public static Set<Symbol> extractUnique(Expression expression)
     {
