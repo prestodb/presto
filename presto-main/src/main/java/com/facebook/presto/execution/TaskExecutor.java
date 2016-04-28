@@ -240,7 +240,7 @@ public class TaskExecutor
                 else {
                     // add this to the work queue for the task
                     taskHandle.enqueueSplit(prioritizedSplitRunner);
-                    // if task is under the limit for gaurenteed splits, start one
+                    // if task is under the limit for guaranteed splits, start one
                     scheduleTaskIfNecessary(taskHandle);
                     // if globally we have more resources, start more
                     addNewEntrants();
