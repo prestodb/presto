@@ -96,9 +96,6 @@ public class LogicalPlanner
     {
         PlanNode root = planStatement(analysis, analysis.getStatement());
 
-        // make sure we produce a valid plan. This is mainly to catch programming errors
-        PlanSanityChecker.validate(root);
-
         for (PlanOptimizer optimizer : planOptimizers) {
             root = optimizer.optimize(root, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator);
             requireNonNull(root, format("%s returned a null plan", optimizer.getClass().getName()));

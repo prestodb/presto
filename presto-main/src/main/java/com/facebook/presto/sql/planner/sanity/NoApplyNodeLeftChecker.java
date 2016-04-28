@@ -13,29 +13,28 @@
  */
 package com.facebook.presto.sql.planner.sanity;
 
-import com.facebook.presto.sql.planner.ExpressionExtractor;
+import com.facebook.presto.sql.planner.SimplePlanVisitor;
+import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.SubqueryExpression;
 
-import static java.lang.String.format;
-
-public final class NoSubqueryExpressionLeftChecker
+public class NoApplyNodeLeftChecker
         implements PlanSanityChecker.Checker
 {
     @Override
     public void validate(PlanNode plan)
     {
-        for (Expression expression : ExpressionExtractor.extractExpressions(plan)) {
-            new DefaultTraversalVisitor<Void, Void>()
+        plan.accept(new SimplePlanVisitor()
+        {
+            @Override
+            public Object visitApply(ApplyNode node, Object context)
             {
-                @Override
-                protected Void visitSubqueryExpression(SubqueryExpression node, Void context)
-                {
-                    throw new IllegalStateException(format("Unexpected subquery expression in logical plan: %s", node));
+                if (node.getCorrelation().isEmpty()) {
+                    throw new IllegalArgumentException("Not supported subquery");
                 }
-            }.process(expression, null);
-        }
+                else {
+                    throw new IllegalArgumentException("Correlated subquery is not yet supported");
+                }
+            }
+        }, null);
     }
 }
