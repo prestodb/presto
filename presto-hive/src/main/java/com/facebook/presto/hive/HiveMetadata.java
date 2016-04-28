@@ -1061,14 +1061,6 @@ public class HiveMetadata
     @Override
     public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
     {
-        if (replace) {
-            try {
-                dropView(session, viewName);
-            }
-            catch (ViewNotFoundException ignored) {
-            }
-        }
-
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("comment", "Presto View")
                 .put(PRESTO_VIEW_FLAG, "true")
@@ -1089,12 +1081,24 @@ public class HiveMetadata
         table.setViewOriginalText(encodeViewData(viewData));
         table.setViewExpandedText("/* Presto View */");
         table.setSd(sd);
+        table.setPartitionKeys(ImmutableList.of());
 
         PrivilegeGrantInfo allPrivileges = new PrivilegeGrantInfo("all", 0, session.getUser(), PrincipalType.USER, true);
         table.setPrivileges(new PrincipalPrivilegeSet(
                 ImmutableMap.of(session.getUser(), ImmutableList.of(allPrivileges)),
                 ImmutableMap.of(),
                 ImmutableMap.of()));
+
+        Optional<Table> existing = metastore.getTable(viewName.getSchemaName(), viewName.getTableName());
+        if (existing.isPresent()) {
+            if (!replace || !HiveUtil.isPrestoView(existing.get())) {
+                throw new ViewAlreadyExistsException(viewName);
+            }
+
+            table.setViewOriginalText(encodeViewData(viewData));
+            metastore.alterTable(viewName.getSchemaName(), viewName.getTableName(), table);
+            return;
+        }
 
         try {
             metastore.createTable(table);
