@@ -13,54 +13,20 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.SqlScalarFunction;
+import com.facebook.presto.operator.Description;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.type.SqlType;
 
-import java.lang.invoke.MethodHandle;
-
-import static com.facebook.presto.metadata.Signature.typeVariable;
-import static com.facebook.presto.util.Reflection.methodHandle;
-
+@Description("Returns the cardinality (length) of the array")
+@ScalarFunction("cardinality")
 public final class ArrayCardinalityFunction
-        extends SqlScalarFunction
 {
-    public static final ArrayCardinalityFunction ARRAY_CARDINALITY = new ArrayCardinalityFunction();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayCardinalityFunction.class, "arrayLength", Block.class);
+    private ArrayCardinalityFunction() {}
 
-    public ArrayCardinalityFunction()
-    {
-        super("cardinality", ImmutableList.of(typeVariable("E")), ImmutableList.of(), "bigint", ImmutableList.of("array(E)"));
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Returns the cardinality (length) of the array";
-    }
-
-    @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
-    {
-        return new ScalarFunctionImplementation(false, ImmutableList.of(false), METHOD_HANDLE, isDeterministic());
-    }
-
-    public static long arrayLength(Block block)
+    @TypeParameter("E")
+    @SqlType(StandardTypes.BIGINT)
+    public static long arrayCardinality(@SqlType("array(E)") Block block)
     {
         return block.getPositionCount();
     }
