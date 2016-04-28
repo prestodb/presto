@@ -18,6 +18,7 @@ import com.facebook.presto.raptor.metadata.ForMetadata;
 import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.TableColumn;
+import com.facebook.presto.raptor.storage.OrcFileMetadata;
 import com.facebook.presto.raptor.systemtables.ShardMetadataSystemTable;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.type.TypeManager;
@@ -66,6 +67,7 @@ public class RaptorModule
 
         jsonCodecBinder(binder).bindJsonCodec(ShardInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(ShardDelta.class);
+        jsonCodecBinder(binder).bindJsonCodec(OrcFileMetadata.class);
     }
 
     @ForMetadata

@@ -71,6 +71,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -88,7 +89,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -98,6 +99,7 @@ import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.Executors.newFixedThreadPool;
+import static java.util.stream.Collectors.toList;
 import static org.joda.time.DateTimeZone.UTC;
 
 public class OrcStorageManager
@@ -118,6 +120,7 @@ public class OrcStorageManager
     private final DataSize maxShardSize;
     private final TypeManager typeManager;
     private final ExecutorService deletionExecutor;
+    private final JsonCodec<OrcFileMetadata> orcFileMetadataCodec;
 
     @Inject
     public OrcStorageManager(
@@ -131,7 +134,8 @@ public class OrcStorageManager
             BackupManager backgroundBackupManager,
             ShardRecoveryManager recoveryManager,
             ShardRecorder shardRecorder,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            JsonCodec<OrcFileMetadata> orcFileMetadataCodec)
     {
         this(currentNodeId.toString(),
                 storageService,
@@ -142,6 +146,7 @@ public class OrcStorageManager
                 recoveryManager,
                 shardRecorder,
                 typeManager,
+                orcFileMetadataCodec,
                 connectorId.toString(),
                 config.getDeletionThreads(),
                 config.getShardRecoveryTimeout(),
@@ -159,6 +164,7 @@ public class OrcStorageManager
             ShardRecoveryManager recoveryManager,
             ShardRecorder shardRecorder,
             TypeManager typeManager,
+            JsonCodec<OrcFileMetadata> orcFileMetadataCodec,
             String connectorId,
             int deletionThreads,
             Duration shardRecoveryTimeout,
@@ -181,6 +187,7 @@ public class OrcStorageManager
         this.shardRecorder = requireNonNull(shardRecorder, "shardRecorder is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.deletionExecutor = newFixedThreadPool(deletionThreads, daemonThreadsNamed("raptor-delete-" + connectorId + "-%s"));
+        this.orcFileMetadataCodec = requireNonNull(orcFileMetadataCodec, "orcFileMetadataCodec is null");
     }
 
     @PreDestroy
@@ -396,20 +403,45 @@ public class OrcStorageManager
 
     private List<ColumnInfo> getColumnInfo(OrcReader reader)
     {
-        // TODO: These should be stored as proper metadata.
-        // XXX: Relying on ORC types will not work when more Presto types are supported.
+        Optional<OrcFileMetadata> orcFileMetadata = getOrcFileMetadata(reader);
+        if (orcFileMetadata.isPresent()) {
+            return getColumnInfoFromOrcUserMetadata(orcFileMetadata.get());
+        }
+        else {
+            // todo get rid of this execution path as soon as all orc files used with raptor connection
+            //      are migrated to contain presto schema in user metadata
+            return getColumnInfoFromOrcColumnTypes(reader.getColumnNames(), reader.getFooter().getTypes());
+        }
+    }
 
-        List<String> names = reader.getColumnNames();
-        Type rowType = getType(reader.getFooter().getTypes(), 0);
-        if (names.size() != rowType.getTypeParameters().size()) {
+    private List<ColumnInfo> getColumnInfoFromOrcColumnTypes(List<String> orcColumnNames, List<OrcType> orcColumnTypes)
+    {
+        List<String> names = orcColumnNames;
+        Type rowType = getType(orcColumnTypes, 0);
+        if (orcColumnNames.size() != rowType.getTypeParameters().size()) {
             throw new PrestoException(RAPTOR_ERROR, "Column names and types do not match");
         }
 
         ImmutableList.Builder<ColumnInfo> list = ImmutableList.builder();
-        for (int i = 0; i < names.size(); i++) {
-            list.add(new ColumnInfo(Long.parseLong(names.get(i)), rowType.getTypeParameters().get(i)));
+        for (int i = 0; i < orcColumnNames.size(); i++) {
+            list.add(new ColumnInfo(Long.parseLong(orcColumnNames.get(i)), rowType.getTypeParameters().get(i)));
         }
         return list.build();
+    }
+
+    private Optional<OrcFileMetadata> getOrcFileMetadata(OrcReader reader)
+    {
+        return Optional.ofNullable(reader.getFooter().getUserMetadata().get(OrcFileMetadata.KEY)).map(
+                orcMetadataBytes -> orcFileMetadataCodec.fromJson(orcMetadataBytes.getBytes())
+        );
+    }
+
+    private List<ColumnInfo> getColumnInfoFromOrcUserMetadata(OrcFileMetadata orcFileMetadata)
+    {
+        TreeMap<Long, TypeSignature> sortedColumnTypes = new TreeMap<>(orcFileMetadata.getColumnTypes());
+        return sortedColumnTypes.entrySet().stream()
+                .map(entry -> new ColumnInfo(entry.getKey(), typeManager.getType(entry.getValue())))
+                .collect(toList());
     }
 
     private Type getType(List<OrcType> types, int index)
@@ -423,7 +455,7 @@ public class OrcStorageManager
             case DOUBLE:
                 return DOUBLE;
             case STRING:
-                return VARCHAR;
+                return createUnboundedVarcharType();
             case BINARY:
                 return VARBINARY;
             case DECIMAL:
@@ -593,7 +625,7 @@ public class OrcStorageManager
                 File stagingFile = storageService.getStagingFile(shardUuid);
                 storageService.createParents(stagingFile);
                 stagingFiles.add(stagingFile);
-                writer = new OrcFileWriter(columnIds, columnTypes, stagingFile);
+                writer = new OrcFileWriter(columnIds, columnTypes, stagingFile, orcFileMetadataCodec);
             }
         }
     }

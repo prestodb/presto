@@ -24,11 +24,12 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.UUID;
 
+import static com.facebook.presto.raptor.RaptorColumnHandle.SHARD_UUID_LENGTH;
 import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunner;
 import static com.facebook.presto.raptor.RaptorQueryRunner.createSampledSession;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -75,7 +76,7 @@ public class TestRaptorDistributedQueries
     {
         assertUpdate("CREATE TABLE test_shard_uuid AS SELECT orderdate, orderkey FROM orders", "SELECT count(*) FROM orders");
         MaterializedResult actualResults = computeActual("SELECT *, \"$shard_uuid\" FROM test_shard_uuid");
-        assertEquals(actualResults.getTypes(), ImmutableList.of(DATE, BIGINT, VARCHAR));
+        assertEquals(actualResults.getTypes(), ImmutableList.of(DATE, BIGINT, createVarcharType(SHARD_UUID_LENGTH)));
         List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
         String arbitraryUuid = null;
         for (MaterializedRow row : actualRows) {
