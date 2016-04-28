@@ -959,8 +959,8 @@ class AstBuilder
     public Node visitMapConstructor(SqlBaseParser.MapConstructorContext context)
     {
         return new MapConstructor(getLocation(context),
-                visit(context.mapKey(), Expression.class),
-                visit(context.mapValue(), Expression.class));
+                visit(context.keys, Expression.class),
+                visit(context.values, Expression.class));
     }
 
     @Override
