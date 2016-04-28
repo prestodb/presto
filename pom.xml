@@ -269,19 +269,19 @@
             <dependency>
                 <groupId>com.facebook.presto.hadoop</groupId>
                 <artifactId>hadoop-apache1</artifactId>
-                <version>0.2</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.facebook.presto.hadoop</groupId>
-                <artifactId>hadoop-apache2</artifactId>
                 <version>0.3</version>
             </dependency>
 
             <dependency>
                 <groupId>com.facebook.presto.hadoop</groupId>
+                <artifactId>hadoop-apache2</artifactId>
+                <version>0.4</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto.hadoop</groupId>
                 <artifactId>hadoop-cdh4</artifactId>
-                <version>0.8</version>
+                <version>0.9</version>
             </dependency>
 
             <dependency>
