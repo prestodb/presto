@@ -307,7 +307,12 @@ public class ExpressionAnalyzer
                     return field.getType();
                 }
 
-                assertColumnPrefix(qualifiedName, node);
+                if (!isColumnPrefix(qualifiedName, tupleDescriptor)) {
+                    if (isReferenceToOuterRelation(context.getContext(), qualifiedName)) {
+                        throw new SemanticException(NOT_SUPPORTED, node, "Correlated queries not yet supported. Invalid column reference: '%s'", qualifiedName);
+                    }
+                    throw createMissingAttributeException(node);
+                }
             }
 
             Type baseType = process(node.getBase(), context);
@@ -332,19 +337,33 @@ public class ExpressionAnalyzer
             return rowFieldType;
         }
 
-        private void assertColumnPrefix(QualifiedName qualifiedName, Expression node)
+        private boolean isColumnPrefix(QualifiedName qualifiedName, RelationType tupleDescriptor)
         {
             // Recursively check if its prefix is a column.
             while (qualifiedName.getPrefix().isPresent()) {
                 qualifiedName = qualifiedName.getPrefix().get();
                 List<Field> matches = tupleDescriptor.resolveFields(qualifiedName);
                 if (!matches.isEmpty()) {
-                    // The AMBIGUOUS_ATTRIBUTE exception will be thrown later with the right node if matches.size() > 1
-                    return;
+                    return true;
                 }
             }
+            return false;
+        }
 
-            throw createMissingAttributeException(node);
+        private boolean isReferenceToOuterRelation(AnalysisContext context, QualifiedName qualifiedName)
+        {
+            AnalysisContext current = context;
+            while (current != null) {
+                RelationType type = current.getParentRelationType();
+                if (!type.resolveFields(qualifiedName).isEmpty()) {
+                    return true;
+                }
+                if (isColumnPrefix(qualifiedName, type)) {
+                    return true;
+                }
+                current = current.getParent().orElse(null);
+            }
+            return false;
         }
 
         private SemanticException createMissingAttributeException(Expression node)
@@ -883,7 +902,7 @@ public class ExpressionAnalyzer
         protected Type visitSubqueryExpression(SubqueryExpression node, StackableAstVisitorContext<AnalysisContext> context)
         {
             StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node);
-            RelationType descriptor = analyzer.process(node.getQuery(), context.getContext());
+            RelationType descriptor = analyzer.process(node.getQuery(), new AnalysisContext(context.getContext(), tupleDescriptor));
 
             // Subquery should only produce one column
             if (descriptor.getVisibleFieldCount() != 1) {

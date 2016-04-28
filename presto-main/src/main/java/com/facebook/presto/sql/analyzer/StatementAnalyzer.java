@@ -819,7 +819,7 @@ class StatementAnalyzer
     @Override
     protected RelationType visitQuery(Query node, AnalysisContext parentContext)
     {
-        AnalysisContext context = new AnalysisContext(parentContext);
+        AnalysisContext context = new AnalysisContext(parentContext, new RelationType());
 
         if (node.getApproximate().isPresent()) {
             if (!experimentalSyntaxEnabled) {
@@ -1062,7 +1062,7 @@ class StatementAnalyzer
         // TODO: extract candidate names from SELECT, WHERE, HAVING, GROUP BY and ORDER BY expressions
         // to pass down to analyzeFrom
 
-        AnalysisContext context = new AnalysisContext(parentContext);
+        AnalysisContext context = new AnalysisContext(parentContext, new RelationType());
 
         RelationType sourceType = analyzeFrom(node, context);
 
@@ -1162,7 +1162,7 @@ class StatementAnalyzer
             throw new SemanticException(NOT_SUPPORTED, node, "Natural join not supported");
         }
 
-        AnalysisContext leftContext = new AnalysisContext(context);
+        AnalysisContext leftContext = new AnalysisContext(context, new RelationType());
         RelationType left = process(node.getLeft(), context);
         leftContext.setLateralTupleDescriptor(left);
         RelationType right = process(node.getRight(), leftContext);
