@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.OptionalLong;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
@@ -100,5 +101,14 @@ public class BoundVariables
     public int hashCode()
     {
         return Objects.hash(typeVariables, longVariables);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("typeVariables", typeVariables)
+                .add("longVariables", longVariables)
+                .toString();
     }
 }
