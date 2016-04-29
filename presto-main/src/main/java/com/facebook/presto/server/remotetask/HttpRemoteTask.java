@@ -642,12 +642,14 @@ public final class HttpRemoteTask
         public void success(TaskInfo value)
         {
             try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
-                updateStats(currentRequestStartNanos);
                 try {
+                    long currentRequestStartNanos;
                     synchronized (HttpRemoteTask.this) {
                         currentRequest = null;
                         sendPlan.set(value.isNeedsPlan());
+                        currentRequestStartNanos = HttpRemoteTask.this.currentRequestStartNanos;
                     }
+                    updateStats(currentRequestStartNanos);
                     updateTaskInfo(value, sources);
                     updateErrorTracker.requestSucceeded();
                 }
@@ -661,11 +663,13 @@ public final class HttpRemoteTask
         public void failed(Throwable cause)
         {
             try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
-                updateStats(currentRequestStartNanos);
                 try {
+                    long currentRequestStartNanos;
                     synchronized (HttpRemoteTask.this) {
                         currentRequest = null;
+                        currentRequestStartNanos = HttpRemoteTask.this.currentRequestStartNanos;
                     }
+                    updateStats(currentRequestStartNanos);
 
                     // on failure assume we need to update again
                     needsUpdate.set(true);
