@@ -22,6 +22,7 @@ import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
@@ -29,7 +30,6 @@ import java.util.regex.Pattern;
 import static com.facebook.presto.execution.resourceGroups.ResourceGroup.DEFAULT_WEIGHT;
 import static com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy.FAIR;
 import static com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy.WEIGHTED;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -74,7 +74,7 @@ public class TestFileResourceGroupConfigurationManager
     {
         ResourceGroupConfigurationManager manager = parse("resource_groups_config.json");
         ResourceGroup missing = new RootResourceGroup("missing", (group, export) -> { }, directExecutor());
-        manager.configure(missing, testSessionBuilder().build().toSessionRepresentation());
+        manager.configure(missing, new SelectionContext(true, "user", Optional.empty()));
     }
 
     @Test
@@ -83,7 +83,7 @@ public class TestFileResourceGroupConfigurationManager
         ResourceGroupConfigurationManager manager = parse("resource_groups_config.json");
         AtomicBoolean exported = new AtomicBoolean();
         ResourceGroup global = new RootResourceGroup("global", (group, export) -> exported.set(export), directExecutor());
-        manager.configure(global, testSessionBuilder().build().toSessionRepresentation());
+        manager.configure(global, new SelectionContext(true, "user", Optional.empty()));
         assertEquals(global.getSoftMemoryLimit(), new DataSize(1, MEGABYTE));
         assertEquals(global.getMaxQueuedQueries(), 1000);
         assertEquals(global.getMaxRunningQueries(), 100);
@@ -93,7 +93,7 @@ public class TestFileResourceGroupConfigurationManager
         assertEquals(exported.get(), true);
         exported.set(false);
         ResourceGroup sub = global.getOrCreateSubGroup("sub");
-        manager.configure(sub, testSessionBuilder().build().toSessionRepresentation());
+        manager.configure(sub, new SelectionContext(true, "user", Optional.empty()));
         assertEquals(sub.getSoftMemoryLimit(), new DataSize(2, MEGABYTE));
         assertEquals(sub.getMaxRunningQueries(), 3);
         assertEquals(sub.getMaxQueuedQueries(), 4);

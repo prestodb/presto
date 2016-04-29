@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
-import com.facebook.presto.SessionRepresentation;
 import com.fasterxml.jackson.annotation.JsonCreator;
 
 import java.util.Objects;
@@ -44,10 +43,10 @@ public class ResourceGroupNameTemplate
         }
     }
 
-    public String expandTemplate(SessionRepresentation session)
+    public String expandTemplate(SelectionContext context)
     {
-        String expanded = USER_PATTERN.matcher(name).replaceAll(session.getUser());
-        return SOURCE_PATTERN.matcher(expanded).replaceAll(session.getSource().orElse(""));
+        String expanded = USER_PATTERN.matcher(name).replaceAll(context.getUser());
+        return SOURCE_PATTERN.matcher(expanded).replaceAll(context.getSource().orElse(""));
     }
 
     @Override

@@ -14,7 +14,6 @@
 package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryQueueManager;
 import com.facebook.presto.execution.SqlQueryManagerStats;
@@ -79,7 +78,7 @@ public class ResourceGroupManager
     public boolean submit(Statement statement, QueryExecution queryExecution, Executor executor, SqlQueryManagerStats stats)
     {
         ResourceGroupId group = selectGroup(statement, queryExecution.getSession());
-        createGroupIfNecessary(group, queryExecution.getSession().toSessionRepresentation(), executor);
+        createGroupIfNecessary(group, queryExecution.getSession(), executor);
         return groups.get(group).add(queryExecution);
     }
 
@@ -109,8 +108,9 @@ public class ResourceGroupManager
         }
     }
 
-    private synchronized void createGroupIfNecessary(ResourceGroupId id, SessionRepresentation session, Executor executor)
+    private synchronized void createGroupIfNecessary(ResourceGroupId id, Session session, Executor executor)
     {
+        SelectionContext context = new SelectionContext(session.getIdentity().getPrincipal().isPresent(), session.getUser(), session.getSource());
         if (!groups.containsKey(id)) {
             ResourceGroup group;
             if (id.getParent().isPresent()) {
@@ -124,7 +124,7 @@ public class ResourceGroupManager
                 group = root;
                 rootGroups.add(root);
             }
-            configurationManager.configure(group, session);
+            configurationManager.configure(group, context);
             checkState(groups.put(id, group) == null, "Unexpected existing resource group");
         }
     }
@@ -147,8 +147,9 @@ public class ResourceGroupManager
 
     private ResourceGroupId selectGroup(Statement statement, Session session)
     {
+        SelectionContext context = new SelectionContext(session.getIdentity().getPrincipal().isPresent(), session.getUser(), session.getSource());
         for (ResourceGroupSelector selector : selectors) {
-            Optional<ResourceGroupId> group = selector.match(statement, session.toSessionRepresentation());
+            Optional<ResourceGroupId> group = selector.match(statement, context);
             if (group.isPresent()) {
                 return group.get();
             }
