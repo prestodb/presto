@@ -35,6 +35,7 @@ import org.joda.time.DateTimeZone;
 import java.io.File;
 import java.util.Map;
 
+import static com.facebook.presto.hive.security.SqlStandardAccessControl.ADMIN_ROLE_NAME;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
@@ -94,6 +95,7 @@ public final class HiveQueryRunner
 
             File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
             InMemoryHiveMetastore metastore = new InMemoryHiveMetastore(baseDir);
+            metastore.setUserRoles(createSession().getUser(), ImmutableSet.of(ADMIN_ROLE_NAME));
             metastore.createDatabase(createDatabaseMetastoreObject(baseDir, TPCH_SCHEMA));
             metastore.createDatabase(createDatabaseMetastoreObject(baseDir, TPCH_SAMPLED_SCHEMA));
             metastore.createDatabase(createDatabaseMetastoreObject(baseDir, TPCH_BUCKETED_SCHEMA));

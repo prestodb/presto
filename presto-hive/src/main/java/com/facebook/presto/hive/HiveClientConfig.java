@@ -116,6 +116,8 @@ public class HiveClientConfig
     private DataSize orcMaxBufferSize = new DataSize(8, MEGABYTE);
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
 
+    private boolean rcfileOptimizedReaderEnabled;
+
     private HiveMetastoreAuthenticationType hiveMetastoreAuthenticationType = HiveMetastoreAuthenticationType.NONE;
     private String hiveMetastoreServicePrincipal;
     private String hiveMetastoreClientPrincipal;
@@ -861,6 +863,20 @@ public class HiveClientConfig
     public HiveClientConfig setOrcBloomFiltersEnabled(boolean orcBloomFiltersEnabled)
     {
         this.orcBloomFiltersEnabled = orcBloomFiltersEnabled;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isRcfileOptimizedReaderEnabled()
+    {
+        return rcfileOptimizedReaderEnabled;
+    }
+
+    @Deprecated
+    @Config("hive.rcfile-optimized-reader.enabled")
+    public HiveClientConfig setRcfileOptimizedReaderEnabled(boolean rcfileOptimizedReaderEnabled)
+    {
+        this.rcfileOptimizedReaderEnabled = rcfileOptimizedReaderEnabled;
         return this;
     }
 

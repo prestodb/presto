@@ -60,7 +60,7 @@ import static java.util.Objects.requireNonNull;
 public class SqlStandardAccessControl
         implements ConnectorAccessControl
 {
-    private static final String ADMIN_ROLE_NAME = "admin";
+    public static final String ADMIN_ROLE_NAME = "admin";
     private static final String INFORMATION_SCHEMA_NAME = "information_schema";
 
     private final String connectorId;

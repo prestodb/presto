@@ -83,6 +83,7 @@
         <module>presto-cassandra</module>
         <module>presto-blackhole</module>
         <module>presto-orc</module>
+        <module>presto-rcfile</module>
         <module>presto-hive</module>
         <module>presto-hive-hadoop1</module>
         <module>presto-hive-hadoop2</module>
@@ -152,6 +153,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-orc</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-rcfile</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -367,6 +374,12 @@
                 <groupId>com.google.protobuf</groupId>
                 <artifactId>protobuf-java</artifactId>
                 <version>2.4.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift</groupId>
+                <artifactId>aircompressor</artifactId>
+                <version>0.3</version>
             </dependency>
 
             <dependency>
@@ -786,7 +799,7 @@
             <dependency>
                 <groupId>org.anarres.lzo</groupId>
                 <artifactId>lzo-hadoop</artifactId>
-                <version>1.0.4</version>
+                <version>1.0.5</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.apache.hadoop</groupId>

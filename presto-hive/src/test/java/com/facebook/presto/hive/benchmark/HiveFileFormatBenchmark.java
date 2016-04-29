@@ -80,6 +80,7 @@ public class HiveFileFormatBenchmark
 
     @SuppressWarnings("deprecation")
     public static final HiveClientConfig CONFIG = new HiveClientConfig()
+            .setRcfileOptimizedReaderEnabled(true)
             .setParquetOptimizedReaderEnabled(true);
 
     public static final ConnectorSession SESSION = new TestingConnectorSession(new HiveSessionProperties(CONFIG)
@@ -224,8 +225,7 @@ public class HiveFileFormatBenchmark
                 targetFile,
                 columnNames,
                 fileFormat.supportsDate() ? columnTypes : noDateColumnTypes,
-                compression
-        )) {
+                compression)) {
             for (Page page : inputPages) {
                 formatWriter.writePage(page);
             }
