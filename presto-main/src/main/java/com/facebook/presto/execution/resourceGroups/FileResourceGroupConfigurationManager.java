@@ -16,12 +16,10 @@ package com.facebook.presto.execution.resourceGroups;
 import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy;
 import com.facebook.presto.memory.ClusterMemoryPoolManager;
-import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 
@@ -76,7 +74,7 @@ public class FileResourceGroupConfigurationManager
 
         ImmutableList.Builder<ResourceGroupSelector> selectors = ImmutableList.builder();
         for (SelectorSpec spec : managerSpec.getSelectors()) {
-            selectors.add(new StaticSelector(spec.getUserRegex(), spec.getSourceRegex(), spec.getSessionPropertyRegexes(), spec.getGroup()));
+            selectors.add(new StaticSelector(spec.getUserRegex(), spec.getSourceRegex(), spec.getGroup()));
         }
         this.selectors = selectors.build();
 
@@ -287,7 +285,6 @@ public class FileResourceGroupConfigurationManager
     {
         private final Optional<Pattern> userRegex;
         private final Optional<Pattern> sourceRegex;
-        private final Map<String, Pattern> sessionPropertyRegexes = new HashMap<>();
         private final ResourceGroupIdTemplate group;
 
         @JsonCreator
@@ -301,13 +298,6 @@ public class FileResourceGroupConfigurationManager
             this.group = requireNonNull(group, "group is null");
         }
 
-        @JsonAnySetter
-        public void setSessionProperty(String property, Pattern value)
-        {
-            checkArgument(property.startsWith("session."), "Unrecognized property: %s", property);
-            sessionPropertyRegexes.put(property.substring("session.".length(), property.length()), value);
-        }
-
         public Optional<Pattern> getUserRegex()
         {
             return userRegex;
@@ -316,11 +306,6 @@ public class FileResourceGroupConfigurationManager
         public Optional<Pattern> getSourceRegex()
         {
             return sourceRegex;
-        }
-
-        public Map<String, Pattern> getSessionPropertyRegexes()
-        {
-            return ImmutableMap.copyOf(sessionPropertyRegexes);
         }
 
         public ResourceGroupIdTemplate getGroup()
