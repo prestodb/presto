@@ -67,4 +67,30 @@ public final class SqlVarbinary
         SqlVarbinary other = (SqlVarbinary) obj;
         return Arrays.equals(bytes, other.bytes);
     }
+
+    @Override
+    public String toString()
+    {
+        final String hexByteSeparator = " ";
+        final String hexQWordSeparator = "   ";
+
+        StringBuilder builder = new StringBuilder();
+
+        for (int i = 0; i < bytes.length; ++i) {
+            if (i != 0) {
+                if (i % 32 == 0) {
+                    builder.append("\n");
+                }
+                else if (i % 8 == 0) {
+                    builder.append(hexQWordSeparator);
+                }
+                else {
+                    builder.append(hexByteSeparator);
+                }
+            }
+
+            builder.append(String.format("%02x", bytes[i] & 0xff));
+        }
+        return builder.toString();
+    }
 }
