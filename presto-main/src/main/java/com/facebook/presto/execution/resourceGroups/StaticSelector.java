@@ -15,9 +15,7 @@ package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.sql.tree.Statement;
-import com.google.common.collect.ImmutableMap;
 
-import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -28,14 +26,12 @@ public class StaticSelector
 {
     private final Optional<Pattern> userRegex;
     private final Optional<Pattern> sourceRegex;
-    private final Map<String, Pattern> sessionPropertyRegexes;
     private final ResourceGroupIdTemplate group;
 
-    public StaticSelector(Optional<Pattern> userRegex, Optional<Pattern> sourceRegex, Map<String, Pattern> sessionPropertyRegexes, ResourceGroupIdTemplate group)
+    public StaticSelector(Optional<Pattern> userRegex, Optional<Pattern> sourceRegex, ResourceGroupIdTemplate group)
     {
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
         this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
-        this.sessionPropertyRegexes = ImmutableMap.copyOf(requireNonNull(sessionPropertyRegexes, "sessionPropertyRegexes is null"));
         this.group = requireNonNull(group, "group is null");
     }
 
@@ -48,13 +44,6 @@ public class StaticSelector
         if (sourceRegex.isPresent()) {
             String source = session.getSource().orElse("");
             if (!sourceRegex.get().matcher(source).matches()) {
-                return Optional.empty();
-            }
-        }
-
-        for (Map.Entry<String, Pattern> entry : sessionPropertyRegexes.entrySet()) {
-            String value = session.getSystemProperties().getOrDefault(entry.getKey(), "");
-            if (!entry.getValue().matcher(value).matches()) {
                 return Optional.empty();
             }
         }
