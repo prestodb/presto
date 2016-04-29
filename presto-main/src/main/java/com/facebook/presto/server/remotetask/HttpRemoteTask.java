@@ -240,6 +240,9 @@ public final class HttpRemoteTask
                 if (state.isDone()) {
                     cleanUpTask();
                 }
+                else {
+                    partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
+                }
             });
 
             long timeout = minErrorDuration.toMillis() / 3;
