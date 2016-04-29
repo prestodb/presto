@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
-import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy;
 import com.facebook.presto.memory.ClusterMemoryPoolManager;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -90,7 +89,7 @@ public class FileResourceGroupConfigurationManager
     }
 
     @Override
-    public void configure(ConfigurableResourceGroup group, SessionRepresentation session)
+    public void configure(ConfigurableResourceGroup group, SelectionContext context)
     {
         List<ResourceGroupSpec> candidates = rootGroups;
         List<String> segments = group.getId().getSegments();
@@ -99,7 +98,7 @@ public class FileResourceGroupConfigurationManager
             List<ResourceGroupSpec> nextCandidates = null;
             ResourceGroupSpec nextCandidatesParent = null;
             for (ResourceGroupSpec candidate : candidates) {
-                if (candidate.getName().expandTemplate(session).equals(segments.get(i))) {
+                if (candidate.getName().expandTemplate(context).equals(segments.get(i))) {
                     if (i == segments.size() - 1) {
                         if (match != null) {
                             throw new IllegalStateException(format("Ambiguous configuration for %s. Matches %s and %s", group.getId(), match.getName(), candidate.getName()));

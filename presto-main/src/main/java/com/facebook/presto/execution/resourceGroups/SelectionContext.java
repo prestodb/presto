@@ -13,24 +13,35 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
-import org.testng.annotations.Test;
-
 import java.util.Optional;
 
-import static org.testng.Assert.assertEquals;
+import static java.util.Objects.requireNonNull;
 
-public class TestResourceGroupIdTemplate
+public final class SelectionContext
 {
-    @Test
-    public void testExpansion()
+    private final boolean authenticated;
+    private final String user;
+    private final Optional<String> source;
+
+    public SelectionContext(boolean authenticated, String user, Optional<String> source)
     {
-        ResourceGroupIdTemplate template = new ResourceGroupIdTemplate("test.${USER}.${SOURCE}");
-        assertEquals(template.expandTemplate(new SelectionContext(true, "u", Optional.of("s"))), ResourceGroupId.fromString("test.u.s"));
+        this.authenticated = authenticated;
+        this.user = requireNonNull(user, "user is null");
+        this.source = requireNonNull(source, "source is null");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
-    public void testInvalid()
+    public boolean isAuthenticated()
     {
-        new ResourceGroupIdTemplate("test.${USER}.${SOURCE}.${BROKEN}");
+        return authenticated;
+    }
+
+    public String getUser()
+    {
+        return user;
+    }
+
+    public Optional<String> getSource()
+    {
+        return source;
     }
 }

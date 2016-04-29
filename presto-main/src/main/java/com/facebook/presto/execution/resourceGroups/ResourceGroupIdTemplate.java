@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
-import com.facebook.presto.SessionRepresentation;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -39,11 +38,11 @@ public class ResourceGroupIdTemplate
                 .collect(Collectors.toList());
     }
 
-    public ResourceGroupId expandTemplate(SessionRepresentation session)
+    public ResourceGroupId expandTemplate(SelectionContext context)
     {
         ResourceGroupId id = null;
         for (ResourceGroupNameTemplate segment : segments) {
-            String expanded = segment.expandTemplate(session);
+            String expanded = segment.expandTemplate(context);
             if (id == null) {
                 id = new ResourceGroupId(expanded);
             }

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
-import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.sql.tree.Statement;
 
 import java.util.Optional;
@@ -36,18 +35,18 @@ public class StaticSelector
     }
 
     @Override
-    public Optional<ResourceGroupId> match(Statement statement, SessionRepresentation session)
+    public Optional<ResourceGroupId> match(Statement statement, SelectionContext context)
     {
-        if (userRegex.isPresent() && !userRegex.get().matcher(session.getUser()).matches()) {
+        if (userRegex.isPresent() && !userRegex.get().matcher(context.getUser()).matches()) {
             return Optional.empty();
         }
         if (sourceRegex.isPresent()) {
-            String source = session.getSource().orElse("");
+            String source = context.getSource().orElse("");
             if (!sourceRegex.get().matcher(source).matches()) {
                 return Optional.empty();
             }
         }
 
-        return Optional.of(group.expandTemplate(session));
+        return Optional.of(group.expandTemplate(context));
     }
 }
