@@ -9,7 +9,7 @@ services:
       - ../../../../:/docker/volumes/presto
 
   hadoop-base:
-    image: 'teradatalabs/cdh5-hive:2'
+    image: 'teradatalabs/cdh5-hive:4'
     env_file:
       - ../../../target/classes/presto.env
     volumes:
