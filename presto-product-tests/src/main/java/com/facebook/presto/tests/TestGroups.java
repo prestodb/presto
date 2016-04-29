@@ -46,6 +46,7 @@ public final class TestGroups
     public static final String PROFILE_SPECIFIC_TESTS = "profile_specific_tests";
     public static final String HDFS_IMPERSONATION = "hdfs_impersonation";
     public static final String HDFS_NO_IMPERSONATION = "hdfs_no_impersonation";
+    public static final String AUTHORIZATION = "authorization";
 
     private TestGroups() {}
 }

@@ -3,7 +3,7 @@ services:
 
   hadoop-kerberos:
     # cdh5-hive-kerberized contains keytabs and the `krb5.conf` within
-    image: 'teradatalabs/cdh5-hive-kerberized:3'
+    image: 'teradatalabs/cdh5-hive-kerberized:4'
     env_file:
       - ../../../target/classes/presto.env
     volumes:

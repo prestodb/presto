@@ -24,5 +24,10 @@ public class QueryExecutors
         return testContext().getDependency(QueryExecutor.class, "presto");
     }
 
+    public static QueryExecutor connectToPresto(String prestoConfig)
+    {
+        return testContext().getDependency(QueryExecutor.class, prestoConfig);
+    }
+
     private QueryExecutors() {}
 }

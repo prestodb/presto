@@ -32,6 +32,24 @@ databases:
     jdbc_password: na
     jdbc_pooling: false
 
+  alice@presto:
+    host: localhost
+    server_address: ${databases.presto.host}:8080
+    jdbc_driver_class: ${databases.presto.jdbc_driver_class}
+    jdbc_url: jdbc:presto://${databases.presto.server_address}/hive/${databases.hive.schema}
+    jdbc_user: alice
+    jdbc_password: na
+    jdbc_pooling: false
+
+  bob@presto:
+    host: localhost
+    server_address: ${databases.presto.host}:8080
+    jdbc_driver_class: ${databases.presto.jdbc_driver_class}
+    jdbc_url: jdbc:presto://${databases.presto.server_address}/hive/${databases.hive.schema}
+    jdbc_user: bob
+    jdbc_password: na
+    jdbc_pooling: false
+
 tests:
   hdfs:
     path: /product-test
