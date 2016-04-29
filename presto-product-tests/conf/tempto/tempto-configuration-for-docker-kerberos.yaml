@@ -16,7 +16,7 @@ databases:
 
   presto:
     host: presto-master
-    jdbc_user: jdbc_presto_user
+    jdbc_user: hive
     cli_server_address: https://${databases.presto.host}:7778
     cli_authentication: true
     cli_kerberos_principal: presto-client/presto-master@LABS.TERADATA.COM
@@ -26,7 +26,7 @@ databases:
     cli_keystore: /etc/presto/conf/keystore.jks
     cli_keystore_password: password
     cli_kerberos_use_canonical_hostname: false
-    configured_hdfs_user: hdfs
+    configured_hdfs_user: hive
 
   mysql:
     jdbc_driver_class: com.mysql.jdbc.Driver

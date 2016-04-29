@@ -44,7 +44,7 @@ script:
   - |
     if [ -v PRODUCT_TESTS ]; then
       presto-product-tests/bin/run_on_docker.sh singlenode -x quarantine,big_query,storage_formats,mysql_connector,postgresql_connector,profile_specific_tests
-      presto-product-tests/bin/run_on_docker.sh singlenode-kerberos-hdfs-impersonation -g storage_formats,cli,hdfs_impersonation
+      presto-product-tests/bin/run_on_docker.sh singlenode-kerberos-hdfs-impersonation -g storage_formats,cli,hdfs_impersonation,authorization
     fi
   - |
     if [ -v INTEGRATION_TESTS ]; then
