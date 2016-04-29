@@ -65,7 +65,6 @@ class ContinuousTaskStatusFetcher
     private final RequestErrorTracker errorTracker;
     private final RemoteTaskStats stats;
 
-    @GuardedBy("this")
     private final AtomicLong currentRequestStartNanos = new AtomicLong();
 
     @GuardedBy("this")
