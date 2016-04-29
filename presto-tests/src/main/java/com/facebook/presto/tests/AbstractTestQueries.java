@@ -4367,7 +4367,8 @@ public abstract class AbstractTestQueries
                 "SELECT SUM(CASE WHEN CAST(round(totalprice/100) AS BIGINT) BETWEEN 2 AND 36 THEN 1 ELSE 0 END) FROM orders");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Q/ by zero\\E.*")
+    // no regexp specified because the JVM optimizes away exception message constructor if run enough times
+    @Test(expectedExceptions = RuntimeException.class)
     public void testTryNoMergeProjections()
         throws Exception
     {
