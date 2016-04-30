@@ -22,6 +22,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.CharStreams;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
@@ -39,8 +40,12 @@ import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.TextInputFormat;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
@@ -55,6 +60,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static com.facebook.presto.hadoop.HadoopFileStatus.isDirectory;
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
@@ -67,6 +73,7 @@ import static com.facebook.presto.hive.UnpartitionedPartition.isUnpartitioned;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
+import static org.apache.hadoop.hive.common.FileUtils.HIDDEN_FILES_PATH_FILTER;
 
 public class BackgroundHiveSplitLoader
         implements HiveSplitLoader
@@ -276,31 +283,38 @@ public class BackgroundHiveSplitLoader
             if (bucketHandle.isPresent()) {
                 throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "Bucketed table in SymlinkTextInputFormat is not yet supported");
             }
-            JobConf jobConf = new JobConf(configuration);
-            FileInputFormat.setInputPaths(jobConf, path);
-            InputSplit[] splits = inputFormat.getSplits(jobConf, 0);
 
             // TODO: This should use an iterator like the HiveFileIterator
-            for (InputSplit rawSplit : splits) {
-                FileSplit split = ((SymlinkTextInputFormat.SymlinkTextInputSplit) rawSplit).getTargetSplit();
+            for (Path targetPath : getTargetPathsFromSymlink(configuration, path)) {
+                // The input should be in TextInputFormat.
+                TextInputFormat targetInputFormat = new TextInputFormat();
+                // get the configuration for the target path -- it may be a different hdfs instance
+                Configuration targetConfiguration = hdfsEnvironment.getConfiguration(targetPath);
+                JobConf targetJob = new JobConf(targetConfiguration);
+                targetJob.setInputFormat(TextInputFormat.class);
+                targetInputFormat.configure(targetJob);
+                FileInputFormat.setInputPaths(targetJob, targetPath);
+                InputSplit[] targetSplits = targetInputFormat.getSplits(targetJob, 0);
 
-                // get the filesystem for the target path -- it may be a different hdfs instance
-                FileSystem targetFilesystem = hdfsEnvironment.getFileSystem(split.getPath());
-                FileStatus file = targetFilesystem.getFileStatus(split.getPath());
-                hiveSplitSource.addToQueue(createHiveSplits(
-                        partitionName,
-                        file.getPath().toString(),
-                        targetFilesystem.getFileBlockLocations(file, split.getStart(), split.getLength()),
-                        split.getStart(),
-                        split.getLength(),
-                        schema,
-                        partitionKeys,
-                        false,
-                        session,
-                        OptionalInt.empty(),
-                        effectivePredicate));
-                if (stopped) {
-                    return;
+                for (InputSplit inputSplit : targetSplits) {
+                    FileSplit split = (FileSplit) inputSplit;
+                    FileSystem targetFilesystem = split.getPath().getFileSystem(targetConfiguration);
+                    FileStatus file = targetFilesystem.getFileStatus(split.getPath());
+                    hiveSplitSource.addToQueue(createHiveSplits(
+                            partitionName,
+                            file.getPath().toString(),
+                            targetFilesystem.getFileBlockLocations(file, split.getStart(), split.getLength()),
+                            split.getStart(),
+                            split.getLength(),
+                            schema,
+                            partitionKeys,
+                            false,
+                            session,
+                            OptionalInt.empty(),
+                            effectivePredicate));
+                    if (stopped) {
+                        return;
+                    }
                 }
             }
             return;
@@ -380,6 +394,27 @@ public class BackgroundHiveSplitLoader
         // Sort FileStatus objects (instead of, e.g., fileStatus.getPath().toString). This matches org.apache.hadoop.hive.ql.metadata.Table.getSortedPaths
         list.sort(null);
         return list;
+    }
+
+    private static List<Path> getTargetPathsFromSymlink(Configuration conf, Path symlinkDir)
+    {
+        try {
+            FileSystem fileSystem = symlinkDir.getFileSystem(conf);
+            FileStatus[] symlinks = fileSystem.listStatus(symlinkDir, HIDDEN_FILES_PATH_FILTER);
+            List<Path> targets = new ArrayList<>();
+
+            for (FileStatus symlink : symlinks) {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(fileSystem.open(symlink.getPath()), StandardCharsets.UTF_8))) {
+                    CharStreams.readLines(reader).stream()
+                            .map(Path::new)
+                            .forEach(targets::add);
+                }
+            }
+            return targets;
+        }
+        catch (IOException e) {
+            throw new PrestoException(HIVE_BAD_DATA, "Error parsing symlinks from: " + symlinkDir, e);
+        }
     }
 
     private List<HiveSplit> createHiveSplits(
