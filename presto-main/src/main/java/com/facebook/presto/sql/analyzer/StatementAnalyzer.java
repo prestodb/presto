@@ -84,7 +84,7 @@ import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
-import com.facebook.presto.sql.tree.ShowCreateView;
+import com.facebook.presto.sql.tree.ShowCreate;
 import com.facebook.presto.sql.tree.ShowFunctions;
 import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowSchemas;
@@ -202,6 +202,7 @@ import static com.facebook.presto.sql.tree.FrameBound.Type.FOLLOWING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.PRECEDING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
+import static com.facebook.presto.sql.tree.ShowCreate.Type.VIEW;
 import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
 import static com.facebook.presto.type.TypeRegistry.canCoerce;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
@@ -441,9 +442,13 @@ class StatementAnalyzer
     }
 
     @Override
-    protected RelationType visitShowCreateView(ShowCreateView node, AnalysisContext context)
+    protected RelationType visitShowCreate(ShowCreate node, AnalysisContext context)
     {
-        QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getView());
+        if (node.getType() != VIEW) {
+            throw new UnsupportedOperationException("SHOW CREATE only supported for views");
+        }
+
+        QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
         Optional<ViewDefinition> view = metadata.getView(session, viewName);
         if (!view.isPresent()) {
             if (metadata.getTableHandle(session, viewName).isPresent()) {

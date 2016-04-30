@@ -19,42 +19,53 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class ShowCreateView
+public class ShowCreate
         extends Statement
 {
-    private final QualifiedName view;
-
-    public ShowCreateView(QualifiedName view)
-    {
-        this(Optional.empty(), view);
+    public enum Type {
+        VIEW
     }
 
-    public ShowCreateView(NodeLocation location, QualifiedName view)
+    private final Type type;
+    private final QualifiedName name;
+
+    public ShowCreate(Type type, QualifiedName name)
     {
-        this(Optional.of(location), view);
+        this(Optional.empty(), type, name);
     }
 
-    private ShowCreateView(Optional<NodeLocation> location, QualifiedName view)
+    public ShowCreate(NodeLocation location, Type type, QualifiedName name)
+    {
+        this(Optional.of(location), type, name);
+    }
+
+    private ShowCreate(Optional<NodeLocation> location, Type type, QualifiedName name)
     {
         super(location);
-        this.view = requireNonNull(view, "view is null");
+        this.type = requireNonNull(type, "type is null");
+        this.name = requireNonNull(name, "name is null");
     }
 
-    public QualifiedName getView()
+    public QualifiedName getName()
     {
-        return view;
+        return name;
+    }
+
+    public Type getType()
+    {
+        return type;
     }
 
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return visitor.visitShowCreateView(this, context);
+        return visitor.visitShowCreate(this, context);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(view);
+        return Objects.hash(type, name);
     }
 
     @Override
@@ -66,15 +77,16 @@ public class ShowCreateView
         if ((obj == null) || (getClass() != obj.getClass())) {
             return false;
         }
-        ShowCreateView o = (ShowCreateView) obj;
-        return Objects.equals(view, o.view);
+        ShowCreate o = (ShowCreate) obj;
+        return Objects.equals(name, o.name) && Objects.equals(type, o.type);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("view", view)
+                .add("type", type)
+                .add("name", name)
                 .toString();
     }
 }
