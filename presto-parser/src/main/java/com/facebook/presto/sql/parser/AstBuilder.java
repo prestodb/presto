@@ -100,7 +100,7 @@ import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
-import com.facebook.presto.sql.tree.ShowCreateView;
+import com.facebook.presto.sql.tree.ShowCreate;
 import com.facebook.presto.sql.tree.ShowFunctions;
 import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowSchemas;
@@ -590,7 +590,7 @@ class AstBuilder
     @Override
     public Node visitShowCreateView(SqlBaseParser.ShowCreateViewContext context)
     {
-        return new ShowCreateView(getLocation(context), getQualifiedName(context.qualifiedName()));
+        return new ShowCreate(getLocation(context), ShowCreate.Type.VIEW, getQualifiedName(context.qualifiedName()));
     }
 
     @Override
