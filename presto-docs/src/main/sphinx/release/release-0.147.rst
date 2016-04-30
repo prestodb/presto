@@ -11,6 +11,7 @@ General Changes
 Hive Changes
 ------------
 
+* Fix reading symlinks when the target is in a different HDFS instance.
 * Fix ``NoClassDefFoundError`` for ``SubnetUtils`` in HDFS client.
 * Include path in unrecoverable S3 exception messages.
 * When replacing an existing Presto view, update the view data
