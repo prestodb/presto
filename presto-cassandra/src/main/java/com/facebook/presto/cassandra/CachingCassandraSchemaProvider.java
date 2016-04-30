@@ -17,14 +17,14 @@ import com.facebook.presto.spi.NotFoundException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Throwables;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
-import com.google.common.util.concurrent.UncheckedExecutionException;
+
 import io.airlift.units.Duration;
+
 import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -34,12 +34,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.cassandra.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.cache.CacheLoader.asyncReloading;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -97,69 +96,34 @@ public class CachingCassandraSchemaProvider
         long expiresAfterWriteMillis = requireNonNull(cacheTtl, "cacheTtl is null").toMillis();
         long refreshMills = requireNonNull(refreshInterval, "refreshInterval is null").toMillis();
 
-        schemaNamesCache = CacheBuilder.newBuilder()
+        schemaNamesCache = Caffeine.newBuilder()
+                .executor(executor)
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(asyncReloading(new CacheLoader<String, Map<String, String>>()
-                {
-                    @Override
-                    public Map<String, String> load(String key)
-                            throws Exception
-                    {
-                        return loadAllSchemas();
-                    }
-                }, executor));
+                .build(key -> loadAllSchemas());
 
-        tableNamesCache = CacheBuilder.newBuilder()
+        tableNamesCache = Caffeine.newBuilder()
+                .executor(executor)
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(asyncReloading(new CacheLoader<String, Map<String, String>>()
-                {
-                    @Override
-                    public Map<String, String> load(String databaseName)
-                            throws Exception
-                    {
-                        return loadAllTables(databaseName);
-                    }
-                }, executor));
+                .build(this::loadAllTables);
 
-        tableCache = CacheBuilder.newBuilder()
+        tableCache = Caffeine.newBuilder()
+                .executor(executor)
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(asyncReloading(new CacheLoader<SchemaTableName, CassandraTable>()
-                {
-                    @Override
-                    public CassandraTable load(SchemaTableName tableName)
-                            throws Exception
-                    {
-                        return loadTable(tableName);
-                    }
-                }, executor));
+                .build(this::loadTable);
 
-        partitionsCache = CacheBuilder.newBuilder()
+        partitionsCache = Caffeine.newBuilder()
+                .executor(executor)
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(asyncReloading(new CacheLoader<PartitionListKey, List<CassandraPartition>>()
-                {
-                    @Override
-                    public List<CassandraPartition> load(PartitionListKey key)
-                            throws Exception
-                    {
-                        return loadPartitions(key);
-                    }
-                }, executor));
+                .build(this::loadPartitions);
 
-        partitionsCacheFull = CacheBuilder.newBuilder()
+        partitionsCacheFull = Caffeine.newBuilder()
+                .executor(executor)
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
-                .build(asyncReloading(new CacheLoader<PartitionListKey, List<CassandraPartition>>()
-                {
-                    @Override
-                    public List<CassandraPartition> load(PartitionListKey key)
-                            throws Exception
-                    {
-                        return loadPartitions(key);
-                    }
-                }, executor));
+                .build(this::loadPartitions);
     }
 
     @Managed
@@ -296,7 +260,7 @@ public class CachingCassandraSchemaProvider
         try {
             return cache.get(key);
         }
-        catch (ExecutionException | UncheckedExecutionException e) {
+        catch (CompletionException e) {
             Throwable t = e.getCause();
             Throwables.propagateIfInstanceOf(t, exceptionClass);
             throw Throwables.propagate(t);

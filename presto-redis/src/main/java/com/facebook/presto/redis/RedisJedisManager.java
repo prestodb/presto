@@ -15,11 +15,11 @@ package com.facebook.presto.redis;
 
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.NodeManager;
-import com.google.common.base.Throwables;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
+import com.github.benmanes.caffeine.cache.CacheLoader;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.primitives.Ints;
+
 import io.airlift.log.Logger;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
@@ -28,7 +28,6 @@ import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 
 import static java.util.Objects.requireNonNull;
 
@@ -50,7 +49,7 @@ public class RedisJedisManager
             NodeManager nodeManager)
     {
         this.redisConnectorConfig = requireNonNull(redisConnectorConfig, "redisConfig is null");
-        this.jedisPoolCache = CacheBuilder.newBuilder().build(new JedisPoolCacheLoader());
+        this.jedisPoolCache = Caffeine.newBuilder().build(new JedisPoolCacheLoader());
         this.jedisPoolConfig = new JedisPoolConfig();
     }
 
@@ -75,16 +74,11 @@ public class RedisJedisManager
     public JedisPool getJedisPool(HostAddress host)
     {
         requireNonNull(host, "host is null");
-        try {
-            return jedisPoolCache.get(host);
-        }
-        catch (ExecutionException e) {
-            throw Throwables.propagate(e.getCause());
-        }
+        return jedisPoolCache.get(host);
     }
 
     private class JedisPoolCacheLoader
-            extends CacheLoader<HostAddress, JedisPool>
+            implements CacheLoader<HostAddress, JedisPool>
     {
         @Override
         public JedisPool load(HostAddress host)

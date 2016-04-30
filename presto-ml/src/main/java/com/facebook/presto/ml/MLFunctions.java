@@ -23,9 +23,10 @@ import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.hash.HashCode;
+
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -37,7 +38,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 public final class MLFunctions
 {
-    private static final Cache<HashCode, Model> MODEL_CACHE = CacheBuilder.newBuilder().maximumSize(5).build();
+    private static final Cache<HashCode, Model> MODEL_CACHE = Caffeine.newBuilder().maximumSize(5).build();
     private static final String MAP_BIGINT_DOUBLE = "map(bigint,double)";
 
     private MLFunctions()
@@ -81,11 +82,7 @@ public final class MLFunctions
     {
         HashCode modelHash = ModelUtils.modelHash(slice);
 
-        Model model = MODEL_CACHE.getIfPresent(modelHash);
-        if (model == null) {
-            model = ModelUtils.deserialize(slice);
-            MODEL_CACHE.put(modelHash, model);
-        }
+        Model model = MODEL_CACHE.get(modelHash, hash -> ModelUtils.deserialize(slice));
 
         return model;
     }

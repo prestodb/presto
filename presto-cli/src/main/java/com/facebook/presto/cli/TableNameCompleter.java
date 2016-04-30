@@ -15,9 +15,8 @@ package com.facebook.presto.cli;
 
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import jline.console.completer.Completer;
 
@@ -28,7 +27,6 @@ import java.util.TreeSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.cache.CacheLoader.asyncReloading;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -48,26 +46,15 @@ public class TableNameCompleter
     {
         this.queryRunner = requireNonNull(queryRunner, "queryRunner session was null!");
 
-        tableCache = CacheBuilder.newBuilder()
+        tableCache = Caffeine.newBuilder()
+                .executor(executor)
                 .refreshAfterWrite(RELOAD_TIME_MINUTES, TimeUnit.MINUTES)
-                .build(asyncReloading(new CacheLoader<String, List<String>>()
-                {
-                    @Override
-                    public List<String> load(String schemaName)
-                    {
-                        return queryMetadata(format("SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'", schemaName));
-                    }
-                }, executor));
+                .build(schemaName ->
+                    queryMetadata(format("SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'", schemaName)));
 
-        functionCache = CacheBuilder.newBuilder()
-                .build(asyncReloading(new CacheLoader<String, List<String>>()
-                {
-                    @Override
-                    public List<String> load(String schemaName)
-                    {
-                        return queryMetadata("SHOW FUNCTIONS");
-                    }
-                }, executor));
+        functionCache = Caffeine.newBuilder()
+                .executor(executor)
+                .build(key -> queryMetadata("SHOW FUNCTIONS"));
     }
 
     private List<String> queryMetadata(String query)

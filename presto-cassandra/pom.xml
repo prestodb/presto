@@ -153,6 +153,11 @@
             <groupId>io.airlift</groupId>
             <artifactId>configuration</artifactId>
         </dependency>
+        
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>com.google.guava</groupId>

@@ -33,12 +33,12 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.BeanSerializerFactory;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import com.fasterxml.jackson.databind.type.SimpleType;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.base.Throwables;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 
 import java.io.IOException;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -87,7 +87,7 @@ public abstract class AbstractTypedJacksonModule<T>
             extends StdSerializer<T>
     {
         private final TypeSerializer typeSerializer;
-        private final Cache<Class<?>, JsonSerializer<T>> serializerCache = CacheBuilder.newBuilder().build();
+        private final Cache<Class<?>, JsonSerializer<T>> serializerCache = Caffeine.newBuilder().build();
 
         public InternalTypeSerializer(Class<T> baseClass, TypeIdResolver typeIdResolver)
         {
@@ -105,11 +105,17 @@ public abstract class AbstractTypedJacksonModule<T>
             }
 
             try {
-                Class<?> type = value.getClass();
-                JsonSerializer<T> serializer = serializerCache.get(type, () -> createSerializer(provider, type));
+                JsonSerializer<T> serializer = serializerCache.get(value.getClass(), type -> {
+                  try {
+                    return createSerializer(provider, type);
+                  }
+                  catch (JsonMappingException e) {
+                    throw new CompletionException(e);
+                  }
+                });
                 serializer.serializeWithType(value, generator, provider, typeSerializer);
             }
-            catch (ExecutionException e) {
+            catch (CompletionException e) {
                 propagateIfInstanceOf(e.getCause(), IOException.class);
                 throw Throwables.propagate(e.getCause());
             }

@@ -117,12 +117,11 @@ import com.facebook.presto.type.TimestampWithTimeZoneOperators;
 import com.facebook.presto.type.UnknownOperators;
 import com.facebook.presto.type.VarbinaryOperators;
 import com.facebook.presto.type.VarcharOperators;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -132,6 +131,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.primitives.Primitives;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+
 import io.airlift.slice.Slice;
 
 import javax.annotation.Nullable;
@@ -260,51 +260,33 @@ public class FunctionRegistry
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
 
-        specializedScalarCache = CacheBuilder.newBuilder()
+        specializedScalarCache = Caffeine.newBuilder()
                 .maximumSize(1000)
-                .build(new CacheLoader<SpecializedFunctionKey, ScalarFunctionImplementation>()
-                {
-                    @Override
-                    public ScalarFunctionImplementation load(SpecializedFunctionKey key)
-                            throws Exception
-                    {
-                        // TODO the function map should be updated, so that this cast can be removed
-                        SqlScalarFunction scalarFunction = checkType(key.getFunction(), SqlScalarFunction.class, "function");
-                        return scalarFunction.specialize(key.getBoundVariables(), key.getArity(), typeManager, FunctionRegistry.this);
-                    }
-                });
+                .buildAsync((SpecializedFunctionKey key) -> {
+                    // TODO the function map should be updated, so that this cast can be removed
+                    SqlScalarFunction scalarFunction = checkType(key.getFunction(), SqlScalarFunction.class, "function");
+                    return scalarFunction.specialize(key.getBoundVariables(), key.getArity(), typeManager, FunctionRegistry.this);
+                }).synchronous();
 
-        specializedAggregationCache = CacheBuilder.newBuilder()
+        specializedAggregationCache = Caffeine.newBuilder()
                 .maximumSize(1000)
-                .build(new CacheLoader<SpecializedFunctionKey, InternalAggregationFunction>()
-                {
-                    @Override
-                    public InternalAggregationFunction load(SpecializedFunctionKey key)
-                            throws Exception
-                    {
+                .buildAsync((SpecializedFunctionKey key) -> {
+                    SqlAggregationFunction aggregationFunction = checkType(key.getFunction(), SqlAggregationFunction.class, "function");
+                    return aggregationFunction.specialize(key.getBoundVariables(), key.getArity(), typeManager, FunctionRegistry.this);
+                }).synchronous();
+
+        specializedWindowCache = Caffeine.newBuilder()
+                .maximumSize(1000)
+                .buildAsync((SpecializedFunctionKey key) -> {
+                    if (key.getFunction() instanceof SqlAggregationFunction) {
                         SqlAggregationFunction aggregationFunction = checkType(key.getFunction(), SqlAggregationFunction.class, "function");
-                        return aggregationFunction.specialize(key.getBoundVariables(), key.getArity(), typeManager, FunctionRegistry.this);
+                        return supplier(aggregationFunction.getSignature(), specializedAggregationCache.get(key));
                     }
-                });
-
-        specializedWindowCache = CacheBuilder.newBuilder()
-                .maximumSize(1000)
-                .build(new CacheLoader<SpecializedFunctionKey, WindowFunctionSupplier>()
-                {
-                    @Override
-                    public WindowFunctionSupplier load(SpecializedFunctionKey key)
-                            throws Exception
-                    {
-                        if (key.getFunction() instanceof SqlAggregationFunction) {
-                            SqlAggregationFunction aggregationFunction = checkType(key.getFunction(), SqlAggregationFunction.class, "function");
-                            return supplier(aggregationFunction.getSignature(), specializedAggregationCache.getUnchecked(key));
-                        }
-                        else {
-                            SqlWindowFunction windowFunction = checkType(key.getFunction(), SqlWindowFunction.class, "function");
-                            return windowFunction.specialize(key.getBoundVariables(), key.getArity(), typeManager, FunctionRegistry.this);
-                        }
+                    else {
+                        SqlWindowFunction windowFunction = checkType(key.getFunction(), SqlWindowFunction.class, "function");
+                        return windowFunction.specialize(key.getBoundVariables(), key.getArity(), typeManager, FunctionRegistry.this);
                     }
-                });
+                }).synchronous();
 
         FunctionListBuilder builder = new FunctionListBuilder(typeManager)
                 .window("row_number", BIGINT, ImmutableList.<Type>of(), RowNumberFunction.class)
@@ -637,7 +619,7 @@ public class FunctionRegistry
                 try {
                     Map<String, OptionalLong> boundLiteralParameters = operator.getSignature().bindLongVariables(signature.getArgumentTypes());
                     BoundVariables boundVariables = new BoundVariables(boundTypeParameters, boundLiteralParameters);
-                    return specializedWindowCache.getUnchecked(new SpecializedFunctionKey(operator, boundVariables, argumentTypes.size()));
+                    return specializedWindowCache.get(new SpecializedFunctionKey(operator, boundVariables, argumentTypes.size()));
                 }
                 catch (UncheckedExecutionException e) {
                     throw Throwables.propagate(e.getCause());
@@ -661,7 +643,7 @@ public class FunctionRegistry
                 try {
                     Map<String, OptionalLong> boundLiteralParameters = operator.getSignature().bindLongVariables(signature.getArgumentTypes());
                     BoundVariables boundVariables = new BoundVariables(boundTypeParameters, boundLiteralParameters);
-                    return specializedAggregationCache.getUnchecked(new SpecializedFunctionKey(operator, boundVariables, signature.getArgumentTypes().size()));
+                    return specializedAggregationCache.get(new SpecializedFunctionKey(operator, boundVariables, signature.getArgumentTypes().size()));
                 }
                 catch (UncheckedExecutionException e) {
                     throw Throwables.propagate(e.getCause());
@@ -685,7 +667,7 @@ public class FunctionRegistry
                 try {
                     Map<String, OptionalLong> boundLiteralParameters = operator.getSignature().bindLongVariables(signature.getArgumentTypes());
                     BoundVariables boundVariables = new BoundVariables(boundTypeParameters, boundLiteralParameters);
-                    return specializedScalarCache.getUnchecked(new SpecializedFunctionKey(operator, boundVariables, argumentTypes.size()));
+                    return specializedScalarCache.get(new SpecializedFunctionKey(operator, boundVariables, argumentTypes.size()));
                 }
                 catch (UncheckedExecutionException e) {
                     throw Throwables.propagate(e.getCause());
@@ -735,7 +717,7 @@ public class FunctionRegistry
                 Map<String, Type> boundTypeParameters = fieldReference.getSignature().bindTypeVariables(returnType, argumentTypes, false, typeManager);
                 Map<String, OptionalLong> boundLiteralParameters = fieldReference.getSignature().bindLongVariables(signature.getArgumentTypes());
                 BoundVariables boundVariables = new BoundVariables(boundTypeParameters, boundLiteralParameters);
-                return specializedScalarCache.getUnchecked(new SpecializedFunctionKey(fieldReference, boundVariables, argumentTypes.size()));
+                return specializedScalarCache.get(new SpecializedFunctionKey(fieldReference, boundVariables, argumentTypes.size()));
             }
         }
         throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("%s not found", signature));

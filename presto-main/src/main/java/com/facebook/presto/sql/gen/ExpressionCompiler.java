@@ -20,11 +20,12 @@ import com.facebook.presto.operator.CursorProcessor;
 import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.relational.RowExpression;
+import com.github.benmanes.caffeine.cache.CacheLoader;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Throwables;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+
 import org.weakref.jmx.Managed;
 
 import javax.inject.Inject;
@@ -47,7 +48,7 @@ public class ExpressionCompiler
 {
     private final Metadata metadata;
 
-    private final LoadingCache<CacheKey, Class<? extends PageProcessor>> pageProcessors = CacheBuilder.newBuilder().maximumSize(1000).build(
+    private final LoadingCache<CacheKey, Class<? extends PageProcessor>> pageProcessors = Caffeine.newBuilder().maximumSize(1000).build(
             new CacheLoader<CacheKey, Class<? extends PageProcessor>>()
             {
                 @Override
@@ -58,7 +59,7 @@ public class ExpressionCompiler
                 }
             });
 
-    private final LoadingCache<CacheKey, Class<? extends CursorProcessor>> cursorProcessors = CacheBuilder.newBuilder().maximumSize(1000).build(
+    private final LoadingCache<CacheKey, Class<? extends CursorProcessor>> cursorProcessors = Caffeine.newBuilder().maximumSize(1000).build(
             new CacheLoader<CacheKey, Class<? extends CursorProcessor>>()
             {
                 @Override
@@ -78,12 +79,12 @@ public class ExpressionCompiler
     @Managed
     public long getCacheSize()
     {
-        return pageProcessors.size();
+        return pageProcessors.estimatedSize();
     }
 
     public Supplier<CursorProcessor> compileCursorProcessor(RowExpression filter, List<RowExpression> projections, Object uniqueKey)
     {
-        Class<? extends CursorProcessor> cursorProcessor = cursorProcessors.getUnchecked(new CacheKey(filter, projections, uniqueKey));
+        Class<? extends CursorProcessor> cursorProcessor = cursorProcessors.get(new CacheKey(filter, projections, uniqueKey));
         return () -> {
             try {
                 return cursorProcessor.newInstance();
@@ -96,7 +97,7 @@ public class ExpressionCompiler
 
     public Supplier<PageProcessor> compilePageProcessor(RowExpression filter, List<RowExpression> projections)
     {
-        Class<? extends PageProcessor> pageProcessor = pageProcessors.getUnchecked(new CacheKey(filter, projections, null));
+        Class<? extends PageProcessor> pageProcessor = pageProcessors.get(new CacheKey(filter, projections, null));
         return () -> {
             try {
                 return pageProcessor.newInstance();

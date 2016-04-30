@@ -29,6 +29,7 @@ import com.datastax.driver.core.exceptions.NoHostAvailableException;
 import com.datastax.driver.core.querybuilder.Clause;
 import com.datastax.driver.core.querybuilder.QueryBuilder;
 import com.datastax.driver.core.querybuilder.Select;
+import com.datastax.driver.core.querybuilder.Select.Where;
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.SchemaNotFoundException;
@@ -36,15 +37,13 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.google.common.base.Throwables;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
-import com.google.common.util.concurrent.UncheckedExecutionException;
+
 import io.airlift.json.JsonCodec;
 
 import java.nio.ByteBuffer;
@@ -54,9 +53,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 
-import static com.datastax.driver.core.querybuilder.Select.Where;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
@@ -85,16 +82,8 @@ public class CassandraSession
         this.limitForPartitionKeySelect = limitForPartitionKeySelect;
         this.extraColumnMetadataCodec = extraColumnMetadataCodec;
 
-        sessionBySchema = CacheBuilder.newBuilder()
-                .build(new CacheLoader<String, Session>()
-                {
-                    @Override
-                    public Session load(String key)
-                            throws Exception
-                    {
-                        return clusterBuilder.build().connect();
-                    }
-                });
+        sessionBySchema = Caffeine.newBuilder()
+                .build(key -> clusterBuilder.build().connect());
     }
 
     public Set<Host> getReplicas(final String schemaName, final ByteBuffer partitionKey)
@@ -111,12 +100,7 @@ public class CassandraSession
 
     private Session getSession(String schemaName)
     {
-        try {
-            return sessionBySchema.get(schemaName);
-        }
-        catch (ExecutionException | UncheckedExecutionException e) {
-            throw Throwables.propagate(e.getCause());
-        }
+        return sessionBySchema.get(schemaName);
     }
 
     public ResultSet executeQuery(String schemaName, final String cql)
