@@ -147,6 +147,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -995,7 +996,15 @@ class AstBuilder
     @Override
     public Node visitExtract(SqlBaseParser.ExtractContext context)
     {
-        return new Extract(getLocation(context), (Expression) visit(context.valueExpression()), Extract.Field.valueOf(context.identifier().getText().toUpperCase()));
+        String fieldString = context.identifier().getText();
+        Extract.Field field;
+        try {
+            field = Extract.Field.valueOf(fieldString.toUpperCase());
+        }
+        catch (IllegalArgumentException e) {
+            throw new ParsingException(format("Invalid EXTRACT field: %s", fieldString), null, context.getStart().getLine(), context.getStart().getCharPositionInLine());
+        }
+        return new Extract(getLocation(context), (Expression) visit(context.valueExpression()), field);
     }
 
     @Override
