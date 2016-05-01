@@ -61,7 +61,7 @@ public class TestJmxMetadata
         assertEquals(handle.getConnectorId(), "test");
         assertEquals(handle.getObjectName(), RUNTIME_OBJECT);
 
-        List<JmxColumnHandle> columns = handle.getColumns();
+        List<JmxColumnHandle> columns = handle.getColumnHandles();
         assertTrue(columns.contains(new JmxColumnHandle("test", "node", createUnboundedVarcharType())));
         assertTrue(columns.contains(new JmxColumnHandle("test", "Name", createUnboundedVarcharType())));
         assertTrue(columns.contains(new JmxColumnHandle("test", "StartTime", BIGINT)));
@@ -75,7 +75,7 @@ public class TestJmxMetadata
         assertEquals(handle.getConnectorId(), "test");
         assertEquals(handle.getObjectName(), RUNTIME_OBJECT);
 
-        List<JmxColumnHandle> columns = handle.getColumns();
+        List<JmxColumnHandle> columns = handle.getColumnHandles();
         assertTrue(columns.contains(new JmxColumnHandle("test", "timestamp", TIMESTAMP)));
         assertTrue(columns.contains(new JmxColumnHandle("test", "node", createUnboundedVarcharType())));
         assertTrue(columns.contains(new JmxColumnHandle("test", "Name", createUnboundedVarcharType())));

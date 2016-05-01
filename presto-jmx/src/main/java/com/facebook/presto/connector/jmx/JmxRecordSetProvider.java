@@ -75,7 +75,7 @@ public class JmxRecordSetProvider
                 rows = ImmutableList.of(getLiveRow(tableHandle, columnTypes));
             }
             else {
-                rows = jmxHistoricalData.getRows(tableHandle.getObjectName(), calculateSelectedColumns(tableHandle.getColumns(), columnTypes));
+                rows = jmxHistoricalData.getRows(tableHandle.getObjectName(), calculateSelectedColumns(tableHandle.getColumnHandles(), columnTypes));
             }
         }
         catch (JMException e) {
@@ -85,11 +85,11 @@ public class JmxRecordSetProvider
         return new InMemoryRecordSet(columnTypes.values(), rows);
     }
 
-    private List<Integer> calculateSelectedColumns(List<JmxColumnHandle> columns, Map<String, Type> selectedColumnsTypes)
+    private List<Integer> calculateSelectedColumns(List<JmxColumnHandle> columnHandles, Map<String, Type> selectedColumnsTypes)
     {
         ImmutableList.Builder<Integer> selectedColumns = ImmutableList.builder();
-        for (int i = 0; i < columns.size(); i++) {
-            JmxColumnHandle column = columns.get(i);
+        for (int i = 0; i < columnHandles.size(); i++) {
+            JmxColumnHandle column = columnHandles.get(i);
             if (selectedColumnsTypes.containsKey(column.getColumnName())) {
                 selectedColumns.add(i);
             }
@@ -97,10 +97,10 @@ public class JmxRecordSetProvider
         return selectedColumns.build();
     }
 
-    public ImmutableMap<String, Type> getColumnTypes(List<? extends ColumnHandle> columns)
+    public ImmutableMap<String, Type> getColumnTypes(List<? extends ColumnHandle> columnHandles)
     {
         ImmutableMap.Builder<String, Type> builder = ImmutableMap.builder();
-        for (ColumnHandle column : columns) {
+        for (ColumnHandle column : columnHandles) {
             JmxColumnHandle jmxColumnHandle = checkType(column, JmxColumnHandle.class, "column");
             builder.put(jmxColumnHandle.getColumnName(), jmxColumnHandle.getColumnType());
         }

@@ -84,7 +84,7 @@ public class JmxHistoryDumper
 
                 List<Object> row = jmxRecordSetProvider.getLiveRow(
                         tableHandle,
-                        jmxRecordSetProvider.getColumnTypes(tableHandle.getColumns()),
+                        jmxRecordSetProvider.getColumnTypes(tableHandle.getColumnHandles()),
                         dumpTimestamp);
                 jmxHistoricalData.addRow(tableName, row);
             }

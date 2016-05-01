@@ -111,7 +111,7 @@ public class JmxMetadata
         }
         ImmutableList.Builder<JmxColumnHandle> builder = ImmutableList.builder();
         builder.add(new JmxColumnHandle(connectorId, TIMESTAMP_COLUMN_NAME, TIMESTAMP));
-        builder.addAll(handle.getColumns());
+        builder.addAll(handle.getColumnHandles());
         return new JmxTableHandle(connectorId, handle.getObjectName(), builder.build(), false);
     }
 
@@ -181,7 +181,7 @@ public class JmxMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         JmxTableHandle jmxTableHandle = checkType(tableHandle, JmxTableHandle.class, "tableHandle");
-        return ImmutableMap.copyOf(Maps.uniqueIndex(jmxTableHandle.getColumns(), column -> column.getColumnName().toLowerCase(ENGLISH)));
+        return ImmutableMap.copyOf(Maps.uniqueIndex(jmxTableHandle.getColumnHandles(), column -> column.getColumnName().toLowerCase(ENGLISH)));
     }
 
     @Override
