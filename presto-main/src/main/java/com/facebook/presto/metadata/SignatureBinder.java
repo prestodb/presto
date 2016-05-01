@@ -20,14 +20,16 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.facebook.presto.type.UnknownType;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Sets;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.type.TypeCalculation.calculateLiteralValue;
 import static com.facebook.presto.type.TypeRegistry.canCoerce;
 import static com.facebook.presto.type.TypeRegistry.getCommonSuperTypeSignature;
@@ -73,7 +75,9 @@ public class SignatureBinder
         }
         calculateVariableValuesForLongConstraints(variableBinder);
         BoundVariables boundVariables = variableBinder.build();
-        checkAllTypeVariablesAreBound(boundVariables);
+        if (!allTypeVariablesBound(boundVariables)) {
+            return Optional.empty();
+        }
         return Optional.of(boundVariables);
     }
 
@@ -93,9 +97,10 @@ public class SignatureBinder
         }
 
         calculateVariableValuesForLongConstraints(variableBinder);
-
         BoundVariables boundVariables = variableBinder.build();
-        checkAllTypeVariablesAreBound(boundVariables);
+        if (!allTypeVariablesBound(boundVariables)) {
+            return Optional.empty();
+        }
         return Optional.of(boundVariables);
     }
 
@@ -154,11 +159,15 @@ public class SignatureBinder
                 && matchAndBindTypeParameters(expected, actual, variableBinder)) {
             return true;
         }
-        else if (allowCoercion && canCoerce(actualArgumentSignature, expected)) {
-            Type commonSuperType = commonSuperType(actualArgumentSignature, expected);
-            checkState(baseTypesAreEqual(expected, commonSuperType.getTypeSignature()),
-                    "base types are supposed to be equal after coercion");
-            return matchAndBindTypeParameters(expected, commonSuperType, variableBinder);
+        else if (allowCoercion) {
+            // UNKNOWN matches to all the types, but based on UNKNOWN we can't determine the actual type parameters
+            if (actual.equals(UnknownType.UNKNOWN) && isTypeParametrized(expected)) {
+                return true;
+            }
+            Optional<Type> coercedType = coerceType(actualArgumentSignature, expected);
+            if (coercedType.isPresent()) {
+                return matchAndBindTypeParameters(expected, coercedType.get(), variableBinder);
+            }
         }
 
         return false;
@@ -175,15 +184,13 @@ public class SignatureBinder
                 variableBinder.setTypeVariable(variable, actualType);
                 return true;
             }
-            if (allowCoercion && typeVariableConstraint.getVariadicBound() != null) {
-                TypeSignature actualArgumentSignature = actualType.getTypeSignature();
-                TypeSignature variadicBoundSignature = new TypeSignature(typeVariableConstraint.getVariadicBound());
-                if (canCoerce(actualArgumentSignature, variadicBoundSignature)) {
-                    Type commonType = commonSuperType(actualArgumentSignature, variadicBoundSignature);
-                    variableBinder.setTypeVariable(variable, commonType);
-                    return true;
-                }
+
+            // UNKNOWN matches to all the types, but based on UNKNOWN we can't determine the actual type parameters
+            if (allowCoercion && actualType.equals(UnknownType.UNKNOWN)) {
+                return true;
             }
+
+            // TODO Refactor type registry and support coercion to variadic bound fully
         }
         // type variable is already bound. just check that bound types are compatible.
         else {
@@ -316,13 +323,49 @@ public class SignatureBinder
         return false;
     }
 
-    private Type commonSuperType(TypeSignature actual, TypeSignature expected)
+    private Optional<Type> coerceType(TypeSignature actual, TypeSignature expected)
     {
-        Optional<TypeSignature> commonSuperType = getCommonSuperTypeSignature(actual, expected);
-        checkState(commonSuperType.isPresent(), "common supper type signature hasn't been found");
-        Type type = typeManager.getType(commonSuperType.get());
+        // TODO: this must be calculated in TypeRegistry
+        // TODO: Going to be removed after TypeRegistry refactor
+        if (actual.getBase().equals(UnknownType.NAME)) {
+            if (expected.getBase().equals(StandardTypes.DECIMAL)) {
+                return Optional.of(createDecimalType(1, 0));
+            }
+            if (expected.getBase().equals(StandardTypes.VARCHAR)) {
+                return Optional.of(createVarcharType(0));
+            }
+        }
+        if (expected.isCalculated()) {
+            return Optional.empty();
+        }
+
+        if (!canCoerce(actual, expected)) {
+            return Optional.empty();
+        }
+
+        Optional<TypeSignature> commonType = getCommonSuperTypeSignature(actual, expected);
+        checkState(commonType.isPresent(), "common supper type signature hasn't been found");
+        checkState(baseTypesAreEqual(expected, commonType.get()),
+                "base types are supposed to be equal after coercion");
+        Type type = typeManager.getType(commonType.get());
         checkState(type != null, "type signature for concrete type must be calculated here");
-        return type;
+        return Optional.of(type);
+    }
+
+    private boolean isTypeParametrized(TypeSignature expectedSignature)
+    {
+        if (isTypeVariable(expectedSignature)) {
+            return true;
+        }
+
+        for (TypeSignatureParameter parameter : expectedSignature.getParameters()) {
+            Optional<TypeSignature> typeSignature = parameter.getTypeSignatureOrNamedTypeSignature();
+            if (typeSignature.isPresent() && isTypeParametrized(typeSignature.get())) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private boolean baseTypesAreEqual(TypeSignature first, TypeSignature second)
@@ -330,12 +373,9 @@ public class SignatureBinder
         return first.getBase().equals(second.getBase());
     }
 
-    private void checkAllTypeVariablesAreBound(BoundVariables boundVariables)
+    private boolean allTypeVariablesBound(BoundVariables boundVariables)
     {
-        Map<String, Type> typeVariableBindings = boundVariables.getTypeVariables();
-        checkState(typeVariableBindings.keySet().equals(typeVariableConstraints.keySet()),
-                "Type constraints %s are still unbound",
-                Sets.difference(typeVariableConstraints.keySet(), typeVariableBindings.keySet()));
+        return boundVariables.getTypeVariables().keySet().equals(typeVariableConstraints.keySet());
     }
 
     public static Signature bindVariables(Signature signature, BoundVariables boundVariables, int arity)

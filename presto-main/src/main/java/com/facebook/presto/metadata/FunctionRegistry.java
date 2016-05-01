@@ -146,6 +146,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.metadata.FunctionKind.APPROXIMATE_AGGREGATE;
@@ -205,6 +206,7 @@ import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
@@ -480,13 +482,40 @@ public class FunctionRegistry
             return match.get();
         }
 
+        // search for coerced matches
+        List<SqlFunction> coercedCandidates = new ArrayList<>();
+        Optional<Signature> firstCoercedMatch = Optional.empty();
         for (SqlFunction function : candidates) {
             Optional<Signature> signature = new SignatureBinder(typeManager, function.getSignature(), true).bind(resolvedTypes);
             if (signature.isPresent()) {
-                // TODO: This should also check for ambiguities
+                coercedCandidates.add(function);
+
+                if (!firstCoercedMatch.isPresent()) {
+                    firstCoercedMatch = signature;
+                }
+            }
+        }
+
+        // search for a 'best' coerced match if it exists
+        // TODO: remove when we move to a lattice-based type coercion system
+        // TODO: this is a hack that relies on the fact that all functions are specified for bigints, but not for the narrower integral types
+        // converts any ints to bigints and then see if there is an exact match
+        List<Type> promotedTypes = resolvedTypes.stream()
+                .map(type -> type == INTEGER ? BIGINT : type)
+                .collect(Collectors.toList());
+
+        for (SqlFunction coercedFunction : coercedCandidates) {
+            Optional<Signature> signature = new SignatureBinder(typeManager, coercedFunction.getSignature(), false).bind(promotedTypes);
+            if (signature.isPresent()) {
+                checkState(!match.isPresent(), "ambiguous function implementations found when integers were cast to bigints");
                 match = signature;
                 break;
             }
+        }
+
+        if (!match.isPresent() || coercedCandidates.size() == 1) {
+            // i.e. revert to old behavior
+            match = firstCoercedMatch; // TODO: this does not deal with ambiguities
         }
 
         if (match.isPresent()) {
