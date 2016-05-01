@@ -118,52 +118,6 @@ public class TestSignatureBinder
     }
 
     @Test
-    public void testBindBigintToDecimal()
-            throws Exception
-    {
-        Signature function = functionSignature()
-                .returnType("boolean")
-                .argumentTypes("decimal(p,s)")
-                .literalParameters("p", "s")
-                .build();
-
-        assertThat(function)
-                .boundTo("bigint")
-                .withCoercion()
-                .produces(new BoundVariables(
-                        ImmutableMap.of(),
-                        ImmutableMap.of(
-                                "p", 19L,
-                                "s", 0L
-                        )
-                ));
-    }
-
-    @Test
-    public void testBindDecimalBigintToDecimalDecimal()
-            throws Exception
-    {
-        Signature function = functionSignature()
-                .returnType("boolean")
-                .argumentTypes("decimal(p1,s1)", "decimal(p2,s2)")
-                .literalParameters("p1", "s1", "p2", "s2")
-                .build();
-
-        assertThat(function)
-                .boundTo("decimal(5,2)", "bigint")
-                .withCoercion()
-                .produces(new BoundVariables(
-                        ImmutableMap.of(),
-                        ImmutableMap.of(
-                                "p1", 5L,
-                                "s1", 2L,
-                                "p2", 19L,
-                                "s2", 0L
-                        )
-                ));
-    }
-
-    @Test
     public void testBindMixedLiteralAndTypeVariables()
             throws Exception
     {
@@ -200,11 +154,6 @@ public class TestSignatureBinder
 
         assertThat(function)
                 .boundTo("decimal(2,1)", "decimal(3,1)")
-                .fails();
-
-        assertThat(function)
-                .boundTo("decimal(2,1)", "decimal(3,1)")
-                .withCoercion()
                 .fails();
     }
 
@@ -255,21 +204,6 @@ public class TestSignatureBinder
     }
 
     @Test
-    public void testBindDecimalToDouble()
-            throws Exception
-    {
-        Signature function = functionSignature()
-                .returnType("boolean")
-                .argumentTypes("double")
-                .build();
-
-        assertThat(function)
-                .boundTo("decimal(5,2)")
-                .withCoercion()
-                .succeeds();
-    }
-
-    @Test
     public void testBindUnknownToConcreteArray()
     {
         Signature function = functionSignature()
@@ -284,7 +218,25 @@ public class TestSignatureBinder
     }
 
     @Test
-    public void testBindUnknownToArray()
+    public void testBindTypeVariablesBasedOnTheSecondArgument()
+    {
+        Signature function = functionSignature()
+                .returnType("T")
+                .argumentTypes("array(T)", "T")
+                .typeVariableConstraints(ImmutableList.of(typeVariable("T")))
+                .build();
+
+        assertThat(function)
+                .boundTo("unknown", "decimal(2,1)")
+                .withCoercion()
+                .produces(new BoundVariables(
+                        ImmutableMap.of("T", type("decimal(2,1)")),
+                        ImmutableMap.of()
+                ));
+    }
+
+    @Test
+    public void testBindParametricTypeParameterToUnknown()
     {
         Signature function = functionSignature()
                 .returnType("T")
@@ -300,6 +252,24 @@ public class TestSignatureBinder
                 .withCoercion()
                 .boundTo("unknown")
                 .fails();
+    }
+
+    @Test
+    public void testBindUnknownToTypeParameter()
+    {
+        Signature function = functionSignature()
+                .returnType("T")
+                .argumentTypes("T")
+                .typeVariableConstraints(ImmutableList.of(typeVariable("T")))
+                .build();
+
+        assertThat(function)
+                .boundTo("unknown")
+                .withCoercion()
+                .produces(new BoundVariables(
+                        ImmutableMap.of("T", type("unknown")),
+                        ImmutableMap.of()
+                ));
     }
 
     @Test
@@ -512,6 +482,23 @@ public class TestSignatureBinder
                 .withCoercion()
                 .fails();
 
+        Signature castFunction = functionSignature()
+                .returnType("array(T2)")
+                .argumentTypes("array(T1)", "array(T2)")
+                .typeVariableConstraints(ImmutableList.of(typeVariable("T1"), typeVariable("T2")))
+                .build();
+
+        assertThat(castFunction)
+                .boundTo("array(unknown)", "array(decimal(2,1))")
+                .withCoercion()
+                .produces(new BoundVariables(
+                        ImmutableMap.of(
+                                "T1", type("unknown"),
+                                "T2", type("decimal(2,1)")
+                        ),
+                        ImmutableMap.of()
+                ));
+
         Signature fooFunction = functionSignature()
                 .returnType("T")
                 .argumentTypes("array(T)", "array(T)")
@@ -599,12 +586,36 @@ public class TestSignatureBinder
         assertThat(decimalVariadicBoundFunction)
                 .boundTo("bigint")
                 .fails();
+    }
 
-        assertThat(decimalVariadicBoundFunction)
-                .boundTo("bigint")
+    @Test
+    public void testBindUnknownToVariadic()
+    {
+        Signature rowFunction = functionSignature()
+                .returnType("boolean")
+                .argumentTypes("T", "T")
+                .typeVariableConstraints(ImmutableList.of(withVariadicBound("T", "row")))
+                .build();
+
+        assertThat(rowFunction)
+                .boundTo("unknown", "row(a bigint)")
                 .withCoercion()
                 .produces(new BoundVariables(
-                        ImmutableMap.of("T", type("decimal(19,0)")),
+                        ImmutableMap.of("T", type("row(a bigint)")),
+                        ImmutableMap.of()
+                ));
+
+        Signature arrayFunction = functionSignature()
+                .returnType("boolean")
+                .argumentTypes("T", "T")
+                .typeVariableConstraints(ImmutableList.of(withVariadicBound("T", "array")))
+                .build();
+
+        assertThat(arrayFunction)
+                .boundTo("unknown", "array(bigint)")
+                .withCoercion()
+                .produces(new BoundVariables(
+                        ImmutableMap.of("T", type("array(bigint)")),
                         ImmutableMap.of()
                 ));
     }
