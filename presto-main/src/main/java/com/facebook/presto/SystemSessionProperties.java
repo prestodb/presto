@@ -138,7 +138,7 @@ public final class SystemSessionProperties
                             }
                             return concurrency;
                         },
-                        value -> new Integer(String.valueOf(value))),
+                        value -> value),
                 booleanSessionProperty(
                         TASK_SHARE_INDEX_LOADING,
                         "Share index join lookups and caching within a task",

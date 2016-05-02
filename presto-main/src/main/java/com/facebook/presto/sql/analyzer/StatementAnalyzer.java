@@ -136,7 +136,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_COLUMNS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
@@ -372,10 +371,10 @@ class StatementAnalyzer
         return process(query, context);
     }
 
-    private static <T> Expression getExpression(Function<T, Object> function, Object value)
+    private static <T> Expression getExpression(PropertyMetadata<T> property, Object value)
             throws PrestoException
     {
-        return toExpression(function.apply((T) value));
+        return toExpression(property.encode(property.getJavaType().cast(value)));
     }
 
     private static Expression toExpression(Object value)
@@ -535,7 +534,17 @@ class StatementAnalyzer
                     throw new PrestoException(INVALID_TABLE_PROPERTY, format("Property %s for table %s cannot have a null value", propertyName, objectName));
                 }
 
-                Expression sqlExpression = getExpression(allTableProperties.get(propertyName)::encode, value);
+                PropertyMetadata<?> property = allTableProperties.get(propertyName);
+                if (!property.getJavaType().isInstance(value)) {
+                    throw new PrestoException(INVALID_TABLE_PROPERTY, format(
+                            "Property %s for table %s should have value of type %s, not %s",
+                            propertyName,
+                            objectName,
+                            property.getJavaType().getName(),
+                            value.getClass().getName()));
+                }
+
+                Expression sqlExpression = getExpression(property, value);
                 sqlProperties.put(propertyName, sqlExpression);
             }
 
