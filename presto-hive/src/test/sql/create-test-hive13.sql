@@ -10,7 +10,6 @@ CREATE TABLE presto_test_types_textfile (
 , t_timestamp TIMESTAMP
 , t_binary BINARY
 , t_date DATE
-, t_varchar VARCHAR(50)
 , t_char CHAR(25)
 , t_map MAP<STRING, STRING>
 , t_array_string ARRAY<STRING>
@@ -95,7 +94,6 @@ CREATE TABLE presto_test_types_parquet (
 , t_boolean BOOLEAN
 , t_timestamp TIMESTAMP
 , t_binary BINARY
-, t_varchar VARCHAR(50)
 , t_map MAP<STRING, STRING>
 , t_array_string ARRAY<STRING>
 , t_array_struct ARRAY<STRUCT<s_string: STRING, s_double:DOUBLE>>
@@ -115,7 +113,6 @@ SELECT
 , t_boolean
 , t_timestamp
 , t_binary
-, t_varchar
 , t_map
 , t_array_string
 , t_array_struct
