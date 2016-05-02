@@ -156,10 +156,10 @@ public class ServerMainModule
 
         if (serverConfig.isCoordinator()) {
             discoveryBinder(binder).bindHttpAnnouncement("presto-coordinator");
-            binder.bind(new TypeLiteral<Optional<QueryPerformanceFetcher>>(){}).toProvider(QueryPerformanceFetcherProvider.class).in(Scopes.SINGLETON);
+            binder.bind(new TypeLiteral<Optional<QueryPerformanceFetcher>>() {}).toProvider(QueryPerformanceFetcherProvider.class).in(Scopes.SINGLETON);
         }
         else {
-            binder.bind(new TypeLiteral<Optional<QueryPerformanceFetcher>>(){}).toInstance(Optional.empty());
+            binder.bind(new TypeLiteral<Optional<QueryPerformanceFetcher>>() {}).toInstance(Optional.empty());
         }
 
         binder.bind(SqlParser.class).in(Scopes.SINGLETON);
