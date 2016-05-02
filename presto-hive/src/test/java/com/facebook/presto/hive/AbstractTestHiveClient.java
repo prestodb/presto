@@ -147,7 +147,6 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -664,7 +663,6 @@ public abstract class AbstractTestHiveClient
         Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), ColumnMetadata::getName);
 
         assertPrimitiveField(map, "t_string", createUnboundedVarcharType(), false);
-        assertPrimitiveField(map, "t_varchar", createVarcharType(50), false);
         assertPrimitiveField(map, "t_tinyint", INTEGER, false);
         assertPrimitiveField(map, "t_smallint", INTEGER, false);
         assertPrimitiveField(map, "t_int", INTEGER, false);
@@ -968,24 +966,6 @@ public abstract class AbstractTestHiveClient
                     }
                     else {
                         assertEquals(value, "test");
-                    }
-
-                    value = row.getField(columnIndex.get("t_varchar"));
-                    if (rowNumber % 39 == 0) {
-                        assertNull(value);
-                    }
-                    else if (rowNumber % 39 == 1) {
-                        // https://issues.apache.org/jira/browse/HIVE-13289
-                        // RCBINARY reads empty VARCHAR as Null
-                        if (fileType == RCBINARY) {
-                            assertNull(value);
-                        }
-                        else {
-                            assertEquals(value, "");
-                        }
-                    }
-                    else {
-                        assertEquals(value, "test varchar");
                     }
 
                     assertEquals(row.getField(columnIndex.get("t_tinyint")), 1 + (int) rowNumber);
