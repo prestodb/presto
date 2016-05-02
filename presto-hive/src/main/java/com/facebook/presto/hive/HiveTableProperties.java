@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -60,10 +61,10 @@ public class HiveTableProperties
                         List.class,
                         ImmutableList.of(),
                         false,
-                        value -> ImmutableList.copyOf(((List<String>) value).stream()
-                                .map(name -> name.toLowerCase(ENGLISH))
+                        value -> ImmutableList.copyOf(((Collection<?>) value).stream()
+                                .map(name -> ((String) name).toLowerCase(ENGLISH))
                                 .collect(Collectors.toList())),
-                        List.class::cast),
+                        value -> value),
                 new PropertyMetadata<>(
                         CLUSTERED_BY_PROPERTY,
                         "Bucketing columns",
@@ -71,10 +72,10 @@ public class HiveTableProperties
                         List.class,
                         ImmutableList.of(),
                         false,
-                        value -> ImmutableList.copyOf(((List<?>) value).stream()
+                        value -> ImmutableList.copyOf(((Collection<?>) value).stream()
                                 .map(name -> ((String) name).toLowerCase(ENGLISH))
                                 .collect(Collectors.toList())),
-                        List.class::cast),
+                        value -> value),
                 integerSessionProperty(BUCKET_COUNT_PROPERTY, "Number of buckets", 0, false));
     }
 

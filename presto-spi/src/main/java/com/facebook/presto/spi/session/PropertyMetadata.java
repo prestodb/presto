@@ -133,7 +133,7 @@ public final class PropertyMetadata<T>
         return encoder.apply(value);
     }
 
-    public static PropertyMetadata<Boolean> booleanSessionProperty(String name, String description, Boolean defaultValue, boolean hidden)
+    public static <T> PropertyMetadata<Boolean> booleanSessionProperty(String name, String description, Boolean defaultValue, boolean hidden)
     {
         return new PropertyMetadata<>(
                 name,
@@ -143,7 +143,7 @@ public final class PropertyMetadata<T>
                 defaultValue,
                 hidden,
                 Boolean.class::cast,
-                object -> new Boolean(String.valueOf(object)));
+                object -> object);
     }
 
     public static PropertyMetadata<Integer> integerSessionProperty(String name, String description, Integer defaultValue, boolean hidden)
@@ -156,7 +156,7 @@ public final class PropertyMetadata<T>
                 defaultValue,
                 hidden,
                 value -> ((Number) value).intValue(),
-                object -> new Integer(String.valueOf(object)));
+                object -> object);
     }
 
     public static PropertyMetadata<Long> longSessionProperty(String name, String description, Long defaultValue, boolean hidden)
@@ -169,7 +169,7 @@ public final class PropertyMetadata<T>
                 defaultValue,
                 hidden,
                 value -> ((Number) value).longValue(),
-                object -> new Long(String.valueOf(object)));
+                object -> object);
     }
 
     public static PropertyMetadata<Double> doubleSessionProperty(String name, String description, Double defaultValue, boolean hidden)
@@ -182,7 +182,7 @@ public final class PropertyMetadata<T>
                 defaultValue,
                 hidden,
                 value -> ((Number) value).doubleValue(),
-                object -> new Double(String.valueOf(object)));
+                object -> object);
     }
 
     public static PropertyMetadata<String> stringSessionProperty(String name, String description, String defaultValue, boolean hidden)
@@ -195,6 +195,6 @@ public final class PropertyMetadata<T>
                 defaultValue,
                 hidden,
                 String.class::cast,
-                Object::toString);
+                object -> object);
     }
 }
