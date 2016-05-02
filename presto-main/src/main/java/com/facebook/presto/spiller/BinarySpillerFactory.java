@@ -42,9 +42,16 @@ public class BinarySpillerFactory
     @Inject
     public BinarySpillerFactory(BlockEncodingSerde blockEncodingSerde, FeaturesConfig featuresConfig)
     {
+        this(createExecutorServiceOfSize(requireNonNull(featuresConfig, "featuresConfig is null").getSpillerThreads()),
+                blockEncodingSerde,
+                requireNonNull(featuresConfig, "featuresConfig is null").getSpillerSpillPath());
+    }
+
+    public BinarySpillerFactory(ListeningExecutorService executor, BlockEncodingSerde blockEncodingSerde, Path spillPath)
+    {
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
-        this.executor = createExecutorServiceOfSize(featuresConfig.getSpillerThreads());
-        this.spillPath = featuresConfig.getSpillerSpillPath();
+        this.executor = requireNonNull(executor, "executor is null");
+        this.spillPath = requireNonNull(spillPath, "spillPath is null");
         this.spillPath.toFile().mkdirs();
     }
 
