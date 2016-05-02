@@ -10,6 +10,7 @@ CREATE TABLE presto_test_types_textfile (
 , t_timestamp TIMESTAMP
 , t_binary BINARY
 , t_date DATE
+, t_varchar VARCHAR(50)
 , t_char CHAR(25)
 , t_map MAP<STRING, STRING>
 , t_array_string ARRAY<STRING>
@@ -85,6 +86,7 @@ SELECT * FROM presto_test_types_textfile
 -- Parquet is missing TIMESTAMP and BINARY.
 CREATE TABLE presto_test_types_parquet (
   t_string STRING
+, t_varchar VARCHAR(50)
 , t_tinyint TINYINT
 , t_smallint SMALLINT
 , t_int INT
@@ -104,6 +106,7 @@ STORED AS PARQUET
 INSERT INTO TABLE presto_test_types_parquet
 SELECT
   t_string
+, t_varchar
 , t_tinyint
 , t_smallint
 , t_int
