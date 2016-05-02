@@ -27,13 +27,27 @@ public final class VarcharType
         extends AbstractVariableWidthType
 {
     public static final int MAX_LENGTH = Integer.MAX_VALUE;
+
+    @Deprecated
     public static final VarcharType VARCHAR = new VarcharType(MAX_LENGTH);
 
+    public static VarcharType varchar()
+    {
+        return VARCHAR;
+    }
+
+    public static VarcharType varchar(int length)
+    {
+        return new VarcharType(length);
+    }
+
+    @Deprecated
     public static VarcharType createUnboundedVarcharType()
     {
         return VARCHAR;
     }
 
+    @Deprecated
     public static VarcharType createVarcharType(int length)
     {
         return new VarcharType(length);
