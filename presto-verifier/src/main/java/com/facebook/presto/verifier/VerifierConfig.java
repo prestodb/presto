@@ -62,6 +62,8 @@ public class VerifierConfig
     private int queryRepetitions = 1;
     private String skipCorrectnessRegex = "^$";
     private boolean checkCorrectness = true;
+    private String skipCpuCheckRegex = "(?i)(?s).*LIMIT.*";
+    private boolean checkCpu = true;
     private boolean explainOnly = false;
     private boolean verboseResultsComparison;
     private String testCatalogOverride;
@@ -89,6 +91,20 @@ public class VerifierConfig
     public VerifierConfig setSkipCorrectnessRegex(String skipCorrectnessRegex)
     {
         this.skipCorrectnessRegex = skipCorrectnessRegex;
+        return this;
+    }
+
+    @NotNull
+    public String getSkipCpuCheckRegex()
+    {
+        return skipCpuCheckRegex;
+    }
+
+    @ConfigDescription("CPU check will be skipped if this regex matches query")
+    @Config("skip-cpu-check-regex")
+    public VerifierConfig setSkipCpuCheckRegex(String skipCpuCheckRegex)
+    {
+        this.skipCpuCheckRegex = skipCpuCheckRegex;
         return this;
     }
 
@@ -332,6 +348,19 @@ public class VerifierConfig
     public VerifierConfig setCheckCorrectnessEnabled(boolean checkCorrectness)
     {
         this.checkCorrectness = checkCorrectness;
+        return this;
+    }
+
+    public boolean isCheckCpuEnabled()
+    {
+        return checkCpu;
+    }
+
+    @ConfigDescription("Whether to check that CPU from control and test match")
+    @Config("check-cpu")
+    public VerifierConfig setCheckCpuEnabled(boolean checkCpu)
+    {
+        this.checkCpu = checkCpu;
         return this;
     }
 
