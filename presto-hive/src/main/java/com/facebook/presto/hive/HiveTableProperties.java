@@ -14,7 +14,6 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
@@ -27,9 +26,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
-import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
 public class HiveTableProperties
@@ -57,7 +58,7 @@ public class HiveTableProperties
                 new PropertyMetadata<>(
                         PARTITIONED_BY_PROPERTY,
                         "Partition columns",
-                        typeManager.getParameterizedType(ARRAY, ImmutableList.of(createUnboundedVarcharType().getTypeSignature()), ImmutableList.of()),
+                        typeManager.getType(parseTypeSignature("array(varchar)")),
                         List.class,
                         ImmutableList.of(),
                         false,
@@ -68,7 +69,7 @@ public class HiveTableProperties
                 new PropertyMetadata<>(
                         CLUSTERED_BY_PROPERTY,
                         "Bucketing columns",
-                        typeManager.getParameterizedType(ARRAY, ImmutableList.of(createUnboundedVarcharType().getTypeSignature()), ImmutableList.of()),
+                        typeManager.getType(parseTypeSignature("array(varchar)")),
                         List.class,
                         ImmutableList.of(),
                         false,
@@ -89,6 +90,7 @@ public class HiveTableProperties
         return (HiveStorageFormat) tableProperties.get(STORAGE_FORMAT_PROPERTY);
     }
 
+    @SuppressWarnings("unchecked")
     public static List<String> getPartitionedBy(Map<String, Object> tableProperties)
     {
         return (List<String>) tableProperties.get(PARTITIONED_BY_PROPERTY);
@@ -96,17 +98,23 @@ public class HiveTableProperties
 
     public static Optional<HiveBucketProperty> getBucketProperty(Map<String, Object> tableProperties)
     {
-        List<String> clusteredBy = (List<String>) tableProperties.get(CLUSTERED_BY_PROPERTY);
+        List<String> clusteredBy = getClusteredBy(tableProperties);
         int bucketCount = (Integer) tableProperties.get(BUCKET_COUNT_PROPERTY);
         if ((clusteredBy.isEmpty()) && (bucketCount == 0)) {
             return Optional.empty();
         }
         if (bucketCount < 0) {
-            throw new PrestoException(StandardErrorCode.INVALID_TABLE_PROPERTY, BUCKET_COUNT_PROPERTY + " must be greater than zero");
+            throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s must be greater than zero", BUCKET_COUNT_PROPERTY));
         }
         if (clusteredBy.isEmpty() || bucketCount == 0) {
-            throw new PrestoException(StandardErrorCode.INVALID_TABLE_PROPERTY, CLUSTERED_BY_PROPERTY + " and " + BUCKET_COUNT_PROPERTY + " must appear at the same time");
+            throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s and %s must be specified together", CLUSTERED_BY_PROPERTY, BUCKET_COUNT_PROPERTY));
         }
         return Optional.of(new HiveBucketProperty(clusteredBy, bucketCount));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> getClusteredBy(Map<String, Object> tableProperties)
+    {
+        return (List<String>) tableProperties.get(CLUSTERED_BY_PROPERTY);
     }
 }
