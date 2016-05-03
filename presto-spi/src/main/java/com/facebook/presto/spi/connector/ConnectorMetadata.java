@@ -252,9 +252,6 @@ public interface ConnectorMetadata
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support deletes");
     }
 
-    default void beginSelect(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<ConnectorTableLayoutHandle> layoutHandle, Collection<ColumnHandle> columnHandles)
-    {}
-
     /**
      * Finish delete query
      *
@@ -263,6 +260,25 @@ public interface ConnectorMetadata
     default void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support deletes");
+    }
+
+    /**
+     * Notifies when select query starts
+     *
+     * @return serializable {@link ConnectorTableHandle}. This handle will be brought back in {@link #finishSelect(ConnectorSession, ConnectorTableHandle)} if null returned, no finishSelect will be called.
+     */
+    default ConnectorTableHandle beginSelect(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<ConnectorTableLayoutHandle> layoutHandle, Collection<ColumnHandle> columnHandles)
+    {
+        return null;
+    }
+
+    /**
+     * Notifies when select query finishes processing
+     *
+     * @param tableHandle returned by {@link #beginSelect(ConnectorSession, ConnectorTableHandle, Optional, Collection)} method
+     */
+    default void finishSelect(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
     }
 
     /**

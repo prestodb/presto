@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -109,6 +110,7 @@ public class MetadataManager
     private final ConcurrentMap<String, ConnectorEntry> systemTablesByCatalog = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ConnectorEntry> connectorsByCatalog = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ConnectorEntry> connectorsById = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, List<TableHandle>> tablesToNotifyByQueryId = new ConcurrentHashMap<>();
     private final FunctionRegistry functions;
     private final ProcedureRegistry procedures;
     private final TypeManager typeManager;
@@ -590,11 +592,44 @@ public class MetadataManager
     }
 
     @Override
-    public void beginSelect(Session session, TableHandle tableHandle, Optional<TableLayoutHandle> layoutHandle, Collection<ColumnHandle> columnHandles)
+    public TableHandle beginSelect(Session session, TableHandle tableHandle, Optional<TableLayoutHandle> layoutHandle, Collection<ColumnHandle> columnHandles)
     {
         ConnectorEntry entry = lookupConnectorFor(tableHandle);
         ConnectorMetadata metadata = entry.getMetadata(session);
-        metadata.beginSelect(session.toConnectorSession(entry.getCatalog()), tableHandle.getConnectorHandle(), convertToConnectorTableLayoutHandle(layoutHandle), columnHandles);
+        ConnectorTableHandle connectorHandle = metadata.beginSelect(session.toConnectorSession(entry.getCatalog()), tableHandle.getConnectorHandle(), convertToConnectorTableLayoutHandle(layoutHandle), columnHandles);
+        if (connectorHandle == null) {
+            return null;
+        }
+        TableHandle th = new TableHandle(tableHandle.getConnectorId(), connectorHandle);
+        registerTableForQueryId(session.getQueryId(), th);
+        return th;
+    }
+
+    private void registerTableForQueryId(QueryId queryId, TableHandle tableHandle)
+    {
+        tablesToNotifyByQueryId.putIfAbsent(queryId.getId(), new ArrayList<>());
+        List<TableHandle> tables = tablesToNotifyByQueryId.get(queryId.getId());
+        tables.add(tableHandle);
+    }
+
+    @Override
+    public void finishSelect(Session session)
+    {
+        String queryId = session.getQueryId().getId();
+        try {
+            List<TableHandle> tables = tablesToNotifyByQueryId.get(queryId);
+            if (tables == null) {
+                return;
+            }
+            for (TableHandle th : tables) {
+                ConnectorEntry entry = lookupConnectorFor(th);
+                ConnectorMetadata metadata = entry.getMetadata(session);
+                metadata.finishSelect(session.toConnectorSession(entry.getCatalog()), th.getConnectorHandle());
+            }
+        }
+        finally {
+            tablesToNotifyByQueryId.remove(queryId);
+        }
     }
 
     private static Optional<ConnectorTableLayoutHandle> convertToConnectorTableLayoutHandle(
