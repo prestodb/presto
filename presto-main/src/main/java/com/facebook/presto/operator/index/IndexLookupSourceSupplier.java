@@ -83,6 +83,6 @@ public class IndexLookupSourceSupplier
     @Override
     public void destroy()
     {
-        throw new UnsupportedOperationException();
+        // nothing to do
     }
 }
