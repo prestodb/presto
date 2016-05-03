@@ -21,7 +21,6 @@ import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -65,7 +64,7 @@ public class Driver
 
     private final DriverContext driverContext;
     private final List<Operator> operators;
-    private final Map<PlanNodeId, SourceOperator> sourceOperators;
+    private final Optional<SourceOperator> sourceOperator;
     private final Optional<DeleteOperator> deleteOperator;
     private final ConcurrentMap<PlanNodeId, TaskSource> newSources = new ConcurrentHashMap<>();
 
@@ -99,19 +98,19 @@ public class Driver
         this.operators = ImmutableList.copyOf(requireNonNull(operators, "operators is null"));
         checkArgument(!operators.isEmpty(), "There must be at least one operator");
 
-        ImmutableMap.Builder<PlanNodeId, SourceOperator> sourceOperators = ImmutableMap.builder();
+        Optional<SourceOperator> sourceOperator = Optional.empty();
         Optional<DeleteOperator> deleteOperator = Optional.empty();
         for (Operator operator : operators) {
             if (operator instanceof SourceOperator) {
-                SourceOperator sourceOperator = (SourceOperator) operator;
-                sourceOperators.put(sourceOperator.getSourceId(), sourceOperator);
+                checkArgument(!sourceOperator.isPresent(), "There must be at most one SourceOperator");
+                sourceOperator = Optional.of((SourceOperator) operator);
             }
             else if (operator instanceof DeleteOperator) {
                 checkArgument(!deleteOperator.isPresent(), "There must be at most one DeleteOperator");
                 deleteOperator = Optional.of((DeleteOperator) operator);
             }
         }
-        this.sourceOperators = sourceOperators.build();
+        this.sourceOperator = sourceOperator;
         this.deleteOperator = deleteOperator;
     }
 
@@ -120,9 +119,9 @@ public class Driver
         return driverContext;
     }
 
-    public Set<PlanNodeId> getSourceIds()
+    public Optional<PlanNodeId> getSourceId()
     {
-        return sourceOperators.keySet();
+        return sourceOperator.map(SourceOperator::getSourceId);
     }
 
     @Override
@@ -184,7 +183,7 @@ public class Driver
         checkLockNotHeld("Can not update sources while holding the driver lock");
 
         // does this driver have an operator for the specified source?
-        if (!sourceOperators.containsKey(source.getPlanNodeId())) {
+        if (!sourceOperator.isPresent() || !sourceOperator.get().getSourceId().equals(source.getPlanNodeId())) {
             return;
         }
 
@@ -268,21 +267,20 @@ public class Driver
         }
 
         // add new splits
-        for (ScheduledSplit newSplit : newSplits) {
-            Split split = newSplit.getSplit();
+        if (sourceOperator.isPresent() && sourceOperator.get().getSourceId().equals(source.getPlanNodeId())) {
+            for (ScheduledSplit newSplit : newSplits) {
+                Split split = newSplit.getSplit();
 
-            SourceOperator sourceOperator = sourceOperators.get(source.getPlanNodeId());
-            if (sourceOperator != null) {
-                Supplier<Optional<UpdatablePageSource>> pageSource = sourceOperator.addSplit(split);
+                Supplier<Optional<UpdatablePageSource>> pageSource = sourceOperator.get().addSplit(split);
                 if (deleteOperator.isPresent()) {
                     deleteOperator.get().setPageSource(pageSource);
                 }
             }
-        }
 
-        // set no more splits
-        if (source.isNoMoreSplits()) {
-            sourceOperators.get(source.getPlanNodeId()).noMoreSplits();
+            // set no more splits
+            if (source.isNoMoreSplits()) {
+                sourceOperator.get().noMoreSplits();
+            }
         }
     }
 
