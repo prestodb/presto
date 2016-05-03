@@ -27,7 +27,10 @@ import com.facebook.presto.orc.reader.StreamReader;
 import com.facebook.presto.orc.reader.StreamReaders;
 import com.facebook.presto.orc.stream.StreamSources;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -381,10 +384,13 @@ public class OrcRecordReader
         }
     }
 
-    private static StreamReader[] createStreamReaders(OrcDataSource orcDataSource,
+    @VisibleForTesting
+    static StreamReader[] createStreamReaders(
+            OrcDataSource orcDataSource,
             List<OrcType> types,
             DateTimeZone hiveStorageTimeZone,
             Map<Integer, Type> includedColumns)
+            throws OrcCorruptionException
     {
         List<StreamDescriptor> streamDescriptors = createStreamDescriptor("", "", 0, types, orcDataSource).getNestedStreams();
 
@@ -393,10 +399,68 @@ public class OrcRecordReader
         for (int columnId = 0; columnId < rowType.getFieldCount(); columnId++) {
             if (includedColumns.containsKey(columnId)) {
                 StreamDescriptor streamDescriptor = streamDescriptors.get(columnId);
+
+                Type type = includedColumns.get(columnId);
+                if (!isValidateOrcType(streamDescriptor, type.getTypeSignature())) {
+                    throw new OrcCorruptionException("ORC type from file footer (%s) does not match expected type of table (%s)", types, includedColumns);
+                }
+
                 streamReaders[columnId] = StreamReaders.createStreamReader(streamDescriptor, hiveStorageTimeZone);
             }
         }
         return streamReaders;
+    }
+
+    private static boolean isValidateOrcType(StreamDescriptor streamDescriptor, TypeSignature typeSignature)
+    {
+        OrcTypeKind type = streamDescriptor.getStreamType();
+        List<StreamDescriptor> descriptors = streamDescriptor.getNestedStreams();
+        List<TypeSignatureParameter> parameters = typeSignature.getParameters();
+        switch (typeSignature.getBase()) {
+            case StandardTypes.VARCHAR:
+                return (type == OrcTypeKind.STRING || type == OrcTypeKind.VARCHAR || type == OrcTypeKind.CHAR) &&
+                        descriptors.isEmpty() &&
+                        parameters.size() == 1;
+            case StandardTypes.ARRAY:
+                return type == OrcTypeKind.LIST &&
+                        descriptors.size() == 1 &&
+                        parameters.size() == 1 &&
+                        isValidateOrcType(descriptors.get(0), parameters.get(0).getTypeSignature());
+            case StandardTypes.MAP:
+                return type == OrcTypeKind.MAP &&
+                        descriptors.size() == 2 &&
+                        parameters.size() == 2 &&
+                        isValidateOrcType(descriptors.get(0), parameters.get(0).getTypeSignature()) &&
+                        isValidateOrcType(descriptors.get(1), parameters.get(1).getTypeSignature());
+            case StandardTypes.ROW:
+                if (type != OrcTypeKind.STRUCT || descriptors.size() != parameters.size()) {
+                    return false;
+                }
+                for (int i = 0; i < descriptors.size(); i++) {
+                    if (!isValidateOrcType(descriptors.get(i), parameters.get(i).getNamedTypeSignature().getTypeSignature())) {
+                        return false;
+                    }
+                }
+                return true;
+            case StandardTypes.BOOLEAN:
+                return type == OrcTypeKind.BOOLEAN;
+            case StandardTypes.DOUBLE:
+                return type == OrcTypeKind.FLOAT ||
+                        type == OrcTypeKind.DOUBLE;
+            case StandardTypes.BIGINT:
+                return type == OrcTypeKind.BYTE ||
+                        type == OrcTypeKind.SHORT ||
+                        type == OrcTypeKind.INT ||
+                        type == OrcTypeKind.LONG ||
+                        type == OrcTypeKind.DECIMAL;
+            case StandardTypes.DATE:
+                return type == OrcTypeKind.DATE;
+            case StandardTypes.TIMESTAMP:
+                return type == OrcTypeKind.TIMESTAMP;
+            case StandardTypes.VARBINARY:
+                return type == OrcTypeKind.BINARY && descriptors.isEmpty();
+        }
+        return false;
     }
 
     private static StreamDescriptor createStreamDescriptor(String parentStreamName, String fieldName, int typeId, List<OrcType> types, OrcDataSource dataSource)
