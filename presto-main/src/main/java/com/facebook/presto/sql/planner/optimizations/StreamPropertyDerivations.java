@@ -20,7 +20,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.PartitionFunctionBinding.PartitionFunctionArgumentBinding;
+import com.facebook.presto.sql.planner.PartitioningScheme.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
@@ -248,13 +248,13 @@ final class StreamPropertyDerivations
                 case GATHER:
                     return StreamProperties.singleStream();
                 case REPARTITION:
-                    if (node.getPartitionFunction().getPartitioningHandle().equals(FIXED_RANDOM_DISTRIBUTION)) {
+                    if (node.getPartitioningScheme().getPartitioningHandle().equals(FIXED_RANDOM_DISTRIBUTION)) {
                         return new StreamProperties(FIXED, false, Optional.empty(), false);
                     }
                     return new StreamProperties(
                             FIXED,
                             true,
-                            Optional.of(node.getPartitionFunction().getPartitionFunctionArguments().stream()
+                            Optional.of(node.getPartitioningScheme().getPartitionFunctionArguments().stream()
                                     .map(PartitionFunctionArgumentBinding::getColumn)
                                     .collect(toImmutableList())), false);
                 case REPLICATE:

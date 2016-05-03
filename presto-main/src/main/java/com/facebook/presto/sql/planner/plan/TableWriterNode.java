@@ -18,7 +18,7 @@ import com.facebook.presto.metadata.NewTableLayout;
 import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
-import com.facebook.presto.sql.planner.PartitionFunctionBinding;
+import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -44,7 +44,7 @@ public class TableWriterNode
     private final List<Symbol> columns;
     private final List<String> columnNames;
     private final Optional<Symbol> sampleWeightSymbol;
-    private final Optional<PartitionFunctionBinding> partitionFunction;
+    private final Optional<PartitioningScheme> partitioningScheme;
 
     @JsonCreator
     public TableWriterNode(
@@ -55,7 +55,7 @@ public class TableWriterNode
             @JsonProperty("columnNames") List<String> columnNames,
             @JsonProperty("outputs") List<Symbol> outputs,
             @JsonProperty("sampleWeightSymbol") Optional<Symbol> sampleWeightSymbol,
-            @JsonProperty("partitionFunction") Optional<PartitionFunctionBinding> partitionFunction)
+            @JsonProperty("partitioningScheme") Optional<PartitioningScheme> partitioningScheme)
     {
         super(id);
 
@@ -69,7 +69,7 @@ public class TableWriterNode
         this.columnNames = ImmutableList.copyOf(columnNames);
         this.outputs = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
         this.sampleWeightSymbol = requireNonNull(sampleWeightSymbol, "sampleWeightSymbol is null");
-        this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
+        this.partitioningScheme = requireNonNull(partitioningScheme, "partitioningScheme is null");
     }
 
     @JsonProperty
@@ -110,9 +110,9 @@ public class TableWriterNode
     }
 
     @JsonProperty
-    public Optional<PartitionFunctionBinding> getPartitionFunction()
+    public Optional<PartitioningScheme> getPartitioningScheme()
     {
-        return partitionFunction;
+        return partitioningScheme;
     }
 
     @Override

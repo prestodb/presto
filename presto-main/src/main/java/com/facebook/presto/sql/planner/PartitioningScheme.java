@@ -28,7 +28,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class PartitionFunctionBinding
+public class PartitioningScheme
 {
     private final PartitioningHandle partitioningHandle;
     private final List<Symbol> outputLayout;
@@ -37,7 +37,7 @@ public class PartitionFunctionBinding
     private final boolean replicateNulls;
     private final Optional<int[]> bucketToPartition;
 
-    public PartitionFunctionBinding(PartitioningHandle partitioningHandle, List<Symbol> outputLayout, List<PartitionFunctionArgumentBinding> partitionFunctionArguments)
+    public PartitioningScheme(PartitioningHandle partitioningHandle, List<Symbol> outputLayout, List<PartitionFunctionArgumentBinding> partitionFunctionArguments)
     {
         this(
                 partitioningHandle,
@@ -48,7 +48,7 @@ public class PartitionFunctionBinding
                 Optional.empty());
     }
 
-    public PartitionFunctionBinding(PartitioningHandle partitioningHandle, List<Symbol> outputLayout, List<PartitionFunctionArgumentBinding> partitionFunctionArguments, Optional<Symbol> hashColumn)
+    public PartitioningScheme(PartitioningHandle partitioningHandle, List<Symbol> outputLayout, List<PartitionFunctionArgumentBinding> partitionFunctionArguments, Optional<Symbol> hashColumn)
     {
         this(
                 partitioningHandle,
@@ -60,7 +60,7 @@ public class PartitionFunctionBinding
     }
 
     @JsonCreator
-    public PartitionFunctionBinding(
+    public PartitioningScheme(
             @JsonProperty("partitioningHandle") PartitioningHandle partitioningHandle,
             @JsonProperty("outputLayout") List<Symbol> outputLayout,
             @JsonProperty("partitionFunctionArguments") List<PartitionFunctionArgumentBinding> partitionFunctionArguments,
@@ -125,12 +125,12 @@ public class PartitionFunctionBinding
         return bucketToPartition;
     }
 
-    public PartitionFunctionBinding withBucketToPartition(Optional<int[]> bucketToPartition)
+    public PartitioningScheme withBucketToPartition(Optional<int[]> bucketToPartition)
     {
-        return new PartitionFunctionBinding(partitioningHandle, outputLayout, partitionFunctionArguments, hashColumn, replicateNulls, bucketToPartition);
+        return new PartitioningScheme(partitioningHandle, outputLayout, partitionFunctionArguments, hashColumn, replicateNulls, bucketToPartition);
     }
 
-    public PartitionFunctionBinding translateOutputLayout(List<Symbol> newOutputLayout)
+    public PartitioningScheme translateOutputLayout(List<Symbol> newOutputLayout)
     {
         requireNonNull(newOutputLayout, "newOutputLayout is null");
 
@@ -144,7 +144,7 @@ public class PartitionFunctionBinding
                 .map(outputLayout::indexOf)
                 .map(newOutputLayout::get);
 
-        return new PartitionFunctionBinding(partitioningHandle, newOutputLayout, newPartitioningColumns, newHashSymbol, replicateNulls, bucketToPartition);
+        return new PartitioningScheme(partitioningHandle, newOutputLayout, newPartitioningColumns, newHashSymbol, replicateNulls, bucketToPartition);
     }
 
     private PartitionFunctionArgumentBinding translateOutputLayout(PartitionFunctionArgumentBinding argumentBinding, List<Symbol> newOutputLayout)
@@ -165,7 +165,7 @@ public class PartitionFunctionBinding
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        PartitionFunctionBinding that = (PartitionFunctionBinding) o;
+        PartitioningScheme that = (PartitioningScheme) o;
         return Objects.equals(partitioningHandle, that.partitioningHandle) &&
                 Objects.equals(outputLayout, that.outputLayout) &&
                 Objects.equals(partitionFunctionArguments, that.partitionFunctionArguments) &&

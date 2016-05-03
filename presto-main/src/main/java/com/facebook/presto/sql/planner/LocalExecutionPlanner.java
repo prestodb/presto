@@ -95,7 +95,7 @@ import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.PartitionFunctionBinding.PartitionFunctionArgumentBinding;
+import com.facebook.presto.sql.planner.PartitioningScheme.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
@@ -267,13 +267,13 @@ public class LocalExecutionPlanner
             Session session,
             PlanNode plan,
             Map<Symbol, Type> types,
-            PartitionFunctionBinding functionBinding,
+            PartitioningScheme partitioningScheme,
             SharedBuffer sharedBuffer)
     {
-        List<Symbol> outputLayout = functionBinding.getOutputLayout();
-        if (functionBinding.getPartitioningHandle().equals(FIXED_BROADCAST_DISTRIBUTION) ||
-                functionBinding.getPartitioningHandle().equals(SINGLE_DISTRIBUTION) ||
-                functionBinding.getPartitioningHandle().equals(COORDINATOR_DISTRIBUTION)) {
+        List<Symbol> outputLayout = partitioningScheme.getOutputLayout();
+        if (partitioningScheme.getPartitioningHandle().equals(FIXED_BROADCAST_DISTRIBUTION) ||
+                partitioningScheme.getPartitioningHandle().equals(SINGLE_DISTRIBUTION) ||
+                partitioningScheme.getPartitioningHandle().equals(COORDINATOR_DISTRIBUTION)) {
             return plan(session, plan, outputLayout, types, new TaskOutputFactory(sharedBuffer));
         }
 
@@ -281,17 +281,17 @@ public class LocalExecutionPlanner
         List<Integer> partitionChannels;
         List<Optional<NullableValue>> partitionConstants;
         List<Type> partitionChannelTypes;
-        if (functionBinding.getHashColumn().isPresent()) {
-            partitionChannels = ImmutableList.of(outputLayout.indexOf(functionBinding.getHashColumn().get()));
+        if (partitioningScheme.getHashColumn().isPresent()) {
+            partitionChannels = ImmutableList.of(outputLayout.indexOf(partitioningScheme.getHashColumn().get()));
             partitionConstants = ImmutableList.of(Optional.empty());
             partitionChannelTypes = ImmutableList.of(BIGINT);
         }
         else {
-            partitionChannels = functionBinding.getPartitionFunctionArguments().stream()
+            partitionChannels = partitioningScheme.getPartitionFunctionArguments().stream()
                     .map(PartitionFunctionArgumentBinding::getColumn)
                     .map(outputLayout::indexOf)
                     .collect(toImmutableList());
-            partitionConstants = functionBinding.getPartitionFunctionArguments().stream()
+            partitionConstants = partitioningScheme.getPartitionFunctionArguments().stream()
                     .map(argument -> {
                         if (argument.isConstant()) {
                             return Optional.of(argument.getConstant());
@@ -299,7 +299,7 @@ public class LocalExecutionPlanner
                         return Optional.<NullableValue>empty();
                     })
                     .collect(toImmutableList());
-            partitionChannelTypes = functionBinding.getPartitionFunctionArguments().stream()
+            partitionChannelTypes = partitioningScheme.getPartitionFunctionArguments().stream()
                     .map(argument -> {
                         if (argument.isConstant()) {
                             return argument.getConstant().getType();
@@ -309,12 +309,12 @@ public class LocalExecutionPlanner
                     .collect(toImmutableList());
         }
 
-        PartitionFunction partitionFunction = nodePartitioningManager.getPartitionFunction(session, functionBinding, partitionChannelTypes);
+        PartitionFunction partitionFunction = nodePartitioningManager.getPartitionFunction(session, partitioningScheme, partitionChannelTypes);
         OptionalInt nullChannel = OptionalInt.empty();
-        if (functionBinding.isReplicateNulls()) {
-            checkArgument(functionBinding.getPartitionFunctionArguments().size() == 1);
-            checkArgument(functionBinding.getPartitionFunctionArguments().get(0).isVariable());
-            nullChannel = OptionalInt.of(outputLayout.indexOf(getOnlyElement(functionBinding.getPartitionFunctionArguments()).getColumn()));
+        if (partitioningScheme.isReplicateNulls()) {
+            checkArgument(partitioningScheme.getPartitionFunctionArguments().size() == 1);
+            checkArgument(partitioningScheme.getPartitionFunctionArguments().get(0).isVariable());
+            nullChannel = OptionalInt.of(outputLayout.indexOf(getOnlyElement(partitioningScheme.getPartitionFunctionArguments()).getColumn()));
         }
 
         return plan(
@@ -1570,7 +1570,7 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitTableWriter(TableWriterNode node, LocalExecutionPlanContext context)
         {
             // Set table writer count
-            if (node.getPartitionFunction().isPresent()) {
+            if (node.getPartitioningScheme().isPresent()) {
                 context.setDriverInstanceCount(1);
             }
             else {
@@ -1674,13 +1674,13 @@ public class LocalExecutionPlanner
             }
 
             List<Type> types = getSourceOperatorTypes(node, context.getTypes());
-            List<Integer> channels = node.getPartitionFunction().getPartitionFunctionArguments().stream()
+            List<Integer> channels = node.getPartitioningScheme().getPartitionFunctionArguments().stream()
                     .map(argument -> node.getOutputSymbols().indexOf(argument.getColumn()))
                     .collect(toImmutableList());
-            Optional<Integer> hashChannel = node.getPartitionFunction().getHashColumn()
+            Optional<Integer> hashChannel = node.getPartitioningScheme().getHashColumn()
                     .map(symbol -> node.getOutputSymbols().indexOf(symbol));
 
-            LocalExchange localExchange = new LocalExchange(node.getPartitionFunction().getPartitioningHandle(), driverInstanceCount, types, channels, hashChannel);
+            LocalExchange localExchange = new LocalExchange(node.getPartitioningScheme().getPartitioningHandle(), driverInstanceCount, types, channels, hashChannel);
 
             for (int i = 0; i < node.getSources().size(); i++) {
                 PlanNode sourceNode = node.getSources().get(i);

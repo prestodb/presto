@@ -32,9 +32,9 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LookupSymbolResolver;
-import com.facebook.presto.sql.planner.PartitionFunctionBinding;
-import com.facebook.presto.sql.planner.PartitionFunctionBinding.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.PartitioningHandle;
+import com.facebook.presto.sql.planner.PartitioningScheme;
+import com.facebook.presto.sql.planner.PartitioningScheme.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -600,18 +600,18 @@ public class AddExchanges
         {
             PlanWithProperties source = node.getSource().accept(this, context);
 
-            Optional<PartitionFunctionBinding> partitionFunction = node.getPartitionFunction();
-            if (!partitionFunction.isPresent() && redistributeWrites) {
-                partitionFunction = Optional.of(new PartitionFunctionBinding(FIXED_RANDOM_DISTRIBUTION, source.getNode().getOutputSymbols(), ImmutableList.of()));
+            Optional<PartitioningScheme> partitioningScheme = node.getPartitioningScheme();
+            if (!partitioningScheme.isPresent() && redistributeWrites) {
+                partitioningScheme = Optional.of(new PartitioningScheme(FIXED_RANDOM_DISTRIBUTION, source.getNode().getOutputSymbols(), ImmutableList.of()));
             }
 
-            if (partitionFunction.isPresent()) {
+            if (partitioningScheme.isPresent()) {
                 source = withDerivedProperties(
                         partitionedExchange(
                                 idAllocator.getNextId(),
                                 REMOTE,
                                 source.getNode(),
-                                partitionFunction.get()),
+                                partitioningScheme.get()),
                         source.getProperties()
                 );
             }
@@ -796,7 +796,7 @@ public class AddExchanges
                 right = node.getRight().accept(this, context.withPreferredProperties(PreferredProperties.hashPartitioned(rightSymbols)));
 
                 if (!left.getProperties().isNodePartitionedOn(leftSymbols) || (distributedJoins && left.getProperties().isSingleNode())) {
-                    PartitionFunctionBinding partitionFunction;
+                    PartitioningScheme partitioningScheme;
                     // check if we can redistribute the left on the right partitioning
                     if (right.getProperties().isNodePartitionedOn(rightSymbols) && (!distributedJoins || !right.getProperties().isSingleNode())) {
                         SetMultimap<Symbol, Symbol> rightToLeft = HashMultimap.create();
@@ -809,14 +809,14 @@ public class AddExchanges
 
                         verify(leftPartitionColumns.isPresent(), "Could not translate JOIN build partitioning to probe symbols");
 
-                        partitionFunction = new PartitionFunctionBinding(
+                        partitioningScheme = new PartitioningScheme(
                                 right.getProperties().getNodePartitioningHandle().get(),
                                 node.getLeft().getOutputSymbols(),
                                 leftPartitionColumns.get(),
                                 Optional.empty());
                     }
                     else {
-                        partitionFunction = new PartitionFunctionBinding(
+                        partitioningScheme = new PartitioningScheme(
                                 FIXED_HASH_DISTRIBUTION,
                                 left.getNode().getOutputSymbols(),
                                 leftSymbols.stream()
@@ -826,7 +826,7 @@ public class AddExchanges
                     }
 
                     left = withDerivedProperties(
-                            partitionedExchange(idAllocator.getNextId(), REMOTE, left.getNode(), partitionFunction),
+                            partitionedExchange(idAllocator.getNextId(), REMOTE, left.getNode(), partitioningScheme),
                             left.getProperties());
                 }
 
@@ -855,14 +855,14 @@ public class AddExchanges
 
                         verify(rightPartitionColumns.isPresent(), "Could not translate JOIN probe partitioning to build symbols");
 
-                        PartitionFunctionBinding partitionFunction = new PartitionFunctionBinding(
+                        PartitioningScheme partitioningScheme = new PartitioningScheme(
                                 left.getProperties().getNodePartitioningHandle().get(),
                                 node.getRight().getOutputSymbols(),
                                 rightPartitionColumns.get(),
                                 Optional.empty());
 
                         right = withDerivedProperties(
-                                partitionedExchange(idAllocator.getNextId(), REMOTE, right.getNode(), partitionFunction),
+                                partitionedExchange(idAllocator.getNextId(), REMOTE, right.getNode(), partitioningScheme),
                                 right.getProperties());
                     }
                 }
@@ -959,7 +959,7 @@ public class AddExchanges
                                         idAllocator.getNextId(),
                                         REMOTE,
                                         filteringSource.getNode(),
-                                        new PartitionFunctionBinding(
+                                        new PartitioningScheme(
                                                 source.getProperties().getNodePartitioningHandle().get(),
                                                 node.getFilteringSource().getOutputSymbols(),
                                                 filteringSourcePartitionColumns.get(),
@@ -976,7 +976,7 @@ public class AddExchanges
                                         idAllocator.getNextId(),
                                         REMOTE,
                                         filteringSource.getNode(),
-                                        new PartitionFunctionBinding(
+                                        new PartitioningScheme(
                                                 source.getProperties().getNodePartitioningHandle().get(),
                                                 node.getFilteringSource().getOutputSymbols(),
                                                 filteringSourcePartitionColumns.get())),
@@ -1117,7 +1117,7 @@ public class AddExchanges
                             idAllocator.getNextId(),
                             GATHER,
                             REMOTE,
-                            new PartitionFunctionBinding(SINGLE_DISTRIBUTION, node.getOutputSymbols(), ImmutableList.of()),
+                            new PartitioningScheme(SINGLE_DISTRIBUTION, node.getOutputSymbols(), ImmutableList.of()),
                             partitionedChildren,
                             partitionedOutputLayouts);
 

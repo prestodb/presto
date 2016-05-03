@@ -23,8 +23,8 @@ import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.PartitionFunctionBinding;
-import com.facebook.presto.sql.planner.PartitionFunctionBinding.PartitionFunctionArgumentBinding;
+import com.facebook.presto.sql.planner.PartitioningScheme;
+import com.facebook.presto.sql.planner.PartitioningScheme.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -473,7 +473,7 @@ public class AddLocalExchanges
                         idAllocator.getNextId(),
                         GATHER,
                         LOCAL,
-                        new PartitionFunctionBinding(SINGLE_DISTRIBUTION, node.getOutputSymbols(), ImmutableList.of()),
+                        new PartitioningScheme(SINGLE_DISTRIBUTION, node.getOutputSymbols(), ImmutableList.of()),
                         sources,
                         inputLayouts);
                 return deriveProperties(exchangeNode, inputProperties);
@@ -485,7 +485,7 @@ public class AddLocalExchanges
                         idAllocator.getNextId(),
                         REPARTITION,
                         LOCAL,
-                        new PartitionFunctionBinding(
+                        new PartitioningScheme(
                                 FIXED_HASH_DISTRIBUTION,
                                 node.getOutputSymbols(),
                                 preferredPartitionColumns.get().stream()
@@ -502,7 +502,7 @@ public class AddLocalExchanges
                     idAllocator.getNextId(),
                     REPARTITION,
                     LOCAL,
-                    new PartitionFunctionBinding(FIXED_RANDOM_DISTRIBUTION, node.getOutputSymbols(), ImmutableList.of()),
+                    new PartitioningScheme(FIXED_RANDOM_DISTRIBUTION, node.getOutputSymbols(), ImmutableList.of()),
                     sources,
                     inputLayouts);
             ExchangeNode exchangeNode = result;
@@ -618,7 +618,7 @@ public class AddLocalExchanges
                         idAllocator.getNextId(),
                         LOCAL,
                         planWithProperties.getNode(),
-                        new PartitionFunctionBinding(FIXED_RANDOM_DISTRIBUTION, planWithProperties.getNode().getOutputSymbols(), ImmutableList.of()));
+                        new PartitioningScheme(FIXED_RANDOM_DISTRIBUTION, planWithProperties.getNode().getOutputSymbols(), ImmutableList.of()));
 
                 return deriveProperties(exchangeNode, planWithProperties.getProperties());
             }

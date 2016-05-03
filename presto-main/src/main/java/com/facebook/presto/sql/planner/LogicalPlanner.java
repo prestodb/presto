@@ -26,7 +26,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationType;
-import com.facebook.presto.sql.planner.PartitionFunctionBinding.PartitionFunctionArgumentBinding;
+import com.facebook.presto.sql.planner.PartitioningScheme.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -249,7 +249,7 @@ public class LogicalPlanner
 
         List<Symbol> symbols = plan.getOutputSymbols();
 
-        Optional<PartitionFunctionBinding> partitionFunctionBinding = Optional.empty();
+        Optional<PartitioningScheme> partitioningScheme = Optional.empty();
         if (writeTableLayout.isPresent()) {
             List<PartitionFunctionArgumentBinding> partitionFunctionArguments = new ArrayList<>();
             writeTableLayout.get().getPartitionColumns().stream()
@@ -265,7 +265,7 @@ public class LogicalPlanner
             plan.getSampleWeight()
                     .ifPresent(outputLayout::add);
 
-            partitionFunctionBinding = Optional.of(new PartitionFunctionBinding(
+            partitioningScheme = Optional.of(new PartitioningScheme(
                     writeTableLayout.get().getPartitioning(),
                     outputLayout,
                     partitionFunctionArguments));
@@ -279,7 +279,7 @@ public class LogicalPlanner
                 columnNames,
                 writerOutputs,
                 plan.getSampleWeight(),
-                partitionFunctionBinding);
+                partitioningScheme);
 
         List<Symbol> outputs = ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT));
         TableFinishNode commitNode = new TableFinishNode(
