@@ -23,6 +23,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class HiveBucketProperty
@@ -41,11 +42,15 @@ public class HiveBucketProperty
     {
         boolean bucketColsSet = storageDescriptor.isSetBucketCols() && !storageDescriptor.getBucketCols().isEmpty();
         boolean numBucketsSet = storageDescriptor.isSetNumBuckets() && storageDescriptor.getNumBuckets() > 0;
-        if (bucketColsSet != numBucketsSet) {
-            throw new PrestoException(HiveErrorCode.HIVE_INVALID_METADATA, "Only one of bucketCols and numBuckets is set in metadata of table/partition " + tablePartitionName);
+        if (!numBucketsSet) {
+            // In Hive, a table is considered as not bucketed when its bucketCols is set but its numBucket is not set.
+            // We've seen such table in production.
+            return Optional.empty();
         }
         if (!bucketColsSet) {
-            return Optional.empty();
+            throw new PrestoException(
+                    HiveErrorCode.HIVE_INVALID_METADATA,
+                    format("In metadata of table/partition %s, numBuckets is set to %s, but bucketCol is not set", tablePartitionName, storageDescriptor.getNumBuckets()));
         }
         return Optional.of(new HiveBucketProperty(storageDescriptor.getBucketCols(), storageDescriptor.getNumBuckets()));
     }
