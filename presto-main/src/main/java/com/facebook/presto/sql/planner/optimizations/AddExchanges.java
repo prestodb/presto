@@ -1093,109 +1093,109 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitUnion(UnionNode node, Context context)
         {
-            if (!context.getPreferredProperties().getGlobalProperties().isPresent() || !context.getPreferredProperties().getGlobalProperties().get().isHashPartitioned()) {
-                // first, classify children into partitioned and unpartitioned
-                List<PlanNode> unpartitionedChildren = new ArrayList<>();
-                List<List<Symbol>> unpartitionedOutputLayouts = new ArrayList<>();
+            if (context.getPreferredProperties().getGlobalProperties().isPresent() && context.getPreferredProperties().getGlobalProperties().get().isHashPartitioned()) {
+                // hash partition the sources
+                List<Symbol> hashingColumns = context.getPreferredProperties().getGlobalProperties().get().getPartitioningProperties().get().getHashingOrder().get();
 
-                List<PlanNode> partitionedChildren = new ArrayList<>();
-                List<List<Symbol>> partitionedOutputLayouts = new ArrayList<>();
+                ImmutableList.Builder<PlanNode> partitionedSources = ImmutableList.builder();
+                ImmutableListMultimap.Builder<Symbol, Symbol> outputToSourcesMapping = ImmutableListMultimap.builder();
 
-                List<PlanNode> sources = node.getSources();
-                for (int i = 0; i < sources.size(); i++) {
-                    PlanWithProperties child = sources.get(i).accept(this, context.withPreferredProperties(PreferredProperties.any()));
-                    if (child.getProperties().isSingleNode()) {
-                        unpartitionedChildren.add(child.getNode());
-                        unpartitionedOutputLayouts.add(node.sourceOutputLayout(i));
+                for (int sourceIndex = 0; sourceIndex < node.getSources().size(); sourceIndex++) {
+                    ImmutableList.Builder<Symbol> hashColumnsBuilder = ImmutableList.builder();
+                    for (Symbol column : hashingColumns) {
+                        hashColumnsBuilder.add(node.getSymbolMapping().get(column).get(sourceIndex));
                     }
-                    else {
-                        partitionedChildren.add(child.getNode());
-                        // union may drop or duplicate symbols from the input so we must provide an exact mapping
-                        partitionedOutputLayouts.add(node.sourceOutputLayout(i));
+                    List<Symbol> sourceHashColumns = hashColumnsBuilder.build();
+
+                    PlanWithProperties source = node.getSources().get(sourceIndex).accept(this, context.withPreferredProperties(PreferredProperties.hashPartitioned(sourceHashColumns)));
+                    if (!source.getProperties().isNodePartitionedOn(FIXED_HASH_DISTRIBUTION, sourceHashColumns)) {
+                        source = withDerivedProperties(
+                                partitionedExchange(
+                                        idAllocator.getNextId(),
+                                        REMOTE,
+                                        source.getNode(),
+                                        sourceHashColumns,
+                                        Optional.empty()),
+                                source.getProperties());
+                    }
+                    partitionedSources.add(source.getNode());
+
+                    for (int column = 0; column < node.getOutputSymbols().size(); column++) {
+                        outputToSourcesMapping.put(node.getOutputSymbols().get(column), node.sourceOutputLayout(sourceIndex).get(column));
                     }
                 }
+                UnionNode newNode = new UnionNode(
+                        node.getId(),
+                        partitionedSources.build(),
+                        outputToSourcesMapping.build(),
+                        ImmutableList.copyOf(outputToSourcesMapping.build().keySet()));
 
-                PlanNode result = null;
-                if (!partitionedChildren.isEmpty()) {
-                    // add an exchange above partitioned inputs and fold it into the
-                    // set of unpartitioned inputs
-                    // NOTE: this must provide the explicit imput mapping as unions may drop or duplicate symbols
-                    result = new ExchangeNode(
-                            idAllocator.getNextId(),
-                            GATHER,
-                            REMOTE,
-                            new PartitioningScheme(SINGLE_DISTRIBUTION, node.getOutputSymbols(), ImmutableList.of()),
-                            partitionedChildren,
-                            partitionedOutputLayouts);
-
-                    unpartitionedChildren.add(result);
-                    unpartitionedOutputLayouts.add(result.getOutputSymbols());
-                }
-
-                // if there's at least one unpartitioned input (including the exchange that might have been added in the
-                // previous step), add a local union
-                if (unpartitionedChildren.size() > 1) {
-                    ImmutableListMultimap.Builder<Symbol, Symbol> mappings = ImmutableListMultimap.builder();
-                    for (int i = 0; i < node.getOutputSymbols().size(); i++) {
-                        for (List<Symbol> outputLayout : unpartitionedOutputLayouts) {
-                            mappings.put(node.getOutputSymbols().get(i), outputLayout.get(i));
-                        }
-                    }
-
-                    result = new UnionNode(node.getId(), unpartitionedChildren, mappings.build(), ImmutableList.copyOf(mappings.build().keySet()));
-                }
+                List<PartitionFunctionArgumentBinding> hashArguments = hashingColumns.stream()
+                        .map(PartitionFunctionArgumentBinding::new)
+                        .collect(toImmutableList());
 
                 return new PlanWithProperties(
-                        result,
+                        newNode,
                         ActualProperties.builder()
-                                .global(singleStreamPartition())
+                                .global(partitionedOn(FIXED_HASH_DISTRIBUTION, hashArguments, Optional.of(hashArguments)))
                                 .build());
             }
 
-            // hash partition the sources
-            List<Symbol> hashingColumns = context.getPreferredProperties().getGlobalProperties().get().getPartitioningProperties().get().getHashingOrder().get();
+            // first, classify children into partitioned and unpartitioned
+            List<PlanNode> unpartitionedChildren = new ArrayList<>();
+            List<List<Symbol>> unpartitionedOutputLayouts = new ArrayList<>();
 
-            ImmutableList.Builder<PlanNode> partitionedSources = ImmutableList.builder();
-            ImmutableListMultimap.Builder<Symbol, Symbol> outputToSourcesMapping = ImmutableListMultimap.builder();
+            List<PlanNode> partitionedChildren = new ArrayList<>();
+            List<List<Symbol>> partitionedOutputLayouts = new ArrayList<>();
 
-            for (int sourceIndex = 0; sourceIndex < node.getSources().size(); sourceIndex++) {
-                ImmutableList.Builder<Symbol> hashColumnsBuilder = ImmutableList.builder();
-                for (Symbol column : hashingColumns) {
-                    hashColumnsBuilder.add(node.getSymbolMapping().get(column).get(sourceIndex));
+            List<PlanNode> sources = node.getSources();
+            for (int i = 0; i < sources.size(); i++) {
+                PlanWithProperties child = sources.get(i).accept(this, context.withPreferredProperties(PreferredProperties.any()));
+                if (child.getProperties().isSingleNode()) {
+                    unpartitionedChildren.add(child.getNode());
+                    unpartitionedOutputLayouts.add(node.sourceOutputLayout(i));
                 }
-                List<Symbol> sourceHashColumns = hashColumnsBuilder.build();
-
-                PlanWithProperties source = node.getSources().get(sourceIndex).accept(this, context.withPreferredProperties(PreferredProperties.hashPartitioned(sourceHashColumns)));
-                if (!source.getProperties().isNodePartitionedOn(FIXED_HASH_DISTRIBUTION, sourceHashColumns)) {
-                    source = withDerivedProperties(
-                            partitionedExchange(
-                                    idAllocator.getNextId(),
-                                    REMOTE,
-                                    source.getNode(),
-                                    sourceHashColumns,
-                                    Optional.empty()),
-                            source.getProperties());
-                }
-                partitionedSources.add(source.getNode());
-
-                for (int column = 0; column < node.getOutputSymbols().size(); column++) {
-                    outputToSourcesMapping.put(node.getOutputSymbols().get(column), node.sourceOutputLayout(sourceIndex).get(column));
+                else {
+                    partitionedChildren.add(child.getNode());
+                    // union may drop or duplicate symbols from the input so we must provide an exact mapping
+                    partitionedOutputLayouts.add(node.sourceOutputLayout(i));
                 }
             }
-            UnionNode newNode = new UnionNode(
-                    node.getId(),
-                    partitionedSources.build(),
-                    outputToSourcesMapping.build(),
-                    ImmutableList.copyOf(outputToSourcesMapping.build().keySet()));
 
-            List<PartitionFunctionArgumentBinding> hashArguments = hashingColumns.stream()
-                    .map(PartitionFunctionArgumentBinding::new)
-                    .collect(toImmutableList());
+            PlanNode result = null;
+            if (!partitionedChildren.isEmpty()) {
+                // add an exchange above partitioned inputs and fold it into the
+                // set of unpartitioned inputs
+                // NOTE: this must provide the explicit imput mapping as unions may drop or duplicate symbols
+                result = new ExchangeNode(
+                        idAllocator.getNextId(),
+                        GATHER,
+                        REMOTE,
+                        new PartitioningScheme(SINGLE_DISTRIBUTION, node.getOutputSymbols(), ImmutableList.of()),
+                        partitionedChildren,
+                        partitionedOutputLayouts);
+
+                unpartitionedChildren.add(result);
+                unpartitionedOutputLayouts.add(result.getOutputSymbols());
+            }
+
+            // if there's at least one unpartitioned input (including the exchange that might have been added in the
+            // previous step), add a local union
+            if (unpartitionedChildren.size() > 1) {
+                ImmutableListMultimap.Builder<Symbol, Symbol> mappings = ImmutableListMultimap.builder();
+                for (int i = 0; i < node.getOutputSymbols().size(); i++) {
+                    for (List<Symbol> outputLayout : unpartitionedOutputLayouts) {
+                        mappings.put(node.getOutputSymbols().get(i), outputLayout.get(i));
+                    }
+                }
+
+                result = new UnionNode(node.getId(), unpartitionedChildren, mappings.build(), ImmutableList.copyOf(mappings.build().keySet()));
+            }
 
             return new PlanWithProperties(
-                    newNode,
+                    result,
                     ActualProperties.builder()
-                            .global(partitionedOn(FIXED_HASH_DISTRIBUTION, hashArguments, Optional.of(hashArguments)))
+                            .global(singleStreamPartition())
                             .build());
         }
 
