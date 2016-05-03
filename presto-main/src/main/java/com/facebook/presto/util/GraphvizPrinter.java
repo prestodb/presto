@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.util;
 
-import com.facebook.presto.sql.planner.PartitionFunctionBinding.PartitionFunctionArgumentBinding;
+import com.facebook.presto.sql.planner.PartitioningScheme.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.Symbol;
@@ -302,7 +302,7 @@ public final class GraphvizPrinter
                     .map(PartitionFunctionArgumentBinding::new)
                     .collect(toImmutableList());
             if (node.getType() == REPARTITION) {
-                symbols = node.getPartitionFunction().getPartitionFunctionArguments();
+                symbols = node.getPartitioningScheme().getPartitionFunctionArguments();
             }
             String columns = Joiner.on(", ").join(symbols);
             printNode(node, format("ExchangeNode[%s]", node.getType()), columns, NODE_COLORS.get(NodeType.EXCHANGE));

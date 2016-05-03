@@ -18,8 +18,8 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
-import com.facebook.presto.sql.planner.PartitionFunctionBinding;
-import com.facebook.presto.sql.planner.PartitionFunctionBinding.PartitionFunctionArgumentBinding;
+import com.facebook.presto.sql.planner.PartitioningScheme;
+import com.facebook.presto.sql.planner.PartitioningScheme.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -271,15 +271,15 @@ public class UnaliasSymbolReferences
                 }
             }
 
-            PartitionFunctionBinding partitionFunction = new PartitionFunctionBinding(
-                    node.getPartitionFunction().getPartitioningHandle(),
+            PartitioningScheme partitioningScheme = new PartitioningScheme(
+                    node.getPartitioningScheme().getPartitioningHandle(),
                     outputs.build(),
-                    canonicalizePartitionFunctionArgument(node.getPartitionFunction().getPartitionFunctionArguments()),
-                    canonicalize(node.getPartitionFunction().getHashColumn()),
-                    node.getPartitionFunction().isReplicateNulls(),
-                    node.getPartitionFunction().getBucketToPartition());
+                    canonicalizePartitionFunctionArgument(node.getPartitioningScheme().getPartitionFunctionArguments()),
+                    canonicalize(node.getPartitioningScheme().getHashColumn()),
+                    node.getPartitioningScheme().isReplicateNulls(),
+                    node.getPartitioningScheme().getBucketToPartition());
 
-            return new ExchangeNode(node.getId(), node.getType(), node.getScope(), partitionFunction, sources, inputs);
+            return new ExchangeNode(node.getId(), node.getType(), node.getScope(), partitioningScheme, sources, inputs);
         }
 
         @Override
@@ -531,7 +531,7 @@ public class UnaliasSymbolReferences
                     node.getColumnNames(),
                     node.getOutputSymbols(),
                     canonicalize(node.getSampleWeightSymbol()),
-                    node.getPartitionFunction().map(this::canonicalizePartitionFunctionBinding));
+                    node.getPartitioningScheme().map(this::canonicalizePartitionFunctionBinding));
         }
 
         @Override
@@ -639,9 +639,9 @@ public class UnaliasSymbolReferences
             return builder.build();
         }
 
-        private PartitionFunctionBinding canonicalizePartitionFunctionBinding(PartitionFunctionBinding function)
+        private PartitioningScheme canonicalizePartitionFunctionBinding(PartitioningScheme function)
         {
-            return new PartitionFunctionBinding(
+            return new PartitioningScheme(
                     function.getPartitioningHandle(),
                     canonicalize(function.getOutputLayout()),
                     canonicalizePartitionFunctionArgument(function.getPartitionFunctionArguments()),

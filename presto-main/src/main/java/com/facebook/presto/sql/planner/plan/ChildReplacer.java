@@ -89,7 +89,7 @@ public class ChildReplacer
                 node.getId(),
                 node.getType(),
                 node.getScope(),
-                node.getPartitionFunction(),
+                node.getPartitioningScheme(),
                 newChildren,
                 node.getInputs());
     }
@@ -235,7 +235,7 @@ public class ChildReplacer
                 node.getColumnNames(),
                 node.getOutputSymbols(),
                 node.getSampleWeightSymbol(),
-                node.getPartitionFunction());
+                node.getPartitioningScheme());
     }
 
     @Override

@@ -182,7 +182,7 @@ public class PredicatePushDown
                         node.getId(),
                         node.getType(),
                         node.getScope(),
-                        node.getPartitionFunction(),
+                        node.getPartitioningScheme(),
                         builder.build(),
                         node.getInputs());
             }

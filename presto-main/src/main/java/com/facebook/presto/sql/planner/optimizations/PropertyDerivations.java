@@ -28,7 +28,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
-import com.facebook.presto.sql.planner.PartitionFunctionBinding.PartitionFunctionArgumentBinding;
+import com.facebook.presto.sql.planner.PartitioningScheme.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.optimizations.ActualProperties.Global;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -415,9 +415,9 @@ class PropertyDerivations
                 case REPARTITION:
                     return ActualProperties.builder()
                             .global(partitionedOn(
-                                    node.getPartitionFunction().getPartitioningHandle(),
-                                    node.getPartitionFunction().getPartitionFunctionArguments(),
-                                    Optional.of(node.getPartitionFunction().getPartitionFunctionArguments())))
+                                    node.getPartitioningScheme().getPartitioningHandle(),
+                                    node.getPartitioningScheme().getPartitionFunctionArguments(),
+                                    Optional.of(node.getPartitioningScheme().getPartitionFunctionArguments())))
                             .constants(constants)
                             .build();
                 case REPLICATE:

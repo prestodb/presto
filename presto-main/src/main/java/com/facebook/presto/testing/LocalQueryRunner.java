@@ -524,7 +524,7 @@ public class LocalQueryRunner
         LocalExecutionPlan localExecutionPlan = executionPlanner.plan(
                 session,
                 subplan.getFragment().getRoot(),
-                subplan.getFragment().getPartitionFunction().getOutputLayout(),
+                subplan.getFragment().getPartitioningScheme().getOutputLayout(),
                 plan.getTypes(),
                 outputFactory);
 

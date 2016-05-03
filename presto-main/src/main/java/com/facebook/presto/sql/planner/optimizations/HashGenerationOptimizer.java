@@ -17,8 +17,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.PartitionFunctionBinding;
-import com.facebook.presto.sql.planner.PartitionFunctionBinding.PartitionFunctionArgumentBinding;
+import com.facebook.presto.sql.planner.PartitioningScheme;
+import com.facebook.presto.sql.planner.PartitioningScheme.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -435,11 +435,11 @@ public class HashGenerationOptimizer
 
             // Currently, precomputed hash values are only supported for system hash distributions without constants
             Optional<HashComputation> partitionSymbols = Optional.empty();
-            PartitionFunctionBinding partitionFunction = node.getPartitionFunction();
-            if (partitionFunction.getPartitioningHandle().equals(FIXED_HASH_DISTRIBUTION) &&
-                    partitionFunction.getPartitionFunctionArguments().stream().allMatch(PartitionFunctionArgumentBinding::isVariable)) {
+            PartitioningScheme partitioningScheme = node.getPartitioningScheme();
+            if (partitioningScheme.getPartitioningHandle().equals(FIXED_HASH_DISTRIBUTION) &&
+                    partitioningScheme.getPartitionFunctionArguments().stream().allMatch(PartitionFunctionArgumentBinding::isVariable)) {
                 // add precomputed hash for exchange
-                partitionSymbols = computeHash(partitionFunction.getPartitionFunctionArguments().stream()
+                partitionSymbols = computeHash(partitioningScheme.getPartitionFunctionArguments().stream()
                         .map(PartitionFunctionArgumentBinding::getColumn)
                         .collect(toImmutableList()));
                 preference = preference.withHashComputation(partitionSymbols);
@@ -453,18 +453,18 @@ public class HashGenerationOptimizer
             }
 
             // rewrite partition function to include new symbols (and precomputed hash
-            partitionFunction = new PartitionFunctionBinding(
-                    partitionFunction.getPartitioningHandle(),
+            partitioningScheme = new PartitioningScheme(
+                    partitioningScheme.getPartitioningHandle(),
                     ImmutableList.<Symbol>builder()
-                            .addAll(partitionFunction.getOutputLayout())
+                            .addAll(partitioningScheme.getOutputLayout())
                             .addAll(hashSymbolOrder.stream()
                                     .map(newHashSymbols::get)
                                     .collect(toImmutableList()))
                             .build(),
-                    partitionFunction.getPartitionFunctionArguments(),
+                    partitioningScheme.getPartitionFunctionArguments(),
                     partitionSymbols.map(newHashSymbols::get),
-                    partitionFunction.isReplicateNulls(),
-                    partitionFunction.getBucketToPartition());
+                    partitioningScheme.isReplicateNulls(),
+                    partitioningScheme.getBucketToPartition());
 
             // add hash symbols to sources
             ImmutableList.Builder<List<Symbol>> newInputs = ImmutableList.builder();
@@ -499,7 +499,7 @@ public class HashGenerationOptimizer
                             idAllocator.getNextId(),
                             node.getType(),
                             node.getScope(),
-                            partitionFunction,
+                            partitioningScheme,
                             newSources.build(),
                             newInputs.build()),
                     newHashSymbols);

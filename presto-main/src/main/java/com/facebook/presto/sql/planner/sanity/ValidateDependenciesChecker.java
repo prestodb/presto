@@ -448,7 +448,7 @@ public final class ValidateDependenciesChecker
                 subplan.accept(this, context); // visit child
             }
 
-            checkDependencies(node.getOutputSymbols(), node.getPartitionFunction().getOutputLayout(), "EXCHANGE must provide all of the necessary symbols for partition function");
+            checkDependencies(node.getOutputSymbols(), node.getPartitioningScheme().getOutputLayout(), "EXCHANGE must provide all of the necessary symbols for partition function");
 
             verifyUniqueId(node);
 

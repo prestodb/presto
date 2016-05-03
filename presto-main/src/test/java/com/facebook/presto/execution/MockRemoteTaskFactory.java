@@ -26,7 +26,7 @@ import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.PartitionFunctionBinding;
+import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TestingColumnHandle;
@@ -101,7 +101,7 @@ public class MockRemoteTaskFactory
                 ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(sourceId),
-                new PartitionFunctionBinding(SINGLE_DISTRIBUTION, ImmutableList.of(symbol), ImmutableList.of()));
+                new PartitioningScheme(SINGLE_DISTRIBUTION, ImmutableList.of(symbol), ImmutableList.of()));
 
         ImmutableMultimap.Builder<PlanNodeId, Split> initialSplits = ImmutableMultimap.builder();
         for (Split sourceSplit : splits) {
