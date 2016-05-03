@@ -273,6 +273,7 @@ public class TestArrayOperators
         assertFunction("CONTAINS(ARRAY [CAST (NULL AS BIGINT)], 1)", BOOLEAN, null);
         assertFunction("CONTAINS(ARRAY [CAST (NULL AS BIGINT)], NULL)", BOOLEAN, null);
         assertFunction("CONTAINS(ARRAY [], NULL)", BOOLEAN, null);
+        assertFunction("CONTAINS(ARRAY [], 1)", BOOLEAN, false);
     }
 
     @Test
