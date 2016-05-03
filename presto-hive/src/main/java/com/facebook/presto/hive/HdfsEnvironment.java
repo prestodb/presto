@@ -34,12 +34,14 @@ public class HdfsEnvironment
 
     private final HdfsConfiguration hdfsConfiguration;
     private final boolean verifyChecksum;
+    private final boolean ignoreMissingData;
 
     @Inject
     public HdfsEnvironment(HdfsConfiguration hdfsConfiguration, HiveClientConfig config)
     {
         this.hdfsConfiguration = requireNonNull(hdfsConfiguration, "hdfsConfiguration is null");
         this.verifyChecksum = requireNonNull(config, "config is null").isVerifyChecksum();
+        this.ignoreMissingData = config.isIgnoreMissingData();
     }
 
     public Configuration getConfiguration(Path path)
@@ -54,5 +56,10 @@ public class HdfsEnvironment
         fileSystem.setVerifyChecksum(verifyChecksum);
 
         return fileSystem;
+    }
+
+    public boolean isIgnoreMissingData()
+    {
+        return ignoreMissingData;
     }
 }
