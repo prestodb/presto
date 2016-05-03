@@ -36,9 +36,17 @@ final class PrestoSystemRequirements
 
     public static void verifyJvmRequirements()
     {
-        String specVersion = StandardSystemProperty.JAVA_SPECIFICATION_VERSION.value();
-        if ((specVersion == null) || (specVersion.compareTo("1.8") < 0)) {
-            failRequirement("Presto requires Java 1.8+ (found %s)", specVersion);
+        String javaVersion = StandardSystemProperty.JAVA_VERSION.value();
+        int sep = (javaVersion == null) ? -1 : javaVersion.lastIndexOf('_');
+        String majorVersion = null;
+        String minorVersion = null;
+        if (sep >= 0) {
+            majorVersion = javaVersion.substring(0, sep);
+            minorVersion = javaVersion.substring(sep + 1);
+        }
+        if ((majorVersion == null) || (minorVersion == null) || (majorVersion.compareTo("1.8.0") < 0) ||
+                (majorVersion.compareTo("1.8.0") == 0 && minorVersion.compareTo("60") < 0)) {
+            failRequirement("Presto requires Java 1.8.0_60+ (found %s_%s)", majorVersion, minorVersion);
         }
 
         String vendor = StandardSystemProperty.JAVA_VENDOR.value();
