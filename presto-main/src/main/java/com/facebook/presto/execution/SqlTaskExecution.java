@@ -33,7 +33,6 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -50,6 +49,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Queue;
 import java.util.Set;
@@ -172,8 +172,9 @@ public class SqlTaskExecution
             ImmutableMap.Builder<PlanNodeId, DriverSplitRunnerFactory> partitionedDriverFactories = ImmutableMap.builder();
             ImmutableList.Builder<DriverSplitRunnerFactory> unpartitionedDriverFactories = ImmutableList.builder();
             for (DriverFactory driverFactory : driverFactories) {
-                if (driverFactory.getSourceIds().stream().anyMatch(fragment::isPartitionedSources)) {
-                    partitionedDriverFactories.put(Iterables.getOnlyElement(driverFactory.getSourceIds()), new DriverSplitRunnerFactory(driverFactory));
+                Optional<PlanNodeId> sourceId = driverFactory.getSourceId();
+                if (sourceId.isPresent() && fragment.isPartitionedSources(sourceId.get())) {
+                    partitionedDriverFactories.put(sourceId.get(), new DriverSplitRunnerFactory(driverFactory));
                 }
                 else {
                     unpartitionedDriverFactories.add(new DriverSplitRunnerFactory(driverFactory));
