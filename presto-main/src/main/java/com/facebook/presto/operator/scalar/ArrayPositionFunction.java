@@ -13,86 +13,34 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.annotation.UsedByGeneratedCode;
-import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.SqlScalarFunction;
+import com.facebook.presto.operator.Description;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.type.SqlType;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+
+import javax.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.metadata.OperatorType.EQUAL;
-import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
-import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.util.Reflection.methodHandle;
 
+@Description("Returns the position of the first occurrence of the given value in array (or 0 if not found)")
+@ScalarFunction("array_position")
 public final class ArrayPositionFunction
-        extends SqlScalarFunction
 {
-    public static final ArrayPositionFunction ARRAY_POSITION = new ArrayPositionFunction();
-    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(ArrayPositionFunction.class, "arrayPosition", Type.class, MethodHandle.class, Block.class, boolean.class);
-    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(ArrayPositionFunction.class, "arrayPosition", Type.class, MethodHandle.class, Block.class, long.class);
-    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(ArrayPositionFunction.class, "arrayPosition", Type.class, MethodHandle.class, Block.class, double.class);
-    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(ArrayPositionFunction.class, "arrayPosition", Type.class, MethodHandle.class, Block.class, Slice.class);
-    private static final MethodHandle METHOD_HANDLE_OBJECT = methodHandle(ArrayPositionFunction.class, "arrayPosition", Type.class, MethodHandle.class, Block.class, Object.class);
+    private ArrayPositionFunction() {}
 
-    public ArrayPositionFunction()
-    {
-        super("array_position", ImmutableList.of(comparableTypeParameter("E")), ImmutableList.of(), "bigint", ImmutableList.of("array(E)", "E"));
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Returns the position of the first occurrence of the given value in array (or 0 if not found)";
-    }
-
-    @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
-    {
-        Type type = boundVariables.getTypeVariable("E");
-        MethodHandle equalMethodHandle = functionRegistry.getScalarFunctionImplementation(internalOperator(EQUAL, BOOLEAN, ImmutableList.of(type, type))).getMethodHandle();
-        MethodHandle arrayPositionMethodHandle;
-        if (type.getJavaType() == boolean.class) {
-            arrayPositionMethodHandle = METHOD_HANDLE_BOOLEAN;
-        }
-        else if (type.getJavaType() == long.class) {
-            arrayPositionMethodHandle = METHOD_HANDLE_LONG;
-        }
-        else if (type.getJavaType() == double.class) {
-            arrayPositionMethodHandle = METHOD_HANDLE_DOUBLE;
-        }
-        else if (type.getJavaType() == Slice.class) {
-            arrayPositionMethodHandle = METHOD_HANDLE_SLICE;
-        }
-        else {
-            arrayPositionMethodHandle = METHOD_HANDLE_OBJECT;
-        }
-        return new ScalarFunctionImplementation(false, ImmutableList.of(false, false), arrayPositionMethodHandle.bindTo(type).bindTo(equalMethodHandle), isDeterministic());
-    }
-
-    @UsedByGeneratedCode
-    public static long arrayPosition(Type type, MethodHandle equalMethodHandle, Block array, boolean element)
+    @TypeParameter("T")
+    @SqlType(StandardTypes.BIGINT)
+    public static long arrayPosition(@TypeParameter("T") Type type,
+                                     @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equalMethodHandle,
+                                     @SqlType("array(T)") Block array,
+                                     @SqlType("T") boolean element)
     {
         int size = array.getPositionCount();
         for (int i = 0; i < size; i++) {
@@ -113,8 +61,12 @@ public final class ArrayPositionFunction
         return 0;
     }
 
-    @UsedByGeneratedCode
-    public static long arrayPosition(Type type, MethodHandle equalMethodHandle, Block array, long element)
+    @TypeParameter("T")
+    @SqlType(StandardTypes.BIGINT)
+    public static long arrayPosition(@TypeParameter("T") Type type,
+                                     @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equalMethodHandle,
+                                     @SqlType("array(T)") Block array,
+                                     @SqlType("T") long element)
     {
         int size = array.getPositionCount();
         for (int i = 0; i < size; i++) {
@@ -135,8 +87,12 @@ public final class ArrayPositionFunction
         return 0;
     }
 
-    @UsedByGeneratedCode
-    public static long arrayPosition(Type type, MethodHandle equalMethodHandle, Block array, double element)
+    @TypeParameter("T")
+    @SqlType(StandardTypes.BIGINT)
+    public static long arrayPosition(@TypeParameter("T") Type type,
+                                     @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equalMethodHandle,
+                                     @SqlType("array(T)") Block array,
+                                     @SqlType("T") double element)
     {
         int size = array.getPositionCount();
         for (int i = 0; i < size; i++) {
@@ -157,8 +113,12 @@ public final class ArrayPositionFunction
         return 0;
     }
 
-    @UsedByGeneratedCode
-    public static long arrayPosition(Type type, MethodHandle equalMethodHandle, Block array, Slice element)
+    @TypeParameter("T")
+    @SqlType(StandardTypes.BIGINT)
+    public static long arrayPosition(@TypeParameter("T") Type type,
+                                     @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equalMethodHandle,
+                                     @SqlType("array(T)") Block array,
+                                     @SqlType("T") Slice element)
     {
         int size = array.getPositionCount();
         for (int i = 0; i < size; i++) {
@@ -179,8 +139,12 @@ public final class ArrayPositionFunction
         return 0;
     }
 
-    @UsedByGeneratedCode
-    public static long arrayPosition(Type type, MethodHandle equalMethodHandle, Block array, Object element)
+    @TypeParameter("T")
+    @SqlType(StandardTypes.BIGINT)
+    public static long arrayPosition(@TypeParameter("T") Type type,
+                                     @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equalMethodHandle,
+                                     @SqlType("array(T)") Block array,
+                                     @SqlType("T") Block element)
     {
         int size = array.getPositionCount();
         for (int i = 0; i < size; i++) {
@@ -199,5 +163,12 @@ public final class ArrayPositionFunction
             }
         }
         return 0;
+    }
+
+    @SqlType(StandardTypes.BIGINT)
+    @Nullable
+    public static Long arrayPosition(@SqlType("array(unknown)") Block array, @Nullable @SqlType("unknown") Void element)
+    {
+        return null;
     }
 }
