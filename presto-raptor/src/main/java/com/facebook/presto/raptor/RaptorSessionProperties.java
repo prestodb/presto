@@ -65,7 +65,7 @@ public class RaptorSessionProperties
                         false),
                 integerSessionProperty(
                         ONE_SPLIT_PER_BUCKET_THRESHOLD,
-                        "Experimental: Threshold at which only one split is producted per bucket",
+                        "Experimental: Maximum bucket count at which to produce multiple splits",
                         0,
                         false));
     }

@@ -100,7 +100,7 @@ public class RaptorSplitManager
         TupleDomain<RaptorColumnHandle> effectivePredicate = toRaptorTupleDomain(handle.getConstraint());
         long tableId = table.getTableId();
         boolean bucketed = table.getBucketCount().isPresent();
-        boolean merged = bucketed && !table.isDelete() && (table.getBucketCount().getAsInt() > getOneSplitPerBucketThreshold(session));
+        boolean merged = bucketed && !table.isDelete() && (table.getBucketCount().getAsInt() >= getOneSplitPerBucketThreshold(session));
         OptionalLong transactionId = table.getTransactionId();
         Optional<Map<Integer, String>> bucketToNode = handle.getPartitioning().map(RaptorPartitioningHandle::getBucketToNode);
         return new RaptorSplitSource(tableId, bucketed, merged, effectivePredicate, transactionId, bucketToNode);
