@@ -95,7 +95,10 @@ public class VerifierConfig
     }
 
     @NotNull
-    public String getSkipCpuCheckRegex() { return skipCpuCheckRegex; }
+    public String getSkipCpuCheckRegex()
+    {
+        return skipCpuCheckRegex;
+    }
 
     @ConfigDescription("CPU check will be skipped if this regex matches query")
     @Config("skip-cpu-check-regex")
@@ -348,7 +351,10 @@ public class VerifierConfig
         return this;
     }
 
-    public boolean isCheckCpuEnabled() { return checkCpu; }
+    public boolean isCheckCpuEnabled()
+    {
+        return checkCpu;
+    }
 
     @ConfigDescription("Whether to check that CPU from control and test match")
     @Config("check-cpu")
