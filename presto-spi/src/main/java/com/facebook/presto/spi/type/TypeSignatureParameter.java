@@ -83,7 +83,9 @@ public class TypeSignatureParameter
 
     private <A> A getValue(ParameterKind expectedParameterKind, Class<A> target)
     {
-        verify(kind == expectedParameterKind, format("ParameterKind is [%s] but expected [%s]", kind, expectedParameterKind));
+        if (kind != expectedParameterKind) {
+            throw new IllegalArgumentException(format("ParameterKind is [%s] but expected [%s]", kind, expectedParameterKind));
+        }
         return target.cast(value);
     }
 
@@ -155,12 +157,5 @@ public class TypeSignatureParameter
     public int hashCode()
     {
         return Objects.hash(kind, value);
-    }
-
-    private static void verify(boolean argument, String message)
-    {
-        if (!argument) {
-            throw new AssertionError(message);
-        }
     }
 }
