@@ -1408,6 +1408,16 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGroupingSetPredicatePushdown()
+            throws Exception
+    {
+        assertQuery("SELECT * FROM (" +
+                        "SELECT COALESCE(orderpriority, 'ALL'), COALESCE(shippriority, -1) sp FROM (" +
+                        "SELECT orderpriority, shippriority, COUNT(1) FROM orders GROUP BY GROUPING SETS ((orderpriority), (shippriority)))) WHERE sp=-1",
+                "SELECT orderpriority, -1 FROM orders GROUP BY orderpriority");
+    }
+
+    @Test
     public void testRollup()
             throws Exception
     {
