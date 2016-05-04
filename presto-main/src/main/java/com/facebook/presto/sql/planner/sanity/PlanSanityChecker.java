@@ -21,18 +21,21 @@ import java.util.List;
 /**
  * It is going to be executed at the end of logical planner, to verify its correctness
  */
-public interface PlanSanityChecker
+public final class PlanSanityChecker
 {
-    List<PlanSanityChecker> PLAN_SANITY_CHECKERS = ImmutableList.of(
-            new EnsureSymbolDependenciesPlanSanityChecker(),
-            new NoSubqueryExpressionLeftSanityChecker());
+    private static final List<Checker> CHECKERS = ImmutableList.of(
+            new ValidateDependenciesChecker(),
+            new NoSubqueryExpressionLeftChecker());
 
-    static void validatePlan(PlanNode planNode)
+    private PlanSanityChecker() {}
+
+    public static void validate(PlanNode planNode)
     {
-        for (PlanSanityChecker planSanityChecker : PLAN_SANITY_CHECKERS) {
-            planSanityChecker.validate(planNode);
-        }
+        CHECKERS.forEach(checker -> checker.validate(planNode));
     }
 
-    void validate(PlanNode plan);
+    public interface Checker
+    {
+        void validate(PlanNode plan);
+    }
 }

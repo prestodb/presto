@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.sql.planner.sanity;
 
-import com.facebook.presto.sql.analyzer.SemanticErrorCode;
-import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.planner.SimplePlanVisitor;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -28,8 +26,10 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-public class NoSubqueryExpressionLeftSanityChecker
-        implements PlanSanityChecker
+import static java.lang.String.format;
+
+public final class NoSubqueryExpressionLeftChecker
+        implements PlanSanityChecker.Checker
 {
     @Override
     public void validate(PlanNode plan)
@@ -40,7 +40,7 @@ public class NoSubqueryExpressionLeftSanityChecker
                 @Override
                 protected Void visitSubqueryExpression(SubqueryExpression node, Void context)
                 {
-                    throw new SemanticException(SemanticErrorCode.NOT_SUPPORTED, node, "Given subquery is not yet supported");
+                    throw new IllegalStateException(format("Unexpected subquery expression in logical plan: %s", node));
                 }
             }.process(expression, null);
         }

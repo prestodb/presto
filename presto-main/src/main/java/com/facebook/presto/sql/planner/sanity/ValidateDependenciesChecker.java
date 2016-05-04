@@ -66,8 +66,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 /**
  * Ensures that all dependencies (i.e., symbols in expressions) for a plan node are provided by its source nodes
  */
-public final class EnsureSymbolDependenciesPlanSanityChecker
-        implements PlanSanityChecker
+public final class ValidateDependenciesChecker
+        implements PlanSanityChecker.Checker
 {
     @Override
     public void validate(PlanNode plan)
