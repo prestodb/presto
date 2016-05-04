@@ -29,7 +29,6 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 class PreferredProperties
@@ -122,6 +121,30 @@ class PreferredProperties
         return localProperties;
     }
 
+    public PreferredProperties mergeWithParent(PreferredProperties parent)
+    {
+        List<LocalProperty<Symbol>> newLocal = ImmutableList.<LocalProperty<Symbol>>builder()
+                .addAll(localProperties)
+                .addAll(parent.getLocalProperties())
+                .build();
+
+        Builder builder = builder()
+                .local(newLocal);
+
+        if (globalProperties.isPresent()) {
+            Global currentGlobal = globalProperties.get();
+            Global newGlobal = parent.getGlobalProperties()
+                    .map(currentGlobal::mergeWithParent)
+                    .orElse(currentGlobal);
+            builder.global(newGlobal);
+        }
+        else {
+            builder.global(parent.getGlobalProperties());
+        }
+
+        return builder.build();
+    }
+
     public PreferredProperties translate(Function<Symbol, Optional<Symbol>> translator)
     {
         Optional<Global> newGlobalProperties = globalProperties.map(global -> global.translate(translator));
@@ -142,6 +165,12 @@ class PreferredProperties
         public Builder global(Global globalProperties)
         {
             this.globalProperties = Optional.of(globalProperties);
+            return this;
+        }
+
+        public Builder global(Optional<Global> globalProperties)
+        {
+            this.globalProperties = globalProperties;
             return this;
         }
 
@@ -167,68 +196,6 @@ class PreferredProperties
         {
             return new PreferredProperties(globalProperties, localProperties);
         }
-    }
-
-    public static PreferredProperties derivePreferences(
-            PreferredProperties parentProperties,
-            Set<Symbol> partitioningColumns,
-            List<LocalProperty<Symbol>> localProperties)
-    {
-        return derivePreferences(parentProperties, partitioningColumns, Optional.empty(), localProperties);
-    }
-
-    /**
-     * Derive current node's preferred properties based on parent's preferences
-     *
-     * @param parentProperties Parent's preferences (translated)
-     * @param partitioningColumns partitioning columns of current node
-     * @param hashingColumns hashing columns of current node
-     * @param localProperties local properties of current node
-     * @return PreferredProperties for current node
-     */
-    public static PreferredProperties derivePreferences(
-            PreferredProperties parentProperties,
-            Set<Symbol> partitioningColumns,
-            Optional<List<Symbol>> hashingColumns,
-            List<LocalProperty<Symbol>> localProperties)
-    {
-        if (hashingColumns.isPresent()) {
-            checkState(partitioningColumns.equals(ImmutableSet.copyOf(hashingColumns.get())), "hashingColumns and partitioningColumns must be the same");
-        }
-
-        List<LocalProperty<Symbol>> local = ImmutableList.<LocalProperty<Symbol>>builder()
-                .addAll(localProperties)
-                .addAll(parentProperties.getLocalProperties())
-                .build();
-
-        // Check we need to be hash partitioned
-        if (hashingColumns.isPresent()) {
-            return hashPartitionedWithLocal(hashingColumns.get(), local);
-        }
-
-        if (parentProperties.getGlobalProperties().isPresent()) {
-            Global global = parentProperties.getGlobalProperties().get();
-            if (global.getPartitioningProperties().isPresent()) {
-                Partitioning partitioning = global.getPartitioningProperties().get();
-
-                // If parent's hash partitioning satisfies our partitioning, use parent's hash partitioning
-                if (partitioning.getHashingOrder().isPresent() && partitioningColumns.equals(ImmutableSet.copyOf(partitioning.getHashingOrder().get()))) {
-                    List<Symbol> hashingSymbols = partitioning.getHashingOrder().get();
-                    return hashPartitionedWithLocal(hashingSymbols, local);
-                }
-
-                // if the child plan is partitioned by the common columns between our requirements and our parent's, it can satisfy both in one shot
-                Set<Symbol> parentPartitioningColumns = partitioning.getPartitioningColumns();
-                Set<Symbol> common = Sets.intersection(partitioningColumns, parentPartitioningColumns);
-
-                // If we find common partitioning columns, use them, else use child's partitioning columns
-                if (!common.isEmpty()) {
-                    return partitionedWithLocal(common, local);
-                }
-                return partitionedWithLocal(partitioningColumns, local);
-            }
-        }
-        return partitionedWithLocal(partitioningColumns, local);
     }
 
     @Immutable
@@ -276,6 +243,20 @@ class PreferredProperties
         public boolean isHashPartitioned()
         {
             return partitioningProperties.isPresent() && partitioningProperties.get().getHashingOrder().isPresent();
+        }
+
+        public Global mergeWithParent(Global parent)
+        {
+            if (distributed != parent.distributed) {
+                return this;
+            }
+            if (!partitioningProperties.isPresent()) {
+                return parent;
+            }
+            if (!parent.partitioningProperties.isPresent()) {
+                return this;
+            }
+            return new Global(distributed, Optional.of(partitioningProperties.get().mergeWithParent(parent.partitioningProperties.get())));
         }
 
         public Global translate(Function<Symbol, Optional<Symbol>> translator)
@@ -351,6 +332,23 @@ class PreferredProperties
         public Optional<List<Symbol>> getHashingOrder()
         {
             return hashingOrder;
+        }
+
+        public Partitioning mergeWithParent(Partitioning parent)
+        {
+            // Non-negotiable if we require a specific hashing order
+            if (hashingOrder.isPresent()) {
+                return this;
+            }
+
+            // If the parent has a hashing requirement, propagate parent only if the parent's hashing order satisfies our partitioning preference
+            if (parent.hashingOrder.isPresent() && partitioningColumns.equals(parent.partitioningColumns)) {
+                return parent;
+            }
+
+            // Otherwise partition on any common columns if available
+            Set<Symbol> common = Sets.intersection(partitioningColumns, parent.partitioningColumns);
+            return common.isEmpty() ? this : partitioned(common);
         }
 
         public Optional<Partitioning> translate(Function<Symbol, Optional<Symbol>> translator)

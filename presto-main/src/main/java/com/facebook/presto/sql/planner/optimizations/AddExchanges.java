@@ -278,9 +278,8 @@ public class AddExchanges
 
             PreferredProperties preferredProperties = PreferredProperties.any();
             if (!node.getGroupBy().isEmpty()) {
-                preferredProperties = PreferredProperties.derivePreferences(context.getPreferredProperties(),
-                        partitioningRequirement,
-                        Optional.of(ImmutableList.copyOf(partitioningRequirement)), grouped(node.getGroupBy()));
+                preferredProperties = PreferredProperties.hashPartitionedWithLocal(ImmutableList.copyOf(partitioningRequirement), grouped(node.getGroupBy()))
+                        .mergeWithParent(context.getPreferredProperties());
             }
 
             PlanWithProperties child = planChild(node, context.withPreferredProperties(preferredProperties));
@@ -392,7 +391,8 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitMarkDistinct(MarkDistinctNode node, Context context)
         {
-            PreferredProperties preferredChildProperties = PreferredProperties.derivePreferences(context.getPreferredProperties(), ImmutableSet.copyOf(node.getDistinctSymbols()), Optional.of(node.getDistinctSymbols()), grouped(node.getDistinctSymbols()));
+            PreferredProperties preferredChildProperties = PreferredProperties.hashPartitionedWithLocal(node.getDistinctSymbols(), grouped(node.getDistinctSymbols()))
+                    .mergeWithParent(context.getPreferredProperties());
             PlanWithProperties child = node.getSource().accept(this, context.withPreferredProperties(preferredChildProperties));
 
             if (child.getProperties().isSingleNode() ||
@@ -423,7 +423,9 @@ public class AddExchanges
 
             PlanWithProperties child = planChild(
                     node,
-                    context.withPreferredProperties(PreferredProperties.derivePreferences(context.getPreferredProperties(), ImmutableSet.copyOf(node.getPartitionBy()), desiredProperties)));
+                    context.withPreferredProperties(
+                            PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(node.getPartitionBy()), desiredProperties)
+                                    .mergeWithParent(context.getPreferredProperties())));
 
             if (!child.getProperties().isStreamPartitionedOn(node.getPartitionBy())) {
                 if (node.getPartitionBy().isEmpty()) {
@@ -456,7 +458,9 @@ public class AddExchanges
                 return rebaseAndDeriveProperties(node, child);
             }
 
-            PlanWithProperties child = planChild(node, context.withPreferredProperties(PreferredProperties.derivePreferences(context.getPreferredProperties(), ImmutableSet.copyOf(node.getPartitionBy()), grouped(node.getPartitionBy()))));
+            PlanWithProperties child = planChild(node, context.withPreferredProperties(
+                    PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(node.getPartitionBy()), grouped(node.getPartitionBy()))
+                            .mergeWithParent(context.getPreferredProperties())));
 
             // TODO: add config option/session property to force parallel plan if child is unpartitioned and window has a PARTITION BY clause
             if (!child.getProperties().isStreamPartitionedOn(node.getPartitionBy())) {
@@ -486,7 +490,8 @@ public class AddExchanges
                 addExchange = partial -> gatheringExchange(idAllocator.getNextId(), REMOTE, partial);
             }
             else {
-                preferredChildProperties = PreferredProperties.derivePreferences(context.getPreferredProperties(), ImmutableSet.copyOf(node.getPartitionBy()), grouped(node.getPartitionBy()));
+                preferredChildProperties = PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(node.getPartitionBy()), grouped(node.getPartitionBy()))
+                        .mergeWithParent(context.getPreferredProperties());
                 addExchange = partial -> partitionedExchange(idAllocator.getNextId(), REMOTE, partial, node.getPartitionBy(), node.getHashSymbol());
             }
 
@@ -1021,7 +1026,9 @@ public class AddExchanges
             // Only prefer grouping on join columns if no parent local property preferences
             List<LocalProperty<Symbol>> desiredLocalProperties = context.getPreferredProperties().getLocalProperties().isEmpty() ? grouped(joinColumns) : ImmutableList.of();
 
-            PlanWithProperties probeSource = node.getProbeSource().accept(this, context.withPreferredProperties(PreferredProperties.derivePreferences(context.getPreferredProperties(), ImmutableSet.copyOf(joinColumns), desiredLocalProperties)));
+            PlanWithProperties probeSource = node.getProbeSource().accept(this, context.withPreferredProperties(
+                    PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(joinColumns), desiredLocalProperties)
+                            .mergeWithParent(context.getPreferredProperties())));
             ActualProperties probeProperties = probeSource.getProperties();
 
             PlanWithProperties indexSource = node.getIndexSource().accept(this, context.withPreferredProperties(PreferredProperties.any()));
@@ -1317,6 +1324,7 @@ public class AddExchanges
     {
         private final PlanNode node;
         private final ActualProperties properties;
+
         public PlanWithProperties(PlanNode node, ActualProperties properties)
         {
             this.node = node;
