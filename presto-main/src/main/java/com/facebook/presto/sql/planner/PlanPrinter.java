@@ -45,6 +45,7 @@ import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
+import com.facebook.presto.sql.planner.plan.IntersectNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
@@ -757,6 +758,15 @@ public class PlanPrinter
         public Void visitUnion(UnionNode node, Integer indent)
         {
             print(indent, "- Union => [%s]", formatOutputs(node.getOutputSymbols()));
+            printStats(indent + 2, node.getId());
+
+            return processChildren(node, indent + 1);
+        }
+
+        @Override
+        public Void visitIntersect(IntersectNode node, Integer indent)
+        {
+            print(indent, "- Intersect => [%s]", formatOutputs(node.getOutputSymbols()));
             printStats(indent + 2, node.getId());
 
             return processChildren(node, indent + 1);
