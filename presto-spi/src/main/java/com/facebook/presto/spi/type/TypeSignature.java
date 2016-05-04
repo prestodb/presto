@@ -331,13 +331,14 @@ public class TypeSignature
                 Objects.equals(this.parameters, other.parameters);
     }
 
-    private boolean magicVarcharEquals(TypeSignature b, TypeSignature a)
+    private static boolean magicVarcharEquals(TypeSignature first, TypeSignature second)
     {
-        // `varchar` and `varchar(MAX_LONG)` are equivalent
-        return this.getBase().equals(StandardTypes.VARCHAR)
-                && b.getBase().equals(StandardTypes.VARCHAR)
-                && ((a.getParameters().isEmpty() && b.getParameters().equals(Arrays.asList(TypeSignatureParameter.of(VarcharType.MAX_LENGTH))))
-                || (b.getParameters().isEmpty() && this.getParameters().equals(Arrays.asList(TypeSignatureParameter.of(VarcharType.MAX_LENGTH)))));
+        // treat `varchar` and `varchar(MAX_LONG)` are equivalent
+        // should replaced with hack in parser as soon as we change declarations of all functions taking varachar parameters to use parameterization
+        return first.getBase().equals(StandardTypes.VARCHAR)
+                && second.getBase().equals(StandardTypes.VARCHAR)
+                && ((first.getParameters().isEmpty() && second.getParameters().equals(Arrays.asList(TypeSignatureParameter.of(VarcharType.MAX_LENGTH))))
+                || (second.getParameters().isEmpty() && first.getParameters().equals(Arrays.asList(TypeSignatureParameter.of(VarcharType.MAX_LENGTH)))));
     }
 
     @Override
