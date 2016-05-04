@@ -28,13 +28,15 @@ import static java.util.Objects.requireNonNull;
 
 public class HiveBucketProperty
 {
-    private final List<String> clusteredBy;
+    private final List<String> bucketedBy;
     private final int bucketCount;
 
     @JsonCreator
-    public HiveBucketProperty(@JsonProperty("clusteredBy") List<String> clusteredBy, @JsonProperty("bucketCount") int bucketCount)
+    public HiveBucketProperty(
+            @JsonProperty("bucketedBy") List<String> bucketedBy,
+            @JsonProperty("bucketCount") int bucketCount)
     {
-        this.clusteredBy = requireNonNull(clusteredBy, "clusteredBy is null");
+        this.bucketedBy = requireNonNull(bucketedBy, "bucketedBy is null");
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
     }
 
@@ -53,9 +55,9 @@ public class HiveBucketProperty
     }
 
     @JsonProperty
-    public List<String> getClusteredBy()
+    public List<String> getBucketedBy()
     {
-        return clusteredBy;
+        return bucketedBy;
     }
 
     @JsonProperty
@@ -75,20 +77,20 @@ public class HiveBucketProperty
         }
         HiveBucketProperty that = (HiveBucketProperty) o;
         return bucketCount == that.bucketCount &&
-                Objects.equals(clusteredBy, that.clusteredBy);
+                Objects.equals(bucketedBy, that.bucketedBy);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(clusteredBy, bucketCount);
+        return Objects.hash(bucketedBy, bucketCount);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("clusteredBy", clusteredBy)
+                .add("bucketedBy", bucketedBy)
                 .add("bucketCount", bucketCount)
                 .toString();
     }

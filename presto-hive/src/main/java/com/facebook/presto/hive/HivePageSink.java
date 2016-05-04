@@ -236,10 +236,10 @@ public class HivePageSink
             int bucketCount = bucketProperty.get().getBucketCount();
             checkArgument(bucketCount < MAX_BUCKET_COUNT, "bucketCount must be smaller than 100000");
             this.bucketCount = OptionalInt.of(bucketCount);
-            this.bucketColumns = bucketProperty.get().getClusteredBy().stream()
+            this.bucketColumns = bucketProperty.get().getBucketedBy().stream()
                     .mapToInt(dataColumnNameToIdMap::get)
                     .toArray();
-            this.bucketColumnTypes = bucketProperty.get().getClusteredBy().stream()
+            this.bucketColumnTypes = bucketProperty.get().getBucketedBy().stream()
                     .map(dataColumnNameToTypeMap::get)
                     .map(HiveType::getTypeInfo)
                     .collect(Collectors.toList());

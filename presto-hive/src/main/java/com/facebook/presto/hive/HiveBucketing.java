@@ -191,7 +191,7 @@ final class HiveBucketing
         Map<String, HiveColumnHandle> map = getNonPartitionKeyColumnHandles(connectorId, table).stream()
                 .collect(Collectors.toMap(HiveColumnHandle::getName, identity()));
 
-        List<HiveColumnHandle> bucketColumns = hiveBucketProperty.get().getClusteredBy().stream()
+        List<HiveColumnHandle> bucketColumns = hiveBucketProperty.get().getBucketedBy().stream()
                 .map(map::get)
                 .collect(Collectors.toList());
 

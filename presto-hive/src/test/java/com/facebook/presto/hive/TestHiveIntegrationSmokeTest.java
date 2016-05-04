@@ -44,8 +44,8 @@ import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.hive.HiveQueryRunner.createSampledSession;
+import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
-import static com.facebook.presto.hive.HiveTableProperties.CLUSTERED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveUtil.annotateColumnComment;
@@ -387,7 +387,7 @@ public class TestHiveIntegrationSmokeTest
                 "WITH (" +
                 "format = '" + storageFormat + "', " +
                 "partitioned_by = ARRAY[ 'orderstatus' ], " +
-                "clustered_by = ARRAY[ 'custkey' ], " +
+                "bucketed_by = ARRAY[ 'custkey' ], " +
                 "bucket_count = 11 " +
                 ") " +
                 "AS " +
@@ -409,7 +409,7 @@ public class TestHiveIntegrationSmokeTest
             assertEquals(columnMetadata.getComment(), annotateColumnComment(null, partitionKey));
         }
 
-        assertEquals(tableMetadata.getMetadata().getProperties().get(CLUSTERED_BY_PROPERTY), ImmutableList.of("custkey"));
+        assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY), ImmutableList.of("custkey"));
         assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY), 11);
 
         List<?> partitions = getPartitions("test_create_partitioned_bucketed_table_as");
@@ -454,7 +454,7 @@ public class TestHiveIntegrationSmokeTest
                 "WITH (" +
                 "format = '" + storageFormat + "', " +
                 "partitioned_by = ARRAY[ 'orderstatus' ], " +
-                "clustered_by = ARRAY[ 'custkey' ], " +
+                "bucketed_by = ARRAY[ 'custkey' ], " +
                 "bucket_count = 13)");
 
         ImmutableList<String> orderStatusList = ImmutableList.of("F", "O", "P");
@@ -480,7 +480,7 @@ public class TestHiveIntegrationSmokeTest
                 assertEquals(columnMetadata.getComment(), annotateColumnComment(null, partitionKey));
             }
 
-            assertEquals(tableMetadata.getMetadata().getProperties().get(CLUSTERED_BY_PROPERTY), ImmutableList.of("custkey"));
+            assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY), ImmutableList.of("custkey"));
             assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY), 13);
 
             List<?> partitions = getPartitions("test_insert_partitioned_bucketed_table");

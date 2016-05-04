@@ -37,7 +37,7 @@ public class HiveTableProperties
 {
     public static final String STORAGE_FORMAT_PROPERTY = "format";
     public static final String PARTITIONED_BY_PROPERTY = "partitioned_by";
-    public static final String CLUSTERED_BY_PROPERTY = "clustered_by";
+    public static final String BUCKETED_BY_PROPERTY = "bucketed_by";
     public static final String BUCKET_COUNT_PROPERTY = "bucket_count";
 
     private final List<PropertyMetadata<?>> tableProperties;
@@ -67,7 +67,7 @@ public class HiveTableProperties
                                 .collect(Collectors.toList())),
                         value -> value),
                 new PropertyMetadata<>(
-                        CLUSTERED_BY_PROPERTY,
+                        BUCKETED_BY_PROPERTY,
                         "Bucketing columns",
                         typeManager.getType(parseTypeSignature("array(varchar)")),
                         List.class,
@@ -98,23 +98,23 @@ public class HiveTableProperties
 
     public static Optional<HiveBucketProperty> getBucketProperty(Map<String, Object> tableProperties)
     {
-        List<String> clusteredBy = getClusteredBy(tableProperties);
+        List<String> bucketedBy = getBucketedBy(tableProperties);
         int bucketCount = (Integer) tableProperties.get(BUCKET_COUNT_PROPERTY);
-        if ((clusteredBy.isEmpty()) && (bucketCount == 0)) {
+        if ((bucketedBy.isEmpty()) && (bucketCount == 0)) {
             return Optional.empty();
         }
         if (bucketCount < 0) {
             throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s must be greater than zero", BUCKET_COUNT_PROPERTY));
         }
-        if (clusteredBy.isEmpty() || bucketCount == 0) {
-            throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s and %s must be specified together", CLUSTERED_BY_PROPERTY, BUCKET_COUNT_PROPERTY));
+        if (bucketedBy.isEmpty() || bucketCount == 0) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s and %s must be specified together", BUCKETED_BY_PROPERTY, BUCKET_COUNT_PROPERTY));
         }
-        return Optional.of(new HiveBucketProperty(clusteredBy, bucketCount));
+        return Optional.of(new HiveBucketProperty(bucketedBy, bucketCount));
     }
 
     @SuppressWarnings("unchecked")
-    private static List<String> getClusteredBy(Map<String, Object> tableProperties)
+    private static List<String> getBucketedBy(Map<String, Object> tableProperties)
     {
-        return (List<String>) tableProperties.get(CLUSTERED_BY_PROPERTY);
+        return (List<String>) tableProperties.get(BUCKETED_BY_PROPERTY);
     }
 }
