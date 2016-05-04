@@ -59,9 +59,8 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.hadoop.HadoopFileStatus.isDirectory;
+import static com.facebook.presto.hive.AbstractTestHiveClient.createTableProperties;
 import static com.facebook.presto.hive.AbstractTestHiveClient.listAllDataPaths;
-import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
-import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveDataStreamFactories;
@@ -311,11 +310,7 @@ public abstract class AbstractTestHiveClientS3
                 .add(new ColumnMetadata("id", BIGINT))
                 .build();
 
-        Map<String, Object> properties = ImmutableMap.<String, Object>builder()
-                .put(STORAGE_FORMAT_PROPERTY, storageFormat)
-                .put(PARTITIONED_BY_PROPERTY, ImmutableList.of())
-                .build();
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, properties, tableOwner);
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, createTableProperties(storageFormat), tableOwner);
         HiveOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, tableMetadata, Optional.empty());
 
         MaterializedResult data = MaterializedResult.resultBuilder(SESSION, BIGINT)

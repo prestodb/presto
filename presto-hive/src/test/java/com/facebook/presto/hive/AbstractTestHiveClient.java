@@ -2550,7 +2550,7 @@ public abstract class AbstractTestHiveClient
         return UUID.randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
     }
 
-    private static Map<String, Object> createTableProperties(HiveStorageFormat storageFormat)
+    protected static Map<String, Object> createTableProperties(HiveStorageFormat storageFormat)
     {
         return createTableProperties(storageFormat, ImmutableList.of());
     }
