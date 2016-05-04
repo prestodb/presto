@@ -679,7 +679,7 @@ class QueryPlanner
                 new ApplyNode(idAllocator.getNextId(),
                         subPlan.getRoot(),
                         valueListRelation.getRoot(),
-                        ImmutableMap.of()),
+                        ImmutableList.of()),
                 subPlan.getSampleWeight());
     }
 
@@ -716,7 +716,7 @@ class QueryPlanner
                     new ApplyNode(idAllocator.getNextId(),
                             root,
                             enforceSingleRowNode,
-                            ImmutableMap.of()),
+                            ImmutableList.of()),
                     builder.getSampleWeight());
         }
     }

@@ -686,7 +686,7 @@ class RelationPlanner
                 new ApplyNode(idAllocator.getNextId(),
                         subPlan.getRoot(),
                         valueListRelation,
-                        ImmutableMap.of()),
+                        ImmutableList.of()),
                 subPlan.getSampleWeight());
     }
 

@@ -69,7 +69,6 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.collect.Maps.immutableEnumMap;
 import static java.lang.String.format;
-import static java.util.stream.Collectors.toList;
 
 public final class GraphvizPrinter
 {
@@ -461,10 +460,7 @@ public final class GraphvizPrinter
         @Override
         public Void visitApply(ApplyNode node, Void context)
         {
-            List<String> correlation = node.getCorrelation().entrySet().stream()
-                    .map(entry -> format("%s = %s", entry.getKey(), entry.getValue()))
-                    .collect(toList());
-            String parameters = Joiner.on(",").join(correlation);
+            String parameters = Joiner.on(",").join(node.getCorrelation());
             printNode(node, "Apply", parameters, NODE_COLORS.get(NodeType.JOIN));
 
             node.getInput().accept(this, context);
