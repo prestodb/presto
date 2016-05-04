@@ -194,6 +194,13 @@ public class MaterializedResult
                 .collect(toImmutableSet());
     }
 
+    public Object getOnlyValue()
+    {
+        checkState(rows.size() == 1, "result set must have exactly one row");
+        checkState(types.size() == 1, "result set must have exactly one column");
+        return rows.get(0).getField(0);
+    }
+
     public Page toPage()
     {
         PageBuilder pageBuilder = new PageBuilder(types);

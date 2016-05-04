@@ -19,14 +19,19 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.util.ImmutableCollectors;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.SetMultimap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import java.sql.Date;
 import java.sql.Timestamp;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
+import java.util.StringJoiner;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
@@ -132,6 +137,147 @@ public class TestRaptorIntegrationSmokeTest
                 .map(row -> row.getField(0))
                 .collect(toSet());
         assertEquals(actual, IntStream.range(0, 50).boxed().collect(toSet()));
+    }
+
+    @Test
+    public void testShardingByTemporalDateColumn()
+            throws Exception
+    {
+        // Make sure we have at least 2 different orderdate.
+        assertEquals(computeActual("SELECT count(DISTINCT orderdate) >= 2 FROM orders WHERE orderdate < date '1992-02-08'").getOnlyValue(), true);
+
+        assertUpdate("CREATE TABLE test_shard_temporal_date " +
+                        "WITH (temporal_column = 'orderdate') AS " +
+                        "SELECT orderdate, orderkey " +
+                        "FROM orders " +
+                        "WHERE orderdate < date '1992-02-08'",
+                "SELECT count(*) " +
+                        "FROM orders " +
+                        "WHERE orderdate < date '1992-02-08'"
+        );
+
+        MaterializedResult results = computeActual("SELECT orderdate, \"$shard_uuid\" FROM test_shard_temporal_date");
+
+        // Each shard will only contain data of one date.
+        SetMultimap<String, Date> shardDateMap = HashMultimap.create();
+        for (MaterializedRow row : results.getMaterializedRows()) {
+            shardDateMap.put((String) row.getField(1), (Date) row.getField(0));
+        }
+
+        for (Collection<Date> dates : shardDateMap.asMap().values()) {
+            assertEquals(dates.size(), 1);
+        }
+
+        // Make sure we have all the rows
+        assertQuery("SELECT orderdate, orderkey FROM test_shard_temporal_date",
+                "SELECT orderdate, orderkey FROM orders WHERE orderdate < date '1992-02-08'");
+    }
+
+    @Test
+    public void testShardingByTemporalDateColumnBucketed()
+            throws Exception
+    {
+        // Make sure we have at least 2 different orderdate.
+        assertEquals(computeActual("SELECT count(DISTINCT orderdate) >= 2 FROM orders WHERE orderdate < date '1992-02-08'").getOnlyValue(), true);
+
+        assertUpdate("CREATE TABLE test_shard_temporal_date_bucketed " +
+                        "WITH (temporal_column = 'orderdate', bucket_count = 10, bucketed_on = ARRAY ['orderkey']) AS " +
+                        "SELECT orderdate, orderkey " +
+                        "FROM orders " +
+                        "WHERE orderdate < date '1992-02-08'",
+                "SELECT count(*) " +
+                        "FROM orders " +
+                        "WHERE orderdate < date '1992-02-08'"
+        );
+
+        MaterializedResult results = computeActual("SELECT orderdate, \"$shard_uuid\" FROM test_shard_temporal_date_bucketed");
+
+        // Each shard will only contain data of one date.
+        SetMultimap<String, Date> shardDateMap = HashMultimap.create();
+        for (MaterializedRow row : results.getMaterializedRows()) {
+            shardDateMap.put((String) row.getField(1), (Date) row.getField(0));
+        }
+
+        for (Collection<Date> dates : shardDateMap.asMap().values()) {
+            assertEquals(dates.size(), 1);
+        }
+
+        // Make sure we have all the rows
+        assertQuery("SELECT orderdate, orderkey FROM test_shard_temporal_date_bucketed",
+                "SELECT orderdate, orderkey FROM orders WHERE orderdate < date '1992-02-08'");
+    }
+
+    @Test
+    public void testShardingByTemporalTimestampColumn()
+            throws Exception
+    {
+        // Make sure we have at least 2 different orderdate.
+        assertEquals(computeActual("SELECT count(DISTINCT orderdate) >= 2 FROM orders WHERE orderdate < date '1992-02-08'").getOnlyValue(), true);
+
+        assertUpdate("CREATE TABLE test_shard_temporal_timestamp(col1 BIGINT, col2 TIMESTAMP) WITH (temporal_column = 'col2')");
+
+        int rows = 20;
+        StringJoiner joiner = new StringJoiner(", ", "INSERT INTO test_shard_temporal_timestamp VALUES ", "");
+        for (int i = 0; i < rows; i++) {
+            joiner.add(format("(%s, TIMESTAMP '2016-08-08 01:00' + interval '%s' hour)", i, i * 4));
+        }
+
+        assertUpdate(joiner.toString(), format("VALUES(%s)", rows));
+
+        MaterializedResult results = computeActual("SELECT format_datetime(col2, 'yyyyMMdd'), \"$shard_uuid\" FROM test_shard_temporal_timestamp");
+        assertEquals(results.getRowCount(), rows);
+
+        // Each shard will only contain data of one date.
+        SetMultimap<String, String> shardDateMap = HashMultimap.create();
+        for (MaterializedRow row : results.getMaterializedRows()) {
+            shardDateMap.put((String) row.getField(1), (String) row.getField(0));
+        }
+
+        for (Collection<String> dates : shardDateMap.asMap().values()) {
+            assertEquals(dates.size(), 1);
+        }
+
+        // Ensure one shard can contain different timestamps from the same day
+        assertLessThan(shardDateMap.size(), rows);
+    }
+
+    @Test
+    public void testShardingByTemporalTimestampColumnBucketed()
+            throws Exception
+    {
+        // Make sure we have at least 2 different orderdate.
+        assertEquals(computeActual("SELECT count(DISTINCT orderdate) >= 2 FROM orders WHERE orderdate < date '1992-02-08'").getOnlyValue(), true);
+
+        assertUpdate("" +
+                "CREATE TABLE test_shard_temporal_timestamp_bucketed(col1 BIGINT, col2 TIMESTAMP) " +
+                "WITH (temporal_column = 'col2', bucket_count = 3, bucketed_on = ARRAY ['col1'])");
+
+        int rows = 100;
+        StringJoiner joiner = new StringJoiner(", ", "INSERT INTO test_shard_temporal_timestamp_bucketed VALUES ", "");
+        for (int i = 0; i < rows; i++) {
+            joiner.add(format("(%s, TIMESTAMP '2016-08-08 01:00' + interval '%s' hour)", i, i));
+        }
+
+        assertUpdate(joiner.toString(), format("VALUES(%s)", rows));
+
+        MaterializedResult results = computeActual("" +
+                "SELECT format_datetime(col2, 'yyyyMMdd'), \"$shard_uuid\" " +
+                "FROM test_shard_temporal_timestamp_bucketed");
+
+        assertEquals(results.getRowCount(), rows);
+
+        // Each shard will only contain data of one date.
+        SetMultimap<String, String> shardDateMap = HashMultimap.create();
+        for (MaterializedRow row : results.getMaterializedRows()) {
+            shardDateMap.put((String) row.getField(1), (String) row.getField(0));
+        }
+
+        for (Collection<String> dates : shardDateMap.asMap().values()) {
+            assertEquals(dates.size(), 1);
+        }
+
+        // Ensure one shard can contain different timestamps from the same day
+        assertLessThan(shardDateMap.size(), rows);
     }
 
     @Test
