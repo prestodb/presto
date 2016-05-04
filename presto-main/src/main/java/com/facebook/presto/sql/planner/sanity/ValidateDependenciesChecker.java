@@ -527,10 +527,10 @@ public final class ValidateDependenciesChecker
         public Void visitApply(ApplyNode node, Void context)
         {
             node.getInput().accept(this, context); // visit child
-            //TODO handle correlated parameters in expression
             node.getSubquery().accept(this, context); // visit child
 
-            checkDependencies(node.getInput().getOutputSymbols(), node.getCorrelation().keySet(), "APPLY input must provide all the necessary correlation symbols for subquery");
+            checkDependencies(node.getInput().getOutputSymbols(), node.getCorrelation(), "APPLY input must provide all the necessary correlation symbols for subquery");
+            checkDependencies(DependencyExtractor.extractUnique(node.getSubquery()), node.getCorrelation(), "not all APPLY correlation symbols are not used in subquery");
 
             verifyUniqueId(node);
 

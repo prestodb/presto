@@ -30,7 +30,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class UncorrelatedScalarApplyRemover
+public class TransformUncorrelatedScalarToJoin
         implements PlanOptimizer
 {
     @Override
@@ -52,11 +52,12 @@ public class UncorrelatedScalarApplyRemover
         @Override
         public PlanNode visitApply(ApplyNode node, RewriteContext<PlanNode> context)
         {
-            node = (ApplyNode) super.visitApply(node, context);
+            node = (ApplyNode) context.defaultRewrite(node, context.get());
 
             if (node.getCorrelation().isEmpty() && node.getSubquery() instanceof EnforceSingleRowNode) {
                 // only scalar subquery wraps expression in EnforceSingleRowNode
-                return new JoinNode(idAllocator.getNextId(),
+                return new JoinNode(
+                        idAllocator.getNextId(),
                         JoinNode.Type.FULL,
                         node.getInput(),
                         node.getSubquery(),

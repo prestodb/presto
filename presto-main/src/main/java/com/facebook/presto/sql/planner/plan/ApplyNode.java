@@ -34,11 +34,16 @@ public class ApplyNode
     private final PlanNode input;
     private final PlanNode subquery;
 
-    // Mapping between input and subquery, key represents symbols in input, values in subquery
+    /**
+     * Mapping between input and subquery,
+     * - key represents symbol in subquery (inner plan)
+     * - value represents output symbol of input (outer plan)
+     */
     private final Map<Symbol, Symbol> correlation;
 
     @JsonCreator
-    public ApplyNode(@JsonProperty("id") PlanNodeId id,
+    public ApplyNode(
+            @JsonProperty("id") PlanNodeId id,
             @JsonProperty("input") PlanNode input,
             @JsonProperty("subquery") PlanNode subquery,
             @JsonProperty("correlation") Map<Symbol, Symbol> correlation)

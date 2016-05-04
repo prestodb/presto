@@ -40,9 +40,9 @@ import com.facebook.presto.sql.planner.optimizations.PushTableWriteThroughUnion;
 import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
 import com.facebook.presto.sql.planner.optimizations.SimplifyExpressions;
 import com.facebook.presto.sql.planner.optimizations.SingleDistinctOptimizer;
+import com.facebook.presto.sql.planner.optimizations.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
+import com.facebook.presto.sql.planner.optimizations.TransformUncorrelatedScalarToJoin;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
-import com.facebook.presto.sql.planner.optimizations.UncorrelatedInPredicateApplyRemover;
-import com.facebook.presto.sql.planner.optimizations.UncorrelatedScalarApplyRemover;
 import com.facebook.presto.sql.planner.optimizations.VerifyNoApplyNodeLeftPlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.WindowFilterPushDown;
 import com.google.common.collect.ImmutableList;
@@ -68,8 +68,8 @@ public class PlanOptimizersFactory
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 
         builder.add(new DesugaringOptimizer(metadata, sqlParser), // Clean up all the sugar in expressions, e.g. AtTimeZone, must be run before all the other optimizers
-                new UncorrelatedScalarApplyRemover(),
-                new UncorrelatedInPredicateApplyRemover(),
+                new TransformUncorrelatedScalarToJoin(),
+                new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
                 new VerifyNoApplyNodeLeftPlanOptimizer(),
                 new ImplementSampleAsFilter(),
                 new CanonicalizeExpressions(),

@@ -43,7 +43,31 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
-public class UncorrelatedInPredicateApplyRemover
+/**
+ * This optimizers looks for InPredicate expressions with subqueries, finds matching uncorrelated Apply nodes
+ * and then replace Apply nodes with SemiJoin nodes and updates InPredicates.
+ *
+ * Plan before optimizer:
+ * <pre>
+ * Filter(a IN b):
+ *   Apply
+ *     - correlation: []  // empty
+ *     - input: some plan A producing symbol a
+ *     - subquery: some plan B producing symbol b
+ * </pre>
+ *
+ * Plan after optimizer:
+ * <pre>
+ * Filter(semijoinresult):
+ *   SemiJoin
+ *     - source: plan A
+ *     - filteringSource: symbol a
+ *     - sourceJoinSymbol: plan B
+ *     - filteringSourceJoinSymbol: symbol b
+ *     - semiJoinOutput: semijoinresult
+ * </pre>
+ */
+public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
         implements PlanOptimizer
 {
     @Override
@@ -71,21 +95,23 @@ public class UncorrelatedInPredicateApplyRemover
         @Override
         public PlanNode visitFilter(FilterNode node, RewriteContext<Void> context)
         {
-            node = (FilterNode) super.visitFilter(node, context);
+            node = (FilterNode) context.defaultRewrite(node, context.get());
 
-            List<InPredicate> inPredicates = collectInPredicates(ImmutableList.of(node.getPredicate()));
+            List<InPredicate> inPredicates = extractInPredicates(ImmutableList.of(node.getPredicate()));
             ImmutableMap.Builder<InPredicate, Expression> inPredicateMapping = ImmutableMap.builder();
             node = rewriteInPredicates(node, inPredicates, inPredicateMapping);
-            Expression expression = replaceExpression(node.getPredicate(), inPredicateMapping.build());
-            return new FilterNode(node.getId(), getOnlyElement(node.getSources()), expression);
+            return new FilterNode(
+                    node.getId(),
+                    getOnlyElement(node.getSources()),
+                    replaceExpression(node.getPredicate(), inPredicateMapping.build()));
         }
 
         @Override
         public PlanNode visitProject(ProjectNode node, RewriteContext<Void> context)
         {
-            node = (ProjectNode) super.visitProject(node, context);
+            node = (ProjectNode) context.defaultRewrite(node, context.get());
 
-            List<InPredicate> inPredicates = collectInPredicates(node.getAssignments().values());
+            List<InPredicate> inPredicates = extractInPredicates(node.getAssignments().values());
             ImmutableMap.Builder<InPredicate, Expression> inPredicateMapping = ImmutableMap.builder();
             node = rewriteInPredicates(node, inPredicates, inPredicateMapping);
             return new ProjectNode(node.getId(),
@@ -113,26 +139,28 @@ public class UncorrelatedInPredicateApplyRemover
             return assignmentsBuilder.build();
         }
 
-        private List<InPredicate> collectInPredicates(Collection<Expression> expressions)
+        private List<InPredicate> extractInPredicates(Collection<Expression> expressions)
         {
-            ImmutableList.Builder<InPredicate> listBuilder = ImmutableList.builder();
+            ImmutableList.Builder<InPredicate> inPredicates = ImmutableList.builder();
             for (Expression expression : expressions) {
                 new DefaultTraversalVisitor<Void, Void>()
                 {
                     @Override
                     protected Void visitInPredicate(InPredicate node, Void context)
                     {
-                        listBuilder.add(node);
+                        if (node.getValueList() instanceof QualifiedNameReference) {
+                            inPredicates.add(node);
+                        }
                         return null;
                     }
                 }.process(expression, null);
             }
-            return listBuilder.build();
+            return inPredicates.build();
         }
     }
 
     /**
-     * For given InPredicate (in context) it finds matching Apply node (which produces in predicate value in apply's input,
+     * For given InPredicate (in context) it finds matching Apply node (which produces InPredicate value in apply's input,
      * and valueList in apply's subquery) and replace it with a SemiJoin node.
      * Between InPredicate's plan node and Apply node there could be several projections of InPredicate symbols, so they
      * have to be considered.
@@ -205,24 +233,22 @@ public class UncorrelatedInPredicateApplyRemover
         public PlanNode visitApply(ApplyNode node, RewriteContext<InsertSemiJoinContext> context)
         {
             InPredicate inPredicate = context.get().getInPredicate();
-            if (inPredicate.getValueList() instanceof QualifiedNameReference) {
-                Symbol value = asSymbol(inPredicate.getValue(), node.getInput());
-                Symbol valueList = asSymbol(inPredicate.getValueList(), node.getSubquery());
-                if (inPredicateMatchesApply(node, value, valueList)) {
-                    Symbol semijoinResult = symbolAllocator.newSymbol("semijoin_result", BOOLEAN);
-                    context.get().setSemiJoinResultSymbol(semijoinResult);
-                    return new SemiJoinNode(idAllocator.getNextId(),
-                            node.getInput(),
-                            node.getSubquery(),
-                            value,
-                            valueList,
-                            semijoinResult,
-                            Optional.empty(),
-                            Optional.empty()
-                    );
-                }
+            Symbol value = asSymbol(inPredicate.getValue());
+            Symbol valueList = asSymbol(inPredicate.getValueList());
+            if (node.getCorrelation().isEmpty() && inPredicateMatchesApply(node, value, valueList)) {
+                Symbol semijoinResult = symbolAllocator.newSymbol("semijoin_result", BOOLEAN);
+                context.get().setSemiJoinResultSymbol(semijoinResult);
+                return new SemiJoinNode(idAllocator.getNextId(),
+                        node.getInput(),
+                        node.getSubquery(),
+                        value,
+                        valueList,
+                        semijoinResult,
+                        Optional.empty(),
+                        Optional.empty()
+                );
             }
-            return super.visitApply(node, context);
+            return context.defaultRewrite(node, context.get());
         }
 
         private boolean inPredicateMatchesApply(ApplyNode node, Symbol value, Symbol valueList)
@@ -230,7 +256,7 @@ public class UncorrelatedInPredicateApplyRemover
             return node.getInput().getOutputSymbols().contains(value) && node.getSubquery().getOutputSymbols().contains(valueList);
         }
 
-        private Symbol asSymbol(Expression expression, PlanNode node)
+        private Symbol asSymbol(Expression expression)
         {
             checkState(expression instanceof QualifiedNameReference);
             return Symbol.fromQualifiedName(((QualifiedNameReference) expression).getName());
