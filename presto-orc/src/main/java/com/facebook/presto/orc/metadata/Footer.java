@@ -20,10 +20,10 @@ import io.airlift.slice.Slices;
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toMap;
 
 public class Footer
 {
@@ -42,7 +42,7 @@ public class Footer
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.fileStats = ImmutableList.copyOf(requireNonNull(fileStats, "columnStatistics is null"));
         requireNonNull(userMetadata, "userMetadata is null");
-        this.userMetadata = ImmutableMap.copyOf(userMetadata.entrySet().stream().collect(Collectors.toMap(
+        this.userMetadata = ImmutableMap.copyOf(userMetadata.entrySet().stream().collect(toMap(
                 Map.Entry::getKey,
                 entry -> Slices.copyOf(entry.getValue())
         )));
@@ -87,7 +87,15 @@ public class Footer
                 .add("stripes", stripes)
                 .add("types", types)
                 .add("columnStatistics", fileStats)
-                .add("userMetadata", userMetadata)
+                .add("userMetadata", getUserMetadataAsString())
                 .toString();
+    }
+
+    private String getUserMetadataAsString()
+    {
+        return userMetadata.entrySet().stream().collect(toMap(
+                Map.Entry::getKey,
+                entry -> entry.getValue().toStringUtf8()
+        )).toString();
     }
 }
