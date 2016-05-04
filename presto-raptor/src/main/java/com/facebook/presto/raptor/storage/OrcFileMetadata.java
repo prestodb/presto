@@ -26,7 +26,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class OrcFileMetadata
 {
-    public static final String KEY = "com.facebook.presto.raptor.storage.metadata";
+    static final String KEY = "com.facebook.presto.raptor.storage.metadata";
 
     private final Map<Long, TypeSignature> columnTypes;
 
