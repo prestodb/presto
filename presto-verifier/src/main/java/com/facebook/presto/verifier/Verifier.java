@@ -227,14 +227,15 @@ public class Verifier
                 queryPair.getTest().getCatalog(),
                 queryPair.getTest().getSchema(),
                 queryPair.getTest().getQuery(),
-                checkCpu ? optionalDurationToSeconds(test.getCpuTime()) : null,
+                optionalDurationToSeconds(test.getCpuTime()),
                 optionalDurationToSeconds(test.getWallTime()),
                 queryPair.getControl().getCatalog(),
                 queryPair.getControl().getSchema(),
                 queryPair.getControl().getQuery(),
-                checkCpu ? optionalDurationToSeconds(control.getCpuTime()) : null,
+                optionalDurationToSeconds(control.getCpuTime()),
                 optionalDurationToSeconds(control.getWallTime()),
-                errorMessage);
+                errorMessage,
+                checkCpu);
     }
 
     private static Double optionalDurationToSeconds(Duration duration)

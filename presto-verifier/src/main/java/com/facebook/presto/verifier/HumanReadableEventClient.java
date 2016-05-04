@@ -61,27 +61,30 @@ public class HumanReadableEventClient
 
         Optional<Double> cpuRatio = getCpuRatio(queryEvent);
         if (cpuRatio.isPresent()) {
-            recordCpuRatio(cpuRatio.get());
+            recordCpuRatio(cpuRatio.get(), queryEvent.getCheckCpu());
         }
 
-        if (alwaysPrint || queryEvent.isFailed() || cpuRatio.map(ratio -> ratio > SMALL_REGRESSION).orElse(false)) {
+        if (alwaysPrint || queryEvent.isFailed()
+                || (cpuRatio.map(ratio -> ratio > SMALL_REGRESSION).orElse(false) && queryEvent.getCheckCpu())) {
             printEvent(queryEvent);
         }
     }
 
-    private void recordCpuRatio(double cpuRatio)
+    private void recordCpuRatio(double cpuRatio, boolean checkCpu)
     {
-        if (cpuRatio <= LARGE_SPEEDUP) {
-            cpuRatioLargeSpeedup.add(doubleToSortableLong(cpuRatio));
-        }
-        else if (cpuRatio <= SMALL_SPEEDUP) {
-            cpuRatioSmallSpeedup.add(doubleToSortableLong(cpuRatio));
-        }
-        else if (cpuRatio <= SMALL_REGRESSION) {
-            cpuRatioSmallRegression.add(doubleToSortableLong(cpuRatio));
-        }
-        else {
-            cpuRatioLargeRegression.add(doubleToSortableLong(cpuRatio));
+        if (checkCpu) {
+            if (cpuRatio <= LARGE_SPEEDUP) {
+                cpuRatioLargeSpeedup.add(doubleToSortableLong(cpuRatio));
+            }
+            else if (cpuRatio <= SMALL_SPEEDUP) {
+                cpuRatioSmallSpeedup.add(doubleToSortableLong(cpuRatio));
+            }
+            else if (cpuRatio <= SMALL_REGRESSION) {
+                cpuRatioSmallRegression.add(doubleToSortableLong(cpuRatio));
+            }
+            else {
+                cpuRatioLargeRegression.add(doubleToSortableLong(cpuRatio));
+            }
         }
         cpuRatioAll.add(doubleToSortableLong(cpuRatio));
     }

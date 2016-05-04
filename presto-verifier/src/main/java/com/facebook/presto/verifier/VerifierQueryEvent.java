@@ -41,6 +41,7 @@ public class VerifierQueryEvent
     private final Double controlWallTimeSecs;
 
     private final String errorMessage;
+    private final boolean checkCpu;
 
     public VerifierQueryEvent(
             String suite,
@@ -58,7 +59,8 @@ public class VerifierQueryEvent
             String controlQuery,
             Double controlCpuTimeSecs,
             Double controlWallTimeSecs,
-            String errorMessage)
+            String errorMessage,
+            boolean checkCpu)
     {
         this.suite = suite;
         this.runId = runId;
@@ -79,6 +81,7 @@ public class VerifierQueryEvent
         this.controlWallTimeSecs = controlWallTimeSecs;
 
         this.errorMessage = errorMessage;
+        this.checkCpu = checkCpu;
     }
 
     @EventField
@@ -175,5 +178,11 @@ public class VerifierQueryEvent
     public String getErrorMessage()
     {
         return errorMessage;
+    }
+
+    @EventField
+    public boolean getCheckCpu()
+    {
+        return checkCpu;
     }
 }
