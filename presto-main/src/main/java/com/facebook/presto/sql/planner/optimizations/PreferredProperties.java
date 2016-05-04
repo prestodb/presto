@@ -341,9 +341,10 @@ class PreferredProperties
                 return this;
             }
 
-            // If the parent has a hashing requirement, propagate parent only if the parent's hashing order satisfies our partitioning preference
-            if (parent.hashingOrder.isPresent() && partitioningColumns.equals(parent.partitioningColumns)) {
-                return parent;
+            if (parent.hashingOrder.isPresent()) {
+                // If the parent has a hashing requirement, propagate parent only if the parent's hashing order satisfies our partitioning preference.
+                // Otherwise, ignore the parent since the parent will have to repartition anyways.
+                return partitioningColumns.containsAll(parent.partitioningColumns) ? parent : this;
             }
 
             // Otherwise partition on any common columns if available
