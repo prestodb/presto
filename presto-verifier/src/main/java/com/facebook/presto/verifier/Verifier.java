@@ -175,17 +175,6 @@ public class Verifier
         return failed;
     }
 
-    private boolean isCheckCpu(QueryPair query)
-    {
-        if (Pattern.matches(config.getSkipCorrectnessRegex(), query.getTest().getQuery()) ||
-                Pattern.matches(config.getSkipCorrectnessRegex(), query.getControl().getQuery())) {
-            return false;
-        }
-        else {
-            return config.isCheckCpuEnabled();
-        }
-    }
-
     private boolean isCheckCorrectness(QueryPair query)
     {
         // Check if either the control query or the test query matches the regex
@@ -217,7 +206,6 @@ public class Verifier
             }
         }
 
-        boolean checkCpu = isCheckCpu(queryPair);
         return new VerifierQueryEvent(
                 queryPair.getSuite(),
                 config.getRunId(),
@@ -235,7 +223,8 @@ public class Verifier
                 optionalDurationToSeconds(control.getCpuTime()),
                 optionalDurationToSeconds(control.getWallTime()),
                 errorMessage,
-                checkCpu);
+                config.isCheckCpuEnabled(),
+                config.getSkipCpuCheckRegex());
     }
 
     private static Double optionalDurationToSeconds(Duration duration)

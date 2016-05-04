@@ -23,6 +23,7 @@ import javax.inject.Inject;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.Double.isNaN;
@@ -61,30 +62,39 @@ public class HumanReadableEventClient
 
         Optional<Double> cpuRatio = getCpuRatio(queryEvent);
         if (cpuRatio.isPresent()) {
-            recordCpuRatio(cpuRatio.get(), queryEvent.getCheckCpu());
+            recordCpuRatio(cpuRatio.get());
         }
 
         if (alwaysPrint || queryEvent.isFailed()
-                || (cpuRatio.map(ratio -> ratio > SMALL_REGRESSION).orElse(false) && queryEvent.getCheckCpu())) {
+                || (cpuRatio.map(ratio -> ratio > SMALL_REGRESSION).orElse(false) && isCheckCpu(queryEvent))) {
             printEvent(queryEvent);
         }
     }
 
-    private void recordCpuRatio(double cpuRatio, boolean checkCpu)
+    private boolean isCheckCpu(VerifierQueryEvent queryEvent)
     {
-        if (checkCpu) {
-            if (cpuRatio <= LARGE_SPEEDUP) {
-                cpuRatioLargeSpeedup.add(doubleToSortableLong(cpuRatio));
-            }
-            else if (cpuRatio <= SMALL_SPEEDUP) {
-                cpuRatioSmallSpeedup.add(doubleToSortableLong(cpuRatio));
-            }
-            else if (cpuRatio <= SMALL_REGRESSION) {
-                cpuRatioSmallRegression.add(doubleToSortableLong(cpuRatio));
-            }
-            else {
-                cpuRatioLargeRegression.add(doubleToSortableLong(cpuRatio));
-            }
+        if (Pattern.matches(queryEvent.getSkipCpuCheckRegex(), queryEvent.getTestQuery()) ||
+                Pattern.matches(queryEvent.getSkipCpuCheckRegex(), queryEvent.getControlQuery())) {
+            return false;
+        }
+        else {
+            return queryEvent.getCheckCpu();
+        }
+    }
+
+    private void recordCpuRatio(double cpuRatio)
+    {
+        if (cpuRatio <= LARGE_SPEEDUP) {
+            cpuRatioLargeSpeedup.add(doubleToSortableLong(cpuRatio));
+        }
+        else if (cpuRatio <= SMALL_SPEEDUP) {
+            cpuRatioSmallSpeedup.add(doubleToSortableLong(cpuRatio));
+        }
+        else if (cpuRatio <= SMALL_REGRESSION) {
+            cpuRatioSmallRegression.add(doubleToSortableLong(cpuRatio));
+        }
+        else {
+            cpuRatioLargeRegression.add(doubleToSortableLong(cpuRatio));
         }
         cpuRatioAll.add(doubleToSortableLong(cpuRatio));
     }
