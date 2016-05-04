@@ -27,8 +27,8 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 public class TestMathFunctions
         extends AbstractTestFunctions
 {
-    private static final double[] DOUBLE_VALUES = {123, -123, 123.45, -123.45};
-    private static final int[] intLefts = {9, 10, 11, -9, -10, -11};
+    private static final double[] DOUBLE_VALUES = {123, -123, 123.45, -123.45, 0};
+    private static final int[] intLefts = {9, 10, 11, -9, -10, -11, 0};
     private static final int[] intRights = {3, -3};
     private static final double[] doubleLefts = {9, 10, 11, -9, -10, -11, 9.1, 10.1, 11.1, -9.1, -10.1, -11.1};
     private static final double[] doubleRights = {3, -3, 3.1, -3.1};
@@ -455,6 +455,39 @@ public class TestMathFunctions
         assertFunction("round(CAST(NULL as DOUBLE), CAST(NULL as BIGINT))", DOUBLE, null);
         assertFunction("round(-3.0, CAST(NULL as BIGINT))", DOUBLE, null);
         assertFunction("round(CAST(NULL as DOUBLE), 1)", DOUBLE, null);
+    }
+
+    @Test
+    public void testSign()
+    {
+        //retains type for NULL values
+        assertFunction("sign(CAST(NULL as INTEGER))", INTEGER, null);
+        assertFunction("sign(CAST(NULL as BIGINT))", BIGINT, null);
+        assertFunction("sign(CAST(NULL as DOUBLE))", DOUBLE, null);
+
+        //integer
+        for (int intValue : intLefts) {
+            Float signum = Math.signum(intValue);
+            assertFunction("sign(INTEGER '" + intValue + "')", INTEGER, signum.intValue());
+        }
+
+        //bigint
+        for (int intValue : intLefts) {
+            Float signum = Math.signum(intValue);
+            assertFunction("sign(BIGINT '" + intValue + "')", BIGINT, signum.longValue());
+        }
+
+        //double
+        for (double doubleValue : DOUBLE_VALUES) {
+            assertFunction("sign(" + doubleValue + ")", DOUBLE, Math.signum(doubleValue));
+        }
+
+        //returns NaN for NaN input
+        assertFunction("sign(DOUBLE 'NaN')", DOUBLE, Double.NaN);
+
+        //returns proper sign for +/-Infinity input
+        assertFunction("sign(DOUBLE '+Infinity')", DOUBLE, 1.0);
+        assertFunction("sign(DOUBLE '-Infinity')", DOUBLE, -1.0);
     }
 
     @Test
