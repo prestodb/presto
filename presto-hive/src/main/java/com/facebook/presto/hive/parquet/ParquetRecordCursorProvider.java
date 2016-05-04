@@ -18,7 +18,6 @@ import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.hive.HiveRecordCursor;
 import com.facebook.presto.hive.HiveRecordCursorProvider;
-import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
@@ -37,7 +36,6 @@ import java.util.Set;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetPredicatePushdownEnabled;
 import static com.facebook.presto.hive.HiveUtil.getDeserializerClassName;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 public class ParquetRecordCursorProvider
         implements HiveRecordCursorProvider
@@ -77,15 +75,6 @@ public class ParquetRecordCursorProvider
     {
         if (!PARQUET_SERDE_CLASS_NAMES.contains(getDeserializerClassName(schema))) {
             return Optional.empty();
-        }
-
-        // are all columns supported by Parquet code
-        List<HiveColumnHandle> unsupportedColumns = columns.stream()
-                .filter(columnHandle -> !columnHandle.isPartitionKey())
-                .filter(columnHandle -> columnHandle.getHiveType().equals(HiveType.HIVE_DATE))
-                .collect(toList());
-        if (!unsupportedColumns.isEmpty()) {
-            throw new IllegalArgumentException("Can not read Parquet column: " + unsupportedColumns);
         }
 
         return Optional.<HiveRecordCursor>of(new ParquetHiveRecordCursor(
