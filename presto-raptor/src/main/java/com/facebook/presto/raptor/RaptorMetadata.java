@@ -104,6 +104,7 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
@@ -629,6 +630,12 @@ public class RaptorMetadata
         Optional<String> externalBatchId = getExternalBatchId(session);
         List<RaptorColumnHandle> sortColumnHandles = getSortColumnHandles(tableId);
         List<RaptorColumnHandle> bucketColumnHandles = getBucketColumnHandles(tableId);
+
+        Optional<RaptorColumnHandle> temporalColumnHandle = Optional.ofNullable(dao.getTemporalColumnId(tableId))
+                .map(temporalColumnId -> getOnlyElement(columnHandles.build().stream()
+                        .filter(columnHandle -> columnHandle.getColumnId() == temporalColumnId)
+                        .collect(toList())));
+
         return new RaptorInsertTableHandle(connectorId,
                 transactionId,
                 tableId,
@@ -638,7 +645,8 @@ public class RaptorMetadata
                 sortColumnHandles,
                 nCopies(sortColumnHandles.size(), ASC_NULLS_FIRST),
                 handle.getBucketCount(),
-                bucketColumnHandles);
+                bucketColumnHandles,
+                temporalColumnHandle);
     }
 
     private List<RaptorColumnHandle> getSortColumnHandles(long tableId)
