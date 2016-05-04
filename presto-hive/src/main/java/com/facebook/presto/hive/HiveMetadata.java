@@ -90,8 +90,8 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TIMEZONE_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
+import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
-import static com.facebook.presto.hive.HiveTableProperties.CLUSTERED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.getBucketProperty;
@@ -253,7 +253,7 @@ public class HiveMetadata
         Optional<HiveBucketProperty> bucketProperty = HiveBucketProperty.fromStorageDescriptor(table.get().getSd(), table.get().getTableName());
         if (bucketProperty.isPresent()) {
             properties.put(BUCKET_COUNT_PROPERTY, bucketProperty.get().getBucketCount());
-            properties.put(CLUSTERED_BY_PROPERTY, bucketProperty.get().getClusteredBy());
+            properties.put(BUCKETED_BY_PROPERTY, bucketProperty.get().getBucketedBy());
         }
         if (table.get().isSetParameters()) {
             properties.putAll(tableParameterCodec.decode(table.get().getParameters()));
@@ -1277,17 +1277,17 @@ public class HiveMetadata
         if (!bucketProperty.isPresent()) {
             return Optional.empty();
         }
-        List<String> clusteredBy = bucketProperty.get().getClusteredBy();
+        List<String> bucketedBy = bucketProperty.get().getBucketedBy();
         Map<String, HiveType> hiveTypeMap = tableMetadata.getColumns().stream()
                 .collect(toMap(ColumnMetadata::getName, column -> toHiveType(column.getType())));
         return Optional.of(new ConnectorNewTableLayout(
                 new HivePartitioningHandle(
                         connectorId,
                         bucketProperty.get().getBucketCount(),
-                        clusteredBy.stream()
+                        bucketedBy.stream()
                                 .map(hiveTypeMap::get)
                                 .collect(toList())),
-                clusteredBy));
+                bucketedBy));
     }
 
     @Override
@@ -1467,7 +1467,7 @@ public class HiveMetadata
                 // This line is not strictly necessary. But it is added as a fail-safe.
                 throw new PrestoException(NOT_SUPPORTED, "Writing to bucketed Hive table has been temporarily disabled");
             }
-            sd.setBucketCols(property.getClusteredBy());
+            sd.setBucketCols(property.getBucketedBy());
             sd.setNumBuckets(property.getBucketCount());
         });
 
