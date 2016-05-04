@@ -29,6 +29,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.ChildReplacer;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
@@ -218,7 +219,27 @@ public class PredicatePushDown
         public PlanNode visitGroupId(GroupIdNode node, RewriteContext<Expression> context)
         {
             checkState(!DependencyExtractor.extractUnique(context.get()).contains(node.getGroupIdSymbol()), "groupId symbol cannot be referenced in predicate");
-            return context.defaultRewrite(node, context.get());
+
+            List<Symbol> commonGroupingSymbols = node.getCommonGroupingColumns();
+            java.util.function.Predicate<Expression> pushdownEligiblePredicate = conjunct -> DependencyExtractor.extractAll(conjunct).stream()
+                    .allMatch(commonGroupingSymbols::contains);
+
+            Map<Boolean, List<Expression>> conjuncts = extractConjuncts(context.get()).stream().collect(Collectors.partitioningBy(pushdownEligiblePredicate));
+
+            // Push down conjuncts from the inherited predicate that apply to the common grouping columns, or don't apply to any grouping columns
+            PlanNode rewrittenSource = context.rewrite(node.getSource(),  combineConjuncts(conjuncts.get(true)));
+
+            PlanNode output = node;
+            if (rewrittenSource != node.getSource()) {
+                output = ChildReplacer.replaceChildren(node, ImmutableList.of(rewrittenSource));
+            }
+
+            // All other conjuncts, if any, will be in the filter node.
+            if (!conjuncts.get(false).isEmpty()) {
+                output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(conjuncts.get(false)));
+            }
+
+            return output;
         }
 
         @Override
