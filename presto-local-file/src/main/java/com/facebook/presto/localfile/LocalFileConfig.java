@@ -26,7 +26,7 @@ public class LocalFileConfig
         return httpRequestLogLocation;
     }
 
-    @Config("presto-logs.http-request-log-location")
+    @Config("presto-logs.http-request-log.location")
     @ConfigDescription("Directory or file where http request logs are written")
     public LocalFileConfig setHttpRequestLogLocation(String httpRequestLogLocation)
     {
@@ -39,8 +39,8 @@ public class LocalFileConfig
         return httpRequestLogFileNamePattern;
     }
 
-    @Config("presto-log.http-request-log-pattern")
-    @ConfigDescription("If http-request-log-location is a directory, file name regex for files in this directory")
+    @Config("presto-logs.http-request-log.pattern")
+    @ConfigDescription("If log location is a directory this glob is used to match the file names in the directory")
     public LocalFileConfig setHttpRequestLogFileNamePattern(String pattern)
     {
         this.httpRequestLogFileNamePattern = pattern;
