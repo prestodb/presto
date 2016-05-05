@@ -52,6 +52,7 @@ public class StorageManagerConfig
     private long maxShardRows = 1_000_000;
     private DataSize maxShardSize = new DataSize(256, MEGABYTE);
     private DataSize maxBufferSize = new DataSize(256, MEGABYTE);
+    private int oneSplitPerBucketThreshold;
 
     @NotNull
     public File getDataDirectory()
@@ -254,6 +255,19 @@ public class StorageManagerConfig
     public StorageManagerConfig setCompactionEnabled(boolean compactionEnabled)
     {
         this.compactionEnabled = compactionEnabled;
+        return this;
+    }
+
+    public int getOneSplitPerBucketThreshold()
+    {
+        return oneSplitPerBucketThreshold;
+    }
+
+    @Config("storage.one-split-per-bucket-threshold")
+    @ConfigDescription("Experimental: Maximum bucket count at which to produce multiple splits per bucket")
+    public StorageManagerConfig setOneSplitPerBucketThreshold(int oneSplitPerBucketThreshold)
+    {
+        this.oneSplitPerBucketThreshold = oneSplitPerBucketThreshold;
         return this;
     }
 }

@@ -65,8 +65,8 @@ public class RaptorSessionProperties
                         false),
                 integerSessionProperty(
                         ONE_SPLIT_PER_BUCKET_THRESHOLD,
-                        "Experimental: Maximum bucket count at which to produce multiple splits",
-                        0,
+                        "Experimental: Maximum bucket count at which to produce multiple splits per bucket",
+                        config.getOneSplitPerBucketThreshold(),
                         false));
     }
 
