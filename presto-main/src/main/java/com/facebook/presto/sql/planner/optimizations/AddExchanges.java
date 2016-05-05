@@ -1093,9 +1093,13 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitUnion(UnionNode node, Context context)
         {
-            if (context.getPreferredProperties().getGlobalProperties().isPresent() && context.getPreferredProperties().getGlobalProperties().get().isHashPartitioned()) {
-                // hash partition the sources
-                List<Symbol> hashingColumns = context.getPreferredProperties().getGlobalProperties().get().getPartitioningProperties().get().getHashingOrder().get();
+            PreferredProperties parentPreference = context.getPreferredProperties();
+            Optional<PreferredProperties.Global> parentGlobal = parentPreference.getGlobalProperties();
+            if (parentGlobal.isPresent() && parentGlobal.get().isDistributed() && parentGlobal.get().getPartitioningProperties().isPresent()) {
+                PreferredProperties.Partitioning partitioningPreference = parentGlobal.get().getPartitioningProperties().get();
+
+                // Use the requested hash partitioning, otherwise arbitrarily establish a hash partitioning column order
+                List<Symbol> hashingColumns = partitioningPreference.getHashingOrder().orElse(ImmutableList.copyOf(partitioningPreference.getPartitioningColumns()));
 
                 ImmutableList.Builder<PlanNode> partitionedSources = ImmutableList.builder();
                 ImmutableListMultimap.Builder<Symbol, Symbol> outputToSourcesMapping = ImmutableListMultimap.builder();
