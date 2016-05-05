@@ -278,7 +278,7 @@ public class AddExchanges
 
             PreferredProperties preferredProperties = PreferredProperties.any();
             if (!node.getGroupBy().isEmpty()) {
-                preferredProperties = PreferredProperties.hashPartitionedWithLocal(ImmutableList.copyOf(partitioningRequirement), grouped(node.getGroupBy()))
+                preferredProperties = PreferredProperties.partitionedWithLocal(partitioningRequirement, grouped(node.getGroupBy()))
                         .mergeWithParent(context.getPreferredProperties());
             }
 
@@ -391,7 +391,7 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitMarkDistinct(MarkDistinctNode node, Context context)
         {
-            PreferredProperties preferredChildProperties = PreferredProperties.hashPartitionedWithLocal(node.getDistinctSymbols(), grouped(node.getDistinctSymbols()))
+            PreferredProperties preferredChildProperties = PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(node.getDistinctSymbols()), grouped(node.getDistinctSymbols()))
                     .mergeWithParent(context.getPreferredProperties());
             PlanWithProperties child = node.getSource().accept(this, context.withPreferredProperties(preferredChildProperties));
 
