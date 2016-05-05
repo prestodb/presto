@@ -37,7 +37,6 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public final class TypeUtils
 {
@@ -105,7 +104,11 @@ public final class TypeUtils
 
     public static Type resolveType(TypeSignature typeName, TypeManager typeManager)
     {
-        return requireNonNull(typeManager.getType(typeName), format("Type '%s' not found", typeName));
+        Type type = typeManager.getType(typeName);
+        if (type == null) {
+            throw new NullPointerException(format("Type '%s' not found", typeName));
+        }
+        return type;
     }
 
     public static List<Type> resolveTypes(List<TypeSignature> typeNames, TypeManager typeManager)
