@@ -25,6 +25,7 @@ databases:
   presto:
     host: localhost
     server_address: ${databases.presto.host}:8080
+    cli_server_address: ${databases.presto.host}:8080
     jdbc_driver_class: com.facebook.presto.jdbc.PrestoDriver
     jdbc_url: jdbc:presto://${databases.presto.server_address}/hive/${databases.hive.schema}
     jdbc_user: hdfs

@@ -39,6 +39,7 @@ import static com.teradata.tempto.process.CliProcess.trimLines;
 import static com.teradata.tempto.process.JavaProcessLauncher.defaultJavaProcessLauncher;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class PrestoCliTests
@@ -52,8 +53,36 @@ public class PrestoCliTests
     private final List<String> nationTableBatchLines;
 
     @Inject
-    @Named("databases.presto.server_address")
+    @Named("databases.presto.cli_server_address")
     private String serverAddress;
+
+    @Inject(optional = true)
+    @Named("databases.presto.cli_authentication")
+    private boolean authentication;
+
+    @Inject(optional = true)
+    @Named("databases.presto.cli_kerberos_principal")
+    private String kerberosPrincipal;
+
+    @Inject(optional = true)
+    @Named("databases.presto.cli_kerberos_keytab")
+    private String kerberosKeytab;
+
+    @Inject(optional = true)
+    @Named("databases.presto.cli_kerberos_config_path")
+    private String kerberosConfigPath;
+
+    @Inject(optional = true)
+    @Named("databases.presto.cli_kerberos_service_name")
+    private String kerberosServiceName;
+
+    @Inject(optional = true)
+    @Named("databases.presto.cli_keystore")
+    private String keystorePath;
+
+    @Inject(optional = true)
+    @Named("databases.presto.cli_keystore_password")
+    private String keystorePassword;
 
     private PrestoCliProcess presto;
 
@@ -93,7 +122,7 @@ public class PrestoCliTests
     public void shouldRunQuery()
             throws IOException, InterruptedException
     {
-        launchPrestoCliWithServerArgument();
+        launchPrestoCliWithServerSpecified();
         presto.waitForPrompt();
         presto.getProcessInput().println("select * from hive.default.nation;");
         assertThat(trimLines(presto.readLinesUntilPrompt())).containsAll(nationTableInteractiveLines);
@@ -103,7 +132,7 @@ public class PrestoCliTests
     public void shouldRunBatchQuery()
             throws IOException, InterruptedException
     {
-        launchPrestoCliWithServerArgument("--execute", "select * from hive.default.nation;");
+        launchPrestoCliWithServerSpecified("--execute", "select * from hive.default.nation;");
         assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
     }
 
@@ -111,7 +140,7 @@ public class PrestoCliTests
     public void shouldUseCatalogAndSchemaOptions()
             throws IOException, InterruptedException
     {
-        launchPrestoCliWithServerArgument("--catalog", "hive", "--schema", "default", "--execute", "select * from nation;");
+        launchPrestoCliWithServerSpecified("--catalog", "hive", "--schema", "default", "--execute", "select * from nation;");
         assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
     }
 
@@ -123,14 +152,35 @@ public class PrestoCliTests
         temporayFile.deleteOnExit();
         Files.write("select * from hive.default.nation;\n", temporayFile, UTF_8);
 
-        launchPrestoCliWithServerArgument("--file", temporayFile.getAbsolutePath());
+        launchPrestoCliWithServerSpecified("--file", temporayFile.getAbsolutePath());
         assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
     }
 
-    private void launchPrestoCliWithServerArgument(String... arguments)
+    private void launchPrestoCliWithServerSpecified(String... arguments)
             throws IOException, InterruptedException
     {
-        launchPrestoCli(ImmutableList.<String>builder().add("--server", serverAddress).add(arguments).build());
+        if (!authentication) {
+            launchPrestoCli(ImmutableList.<String>builder().add("--server", serverAddress).add(arguments).build());
+        }
+        else {
+            requireNonNull(kerberosPrincipal, "databases.presto.cli_kerberos_principal is null");
+            requireNonNull(kerberosKeytab, "databases.presto.cli_kerberos_keytab is null");
+            requireNonNull(kerberosServiceName, "databases.presto.cli_kerberos_service_name is null");
+            requireNonNull(kerberosConfigPath, "databases.presto.cli_kerberos_config_path is null");
+            requireNonNull(keystorePath, "databases.presto.cli_keystore is null");
+            requireNonNull(keystorePassword, "databases.presto.cli_keystore_password is null");
+
+            launchPrestoCli(ImmutableList.<String>builder().add(
+                    "--server", serverAddress,
+                    "--enable-authentication",
+                    "--krb5-principal", kerberosPrincipal,
+                    "--krb5-keytab-path", kerberosKeytab,
+                    "--krb5-remote-service-name", kerberosServiceName,
+                    "--krb5-config-path", kerberosConfigPath,
+                    "--keystore-path", keystorePath,
+                    "--keystore-password", keystorePassword)
+                    .add(arguments).build());
+        }
     }
 
     private void launchPrestoCli(String... arguments)
