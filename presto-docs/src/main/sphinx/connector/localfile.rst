@@ -18,14 +18,13 @@ under ``etc/catalog`` named, for example, ``localfile.properties`` with the foll
 Configuration Properties
 ------------------------
 
-================================================== ============================================================
-Property Name                                      Description
-================================================== ============================================================
-
-``presto-logs.http-request-log-location``          Directory or file where HTTP request logs are written
-
-``presto-logs.http-request-log-pattern``           If the log location is a directory this glob is used
-                                                   to match file names in the directory
+=========================================   ==============================================================
+Property Name                               Description
+=========================================   ==============================================================
+``presto-logs.http-request-log-location``   Directory or file where HTTP request logs are written
+``presto-logs.http-request-log-pattern``    If the log location is a directory this glob is used
+                                            to match file names in the directory
+=========================================   ==============================================================
 
 Local File Connector Schemas and Tables
 ---------------------------------------
