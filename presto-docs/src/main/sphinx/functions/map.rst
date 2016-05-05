@@ -37,3 +37,8 @@ Map Functions
 
    Returns the union of two maps. If a key is found in both ``x`` and ``y``,
    that key's value in the resulting map comes from ``y``.
+
+.. function:: element_at(map<K,V>, key) -> V
+    :noindex:
+
+    Returns value for given ``key``, or ``NULL`` if the key is not contained in the map.
