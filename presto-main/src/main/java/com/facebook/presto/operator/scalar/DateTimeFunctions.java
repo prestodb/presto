@@ -53,12 +53,12 @@ import static org.joda.time.DateTimeZone.UTC;
 
 public final class DateTimeFunctions
 {
-    private static final ThreadLocalCache<Slice, DateTimeFormatter> DATETIME_FORMATTER_CACHE = new ThreadLocalCache<Slice, DateTimeFormatter>(100)
+    private static final ThreadLocalCache<Slice, DateTimeFormatter> MYSQL_DATETIME_FORMATTER_CACHE = new ThreadLocalCache<Slice, DateTimeFormatter>(100)
     {
         @Override
         protected DateTimeFormatter load(Slice format)
         {
-            return createDateTimeFormatter(format);
+            return createMysqlDateTimeFormatter(format);
         }
     };
 
@@ -533,7 +533,7 @@ public final class DateTimeFunctions
 
     private static Slice dateFormat(ISOChronology chronology, Locale locale, long timestamp, Slice formatString)
     {
-        DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString)
+        DateTimeFormatter formatter = MYSQL_DATETIME_FORMATTER_CACHE.get(formatString)
                 .withChronology(chronology)
                 .withLocale(locale);
 
@@ -544,7 +544,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.TIMESTAMP)
     public static long dateParse(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice dateTime, @SqlType(StandardTypes.VARCHAR) Slice formatString)
     {
-        DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString)
+        DateTimeFormatter formatter = MYSQL_DATETIME_FORMATTER_CACHE.get(formatString)
                 .withChronology(getChronology(session.getTimeZoneKey()))
                 .withLocale(session.getLocale());
 
@@ -913,7 +913,7 @@ public final class DateTimeFunctions
     }
 
     @SuppressWarnings("fallthrough")
-    public static DateTimeFormatter createDateTimeFormatter(Slice format)
+    public static DateTimeFormatter createMysqlDateTimeFormatter(Slice format)
     {
         DateTimeFormatterBuilder builder = new DateTimeFormatterBuilder();
 

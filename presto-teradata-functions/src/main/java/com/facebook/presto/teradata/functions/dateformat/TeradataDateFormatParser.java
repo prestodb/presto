@@ -25,9 +25,9 @@ import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 
-public class DateFormatParser
+public class TeradataDateFormatParser
 {
-    private DateFormatParser()
+    private TeradataDateFormatParser()
     {
     }
 
