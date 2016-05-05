@@ -138,7 +138,7 @@ public class TestDateTimeFunctions
             throws Exception
     {
         long millis = new LocalTime(session.getStartTime(), DATE_TIME_ZONE).getMillisOfDay();
-        functionAssertions.assertFunction("LOCALTIME", TimeType.TIME, toTime(millis));
+        assertFunction("LOCALTIME", TimeType.TIME, toTime(millis));
     }
 
     @Test
@@ -146,20 +146,20 @@ public class TestDateTimeFunctions
             throws Exception
     {
         long millis = new LocalTime(session.getStartTime(), DATE_TIME_ZONE).getMillisOfDay();
-        functionAssertions.assertFunction("CURRENT_TIME", TIME_WITH_TIME_ZONE, new SqlTimeWithTimeZone(millis, session.getTimeZoneKey()));
+        assertFunction("CURRENT_TIME", TIME_WITH_TIME_ZONE, new SqlTimeWithTimeZone(millis, session.getTimeZoneKey()));
     }
 
     @Test
     public void testLocalTimestamp()
     {
-        functionAssertions.assertFunction("localtimestamp", TimestampType.TIMESTAMP, toTimestamp(session.getStartTime()));
+        assertFunction("localtimestamp", TimestampType.TIMESTAMP, toTimestamp(session.getStartTime()));
     }
 
     @Test
     public void testCurrentTimestamp()
     {
-        functionAssertions.assertFunction("current_timestamp", TIMESTAMP_WITH_TIME_ZONE, new SqlTimestampWithTimeZone(session.getStartTime(), session.getTimeZoneKey()));
-        functionAssertions.assertFunction("now()", TIMESTAMP_WITH_TIME_ZONE, new SqlTimestampWithTimeZone(session.getStartTime(), session.getTimeZoneKey()));
+        assertFunction("current_timestamp", TIMESTAMP_WITH_TIME_ZONE, new SqlTimestampWithTimeZone(session.getStartTime(), session.getTimeZoneKey()));
+        assertFunction("now()", TIMESTAMP_WITH_TIME_ZONE, new SqlTimestampWithTimeZone(session.getStartTime(), session.getTimeZoneKey()));
     }
 
     @Test
