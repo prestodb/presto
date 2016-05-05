@@ -25,6 +25,10 @@ Array Functions
 
     Remove duplicate values from the array ``x``.
 
+.. function:: flatten(x) -> array
+
+    Flattens an ``array(array(T))`` to an ``array(T)`` by concatenating the contained arrays.
+
 .. function:: array_intersect(x, y) -> array
 
     Returns an array of the elements in the intersection of ``x`` and ``y``, without duplicates.
