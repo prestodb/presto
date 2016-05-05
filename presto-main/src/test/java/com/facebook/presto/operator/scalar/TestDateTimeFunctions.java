@@ -636,6 +636,44 @@ public class TestDateTimeFunctions
                 toTimestampWithTimeZone(new DateTime(1960, 1, 22, 3, 4, 0, 0, DateTimeZone.forOffsetHours(5))));
     }
 
+    @Test
+    public void testUnixTimestamp()
+    {
+        assertFunction("unix_timestamp()", BIGINT, session.getStartTime() / 1000);
+
+        assertFunction("unix_timestamp('1970-01-01 12:13:14')", BIGINT,
+                toUnixTimestamp(new DateTime(1970, 1, 1, 12, 13, 14, 0)));
+
+        assertFunction("unix_timestamp('1960/01/22 03:04', 'YYYY/MM/DD HH:mm')", BIGINT,
+                toUnixTimestamp(new DateTime(1960, 1, 22, 3, 4, 0, 0)));
+
+        assertFunction("unix_timestamp('1960/01/22 03:04 Asia/Oral', 'YYYY/MM/DD HH:mm ZZZZZ')", BIGINT,
+                toUnixTimestamp(new DateTime(1960, 1, 22, 3, 4, 0, 0, DateTimeZone.forID("Asia/Oral"))));
+    }
+
+    private long toUnixTimestamp(DateTime dateTime)
+    {
+        return dateTime.getMillis() / 1000;
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Invalid format: .*")
+    public void testUnixTimestampInvalidDateDefaultFormat()
+    {
+        assertFunction("unix_timestamp('1970-01-01')", BIGINT, null);
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Invalid format: .*")
+    public void testUnixTimestampInvalidDateCustomFormat()
+    {
+        assertFunction("unix_timestamp('1970-01-01', 'YYYY/MM/DD')", BIGINT, null);
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Invalid pattern specification")
+    public void testUnixTimestampInvalidFormat()
+    {
+        assertFunction("unix_timestamp('1970-01-01 00:00:00', '')", BIGINT, null);
+    }
+
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Both printing and parsing not supported")
     public void testInvalidDateParseFormat()
     {
