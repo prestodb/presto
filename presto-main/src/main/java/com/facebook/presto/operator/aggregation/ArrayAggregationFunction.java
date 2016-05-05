@@ -113,7 +113,7 @@ public class ArrayAggregationFunction
     {
         BlockBuilder blockBuilder = state.getBlockBuilder();
         if (blockBuilder == null) {
-            blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 100);
+            blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 4);
             state.setBlockBuilder(blockBuilder);
         }
         long startSize = blockBuilder.getRetainedSizeInBytes();
