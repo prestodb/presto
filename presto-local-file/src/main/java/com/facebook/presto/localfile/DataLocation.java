@@ -19,22 +19,24 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.io.File;
-import java.util.Arrays;
+import java.io.IOException;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
-import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.localfile.LocalFileErrorCode.LOCAL_FILE_ERROR_CODE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
+import static java.nio.file.Files.newDirectoryStream;
 import static java.util.Objects.requireNonNull;
 
 final class DataLocation
 {
     private final File location;
     private final Optional<String> pattern;
-    private final Optional<Pattern> compiledPattern;
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
     @JsonCreator
@@ -56,8 +58,7 @@ final class DataLocation
         }
 
         this.location = file;
-        this.pattern = (!pattern.isPresent() && file.isDirectory()) ? Optional.of(".*") : pattern;
-        this.compiledPattern = file.isDirectory() ? Optional.of(Pattern.compile(pattern.orElse(".*"))) : Optional.empty();
+        this.pattern = (!pattern.isPresent() && file.isDirectory()) ? Optional.of("*") : pattern;
     }
 
     @JsonProperty
@@ -80,13 +81,23 @@ final class DataLocation
         }
 
         checkState(location.isDirectory(), "location %s is not a directory", location);
-        File[] files = location.listFiles(file -> compiledPattern.get().matcher(file.getName()).matches());
 
-        if (files == null) {
-            throw new PrestoException(LOCAL_FILE_ERROR_CODE, format("Failed to list files at %s", location));
+        try (DirectoryStream<Path> paths = newDirectoryStream(location.toPath(), pattern.get())) {
+            ImmutableList.Builder<File> builder = ImmutableList.<File>builder();
+            for (Path path : paths) {
+                builder.add(path.toFile());
+            }
+            List<File> files = builder.build();
+
+            if (files.isEmpty()) {
+                throw new PrestoException(LOCAL_FILE_ERROR_CODE, format("Failed to list files at %s", location));
+            }
+            return files.stream()
+                    .sorted((o1, o2) -> Long.compare(o2.lastModified(), o1.lastModified()))
+                    .collect(Collectors.toList());
         }
-
-        Arrays.sort(files, (o1, o2) -> Long.compare(o2.lastModified(), o1.lastModified()));
-        return ImmutableList.copyOf(files);
+        catch (IOException e) {
+            throw new PrestoException(LOCAL_FILE_ERROR_CODE, format("Error getting list of files at %s", location), e);
+        }
     }
 }
