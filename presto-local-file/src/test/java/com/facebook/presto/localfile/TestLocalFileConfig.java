@@ -34,8 +34,8 @@ public class TestLocalFileConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("presto-logs.http-request-log-location", "/data/foo.log")
-                .put("presto-log.http-request-log-pattern", "bar")
+                .put("presto-logs.http-request-log.location", "/data/foo.log")
+                .put("presto-logs.http-request-log.pattern", "bar")
                 .build();
 
         LocalFileConfig expected = new LocalFileConfig()
