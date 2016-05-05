@@ -41,8 +41,6 @@ public class VerifierQueryEvent
     private final Double controlWallTimeSecs;
 
     private final String errorMessage;
-    private final boolean checkCpu;
-    private final String skipCpuCheckRegex;
 
     public VerifierQueryEvent(
             String suite,
@@ -60,9 +58,7 @@ public class VerifierQueryEvent
             String controlQuery,
             Double controlCpuTimeSecs,
             Double controlWallTimeSecs,
-            String errorMessage,
-            boolean checkCpu,
-            String skipCpuCheckRegex)
+            String errorMessage)
     {
         this.suite = suite;
         this.runId = runId;
@@ -83,8 +79,6 @@ public class VerifierQueryEvent
         this.controlWallTimeSecs = controlWallTimeSecs;
 
         this.errorMessage = errorMessage;
-        this.checkCpu = checkCpu;
-        this.skipCpuCheckRegex = skipCpuCheckRegex;
     }
 
     @EventField
@@ -181,17 +175,5 @@ public class VerifierQueryEvent
     public String getErrorMessage()
     {
         return errorMessage;
-    }
-
-    @EventField
-    public boolean getCheckCpu()
-    {
-        return checkCpu;
-    }
-
-    @EventField
-    public String getSkipCpuCheckRegex()
-    {
-        return skipCpuCheckRegex;
     }
 }

@@ -222,9 +222,7 @@ public class Verifier
                 queryPair.getControl().getQuery(),
                 optionalDurationToSeconds(control.getCpuTime()),
                 optionalDurationToSeconds(control.getWallTime()),
-                errorMessage,
-                config.isCheckCpuEnabled(),
-                config.getSkipCpuCheckRegex());
+                errorMessage);
     }
 
     private static Double optionalDurationToSeconds(Duration duration)
