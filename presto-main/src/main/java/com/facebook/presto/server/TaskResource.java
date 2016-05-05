@@ -24,6 +24,7 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.TypeToken;
+import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.stats.TimeStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -54,7 +55,6 @@ import javax.ws.rs.core.UriInfo;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -91,7 +91,7 @@ public class TaskResource
     @Inject
     public TaskResource(TaskManager taskManager,
             SessionPropertyManager sessionPropertyManager,
-            @ForAsyncHttp ExecutorService responseExecutor,
+            @ForAsyncHttp BoundedExecutor responseExecutor,
             @ForAsyncHttp ScheduledExecutorService timeoutExecutor)
     {
         this.taskManager = requireNonNull(taskManager, "taskManager is null");
