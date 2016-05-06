@@ -1819,8 +1819,16 @@ public abstract class AbstractTestQueries
                 "VALUES (1.0, 2.0, 1, 3)"
         );
         assertQuery(
+                "SELECT * FROM (VALUES (1, 2)) x (a, b) JOIN (VALUES (CAST (1 AS SMALLINT), CAST(3 AS SMALLINT))) y (a, b) USING(a)",
+                "VALUES (1, 2, 1, 3)"
+        );
+        assertQuery(
                 "SELECT * FROM (VALUES (1.0, 2.0)) x (a, b) JOIN (VALUES (1, 3)) y (a, b) ON x.a = y.a",
                 "VALUES (1.0, 2.0, 1, 3)"
+        );
+        assertQuery(
+                "SELECT * FROM (VALUES (1, 2)) x (a, b) JOIN (VALUES (SMALLINT '1', SMALLINT '3')) y (a, b) ON x.a = y.a",
+                "VALUES (1, 2, 1, 3)"
         );
     }
 

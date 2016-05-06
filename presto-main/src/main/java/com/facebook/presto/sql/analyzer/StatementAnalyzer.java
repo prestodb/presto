@@ -1391,8 +1391,8 @@ class StatementAnalyzer
 
     private void addCoercionForJoinCriteria(Join node, Expression leftExpression, Expression rightExpression)
     {
-        Type leftType = analysis.getType(leftExpression);
-        Type rightType = analysis.getType(rightExpression);
+        Type leftType = analysis.getTypeWithCoercions(leftExpression);
+        Type rightType = analysis.getTypeWithCoercions(rightExpression);
         Optional<Type> superType = metadata.getTypeManager().getCommonSuperType(leftType, rightType);
         if (!superType.isPresent()) {
             throw new SemanticException(TYPE_MISMATCH, node, "Join criteria has incompatible types: %s, %s", leftType.getDisplayName(), rightType.getDisplayName());
