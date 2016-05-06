@@ -924,9 +924,7 @@ public class AddExchanges
                 List<Symbol> filteringSourceSymbols = ImmutableList.of(node.getFilteringSourceJoinSymbol());
 
                 source = node.getSource().accept(this, context.withPreferredProperties(PreferredProperties.hashPartitioned(sourceSymbols)));
-                // Child will not satisfy hash with null replicate anyways, and repartition is always necessary.
-                // Therefore, tell the filtering source pick whatever partition it likes.
-                filteringSource = node.getFilteringSource().accept(this, context.withPreferredProperties(PreferredProperties.any()));
+                filteringSource = node.getFilteringSource().accept(this, context.withPreferredProperties(PreferredProperties.hashPartitionedWithNullsReplicated(filteringSourceSymbols)));
 
                 // force partitioning if source isn't already partitioned on sourceSymbols
                 if (!source.getProperties().isNodePartitionedOn(sourceSymbols) || (distributedJoins && source.getProperties().isSingleNode())) {
@@ -945,7 +943,7 @@ public class AddExchanges
                 boolean customConnectorPartitioning = !isColocatedJoinEnabled(session) && !(source.getNode() instanceof ExchangeNode) &&
                         source.getProperties().getNodePartitioningHandle().flatMap(PartitioningHandle::getConnectorId).isPresent();
 
-                if (customConnectorPartitioning || !source.getProperties().isNodePartitionedWith(filteringSource.getProperties(), sourceToFilteringSource::get)) {
+                if (customConnectorPartitioning || !source.getProperties().withReplicatedNulls(true).isNodePartitionedWith(filteringSource.getProperties(), sourceToFilteringSource::get)) {
                     // The following statements would normally be written as: if (condition) { filteringSource = ...; }
                     // However, the if-condition will always evaluate to true in this case because no externally-visible node produces partition with null replicate.
                     // As a result, it is written as checkState instead.
@@ -1111,15 +1109,20 @@ public class AddExchanges
                     }
                     List<Symbol> sourceHashColumns = hashColumnsBuilder.build();
 
-                    PlanWithProperties source = node.getSources().get(sourceIndex).accept(this, context.withPreferredProperties(PreferredProperties.hashPartitioned(sourceHashColumns)));
-                    if (!source.getProperties().isNodePartitionedOn(FIXED_HASH_DISTRIBUTION, sourceHashColumns)) {
+                    PreferredProperties childPreferred = PreferredProperties.builder()
+                            .global(PreferredProperties.Global.distributed(PreferredProperties.Partitioning.hashPartitioned(sourceHashColumns)
+                                    .withNullsReplicated(partitioningPreference.isNullsReplicated())))
+                            .build();
+                    PlanWithProperties source = node.getSources().get(sourceIndex).accept(this, context.withPreferredProperties(childPreferred));
+                    if (!source.getProperties().isNodePartitionedOn(FIXED_HASH_DISTRIBUTION, sourceHashColumns, partitioningPreference.isNullsReplicated())) {
                         source = withDerivedProperties(
                                 partitionedExchange(
                                         idAllocator.getNextId(),
                                         REMOTE,
                                         source.getNode(),
                                         sourceHashColumns,
-                                        Optional.empty()),
+                                        Optional.empty(),
+                                        partitioningPreference.isNullsReplicated()),
                                 source.getProperties());
                     }
                     partitionedSources.add(source.getNode());
@@ -1142,7 +1145,8 @@ public class AddExchanges
                         newNode,
                         ActualProperties.builder()
                                 .global(partitionedOn(FIXED_HASH_DISTRIBUTION, hashArguments, Optional.of(hashArguments)))
-                                .build());
+                                .build()
+                                .withReplicatedNulls(partitioningPreference.isNullsReplicated()));
             }
 
             // first, classify children into partitioned and unpartitioned

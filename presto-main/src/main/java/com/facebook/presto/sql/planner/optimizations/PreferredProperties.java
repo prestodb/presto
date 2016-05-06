@@ -80,11 +80,10 @@ class PreferredProperties
                 .build();
     }
 
-    public static PreferredProperties hashPartitionedWithLocal(List<Symbol> columns, List<? extends LocalProperty<Symbol>> localProperties)
+    public static PreferredProperties hashPartitionedWithNullsReplicated(List<Symbol> columns)
     {
         return builder()
-                .global(Global.distributed(Partitioning.hashPartitioned(columns)))
-                .local(localProperties)
+                .global(Global.distributed(Partitioning.hashPartitioned(columns).withNullsReplicated(true)))
                 .build();
     }
 
@@ -240,11 +239,6 @@ class PreferredProperties
             return partitioningProperties;
         }
 
-        public boolean isHashPartitioned()
-        {
-            return partitioningProperties.isPresent() && partitioningProperties.get().getHashingOrder().isPresent();
-        }
-
         public Global mergeWithParent(Global parent)
         {
             if (distributed != parent.distributed) {
@@ -302,21 +296,28 @@ class PreferredProperties
     {
         private final Set<Symbol> partitioningColumns;
         private final Optional<List<Symbol>> hashingOrder; // If populated, this list will contain the same symbols as partitioningColumns
+        private final boolean nullsReplicated;
 
-        private Partitioning(Set<Symbol> partitioningColumns, Optional<List<Symbol>> hashingOrder)
+        private Partitioning(Set<Symbol> partitioningColumns, Optional<List<Symbol>> hashingOrder, boolean nullsReplicated)
         {
             this.partitioningColumns = ImmutableSet.copyOf(Objects.requireNonNull(partitioningColumns, "partitioningColumns is null"));
             this.hashingOrder = Objects.requireNonNull(hashingOrder, "hashingOrder is null").map(ImmutableList::copyOf);
+            this.nullsReplicated = nullsReplicated;
+        }
+
+        public Partitioning withNullsReplicated(boolean nullsReplicated)
+        {
+            return new Partitioning(partitioningColumns, hashingOrder, nullsReplicated);
         }
 
         public static Partitioning hashPartitioned(List<Symbol> columns)
         {
-            return new Partitioning(ImmutableSet.copyOf(columns), Optional.of(columns));
+            return new Partitioning(ImmutableSet.copyOf(columns), Optional.of(columns), false);
         }
 
         public static Partitioning partitioned(Set<Symbol> columns)
         {
-            return new Partitioning(columns, Optional.<List<Symbol>>empty());
+            return new Partitioning(columns, Optional.<List<Symbol>>empty(), false);
         }
 
         public static Partitioning singlePartition()
@@ -334,10 +335,20 @@ class PreferredProperties
             return hashingOrder;
         }
 
+        public boolean isNullsReplicated()
+        {
+            return nullsReplicated;
+        }
+
         public Partitioning mergeWithParent(Partitioning parent)
         {
             // Non-negotiable if we require a specific hashing order
             if (hashingOrder.isPresent()) {
+                return this;
+            }
+
+            // Partitioning with different null replication cannot be compared
+            if (nullsReplicated != parent.nullsReplicated) {
                 return this;
             }
 
@@ -349,7 +360,7 @@ class PreferredProperties
 
             // Otherwise partition on any common columns if available
             Set<Symbol> common = Sets.intersection(partitioningColumns, parent.partitioningColumns);
-            return common.isEmpty() ? this : partitioned(common);
+            return common.isEmpty() ? this : partitioned(common).withNullsReplicated(nullsReplicated);
         }
 
         public Optional<Partitioning> translate(Function<Symbol, Optional<Symbol>> translator)
@@ -377,13 +388,13 @@ class PreferredProperties
                 return Optional.of(builder.build());
             });
 
-            return Optional.of(new Partitioning(newPartitioningColumns, newHashingOrder));
+            return Optional.of(new Partitioning(newPartitioningColumns, newHashingOrder, nullsReplicated));
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(partitioningColumns, hashingOrder);
+            return Objects.hash(partitioningColumns, hashingOrder, nullsReplicated);
         }
 
         @Override
@@ -397,7 +408,8 @@ class PreferredProperties
             }
             final Partitioning other = (Partitioning) obj;
             return Objects.equals(this.partitioningColumns, other.partitioningColumns)
-                    && Objects.equals(this.hashingOrder, other.hashingOrder);
+                    && Objects.equals(this.hashingOrder, other.hashingOrder)
+                    && this.nullsReplicated == other.nullsReplicated;
         }
 
         @Override
@@ -406,6 +418,7 @@ class PreferredProperties
             return MoreObjects.toStringHelper(this)
                     .add("partitioningColumns", partitioningColumns)
                     .add("hashingOrder", hashingOrder)
+                    .add("nullsReplicated", nullsReplicated)
                     .toString();
         }
     }

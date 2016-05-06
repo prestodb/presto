@@ -90,6 +90,7 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
@@ -103,6 +104,17 @@ class PropertyDerivations
     }
 
     public static ActualProperties deriveProperties(PlanNode node, List<ActualProperties> inputProperties, Metadata metadata, Session session, Map<Symbol, Type> types, SqlParser parser)
+    {
+        ActualProperties output = node.accept(new Visitor(metadata, session, types, parser), inputProperties);
+
+        // TODO: ideally this logic would be somehow moved to PlanSanityChecker
+        verify(node instanceof SemiJoinNode || inputProperties.stream().noneMatch(ActualProperties::isNullsReplicated) || output.isNullsReplicated(),
+                "SemiJoinNode is the only node that can strip null replication");
+
+        return output;
+    }
+
+    public static ActualProperties streamBackdoorDeriveProperties(PlanNode node, List<ActualProperties> inputProperties, Metadata metadata, Session session, Map<Symbol, Type> types, SqlParser parser)
     {
         return node.accept(new Visitor(metadata, session, types, parser), inputProperties);
     }
@@ -383,6 +395,8 @@ class PropertyDerivations
         @Override
         public ActualProperties visitExchange(ExchangeNode node, List<ActualProperties> inputProperties)
         {
+            // checkArgument(node.getScope() != REMOTE || inputProperties.stream().noneMatch(ActualProperties::isNullsReplicated), "Null replicated inputs should not be remotely exchanged");
+
             Set<Map.Entry<Symbol, NullableValue>> entries = null;
             for (int sourceIndex = 0; sourceIndex < node.getSources().size(); sourceIndex++) {
                 Map<Symbol, Symbol> inputToOutput = exchangeInputToOutput(node, sourceIndex);
@@ -417,7 +431,8 @@ class PropertyDerivations
                             .global(partitionedOn(
                                     node.getPartitioningScheme().getPartitioningHandle(),
                                     node.getPartitioningScheme().getPartitionFunctionArguments(),
-                                    Optional.of(node.getPartitioningScheme().getPartitionFunctionArguments())))
+                                    Optional.of(node.getPartitioningScheme().getPartitionFunctionArguments()))
+                                    .withReplicatedNulls(node.getPartitioningScheme().isReplicateNulls()))
                             .constants(constants)
                             .build();
                 case REPLICATE:

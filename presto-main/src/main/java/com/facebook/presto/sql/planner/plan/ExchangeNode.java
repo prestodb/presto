@@ -29,6 +29,7 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BRO
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -86,6 +87,8 @@ public class ExchangeNode
         checkArgument(scope != LOCAL || partitioningScheme.getPartitionFunctionArguments().stream().allMatch(PartitionFunctionArgumentBinding::isVariable),
                 "local exchanges do not support constant partition function arguments");
 
+        checkArgument(scope != REMOTE || type == Type.REPARTITION || !partitioningScheme.isReplicateNulls(), "Only REPARTITION can remotely replicate nulls");
+
         this.type = type;
         this.sources = sources;
         this.scope = scope;
@@ -94,6 +97,11 @@ public class ExchangeNode
     }
 
     public static ExchangeNode partitionedExchange(PlanNodeId id, Scope scope, PlanNode child, List<Symbol> partitioningColumns, Optional<Symbol> hashColumns)
+    {
+        return partitionedExchange(id, scope, child, partitioningColumns, hashColumns, false);
+    }
+
+    public static ExchangeNode partitionedExchange(PlanNodeId id, Scope scope, PlanNode child, List<Symbol> partitioningColumns, Optional<Symbol> hashColumns, boolean nullsReplicated)
     {
         return partitionedExchange(
                 id,
@@ -105,7 +113,9 @@ public class ExchangeNode
                         partitioningColumns.stream()
                                 .map(PartitionFunctionArgumentBinding::new)
                                 .collect(toImmutableList()),
-                        hashColumns));
+                        hashColumns,
+                        nullsReplicated,
+                        Optional.empty()));
     }
 
     public static ExchangeNode partitionedExchange(PlanNodeId id, Scope scope, PlanNode child, PartitioningScheme partitioningScheme)

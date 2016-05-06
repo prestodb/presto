@@ -91,19 +91,39 @@ class ActualProperties
         return global.isSingleNode();
     }
 
+    public boolean isNullsReplicated()
+    {
+        return global.isNullsReplicated();
+    }
+
     public boolean isStreamPartitionedOn(Collection<Symbol> columns)
     {
-        return global.isStreamPartitionedOn(columns, constants.keySet());
+        return isStreamPartitionedOn(columns, false);
+    }
+
+    public boolean isStreamPartitionedOn(Collection<Symbol> columns, boolean nullsReplicated)
+    {
+        return global.isStreamPartitionedOn(columns, constants.keySet(), nullsReplicated);
     }
 
     public boolean isNodePartitionedOn(Collection<Symbol> columns)
     {
-        return global.isNodePartitionedOn(columns, constants.keySet());
+        return isNodePartitionedOn(columns, false);
+    }
+
+    public boolean isNodePartitionedOn(Collection<Symbol> columns, boolean nullsReplicated)
+    {
+        return global.isNodePartitionedOn(columns, constants.keySet(), nullsReplicated);
     }
 
     public boolean isNodePartitionedOn(PartitioningHandle partitioning, List<Symbol> columns)
     {
-        return global.isNodePartitionedOn(partitioning, columns);
+        return isNodePartitionedOn(partitioning, columns, false);
+    }
+
+    public boolean isNodePartitionedOn(PartitioningHandle partitioning, List<Symbol> columns, boolean nullsReplicated)
+    {
+        return global.isNodePartitionedOn(partitioning, columns, nullsReplicated);
     }
 
     public boolean isNodePartitionedWith(ActualProperties other, Function<Symbol, Set<Symbol>> symbolMappings)
@@ -165,6 +185,13 @@ class ActualProperties
     public List<LocalProperty<Symbol>> getLocalProperties()
     {
         return localProperties;
+    }
+
+    public ActualProperties withReplicatedNulls(boolean replicatedNulls)
+    {
+        return builderFrom(this)
+                .global(global.withReplicatedNulls(replicatedNulls))
+                .build();
     }
 
     public static Builder builder()
@@ -270,10 +297,14 @@ class ActualProperties
         // the rows will be partitioned into a single node or stream. However, this can still be a partitioned plan in that the plan
         // will be executed on multiple servers, but only one server will get all the data.
 
-        private Global(Optional<Partitioning> nodePartitioning, Optional<Partitioning> streamPartitioning)
+        // Description of whether rows with nulls in partitioning columns have been replicated to all *nodes*
+        private final boolean nullsReplicated;
+
+        private Global(Optional<Partitioning> nodePartitioning, Optional<Partitioning> streamPartitioning, boolean nullsReplicated)
         {
             this.nodePartitioning = requireNonNull(nodePartitioning, "nodePartitioning is null");
             this.streamPartitioning = requireNonNull(streamPartitioning, "streamPartitioning is null");
+            this.nullsReplicated = nullsReplicated;
         }
 
         public static Global coordinatorSingleStreamPartition()
@@ -294,21 +325,33 @@ class ActualProperties
 
         public static Global arbitraryPartition()
         {
-            return new Global(Optional.empty(), Optional.empty());
+            return new Global(Optional.empty(), Optional.empty(), false);
         }
 
         public static Global partitionedOn(PartitioningHandle nodePartitioningHandle, List<PartitionFunctionArgumentBinding> nodePartitioning, Optional<List<PartitionFunctionArgumentBinding>> streamPartitioning)
         {
             return new Global(
                     Optional.of(new Partitioning(nodePartitioningHandle, nodePartitioning)),
-                    streamPartitioning.map(columns -> new Partitioning(SOURCE_DISTRIBUTION, columns)));
+                    streamPartitioning.map(columns -> new Partitioning(SOURCE_DISTRIBUTION, columns)),
+                    false);
         }
 
         public static Global streamPartitionedOn(List<PartitionFunctionArgumentBinding> streamPartitioning)
         {
             return new Global(
                     Optional.empty(),
-                    Optional.of(new Partitioning(SOURCE_DISTRIBUTION, streamPartitioning)));
+                    Optional.of(new Partitioning(SOURCE_DISTRIBUTION, streamPartitioning)),
+                    false);
+        }
+
+        public Global withReplicatedNulls(boolean replicatedNulls)
+        {
+            return new Global(nodePartitioning, streamPartitioning, replicatedNulls);
+        }
+
+        private boolean isNullsReplicated()
+        {
+            return nullsReplicated;
         }
 
         /**
@@ -332,14 +375,14 @@ class ActualProperties
             return nodePartitioning.get().getPartitioningHandle().isCoordinatorOnly();
         }
 
-        private boolean isNodePartitionedOn(Collection<Symbol> columns, Set<Symbol> constants)
+        private boolean isNodePartitionedOn(Collection<Symbol> columns, Set<Symbol> constants, boolean nullsReplicated)
         {
-            return nodePartitioning.isPresent() && nodePartitioning.get().isPartitionedOn(columns, constants);
+            return nodePartitioning.isPresent() && nodePartitioning.get().isPartitionedOn(columns, constants) && this.nullsReplicated == nullsReplicated;
         }
 
-        private boolean isNodePartitionedOn(PartitioningHandle partitioning, List<Symbol> columns)
+        private boolean isNodePartitionedOn(PartitioningHandle partitioning, List<Symbol> columns, boolean nullsReplicated)
         {
-            return nodePartitioning.isPresent() && nodePartitioning.get().isPartitionedOn(partitioning, columns);
+            return nodePartitioning.isPresent() && nodePartitioning.get().isPartitionedOn(partitioning, columns) && this.nullsReplicated == nullsReplicated;
         }
 
         private boolean isNodePartitionedWith(
@@ -354,7 +397,8 @@ class ActualProperties
                             other.nodePartitioning.get(),
                             symbolMappings,
                             leftConstantMapping,
-                            rightConstantMapping);
+                            rightConstantMapping) &&
+                    nullsReplicated == other.nullsReplicated;
         }
 
         private Optional<PartitioningHandle> getNodePartitioningHandle()
@@ -367,9 +411,9 @@ class ActualProperties
             return nodePartitioning.map(Partitioning::getPartitioningArguments);
         }
 
-        private boolean isStreamPartitionedOn(Collection<Symbol> columns, Set<Symbol> constants)
+        private boolean isStreamPartitionedOn(Collection<Symbol> columns, Set<Symbol> constants, boolean nullsReplicated)
         {
-            return streamPartitioning.isPresent() && streamPartitioning.get().isPartitionedOn(columns, constants);
+            return streamPartitioning.isPresent() && streamPartitioning.get().isPartitionedOn(columns, constants) && this.nullsReplicated == nullsReplicated;
         }
 
         /**
@@ -377,7 +421,7 @@ class ActualProperties
          */
         private boolean isEffectivelySingleStream(Set<Symbol> constants)
         {
-            return streamPartitioning.isPresent() && streamPartitioning.get().isEffectivelySinglePartition(constants);
+            return streamPartitioning.isPresent() && streamPartitioning.get().isEffectivelySinglePartition(constants) && !nullsReplicated;
         }
 
         /**
@@ -385,20 +429,21 @@ class ActualProperties
          */
         private boolean isStreamRepartitionEffective(Collection<Symbol> keys, Set<Symbol> constants)
         {
-            return !streamPartitioning.isPresent() || streamPartitioning.get().isRepartitionEffective(keys, constants);
+            return (!streamPartitioning.isPresent() || streamPartitioning.get().isRepartitionEffective(keys, constants)) && !nullsReplicated;
         }
 
         private Global translate(Function<Symbol, Optional<Symbol>> translator, Function<Symbol, Optional<NullableValue>> constants)
         {
             return new Global(
                     nodePartitioning.flatMap(partitioning -> partitioning.translate(translator, constants)),
-                    streamPartitioning.flatMap(partitioning -> partitioning.translate(translator, constants)));
+                    streamPartitioning.flatMap(partitioning -> partitioning.translate(translator, constants)),
+                    nullsReplicated);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(nodePartitioning, streamPartitioning);
+            return Objects.hash(nodePartitioning, streamPartitioning, nullsReplicated);
         }
 
         @Override
@@ -412,7 +457,8 @@ class ActualProperties
             }
             final Global other = (Global) obj;
             return Objects.equals(this.nodePartitioning, other.nodePartitioning) &&
-                    Objects.equals(this.streamPartitioning, other.streamPartitioning);
+                    Objects.equals(this.streamPartitioning, other.streamPartitioning) &&
+                    this.nullsReplicated == other.nullsReplicated;
         }
 
         @Override
@@ -421,6 +467,7 @@ class ActualProperties
             return MoreObjects.toStringHelper(this)
                     .add("nodePartitioning", nodePartitioning)
                     .add("streamPartitioning", streamPartitioning)
+                    .add("nullsReplicated", nullsReplicated)
                     .toString();
         }
     }
