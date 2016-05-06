@@ -53,6 +53,7 @@ public class FeaturesConfig
     private boolean pushTableWriteThroughUnion = true;
     private boolean legacyArrayAgg;
     private boolean legacyOrderBy;
+    private boolean legacyMapSubscript;
     private boolean optimizeMixedDistinctAggregations;
 
     private String processingOptimization = ProcessingOptimization.DISABLED;
@@ -118,6 +119,18 @@ public class FeaturesConfig
     public boolean isLegacyOrderBy()
     {
         return legacyOrderBy;
+    }
+
+    @Config("deprecated.legacy-map-subscript")
+    public FeaturesConfig setLegacyMapSubscript(boolean value)
+    {
+        this.legacyMapSubscript = value;
+        return this;
+    }
+
+    public boolean isLegacyMapSubscript()
+    {
+        return legacyMapSubscript;
     }
 
     @Config("distributed-joins-enabled")
