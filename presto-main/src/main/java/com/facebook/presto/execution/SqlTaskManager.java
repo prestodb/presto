@@ -19,9 +19,9 @@ import com.facebook.presto.TaskSource;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.LocalMemoryManager;
-import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.MemoryPoolAssignment;
 import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
+import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
@@ -101,7 +101,7 @@ public class SqlTaskManager
             NodeInfo nodeInfo,
             LocalMemoryManager localMemoryManager,
             TaskManagerConfig config,
-            MemoryManagerConfig memoryManagerConfig)
+            NodeMemoryConfig nodeMemoryConfig)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -119,7 +119,7 @@ public class SqlTaskManager
         SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, queryMonitor, config);
 
         this.localMemoryManager = requireNonNull(localMemoryManager, "localMemoryManager is null");
-        DataSize maxQueryMemoryPerNode = memoryManagerConfig.getMaxQueryMemoryPerNode();
+        DataSize maxQueryMemoryPerNode = nodeMemoryConfig.getMaxQueryMemoryPerNode();
 
         queryContexts = CacheBuilder.newBuilder().weakValues().build(new CacheLoader<QueryId, QueryContext>()
         {

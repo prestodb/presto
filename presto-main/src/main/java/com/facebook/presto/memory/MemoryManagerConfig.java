@@ -28,10 +28,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 @DefunctConfig("experimental.cluster-memory-manager-enabled")
 public class MemoryManagerConfig
 {
-    public static final String QUERY_MAX_MEMORY_PER_NODE_CONFIG = "query.max-memory-per-node";
-
     private DataSize maxQueryMemory = new DataSize(20, GIGABYTE);
-    private DataSize maxQueryMemoryPerNode = new DataSize(1, GIGABYTE);
     private boolean killOnOutOfMemory;
     private Duration killOnOutOfMemoryDelay = new Duration(5, MINUTES);
 
@@ -73,19 +70,6 @@ public class MemoryManagerConfig
     public MemoryManagerConfig setMaxQueryMemory(DataSize maxQueryMemory)
     {
         this.maxQueryMemory = maxQueryMemory;
-        return this;
-    }
-
-    @NotNull
-    public DataSize getMaxQueryMemoryPerNode()
-    {
-        return maxQueryMemoryPerNode;
-    }
-
-    @Config(QUERY_MAX_MEMORY_PER_NODE_CONFIG)
-    public MemoryManagerConfig setMaxQueryMemoryPerNode(DataSize maxQueryMemoryPerNode)
-    {
-        this.maxQueryMemoryPerNode = maxQueryMemoryPerNode;
         return this;
     }
 }

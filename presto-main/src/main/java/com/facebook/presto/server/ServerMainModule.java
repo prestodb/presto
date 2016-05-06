@@ -50,6 +50,7 @@ import com.facebook.presto.memory.MemoryInfo;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
 import com.facebook.presto.memory.MemoryResource;
+import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.ReservedSystemMemoryConfig;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.CatalogManagerConfig;
@@ -179,6 +180,7 @@ public class ServerMainModule
         binder.bind(CodeCacheGcTrigger.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(MemoryManagerConfig.class);
+        configBinder(binder).bindConfig(NodeMemoryConfig.class);
         configBinder(binder).bindConfig(ReservedSystemMemoryConfig.class);
         newExporter(binder).export(ClusterMemoryManager.class).withGeneratedName();
         binder.bind(ClusterMemoryManager.class).in(Scopes.SINGLETON);
