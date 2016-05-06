@@ -29,33 +29,37 @@ import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.util.Reflection.methodHandle;
+import static java.lang.String.format;
 
 public class MapSubscriptOperator
         extends SqlOperator
 {
-    public static final MapSubscriptOperator MAP_SUBSCRIPT = new MapSubscriptOperator();
+    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, MethodHandle.class, Type.class, Type.class, Block.class, boolean.class);
+    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, MethodHandle.class, Type.class, Type.class, Block.class, long.class);
+    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, MethodHandle.class, Type.class, Type.class, Block.class, double.class);
+    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, MethodHandle.class, Type.class, Type.class, Block.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE_OBJECT = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, MethodHandle.class, Type.class, Type.class, Block.class, Object.class);
 
-    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(MapSubscriptOperator.class, "subscript", MethodHandle.class, Type.class, Type.class, Block.class, boolean.class);
-    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(MapSubscriptOperator.class, "subscript", MethodHandle.class, Type.class, Type.class, Block.class, long.class);
-    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(MapSubscriptOperator.class, "subscript", MethodHandle.class, Type.class, Type.class, Block.class, double.class);
-    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(MapSubscriptOperator.class, "subscript", MethodHandle.class, Type.class, Type.class, Block.class, Slice.class);
-    private static final MethodHandle METHOD_HANDLE_OBJECT = methodHandle(MapSubscriptOperator.class, "subscript", MethodHandle.class, Type.class, Type.class, Block.class, Object.class);
+    private final boolean legacyMissingKey;
 
-    protected MapSubscriptOperator()
+    public MapSubscriptOperator(boolean legacyMissingKey)
     {
         super(SUBSCRIPT,
                 ImmutableList.of(typeVariable("K"), typeVariable("V")),
                 ImmutableList.of(),
                 parseTypeSignature("V"),
                 ImmutableList.of(parseTypeSignature("map(K,V)"), parseTypeSignature("K")));
+        this.legacyMissingKey = legacyMissingKey;
     }
 
     @Override
@@ -82,6 +86,7 @@ public class MapSubscriptOperator
         else {
             methodHandle = METHOD_HANDLE_OBJECT;
         }
+        methodHandle = MethodHandles.insertArguments(methodHandle, 0, legacyMissingKey);
         methodHandle = methodHandle.bindTo(keyEqualsMethod).bindTo(keyType).bindTo(valueType);
 
         // this casting is necessary because otherwise presto byte code generator will generate illegal byte code
@@ -96,7 +101,7 @@ public class MapSubscriptOperator
     }
 
     @UsedByGeneratedCode
-    public static Object subscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, boolean key)
+    public static Object subscript(boolean legacyMissingKey, MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, boolean key)
     {
         for (int position = 0; position < map.getPositionCount(); position += 2) {
             try {
@@ -110,11 +115,14 @@ public class MapSubscriptOperator
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
-        return null;
+        if (legacyMissingKey) {
+            return null;
+        }
+        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("%s not present in map", key));
     }
 
     @UsedByGeneratedCode
-    public static Object subscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, long key)
+    public static Object subscript(boolean legacyMissingKey, MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, long key)
     {
         for (int position = 0; position < map.getPositionCount(); position += 2) {
             try {
@@ -128,11 +136,14 @@ public class MapSubscriptOperator
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
-        return null;
+        if (legacyMissingKey) {
+            return null;
+        }
+        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("%s not present in map", key));
     }
 
     @UsedByGeneratedCode
-    public static Object subscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, double key)
+    public static Object subscript(boolean legacyMissingKey, MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, double key)
     {
         for (int position = 0; position < map.getPositionCount(); position += 2) {
             try {
@@ -146,11 +157,14 @@ public class MapSubscriptOperator
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
-        return null;
+        if (legacyMissingKey) {
+            return null;
+        }
+        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("%s not present in map", key));
     }
 
     @UsedByGeneratedCode
-    public static Object subscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, Slice key)
+    public static Object subscript(boolean legacyMissingKey, MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, Slice key)
     {
         for (int position = 0; position < map.getPositionCount(); position += 2) {
             try {
@@ -164,11 +178,14 @@ public class MapSubscriptOperator
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
-        return null;
+        if (legacyMissingKey) {
+            return null;
+        }
+        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("%s not present in map", key));
     }
 
     @UsedByGeneratedCode
-    public static Object subscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, Object key)
+    public static Object subscript(boolean legacyMissingKey, MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, Object key)
     {
         for (int position = 0; position < map.getPositionCount(); position += 2) {
             try {
@@ -182,6 +199,9 @@ public class MapSubscriptOperator
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
-        return null;
+        if (legacyMissingKey) {
+            return null;
+        }
+        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("%s not present in map", key));
     }
 }

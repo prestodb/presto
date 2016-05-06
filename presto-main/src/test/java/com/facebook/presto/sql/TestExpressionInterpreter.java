@@ -1169,13 +1169,18 @@ public class TestExpressionInterpreter
         optimize("ARRAY [1, 2, 3][0]");
     }
 
+    @Test(expectedExceptions = PrestoException.class)
+    public void testMapSubscriptMissingKey()
+    {
+        optimize("MAP(ARRAY [1, 2], ARRAY [3, 4])[-1]");
+    }
+
     @Test
     public void testMapSubscriptConstantIndexes()
     {
-        optimize("MAP(ARRAY [1, 2], ARRAY [3, 4])[-1]");
-        optimize("MAP(ARRAY [1, 2], ARRAY [3, 4])[0]");
-        optimize("MAP(ARRAY [BIGINT '1', 2], ARRAY [3, 4])[0]");
-        optimize("MAP(ARRAY [1, 2], ARRAY [3, 4])[5]");
+        optimize("MAP(ARRAY [1, 2], ARRAY [3, 4])[1]");
+        optimize("MAP(ARRAY [BIGINT '1', 2], ARRAY [3, 4])[1]");
+        optimize("MAP(ARRAY [1, 2], ARRAY [3, 4])[2]");
         optimize("MAP(ARRAY [ARRAY[1,1]], ARRAY['a'])[ARRAY[1,1]]");
     }
 
