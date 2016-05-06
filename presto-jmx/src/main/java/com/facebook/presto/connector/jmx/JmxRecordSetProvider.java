@@ -17,12 +17,14 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.InMemoryRecordSet;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 
 import javax.management.Attribute;
@@ -32,10 +34,10 @@ import javax.management.ObjectName;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.connector.jmx.Types.checkType;
@@ -47,11 +49,14 @@ public class JmxRecordSetProvider
 {
     private final MBeanServer mbeanServer;
     private final String nodeId;
+    private final JmxHistoricalData jmxHistoricalData;
 
-    public JmxRecordSetProvider(MBeanServer mbeanServer, String nodeId)
+    @Inject
+    public JmxRecordSetProvider(MBeanServer mbeanServer, NodeManager nodeManager, JmxHistoricalData jmxHistoricalData)
     {
         this.mbeanServer = requireNonNull(mbeanServer, "mbeanServer is null");
-        this.nodeId = requireNonNull(nodeId, "nodeId is null");
+        this.nodeId = requireNonNull(nodeManager, "nodeManager is null").getCurrentNode().getNodeIdentifier();
+        this.jmxHistoricalData = requireNonNull(jmxHistoricalData, "jmxHistoryHolder is null");
     }
 
     @Override
@@ -62,97 +67,16 @@ public class JmxRecordSetProvider
         requireNonNull(columns, "columns is null");
         checkArgument(!columns.isEmpty(), "must provide at least one column");
 
-        ImmutableMap.Builder<String, Type> builder = ImmutableMap.builder();
-        for (ColumnHandle column : columns) {
-            JmxColumnHandle jmxColumnHandle = checkType(column, JmxColumnHandle.class, "column");
-            builder.put(jmxColumnHandle.getColumnName(), jmxColumnHandle.getColumnType());
-        }
-        ImmutableMap<String, Type> columnTypes = builder.build();
+        ImmutableMap<String, Type> columnTypes = getColumnTypes(columns);
 
         List<List<Object>> rows;
         try {
-            Map<String, Object> attributes = getAttributes(columnTypes.keySet(), tableHandle);
-            List<Object> row = new ArrayList<>();
-            // NOTE: data must be produced in the order of the columns parameter.  This code relies on the
-            // fact that columnTypes is an ImmutableMap which is an order preserving LinkedHashMap under
-            // the covers.
-            for (Entry<String, Type> entry : columnTypes.entrySet()) {
-                if (entry.getKey().equals("node")) {
-                    row.add(nodeId);
-                }
-                else {
-                    Object value = attributes.get(entry.getKey());
-                    if (value == null) {
-                        row.add(null);
-                    }
-                    else {
-                        Class<?> javaType = entry.getValue().getJavaType();
-                        if (javaType == boolean.class) {
-                            if (value instanceof Boolean) {
-                                row.add(value);
-                            }
-                            else {
-                                // mbeans can lie about types
-                                row.add(null);
-                            }
-                        }
-                        else if (javaType == long.class) {
-                            if (value instanceof Number) {
-                                row.add(((Number) value).longValue());
-                            }
-                            else {
-                                // mbeans can lie about types
-                                row.add(null);
-                            }
-                        }
-                        else if (javaType == double.class) {
-                            if (value instanceof Number) {
-                                row.add(((Number) value).doubleValue());
-                            }
-                            else {
-                                // mbeans can lie about types
-                                row.add(null);
-                            }
-                        }
-                        else if (javaType == Slice.class) {
-                            if (value.getClass().isArray()) {
-                                // return a string representation of the array
-                                if (value.getClass().getComponentType() == boolean.class) {
-                                    row.add(Arrays.toString((boolean[]) value));
-                                }
-                                else if (value.getClass().getComponentType() == byte.class) {
-                                    row.add(Arrays.toString((byte[]) value));
-                                }
-                                else if (value.getClass().getComponentType() == char.class) {
-                                    row.add(Arrays.toString((char[]) value));
-                                }
-                                else if (value.getClass().getComponentType() == double.class) {
-                                    row.add(Arrays.toString((double[]) value));
-                                }
-                                else if (value.getClass().getComponentType() == float.class) {
-                                    row.add(Arrays.toString((float[]) value));
-                                }
-                                else if (value.getClass().getComponentType() == int.class) {
-                                    row.add(Arrays.toString((int[]) value));
-                                }
-                                else if (value.getClass().getComponentType() == long.class) {
-                                    row.add(Arrays.toString((long[]) value));
-                                }
-                                else if (value.getClass().getComponentType() == short.class) {
-                                    row.add(Arrays.toString((short[]) value));
-                                }
-                                else {
-                                    row.add(Arrays.toString((Object[]) value));
-                                }
-                            }
-                            else {
-                                row.add(value.toString());
-                            }
-                        }
-                    }
-                }
+            if (tableHandle.isLiveData()) {
+                rows = ImmutableList.of(getLiveRow(tableHandle, columnTypes));
             }
-            rows = ImmutableList.of(row);
+            else {
+                rows = jmxHistoricalData.getRows(tableHandle.getObjectName(), calculateSelectedColumns(tableHandle.getColumnHandles(), columnTypes));
+            }
         }
         catch (JMException e) {
             rows = ImmutableList.of();
@@ -161,17 +85,136 @@ public class JmxRecordSetProvider
         return new InMemoryRecordSet(columnTypes.values(), rows);
     }
 
-    private Map<String, Object> getAttributes(Set<String> uniqueColumnNames, JmxTableHandle tableHandle)
+    private List<Integer> calculateSelectedColumns(List<JmxColumnHandle> columnHandles, Map<String, Type> selectedColumnsTypes)
+    {
+        ImmutableList.Builder<Integer> selectedColumns = ImmutableList.builder();
+        for (int i = 0; i < columnHandles.size(); i++) {
+            JmxColumnHandle column = columnHandles.get(i);
+            if (selectedColumnsTypes.containsKey(column.getColumnName())) {
+                selectedColumns.add(i);
+            }
+        }
+        return selectedColumns.build();
+    }
+
+    public ImmutableMap<String, Type> getColumnTypes(List<? extends ColumnHandle> columnHandles)
+    {
+        ImmutableMap.Builder<String, Type> builder = ImmutableMap.builder();
+        for (ColumnHandle column : columnHandles) {
+            JmxColumnHandle jmxColumnHandle = checkType(column, JmxColumnHandle.class, "column");
+            builder.put(jmxColumnHandle.getColumnName(), jmxColumnHandle.getColumnType());
+        }
+        return builder.build();
+    }
+
+    private ImmutableMap<String, Optional<Object>> getAttributes(Set<String> uniqueColumnNames, JmxTableHandle tableHandle)
             throws JMException
     {
         ObjectName objectName = new ObjectName(tableHandle.getObjectName());
 
         String[] columnNamesArray = uniqueColumnNames.toArray(new String[uniqueColumnNames.size()]);
 
-        Map<String, Object> map = new HashMap<>();
+        ImmutableMap.Builder<String, Optional<Object>> attributes = ImmutableMap.builder();
         for (Attribute attribute : mbeanServer.getAttributes(objectName, columnNamesArray).asList()) {
-            map.put(attribute.getName(), attribute.getValue());
+            attributes.put(attribute.getName(), Optional.ofNullable(attribute.getValue()));
         }
-        return map;
+        return attributes.build();
+    }
+
+    public List<Object> getLiveRow(JmxTableHandle tableHandle, ImmutableMap<String, Type> columnTypes)
+            throws JMException
+    {
+        return getLiveRow(tableHandle, columnTypes, 0);
+    }
+
+    public List<Object> getLiveRow(JmxTableHandle tableHandle, ImmutableMap<String, Type> columnTypes, long dumpTimestamp)
+            throws JMException
+    {
+        ImmutableMap<String, Optional<Object>> attributes = getAttributes(columnTypes.keySet(), tableHandle);
+        List<Object> row = new ArrayList<>();
+        // NOTE: data must be produced in the order of the columns parameter.  This code relies on the
+        // fact that columnTypes is an ImmutableMap which is an order preserving LinkedHashMap under
+        // the covers.
+        for (Entry<String, Type> entry : columnTypes.entrySet()) {
+            if (entry.getKey().equals(JmxMetadata.NODE_COLUMN_NAME)) {
+                row.add(nodeId);
+            }
+            else if (entry.getKey().equals(JmxMetadata.TIMESTAMP_COLUMN_NAME)) {
+                row.add(dumpTimestamp);
+            }
+            else {
+                Optional<Object> optionalValue = attributes.get(entry.getKey());
+                if (optionalValue == null || !optionalValue.isPresent()) {
+                    row.add(null);
+                }
+                else {
+                    Object value = optionalValue.get();
+                    Class<?> javaType = entry.getValue().getJavaType();
+                    if (javaType == boolean.class) {
+                        if (value instanceof Boolean) {
+                            row.add(value);
+                        }
+                        else {
+                            // mbeans can lie about types
+                            row.add(null);
+                        }
+                    }
+                    else if (javaType == long.class) {
+                        if (value instanceof Number) {
+                            row.add(((Number) value).longValue());
+                        }
+                        else {
+                            // mbeans can lie about types
+                            row.add(null);
+                        }
+                    }
+                    else if (javaType == double.class) {
+                        if (value instanceof Number) {
+                            row.add(((Number) value).doubleValue());
+                        }
+                        else {
+                            // mbeans can lie about types
+                            row.add(null);
+                        }
+                    }
+                    else if (javaType == Slice.class) {
+                        if (value.getClass().isArray()) {
+                            // return a string representation of the array
+                            if (value.getClass().getComponentType() == boolean.class) {
+                                row.add(Arrays.toString((boolean[]) value));
+                            }
+                            else if (value.getClass().getComponentType() == byte.class) {
+                                row.add(Arrays.toString((byte[]) value));
+                            }
+                            else if (value.getClass().getComponentType() == char.class) {
+                                row.add(Arrays.toString((char[]) value));
+                            }
+                            else if (value.getClass().getComponentType() == double.class) {
+                                row.add(Arrays.toString((double[]) value));
+                            }
+                            else if (value.getClass().getComponentType() == float.class) {
+                                row.add(Arrays.toString((float[]) value));
+                            }
+                            else if (value.getClass().getComponentType() == int.class) {
+                                row.add(Arrays.toString((int[]) value));
+                            }
+                            else if (value.getClass().getComponentType() == long.class) {
+                                row.add(Arrays.toString((long[]) value));
+                            }
+                            else if (value.getClass().getComponentType() == short.class) {
+                                row.add(Arrays.toString((short[]) value));
+                            }
+                            else {
+                                row.add(Arrays.toString((Object[]) value));
+                            }
+                        }
+                        else {
+                            row.add(value.toString());
+                        }
+                    }
+                }
+            }
+        }
+        return row;
     }
 }
