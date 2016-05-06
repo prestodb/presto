@@ -55,7 +55,8 @@ public class TestStorageManagerConfig
                 .setCompactionEnabled(true)
                 .setMaxShardRows(1_000_000)
                 .setMaxShardSize(new DataSize(256, MEGABYTE))
-                .setMaxBufferSize(new DataSize(256, MEGABYTE)));
+                .setMaxBufferSize(new DataSize(256, MEGABYTE))
+                .setOneSplitPerBucketThreshold(0));
     }
 
     @Test
@@ -77,6 +78,7 @@ public class TestStorageManagerConfig
                 .put("storage.max-shard-rows", "10000")
                 .put("storage.max-shard-size", "10MB")
                 .put("storage.max-buffer-size", "512MB")
+                .put("storage.one-split-per-bucket-threshold", "4")
                 .build();
 
         StorageManagerConfig expected = new StorageManagerConfig()
@@ -94,7 +96,8 @@ public class TestStorageManagerConfig
                 .setCompactionThreads(12)
                 .setMaxShardRows(10_000)
                 .setMaxShardSize(new DataSize(10, MEGABYTE))
-                .setMaxBufferSize(new DataSize(512, MEGABYTE));
+                .setMaxBufferSize(new DataSize(512, MEGABYTE))
+                .setOneSplitPerBucketThreshold(4);
 
         assertFullMapping(properties, expected);
     }
