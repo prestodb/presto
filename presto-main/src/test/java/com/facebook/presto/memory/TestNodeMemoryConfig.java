@@ -14,43 +14,42 @@
 package com.facebook.presto.memory;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
-import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
-import static java.util.concurrent.TimeUnit.MINUTES;
-import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.testng.Assert.fail;
 
-public class TestMemoryManagerConfig
+public class TestNodeMemoryConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(ConfigAssertions.recordDefaults(MemoryManagerConfig.class)
-                .setKillOnOutOfMemory(false)
-                .setKillOnOutOfMemoryDelay(new Duration(5, MINUTES))
-                .setMaxQueryMemory(new DataSize(20, GIGABYTE)));
+        // This can't use assertRecordedDefaults because the default value is dependent on the current max heap size, which varies based on the current size of the survivor space.
+        for (int i = 0; i < 1_000; i++) {
+            DataSize expected = new DataSize(Runtime.getRuntime().maxMemory() * 0.1, BYTE);
+            NodeMemoryConfig config = new NodeMemoryConfig();
+            if (expected.equals(config.getMaxQueryMemoryPerNode())) {
+                return;
+            }
+        }
+        // We can't make this 100% deterministic, since we don't know when the survivor space will change sizes, but assume that something is broken if we got the wrong answer 1000 times
+        fail();
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("query.low-memory-killer.enabled", "true")
-                .put("query.low-memory-killer.delay", "20s")
-                .put("query.max-memory", "2GB")
+                .put("query.max-memory-per-node", "1GB")
                 .build();
 
-        MemoryManagerConfig expected = new MemoryManagerConfig()
-                .setKillOnOutOfMemory(true)
-                .setKillOnOutOfMemoryDelay(new Duration(20, SECONDS))
-                .setMaxQueryMemory(new DataSize(2, GIGABYTE));
+        NodeMemoryConfig expected = new NodeMemoryConfig()
+                .setMaxQueryMemoryPerNode(new DataSize(1, GIGABYTE));
 
         assertFullMapping(properties, expected);
     }
