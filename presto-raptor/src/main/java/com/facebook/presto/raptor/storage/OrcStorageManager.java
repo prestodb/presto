@@ -91,6 +91,7 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.propagateIfInstanceOf;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.Math.min;
@@ -265,7 +266,7 @@ public class OrcStorageManager
 
     private void writeShard(UUID shardUuid)
     {
-        if (backupStore.isPresent() && !backupExists(shardUuid)) {
+        if (backupStore.isPresent() && !backupStore.get().shardExists(shardUuid)) {
             throw new PrestoException(RAPTOR_ERROR, "Backup does not exist after write");
         }
 
@@ -287,7 +288,7 @@ public class OrcStorageManager
     {
         File file = storageService.getStorageFile(shardUuid).getAbsoluteFile();
 
-        if (!file.exists() && backupExists(shardUuid)) {
+        if (!file.exists() && backupStore.isPresent()) {
             try {
                 Future<?> future = recoveryManager.recoverShard(shardUuid);
                 future.get(recoveryTimeout.toMillis(), TimeUnit.MILLISECONDS);
@@ -297,6 +298,7 @@ public class OrcStorageManager
                 throw Throwables.propagate(e);
             }
             catch (ExecutionException e) {
+                propagateIfInstanceOf(e.getCause(), PrestoException.class);
                 throw new PrestoException(RAPTOR_RECOVERY_ERROR, "Error recovering shard " + shardUuid, e.getCause());
             }
             catch (TimeoutException e) {
@@ -316,11 +318,6 @@ public class OrcStorageManager
             throws FileNotFoundException
     {
         return new FileOrcDataSource(file, readerAttributes.getMaxMergeDistance(), readerAttributes.getMaxReadSize(), readerAttributes.getStreamBufferSize());
-    }
-
-    private boolean backupExists(UUID shardUuid)
-    {
-        return backupStore.isPresent() && backupStore.get().shardExists(shardUuid);
     }
 
     private ShardInfo createShardInfo(UUID shardUuid, OptionalInt bucketNumber, File file, Set<String> nodes, long rowCount, long uncompressedSize)
