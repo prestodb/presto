@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.backup;
 
+import io.airlift.log.Logger;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -25,6 +26,7 @@ public class ManagedBackupStore
         implements BackupStore
 {
     private final BackupStore store;
+    private final Logger log;
 
     private final BackupOperationStats backupShard = new BackupOperationStats();
     private final BackupOperationStats restoreShard = new BackupOperationStats();
@@ -34,23 +36,27 @@ public class ManagedBackupStore
     public ManagedBackupStore(BackupStore store)
     {
         this.store = requireNonNull(store, "store is null");
+        this.log = Logger.get(store.getClass());
     }
 
     @Override
     public void backupShard(UUID uuid, File source)
     {
+        log.debug("Creating shard backup: %s", uuid);
         backupShard.run(() -> store.backupShard(uuid, source));
     }
 
     @Override
     public void restoreShard(UUID uuid, File target)
     {
+        log.debug("Restoring shard backup: %s", uuid);
         restoreShard.run(() -> store.restoreShard(uuid, target));
     }
 
     @Override
     public boolean deleteShard(UUID uuid)
     {
+        log.debug("Deleting shard backup: %s", uuid);
         return deleteShard.run(() -> store.deleteShard(uuid));
     }
 
