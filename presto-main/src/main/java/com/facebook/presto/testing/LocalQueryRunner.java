@@ -150,6 +150,7 @@ import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -548,22 +549,34 @@ public class LocalQueryRunner
 
         // create drivers
         List<Driver> drivers = new ArrayList<>();
-        Map<PlanNodeId, Driver> driversBySource = new HashMap<>();
+        Map<PlanNodeId, DriverFactory> driverFactoriesBySource = new HashMap<>();
         for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
             for (int i = 0; i < driverFactory.getDriverInstances().orElse(1); i++) {
-                DriverContext driverContext = taskContext.addPipelineContext(driverFactory.isInputDriver(), driverFactory.isOutputDriver()).addDriverContext();
-                Driver driver = driverFactory.createDriver(driverContext);
-                drivers.add(driver);
-                driver.getSourceId().ifPresent(sourceId -> driversBySource.put(sourceId, driver));
+                if (driverFactory.getSourceId().isPresent()) {
+                    checkState(driverFactoriesBySource.put(driverFactory.getSourceId().get(), driverFactory) == null);
+                }
+                else {
+                    DriverContext driverContext = taskContext.addPipelineContext(driverFactory.isInputDriver(), driverFactory.isOutputDriver()).addDriverContext();
+                    Driver driver = driverFactory.createDriver(driverContext);
+                    drivers.add(driver);
+                }
             }
-            driverFactory.close();
         }
 
         // add sources to the drivers
         for (TaskSource source : sources) {
-            for (Driver driver : driversBySource.values()) {
-                driver.updateSource(source);
+            DriverFactory driverFactory = driverFactoriesBySource.get(source.getPlanNodeId());
+            checkState(driverFactory != null);
+            for (ScheduledSplit split : source.getSplits()) {
+                DriverContext driverContext = taskContext.addPipelineContext(driverFactory.isInputDriver(), driverFactory.isOutputDriver()).addDriverContext();
+                Driver driver = driverFactory.createDriver(driverContext);
+                driver.updateSource(new TaskSource(split.getPlanNodeId(), ImmutableSet.of(split), true));
+                drivers.add(driver);
             }
+        }
+
+        for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
+            driverFactory.close();
         }
 
         return ImmutableList.copyOf(drivers);
