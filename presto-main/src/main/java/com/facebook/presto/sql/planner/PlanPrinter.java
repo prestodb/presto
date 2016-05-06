@@ -808,15 +808,17 @@ public class PlanPrinter
         public Void visitExchange(ExchangeNode node, Integer indent)
         {
             if (node.getScope() == Scope.LOCAL) {
-                print(indent, "- LocalExchange[%s] (%s) => %s",
+                print(indent, "- LocalExchange[%s%s] (%s) => %s",
                         node.getPartitioningScheme().getPartitioningHandle(),
+                        node.getPartitioningScheme().isReplicateNulls() ? " - REPLICATE NULLS" : "",
                         Joiner.on(", ").join(node.getPartitioningScheme().getPartitionFunctionArguments()),
                         formatOutputs(node.getOutputSymbols()));
             }
             else {
-                print(indent, "- %sExchange[%s] => %s",
+                print(indent, "- %sExchange[%s%s] => %s",
                         UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, node.getScope().toString()),
                         node.getType(),
+                        node.getPartitioningScheme().isReplicateNulls() ? " - REPLICATE NULLS" : "",
                         formatOutputs(node.getOutputSymbols()));
             }
             printStats(indent + 2, node.getId());

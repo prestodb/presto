@@ -5034,6 +5034,92 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testSemiJoinUnionNullHandling()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT orderkey\n" +
+                "  IN (\n" +
+                "    SELECT CASE WHEN orderkey % 500 = 0 THEN NULL ELSE orderkey END\n" +
+                "    FROM orders\n" +
+                "    WHERE orderkey % 200 = 0\n" +
+                "    UNION ALL\n" +
+                "    SELECT CASE WHEN orderkey % 600 = 0 THEN NULL ELSE orderkey END\n" +
+                "    FROM orders\n" +
+                "    WHERE orderkey % 300 = 0\n" +
+                "  )\n" +
+                "FROM (\n" +
+                "  SELECT orderkey\n" +
+                "  FROM lineitem\n" +
+                "  WHERE orderkey % 100 = 0)");
+    }
+
+    @Test
+    public void testSemiJoinAggregationNullHandling()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT orderkey\n" +
+                "  IN (\n" +
+                "    SELECT CASE WHEN orderkey % 10 = 0 THEN NULL ELSE orderkey END\n" +
+                "    FROM lineitem\n" +
+                "    WHERE orderkey % 2 = 0\n" +
+                "    GROUP BY orderkey\n" +
+                "  )\n" +
+                "FROM (\n" +
+                "  SELECT orderkey\n" +
+                "  FROM orders\n" +
+                "  WHERE orderkey % 3 = 0)");
+    }
+
+    @Test
+    public void testSemiJoinUnionAggregationNullHandling()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT orderkey\n" +
+                "  IN (\n" +
+                "    SELECT CASE WHEN orderkey % 500 = 0 THEN NULL ELSE orderkey END\n" +
+                "    FROM lineitem\n" +
+                "    WHERE orderkey % 250 = 0\n" +
+                "    UNION ALL\n" +
+                "    SELECT CASE WHEN orderkey % 300 = 0 THEN NULL ELSE orderkey END\n" +
+                "    FROM lineitem\n" +
+                "    WHERE orderkey % 200 = 0\n" +
+                "    GROUP BY orderkey\n" +
+                "  )\n" +
+                "FROM (\n" +
+                "  SELECT orderkey\n" +
+                "  FROM orders\n" +
+                "  WHERE orderkey % 100 = 0)\n");
+    }
+
+    @Test
+    public void testSemiJoinAggregationUnionNullHandling()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT orderkey\n" +
+                "  IN (\n" +
+                "    SELECT orderkey\n" +
+                "    FROM (\n" +
+                "      SELECT CASE WHEN orderkey % 500 = 0 THEN NULL ELSE orderkey END AS orderkey\n" +
+                "      FROM orders\n" +
+                "      WHERE orderkey % 200 = 0\n" +
+                "      UNION ALL\n" +
+                "      SELECT CASE WHEN orderkey % 600 = 0 THEN NULL ELSE orderkey END AS orderkey\n" +
+                "      FROM orders\n" +
+                "      WHERE orderkey % 300 = 0\n" +
+                "    )\n" +
+                "    GROUP BY orderkey\n" +
+                "  )\n" +
+                "FROM (\n" +
+                "  SELECT orderkey\n" +
+                "  FROM lineitem\n" +
+                "  WHERE orderkey % 100 = 0)");
+    }
+
+    @Test
     public void testScalarSubquery()
             throws Exception
     {

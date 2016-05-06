@@ -105,7 +105,7 @@ final class StreamPropertyDerivations
         // properties.otherActualProperties will never be null here because the only way
         // an external caller should obtain StreamProperties is from this method, and the
         // last line of this method assures otherActualProperties is set.
-        ActualProperties otherProperties = PropertyDerivations.deriveProperties(
+        ActualProperties otherProperties = PropertyDerivations.streamBackdoorDeriveProperties(
                 node,
                 inputProperties.stream()
                         .map(properties -> properties.otherActualProperties)
