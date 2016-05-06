@@ -24,7 +24,7 @@ public class TestMultipleTasksPerNode
     public TestMultipleTasksPerNode()
             throws Exception
     {
-        super(createQueryRunner(ImmutableMap.of("node-scheduler.multiple-tasks-per-node-enabled", "true")));
+        super(createQueryRunner(ImmutableMap.of("node-scheduler.multiple-tasks-per-node-enabled", "true", "query.initial-hash-partitions", "8")));
     }
 
     @Test

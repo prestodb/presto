@@ -34,7 +34,7 @@ public class TestQueryManagerConfig
                 .setMaxConcurrentQueries(1000)
                 .setMaxQueuedQueries(5000)
                 .setQueueConfigFile(null)
-                .setInitialHashPartitions(8)
+                .setInitialHashPartitions(100)
                 .setQueryManagerExecutorPoolSize(5)
                 .setRemoteTaskMinErrorDuration(new Duration(2, TimeUnit.MINUTES))
                 .setRemoteTaskMaxCallbackThreads(1000)
