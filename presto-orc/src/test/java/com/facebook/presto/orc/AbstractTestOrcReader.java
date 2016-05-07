@@ -46,9 +46,12 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.Iterables.concat;
@@ -182,18 +185,24 @@ public abstract class AbstractTestOrcReader
         tester.testRoundTrip(
                 javaByteObjectInspector,
                 writeValues.stream()
-                        .map(value -> (long) value.byteValue()) // truncate values to byte range
+                        .map(Long::byteValue) // truncate values to byte range
                         .collect(toList()),
-                BIGINT);
+                TINYINT);
 
         tester.testRoundTrip(
                 javaShortObjectInspector,
                 writeValues.stream()
-                        .map(value -> (long) value.shortValue()) // truncate values to short range
+                        .map(Long::shortValue) // truncate values to short range
                         .collect(toList()),
-                BIGINT);
+                SMALLINT);
 
-        tester.testRoundTrip(javaIntObjectInspector, writeValues, BIGINT);
+        tester.testRoundTrip(
+                javaIntObjectInspector,
+                writeValues.stream()
+                        .map(Long::intValue) // truncate values to int range
+                        .collect(toList()),
+                INTEGER);
+
         tester.testRoundTrip(javaLongObjectInspector, writeValues, BIGINT);
 
         tester.testRoundTrip(
@@ -373,7 +382,7 @@ public abstract class AbstractTestOrcReader
                         nCopies(1_000_000, null))),
                 200_000);
 
-        tester.assertRoundTrip(javaIntObjectInspector, transform(values, value -> value == null ? null : (long) value), BIGINT);
+        tester.assertRoundTrip(javaIntObjectInspector, values, INTEGER);
 
         Iterable<String> stringValue = transform(values, value -> value == null ? null : String.valueOf(value));
         tester.assertRoundTrip(javaStringObjectInspector, stringValue, VARCHAR);
