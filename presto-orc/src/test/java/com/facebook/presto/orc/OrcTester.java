@@ -98,15 +98,15 @@ import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
-import static com.google.common.base.Functions.constant;
-import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Iterators.advance;
+import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.io.Files.createTempDir;
 import static io.airlift.testing.FileUtils.deleteRecursively;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
+import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardListObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardMapObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
@@ -174,14 +174,19 @@ public class OrcTester
         return orcTester;
     }
 
-    public void testRoundTrip(ObjectInspector objectInspector, Iterable<?> readValues, Type type)
+    public void testRoundTrip(ObjectInspector objectInspector, List<?> readValues, Type type)
             throws Exception
     {
         // just the values
         testRoundTripType(objectInspector, readValues, type);
 
         // all nulls
-        assertRoundTrip(objectInspector, transform(readValues, constant(null)), type);
+        assertRoundTrip(
+                objectInspector,
+                readValues.stream()
+                        .map(value -> null)
+                        .collect(toList()),
+                type);
 
         // values wrapped in struct
         if (structTestsEnabled) {
@@ -190,8 +195,11 @@ public class OrcTester
 
         // values wrapped in a struct wrapped in a struct
         if (complexStructuralTestsEnabled) {
-            testStructRoundTrip(createHiveStructInspector(objectInspector),
-                    transform(readValues, OrcTester::toHiveStruct),
+            testStructRoundTrip(
+                    createHiveStructInspector(objectInspector),
+                    readValues.stream()
+                            .map(OrcTester::toHiveStruct)
+                            .collect(toList()),
                     rowType(type, type, type));
         }
 
@@ -207,35 +215,47 @@ public class OrcTester
 
         // values wrapped in a list wrapped in a list
         if (complexStructuralTestsEnabled) {
-            testListRoundTrip(createHiveListInspector(objectInspector),
-                    transform(readValues, OrcTester::toHiveList),
+            testListRoundTrip(
+                    createHiveListInspector(objectInspector),
+                    readValues.stream()
+                            .map(OrcTester::toHiveList)
+                            .collect(toList()),
                     arrayType(type));
         }
     }
 
-    private void testStructRoundTrip(ObjectInspector objectInspector, Iterable<?> readValues, Type elementType)
+    private void testStructRoundTrip(ObjectInspector objectInspector, List<?> readValues, Type elementType)
             throws Exception
     {
         Type rowType = rowType(elementType, elementType, elementType);
         // values in simple struct
-        testRoundTripType(createHiveStructInspector(objectInspector),
-                transform(readValues, OrcTester::toHiveStruct),
+        testRoundTripType(
+                createHiveStructInspector(objectInspector),
+                readValues.stream()
+                        .map(OrcTester::toHiveStruct)
+                        .collect(toList()),
                 rowType);
 
         if (structuralNullTestsEnabled) {
             // values and nulls in simple struct
-            testRoundTripType(createHiveStructInspector(objectInspector),
-                    transform(insertNullEvery(5, readValues), OrcTester::toHiveStruct),
+            testRoundTripType(
+                    createHiveStructInspector(objectInspector),
+                    insertNullEvery(5, readValues).stream()
+                            .map(OrcTester::toHiveStruct)
+                            .collect(toList()),
                     rowType);
 
             // all null values in simple struct
-            testRoundTripType(createHiveStructInspector(objectInspector),
-                    transform(transform(readValues, constant(null)), OrcTester::toHiveStruct),
+            testRoundTripType(
+                    createHiveStructInspector(objectInspector),
+                    readValues.stream()
+                            .map(value -> toHiveStruct(null))
+                            .collect(toList()),
                     rowType);
         }
     }
 
-    private void testMapRoundTrip(ObjectInspector objectInspector, Iterable<?> readValues, Type elementType)
+    private void testMapRoundTrip(ObjectInspector objectInspector, List<?> readValues, Type elementType)
             throws Exception
     {
         Type mapType = mapType(elementType, elementType);
@@ -245,45 +265,61 @@ public class OrcTester
 
         // values in simple map
         testRoundTripType(createHiveMapInspector(objectInspector),
-                transform(readValues, value -> toHiveMap(value, readNullKeyValue)),
+                readValues.stream()
+                        .map(value -> toHiveMap(value, readNullKeyValue))
+                        .collect(toList()),
                 mapType);
 
         if (structuralNullTestsEnabled) {
             // values and nulls in simple map
             testRoundTripType(createHiveMapInspector(objectInspector),
-                    transform(insertNullEvery(5, readValues), value -> toHiveMap(value, readNullKeyValue)),
+                    insertNullEvery(5, readValues).stream()
+                            .map(value -> toHiveMap(value, readNullKeyValue))
+                            .collect(toList()),
                     mapType);
 
             // all null values in simple map
-            testRoundTripType(createHiveMapInspector(objectInspector),
-                    transform(transform(readValues, constant(null)), value -> toHiveMap(value, readNullKeyValue)),
+            testRoundTripType(
+                    createHiveMapInspector(objectInspector),
+                    readValues.stream()
+                            .map(value -> toHiveMap(null, readNullKeyValue))
+                            .collect(toList()),
                     mapType);
         }
     }
 
-    private void testListRoundTrip(ObjectInspector objectInspector, Iterable<?> readValues, Type elementType)
+    private void testListRoundTrip(ObjectInspector objectInspector, List<?> readValues, Type elementType)
             throws Exception
     {
         Type arrayType = arrayType(elementType);
         // values in simple list
-        testRoundTripType(createHiveListInspector(objectInspector),
-                transform(readValues, OrcTester::toHiveList),
+        testRoundTripType(
+                createHiveListInspector(objectInspector),
+                readValues.stream()
+                        .map(OrcTester::toHiveList)
+                        .collect(toList()),
                 arrayType);
 
         if (structuralNullTestsEnabled) {
             // values and nulls in simple list
-            testRoundTripType(createHiveListInspector(objectInspector),
-                    transform(insertNullEvery(5, readValues), OrcTester::toHiveList),
+            testRoundTripType(
+                    createHiveListInspector(objectInspector),
+                    insertNullEvery(5, readValues).stream()
+                            .map(OrcTester::toHiveList)
+                            .collect(toList()),
                     arrayType);
 
             // all null values in simple list
-            testRoundTripType(createHiveListInspector(objectInspector),
-                    transform(transform(readValues, constant(null)), OrcTester::toHiveList),
+            testRoundTripType(
+                    createHiveListInspector(objectInspector),
+                    readValues.stream()
+                            .map(value -> toHiveList(null))
+                            .collect(toList()),
                     arrayType);
         }
     }
 
-    private void testRoundTripType(ObjectInspector objectInspector, Iterable<?> readValues, Type type)
+    private void testRoundTripType(ObjectInspector objectInspector, List<?> readValues, Type type)
             throws Exception
     {
         // forward order
@@ -305,7 +341,7 @@ public class OrcTester
         }
     }
 
-    public void assertRoundTrip(ObjectInspector objectInspector, Iterable<?> readValues, Type type)
+    public void assertRoundTrip(ObjectInspector objectInspector, List<?> readValues, Type type)
             throws Exception
     {
         for (Format formatVersion : formats) {
@@ -348,7 +384,7 @@ public class OrcTester
 
     private static void assertFileContents(ObjectInspector objectInspector,
             TempFile tempFile,
-            Iterable<?> expectedValues,
+            List<?> expectedValues,
             boolean skipFirstBatch,
             boolean skipStripe,
             MetadataReader metadataReader,
@@ -717,14 +753,14 @@ public class OrcTester
         }
     }
 
-    private static <T> Iterable<T> reverse(Iterable<T> iterable)
+    private static <T> List<T> reverse(List<T> iterable)
     {
         return Lists.reverse(ImmutableList.copyOf(iterable));
     }
 
-    private static <T> Iterable<T> insertNullEvery(int n, Iterable<T> iterable)
+    private static <T> List<T> insertNullEvery(int n, List<T> iterable)
     {
-        return () -> new AbstractIterator<T>()
+        return newArrayList(() -> new AbstractIterator<T>()
         {
             private final Iterator<T> delegate = iterable.iterator();
             private int position;
@@ -744,7 +780,7 @@ public class OrcTester
 
                 return delegate.next();
             }
-        };
+        });
     }
 
     private static StandardStructObjectInspector createHiveStructInspector(ObjectInspector objectInspector)

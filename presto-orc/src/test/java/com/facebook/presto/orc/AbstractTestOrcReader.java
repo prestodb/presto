@@ -57,7 +57,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
-import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.Lists.newArrayList;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
@@ -119,7 +119,7 @@ public abstract class AbstractTestOrcReader
     public void testBooleanSequence()
             throws Exception
     {
-        tester.testRoundTrip(javaBooleanObjectInspector, limit(cycle(ImmutableList.of(true, false, false)), 30_000), BOOLEAN);
+        tester.testRoundTrip(javaBooleanObjectInspector, newArrayList(limit(cycle(ImmutableList.of(true, false, false)), 30_000)), BOOLEAN);
     }
 
     @Test
@@ -279,56 +279,76 @@ public abstract class AbstractTestOrcReader
     public void testStringUnicode()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, limit(cycle(ImmutableList.of("apple", "apple pie", "apple\uD835\uDC03", "apple\uFFFD")), 30_000), VARCHAR);
+        tester.testRoundTrip(javaStringObjectInspector, newArrayList(limit(cycle(ImmutableList.of("apple", "apple pie", "apple\uD835\uDC03", "apple\uFFFD")), 30_000)), VARCHAR);
     }
 
     @Test
     public void testStringDirectSequence()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, transform(intsBetween(0, 30_000), Object::toString), VARCHAR);
+        tester.testRoundTrip(
+                javaStringObjectInspector,
+                intsBetween(0, 30_000).stream()
+                        .map(Object::toString)
+                        .collect(toList()),
+                VARCHAR);
     }
 
     @Test
     public void testStringDictionarySequence()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, limit(cycle(transform(ImmutableList.of(1, 3, 5, 7, 11, 13, 17), Object::toString)), 30_000), VARCHAR);
+        tester.testRoundTrip(
+                javaStringObjectInspector,
+                newArrayList(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 30_000)).stream()
+                    .map(Object::toString)
+                    .collect(toList()),
+                VARCHAR);
     }
 
     @Test
     public void testStringStrideDictionary()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, concat(ImmutableList.of("a"), nCopies(9999, "123"), ImmutableList.of("b"), nCopies(9999, "123")), VARCHAR);
+        tester.testRoundTrip(javaStringObjectInspector, newArrayList(concat(ImmutableList.of("a"), nCopies(9999, "123"), ImmutableList.of("b"), nCopies(9999, "123"))), VARCHAR);
     }
 
     @Test
     public void testEmptyStringSequence()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, limit(cycle(""), 30_000), VARCHAR);
+        tester.testRoundTrip(javaStringObjectInspector, newArrayList(limit(cycle(""), 30_000)), VARCHAR);
     }
 
     @Test
     public void testCharDirectSequence()
             throws Exception
     {
-        tester.testRoundTrip(CHAR_INSPECTOR, transform(intsBetween(0, 30_000), this::toCharValue), CHAR);
+        tester.testRoundTrip(
+                CHAR_INSPECTOR,
+                intsBetween(0, 30_000).stream()
+                        .map(this::toCharValue)
+                        .collect(toList()),
+                CHAR);
     }
 
     @Test
     public void testCharDictionarySequence()
             throws Exception
     {
-        tester.testRoundTrip(CHAR_INSPECTOR, limit(cycle(transform(ImmutableList.of(1, 3, 5, 7, 11, 13, 17), this::toCharValue)), 30_000), CHAR);
+        tester.testRoundTrip(
+                CHAR_INSPECTOR,
+                newArrayList(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 30_000)).stream()
+                    .map(this::toCharValue)
+                    .collect(toList()),
+                CHAR);
     }
 
     @Test
     public void testEmptyCharSequence()
             throws Exception
     {
-        tester.testRoundTrip(CHAR_INSPECTOR, limit(cycle("          "), 30_000), CHAR);
+        tester.testRoundTrip(CHAR_INSPECTOR, newArrayList(limit(cycle("          "), 30_000)), CHAR);
     }
 
     private String toCharValue(Object value)
@@ -375,25 +395,34 @@ public abstract class AbstractTestOrcReader
     public void testDwrfInvalidCheckpointsForRowGroupDictionary()
             throws Exception
     {
-        Iterable<Integer> values = limit(cycle(concat(
+        List<Integer> values = newArrayList(limit(
+                cycle(concat(
                         ImmutableList.of(1), nCopies(9999, 123),
                         ImmutableList.of(2), nCopies(9999, 123),
                         ImmutableList.of(3), nCopies(9999, 123),
                         nCopies(1_000_000, null))),
-                200_000);
+                200_000));
 
         tester.assertRoundTrip(javaIntObjectInspector, values, INTEGER);
 
-        Iterable<String> stringValue = transform(values, value -> value == null ? null : String.valueOf(value));
-        tester.assertRoundTrip(javaStringObjectInspector, stringValue, VARCHAR);
+        tester.assertRoundTrip(
+                javaStringObjectInspector,
+                newArrayList(values).stream()
+                        .map(value -> value == null ? null : String.valueOf(value))
+                        .collect(toList()),
+                VARCHAR);
     }
 
     @Test
     public void testDwrfInvalidCheckpointsForStripeDictionary()
             throws Exception
     {
-        Iterable<String> values = limit(cycle(transform(ImmutableList.of(1, 3, 5, 7, 11, 13, 17), Object::toString)), 200_000);
-        tester.testRoundTrip(javaStringObjectInspector, values, VARCHAR);
+        tester.testRoundTrip(
+                javaStringObjectInspector,
+                newArrayList(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 200_000)).stream()
+                        .map(Object::toString)
+                        .collect(toList()),
+                VARCHAR);
     }
 
     private static <T> Iterable<T> skipEvery(int n, Iterable<T> iterable)
