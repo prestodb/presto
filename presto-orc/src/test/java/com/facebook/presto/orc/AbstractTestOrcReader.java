@@ -253,12 +253,12 @@ public abstract class AbstractTestOrcReader
     public void testDecimalSequence()
             throws Exception
     {
-        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_2, decimalSequence("0", "1", 30, 2, 1), DECIMAL_TYPE_PRECISION_2);
-        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_4, decimalSequence("0", "1", 30_00, 4, 2), DECIMAL_TYPE_PRECISION_4);
-        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_8, decimalSequence("0", "100", 30_000, 8, 4), DECIMAL_TYPE_PRECISION_8);
-        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_17, decimalSequence("0", "1000000", 30_000, 17, 8), DECIMAL_TYPE_PRECISION_17);
-        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_18, decimalSequence("0", "1000000", 30_000, 18, 8), DECIMAL_TYPE_PRECISION_18);
-        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_38, decimalSequence("0", "100000000000000", 30_000, 38, 16), DECIMAL_TYPE_PRECISION_38);
+        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_2, decimalSequence("-30", "1", 60, 2, 1), DECIMAL_TYPE_PRECISION_2);
+        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_4, decimalSequence("-3000", "1", 60_00, 4, 2), DECIMAL_TYPE_PRECISION_4);
+        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_8, decimalSequence("-3000000", "100", 60_000, 8, 4), DECIMAL_TYPE_PRECISION_8);
+        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_17, decimalSequence("-30000000000", "1000000", 60_000, 17, 8), DECIMAL_TYPE_PRECISION_17);
+        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_18, decimalSequence("-30000000000", "1000000", 60_000, 18, 8), DECIMAL_TYPE_PRECISION_18);
+        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_38, decimalSequence("-3000000000000000000", "100000000000000", 60_000, 38, 16), DECIMAL_TYPE_PRECISION_38);
     }
 
     @Test
