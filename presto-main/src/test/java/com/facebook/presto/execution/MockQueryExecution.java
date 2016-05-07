@@ -126,6 +126,13 @@ public class MockQueryExecution
     }
 
     @Override
+    public void cancelQuery()
+    {
+        state = FAILED;
+        fireStateChange();
+    }
+
+    @Override
     public void cancelStage(StageId stageId)
     {
         throw new UnsupportedOperationException();

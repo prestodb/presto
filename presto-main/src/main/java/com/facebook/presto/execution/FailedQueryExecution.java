@@ -116,6 +116,12 @@ public class FailedQueryExecution
     }
 
     @Override
+    public void cancelQuery()
+    {
+        // no-op
+    }
+
+    @Override
     public void cancelStage(StageId stageId)
     {
         // no-op

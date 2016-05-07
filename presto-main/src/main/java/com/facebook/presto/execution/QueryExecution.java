@@ -44,6 +44,8 @@ public interface QueryExecution
 
     void fail(Throwable cause);
 
+    void cancelQuery();
+
     void cancelStage(StageId stageId);
 
     void recordHeartbeat();

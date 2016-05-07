@@ -341,6 +341,12 @@ public final class SqlQueryExecution
     }
 
     @Override
+    public void cancelQuery()
+    {
+        stateMachine.transitionToCanceled();
+    }
+
+    @Override
     public void cancelStage(StageId stageId)
     {
         requireNonNull(stageId, "stageId is null");
