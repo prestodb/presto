@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.orc.OrcTester.TempFile;
 import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.IntegerStatistics;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;

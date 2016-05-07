@@ -59,7 +59,6 @@ import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
 
-import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -101,8 +100,6 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.collect.Iterators.advance;
 import static com.google.common.collect.Lists.newArrayList;
-import static com.google.common.io.Files.createTempDir;
-import static io.airlift.testing.FileUtils.deleteRecursively;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.toIntExact;
 import static java.util.Arrays.asList;
@@ -833,32 +830,6 @@ public class OrcTester
         orderTableProperties.setProperty("columns", name);
         orderTableProperties.setProperty("columns.types", type);
         return orderTableProperties;
-    }
-
-    static class TempFile
-            implements Closeable
-    {
-        private final File tempDir;
-        private final File file;
-
-        public TempFile()
-        {
-            tempDir = createTempDir();
-            tempDir.mkdirs();
-            file = new File(tempDir, "data.rcfile");
-        }
-
-        public File getFile()
-        {
-            return file;
-        }
-
-        @Override
-        public void close()
-        {
-            // hadoop creates crc files that must be deleted also, so just delete the whole directory
-            deleteRecursively(tempDir);
-        }
     }
 
     private static <T> List<T> reverse(List<T> iterable)

@@ -15,7 +15,6 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.OrcTester.Compression;
 import com.facebook.presto.orc.OrcTester.Format;
-import com.facebook.presto.orc.OrcTester.TempFile;
 import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.orc.metadata.StripeInformation;
