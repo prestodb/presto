@@ -60,7 +60,6 @@ import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_QUEUE_FULL;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
-import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.Threads.threadsNamed;
@@ -351,7 +350,7 @@ public class SqlQueryManager
 
         QueryExecution query = queries.get(queryId);
         if (query != null) {
-            query.fail(new PrestoException(USER_CANCELED, "Query was canceled"));
+            query.cancelQuery();
         }
     }
 

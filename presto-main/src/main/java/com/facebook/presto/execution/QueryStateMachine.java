@@ -19,6 +19,7 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.transaction.TransactionId;
@@ -55,6 +56,7 @@ import static com.facebook.presto.execution.QueryState.STARTING;
 import static com.facebook.presto.execution.QueryState.TERMINAL_QUERY_STATES;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
+import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -477,15 +479,7 @@ public class QueryStateMachine
 
     private boolean transitionToFinished()
     {
-        Duration durationSinceCreation = nanosSince(createNanos).convertToMostSuccinctTimeUnit();
-        queuedTime.compareAndSet(null, durationSinceCreation);
-        totalPlanningTime.compareAndSet(null, durationSinceCreation);
-        DateTime now = DateTime.now();
-        executionStartTime.compareAndSet(null, now);
-        finishingStartNanos.compareAndSet(null, System.nanoTime());
-        finishingTime.compareAndSet(null, nanosSince(finishingStartNanos.get()));
-        endTime.compareAndSet(null, now);
-        endNanos.compareAndSet(0, System.nanoTime());
+        recordDoneStats();
 
         return queryState.setIf(FINISHED, currentState -> !currentState.isDone());
     }
@@ -494,15 +488,7 @@ public class QueryStateMachine
     {
         requireNonNull(throwable, "throwable is null");
 
-        Duration durationSinceCreation = nanosSince(createNanos).convertToMostSuccinctTimeUnit();
-        queuedTime.compareAndSet(null, durationSinceCreation);
-        totalPlanningTime.compareAndSet(null, durationSinceCreation);
-        DateTime now = DateTime.now();
-        executionStartTime.compareAndSet(null, now);
-        finishingStartNanos.compareAndSet(null, System.nanoTime());
-        finishingTime.compareAndSet(null, nanosSince(finishingStartNanos.get()));
-        endTime.compareAndSet(null, now);
-        endNanos.compareAndSet(0, System.nanoTime());
+        recordDoneStats();
 
         failureCause.compareAndSet(null, toFailure(throwable));
         boolean failed = queryState.setIf(FAILED, currentState -> !currentState.isDone());
@@ -516,6 +502,32 @@ public class QueryStateMachine
         session.getTransactionId().ifPresent(autoCommit ? transactionManager::asyncAbort : transactionManager::fail);
 
         return failed;
+    }
+
+    public boolean transitionToCanceled()
+    {
+        recordDoneStats();
+
+        boolean canceled = queryState.setIf(FAILED, currentState -> !currentState.isDone());
+        if (canceled) {
+            failureCause.compareAndSet(null, toFailure(new PrestoException(USER_CANCELED, "Query was canceled")));
+            session.getTransactionId().ifPresent(autoCommit ? transactionManager::asyncAbort : transactionManager::fail);
+        }
+
+        return canceled;
+    }
+
+    private void recordDoneStats()
+    {
+        Duration durationSinceCreation = nanosSince(createNanos).convertToMostSuccinctTimeUnit();
+        queuedTime.compareAndSet(null, durationSinceCreation);
+        totalPlanningTime.compareAndSet(null, durationSinceCreation);
+        DateTime now = DateTime.now();
+        executionStartTime.compareAndSet(null, now);
+        finishingStartNanos.compareAndSet(null, System.nanoTime());
+        finishingTime.compareAndSet(null, nanosSince(finishingStartNanos.get()));
+        endTime.compareAndSet(null, now);
+        endNanos.compareAndSet(0, System.nanoTime());
     }
 
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
