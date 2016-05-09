@@ -35,7 +35,7 @@ public class QueryManagerConfig
     private int maxQueuedQueries = 5000;
     private String queueConfigFile;
 
-    private int initialHashPartitions = 8;
+    private int initialHashPartitions = 100;
     private Duration maxQueryAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
