@@ -127,6 +127,11 @@ public class StageInfo
         return failureCause;
     }
 
+    public boolean isFinalStageInfo()
+    {
+        return state.isDone() && tasks.stream().allMatch(taskInfo -> taskInfo.getTaskStatus().getState().isDone());
+    }
+
     @Override
     public String toString()
     {

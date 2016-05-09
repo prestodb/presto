@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.spi.StandardErrorCode.toErrorType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -226,6 +227,12 @@ public class QueryInfo
     public ErrorCode getErrorCode()
     {
         return errorCode;
+    }
+
+    @JsonProperty
+    public boolean isFinalQueryInfo()
+    {
+        return state.isDone() && getAllStages(outputStage).stream().allMatch(StageInfo::isFinalStageInfo);
     }
 
     @JsonProperty

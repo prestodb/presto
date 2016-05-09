@@ -396,7 +396,7 @@ public class StatementResource
 
             // only return a next if the query is not done or there is more data to send (due to buffering)
             URI nextResultsUri = null;
-            if ((!queryInfo.getState().isDone()) || (!exchangeClient.isClosed())) {
+            if ((!queryInfo.isFinalQueryInfo()) || (!exchangeClient.isClosed())) {
                 nextResultsUri = createNextResultsUri(uriInfo);
             }
 
