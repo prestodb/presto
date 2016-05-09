@@ -16,9 +16,9 @@ package com.facebook.presto.execution.scheduler;
 import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.StageState;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.JoinNode.Type;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
@@ -48,8 +48,10 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.execution.StageState.RUNNING;
 import static com.facebook.presto.execution.StageState.SCHEDULED;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
+import static com.google.common.base.Preconditions.checkArgument;
 
 @NotThreadSafe
 public class PhasedExecutionSchedule
@@ -112,7 +114,7 @@ public class PhasedExecutionSchedule
 
     private static boolean hasSourceDistributedStage(Set<SqlStageExecution> phase)
     {
-        return phase.stream().anyMatch(stage -> stage.getFragment().getPartitionedSource() != null);
+        return phase.stream().anyMatch(stage -> !stage.getFragment().getPartitionedSources().isEmpty());
     }
 
     @Override
@@ -193,12 +195,7 @@ public class PhasedExecutionSchedule
         @Override
         public Set<PlanFragmentId> visitJoin(JoinNode node, PlanFragmentId currentFragmentId)
         {
-            if (node.getType() == Type.RIGHT) {
-                return processJoin(node.getLeft(), node.getRight(), currentFragmentId);
-            }
-            else {
-                return processJoin(node.getRight(), node.getLeft(), currentFragmentId);
-            }
+            return processJoin(node.getRight(), node.getLeft(), currentFragmentId);
         }
 
         @Override
@@ -253,6 +250,26 @@ public class PhasedExecutionSchedule
             }
 
             return sources.build();
+        }
+
+        @Override
+        public Set<PlanFragmentId> visitExchange(ExchangeNode node, PlanFragmentId currentFragmentId)
+        {
+            checkArgument(node.getScope() == LOCAL, "Only local exchanges are supported in the phased execution scheduler");
+            ImmutableSet.Builder<PlanFragmentId> allSources = ImmutableSet.builder();
+
+            // Link the source fragments together, so we only schedule one at a time.
+            Set<PlanFragmentId> previousSources = ImmutableSet.of();
+            for (PlanNode subPlanNode : node.getSources()) {
+                Set<PlanFragmentId> currentSources = subPlanNode.accept(this, currentFragmentId);
+                allSources.addAll(currentSources);
+
+                addEdges(previousSources, currentSources);
+
+                previousSources = currentSources;
+            }
+
+            return allSources.build();
         }
 
         @Override

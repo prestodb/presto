@@ -21,6 +21,7 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTime;
 import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
 import com.facebook.presto.spi.type.SqlTimestamp;
@@ -56,6 +57,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.TimeType.TIME;
@@ -218,6 +220,9 @@ public class MaterializedResult
         else if (BIGINT.equals(type)) {
             type.writeLong(blockBuilder, ((Number) value).longValue());
         }
+        else if (INTEGER.equals(type)) {
+            type.writeLong(blockBuilder, ((Number) value).intValue());
+        }
         else if (DOUBLE.equals(type)) {
             type.writeDouble(blockBuilder, ((Number) value).doubleValue());
         }
@@ -322,6 +327,9 @@ public class MaterializedResult
             }
             else if (prestoValue instanceof SqlTimestampWithTimeZone) {
                 jdbcValue = new Timestamp(((SqlTimestampWithTimeZone) prestoValue).getMillisUtc());
+            }
+            else if (prestoValue instanceof SqlDecimal) {
+                jdbcValue = ((SqlDecimal) prestoValue).toBigDecimal();
             }
             else {
                 jdbcValue = prestoValue;

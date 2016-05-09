@@ -33,12 +33,19 @@ public class HdfsParquetDataSource
     private final String name;
     private final long size;
     private final FSDataInputStream inputStream;
+    private long readBytes;
 
     public HdfsParquetDataSource(Path path, long size, FSDataInputStream inputStream)
     {
         this.name = path.toString();
         this.size = size;
         this.inputStream = inputStream;
+    }
+
+    @Override
+    public final long getReadBytes()
+    {
+        return readBytes;
     }
 
     @Override
@@ -66,6 +73,7 @@ public class HdfsParquetDataSource
             throws IOException
     {
         readInternal(position, buffer, bufferOffset, bufferLength);
+        readBytes += bufferLength;
     }
 
     private void readInternal(long position, byte[] buffer, int bufferOffset, int bufferLength)

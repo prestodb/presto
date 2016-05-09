@@ -62,7 +62,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 
 public class SimplifyExpressions
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     private final Metadata metadata;
     private final SqlParser sqlParser;

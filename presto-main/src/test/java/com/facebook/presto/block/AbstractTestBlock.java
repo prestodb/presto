@@ -146,7 +146,6 @@ public abstract class AbstractTestBlock
 
             for (int offset = 0; offset < length - 3; offset++) {
                 assertEquals(block.getSlice(position, offset, 3), expectedSliceValue.slice(offset, 3));
-                assertEquals(block.hash(position, offset, 3), expectedSliceValue.hashCode(offset, 3));
                 assertTrue(block.bytesEqual(position, offset, expectedSliceValue, offset, 3));
                 // if your tests fail here, please change your test to not use this value
                 assertFalse(block.bytesEqual(position, offset, Slices.utf8Slice("XXX"), 0, 3));

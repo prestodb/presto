@@ -1,7 +1,0 @@
-hosts:
-  hadoop-master: ${DOCKER_MACHINE_HOST} 
-databases:
-  hive:
-    host: ${DOCKER_MACHINE_HOST}
-  presto:
-    host: ${DOCKER_MACHINE_HOST}

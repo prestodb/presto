@@ -68,6 +68,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
@@ -80,7 +81,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class HashGenerationOptimizer
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     public static final int INITIAL_HASH_VALUE = 0;
     private static final String HASH_CODE = FunctionRegistry.mangleOperatorName("HASH_CODE");
@@ -149,6 +150,7 @@ public class HashGenerationOptimizer
                             node.getAggregations(),
                             node.getFunctions(),
                             node.getMasks(),
+                            node.getGroupingSets(),
                             node.getStep(),
                             node.getSampleWeight(),
                             node.getConfidence(),
@@ -186,7 +188,7 @@ public class HashGenerationOptimizer
             Symbol hashSymbol = child.getRequiredHashSymbol(hashComputation.get());
 
             return new PlanWithProperties(
-                    new DistinctLimitNode(idAllocator.getNextId(), child.getNode(), node.getLimit(), Optional.of(hashSymbol)),
+                    new DistinctLimitNode(idAllocator.getNextId(), child.getNode(), node.getLimit(), node.isPartial(), Optional.of(hashSymbol)),
                     child.getHashSymbols());
         }
 
@@ -495,6 +497,7 @@ public class HashGenerationOptimizer
                     new ExchangeNode(
                             idAllocator.getNextId(),
                             node.getType(),
+                            node.getScope(),
                             partitionFunction,
                             newSources.build(),
                             newInputs.build()),
@@ -617,7 +620,7 @@ public class HashGenerationOptimizer
 
             // return only hash symbols that are passed through the new node
             Map<HashComputation, Symbol> hashSymbols = new HashMap<>(source.getHashSymbols());
-            hashSymbols.keySet().retainAll(result.getOutputSymbols());
+            hashSymbols.values().retainAll(result.getOutputSymbols());
 
             return new PlanWithProperties(result, hashSymbols);
         }
@@ -802,7 +805,7 @@ public class HashGenerationOptimizer
 
         private Expression getHashExpression()
         {
-            Expression hashExpression = new LongLiteral(String.valueOf(INITIAL_HASH_VALUE));
+            Expression hashExpression = toExpression(INITIAL_HASH_VALUE, BIGINT);
             for (Symbol field : fields) {
                 hashExpression = getHashFunctionCall(hashExpression, field);
             }

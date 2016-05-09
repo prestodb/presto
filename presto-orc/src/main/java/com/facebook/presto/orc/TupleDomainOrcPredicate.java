@@ -33,6 +33,9 @@ import java.util.Map;
 import java.util.function.Function;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
+import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
+import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -102,6 +105,12 @@ public class TupleDomainOrcPredicate<C>
             if (hasFalseValues) {
                 return Domain.create(ValueSet.of(BOOLEAN, false), hasNullValue);
             }
+        }
+        else if (isShortDecimal(type)) {
+            return createDomain(type, hasNullValue, columnStatistics.getDecimalStatistics(), value -> value.unscaledValue().longValue());
+        }
+        else if (isLongDecimal(type)) {
+            return createDomain(type, hasNullValue, columnStatistics.getDecimalStatistics(), value -> encodeUnscaledValue(value.unscaledValue()));
         }
         else if (type.getTypeSignature().getBase().equals(StandardTypes.DATE) && columnStatistics.getDateStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getDateStatistics(), value -> (long) value);

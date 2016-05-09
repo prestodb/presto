@@ -46,7 +46,7 @@ import static com.facebook.presto.connector.jmx.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static javax.management.ObjectName.WILDCARD;
@@ -90,7 +90,7 @@ public class JmxMetadata
             MBeanInfo mbeanInfo = mbeanServer.getMBeanInfo(objectName.get());
 
             ImmutableList.Builder<JmxColumnHandle> columns = ImmutableList.builder();
-            columns.add(new JmxColumnHandle(connectorId, "node", VARCHAR));
+            columns.add(new JmxColumnHandle(connectorId, "node", createUnboundedVarcharType()));
             for (MBeanAttributeInfo attribute : mbeanInfo.getAttributes()) {
                 if (!attribute.isReadable()) {
                     continue;
@@ -200,6 +200,6 @@ public class JmxMetadata
             case "java.lang.Double":
                 return DOUBLE;
         }
-        return VARCHAR;
+        return createUnboundedVarcharType();
     }
 }

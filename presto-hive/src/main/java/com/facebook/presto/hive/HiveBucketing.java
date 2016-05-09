@@ -14,10 +14,13 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import com.google.common.primitives.Shorts;
+import com.google.common.primitives.SignedBytes;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.hive.metastore.api.Table;
@@ -39,21 +42,25 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+import static com.facebook.presto.hive.HiveUtil.getNonPartitionKeyColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.getTableStructFields;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Maps.immutableEntry;
 import static com.google.common.collect.Sets.immutableEnumSet;
 import static java.lang.Double.doubleToLongBits;
 import static java.util.Map.Entry;
+import static java.util.function.Function.identity;
 import static org.apache.hadoop.hive.ql.udf.generic.GenericUDF.DeferredJavaObject;
 import static org.apache.hadoop.hive.ql.udf.generic.GenericUDF.DeferredObject;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
@@ -79,16 +86,16 @@ final class HiveBucketing
 
     private HiveBucketing() {}
 
-    public static int getHiveBucket(List<TypeInfo> types, List<Block> blocks, int position, int bucketCount)
+    public static int getHiveBucket(List<TypeInfo> types, Page page, int position, int bucketCount)
     {
-        return (getBucketHashCode(types, blocks, position) & Integer.MAX_VALUE) % bucketCount;
+        return (getBucketHashCode(types, page, position) & Integer.MAX_VALUE) % bucketCount;
     }
 
-    public static int getBucketHashCode(List<TypeInfo> types, List<Block> blocks, int position)
+    private static int getBucketHashCode(List<TypeInfo> types, Page page, int position)
     {
         int result = 0;
-        for (int i = 0; i < blocks.size(); i++) {
-            int fieldHash = hash(types.get(i), blocks.get(i), position);
+        for (int i = 0; i < page.getChannelCount(); i++) {
+            int fieldHash = hash(types.get(i), page.getBlock(i), position);
             result = result * 31 + fieldHash;
         }
         return result;
@@ -112,9 +119,11 @@ final class HiveBucketing
                     case BOOLEAN:
                         return BOOLEAN.getBoolean(block, position) ? 1 : 0;
                     case BYTE:
+                        return SignedBytes.checkedCast(INTEGER.getLong(block, position));
                     case SHORT:
+                        return Shorts.checkedCast(INTEGER.getLong(block, position));
                     case INT:
-                        return Ints.checkedCast(BIGINT.getLong(block, position));
+                        return Ints.checkedCast(INTEGER.getLong(block, position));
                     case LONG:
                         long bigintValue = BIGINT.getLong(block, position);
                         return (int) ((bigintValue >>> 32) ^ bigintValue);
@@ -124,7 +133,7 @@ final class HiveBucketing
                         long doubleValue = doubleToLongBits(DOUBLE.getDouble(block, position));
                         return (int) ((doubleValue >>> 32) ^ doubleValue);
                     case STRING:
-                        return hashBytes(0, VARCHAR.getSlice(block, position));
+                        return hashBytes(0, createUnboundedVarcharType().getSlice(block, position));
                     case DATE:
                         // day offset from 1970-01-01
                         long days = DATE.getLong(block, position);
@@ -170,6 +179,23 @@ final class HiveBucketing
             result = result * 31 + bytes.getByte(i);
         }
         return result;
+    }
+
+    public static Optional<HiveBucketHandle> getHiveBucketHandle(String connectorId, Table table)
+    {
+        Optional<HiveBucketProperty> hiveBucketProperty = HiveBucketProperty.fromStorageDescriptor(table.getSd(), table.getTableName());
+        if (!hiveBucketProperty.isPresent()) {
+            return Optional.empty();
+        }
+
+        Map<String, HiveColumnHandle> map = getNonPartitionKeyColumnHandles(connectorId, table).stream()
+                .collect(Collectors.toMap(HiveColumnHandle::getName, identity()));
+
+        List<HiveColumnHandle> bucketColumns = hiveBucketProperty.get().getBucketedBy().stream()
+                .map(map::get)
+                .collect(Collectors.toList());
+
+        return Optional.of(new HiveBucketHandle(bucketColumns, hiveBucketProperty.get().getBucketCount()));
     }
 
     public static Optional<HiveBucket> getHiveBucket(Table table, Map<ColumnHandle, NullableValue> bindings)

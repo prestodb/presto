@@ -49,10 +49,10 @@ import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
@@ -73,6 +73,8 @@ import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.LikeFunctions;
+import com.facebook.presto.type.RowType;
+import com.facebook.presto.type.RowType.RowField;
 import com.facebook.presto.util.Failures;
 import com.facebook.presto.util.FastutilSetHelper;
 import com.google.common.annotations.VisibleForTesting;
@@ -105,6 +107,8 @@ import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpressions;
 import static com.facebook.presto.type.TypeRegistry.canCoerce;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.util.Types.checkType;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.base.Verify.verify;
@@ -261,7 +265,7 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Void visitInputReference(InputReference node, Void context)
+        protected Void visitFieldReference(FieldReference node, Void context)
         {
             throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
         }
@@ -272,11 +276,11 @@ public class ExpressionInterpreter
             extends AstVisitor<Object, Object>
     {
         @Override
-        public Object visitInputReference(InputReference node, Object context)
+        public Object visitFieldReference(FieldReference node, Object context)
         {
             Type type = expressionTypes.get(node);
 
-            int channel = node.getChannel();
+            int channel = node.getFieldIndex();
             if (context instanceof PagePositionContext) {
                 PagePositionContext pagePositionContext = (PagePositionContext) context;
                 int position = pagePositionContext.getPosition();
@@ -332,8 +336,50 @@ public class ExpressionInterpreter
         @Override
         protected Object visitDereferenceExpression(DereferenceExpression node, Object context)
         {
-            // Dereference is never a Symbol
-            return node;
+            Type type = expressionTypes.get(node.getBase());
+            // if there is no type for the base of Dereference, it must be QualifiedName
+            if (type == null) {
+                return node;
+            }
+
+            Object base = process(node.getBase(), context);
+            if (hasUnresolvedValue(base)) {
+                return new DereferenceExpression(toExpression(base, type), node.getFieldName());
+            }
+
+            RowType rowType = checkType(type, RowType.class, "type");
+            Block row = (Block) base;
+            Type returnType = expressionTypes.get(node);
+            List<RowField> fields = rowType.getFields();
+            int index = -1;
+            for (int i = 0; i < fields.size(); i++) {
+                RowField field = fields.get(i);
+                if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(node.getFieldName())) {
+                    checkArgument(index < 0, "Ambiguous field %s in type %s", field, rowType.getDisplayName());
+                    index = i;
+                }
+            }
+            checkState(index >= 0, "could not find field name: %s", node.getFieldName());
+            if (row.isNull(index)) {
+                return null;
+            }
+            Class<?> javaType = returnType.getJavaType();
+            if (javaType == long.class) {
+                return returnType.getLong(row, index);
+            }
+            else if (javaType == double.class) {
+                return returnType.getDouble(row, index);
+            }
+            else if (javaType == boolean.class) {
+                return returnType.getBoolean(row, index);
+            }
+            else if (javaType == Slice.class) {
+                return returnType.getSlice(row, index);
+            }
+            else if (!javaType.isPrimitive()) {
+                return returnType.getObject(row, index);
+            }
+            throw new UnsupportedOperationException("Dereference a unsupported primitive type: " + javaType.getName());
         }
 
         @Override

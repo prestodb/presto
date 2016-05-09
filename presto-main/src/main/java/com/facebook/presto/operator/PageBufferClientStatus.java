@@ -18,15 +18,22 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import org.joda.time.DateTime;
 
 import java.net.URI;
+import java.util.OptionalInt;
+import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class PageBufferClientStatus
 {
     private final URI uri;
     private final String state;
     private final DateTime lastUpdate;
+    private final long rowsReceived;
     private final int pagesReceived;
+    // use optional to keep the output size down, since this renders for every destination
+    private final OptionalLong rowsRejected;
+    private final OptionalInt pagesRejected;
     private final int requestsScheduled;
     private final int requestsCompleted;
     private final int requestsFailed;
@@ -36,7 +43,10 @@ public class PageBufferClientStatus
     public PageBufferClientStatus(@JsonProperty("uri") URI uri,
             @JsonProperty("state") String state,
             @JsonProperty("lastUpdate") DateTime lastUpdate,
+            @JsonProperty("rowsReceived") long rowsReceived,
             @JsonProperty("pagesReceived") int pagesReceived,
+            @JsonProperty("rowsReceived") OptionalLong rowsRejected,
+            @JsonProperty("pagesReceived") OptionalInt pagesRejected,
             @JsonProperty("requestsScheduled") int requestsScheduled,
             @JsonProperty("requestsCompleted") int requestsCompleted,
             @JsonProperty("requestsFailed") int requestsFailed,
@@ -45,7 +55,10 @@ public class PageBufferClientStatus
         this.uri = uri;
         this.state = state;
         this.lastUpdate = lastUpdate;
+        this.rowsReceived = rowsReceived;
         this.pagesReceived = pagesReceived;
+        this.rowsRejected = requireNonNull(rowsRejected, "rowsRejected is null");
+        this.pagesRejected = requireNonNull(pagesRejected, "pagesRejected is null");
         this.requestsScheduled = requestsScheduled;
         this.requestsCompleted = requestsCompleted;
         this.requestsFailed = requestsFailed;
@@ -71,9 +84,27 @@ public class PageBufferClientStatus
     }
 
     @JsonProperty
+    public long getRowsReceived()
+    {
+        return rowsReceived;
+    }
+
+    @JsonProperty
     public int getPagesReceived()
     {
         return pagesReceived;
+    }
+
+    @JsonProperty
+    public OptionalLong getRowsRejected()
+    {
+        return rowsRejected;
+    }
+
+    @JsonProperty
+    public OptionalInt getPagesRejected()
+    {
+        return pagesRejected;
     }
 
     @JsonProperty
@@ -107,6 +138,7 @@ public class PageBufferClientStatus
                 .add("uri", uri)
                 .add("state", state)
                 .add("lastUpdate", lastUpdate)
+                .add("rowsReceived", rowsReceived)
                 .add("pagesReceived", pagesReceived)
                 .add("httpRequestState", httpRequestState)
                 .toString();

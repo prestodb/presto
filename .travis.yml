@@ -11,6 +11,7 @@ env:
     - TEST_MODULES=presto-tests
     - TEST_MODULES=presto-raptor,presto-redis,presto-cassandra,presto-kafka,presto-postgresql,presto-mysql
     - RUN_PRODUCT_TESTS=true
+    - INTEGRATION_TESTS=true
 
 sudo: required
 dist: trusty
@@ -37,7 +38,11 @@ script:
     fi
   - |
     if [ -v RUN_PRODUCT_TESTS ]; then
-      presto-product-tests/etc/singlenode/run_on_travis.sh -x quarantine,big_query
+      presto-product-tests/bin/run_on_docker.sh singlenode -x quarantine,big_query
+    fi
+  - |
+    if [ -v INTEGRATION_TESTS ]; then
+      presto-hive-hadoop2/bin/run_on_docker.sh
     fi
 
 notifications:

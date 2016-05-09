@@ -32,6 +32,7 @@ import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Table;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
@@ -60,15 +61,15 @@ public class Analysis
     private final IdentityHashMap<Expression, Integer> resolvedNames = new IdentityHashMap<>();
 
     private final IdentityHashMap<QuerySpecification, List<FunctionCall>> aggregates = new IdentityHashMap<>();
-    private final IdentityHashMap<QuerySpecification, List<List<FieldOrExpression>>> groupByExpressions = new IdentityHashMap<>();
+    private final IdentityHashMap<QuerySpecification, List<List<Expression>>> groupByExpressions = new IdentityHashMap<>();
     private final IdentityHashMap<Node, Expression> where = new IdentityHashMap<>();
     private final IdentityHashMap<QuerySpecification, Expression> having = new IdentityHashMap<>();
-    private final IdentityHashMap<Node, List<FieldOrExpression>> orderByExpressions = new IdentityHashMap<>();
-    private final IdentityHashMap<Node, List<FieldOrExpression>> outputExpressions = new IdentityHashMap<>();
+    private final IdentityHashMap<Node, List<Expression>> orderByExpressions = new IdentityHashMap<>();
+    private final IdentityHashMap<Node, List<Expression>> outputExpressions = new IdentityHashMap<>();
     private final IdentityHashMap<QuerySpecification, List<FunctionCall>> windowFunctions = new IdentityHashMap<>();
 
     private final IdentityHashMap<Join, Expression> joins = new IdentityHashMap<>();
-    private final ListMultimap<Node, InPredicate> inPredicates = ArrayListMultimap.create();
+    private final ListMultimap<Node, InPredicate> inPredicatesSubqueries = ArrayListMultimap.create();
     private final ListMultimap<Node, SubqueryExpression> scalarSubqueries = ArrayListMultimap.create();
     private final IdentityHashMap<Join, JoinInPredicates> joinInPredicates = new IdentityHashMap<>();
 
@@ -162,6 +163,15 @@ public class Analysis
         return types.get(expression);
     }
 
+    public Type getTypeWithCoercions(Expression expression)
+    {
+        checkArgument(types.containsKey(expression), "Expression not analyzed: %s", expression);
+        if (coercions.containsKey(expression)) {
+            return coercions.get(expression);
+        }
+        return types.get(expression);
+    }
+
     public Type[] getRelationCoercion(Relation relation)
     {
         return relationCoercions.get(relation);
@@ -182,12 +192,12 @@ public class Analysis
         return coercions.get(expression);
     }
 
-    public void setGroupingSets(QuerySpecification node, List<List<FieldOrExpression>> expressions)
+    public void setGroupingSets(QuerySpecification node, List<List<Expression>> expressions)
     {
         groupByExpressions.put(node, expressions);
     }
 
-    public List<List<FieldOrExpression>> getGroupingSets(QuerySpecification node)
+    public List<List<Expression>> getGroupingSets(QuerySpecification node)
     {
         return groupByExpressions.get(node);
     }
@@ -202,22 +212,22 @@ public class Analysis
         return where.get(node);
     }
 
-    public void setOrderByExpressions(Node node, List<FieldOrExpression> items)
+    public void setOrderByExpressions(Node node, List<Expression> items)
     {
         orderByExpressions.put(node, items);
     }
 
-    public List<FieldOrExpression> getOrderByExpressions(Node node)
+    public List<Expression> getOrderByExpressions(Node node)
     {
         return orderByExpressions.get(node);
     }
 
-    public void setOutputExpressions(Node node, List<FieldOrExpression> expressions)
+    public void setOutputExpressions(Node node, List<Expression> expressions)
     {
         outputExpressions.put(node, expressions);
     }
 
-    public List<FieldOrExpression> getOutputExpressions(Node node)
+    public List<Expression> getOutputExpressions(Node node)
     {
         return outputExpressions.get(node);
     }
@@ -239,18 +249,24 @@ public class Analysis
 
     public void recordSubqueries(Node node, ExpressionAnalysis expressionAnalysis)
     {
-        this.inPredicates.putAll(node, expressionAnalysis.getSubqueryInPredicates());
+        this.inPredicatesSubqueries.putAll(node, expressionAnalysis.getSubqueryInPredicates());
         this.scalarSubqueries.putAll(node, expressionAnalysis.getScalarSubqueries());
     }
 
-    public List<InPredicate> getInPredicates(Node node)
+    public List<InPredicate> getInPredicateSubqueries(Node node)
     {
-        return inPredicates.get(node);
+        if (inPredicatesSubqueries.containsKey(node)) {
+            return inPredicatesSubqueries.get(node);
+        }
+        return ImmutableList.of();
     }
 
     public List<SubqueryExpression> getScalarSubqueries(Node node)
     {
-        return scalarSubqueries.get(node);
+        if (scalarSubqueries.containsKey(node)) {
+            return scalarSubqueries.get(node);
+        }
+        return ImmutableList.of();
     }
 
     public void addJoinInPredicates(Join node, JoinInPredicates joinInPredicates)

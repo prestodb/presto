@@ -24,6 +24,7 @@ import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Ticker;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -32,6 +33,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.io.Files;
 import io.airlift.slice.Slice;
 import io.airlift.testing.FileUtils;
+import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
@@ -70,6 +72,7 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Strings.repeat;
+import static com.google.common.base.Ticker.systemTicker;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.concat;
 import static com.google.common.collect.Iterators.transform;
@@ -350,31 +353,33 @@ public class TestDatabaseShardManager
         Node node2 = new TestingNode();
         Node node3 = new TestingNode();
 
+        TestingTicker ticker = new TestingTicker();
         MetadataDao metadataDao = dbi.onDemand(MetadataDao.class);
         int bucketCount = 13;
         long distributionId = metadataDao.insertDistribution(null, "test", bucketCount);
 
         Set<Node> originalNodes = ImmutableSet.of(node1, node2);
-        ShardManager shardManager = createShardManager(dbi, () -> originalNodes);
+        ShardManager shardManager = createShardManager(dbi, () -> originalNodes, ticker);
 
         shardManager.createBuckets(distributionId, bucketCount);
 
-        Map<Integer, String> assignments = shardManager.getBucketAssignments(distributionId, false);
+        Map<Integer, String> assignments = shardManager.getBucketAssignments(distributionId);
         assertEquals(assignments.size(), bucketCount);
         assertEquals(ImmutableSet.copyOf(assignments.values()), nodeIds(originalNodes));
 
         Set<Node> newNodes = ImmutableSet.of(node1, node3);
-        shardManager = createShardManager(dbi, () -> newNodes);
+        shardManager = createShardManager(dbi, () -> newNodes, ticker);
 
         try {
-            shardManager.getBucketAssignments(distributionId, true);
+            shardManager.getBucketAssignments(distributionId);
             fail("expected exception");
         }
         catch (PrestoException e) {
             assertEquals(e.getErrorCode(), SERVER_STARTING_UP.toErrorCode());
         }
 
-        assignments = shardManager.getBucketAssignments(distributionId, false);
+        ticker.increment(2, DAYS);
+        assignments = shardManager.getBucketAssignments(distributionId);
         assertEquals(assignments.size(), bucketCount);
         assertEquals(ImmutableSet.copyOf(assignments.values()), nodeIds(newNodes));
     }
@@ -625,13 +630,14 @@ public class TestDatabaseShardManager
 
     public static ShardManager createShardManager(IDBI dbi)
     {
-        return createShardManager(dbi, ImmutableSet::of);
+        return createShardManager(dbi, ImmutableSet::of, systemTicker());
     }
 
-    public static ShardManager createShardManager(IDBI dbi, NodeSupplier nodeSupplier)
+    public static ShardManager createShardManager(IDBI dbi, NodeSupplier nodeSupplier, Ticker ticker)
     {
         DaoSupplier<ShardDao> shardDaoSupplier = new DaoSupplier<>(dbi, H2ShardDao.class);
-        return new DatabaseShardManager(dbi, shardDaoSupplier, nodeSupplier, new Duration(1, DAYS));
+        AssignmentLimiter assignmentLimiter = new AssignmentLimiter(nodeSupplier, ticker, new MetadataConfig());
+        return new DatabaseShardManager(dbi, shardDaoSupplier, nodeSupplier, assignmentLimiter, ticker, new Duration(1, DAYS));
     }
 
     private static Domain createDomain(Range first, Range... ranges)

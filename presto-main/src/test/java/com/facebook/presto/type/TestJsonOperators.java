@@ -34,32 +34,34 @@ public class TestJsonOperators
     public void testCastToBigint()
     {
         assertFunction("cast(JSON 'null' as BIGINT)", BIGINT, null);
-        assertFunction("cast(JSON '128' as BIGINT)", BIGINT, 128);
+        assertFunction("cast(JSON '128' as BIGINT)", BIGINT, 128L);
         assertInvalidFunction("cast(JSON '12345678901234567890' as BIGINT)", INVALID_CAST_ARGUMENT);
-        assertFunction("cast(JSON '128.9' as BIGINT)", BIGINT, 129);
+        assertFunction("cast(JSON '128.9' as BIGINT)", BIGINT, 129L);
         assertFunction("cast(JSON '1234567890123456789.0' as BIGINT)", BIGINT, 1234567890123456768L); // loss of precision
         assertFunction("cast(JSON '12345678901234567890.0' as BIGINT)", BIGINT, 9223372036854775807L); // overflow. unexpected behavior. coherent with rest of Presto.
-        assertFunction("cast(JSON '1e-324' as BIGINT)", BIGINT, 0);
+        assertFunction("cast(JSON '1e-324' as BIGINT)", BIGINT, 0L);
         assertInvalidFunction("cast(JSON '1e309' as BIGINT)", INVALID_CAST_ARGUMENT);
-        assertFunction("cast(JSON 'true' as BIGINT)", BIGINT, 1);
-        assertFunction("cast(JSON 'false' as BIGINT)", BIGINT, 0);
-        assertFunction("cast(JSON '\"128\"' as BIGINT)", BIGINT, 128);
+        assertFunction("cast(JSON 'true' as BIGINT)", BIGINT, 1L);
+        assertFunction("cast(JSON 'false' as BIGINT)", BIGINT, 0L);
+        assertFunction("cast(JSON '\"128\"' as BIGINT)", BIGINT, 128L);
         assertInvalidFunction("cast(JSON '\"12345678901234567890\"' as BIGINT)", INVALID_CAST_ARGUMENT);
         assertInvalidFunction("cast(JSON '\"128.9\"' as BIGINT)", INVALID_CAST_ARGUMENT);
         assertInvalidFunction("cast(JSON '\"true\"' as BIGINT)", INVALID_CAST_ARGUMENT);
         assertInvalidFunction("cast(JSON '\"false\"' as BIGINT)", INVALID_CAST_ARGUMENT);
 
-        assertFunction("cast(JSON ' 128' as BIGINT)", BIGINT, 128); // leading space
+        assertFunction("cast(JSON ' 128' as BIGINT)", BIGINT, 128L); // leading space
 
-        assertFunction("cast(json_extract('{\"x\":999}', '$.x') as BIGINT)", BIGINT, 999);
+        assertFunction("cast(json_extract('{\"x\":999}', '$.x') as BIGINT)", BIGINT, 999L);
         assertInvalidCast("cast(JSON '{ \"x\" : 123}' as BIGINT)");
     }
 
     @Test
-    public void testCastFromBigint()
+    public void testCastFromIntegrals()
     {
+        assertFunction("cast(cast (null as integer) as JSON)", JSON, null);
         assertFunction("cast(cast (null as bigint) as JSON)", JSON, null);
         assertFunction("cast(128 as JSON)", JSON, "128");
+        assertFunction("cast(BIGINT '128' as JSON)", JSON, "128");
     }
 
     @Test

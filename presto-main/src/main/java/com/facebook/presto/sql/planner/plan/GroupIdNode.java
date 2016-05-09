@@ -21,7 +21,9 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -88,6 +90,15 @@ public class GroupIdNode
                 .flatMap(Collection::stream)
                 .distinct()
                 .collect(toList());
+    }
+
+    public List<Symbol> getCommonGroupingColumns()
+    {
+        Set<Symbol> intersection = new HashSet<>(groupingSets.get(0));
+        for (int i = 1; i < getGroupingSets().size(); i++) {
+            intersection.retainAll(groupingSets.get(i));
+        }
+        return ImmutableList.copyOf(intersection);
     }
 
     @JsonProperty

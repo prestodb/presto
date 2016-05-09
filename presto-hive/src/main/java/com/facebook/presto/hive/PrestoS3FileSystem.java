@@ -94,6 +94,7 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Iterables.toArray;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.max;
+import static java.lang.String.format;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createTempFile;
 import static java.util.Objects.requireNonNull;
@@ -326,7 +327,12 @@ public class PrestoS3FileSystem
             throw new IOException("File already exists:" + path);
         }
 
-        createDirectories(stagingDirectory.toPath());
+        if (!stagingDirectory.exists()) {
+            createDirectories(stagingDirectory.toPath());
+        }
+        if (!stagingDirectory.isDirectory()) {
+            throw new IOException("Configured staging path is not a directory: " + stagingDirectory);
+        }
         File tempFile = createTempFile(stagingDirectory.toPath(), "presto-s3-", ".tmp").toFile();
 
         String key = keyFromPath(qualifiedPath(path));
@@ -500,12 +506,14 @@ public class PrestoS3FileSystem
      * This exception is for stopping retries for S3 calls that shouldn't be retried.
      * For example, "Caused by: com.amazonaws.services.s3.model.AmazonS3Exception: Forbidden (Service: Amazon S3; Status Code: 403 ..."
      */
-    private static class UnrecoverableS3OperationException
+    @VisibleForTesting
+    static class UnrecoverableS3OperationException
             extends Exception
     {
-        public UnrecoverableS3OperationException(Throwable cause)
+        public UnrecoverableS3OperationException(Path path, Throwable cause)
         {
-            super(cause);
+            // append the path info to the message
+            super(format("%s (Path: %s)", cause, path), cause);
         }
     }
 
@@ -531,7 +539,7 @@ public class PrestoS3FileSystem
                                     case SC_NOT_FOUND:
                                         return null;
                                     case SC_FORBIDDEN:
-                                        throw new UnrecoverableS3OperationException(e);
+                                        throw new UnrecoverableS3OperationException(path, e);
                                 }
                             }
                             throw Throwables.propagate(e);
@@ -591,10 +599,10 @@ public class PrestoS3FileSystem
     private AmazonS3Client createAmazonS3Client(URI uri, Configuration hadoopConfig, ClientConfiguration clientConfig)
     {
         AWSCredentialsProvider credentials = getAwsCredentialsProvider(uri, hadoopConfig);
-        EncryptionMaterialsProvider emp = createEncryptionMaterialsProvider(hadoopConfig);
+        Optional<EncryptionMaterialsProvider> emp = createEncryptionMaterialsProvider(hadoopConfig);
         AmazonS3Client client;
-        if (emp != null) {
-            client = new AmazonS3EncryptionClient(credentials, emp, clientConfig, new CryptoConfiguration(), METRIC_COLLECTOR);
+        if (emp.isPresent()) {
+            client = new AmazonS3EncryptionClient(credentials, emp.get(), clientConfig, new CryptoConfiguration(), METRIC_COLLECTOR);
         }
         else {
             client = new AmazonS3Client(credentials, clientConfig, METRIC_COLLECTOR);
@@ -611,11 +619,11 @@ public class PrestoS3FileSystem
         return client;
     }
 
-    private static EncryptionMaterialsProvider createEncryptionMaterialsProvider(Configuration hadoopConfig)
+    private static Optional<EncryptionMaterialsProvider> createEncryptionMaterialsProvider(Configuration hadoopConfig)
     {
         String empClassName = hadoopConfig.get(S3_ENCRYPTION_MATERIALS_PROVIDER);
         if (empClassName == null) {
-            return null;
+            return Optional.empty();
         }
 
         try {
@@ -627,7 +635,7 @@ public class PrestoS3FileSystem
             if (emp instanceof Configurable) {
                 ((Configurable) emp).setConf(hadoopConfig);
             }
-            return emp;
+            return Optional.of(emp);
         }
         catch (ReflectiveOperationException e) {
             throw new RuntimeException("Unable to load or create S3 encryption materials provider: " + empClassName, e);
@@ -836,7 +844,7 @@ public class PrestoS3FileSystem
                                             return new ByteArrayInputStream(new byte[0]);
                                         case SC_FORBIDDEN:
                                         case SC_NOT_FOUND:
-                                            throw new UnrecoverableS3OperationException(e);
+                                            throw new UnrecoverableS3OperationException(path, e);
                                     }
                                 }
                                 throw Throwables.propagate(e);

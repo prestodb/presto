@@ -278,7 +278,7 @@ public class QueryStateMachine
                 }
 
                 PlanFragment plan = stageInfo.getPlan();
-                if (plan != null && plan.getPartitionedSourceNode() instanceof TableScanNode) {
+                if (plan != null && plan.getPartitionedSourceNodes().stream().anyMatch(TableScanNode.class::isInstance)) {
                     rawInputDataSize += stageStats.getRawInputDataSize().toBytes();
                     rawInputPositions += stageStats.getRawInputPositions();
 
@@ -507,7 +507,7 @@ public class QueryStateMachine
         failureCause.compareAndSet(null, toFailure(throwable));
         boolean failed = queryState.setIf(FAILED, currentState -> !currentState.isDone());
         if (failed) {
-            log.error(throwable, "Query %s failed", queryId);
+            log.debug(throwable, "Query %s failed", queryId);
         }
         else {
             log.debug(throwable, "Failure after query %s finished", queryId);

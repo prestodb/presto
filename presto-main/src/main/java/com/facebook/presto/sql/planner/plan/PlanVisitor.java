@@ -70,6 +70,11 @@ public class PlanVisitor<C, R>
         return visitPlan(node, context);
     }
 
+    public R visitExplainAnalyze(ExplainAnalyzeNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitValues(ValuesNode node, C context)
     {
         return visitPlan(node, context);
@@ -126,6 +131,11 @@ public class PlanVisitor<C, R>
     }
 
     public R visitUnion(UnionNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitIntersect(IntersectNode node, C context)
     {
         return visitPlan(node, context);
     }

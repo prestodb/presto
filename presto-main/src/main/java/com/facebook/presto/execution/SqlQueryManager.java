@@ -17,10 +17,12 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
+import com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
@@ -53,6 +55,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.execution.QueryState.RUNNING;
+import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_QUEUE_FULL;
@@ -61,6 +64,7 @@ import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.Threads.threadsNamed;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
@@ -273,11 +277,18 @@ public class SqlQueryManager
         QueryId queryId = session.getQueryId();
 
         QueryExecution queryExecution;
+        Statement statement;
         try {
-            Statement statement = sqlParser.createStatement(query);
+            statement = sqlParser.createStatement(query);
             QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(statement.getClass());
             if (queryExecutionFactory == null) {
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type: " + statement.getClass().getSimpleName());
+            }
+            if (statement instanceof Explain && ((Explain) statement).isAnalyze()) {
+                Statement innerStatement = ((Explain) statement).getStatement();
+                if (!(executionFactories.get(innerStatement.getClass()) instanceof SqlQueryExecutionFactory)) {
+                    throw new PrestoException(NOT_SUPPORTED, "EXPLAIN ANALYZE only supported for statements that are queries");
+                }
             }
             queryExecution = queryExecutionFactory.createQueryExecution(queryId, query, session, statement);
         }
@@ -287,14 +298,19 @@ public class SqlQueryManager
             URI self = locationFactory.createQueryLocation(queryId);
             QueryExecution execution = new FailedQueryExecution(queryId, query, session, self, transactionManager, queryExecutor, e);
 
-            queries.put(queryId, execution);
+            QueryInfo queryInfo = null;
+            try {
+                queries.put(queryId, execution);
 
-            QueryInfo queryInfo = execution.getQueryInfo();
-            queryMonitor.createdEvent(queryInfo);
-            queryMonitor.completionEvent(queryInfo);
-            stats.queryFinished(queryInfo);
-
-            expirationQueue.add(execution);
+                queryInfo = execution.getQueryInfo();
+                queryMonitor.createdEvent(queryInfo);
+                queryMonitor.completionEvent(queryInfo);
+                stats.queryFinished(queryInfo);
+            }
+            finally {
+                // execution MUST be added to the expiration queue or there will be a leak
+                expirationQueue.add(execution);
+            }
 
             return queryInfo;
         }
@@ -304,18 +320,22 @@ public class SqlQueryManager
 
         queryExecution.addStateChangeListener(newValue -> {
             if (newValue.isDone()) {
-                QueryInfo info = queryExecution.getQueryInfo();
-
-                stats.queryFinished(info);
-                queryMonitor.completionEvent(info);
-                expirationQueue.add(queryExecution);
+                try {
+                    QueryInfo info = queryExecution.getQueryInfo();
+                    stats.queryFinished(info);
+                    queryMonitor.completionEvent(info);
+                }
+                finally {
+                    // execution MUST be added to the expiration queue or there will be a leak
+                    expirationQueue.add(queryExecution);
+                }
             }
         });
 
         queries.put(queryId, queryExecution);
 
         // start the query in the background
-        if (!queueManager.submit(queryExecution, queryExecutor, stats)) {
+        if (!queueManager.submit(statement, queryExecution, queryExecutor, stats)) {
             queryExecution.fail(new PrestoException(QUERY_QUEUE_FULL, "Too many queued queries!"));
         }
 
@@ -453,7 +473,7 @@ public class SqlQueryManager
 
             if (isAbandoned(queryExecution)) {
                 log.info("Failing abandoned query %s", queryExecution.getQueryId());
-                queryExecution.fail(new AbandonedException("Query " + queryInfo.getQueryId(), queryInfo.getQueryStats().getLastHeartbeat(), DateTime.now()));
+                queryExecution.fail(new PrestoException(ABANDONED_QUERY, format("Query %s has not been accessed since %s: currentTime %s", queryInfo.getQueryId(), queryInfo.getQueryStats().getLastHeartbeat(), DateTime.now())));
             }
         }
     }

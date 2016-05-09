@@ -16,6 +16,7 @@ package com.facebook.presto.type;
 import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.metadata.OperatorType.ADD;
@@ -32,8 +33,10 @@ import static com.facebook.presto.metadata.OperatorType.MODULUS;
 import static com.facebook.presto.metadata.OperatorType.MULTIPLY;
 import static com.facebook.presto.metadata.OperatorType.NEGATION;
 import static com.facebook.presto.metadata.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.metadata.OperatorType.SATURATED_FLOOR_CAST;
 import static com.facebook.presto.metadata.OperatorType.SUBTRACT;
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.valueOf;
 
@@ -47,21 +50,36 @@ public final class BigintOperators
     @SqlType(StandardTypes.BIGINT)
     public static long add(@SqlType(StandardTypes.BIGINT) long left, @SqlType(StandardTypes.BIGINT) long right)
     {
-        return left + right;
+        try {
+            return Math.addExact(left, right);
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+        }
     }
 
     @ScalarOperator(SUBTRACT)
     @SqlType(StandardTypes.BIGINT)
     public static long subtract(@SqlType(StandardTypes.BIGINT) long left, @SqlType(StandardTypes.BIGINT) long right)
     {
-        return left - right;
+        try {
+            return Math.subtractExact(left, right);
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+        }
     }
 
     @ScalarOperator(MULTIPLY)
     @SqlType(StandardTypes.BIGINT)
     public static long multiply(@SqlType(StandardTypes.BIGINT) long left, @SqlType(StandardTypes.BIGINT) long right)
     {
-        return left * right;
+        try {
+            return Math.multiplyExact(left, right);
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+        }
     }
 
     @ScalarOperator(DIVIDE)
@@ -69,6 +87,9 @@ public final class BigintOperators
     public static long divide(@SqlType(StandardTypes.BIGINT) long left, @SqlType(StandardTypes.BIGINT) long right)
     {
         try {
+            if (left == Long.MIN_VALUE && right == -1) {
+                throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "long overflow");
+            }
             return left / right;
         }
         catch (ArithmeticException e) {
@@ -92,7 +113,12 @@ public final class BigintOperators
     @SqlType(StandardTypes.BIGINT)
     public static long negate(@SqlType(StandardTypes.BIGINT) long value)
     {
-        return -value;
+        try {
+            return Math.negateExact(value);
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+        }
     }
 
     @ScalarOperator(EQUAL)
@@ -152,6 +178,25 @@ public final class BigintOperators
     }
 
     @ScalarOperator(CAST)
+    @SqlType(StandardTypes.INTEGER)
+    public static long castToInteger(@SqlType(StandardTypes.BIGINT) long value)
+    {
+        try {
+            return Ints.checkedCast(value);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+        }
+    }
+
+    @ScalarOperator(SATURATED_FLOOR_CAST)
+    @SqlType(StandardTypes.INTEGER)
+    public static long saturatedFloorCastToInteger(@SqlType(StandardTypes.BIGINT) long value)
+    {
+        return Ints.saturatedCast(value);
+    }
+
+    @ScalarOperator(CAST)
     @SqlType(StandardTypes.DOUBLE)
     public static double castToDouble(@SqlType(StandardTypes.BIGINT) long value)
     {
@@ -170,6 +215,6 @@ public final class BigintOperators
     @SqlType(StandardTypes.BIGINT)
     public static long hashCode(@SqlType(StandardTypes.BIGINT) long value)
     {
-        return (int) (value ^ (value >>> 32));
+        return value;
     }
 }

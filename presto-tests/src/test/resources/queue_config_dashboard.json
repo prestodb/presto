@@ -1,10 +1,14 @@
 {
   "queues": {
-    "user.${USER}": {
+    "user-${USER}": {
       "maxConcurrent": 3,
       "maxQueued": 3
     },
-    "dashboard.${USER}": {
+    "adhoc-${USER}": {
+      "maxConcurrent": 3,
+      "maxQueued": 3
+    },
+    "dashboard-${USER}": {
       "maxConcurrent": 1,
       "maxQueued": 1
     },
@@ -17,14 +21,15 @@
     {
       "source": "(?i).*dashboard.*",
       "queues": [
-        "user.${USER}",
-        "dashboard.${USER}",
+        "dashboard-${USER}",
+        "user-${USER}",
         "global"
       ]
     },
     {
       "queues": [
-        "user.${USER}",
+        "adhoc-${USER}",
+        "user-${USER}",
         "global"
       ]
     }

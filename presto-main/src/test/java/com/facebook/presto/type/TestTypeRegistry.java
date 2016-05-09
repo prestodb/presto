@@ -49,6 +49,22 @@ public class TestTypeRegistry
 
         assertTrue(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("array(varchar(42))"), parseTypeSignature("array(varchar(44))")));
         assertFalse(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("array(varchar(44))"), parseTypeSignature("array(varchar(42))")));
+
+        assertTrue(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("decimal(22,1)"), parseTypeSignature("decimal(23,1)")));
+        assertTrue(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("decimal(2,1)"), parseTypeSignature("decimal(3,1)")));
+        assertFalse(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("decimal(23,1)"), parseTypeSignature("decimal(22,1)")));
+        assertFalse(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("decimal(3,1)"), parseTypeSignature("decimal(2,1)")));
+
+        assertTrue(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("array(decimal(22,1))"), parseTypeSignature("array(decimal(23,1))")));
+        assertTrue(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("array(decimal(2,1))"), parseTypeSignature("array(decimal(3,1))")));
+        assertFalse(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("array(decimal(23,1))"), parseTypeSignature("array(decimal(22,1))")));
+        assertFalse(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("array(decimal(3,1))"), parseTypeSignature("array(decimal(2,1))")));
+
+        assertTrue(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("map(decimal(2,1), decimal(2,1))"), parseTypeSignature("map(decimal(2,1), decimal(3,1))")));
+        assertFalse(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("map(decimal(2,1), decimal(2,1))"), parseTypeSignature("map(decimal(2,1), decimal(23,1))")));
+        assertFalse(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("map(decimal(2,1), decimal(2,1))"), parseTypeSignature("map(decimal(2,1), decimal(3,2))")));
+        assertTrue(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("map(decimal(22,1), decimal(2,1))"), parseTypeSignature("map(decimal(23,1), decimal(3,1))")));
+        assertFalse(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("map(decimal(23,1), decimal(3,1))"), parseTypeSignature("map(decimal(22,1), decimal(2,1))")));
     }
 
     @Test
@@ -78,7 +94,7 @@ public class TestTypeRegistry
         assertFalse(TypeRegistry.canCoerce(parseTypeSignature("array(double)"), parseTypeSignature("array(bigint)")));
         assertTrue(TypeRegistry.canCoerce(parseTypeSignature("map(bigint,double)"), parseTypeSignature("map(bigint,double)")));
         assertTrue(TypeRegistry.canCoerce(parseTypeSignature("map(bigint,double)"), parseTypeSignature("map(double,double)")));
-        assertTrue(TypeRegistry.canCoerce(parseTypeSignature("row<bigint,double,varchar>('a','b','c')"), parseTypeSignature("row<bigint,double,varchar>('a','b','c')")));
+        assertTrue(TypeRegistry.canCoerce(parseTypeSignature("row(a bigint,b double,c varchar)"), parseTypeSignature("row(a bigint,b double,c varchar)")));
 
         assertTrue(TypeRegistry.canCoerce(parseTypeSignature("varchar(42)"), parseTypeSignature("varchar(42)")));
         assertTrue(TypeRegistry.canCoerce(parseTypeSignature("varchar(42)"), parseTypeSignature("varchar(44)")));
@@ -115,7 +131,7 @@ public class TestTypeRegistry
         assertCommonSuperType("array(bigint)", "array(unknown)", "array(bigint)");
         assertCommonSuperType("map(bigint,double)", "map(bigint,double)", "map(bigint,double)");
         assertCommonSuperType("map(bigint,double)", "map(double,double)", "map(double,double)");
-        assertCommonSuperType("row<bigint,double,varchar>('a','b','c')", "row<bigint,double,varchar>('a','b','c')", "row<bigint,double,varchar>('a','b','c')");
+        assertCommonSuperType("row(a bigint,b double,c varchar)", "row(a bigint,b double,c varchar)", "row(a bigint,b double,c varchar)");
 
         assertCommonSuperType("varchar(42)", "varchar(44)", "varchar(44)");
     }

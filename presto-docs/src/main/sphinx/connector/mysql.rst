@@ -63,5 +63,6 @@ MySQL Connector Limitations
 The following SQL statements are not yet supported:
 
 * :doc:`/sql/insert`
+* :doc:`/sql/delete`
 * :doc:`/sql/alter-table`
 * :doc:`/sql/create-table` (:doc:`/sql/create-table-as` is supported)

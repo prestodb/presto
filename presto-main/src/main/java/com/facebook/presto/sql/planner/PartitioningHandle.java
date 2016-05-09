@@ -81,13 +81,6 @@ public class PartitioningHandle
         }
         PartitioningHandle that = (PartitioningHandle) o;
 
-        // Currently, custom partitioning can not be equal since it will result
-        // in plans containing multiple table scans, which is not supported.
-        // TODO remove then when collocated plans are supported
-        if (connectorId.isPresent() || that.connectorId.isPresent()) {
-            return false;
-        }
-
         return Objects.equals(connectorId, that.connectorId) &&
                 Objects.equals(transactionHandle, that.transactionHandle) &&
                 Objects.equals(connectorHandle, that.connectorHandle);

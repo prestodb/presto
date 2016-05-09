@@ -91,6 +91,13 @@ public class TestKafkaDistributed
     }
 
     @Override
+    public void testCompatibleTypeChangeForView2()
+            throws Exception
+    {
+        // Kafka connector currently does not support views
+    }
+
+    @Override
     public void testViewMetadata()
             throws Exception
     {

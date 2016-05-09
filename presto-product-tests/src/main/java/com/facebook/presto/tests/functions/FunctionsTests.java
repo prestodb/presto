@@ -33,6 +33,6 @@ public class FunctionsTests
     @Test(groups = JSON_FUNCTIONS)
     public void testAggregate()
     {
-        assertThat(query("SELECT min(x) FROM (VALUES 1,2,3,4) t(x)")).containsExactly(row(1L));
+        assertThat(query("SELECT min(x) FROM (VALUES 1,2,3,4) t(x)")).containsExactly(row(1));
     }
 }

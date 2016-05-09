@@ -187,6 +187,7 @@ public final class TypeJsonUtils
     {
         String baseType = type.getTypeSignature().getBase();
         if (baseType.equals(StandardTypes.BOOLEAN) ||
+                baseType.equals(StandardTypes.INTEGER) ||
                 baseType.equals(StandardTypes.BIGINT) ||
                 baseType.equals(StandardTypes.DOUBLE) ||
                 baseType.equals(StandardTypes.VARCHAR) ||
@@ -206,6 +207,7 @@ public final class TypeJsonUtils
     {
         String baseType = type.getTypeSignature().getBase();
         return baseType.equals(StandardTypes.BOOLEAN) ||
+                baseType.equals(StandardTypes.INTEGER) ||
                 baseType.equals(StandardTypes.BIGINT) ||
                 baseType.equals(StandardTypes.DOUBLE) ||
                 baseType.equals(StandardTypes.VARCHAR);

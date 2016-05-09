@@ -34,7 +34,7 @@ import java.util.Map;
 import static java.util.Objects.requireNonNull;
 
 public class ImplementSampleAsFilter
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)

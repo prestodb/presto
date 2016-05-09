@@ -15,6 +15,7 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.metadata.ColumnStatistics;
 import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
@@ -29,11 +30,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.Iterables.filter;
+import static com.google.common.collect.Lists.newArrayList;
+import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -46,8 +48,9 @@ public final class TestingOrcPredicate
     {
     }
 
-    public static OrcPredicate createOrcPredicate(ObjectInspector objectInspector, Iterable<?> expectedValues)
+    public static OrcPredicate createOrcPredicate(ObjectInspector objectInspector, Iterable<?> values)
     {
+        List<Object> expectedValues = newArrayList(values);
         if (!(objectInspector instanceof PrimitiveObjectInspector)) {
             return new BasicOrcPredicate<>(expectedValues, Object.class);
         }
@@ -62,19 +65,33 @@ public final class TestingOrcPredicate
             case SHORT:
             case INT:
             case LONG:
-                return new LongOrcPredicate(expectedValues);
+                return new LongOrcPredicate(
+                        expectedValues.stream()
+                                .map(value -> value == null ? null : ((Number) value).longValue())
+                                .collect(toList()));
             case TIMESTAMP:
-                return new LongOrcPredicate(Iterables.transform(expectedValues, value -> value == null ? null : ((SqlTimestamp) value).getMillisUtc()));
+                return new LongOrcPredicate(
+                        expectedValues.stream()
+                                .map(value -> value == null ? null : ((SqlTimestamp) value).getMillisUtc())
+                                .collect(toList()));
             case DATE:
-                return new DateOrcPredicate(Iterables.transform(expectedValues, value -> value == null ? null : (long) ((SqlDate) value).getDays()));
+                return new DateOrcPredicate(
+                        expectedValues.stream()
+                                .map(value -> value == null ? null : (long) ((SqlDate) value).getDays())
+                                .collect(toList()));
             case FLOAT:
             case DOUBLE:
-                return new DoubleOrcPredicate(expectedValues);
+                return new DoubleOrcPredicate(
+                        expectedValues.stream()
+                                .map(value -> value == null ? null : ((Number) value).doubleValue())
+                                .collect(toList()));
             case BINARY:
                 // binary does not have stats
                 return new BasicOrcPredicate<>(expectedValues, Object.class);
             case STRING:
                 return new StringOrcPredicate(expectedValues);
+            case DECIMAL:
+                return new DecimalOrcPredicate(expectedValues);
             default:
                 throw new IllegalArgumentException("Unsupported types " + primitiveCategory);
         }
@@ -200,16 +217,25 @@ public final class TestingOrcPredicate
             // statistics can be missing for any reason
             if (columnStatistics.getDoubleStatistics() != null) {
                 // verify min
-                if (!columnStatistics.getDoubleStatistics().getMin().equals(Ordering.natural().nullsLast().min(chunk))) {
+                if (Math.abs(columnStatistics.getDoubleStatistics().getMin() - Ordering.natural().nullsLast().min(chunk)) > 0.001) {
                     return false;
                 }
 
                 // verify max
-                if (!columnStatistics.getDoubleStatistics().getMax().equals(Ordering.natural().nullsFirst().max(chunk))) {
+                if (Math.abs(columnStatistics.getDoubleStatistics().getMax() - Ordering.natural().nullsFirst().max(chunk)) > 0.001) {
                     return false;
                 }
             }
             return true;
+        }
+    }
+
+    private static class DecimalOrcPredicate
+            extends BasicOrcPredicate<SqlDecimal>
+    {
+        public DecimalOrcPredicate(Iterable<?> expectedValues)
+        {
+            super(expectedValues, SqlDecimal.class);
         }
     }
 
@@ -275,7 +301,7 @@ public final class TestingOrcPredicate
             List<Slice> slices = chunk.stream()
                     .filter(Objects::nonNull)
                     .map(Slices::utf8Slice)
-                    .collect(Collectors.toList());
+                    .collect(toList());
 
             // statistics can be missing for any reason
             if (columnStatistics.getStringStatistics() != null) {

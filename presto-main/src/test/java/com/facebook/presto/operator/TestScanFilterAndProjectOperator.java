@@ -71,7 +71,7 @@ public class TestScanFilterAndProjectOperator
                         return new FixedPageSource(ImmutableList.of(input));
                     }
                 },
-                new GenericCursorProcessor(FilterFunctions.TRUE_FUNCTION, ImmutableList.of(singleColumn(VARCHAR, 0))),
+                () -> new GenericCursorProcessor(FilterFunctions.TRUE_FUNCTION, ImmutableList.of(singleColumn(VARCHAR, 0))),
                 () -> new GenericPageProcessor(FilterFunctions.TRUE_FUNCTION, ImmutableList.of(singleColumn(VARCHAR, 0))),
                 ImmutableList.<ColumnHandle>of(),
                 ImmutableList.<Type>of(VARCHAR));
@@ -105,7 +105,7 @@ public class TestScanFilterAndProjectOperator
                         return new RecordPageSource(new PageRecordSet(ImmutableList.<Type>of(VARCHAR), input));
                     }
                 },
-                new GenericCursorProcessor(FilterFunctions.TRUE_FUNCTION, ImmutableList.of(singleColumn(VARCHAR, 0))),
+                () -> new GenericCursorProcessor(FilterFunctions.TRUE_FUNCTION, ImmutableList.of(singleColumn(VARCHAR, 0))),
                 () -> new GenericPageProcessor(FilterFunctions.TRUE_FUNCTION, ImmutableList.of(singleColumn(VARCHAR, 0))),
                 ImmutableList.<ColumnHandle>of(),
                 ImmutableList.<Type>of(VARCHAR));

@@ -70,6 +70,7 @@ import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.google.common.base.Ticker.systemTicker;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -110,7 +111,7 @@ public class TestRaptorMetadata
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
         nodeManager.addCurrentNodeDatasource(connectorId.toString());
         NodeSupplier nodeSupplier = new RaptorNodeSupplier(nodeManager, connectorId);
-        shardManager = createShardManager(dbi, nodeSupplier);
+        shardManager = createShardManager(dbi, nodeSupplier, systemTicker());
         metadata = new RaptorMetadata(connectorId.toString(), dbi, shardManager, SHARD_INFO_CODEC, SHARD_DELTA_CODEC);
     }
 
@@ -686,7 +687,7 @@ public class TestRaptorMetadata
         return buildTable(properties, tableMetadataBuilder(DEFAULT_TEST_LINEITEMS)
                 .column("orderkey", BIGINT)
                 .column("partkey", BIGINT)
-                .column("quantity", BIGINT)
+                .column("quantity", DOUBLE)
                 .column("price", DOUBLE));
     }
 

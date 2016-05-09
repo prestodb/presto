@@ -34,6 +34,7 @@ public class DistinctLimitNode
 {
     private final PlanNode source;
     private final long limit;
+    private final boolean partial;
     private final Optional<Symbol> hashSymbol;
 
     @JsonCreator
@@ -41,12 +42,14 @@ public class DistinctLimitNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("limit") long limit,
+            @JsonProperty("partial") boolean partial,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
     {
         super(id);
         this.source = requireNonNull(source, "source is null");
         checkArgument(limit >= 0, "limit must be greater than or equal to zero");
         this.limit = limit;
+        this.partial = partial;
         this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
     }
 
@@ -56,19 +59,25 @@ public class DistinctLimitNode
         return ImmutableList.of(source);
     }
 
-    @JsonProperty("source")
+    @JsonProperty
     public PlanNode getSource()
     {
         return source;
     }
 
-    @JsonProperty("limit")
+    @JsonProperty
     public long getLimit()
     {
         return limit;
     }
 
-    @JsonProperty("hashSymbol")
+    @JsonProperty
+    public boolean isPartial()
+    {
+        return partial;
+    }
+
+    @JsonProperty
     public Optional<Symbol> getHashSymbol()
     {
         return hashSymbol;

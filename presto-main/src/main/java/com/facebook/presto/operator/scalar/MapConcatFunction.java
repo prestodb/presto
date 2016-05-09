@@ -13,62 +13,30 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.SqlScalarFunction;
+import com.facebook.presto.operator.Description;
 import com.facebook.presto.operator.aggregation.TypedSet;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.type.SqlType;
 import com.google.common.collect.ImmutableList;
 
-import java.lang.invoke.MethodHandle;
-import java.util.Map;
-
-import static com.facebook.presto.metadata.Signature.typeParameter;
-import static com.facebook.presto.util.Reflection.methodHandle;
-
-public class MapConcatFunction
-        extends SqlScalarFunction
+@ScalarFunction("map_concat")
+@Description("Concatenates given maps")
+public final class MapConcatFunction
 {
-    public static final MapConcatFunction MAP_CONCAT_FUNCTION = new MapConcatFunction();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(MapConcatFunction.class, "mapConcat", Type.class, Type.class, Block.class, Block.class);
+    private MapConcatFunction() {}
 
-    public MapConcatFunction()
-    {
-        super("map_concat", ImmutableList.of(typeParameter("K"), typeParameter("V")), "map(K,V)", ImmutableList.of("map(K,V)", "map(K,V)"));
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Concatenates given maps";
-    }
-
-    @Override
-    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
-    {
-        Type kType = types.get("K");
-        Type vType = types.get("V");
-        MethodHandle methodHandle = METHOD_HANDLE.bindTo(kType).bindTo(vType);
-        return new ScalarFunctionImplementation(false, ImmutableList.of(false, false), methodHandle, isDeterministic());
-    }
-
-    public static Block mapConcat(Type keyType, Type valueType, Block leftMap, Block rightMap)
+    @TypeParameter("K")
+    @TypeParameter("V")
+    @SqlType("map(K,V)")
+    public static Block mapConcat(
+            @TypeParameter("K") Type keyType,
+            @TypeParameter("V") Type valueType,
+            @SqlType("map(K,V)") Block leftMap,
+            @SqlType("map(K,V)") Block rightMap)
     {
         TypedSet typedSet = new TypedSet(keyType, rightMap.getPositionCount());
         BlockBuilder blockBuilder = new InterleavedBlockBuilder(ImmutableList.of(keyType, valueType), new BlockBuilderStatus(), leftMap.getPositionCount() + rightMap.getPositionCount());

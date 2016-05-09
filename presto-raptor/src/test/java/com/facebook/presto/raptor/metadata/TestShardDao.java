@@ -40,7 +40,7 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestShardDao
 {
-    private ShardDao dao;
+    private TestingShardDao dao;
     private IDBI dbi;
     private Handle dummyHandle;
 
@@ -50,7 +50,7 @@ public class TestShardDao
     {
         dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();
-        dao = dbi.onDemand(H2ShardDao.class);
+        dao = dbi.onDemand(TestingShardDao.class);
         createTablesWithRetry(dbi);
     }
 
@@ -163,15 +163,28 @@ public class TestShardDao
         UUID shardUuid2 = UUID.randomUUID();
         UUID shardUuid3 = UUID.randomUUID();
         UUID shardUuid4 = UUID.randomUUID();
+        UUID shardUuid5 = UUID.randomUUID();
 
-        long tableId = createTable("test");
+        MetadataDao metadataDao = dbi.onDemand(MetadataDao.class);
 
-        long shardId1 = dao.insertShard(shardUuid1, tableId, null, 1, 11, 111);
-        long shardId2 = dao.insertShard(shardUuid2, tableId, null, 2, 22, 222);
-        long shardId3 = dao.insertShard(shardUuid3, tableId, 8, 3, 33, 333);
-        long shardId4 = dao.insertShard(shardUuid4, tableId, 9, 4, 44, 444);
+        int bucketCount = 20;
+        long distributionId = metadataDao.insertDistribution("test", "bigint", bucketCount);
+        for (int i = 0; i < bucketCount; i++) {
+            Integer nodeId = ((i % 2) == 0) ? nodeId1 : nodeId2;
+            dao.insertBuckets(distributionId, ImmutableList.of(i), ImmutableList.of(nodeId));
+        }
 
-        assertEquals(dao.getShards(tableId), ImmutableList.of(shardUuid1, shardUuid2, shardUuid3, shardUuid4));
+        long plainTableId = metadataDao.insertTable("test", "plain", false, null);
+        long bucketedTableId = metadataDao.insertTable("test", "bucketed", false, distributionId);
+
+        long shardId1 = dao.insertShard(shardUuid1, plainTableId, null, 1, 11, 111);
+        long shardId2 = dao.insertShard(shardUuid2, plainTableId, null, 2, 22, 222);
+        long shardId3 = dao.insertShard(shardUuid3, bucketedTableId, 8, 3, 33, 333);
+        long shardId4 = dao.insertShard(shardUuid4, bucketedTableId, 9, 4, 44, 444);
+        long shardId5 = dao.insertShard(shardUuid5, bucketedTableId, 7, 5, 55, 555);
+
+        assertEquals(dao.getShards(plainTableId), ImmutableList.of(shardUuid1, shardUuid2));
+        assertEquals(dao.getShards(bucketedTableId), ImmutableList.of(shardUuid3, shardUuid4, shardUuid5));
 
         assertEquals(dao.getNodeShards(nodeName1).size(), 0);
         assertEquals(dao.getNodeShards(nodeName2).size(), 0);
@@ -179,27 +192,32 @@ public class TestShardDao
         dao.insertShardNode(shardId1, nodeId1);
         dao.insertShardNode(shardId2, nodeId1);
         dao.insertShardNode(shardId3, nodeId1);
-        dao.insertShardNode(shardId4, nodeId1);
-        dao.insertShardNode(shardId1, nodeId2);
         dao.insertShardNode(shardId4, nodeId2);
+        dao.insertShardNode(shardId5, nodeId2);
+        dao.insertShardNode(shardId1, nodeId2);
 
         OptionalInt noBucket = OptionalInt.empty();
         OptionalLong noRange = OptionalLong.empty();
-        ShardMetadata shard1 = new ShardMetadata(tableId, shardId1, shardUuid1, noBucket, 1, 11, 111, noRange, noRange);
-        ShardMetadata shard2 = new ShardMetadata(tableId, shardId2, shardUuid2, noBucket, 2, 22, 222, noRange, noRange);
-        ShardMetadata shard3 = new ShardMetadata(tableId, shardId3, shardUuid3, OptionalInt.of(8), 3, 33, 333, noRange, noRange);
-        ShardMetadata shard4 = new ShardMetadata(tableId, shardId4, shardUuid4, OptionalInt.of(9), 4, 44, 444, noRange, noRange);
+        ShardMetadata shard1 = new ShardMetadata(plainTableId, shardId1, shardUuid1, noBucket, 1, 11, 111, noRange, noRange);
+        ShardMetadata shard2 = new ShardMetadata(plainTableId, shardId2, shardUuid2, noBucket, 2, 22, 222, noRange, noRange);
+        ShardMetadata shard3 = new ShardMetadata(bucketedTableId, shardId3, shardUuid3, OptionalInt.of(8), 3, 33, 333, noRange, noRange);
+        ShardMetadata shard4 = new ShardMetadata(bucketedTableId, shardId4, shardUuid4, OptionalInt.of(9), 4, 44, 444, noRange, noRange);
+        ShardMetadata shard5 = new ShardMetadata(bucketedTableId, shardId5, shardUuid5, OptionalInt.of(7), 5, 55, 555, noRange, noRange);
 
-        assertEquals(dao.getNodeShards(nodeName1), ImmutableSet.of(shard1, shard2, shard3, shard4));
-        assertEquals(dao.getNodeShards(nodeName2), ImmutableSet.of(shard1, shard4));
+        assertEquals(dao.getNodeShards(nodeName1), ImmutableSet.of(shard1, shard2, shard3));
+        assertEquals(dao.getNodeShards(nodeName2), ImmutableSet.of(shard1, shard4, shard5));
 
-        dao.dropShardNodes(tableId);
+        dao.dropShardNodes(plainTableId);
+        dao.dropShardNodes(bucketedTableId);
 
-        assertEquals(dao.getShardNodes(tableId), ImmutableList.of());
+        assertEquals(dao.getShardNodes(plainTableId), ImmutableList.of());
+        assertEquals(dao.getShardNodes(bucketedTableId), ImmutableList.of());
 
-        dao.dropShards(tableId);
+        dao.dropShards(plainTableId);
+        dao.dropShards(bucketedTableId);
 
-        assertEquals(dao.getShards(tableId), ImmutableList.of());
+        assertEquals(dao.getShards(plainTableId), ImmutableList.of());
+        assertEquals(dao.getShards(bucketedTableId), ImmutableList.of());
     }
 
     @Test

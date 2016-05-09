@@ -16,10 +16,14 @@ package com.facebook.presto.raptor.storage;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.slice.Slice;
+import org.apache.hadoop.hive.common.type.HiveDecimal;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -125,6 +129,17 @@ public class Row
     {
         if (nativeValue == null) {
             return null;
+        }
+        if (type instanceof DecimalType) {
+            BigInteger unscaledValue;
+            DecimalType decimalType = (DecimalType) type;
+            if (decimalType.isShort()) {
+                unscaledValue = BigInteger.valueOf((long) nativeValue);
+            }
+            else {
+                unscaledValue = Decimals.decodeUnscaledValue((Slice) nativeValue);
+            }
+            return HiveDecimal.create(unscaledValue, decimalType.getScale());
         }
         if (type.getJavaType() == boolean.class) {
             return nativeValue;

@@ -23,7 +23,7 @@ import javax.inject.Inject;
 import java.util.List;
 
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionProperty;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 
 public final class HiveSessionProperties
 {
@@ -34,6 +34,8 @@ public final class HiveSessionProperties
     private static final String ORC_STREAM_BUFFER_SIZE = "orc_stream_buffer_size";
     private static final String PARQUET_PREDICATE_PUSHDOWN_ENABLED = "parquet_predicate_pushdown_enabled";
     private static final String PARQUET_OPTIMIZED_READER_ENABLED = "parquet_optimized_reader_enabled";
+    private static final String MAX_SPLIT_SIZE = "max_split_size";
+    private static final String MAX_INITIAL_SPLIT_SIZE = "max_initial_split_size";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -59,7 +61,7 @@ public final class HiveSessionProperties
                 dataSizeSessionProperty(
                         ORC_STREAM_BUFFER_SIZE,
                         "ORC: Size of buffer for streaming reads",
-                        config.getOrcMaxBufferSize(),
+                        config.getOrcStreamBufferSize(),
                         false),
                 booleanSessionProperty(
                         PARQUET_OPTIMIZED_READER_ENABLED,
@@ -70,7 +72,17 @@ public final class HiveSessionProperties
                         PARQUET_PREDICATE_PUSHDOWN_ENABLED,
                         "Experimental: Parquet: Enable predicate pushdown for Parquet",
                         config.isParquetPredicatePushdownEnabled(),
-                        false));
+                        false),
+                dataSizeSessionProperty(
+                        MAX_SPLIT_SIZE,
+                        "Max split size",
+                        config.getMaxSplitSize(),
+                        true),
+                dataSizeSessionProperty(
+                        MAX_INITIAL_SPLIT_SIZE,
+                        "Max initial split size",
+                        config.getMaxInitialSplitSize(),
+                        true));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -108,15 +120,26 @@ public final class HiveSessionProperties
         return session.getProperty(PARQUET_PREDICATE_PUSHDOWN_ENABLED, Boolean.class);
     }
 
+    public static DataSize getMaxSplitSize(ConnectorSession session)
+    {
+        return session.getProperty(MAX_SPLIT_SIZE, DataSize.class);
+    }
+
+    public static DataSize getMaxInitialSplitSize(ConnectorSession session)
+    {
+        return session.getProperty(MAX_INITIAL_SPLIT_SIZE, DataSize.class);
+    }
+
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)
     {
         return new PropertyMetadata<>(
                 name,
                 description,
-                VARCHAR,
+                createUnboundedVarcharType(),
                 DataSize.class,
                 defaultValue,
                 hidden,
-                value -> DataSize.valueOf((String) value));
+                value -> DataSize.valueOf((String) value),
+                DataSize::toString);
     }
 }

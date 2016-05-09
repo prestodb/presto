@@ -18,6 +18,8 @@ import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.spi.type.Varchars;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import com.mysql.jdbc.Driver;
@@ -111,10 +113,22 @@ public class MySqlClient
     @Override
     protected String toSqlType(Type type)
     {
+        if (Varchars.isVarcharType(type)) {
+            VarcharType varcharType = (VarcharType) type;
+            if (varcharType.getLength() <= 255) {
+                return "tinytext";
+            }
+            if (varcharType.getLength() <= 65535) {
+                return "text";
+            }
+            if (varcharType.getLength() <= 16777215) {
+                return "mediumtext";
+            }
+            return "longtext";
+        }
+
         String sqlType = super.toSqlType(type);
         switch (sqlType) {
-            case "varchar":
-                return "mediumtext";
             case "varbinary":
                 return "mediumblob";
             case "time with timezone":

@@ -22,6 +22,7 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
+import com.google.common.base.Ticker;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -80,7 +81,6 @@ import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.propagateIfInstanceOf;
 import static com.google.common.collect.Iterables.partition;
-import static io.airlift.units.Duration.nanosSince;
 import static java.lang.Boolean.TRUE;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
@@ -88,6 +88,7 @@ import static java.sql.Statement.RETURN_GENERATED_KEYS;
 import static java.util.Arrays.asList;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 
@@ -98,12 +99,14 @@ public class DatabaseShardManager
 
     private static final String INDEX_TABLE_PREFIX = "x_shards_t";
 
-    private final long startTime = System.nanoTime();
     private final IDBI dbi;
     private final DaoSupplier<ShardDao> shardDaoSupplier;
     private final ShardDao dao;
     private final NodeSupplier nodeSupplier;
+    private final AssignmentLimiter assignmentLimiter;
+    private final Ticker ticker;
     private final Duration startupGracePeriod;
+    private final long startTime;
 
     private final LoadingCache<String, Integer> nodeIdCache = CacheBuilder.newBuilder()
             .maximumSize(10_000)
@@ -116,27 +119,45 @@ public class DatabaseShardManager
                 }
             });
 
+    private final LoadingCache<Long, Map<Integer, String>> bucketAssignmentsCache = CacheBuilder.newBuilder()
+            .expireAfterWrite(1, SECONDS)
+            .build(new CacheLoader<Long, Map<Integer, String>>()
+            {
+                @Override
+                public Map<Integer, String> load(Long distributionId)
+                {
+                    return loadBucketAssignments(distributionId);
+                }
+            });
+
     @Inject
     public DatabaseShardManager(
             @ForMetadata IDBI dbi,
             DaoSupplier<ShardDao> shardDaoSupplier,
             NodeSupplier nodeSupplier,
+            AssignmentLimiter assignmentLimiter,
+            Ticker ticker,
             MetadataConfig config)
     {
-        this(dbi, shardDaoSupplier, nodeSupplier, config.getStartupGracePeriod());
+        this(dbi, shardDaoSupplier, nodeSupplier, assignmentLimiter, ticker, config.getStartupGracePeriod());
     }
 
     public DatabaseShardManager(
             IDBI dbi,
             DaoSupplier<ShardDao> shardDaoSupplier,
             NodeSupplier nodeSupplier,
+            AssignmentLimiter assignmentLimiter,
+            Ticker ticker,
             Duration startupGracePeriod)
     {
         this.dbi = requireNonNull(dbi, "dbi is null");
         this.shardDaoSupplier = requireNonNull(shardDaoSupplier, "shardDaoSupplier is null");
         this.dao = shardDaoSupplier.onDemand();
         this.nodeSupplier = requireNonNull(nodeSupplier, "nodeSupplier is null");
+        this.assignmentLimiter = requireNonNull(assignmentLimiter, "assignmentLimiter is null");
+        this.ticker = requireNonNull(ticker, "ticker is null");
         this.startupGracePeriod = requireNonNull(startupGracePeriod, "startupGracePeriod is null");
+        this.startTime = ticker.read();
 
         createTablesWithRetry(dbi);
     }
@@ -522,7 +543,17 @@ public class DatabaseShardManager
     }
 
     @Override
-    public Map<Integer, String> getBucketAssignments(long distributionId, boolean gracePeriod)
+    public Map<Integer, String> getBucketAssignments(long distributionId)
+    {
+        try {
+            return bucketAssignmentsCache.getUnchecked(distributionId);
+        }
+        catch (UncheckedExecutionException | ExecutionError e) {
+            throw Throwables.propagate(e.getCause());
+        }
+    }
+
+    private Map<Integer, String> loadBucketAssignments(long distributionId)
     {
         Set<String> nodeIds = getNodeIdentifiers();
         Iterator<String> nodeIterator = cyclingShuffledIterator(nodeIds);
@@ -534,9 +565,11 @@ public class DatabaseShardManager
             String nodeId = bucketNode.getNodeIdentifier();
 
             if (!nodeIds.contains(nodeId)) {
-                if (gracePeriod && (nanosSince(startTime).compareTo(startupGracePeriod) < 0)) {
+                if (nanosSince(startTime).compareTo(startupGracePeriod) < 0) {
                     throw new PrestoException(SERVER_STARTING_UP, "Cannot reassign buckets while server is starting");
                 }
+                assignmentLimiter.checkAssignFrom(nodeId);
+
                 String oldNodeId = nodeId;
                 // TODO: use smarter system to choose replacement node
                 nodeId = nodeIterator.next();
@@ -586,6 +619,11 @@ public class DatabaseShardManager
             throw new PrestoException(INTERNAL_ERROR, "node does not exist after insert");
         }
         return id;
+    }
+
+    private Duration nanosSince(long nanos)
+    {
+        return new Duration(ticker.read() - nanos, NANOSECONDS);
     }
 
     private static List<Long> insertShards(Connection connection, long tableId, List<ShardInfo> shards)

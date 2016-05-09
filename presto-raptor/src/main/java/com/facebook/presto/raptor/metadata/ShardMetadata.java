@@ -133,7 +133,7 @@ public class ShardMetadata
     public String toString()
     {
         ToStringHelper stringHelper = toStringHelper(this)
-                .add("tableId", "tableId")
+                .add("tableId", tableId)
                 .add("shardId", shardId)
                 .add("shardUuid", shardUuid)
                 .add("rowCount", rowCount)

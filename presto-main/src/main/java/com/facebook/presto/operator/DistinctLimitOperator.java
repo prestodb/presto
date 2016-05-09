@@ -109,7 +109,6 @@ public class DistinctLimitOperator
                 operatorContext.getSession(),
                 distinctTypes.build(),
                 Ints.toArray(distinctChannels),
-                Optional.empty(),
                 hashChannel,
                 Math.min((int) limit, 10_000));
         this.pageBuilder = new PageBuilder(types);

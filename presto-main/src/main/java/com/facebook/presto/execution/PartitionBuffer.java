@@ -16,18 +16,13 @@ package com.facebook.presto.execution;
 import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 
-import javax.annotation.concurrent.Immutable;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.execution.PageSplitterUtil.splitPage;
@@ -35,14 +30,13 @@ import static com.facebook.presto.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_S
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class PartitionBuffer
 {
     private final LinkedList<Page> masterBuffer = new LinkedList<>();
-    private final BlockingQueue<QueuedPage> queuedPages = new LinkedBlockingQueue<>();
+    private final AtomicLong rowsAdded = new AtomicLong(); // Number of rows added to the masterBuffer
     private final AtomicLong pagesAdded = new AtomicLong(); // Number of pages added to the masterBuffer
     private final AtomicLong masterSequenceId = new AtomicLong();
     private final AtomicLong bufferedBytes = new AtomicLong();  // Bytes in the master buffer
@@ -56,25 +50,17 @@ public class PartitionBuffer
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
     }
 
-    public synchronized ListenableFuture<?> enqueuePage(Page page)
-    {
-        if (!memoryManager.isFull()) {
-            addToMasterBuffer(page);
-            return immediateFuture(true);
-        }
-        else {
-            QueuedPage queuedPage = new QueuedPage(page);
-            queuedPages.add(queuedPage);
-            return queuedPage.getFuture();
-        }
-    }
-
-    private synchronized void addToMasterBuffer(Page page)
+    public synchronized void enqueuePage(Page page)
     {
         long bytesAdded = 0;
         List<Page> pages = splitPage(page, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
         masterBuffer.addAll(pages);
+
+        long rowCount = pages.stream().mapToLong(Page::getPositionCount).sum();
+        checkState(rowCount == page.getPositionCount());
+        rowsAdded.addAndGet(rowCount);
         pagesAdded.addAndGet(pages.size());
+
         for (Page p : pages) {
             bytesAdded += p.getSizeInBytes();
         }
@@ -103,6 +89,15 @@ public class PartitionBuffer
         return ImmutableList.copyOf(pages);
     }
 
+    /**
+     * @return true if there are still pages in the buffer after sequenceId
+     */
+    public synchronized boolean hasMorePages(long sequenceId)
+    {
+        int listOffset = Ints.checkedCast(sequenceId - masterSequenceId.get());
+        return listOffset < masterBuffer.size();
+    }
+
     public synchronized void advanceSequenceId(long newSequenceId)
     {
         long oldMasterSequenceId = masterSequenceId.get();
@@ -128,17 +123,6 @@ public class PartitionBuffer
             bytesRemoved += page.getSizeInBytes();
         }
         updateMemoryUsage(-bytesRemoved);
-        dequeuePages();
-    }
-
-    public synchronized void dequeuePages()
-    {
-        // refill buffer from queued pages
-        while (!queuedPages.isEmpty() && !memoryManager.isFull()) {
-            QueuedPage queuedPage = queuedPages.remove();
-            addToMasterBuffer(queuedPage.getPage());
-            queuedPage.getFuture().set(null);
-        }
     }
 
     public synchronized void destroy()
@@ -146,15 +130,6 @@ public class PartitionBuffer
         // clear the buffer
         masterBuffer.clear();
         updateMemoryUsage(-bufferedBytes.get());
-        clearQueue();
-    }
-
-    public synchronized void clearQueue()
-    {
-        for (QueuedPage queuedPage : queuedPages) {
-            queuedPage.getFuture().set(null);
-        }
-        queuedPages.clear();
     }
 
     private void updateMemoryUsage(long bytesAdded)
@@ -162,6 +137,11 @@ public class PartitionBuffer
         bufferedBytes.addAndGet(bytesAdded);
         memoryManager.updateMemoryUsage(bytesAdded);
         verify(bufferedBytes.get() >= 0);
+    }
+
+    public long getRowCount()
+    {
+        return rowsAdded.get();
     }
 
     public long getPageCount()
@@ -179,11 +159,6 @@ public class PartitionBuffer
         return masterBuffer.size();
     }
 
-    public long getQueuedPageCount()
-    {
-        return queuedPages.size();
-    }
-
     public int getPartition()
     {
         return partition;
@@ -191,28 +166,6 @@ public class PartitionBuffer
 
     public PageBufferInfo getInfo()
     {
-        return new PageBufferInfo(partition, getBufferedPageCount(), getQueuedPageCount(), getBufferedBytes(), pagesAdded.get());
-    }
-
-    @Immutable
-    private static final class QueuedPage
-    {
-        private final Page page;
-        private final SettableFuture<?> future = SettableFuture.create();
-
-        QueuedPage(Page page)
-        {
-            this.page = page;
-        }
-
-        public Page getPage()
-        {
-            return page;
-        }
-
-        public SettableFuture<?> getFuture()
-        {
-            return future;
-        }
+        return new PageBufferInfo(partition, getBufferedPageCount(), getBufferedBytes(), rowsAdded.get(), pagesAdded.get());
     }
 }

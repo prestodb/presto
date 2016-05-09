@@ -15,12 +15,13 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 
 import java.io.Closeable;
 import java.util.List;
-import java.util.Set;
+import java.util.Optional;
+import java.util.OptionalInt;
 
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -31,42 +32,25 @@ public class DriverFactory
     private final boolean inputDriver;
     private final boolean outputDriver;
     private final List<OperatorFactory> operatorFactories;
-    private final Set<PlanNodeId> sourceIds;
-    private final int driverInstances;
+    private final Optional<PlanNodeId> sourceId;
+    private final OptionalInt driverInstances;
     private boolean closed;
 
-    public DriverFactory(boolean inputDriver, boolean outputDriver, OperatorFactory firstOperatorFactory, OperatorFactory... otherOperatorFactories)
-    {
-        this(inputDriver,
-                outputDriver,
-                ImmutableList.<OperatorFactory>builder()
-                        .add(requireNonNull(firstOperatorFactory, "firstOperatorFactory is null"))
-                        .add(requireNonNull(otherOperatorFactories, "otherOperatorFactories is null"))
-                        .build(),
-                1);
-    }
-
-    public DriverFactory(boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories)
-    {
-        this(inputDriver, outputDriver, operatorFactories, 1);
-    }
-
-    public DriverFactory(boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, int driverInstances)
+    public DriverFactory(boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances)
     {
         this.inputDriver = inputDriver;
         this.outputDriver = outputDriver;
         this.operatorFactories = ImmutableList.copyOf(requireNonNull(operatorFactories, "operatorFactories is null"));
         checkArgument(!operatorFactories.isEmpty(), "There must be at least one operator");
-        this.driverInstances = driverInstances;
+        this.driverInstances = requireNonNull(driverInstances, "driverInstances is null");
 
-        ImmutableSet.Builder<PlanNodeId> sourceIds = ImmutableSet.builder();
-        for (OperatorFactory operatorFactory : operatorFactories) {
-            if (operatorFactory instanceof SourceOperatorFactory) {
-                SourceOperatorFactory sourceOperatorFactory = (SourceOperatorFactory) operatorFactory;
-                sourceIds.add(sourceOperatorFactory.getSourceId());
-            }
-        }
-        this.sourceIds = sourceIds.build();
+        List<PlanNodeId> sourceIds = operatorFactories.stream()
+                .filter(SourceOperatorFactory.class::isInstance)
+                .map(SourceOperatorFactory.class::cast)
+                .map(SourceOperatorFactory::getSourceId)
+                .collect(toImmutableList());
+        checkArgument(sourceIds.size() <= 1, "Expected at most one source operator in driver facotry, but found %s", sourceIds);
+        this.sourceId = sourceIds.isEmpty() ? Optional.empty() : Optional.of(sourceIds.get(0));
     }
 
     public boolean isInputDriver()
@@ -79,9 +63,14 @@ public class DriverFactory
         return outputDriver;
     }
 
-    public Set<PlanNodeId> getSourceIds()
+    public Optional<PlanNodeId> getSourceId()
     {
-        return sourceIds;
+        return sourceId;
+    }
+
+    public OptionalInt getDriverInstances()
+    {
+        return driverInstances;
     }
 
     public List<OperatorFactory> getOperatorFactories()
@@ -110,10 +99,5 @@ public class DriverFactory
                 operatorFactory.close();
             }
         }
-    }
-
-    public int getDriverInstances()
-    {
-        return driverInstances;
     }
 }

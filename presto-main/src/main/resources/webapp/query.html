@@ -11,8 +11,8 @@
     <link href="vendor/bootstrap/css/bootstrap.css" rel="stylesheet" type="text/css">
     <link href="vendor/bootstrap-sortable/bootstrap-sortable.css" rel="stylesheet" type="text/css">
 
-    <link rel="stylesheet" href="vendor/highlightjs/7.3/styles/idea.min.css">
-    <script src="vendor/highlightjs/7.3/highlight.min.js"></script>
+    <link rel="stylesheet" href="vendor/highlightjs/9.3/styles/idea.css">
+    <script src="vendor/highlightjs/9.3/highlight.pack.js"></script>
 
     <style type="text/css">
         pre code {
@@ -162,7 +162,7 @@
 
     <h2>Query</h2>
 
-    <div class="sql"><pre><code id="query"></code></pre></div>
+    <pre><code class="sql" id="query"></code></pre>
 
     <h2>Stages</h2>
 
@@ -183,6 +183,7 @@
             <th>Splits Pending</th>
             <th>Splits Running</th>
             <th>Splits Done</th>
+            <th>Elapsed Time</th>
             <th>Output Buffers</th>
             <th>Buffered Pages</th>
         </tr>
@@ -205,6 +206,10 @@ d3.json('/v1/query/' + queryId, function (query) {
     }
 
     d3.select('#query').text(query.query);
+    $('#query').each(function(i, block) {
+      hljs.highlightBlock(block);
+    });
+
     d3.select('#queryId').text(query.queryId);
     if (query.queryStats.fullyBlocked && query.state == "RUNNING") {
         var state = "BLOCKED";
@@ -297,8 +302,6 @@ d3.json('/v1/query/' + queryId, function (query) {
 
     var timelineLink = "/timeline.html?" + query.queryId;
     d3.select('#timelineLink').attr("href", timelineLink);
-
-    hljs.initHighlighting();
 
     renderStagesTree(query.outputStage);
 
@@ -406,9 +409,9 @@ function taskData(d) {
     });
 
     return [
-        {"display": "<a href=" + d.self + "?pretty>" + htmlEscape(d.taskId) + "</a>", "sortableString": taskIdToTinySortCompatibleString(d.taskId)},
-        {"display": htmlEscape(urlHostname(d.self))},
-        {"display": htmlEscape(formatState(d.state, d.stats.fullyBlocked))},
+        {"display": "<a href=" + d.taskStatus.self + "?pretty>" + htmlEscape(d.taskStatus.taskId) + "</a>", "sortableString": taskIdToTinySortCompatibleString(d.taskStatus.taskId)},
+        {"display": htmlEscape(urlHostname(d.taskStatus.self))},
+        {"display": htmlEscape(formatState(d.taskStatus.state, d.stats.fullyBlocked))},
         {"display": htmlEscape(formatCount(rows)), "sortableString": rows},
         {"display": htmlEscape(formatCount(computeRate(rows, elapsed))), "sortableString": computeRate(rows, elapsed)},
         {"display": htmlEscape(formatDataSize(bytes)), "sortableString": bytes},
@@ -416,6 +419,7 @@ function taskData(d) {
         {"display": htmlEscape(d.stats.queuedDrivers)},
         {"display": htmlEscape(d.stats.runningDrivers)},
         {"display": htmlEscape(d.stats.completedDrivers)},
+        {"display": htmlEscape(d.stats.elapsedTime)},
         {"display": htmlEscape(finishedBuffers + ' / ' + allBuffers)},
         {"display": htmlEscape(bufferedPages)}
     ];

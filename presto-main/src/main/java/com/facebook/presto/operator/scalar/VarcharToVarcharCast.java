@@ -13,27 +13,25 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.util.Map;
 
 import static com.facebook.presto.metadata.OperatorType.CAST;
 import static com.facebook.presto.metadata.Signature.comparableWithVariadicBound;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
+import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.slice.SliceUtf8.offsetOfCodePoint;
 
 public class VarcharToVarcharCast
         extends SqlOperator
@@ -44,15 +42,15 @@ public class VarcharToVarcharCast
 
     private VarcharToVarcharCast()
     {
-        super(CAST, ImmutableList.of(comparableWithVariadicBound("F", VARCHAR), comparableWithVariadicBound("T", VARCHAR)), "T", ImmutableList.of("F"));
+        super(CAST, ImmutableList.of(comparableWithVariadicBound("F", VARCHAR), comparableWithVariadicBound("T", VARCHAR)), ImmutableList.of(), "T", ImmutableList.of("F"));
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         checkArgument(arity == 1, "Expected arity to be 1");
-        VarcharType fromType = (VarcharType) types.get("F");
-        VarcharType toType = (VarcharType) types.get("T");
+        VarcharType fromType = (VarcharType) boundVariables.getTypeVariable("F");
+        VarcharType toType = (VarcharType) boundVariables.getTypeVariable("T");
 
         MethodHandle methodHandle = getMethodHandle(fromType, toType);
         return new ScalarFunctionImplementation(false, ImmutableList.of(false), methodHandle, true);
@@ -71,13 +69,6 @@ public class VarcharToVarcharCast
         if (length < 0) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Length smaller then zero");
         }
-        else if (length == 0) {
-            return Slices.EMPTY_SLICE;
-        }
-        int indexEnd = offsetOfCodePoint(slice, length);
-        if (indexEnd < 0) {
-            return slice;
-        }
-        return slice.slice(0, indexEnd);
+        return truncateToLength(slice, length);
     }
 }

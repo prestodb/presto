@@ -42,6 +42,7 @@ import static com.facebook.presto.raptor.storage.ShardStats.truncateIndexValue;
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidStringToBytes;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -203,6 +204,9 @@ class ShardPredicate
         }
         if (type.equals(BigintType.BIGINT) || type.equals(TimestampType.TIMESTAMP)) {
             return JDBCType.BIGINT;
+        }
+        if (type.equals(INTEGER)) {
+            return JDBCType.INTEGER;
         }
         if (type.equals(DoubleType.DOUBLE)) {
             return JDBCType.DOUBLE;

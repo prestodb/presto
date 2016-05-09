@@ -13,61 +13,25 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.SqlScalarFunction;
+import com.facebook.presto.operator.Description;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.type.SqlType;
 
-import java.lang.invoke.MethodHandle;
-import java.util.Map;
-
-import static com.facebook.presto.metadata.Signature.typeParameter;
-import static com.facebook.presto.util.Reflection.methodHandle;
-import static com.google.common.base.Preconditions.checkArgument;
-
-public class MapKeys
-        extends SqlScalarFunction
+@ScalarFunction("map_keys")
+@Description("Returns the keys of the given map(K,V) as an array")
+public final class MapKeys
 {
-    public static final MapKeys MAP_KEYS = new MapKeys();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(MapKeys.class, "getKeys", Type.class, Block.class);
+    private MapKeys() {}
 
-    public MapKeys()
-    {
-        super("map_keys", ImmutableList.of(typeParameter("K"), typeParameter("V")), "array(K)", ImmutableList.of("map(K,V)"));
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Returns the keys of the given map(K,V) as an array";
-    }
-
-    @Override
-    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
-    {
-        checkArgument(arity == 1, "map_keys expects only one argument");
-        Type keyType = types.get("K");
-        MethodHandle methodHandle = METHOD_HANDLE.bindTo(keyType);
-        return new ScalarFunctionImplementation(true, ImmutableList.of(false), methodHandle, isDeterministic());
-    }
-
-    public static Block getKeys(Type keyType, Block block)
+    @TypeParameter("K")
+    @TypeParameter("V")
+    @SqlType("array(K)")
+    public static Block getKeys(
+            @TypeParameter("K") Type keyType,
+            @SqlType("map(K,V)") Block block)
     {
         BlockBuilder blockBuilder = keyType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount() / 2);
         for (int i = 0; i < block.getPositionCount(); i += 2) {

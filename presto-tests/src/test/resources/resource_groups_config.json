@@ -1,0 +1,27 @@
+{
+  "rootGroups": [
+    {
+      "name": "global",
+      "softMemoryLimit": "1MB",
+      "maxRunning": 100,
+      "maxQueued": 1000,
+      "schedulingPolicy": "weighted",
+      "jmxExport": true,
+      "subGroups": [
+        {
+          "name": "sub",
+          "softMemoryLimit": "2MB",
+          "maxRunning": 3,
+          "maxQueued": 4,
+          "schedulingWeight": 5
+        }
+      ]
+    }
+  ],
+  "selectors": [
+    {
+      "group": "global"
+    }
+  ]
+}
+

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
+import java.util.OptionalInt;
 import java.util.Properties;
 
 import static org.testng.Assert.assertEquals;
@@ -47,6 +48,7 @@ public class TestHiveSplit
                 schema,
                 partitionKeys,
                 addresses,
+                OptionalInt.empty(),
                 true,
                 TupleDomain.<HiveColumnHandle>all());
 

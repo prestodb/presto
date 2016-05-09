@@ -210,9 +210,9 @@ Java Date Functions
 -------------------
 
 The functions in this section use a format string that is compatible with
-the Java `SimpleDateFormat`_ pattern format.
+JodaTime's `DateTimeFormat`_ pattern format.
 
-.. _SimpleDateFormat: http://docs.oracle.com/javase/7/docs/api/java/text/SimpleDateFormat.html
+.. _DateTimeFormat: http://joda-time.sourceforge.net/apidocs/org/joda/time/format/DateTimeFormat.html
 
 .. function:: format_datetime(timestamp, format) -> varchar
 

@@ -72,6 +72,11 @@ public abstract class AstVisitor<R, C>
         return visitLiteral(node, context);
     }
 
+    protected R visitDecimalLiteral(DecimalLiteral node, C context)
+    {
+        return visitLiteral(node, context);
+    }
+
     protected R visitStatement(Statement node, C context)
     {
         return visitNode(node, context);
@@ -108,6 +113,11 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitShowPartitions(ShowPartitions node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitShowCreate(ShowCreate node, C context)
     {
         return visitStatement(node, context);
     }
@@ -417,7 +427,7 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitInputReference(InputReference node, C context)
+    protected R visitFieldReference(FieldReference node, C context)
     {
         return visitExpression(node, context);
     }

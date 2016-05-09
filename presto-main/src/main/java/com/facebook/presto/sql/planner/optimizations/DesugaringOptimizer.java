@@ -38,7 +38,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionT
 import static java.util.Objects.requireNonNull;
 
 public class DesugaringOptimizer
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     private final Metadata metadata;
     private final SqlParser sqlParser;

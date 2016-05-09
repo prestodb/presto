@@ -30,7 +30,7 @@ public final class SharedBufferInfo
     private final boolean canAddPages;
     private final long totalBufferedBytes;
     private final long totalBufferedPages;
-    private final long totalQueuedPages;
+    private final long totalRowsSent;
     private final long totalPagesSent;
     private final List<BufferInfo> buffers;
 
@@ -41,7 +41,7 @@ public final class SharedBufferInfo
             @JsonProperty("canAddPages") boolean canAddPages,
             @JsonProperty("totalBufferedBytes") long totalBufferedBytes,
             @JsonProperty("totalBufferedPages") long totalBufferedPages,
-            @JsonProperty("totalQueuedPages") long totalQueuedPages,
+            @JsonProperty("totalRowsSent") long totalRowsSent,
             @JsonProperty("totalPagesSent") long totalPagesSent,
             @JsonProperty("buffers") List<BufferInfo> buffers)
     {
@@ -50,7 +50,7 @@ public final class SharedBufferInfo
         this.canAddPages = canAddPages;
         this.totalBufferedBytes = totalBufferedBytes;
         this.totalBufferedPages = totalBufferedPages;
-        this.totalQueuedPages = totalQueuedPages;
+        this.totalRowsSent = totalRowsSent;
         this.totalPagesSent = totalPagesSent;
         this.buffers = ImmutableList.copyOf(buffers);
     }
@@ -92,9 +92,9 @@ public final class SharedBufferInfo
     }
 
     @JsonProperty
-    public long getTotalQueuedPages()
+    public long getTotalRowsSent()
     {
-        return totalQueuedPages;
+        return totalRowsSent;
     }
 
     @JsonProperty
@@ -117,7 +117,7 @@ public final class SharedBufferInfo
                 Objects.equals(canAddPages, that.canAddPages) &&
                 Objects.equals(totalBufferedBytes, that.totalBufferedBytes) &&
                 Objects.equals(totalBufferedPages, that.totalBufferedPages) &&
-                Objects.equals(totalQueuedPages, that.totalQueuedPages) &&
+                Objects.equals(totalRowsSent, that.totalRowsSent) &&
                 Objects.equals(totalPagesSent, that.totalPagesSent) &&
                 Objects.equals(state, that.state) &&
                 Objects.equals(buffers, that.buffers);
@@ -126,7 +126,7 @@ public final class SharedBufferInfo
     @Override
     public int hashCode()
     {
-        return Objects.hash(state, canAddBuffers, canAddPages, totalBufferedBytes, totalBufferedPages, totalQueuedPages, totalPagesSent, buffers);
+        return Objects.hash(state, canAddBuffers, canAddPages, totalBufferedBytes, totalBufferedPages, totalRowsSent, totalPagesSent, buffers);
     }
 
     @Override
@@ -138,7 +138,7 @@ public final class SharedBufferInfo
                 .add("canAddPages", canAddPages)
                 .add("totalBufferedBytes", totalBufferedBytes)
                 .add("totalBufferedPages", totalBufferedPages)
-                .add("totalQueuedPages", totalQueuedPages)
+                .add("totalRowsSent", totalRowsSent)
                 .add("totalPagesSent", totalPagesSent)
                 .add("buffers", buffers)
                 .toString();

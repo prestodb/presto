@@ -22,14 +22,29 @@ DOUBLE
     A double is a 64-bit inexact, variable-precision implementing the
     IEEE Standard 754 for Binary Floating-Point Arithmetic.
 
+DECIMAL
+-------
+
+    A fixed precision decimal number. Precision up to 38 digits is supported
+    but performance is best up to 17 digits.
+
+    DECIMAL type takes two literal parameters:
+
+      - **precision** - total number of digits
+
+      - **scale** - number of digits in fractional part. Scale is optional and defaults to 0.
+
+    Example type definitions: ``DECIMAL(10,3)``, ``DECIMAL(20)``
+
+    Example literals: ``DECIMAL '10.3'``, ``DECIMAL '1234567890'``
+
+
 VARCHAR
 -------
 
-    Variable length character data.
+    Variable length character data with an optional maximum length.
 
-    .. note::
-
-        Character strings with length are not yet supported: ``varchar(n)``
+    Example type definitions: ``varchar``, ``varchar(20)``
 
 VARBINARY
 ---------

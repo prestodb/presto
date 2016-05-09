@@ -406,21 +406,21 @@ public class MockAmazonS3
     public PutObjectResult putObject(PutObjectRequest putObjectRequest)
             throws AmazonClientException
     {
-        return null;
+        return new PutObjectResult();
     }
 
     @Override
     public PutObjectResult putObject(String bucketName, String key, File file)
             throws AmazonClientException
     {
-        return null;
+        return new PutObjectResult();
     }
 
     @Override
     public PutObjectResult putObject(String bucketName, String key, InputStream input, ObjectMetadata metadata)
             throws AmazonClientException
     {
-        return null;
+        return new PutObjectResult();
     }
 
     @Override

@@ -84,7 +84,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.google.common.base.Predicates.not;
@@ -161,13 +161,13 @@ public class TestOrcPageSourceMemoryTracking
             Block block = page.getBlock(1);
             if (memoryUsage == -1) {
                 assertBetweenInclusive(pageSource.getSystemMemoryUsage(), 180000L, 189999L); // Memory usage before lazy-loading the block
-                VARCHAR.getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
+                createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
                 memoryUsage = pageSource.getSystemMemoryUsage();
                 assertBetweenInclusive(memoryUsage, 460000L, 469999L); // Memory usage after lazy-loading the actual block
             }
             else {
                 assertEquals(pageSource.getSystemMemoryUsage(), memoryUsage);
-                VARCHAR.getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
+                createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
                 assertEquals(pageSource.getSystemMemoryUsage(), memoryUsage);
             }
         }
@@ -180,13 +180,13 @@ public class TestOrcPageSourceMemoryTracking
             Block block = page.getBlock(1);
             if (memoryUsage == -1) {
                 assertBetweenInclusive(pageSource.getSystemMemoryUsage(), 180000L, 189999L); // Memory usage before lazy-loading the block
-                VARCHAR.getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
+                createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
                 memoryUsage = pageSource.getSystemMemoryUsage();
                 assertBetweenInclusive(memoryUsage, 460000L, 469999L); // Memory usage after lazy-loading the actual block
             }
             else {
                 assertEquals(pageSource.getSystemMemoryUsage(), memoryUsage);
-                VARCHAR.getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
+                createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
                 assertEquals(pageSource.getSystemMemoryUsage(), memoryUsage);
             }
         }
@@ -199,13 +199,13 @@ public class TestOrcPageSourceMemoryTracking
             Block block = page.getBlock(1);
             if (memoryUsage == -1) {
                 assertBetweenInclusive(pageSource.getSystemMemoryUsage(), 90000L, 99999L); // Memory usage before lazy-loading the block
-                VARCHAR.getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
+                createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
                 memoryUsage = pageSource.getSystemMemoryUsage();
                 assertBetweenInclusive(memoryUsage, 360000L, 369999L); // Memory usage after lazy-loading the actual block
             }
             else {
                 assertEquals(pageSource.getSystemMemoryUsage(), memoryUsage);
-                VARCHAR.getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
+                createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
                 assertEquals(pageSource.getSystemMemoryUsage(), memoryUsage);
             }
         }
@@ -315,11 +315,11 @@ public class TestOrcPageSourceMemoryTracking
         // No data is left
         assertTrue(operator.isFinished());
         // an empty page builder of two variable width block builders is left in ScanFilterAndProjectOperator
-        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(VARCHAR, VARCHAR));
+        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType()));
         for (int i = 0; i < lastPage.getPositionCount(); i++) {
             pageBuilder.declarePosition();
-            VARCHAR.appendTo(lastPage.getBlock(0), i, pageBuilder.getBlockBuilder(0));
-            VARCHAR.appendTo(lastPage.getBlock(1), i, pageBuilder.getBlockBuilder(1));
+            createUnboundedVarcharType().appendTo(lastPage.getBlock(0), i, pageBuilder.getBlockBuilder(0));
+            createUnboundedVarcharType().appendTo(lastPage.getBlock(1), i, pageBuilder.getBlockBuilder(1));
         }
         pageBuilder.reset();
         assertEquals(driverContext.getSystemMemoryUsage(), pageBuilder.getRetainedSizeInBytes());
@@ -419,7 +419,7 @@ public class TestOrcPageSourceMemoryTracking
                     new PlanNodeId("test"),
                     new PlanNodeId("0"),
                     (session, split, columnHandles) -> pageSource,
-                    new GenericCursorProcessor(FilterFunctions.TRUE_FUNCTION, projections),
+                    () -> new GenericCursorProcessor(FilterFunctions.TRUE_FUNCTION, projections),
                     () -> new GenericPageProcessor(FilterFunctions.TRUE_FUNCTION, projections),
                     columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList()),
                     types

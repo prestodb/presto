@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.sql.tree.Statement;
+
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.concurrent.Executor;
@@ -24,5 +26,5 @@ import java.util.concurrent.Executor;
 @ThreadSafe
 public interface QueryQueueManager
 {
-    boolean submit(QueryExecution queryExecution, Executor executor, SqlQueryManagerStats stats);
+    boolean submit(Statement statement, QueryExecution queryExecution, Executor executor, SqlQueryManagerStats stats);
 }

@@ -64,7 +64,7 @@ public final class VarbinaryType
     }
 
     @Override
-    public int hash(Block block, int position)
+    public long hash(Block block, int position)
     {
         return block.hash(position, 0, block.getLength(position));
     }

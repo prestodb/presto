@@ -42,6 +42,7 @@ import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
@@ -55,6 +56,7 @@ import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
+import com.facebook.presto.sql.tree.ShowCreate;
 import com.facebook.presto.sql.tree.ShowFunctions;
 import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowSchemas;
@@ -73,11 +75,12 @@ import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableSortedMap;
 
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
 import static com.facebook.presto.sql.ExpressionFormatter.formatGroupBy;
@@ -86,10 +89,12 @@ import static com.facebook.presto.sql.ExpressionFormatter.formatStringLiteral;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
+import static java.util.stream.Collectors.joining;
 
 public final class SqlFormatter
 {
     private static final String INDENT = "   ";
+    private static final Pattern NAME_PATTERN = Pattern.compile("[a-z_][a-z0-9_]*");
 
     private SqlFormatter() {}
 
@@ -154,7 +159,7 @@ public final class SqlFormatter
                 while (queries.hasNext()) {
                     WithQuery query = queries.next();
                     append(indent, query.getName());
-                    appendAliasColumns(builder, query.getColumnNames());
+                    query.getColumnNames().ifPresent(columnNames -> appendAliasColumns(builder, columnNames));
                     builder.append(" AS ");
                     process(new TableSubquery(query.getQuery()), indent);
                     builder.append('\n');
@@ -519,6 +524,10 @@ public final class SqlFormatter
         {
             builder.append("SHOW CATALOGS");
 
+            node.getLikePattern().ifPresent((value) ->
+                    builder.append(" LIKE ")
+                            .append(formatStringLiteral(value)));
+
             return null;
         }
 
@@ -531,6 +540,10 @@ public final class SqlFormatter
                 builder.append(" FROM ")
                         .append(node.getCatalog().get());
             }
+
+            node.getLikePattern().ifPresent((value) ->
+                    builder.append(" LIKE ")
+                            .append(formatStringLiteral(value)));
 
             return null;
         }
@@ -547,6 +560,21 @@ public final class SqlFormatter
             node.getLikePattern().ifPresent((value) ->
                     builder.append(" LIKE ")
                             .append(formatStringLiteral(value)));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitShowCreate(ShowCreate node, Integer context)
+        {
+            if (node.getType() == ShowCreate.Type.TABLE) {
+                builder.append("SHOW CREATE TABLE ")
+                        .append(formatName(node.getName()));
+            }
+            else if (node.getType() == ShowCreate.Type.VIEW) {
+                builder.append("SHOW CREATE VIEW ")
+                        .append(formatName(node.getName()));
+            }
 
             return null;
         }
@@ -647,22 +675,41 @@ public final class SqlFormatter
             if (node.isNotExists()) {
                 builder.append("IF NOT EXISTS ");
             }
-            builder.append(node.getName())
-                    .append(" (");
+            String tableName = formatName(node.getName());
+            builder.append(tableName).append(" (\n");
 
-            Joiner.on(", ").appendTo(builder, transform(node.getElements(),
-                    element -> element.getName() + " " + element.getType()));
-
-            builder.append(")");
+            String columnList = node.getElements().stream()
+                    .map(column -> INDENT + formatName(column.getName()) + " " + column.getType())
+                    .collect(joining(",\n"));
+            builder.append(columnList);
+            builder.append("\n").append(")");
 
             if (!node.getProperties().isEmpty()) {
-                builder.append(" WITH (");
-                Joiner.on(", ").appendTo(builder, transform(node.getProperties().entrySet(),
-                        entry -> entry.getKey() + " = " + formatExpression(entry.getValue())));
-                builder.append(")");
+                builder.append("\nWITH (\n");
+                // Always output the table properties in sorted order
+                String propertyList = ImmutableSortedMap.copyOf(node.getProperties()).entrySet().stream()
+                        .map(entry -> INDENT + formatName(entry.getKey()) + " = " + entry.getValue())
+                        .collect(joining(",\n"));
+                builder.append(propertyList);
+                builder.append("\n").append(")");
             }
 
             return null;
+        }
+
+        private static String formatName(String name)
+        {
+            if (NAME_PATTERN.matcher(name).matches()) {
+                return name;
+            }
+            return "\"" + name + "\"";
+        }
+
+        private static String formatName(QualifiedName name)
+        {
+            return name.getOriginalParts().stream()
+                    .map(Formatter::formatName)
+                    .collect(joining("."));
         }
 
         @Override
@@ -835,7 +882,7 @@ public final class SqlFormatter
 
             if (node.getPrivileges().isPresent()) {
                 builder.append(node.getPrivileges().get().stream()
-                        .collect(Collectors.joining(", ")));
+                        .collect(joining(", ")));
             }
             else {
                 builder.append("ALL PRIVILEGES");

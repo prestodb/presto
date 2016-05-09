@@ -16,10 +16,12 @@ package com.facebook.presto.type;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
 
 public class TestBigintOperators
         extends AbstractTestFunctions
@@ -28,167 +30,167 @@ public class TestBigintOperators
     public void testLiteral()
             throws Exception
     {
-        assertFunction("37", BIGINT, 37);
-        assertFunction("17", BIGINT, 17);
+        assertFunction("100000000037", BIGINT, 100000000037L);
+        assertFunction("100000000017", BIGINT, 100000000017L);
     }
 
     @Test
     public void testUnaryPlus()
             throws Exception
     {
-        assertFunction("+37", BIGINT, 37);
-        assertFunction("+17", BIGINT, 17);
+        assertFunction("+100000000037", BIGINT, 100000000037L);
+        assertFunction("+100000000017", BIGINT, 100000000017L);
     }
 
     @Test
     public void testUnaryMinus()
             throws Exception
     {
-        assertFunction("-37", BIGINT, -37);
-        assertFunction("-17", BIGINT, -17);
+        assertFunction("-100000000037", BIGINT, -100000000037L);
+        assertFunction("-100000000017", BIGINT, -100000000017L);
     }
 
     @Test
     public void testAdd()
             throws Exception
     {
-        assertFunction("37 + 37", BIGINT, 37 + 37L);
-        assertFunction("37 + 17", BIGINT, 37 + 17L);
-        assertFunction("17 + 37", BIGINT, 17 + 37L);
-        assertFunction("17 + 17", BIGINT, 17 + 17L);
+        assertFunction("37 + 100000000037", BIGINT, 37 + 100000000037L);
+        assertFunction("37 + 100000000017", BIGINT, 37 + 100000000017L);
+        assertFunction("100000000017 + 37", BIGINT, 100000000017L + 37L);
+        assertFunction("100000000017 + 100000000017", BIGINT, 100000000017L + 100000000017L);
     }
 
     @Test
     public void testSubtract()
             throws Exception
     {
-        assertFunction("37 - 37", BIGINT, 37 - 37L);
-        assertFunction("37 - 17", BIGINT, 37 - 17L);
-        assertFunction("17 - 37", BIGINT, 17 - 37L);
-        assertFunction("17 - 17", BIGINT, 17 - 17L);
+        assertFunction("100000000037 - 37", BIGINT, 100000000037L - 37L);
+        assertFunction("37 - 100000000017", BIGINT, 37 - 100000000017L);
+        assertFunction("100000000017 - 37", BIGINT, 100000000017L - 37L);
+        assertFunction("100000000017 - 100000000017", BIGINT, 100000000017L - 100000000017L);
     }
 
     @Test
     public void testMultiply()
             throws Exception
     {
-        assertFunction("37 * 37", BIGINT, 37 * 37L);
-        assertFunction("37 * 17", BIGINT, 37 * 17L);
-        assertFunction("17 * 37", BIGINT, 17 * 37L);
-        assertFunction("17 * 17", BIGINT, 17 * 17L);
+        assertFunction("100000000037 * 37", BIGINT, 100000000037L * 37L);
+        assertFunction("37 * 100000000017", BIGINT, 37 * 100000000017L);
+        assertFunction("100000000017 * 37", BIGINT, 100000000017L * 37L);
+        assertFunction("100000000017 * 10000017", BIGINT, 100000000017L * 10000017L);
     }
 
     @Test
     public void testDivide()
             throws Exception
     {
-        assertFunction("37 / 37", BIGINT, 37 / 37L);
-        assertFunction("37 / 17", BIGINT, 37 / 17L);
-        assertFunction("17 / 37", BIGINT, 17 / 37L);
-        assertFunction("17 / 17", BIGINT, 17 / 17L);
+        assertFunction("100000000037 / 37", BIGINT, 100000000037L / 37L);
+        assertFunction("37 / 100000000017", BIGINT, 37 / 100000000017L);
+        assertFunction("100000000017 / 37", BIGINT, 100000000017L / 37L);
+        assertFunction("100000000017 / 100000000017", BIGINT, 100000000017L / 100000000017L);
     }
 
     @Test
     public void testModulus()
             throws Exception
     {
-        assertFunction("37 % 37", BIGINT, 37 % 37L);
-        assertFunction("37 % 17", BIGINT, 37 % 17L);
-        assertFunction("17 % 37", BIGINT, 17 % 37L);
-        assertFunction("17 % 17", BIGINT, 17 % 17L);
+        assertFunction("100000000037 % 37", BIGINT, 100000000037L % 37L);
+        assertFunction("37 % 100000000017", BIGINT, 37 % 100000000017L);
+        assertFunction("100000000017 % 37", BIGINT, 100000000017L % 37L);
+        assertFunction("100000000017 % 100000000017", BIGINT, 100000000017L % 100000000017L);
     }
 
     @Test
     public void testNegation()
             throws Exception
     {
-        assertFunction("-(37)", BIGINT, -37L);
-        assertFunction("-(17)", BIGINT, -17L);
+        assertFunction("-(100000000037)", BIGINT, -100000000037L);
+        assertFunction("-(100000000017)", BIGINT, -100000000017L);
     }
 
     @Test
     public void testEqual()
             throws Exception
     {
-        assertFunction("37 = 37", BOOLEAN, true);
-        assertFunction("37 = 17", BOOLEAN, false);
-        assertFunction("17 = 37", BOOLEAN, false);
-        assertFunction("17 = 17", BOOLEAN, true);
+        assertFunction("100000000037 = 100000000037", BOOLEAN, true);
+        assertFunction("37 = 100000000017", BOOLEAN, false);
+        assertFunction("100000000017 = 37", BOOLEAN, false);
+        assertFunction("100000000017 = 100000000017", BOOLEAN, true);
     }
 
     @Test
     public void testNotEqual()
             throws Exception
     {
-        assertFunction("37 <> 37", BOOLEAN, false);
-        assertFunction("37 <> 17", BOOLEAN, true);
-        assertFunction("17 <> 37", BOOLEAN, true);
-        assertFunction("17 <> 17", BOOLEAN, false);
+        assertFunction("100000000037 <> 100000000037", BOOLEAN, false);
+        assertFunction("37 <> 100000000017", BOOLEAN, true);
+        assertFunction("100000000017 <> 37", BOOLEAN, true);
+        assertFunction("100000000017 <> 100000000017", BOOLEAN, false);
     }
 
     @Test
     public void testLessThan()
             throws Exception
     {
-        assertFunction("37 < 37", BOOLEAN, false);
-        assertFunction("37 < 17", BOOLEAN, false);
-        assertFunction("17 < 37", BOOLEAN, true);
-        assertFunction("17 < 17", BOOLEAN, false);
+        assertFunction("100000000037 < 100000000037", BOOLEAN, false);
+        assertFunction("100000000037 < 100000000017", BOOLEAN, false);
+        assertFunction("100000000017 < 100000000037", BOOLEAN, true);
+        assertFunction("100000000017 < 100000000017", BOOLEAN, false);
     }
 
     @Test
     public void testLessThanOrEqual()
             throws Exception
     {
-        assertFunction("37 <= 37", BOOLEAN, true);
-        assertFunction("37 <= 17", BOOLEAN, false);
-        assertFunction("17 <= 37", BOOLEAN, true);
-        assertFunction("17 <= 17", BOOLEAN, true);
+        assertFunction("100000000037 <= 100000000037", BOOLEAN, true);
+        assertFunction("100000000037 <= 100000000017", BOOLEAN, false);
+        assertFunction("100000000017 <= 100000000037", BOOLEAN, true);
+        assertFunction("100000000017 <= 100000000017", BOOLEAN, true);
     }
 
     @Test
     public void testGreaterThan()
             throws Exception
     {
-        assertFunction("37 > 37", BOOLEAN, false);
-        assertFunction("37 > 17", BOOLEAN, true);
-        assertFunction("17 > 37", BOOLEAN, false);
-        assertFunction("17 > 17", BOOLEAN, false);
+        assertFunction("100000000037 > 100000000037", BOOLEAN, false);
+        assertFunction("100000000037 > 100000000017", BOOLEAN, true);
+        assertFunction("100000000017 > 100000000037", BOOLEAN, false);
+        assertFunction("100000000017 > 100000000017", BOOLEAN, false);
     }
 
     @Test
     public void testGreaterThanOrEqual()
             throws Exception
     {
-        assertFunction("37 >= 37", BOOLEAN, true);
-        assertFunction("37 >= 17", BOOLEAN, true);
-        assertFunction("17 >= 37", BOOLEAN, false);
-        assertFunction("17 >= 17", BOOLEAN, true);
+        assertFunction("100000000037 >= 100000000037", BOOLEAN, true);
+        assertFunction("100000000037 >= 100000000017", BOOLEAN, true);
+        assertFunction("100000000017 >= 100000000037", BOOLEAN, false);
+        assertFunction("100000000017 >= 100000000017", BOOLEAN, true);
     }
 
     @Test
     public void testBetween()
             throws Exception
     {
-        assertFunction("37 BETWEEN 37 AND 37", BOOLEAN, true);
-        assertFunction("37 BETWEEN 37 AND 17", BOOLEAN, false);
+        assertFunction("100000000037 BETWEEN 100000000037 AND 100000000037", BOOLEAN, true);
+        assertFunction("100000000037 BETWEEN 100000000037 AND 100000000017", BOOLEAN, false);
 
-        assertFunction("37 BETWEEN 17 AND 37", BOOLEAN, true);
-        assertFunction("37 BETWEEN 17 AND 17", BOOLEAN, false);
+        assertFunction("100000000037 BETWEEN 100000000017 AND 100000000037", BOOLEAN, true);
+        assertFunction("100000000037 BETWEEN 100000000017 AND 100000000017", BOOLEAN, false);
 
-        assertFunction("17 BETWEEN 37 AND 37", BOOLEAN, false);
-        assertFunction("17 BETWEEN 37 AND 17", BOOLEAN, false);
+        assertFunction("100000000017 BETWEEN 100000000037 AND 100000000037", BOOLEAN, false);
+        assertFunction("100000000017 BETWEEN 100000000037 AND 100000000017", BOOLEAN, false);
 
-        assertFunction("17 BETWEEN 17 AND 37", BOOLEAN, true);
-        assertFunction("17 BETWEEN 17 AND 17", BOOLEAN, true);
+        assertFunction("100000000017 BETWEEN 100000000017 AND 100000000037", BOOLEAN, true);
+        assertFunction("100000000017 BETWEEN 100000000017 AND 100000000017", BOOLEAN, true);
     }
 
     @Test
     public void testCastToBigint()
             throws Exception
     {
-        assertFunction("cast(37 as bigint)", BIGINT, 37L);
-        assertFunction("cast(17 as bigint)", BIGINT, 17L);
+        assertFunction("cast(100000000037 as bigint)", BIGINT, 100000000037L);
+        assertFunction("cast(100000000017 as bigint)", BIGINT, 100000000017L);
     }
 
     @Test
@@ -196,7 +198,7 @@ public class TestBigintOperators
             throws Exception
     {
         assertFunction("cast(37 as varchar)", VARCHAR, "37");
-        assertFunction("cast(17 as varchar)", VARCHAR, "17");
+        assertFunction("cast(100000000017 as varchar)", VARCHAR, "100000000017");
     }
 
     @Test
@@ -204,7 +206,7 @@ public class TestBigintOperators
             throws Exception
     {
         assertFunction("cast(37 as double)", DOUBLE, 37.0);
-        assertFunction("cast(17 as double)", DOUBLE, 17.0);
+        assertFunction("cast(100000000017 as double)", DOUBLE, 100000000017.0);
     }
 
     @Test
@@ -212,7 +214,7 @@ public class TestBigintOperators
             throws Exception
     {
         assertFunction("cast(37 as boolean)", BOOLEAN, true);
-        assertFunction("cast(17 as boolean)", BOOLEAN, true);
+        assertFunction("cast(100000000017 as boolean)", BOOLEAN, true);
         assertFunction("cast(0 as boolean)", BOOLEAN, false);
     }
 
@@ -220,7 +222,44 @@ public class TestBigintOperators
     public void testCastFromVarchar()
             throws Exception
     {
-        assertFunction("cast('37' as bigint)", BIGINT, 37L);
-        assertFunction("cast('17' as bigint)", BIGINT, 17L);
+        assertFunction("cast('100000000037' as bigint)", BIGINT, 100000000037L);
+        assertFunction("cast('100000000017' as bigint)", BIGINT, 100000000017L);
+    }
+
+    @Test
+    public void testOverflowAdd()
+            throws Exception
+    {
+        assertInvalidFunction(format("%s + 1", Long.MAX_VALUE), NUMERIC_VALUE_OUT_OF_RANGE);
+    }
+
+    @Test
+    public void testUnderflowSubtract()
+            throws Exception
+    {
+        long minValue = Long.MIN_VALUE + 1; // due to https://github.com/facebook/presto/issues/4571 MIN_VALUE solely cannot be used
+        assertInvalidFunction(format("%s - 2", minValue), NUMERIC_VALUE_OUT_OF_RANGE);
+    }
+
+    @Test
+    public void testOverflowMultiply()
+            throws Exception
+    {
+        assertInvalidFunction(format("%s * 2", Long.MAX_VALUE), NUMERIC_VALUE_OUT_OF_RANGE);
+        //assertInvalidFunction(format("%s * -1", Long.MIN_VALUE), NUMERIC_VALUE_OUT_OF_RANGE); TODO: uncomment when https://github.com/facebook/presto/issues/4571 is fixed
+    }
+
+    @Test(enabled = false) // TODO: enable when https://github.com/facebook/presto/issues/4571 is fixed
+    public void testOverflowDivide()
+            throws Exception
+    {
+        assertInvalidFunction(format("%s / -1", Long.MIN_VALUE), NUMERIC_VALUE_OUT_OF_RANGE);
+    }
+
+    @Test(enabled = false) // TODO: enable when https://github.com/facebook/presto/issues/4571 is fixed
+    public void testNegateOverflow()
+            throws Exception
+    {
+        assertInvalidFunction(format("-(%s)", Long.MIN_VALUE), NUMERIC_VALUE_OUT_OF_RANGE);
     }
 }

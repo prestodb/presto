@@ -16,6 +16,7 @@ package com.facebook.presto.type;
 import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
+import io.airlift.slice.XxHash64;
 
 import static com.facebook.presto.metadata.OperatorType.BETWEEN;
 import static com.facebook.presto.metadata.OperatorType.EQUAL;
@@ -85,6 +86,9 @@ public final class VarbinaryOperators
     @SqlType(StandardTypes.BIGINT)
     public static long hashCode(@SqlType(StandardTypes.VARBINARY) Slice value)
     {
-        return value.hashCode();
+        // This needs to match the hash function for VARBINARY blocks
+        // (i.e. AstractVariableWidthBlock.hash(...))
+        // TODO: we need to get rid of hash from Block and rely on HASH_CODE operators only
+        return XxHash64.hash(value);
     }
 }

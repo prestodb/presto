@@ -47,7 +47,6 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -120,7 +119,7 @@ public class BenchmarkPageProcessor
 
     public static Page createInputPage()
     {
-        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(DOUBLE, DOUBLE, VARCHAR, BIGINT));
+        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(DOUBLE, DOUBLE, VARCHAR, DOUBLE));
         LineItemGenerator lineItemGenerator = new LineItemGenerator(1, 1, 1);
         Iterator<LineItem> iterator = lineItemGenerator.iterator();
         for (int i = 0; i < 10_000; i++) {
@@ -130,7 +129,7 @@ public class BenchmarkPageProcessor
             DOUBLE.writeDouble(pageBuilder.getBlockBuilder(EXTENDED_PRICE), lineItem.getExtendedPrice());
             DOUBLE.writeDouble(pageBuilder.getBlockBuilder(DISCOUNT), lineItem.getDiscount());
             DATE.writeLong(pageBuilder.getBlockBuilder(SHIP_DATE), lineItem.getShipDate());
-            BIGINT.writeLong(pageBuilder.getBlockBuilder(QUANTITY), lineItem.getQuantity());
+            DOUBLE.writeDouble(pageBuilder.getBlockBuilder(QUANTITY), lineItem.getQuantity());
         }
         return pageBuilder.build();
     }
@@ -186,7 +185,7 @@ public class BenchmarkPageProcessor
                     !shipDateBlock.isNull(position) && VARCHAR.getSlice(shipDateBlock, position).compareTo(MAX_SHIP_DATE) < 0 &&
                     !discountBlock.isNull(position) && DOUBLE.getDouble(discountBlock, position) >= 0.05 &&
                     !discountBlock.isNull(position) && DOUBLE.getDouble(discountBlock, position) <= 0.07 &&
-                    !quantityBlock.isNull(position) && BIGINT.getLong(quantityBlock, position) < 24;
+                    !quantityBlock.isNull(position) && DOUBLE.getDouble(quantityBlock, position) < 24;
         }
     }
 
@@ -219,10 +218,10 @@ public class BenchmarkPageProcessor
                                             BOOLEAN,
                                             field(DISCOUNT, DOUBLE),
                                             constant(0.07, DOUBLE)),
-                                    call(new Signature(OperatorType.LESS_THAN.name(), SCALAR, StandardTypes.BOOLEAN, StandardTypes.BIGINT, StandardTypes.BIGINT),
+                                    call(new Signature(OperatorType.LESS_THAN.name(), SCALAR, StandardTypes.BOOLEAN, StandardTypes.DOUBLE, StandardTypes.DOUBLE),
                                             BOOLEAN,
-                                            field(QUANTITY, BIGINT),
-                                            constant((long) 24, BIGINT))))));
+                                            field(QUANTITY, DOUBLE),
+                                            constant((long) 24, DOUBLE))))));
 
     private static final RowExpression PROJECT = call(
             new Signature(OperatorType.MULTIPLY.name(), SCALAR, StandardTypes.DOUBLE, StandardTypes.DOUBLE, StandardTypes.DOUBLE),

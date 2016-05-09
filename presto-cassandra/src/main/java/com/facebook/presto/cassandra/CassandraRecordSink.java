@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.cassandra.CassandraColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -127,6 +128,9 @@ public class CassandraRecordSink
     {
         if (DATE.equals(columnTypes.get(field))) {
             append(DATE_FORMATTER.print(TimeUnit.DAYS.toMillis(value)));
+        }
+        else if (INTEGER.equals(columnTypes.get(field))) {
+            append(((Number) value).intValue());
         }
         else {
             append(value);

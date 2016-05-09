@@ -16,6 +16,8 @@ package com.facebook.presto.server.testing;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.TaskManager;
+import com.facebook.presto.execution.resourceGroups.FileResourceGroupsModule;
+import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.FlatNetworkTopology;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NetworkTopology;
@@ -34,6 +36,7 @@ import com.facebook.presto.server.ShutdownAction;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.testing.ProcedureTester;
 import com.facebook.presto.testing.TestingAccessControlManager;
@@ -82,6 +85,7 @@ import java.util.concurrent.CountDownLatch;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.LEGACY_NETWORK_TOPOLOGY;
 import static com.facebook.presto.server.ConditionalModule.installModuleIf;
 import static com.facebook.presto.server.testing.FileUtils.deleteRecursively;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.FILE_BASED_RESOURCE_GROUP_MANAGER;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
 import static java.lang.Integer.parseInt;
@@ -100,6 +104,7 @@ public class TestingPrestoServer
     private final Metadata metadata;
     private final TestingAccessControlManager accessControl;
     private final ProcedureTester procedureTester;
+    private final Optional<ResourceGroupManager> resourceGroupManager;
     private final SplitManager splitManager;
     private final ClusterMemoryManager clusterMemoryManager;
     private final LocalMemoryManager localMemoryManager;
@@ -168,9 +173,11 @@ public class TestingPrestoServer
                 .put("coordinator", String.valueOf(coordinator))
                 .put("presto.version", "testversion")
                 .put("http-client.max-threads", "16")
-                .put("task.default-concurrency", "4")
+                .put("task.concurrency", "4")
                 .put("task.max-worker-threads", "4")
                 .put("exchange.client-threads", "4")
+                .put("scheduler.http-client.http2.enabled", "false")
+                .put("exchange.http-client.http2.enabled", "false")
                 .put("analyzer.experimental-syntax-enabled", "true");
 
         if (!properties.containsKey("query.max-memory-per-node")) {
@@ -192,6 +199,10 @@ public class TestingPrestoServer
                 .add(new EventModule())
                 .add(new TraceTokenModule())
                 .add(new ServerMainModule(new SqlParserOptions()))
+                .add(installModuleIf(
+                        FeaturesConfig.class,
+                        config -> config.isResourceGroupsEnabled() && FILE_BASED_RESOURCE_GROUP_MANAGER.equalsIgnoreCase(config.getResourceGroupManager()),
+                        binder -> binder.install(new FileResourceGroupsModule())))
                 .add(installModuleIf(
                         NodeSchedulerConfig.class,
                         config -> LEGACY_NETWORK_TOPOLOGY.equalsIgnoreCase(config.getNetworkTopology()),
@@ -250,6 +261,13 @@ public class TestingPrestoServer
         accessControl = injector.getInstance(TestingAccessControlManager.class);
         procedureTester = injector.getInstance(ProcedureTester.class);
         splitManager = injector.getInstance(SplitManager.class);
+        FeaturesConfig config = injector.getInstance(FeaturesConfig.class);
+        if (config.isResourceGroupsEnabled()) {
+            resourceGroupManager = Optional.of(injector.getInstance(ResourceGroupManager.class));
+        }
+        else {
+            resourceGroupManager = Optional.empty();
+        }
         clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
         localMemoryManager = injector.getInstance(LocalMemoryManager.class);
         nodeManager = injector.getInstance(InternalNodeManager.class);
@@ -344,6 +362,11 @@ public class TestingPrestoServer
     public SplitManager getSplitManager()
     {
         return splitManager;
+    }
+
+    public Optional<ResourceGroupManager> getResourceGroupManager()
+    {
+        return resourceGroupManager;
     }
 
     public LocalMemoryManager getLocalMemoryManager()

@@ -47,6 +47,7 @@ public enum StandardErrorCode
     SUBQUERY_MULTIPLE_ROWS(0x0000_001C),
     PROCEDURE_NOT_FOUND(0x0000_001D),
     INVALID_PROCEDURE_ARGUMENT(0x0000_001E),
+    QUERY_REJECTED(0x0000_001F),
 
     INTERNAL_ERROR(0x0001_0000),
     TOO_MANY_REQUESTS_FAILED(0x0001_0001),
@@ -65,6 +66,7 @@ public enum StandardErrorCode
     INVALID_PROCEDURE_DEFINITION(0x0001_000E),
     PROCEDURE_CALL_FAILED(0x0001_000F),
     AMBIGUOUS_FUNCTION_IMPLEMENTATION(0x0001_0010),
+    ABANDONED_TASK(0x0001_0011),
 
     INSUFFICIENT_RESOURCES(0x0002_0000),
     EXCEEDED_MEMORY_LIMIT(0x0002_0001),
@@ -74,6 +76,7 @@ public enum StandardErrorCode
     EXCEEDED_CPU_LIMIT(0x0002_0005),
 
     // Connectors can use error codes starting at EXTERNAL
+    // See https://github.com/prestodb/presto/wiki/Error-Codes
     EXTERNAL(0x0100_0000);
 
     private final ErrorCode errorCode;

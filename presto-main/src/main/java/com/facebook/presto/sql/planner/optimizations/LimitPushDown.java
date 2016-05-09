@@ -30,6 +30,7 @@ import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
@@ -41,7 +42,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class LimitPushDown
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
@@ -58,15 +59,31 @@ public class LimitPushDown
     private static class LimitContext
     {
         private final long count;
+        private final boolean partial;
 
-        public LimitContext(long count)
+        public LimitContext(long count, boolean partial)
         {
             this.count = count;
+            this.partial = partial;
         }
 
         public long getCount()
         {
             return count;
+        }
+
+        public boolean isPartial()
+        {
+            return partial;
+        }
+
+        @Override
+        public String toString()
+        {
+            return MoreObjects.toStringHelper(this)
+                    .add("count", count)
+                    .add("partial", partial)
+                    .toString();
         }
     }
 
@@ -88,7 +105,7 @@ public class LimitPushDown
             LimitContext limit = context.get();
             if (limit != null) {
                 // Drop in a LimitNode b/c we cannot push our limit down any further
-                rewrittenNode = new LimitNode(idAllocator.getNextId(), rewrittenNode, limit.getCount());
+                rewrittenNode = new LimitNode(idAllocator.getNextId(), rewrittenNode, limit.getCount(), limit.isPartial());
             }
             return rewrittenNode;
         }
@@ -96,20 +113,20 @@ public class LimitPushDown
         @Override
         public PlanNode visitLimit(LimitNode node, RewriteContext<LimitContext> context)
         {
+            long count = node.getCount();
+            if (context.get() != null) {
+                count = Math.min(count, context.get().getCount());
+            }
+
             // return empty ValuesNode in case of limit 0
-            if (node.getCount() == 0) {
+            if (count == 0) {
                 return new ValuesNode(idAllocator.getNextId(),
                                         node.getOutputSymbols(),
                                         ImmutableList.of());
             }
 
-            LimitContext limit = context.get();
-            if (limit != null && limit.getCount() < node.getCount()) {
-                return context.rewrite(node.getSource(), limit);
-            }
-            else {
-                return context.rewrite(node.getSource(), new LimitContext(node.getCount()));
-            }
+            // default visitPlan logic will insert the limit node
+            return context.rewrite(node.getSource(), new LimitContext(count, false));
         }
 
         @Override
@@ -123,12 +140,12 @@ public class LimitPushDown
                     node.getOutputSymbols().containsAll(node.getGroupBy())) {
                 checkArgument(!node.getSampleWeight().isPresent(), "DISTINCT aggregation has sample weight symbol");
                 PlanNode rewrittenSource = context.rewrite(node.getSource());
-                return new DistinctLimitNode(idAllocator.getNextId(), rewrittenSource, limit.getCount(), Optional.empty());
+                return new DistinctLimitNode(idAllocator.getNextId(), rewrittenSource, limit.getCount(), false, Optional.empty());
             }
             PlanNode rewrittenNode = context.defaultRewrite(node);
             if (limit != null) {
                 // Drop in a LimitNode b/c limits cannot be pushed through aggregations
-                rewrittenNode = new LimitNode(idAllocator.getNextId(), rewrittenNode, limit.getCount());
+                rewrittenNode = new LimitNode(idAllocator.getNextId(), rewrittenNode, limit.getCount(), limit.isPartial());
             }
             return rewrittenNode;
         }
@@ -186,14 +203,19 @@ public class LimitPushDown
         {
             LimitContext limit = context.get();
 
+            LimitContext childLimit = null;
+            if (limit != null) {
+                childLimit = new LimitContext(limit.getCount(), true);
+            }
+
             List<PlanNode> sources = new ArrayList<>();
             for (int i = 0; i < node.getSources().size(); i++) {
-                sources.add(context.rewrite(node.getSources().get(i), limit));
+                sources.add(context.rewrite(node.getSources().get(i), childLimit));
             }
 
             PlanNode output = new UnionNode(node.getId(), sources, node.getSymbolMapping(), node.getOutputSymbols());
             if (limit != null) {
-                output = new LimitNode(idAllocator.getNextId(), output, limit.getCount());
+                output = new LimitNode(idAllocator.getNextId(), output, limit.getCount(), limit.isPartial());
             }
             return output;
         }

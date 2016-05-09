@@ -21,6 +21,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -53,16 +54,18 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.fromProperties;
+import static java.lang.Math.min;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -75,8 +78,8 @@ public class BaseJdbcClient
     private static final Map<Type, String> SQL_TYPES = ImmutableMap.<Type, String>builder()
             .put(BOOLEAN, "boolean")
             .put(BIGINT, "bigint")
+            .put(INTEGER, "integer")
             .put(DOUBLE, "double precision")
-            .put(VARCHAR, "varchar")
             .put(VARBINARY, "varbinary")
             .put(DATE, "date")
             .put(TIME, "time")
@@ -195,7 +198,7 @@ public class BaseJdbcClient
                 boolean found = false;
                 while (resultSet.next()) {
                     found = true;
-                    Type columnType = toPrestoType(resultSet.getInt("DATA_TYPE"));
+                    Type columnType = toPrestoType(resultSet.getInt("DATA_TYPE"), resultSet.getInt("COLUMN_SIZE"));
                     // skip unsupported column types
                     if (columnType != null) {
                         String columnName = resultSet.getString("COLUMN_NAME");
@@ -355,6 +358,17 @@ public class BaseJdbcClient
     }
 
     @Override
+    public void rollbackCreateTable(JdbcOutputTableHandle handle)
+    {
+        dropTable(new JdbcTableHandle(
+                handle.getConnectorId(),
+                new SchemaTableName(handle.getSchemaName(), handle.getTemporaryTableName()),
+                handle.getCatalogName(),
+                handle.getSchemaName(),
+                handle.getTemporaryTableName()));
+    }
+
+    @Override
     public String buildInsertSql(JdbcOutputTableHandle handle)
     {
         String vars = Joiner.on(',').join(nCopies(handle.getColumnNames().size(), "?"));
@@ -408,7 +422,7 @@ public class BaseJdbcClient
         }
     }
 
-    protected Type toPrestoType(int jdbcType)
+    protected Type toPrestoType(int jdbcType, int columnSize)
     {
         switch (jdbcType) {
             case Types.BIT:
@@ -417,6 +431,7 @@ public class BaseJdbcClient
             case Types.TINYINT:
             case Types.SMALLINT:
             case Types.INTEGER:
+                return INTEGER;
             case Types.BIGINT:
                 return BIGINT;
             case Types.FLOAT:
@@ -431,7 +446,7 @@ public class BaseJdbcClient
             case Types.NVARCHAR:
             case Types.LONGVARCHAR:
             case Types.LONGNVARCHAR:
-                return VARCHAR;
+                return createVarcharType(min(columnSize, VarcharType.MAX_LENGTH));
             case Types.BINARY:
             case Types.VARBINARY:
             case Types.LONGVARBINARY:
@@ -448,6 +463,13 @@ public class BaseJdbcClient
 
     protected String toSqlType(Type type)
     {
+        if (type instanceof VarcharType) {
+            if (((VarcharType) type).getLength() == VarcharType.MAX_LENGTH) {
+                return "varchar";
+            }
+            return "varchar(" + ((VarcharType) type).getLength() + ")";
+        }
+
         String sqlType = SQL_TYPES.get(type);
         if (sqlType != null) {
             return sqlType;

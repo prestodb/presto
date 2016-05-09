@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -38,9 +39,11 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.spi.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static com.facebook.presto.spi.type.P4HyperLogLogType.P4_HYPER_LOG_LOG;
+import static com.facebook.presto.spi.type.StandardTypes.DECIMAL;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -59,6 +62,7 @@ import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -85,6 +89,7 @@ public final class TypeRegistry
         // always add the built-in types; Presto will not function without these
         addType(BOOLEAN);
         addType(BIGINT);
+        addType(INTEGER);
         addType(DOUBLE);
         addType(VARBINARY);
         addType(DATE);
@@ -102,6 +107,7 @@ public final class TypeRegistry
         addType(COLOR);
         addType(JSON);
         addParametricType(VarcharParametricType.VARCHAR);
+        addParametricType(DecimalParametricType.DECIMAL);
         addParametricType(ROW);
         addParametricType(ARRAY);
         addParametricType(MAP);
@@ -156,11 +162,18 @@ public final class TypeRegistry
         if (parametricType == null) {
             return null;
         }
-        Type instantiatedType = parametricType.createType(parameters);
 
-        // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"
-        //checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
-        return instantiatedType;
+        try {
+            Type instantiatedType = parametricType.createType(parameters);
+
+            // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"
+            //checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
+            return instantiatedType;
+        }
+        catch (IllegalArgumentException e) {
+            // TODO: check whether a type constructor actually exists rather than failing when it doesn't. This will be possible in the next version of the type system
+            return null;
+        }
     }
 
     @Override
@@ -215,6 +228,8 @@ public final class TypeRegistry
             return true;
         }
         switch (fromTypeBase) {
+            case StandardTypes.INTEGER:
+                return StandardTypes.BIGINT.equals(toTypeBase) || StandardTypes.DOUBLE.equals(toTypeBase);
             case StandardTypes.BIGINT:
                 return StandardTypes.DOUBLE.equals(toTypeBase);
             case StandardTypes.DATE:
@@ -240,6 +255,11 @@ public final class TypeRegistry
         return firstTypeBase.equals(StandardTypes.ARRAY) || firstTypeBase.equals(StandardTypes.MAP);
     }
 
+    public static boolean isTypeOnlyCoercion(Type actualType, Type expectedType)
+    {
+        return isTypeOnlyCoercion(actualType.getTypeSignature(), expectedType.getTypeSignature());
+    }
+
     /*
      * Return true if actualType can be coerced to expectedType AND they are both binary compatible (so it's only type coercion)
      */
@@ -254,6 +274,19 @@ public final class TypeRegistry
         }
         else if (actualType.getBase().equals(StandardTypes.VARCHAR) && expectedType.getBase().equals(StandardTypes.VARCHAR)) {
             return true;
+        }
+
+        if (actualType.getBase().equals(DECIMAL) && expectedType.getBase().equals(DECIMAL)) {
+            long actualPrecision = actualType.getParameters().get(0).getLongLiteral();
+            long expectedPrecision = (long) expectedType.getParameters().get(0).getLongLiteral();
+            long actualScale = (long) actualType.getParameters().get(1).getLongLiteral();
+            long expectedScale = (long) expectedType.getParameters().get(1).getLongLiteral();
+
+            if (actualPrecision <= Decimals.MAX_SHORT_PRECISION ^ expectedPrecision <= Decimals.MAX_SHORT_PRECISION) {
+                return false;
+            }
+
+            return actualScale == expectedScale && actualPrecision <= expectedPrecision;
         }
 
         if (actualType.getBase().equals(expectedType.getBase()) &&
@@ -321,6 +354,7 @@ public final class TypeRegistry
         if (canCastTypeBase(secondTypeBase, firstTypeBase)) {
             return Optional.of(firstTypeBase);
         }
+
         return Optional.empty();
     }
 
@@ -370,12 +404,31 @@ public final class TypeRegistry
                 firstType,
                 secondType);
 
+        // TODO: special case for decimal for now, this needs be moved somehow to DecimalType class
+        if (firstType.getBase().equals(DECIMAL) && secondType.getBase().equals(DECIMAL)) {
+            long firstPrecision = firstType.getParameters().get(0).getLongLiteral();
+            long secondPrecision = secondType.getParameters().get(0).getLongLiteral();
+            long firstScale = firstType.getParameters().get(1).getLongLiteral();
+            long secondScale = secondType.getParameters().get(1).getLongLiteral();
+            long targetScale = Math.max(firstScale, secondScale);
+            long targetPrecision = Math.max(firstPrecision - firstScale, secondPrecision - secondScale) + targetScale;
+            targetPrecision = Math.min(38, targetPrecision); //we allow potential loss of precision here. Overflow checking is done in operators.
+            return Optional.of(new TypeSignature(
+                    DECIMAL,
+                    ImmutableList.of(TypeSignatureParameter.of(targetPrecision), TypeSignatureParameter.of(targetScale))));
+        }
+
+        if (firstTypeTypeParameters.size() != secondTypeTypeParameters.size()) {
+            return Optional.empty();
+        }
+
         ImmutableList.Builder<TypeSignatureParameter> typeParameters = ImmutableList.builder();
         for (int i = 0; i < firstTypeTypeParameters.size(); i++) {
             TypeSignatureParameter firstParameter = firstTypeTypeParameters.get(i);
             TypeSignatureParameter secondParameter = secondTypeTypeParameters.get(i);
 
             if (firstParameter.isLongLiteral() && secondParameter.isLongLiteral()) {
+                // TODO: this Math.max should be moved to VarcharType?
                 typeParameters.add(TypeSignatureParameter.of(Math.max(
                         firstParameter.getLongLiteral(),
                         secondParameter.getLongLiteral())));
@@ -403,5 +456,18 @@ public final class TypeRegistry
         }
 
         return Optional.of(new TypeSignature(commonSuperTypeBase.get(), typeParameters.build()));
+    }
+
+    /*
+     * Given signature with unmatched parameters return filtered one.
+     */
+    public static TypeSignature getUnmatchedSignature(TypeSignature signature)
+    {
+        if (signature.getParameters().stream().allMatch(
+                parameter -> parameter.isLongLiteral() || parameter.isTypeSignature() || parameter.isNamedTypeSignature()
+        )) {
+            return signature;
+        }
+        return new TypeSignature(signature.getBase(), emptyList());
     }
 }

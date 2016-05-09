@@ -34,10 +34,12 @@ import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.units.Duration;
 
@@ -47,6 +49,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -86,6 +89,7 @@ public class SqlQueryScheduler
     private final StageId rootStageId;
     private final Map<StageId, StageScheduler> stageSchedulers;
     private final Map<StageId, StageLinkage> stageLinkages;
+    private final boolean summarizeTaskInfo;
     private final AtomicBoolean started = new AtomicBoolean();
 
     public SqlQueryScheduler(QueryStateMachine queryStateMachine,
@@ -95,6 +99,7 @@ public class SqlQueryScheduler
             NodeScheduler nodeScheduler,
             RemoteTaskFactory remoteTaskFactory,
             Session session,
+            boolean summarizeTaskInfo,
             int splitBatchSize,
             ExecutorService executor,
             OutputBuffers rootOutputBuffers,
@@ -103,6 +108,7 @@ public class SqlQueryScheduler
     {
         this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
         this.executionPolicy = requireNonNull(executionPolicy, "schedulerPolicyFactory is null");
+        this.summarizeTaskInfo = summarizeTaskInfo;
 
         // todo come up with a better way to build this, or eliminate this map
         ImmutableMap.Builder<StageId, StageScheduler> stageSchedulers = ImmutableMap.builder();
@@ -194,6 +200,7 @@ public class SqlQueryScheduler
                 plan.getFragment(),
                 remoteTaskFactory,
                 session,
+                summarizeTaskInfo,
                 nodeTaskMap,
                 executor);
 
@@ -203,20 +210,22 @@ public class SqlQueryScheduler
         PartitioningHandle partitioningHandle = plan.getFragment().getPartitioning();
         if (partitioningHandle.equals(SOURCE_DISTRIBUTION)) {
             // nodes are selected dynamically based on the constraints of the splits and the system load
-            SplitSource splitSource = plan.getDataSource().get();
-            NodeSelector nodeSelector = nodeScheduler.createNodeSelector(splitSource.getDataSourceName());
+            Entry<PlanNodeId, SplitSource> entry = Iterables.getOnlyElement(plan.getSplitSources().entrySet());
+            NodeSelector nodeSelector = nodeScheduler.createNodeSelector(entry.getValue().getDataSourceName());
             SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stage::getAllTasks);
-            stageSchedulers.put(stageId, new SourcePartitionedScheduler(stage, splitSource, placementPolicy, splitBatchSize));
+            stageSchedulers.put(stageId, new SourcePartitionedScheduler(stage, entry.getKey(), entry.getValue(), placementPolicy, splitBatchSize));
             bucketToPartition = Optional.of(new int[1]);
         }
         else {
             // nodes are pre determined by the nodePartitionMap
             NodePartitionMap nodePartitionMap = partitioningCache.apply(plan.getFragment().getPartitioning());
 
-            if (plan.getDataSource().isPresent()) {
+            Map<PlanNodeId, SplitSource> splitSources = plan.getSplitSources();
+            if (!splitSources.isEmpty()) {
                 stageSchedulers.put(stageId, new FixedSourcePartitionedScheduler(
                         stage,
-                        plan.getDataSource().get(),
+                        splitSources,
+                        plan.getFragment().getPartitionedSources(),
                         nodePartitionMap,
                         splitBatchSize,
                         nodeScheduler.createNodeSelector(null)));
@@ -463,7 +472,7 @@ public class SqlQueryScheduler
             if (parent.isPresent()) {
                 // Add an exchange location to the parent stage for each new task
                 Set<URI> newExchangeLocations = newTasks.stream()
-                        .map(task -> task.getTaskInfo().getSelf())
+                        .map(task -> task.getTaskStatus().getSelf())
                         .collect(toImmutableSet());
                 parent.get().addExchangeLocations(currentStageFragmentId, newExchangeLocations, noMoreTasks);
             }

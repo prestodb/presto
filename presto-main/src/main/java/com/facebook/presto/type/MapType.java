@@ -82,7 +82,7 @@ public class MapType
     }
 
     @Override
-    public int hash(Block block, int position)
+    public long hash(Block block, int position)
     {
         Block mapBlock = getObject(block, position);
         int result = 0;
@@ -152,7 +152,7 @@ public class MapType
         @Override
         public int hashCode()
         {
-            return type.hash(block, position);
+            return Long.hashCode(type.hash(block, position));
         }
 
         @Override

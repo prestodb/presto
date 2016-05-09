@@ -32,6 +32,8 @@ public interface RemoteTask
 
     TaskInfo getTaskInfo();
 
+    TaskStatus getTaskStatus();
+
     void start();
 
     void addSplits(Multimap<PlanNodeId, Split> splits);
@@ -40,9 +42,9 @@ public interface RemoteTask
 
     void setOutputBuffers(OutputBuffers outputBuffers);
 
-    void addStateChangeListener(StateChangeListener<TaskInfo> stateChangeListener);
+    void addStateChangeListener(StateChangeListener<TaskStatus> stateChangeListener);
 
-    CompletableFuture<TaskInfo> getStateChange(TaskInfo taskInfo);
+    CompletableFuture<TaskStatus> getStateChange(TaskStatus taskStatus);
 
     void cancel();
 

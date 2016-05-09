@@ -13,28 +13,34 @@
  */
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.sql.tree.Query;
-import com.google.common.base.Preconditions;
+import com.facebook.presto.sql.tree.WithQuery;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
+
+import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class AnalysisContext
 {
-    private final AnalysisContext parent;
-    private final Map<String, Query> namedQueries = new HashMap<>();
+    private final Optional<AnalysisContext> parent;
+    private final RelationType parentRelationType;
+    private final Map<String, WithQuery> namedQueries = new HashMap<>();
     private RelationType lateralTupleDescriptor = new RelationType();
     private boolean approximate;
 
-    public AnalysisContext(AnalysisContext parent)
+    public AnalysisContext(AnalysisContext parent, RelationType parentRelationType)
     {
-        this.parent = parent;
+        this.parent = Optional.of(parent);
+        this.parentRelationType = requireNonNull(parentRelationType, "parentRelationType is null");
         this.approximate = parent.approximate;
     }
 
     public AnalysisContext()
     {
-        parent = null;
+        parent = Optional.empty();
+        parentRelationType = new RelationType();
     }
 
     public void setLateralTupleDescriptor(RelationType lateralTupleDescriptor)
@@ -57,18 +63,18 @@ public class AnalysisContext
         this.approximate = approximate;
     }
 
-    public void addNamedQuery(String name, Query query)
+    public void addNamedQuery(String name, WithQuery withQuery)
     {
-        Preconditions.checkState(!namedQueries.containsKey(name), "Named query already registered: %s", name);
-        namedQueries.put(name, query);
+        checkState(!namedQueries.containsKey(name), "Named query already registered: %s", name);
+        namedQueries.put(name, withQuery);
     }
 
-    public Query getNamedQuery(String name)
+    public WithQuery getNamedQuery(String name)
     {
-        Query result = namedQueries.get(name);
+        WithQuery result = namedQueries.get(name);
 
-        if (result == null && parent != null) {
-            return parent.getNamedQuery(name);
+        if (result == null && parent.isPresent()) {
+            return parent.get().getNamedQuery(name);
         }
 
         return result;
@@ -77,5 +83,15 @@ public class AnalysisContext
     public boolean isNamedQueryDeclared(String name)
     {
         return namedQueries.containsKey(name);
+    }
+
+    public RelationType getParentRelationType()
+    {
+        return parentRelationType;
+    }
+
+    public Optional<AnalysisContext> getParent()
+    {
+        return parent;
     }
 }

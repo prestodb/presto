@@ -30,6 +30,7 @@ import io.airlift.airline.HelpOption;
 import io.airlift.http.client.spnego.KerberosConfig;
 import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
+import io.airlift.units.Duration;
 import jline.console.history.FileHistory;
 import jline.console.history.History;
 import jline.console.history.MemoryHistory;
@@ -44,6 +45,7 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.cli.Completion.commandCompleter;
@@ -62,6 +64,7 @@ import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static jline.internal.Configuration.getUserHome;
 
 @Command(name = "presto", description = "Presto interactive console")
@@ -69,6 +72,7 @@ public class Console
         implements Runnable
 {
     private static final String PROMPT_NAME = "presto";
+    private static final Duration EXIT_DELAY = new Duration(3, SECONDS);
 
     // create a parser with all identifier options enabled, since this is only used for USE statements
     private static final SqlParser SQL_PARSER = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(EnumSet.allOf(IdentifierSymbol.class)));
@@ -92,7 +96,7 @@ public class Console
         boolean hasQuery = !Strings.isNullOrEmpty(clientOptions.execute);
         boolean isFromFile = !Strings.isNullOrEmpty(clientOptions.file);
 
-        if (!hasQuery || !isFromFile) {
+        if (!hasQuery && !isFromFile) {
             AnsiConsole.systemInstall();
         }
 
@@ -116,6 +120,9 @@ public class Console
             }
         }
 
+        AtomicBoolean exiting = new AtomicBoolean();
+        interruptThreadOnExit(Thread.currentThread(), exiting);
+
         try (QueryRunner queryRunner = QueryRunner.create(
                 session,
                 Optional.ofNullable(clientOptions.socksProxy),
@@ -129,18 +136,18 @@ public class Console
                 executeCommand(queryRunner, query, clientOptions.outputFormat);
             }
             else {
-                runConsole(queryRunner, session);
+                runConsole(queryRunner, session, exiting);
             }
         }
     }
 
-    private static void runConsole(QueryRunner queryRunner, ClientSession session)
+    private static void runConsole(QueryRunner queryRunner, ClientSession session, AtomicBoolean exiting)
     {
         try (TableNameCompleter tableNameCompleter = new TableNameCompleter(queryRunner);
                 LineReader reader = new LineReader(getHistory(), commandCompleter(), lowerCaseCommandCompleter(), tableNameCompleter)) {
             tableNameCompleter.populateCache();
             StringBuilder buffer = new StringBuilder();
-            while (true) {
+            while (!exiting.get()) {
                 // read a line of input from user
                 String prompt = PROMPT_NAME;
                 if (session.getSchema() != null) {
@@ -359,5 +366,18 @@ public class Console
             System.setOut(out);
             System.setErr(err);
         }
+    }
+
+    private static void interruptThreadOnExit(Thread thread, AtomicBoolean exiting)
+    {
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            exiting.set(true);
+            thread.interrupt();
+            try {
+                thread.join(EXIT_DELAY.toMillis());
+            }
+            catch (InterruptedException ignored) {
+            }
+        }));
     }
 }

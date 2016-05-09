@@ -23,6 +23,7 @@ import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
@@ -41,7 +42,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.net.InetAddresses.toAddrString;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -60,7 +60,7 @@ public enum CassandraType
     DOUBLE(DoubleType.DOUBLE, Double.class),
     FLOAT(DoubleType.DOUBLE, Float.class),
     INET(VarcharType.VARCHAR, InetAddress.class),
-    INT(BigintType.BIGINT, Integer.class),
+    INT(IntegerType.INTEGER, Integer.class),
     TEXT(VarcharType.VARCHAR, String.class),
     TIMESTAMP(TimestampType.TIMESTAMP, Date.class),
     UUID(VarcharType.VARCHAR, java.util.UUID.class),
@@ -96,13 +96,6 @@ public enum CassandraType
             default:
                 return 0;
         }
-    }
-
-    public static CassandraType getSupportedCassandraType(DataType.Name name)
-    {
-        CassandraType cassandraType = getCassandraType(name);
-        checkArgument(cassandraType != null, "Unknown Cassandra type: " + name);
-        return cassandraType;
     }
 
     public static CassandraType getCassandraType(DataType.Name name)
@@ -153,22 +146,6 @@ public enum CassandraType
         }
     }
 
-    public static CassandraType getSupportedCassandraType(String cassandraTypeName)
-    {
-        CassandraType cassandraType = getCassandraType(cassandraTypeName);
-        checkArgument(cassandraType != null, "Unknown Cassandra type: " + cassandraTypeName);
-        return cassandraType;
-    }
-
-    public static CassandraType getCassandraType(String cassandraTypeName)
-    {
-        DataType.Name name = DataType.Name.valueOf(cassandraTypeName);
-        if (name != null) {
-            return getCassandraType(name);
-        }
-        return null;
-    }
-
     public static NullableValue getColumnValue(Row row, int i, FullCassandraType fullCassandraType)
     {
         return getColumnValue(row, i, fullCassandraType.getCassandraType(), fullCassandraType.getTypeArguments());
@@ -204,7 +181,7 @@ public enum CassandraType
                 case TIMEUUID:
                     return NullableValue.of(nativeType, utf8Slice(row.getUUID(i).toString()));
                 case TIMESTAMP:
-                    return NullableValue.of(nativeType, row.getDate(i).getTime());
+                    return NullableValue.of(nativeType, row.getTimestamp(i).getTime());
                 case INET:
                     return NullableValue.of(nativeType, utf8Slice(toAddrString(row.getInet(i))));
                 case VARINT:
@@ -325,7 +302,7 @@ public enum CassandraType
                 case TIMEUUID:
                     return row.getUUID(i).toString();
                 case TIMESTAMP:
-                    return Long.toString(row.getDate(i).getTime());
+                    return Long.toString(row.getTimestamp(i).getTime());
                 case INET:
                     return CassandraCqlUtils.quoteStringLiteral(toAddrString(row.getInet(i)));
                 case VARINT:
@@ -473,6 +450,9 @@ public enum CassandraType
         }
         else if (type.equals(BigintType.BIGINT)) {
             return BIGINT;
+        }
+        else if (type.equals(IntegerType.INTEGER)) {
+            return INT;
         }
         else if (type.equals(DoubleType.DOUBLE)) {
             return DOUBLE;

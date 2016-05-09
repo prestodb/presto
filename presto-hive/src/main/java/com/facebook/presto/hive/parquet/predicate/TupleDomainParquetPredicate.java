@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive.parquet.predicate;
 
+import com.facebook.presto.hive.parquet.ParquetDictionaryPage;
+import com.facebook.presto.hive.parquet.dictionary.ParquetDictionary;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -25,8 +27,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import parquet.column.ColumnDescriptor;
-import parquet.column.Dictionary;
-import parquet.column.page.DictionaryPage;
 import parquet.column.statistics.BinaryStatistics;
 import parquet.column.statistics.BooleanStatistics;
 import parquet.column.statistics.DoubleStatistics;
@@ -39,12 +39,13 @@ import parquet.schema.PrimitiveType.PrimitiveTypeName;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -176,7 +177,7 @@ public class TupleDomainParquetPredicate<C>
             }
             return createDomain(type, hasNullValue, parquetDoubleStatistics);
         }
-        else if (type.equals(VARCHAR) && statistics instanceof BinaryStatistics) {
+        else if (isVarcharType(type) && statistics instanceof BinaryStatistics) {
             BinaryStatistics binaryStatistics = (BinaryStatistics) statistics;
             Slice minSlice = Slices.wrappedBuffer(binaryStatistics.getMin().getBytes());
             Slice maxSlice = Slices.wrappedBuffer(binaryStatistics.getMax().getBytes());
@@ -198,14 +199,14 @@ public class TupleDomainParquetPredicate<C>
         }
 
         ColumnDescriptor columnDescriptor = dictionaryDescriptor.getColumnDescriptor();
-        DictionaryPage dictionaryPage = dictionaryDescriptor.getDictionaryPage();
-        if (dictionaryPage == null) {
+        Optional<ParquetDictionaryPage> dictionaryPage = dictionaryDescriptor.getDictionaryPage();
+        if (!dictionaryPage.isPresent()) {
             return null;
         }
 
-        Dictionary dictionary;
+        ParquetDictionary dictionary;
         try {
-            dictionary = dictionaryPage.getEncoding().initDictionary(columnDescriptor, dictionaryPage);
+            dictionary = dictionaryPage.get().getEncoding().initDictionary(columnDescriptor, dictionaryPage.get());
         }
         catch (Exception e) {
             // In case of exception, just continue reading the data, not using dictionary page at all
@@ -213,7 +214,7 @@ public class TupleDomainParquetPredicate<C>
             return null;
         }
 
-        int dictionarySize = dictionaryPage.getDictionarySize();
+        int dictionarySize = dictionaryPage.get().getDictionarySize();
         if (type.equals(BIGINT) && columnDescriptor.getType() == PrimitiveTypeName.INT64) {
             List<Domain> domains = new ArrayList<>();
             for (int i = 0; i < dictionarySize; i++) {
@@ -246,7 +247,7 @@ public class TupleDomainParquetPredicate<C>
             domains.add(Domain.onlyNull(type));
             return Domain.union(domains);
         }
-        else if (type.equals(VARCHAR) && columnDescriptor.getType() == PrimitiveTypeName.BINARY) {
+        else if (isVarcharType(type) && columnDescriptor.getType() == PrimitiveTypeName.BINARY) {
             List<Domain> domains = new ArrayList<>();
             for (int i = 0; i < dictionarySize; i++) {
                 domains.add(Domain.singleValue(type, Slices.wrappedBuffer(dictionary.decodeToBinary(i).getBytes())));

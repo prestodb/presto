@@ -16,8 +16,11 @@ package com.facebook.presto.sql.analyzer;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.LegacyConfig;
 
+import javax.validation.constraints.NotNull;
+
 public class FeaturesConfig
 {
+    public static final String FILE_BASED_RESOURCE_GROUP_MANAGER = "file";
     private boolean experimentalSyntaxEnabled;
     private boolean distributedIndexJoinsEnabled;
     private boolean distributedJoinsEnabled = true;
@@ -26,11 +29,38 @@ public class FeaturesConfig
     private boolean optimizeHashGeneration = true;
     private boolean optimizeSingleDistinct = true;
     private boolean pushTableWriteThroughUnion = true;
-    private boolean intermediateAggregationsEnabled;
 
     private boolean columnarProcessing;
     private boolean columnarProcessingDictionary;
     private boolean dictionaryAggregation;
+    private boolean resourceGroups;
+
+    private String resourceGroupManager = FILE_BASED_RESOURCE_GROUP_MANAGER;
+
+    @NotNull
+    public String getResourceGroupManager()
+    {
+        return resourceGroupManager;
+    }
+
+    @Config("resource-group-manager")
+    public FeaturesConfig setResourceGroupManager(String resourceGroupManager)
+    {
+        this.resourceGroupManager = resourceGroupManager;
+        return this;
+    }
+
+    public boolean isResourceGroupsEnabled()
+    {
+        return resourceGroups;
+    }
+
+    @Config("experimental.resource-groups-enabled")
+    public FeaturesConfig setResourceGroupsEnabled(boolean enabled)
+    {
+        resourceGroups = enabled;
+        return this;
+    }
 
     @LegacyConfig("analyzer.experimental-syntax-enabled")
     @Config("experimental-syntax-enabled")
@@ -126,18 +156,6 @@ public class FeaturesConfig
     public FeaturesConfig setPushTableWriteThroughUnion(boolean pushTableWriteThroughUnion)
     {
         this.pushTableWriteThroughUnion = pushTableWriteThroughUnion;
-        return this;
-    }
-
-    public boolean isIntermediateAggregationsEnabled()
-    {
-        return intermediateAggregationsEnabled;
-    }
-
-    @Config("optimizer.use-intermediate-aggregations")
-    public FeaturesConfig setIntermediateAggregationsEnabled(boolean intermediateAggregationsEnabled)
-    {
-        this.intermediateAggregationsEnabled = intermediateAggregationsEnabled;
         return this;
     }
 

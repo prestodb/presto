@@ -22,13 +22,10 @@ public interface LookupSourceSupplier
 {
     List<Type> getTypes();
 
-    ListenableFuture<LookupSource> getLookupSource(OperatorContext operatorContext);
+    ListenableFuture<LookupSource> getLookupSource();
 
-    /**
-     * NOTE: LookupSourceSupplier must be reference counted, because some of them own a SharedLookupSource.
-     * Ideally, that would be owned by the pipeline instead.
-     */
-    void retain();
+    // this is only here for the index lookup source
+    default void setTaskContext(TaskContext taskContext) {}
 
-    void release();
+    void destroy();
 }

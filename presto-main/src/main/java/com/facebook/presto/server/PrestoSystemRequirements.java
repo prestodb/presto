@@ -18,10 +18,20 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joda.time.DateTime;
 
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
+
+import java.lang.management.ManagementFactory;
 import java.nio.ByteOrder;
+import java.util.OptionalLong;
+
+import static java.lang.management.ManagementFactory.OPERATING_SYSTEM_MXBEAN_NAME;
 
 final class PrestoSystemRequirements
 {
+    private static final int MIN_FILE_DESCRIPTORS = 4096;
+    private static final int RECOMMENDED_FILE_DESCRIPTORS = 8192;
+
     private PrestoSystemRequirements() {}
 
     public static void verifyJvmRequirements()
@@ -61,7 +71,36 @@ final class PrestoSystemRequirements
             failRequirement("Presto requires a little endian platform (found %s)", ByteOrder.nativeOrder());
         }
 
+        verifyFileDescriptor();
+
         verifySlice();
+    }
+
+    private static void verifyFileDescriptor()
+    {
+        OptionalLong maxFileDescriptorCount = getMaxFileDescriptorCount();
+        if (!maxFileDescriptorCount.isPresent()) {
+            // This should never happen since we have verified the OS and JVM above
+            failRequirement("Cannot read OS file descriptor limit");
+        }
+        if (maxFileDescriptorCount.getAsLong() < MIN_FILE_DESCRIPTORS) {
+            failRequirement("Presto requires at least %s file descriptors (found %s)", MIN_FILE_DESCRIPTORS, maxFileDescriptorCount.getAsLong());
+        }
+        if (maxFileDescriptorCount.getAsLong() < RECOMMENDED_FILE_DESCRIPTORS) {
+            warnRequirement("Current OS file descriptor limit is %s. Presto recommends at least %s", maxFileDescriptorCount.getAsLong(), RECOMMENDED_FILE_DESCRIPTORS);
+        }
+    }
+
+    private static OptionalLong getMaxFileDescriptorCount()
+    {
+        try {
+            MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
+            Object maxFileDescriptorCount = mbeanServer.getAttribute(ObjectName.getInstance(OPERATING_SYSTEM_MXBEAN_NAME), "MaxFileDescriptorCount");
+            return OptionalLong.of(((Number) maxFileDescriptorCount).longValue());
+        }
+        catch (Exception e) {
+            return OptionalLong.empty();
+        }
     }
 
     private static void verifySlice()
@@ -84,7 +123,7 @@ final class PrestoSystemRequirements
     {
         int currentYear = DateTime.now().year().get();
         if (currentYear < 2015) {
-           failRequirement("Presto requires the system time to be current (found year %s)", currentYear);
+            failRequirement("Presto requires the system time to be current (found year %s)", currentYear);
         }
     }
 
@@ -92,5 +131,10 @@ final class PrestoSystemRequirements
     {
         System.err.println(String.format(format, args));
         System.exit(100);
+    }
+
+    private static void warnRequirement(String format, Object... args)
+    {
+        System.err.println("WARNING: " + String.format(format, args));
     }
 }

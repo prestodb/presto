@@ -81,6 +81,8 @@ public class Validator
     private final boolean explainOnly;
     private final Map<String, String> sessionProperties;
     private final int precision;
+    private final int controlTeardownRetries;
+    private final int testTeardownRetries;
 
     private Boolean valid;
 
@@ -105,6 +107,8 @@ public class Validator
             boolean checkCorrectness,
             boolean checkDeterministic,
             boolean verboseResultsComparison,
+            int controlTeardownRetries,
+            int testTeardownRetries,
             QueryPair queryPair)
     {
         this.testUsername = requireNonNull(queryPair.getTest().getUsername(), "test username is null");
@@ -121,6 +125,8 @@ public class Validator
         this.checkCorrectness = checkCorrectness;
         this.checkDeterministic = checkDeterministic;
         this.verboseResultsComparison = verboseResultsComparison;
+        this.controlTeardownRetries = controlTeardownRetries;
+        this.testTeardownRetries = testTeardownRetries;
 
         this.queryPair = requireNonNull(queryPair, "queryPair is null");
         // Test and Control always have the same session properties.
@@ -299,9 +305,23 @@ public class Validator
             }
         }
         finally {
-            // teardown no matter what
-            QueryResult tearDownResult = tearDown(query, testPostQueryResults, testPostquery -> executeQuery(testGateway, testUsername, testPassword, queryPair.getTest(), testPostquery, testTimeout, sessionProperties));
-
+            int retry = 0;
+            QueryResult tearDownResult;
+            do {
+                tearDownResult = tearDown(query, testPostQueryResults, testPostquery -> executeQuery(testGateway, testUsername, testPassword, queryPair.getTest(), testPostquery, testTimeout, sessionProperties));
+                if (tearDownResult.getState() == State.SUCCESS) {
+                    break;
+                }
+                try {
+                    TimeUnit.MINUTES.sleep(1);
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+                retry++;
+            }
+            while (retry < testTeardownRetries);
             // if teardown is not successful the query fails
             queryResult = tearDownResult.getState() == State.SUCCESS ? queryResult : tearDownResult;
         }
@@ -322,9 +342,23 @@ public class Validator
             }
         }
         finally {
-            // teardown no matter what
-            QueryResult tearDownResult = tearDown(query, controlPostQueryResults, controlPostquery -> executeQuery(controlGateway, controlUsername, controlPassword, queryPair.getControl(), controlPostquery, controlTimeout, sessionProperties));
-
+            int retry = 0;
+            QueryResult tearDownResult;
+            do {
+                tearDownResult = tearDown(query, controlPostQueryResults, controlPostquery -> executeQuery(controlGateway, controlUsername, controlPassword, queryPair.getControl(), controlPostquery, controlTimeout, sessionProperties));
+                if (tearDownResult.getState() == State.SUCCESS) {
+                    break;
+                }
+                try {
+                    TimeUnit.MINUTES.sleep(1);
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+                retry++;
+            }
+            while (retry < controlTeardownRetries);
             // if teardown is not successful the query fails
             queryResult = tearDownResult.getState() == State.SUCCESS ? queryResult : tearDownResult;
         }
@@ -393,6 +427,9 @@ public class Validator
                                 getResultSetConverter(limitedStatement.getResultSet()),
                                 timeout.toMillis() - stopwatch.elapsed(TimeUnit.MILLISECONDS),
                                 TimeUnit.MILLISECONDS, true);
+                    }
+                    else {
+                        results = ImmutableList.of(ImmutableList.of(limitedStatement.getLargeUpdateCount()));
                     }
                     prestoStatement.clearProgressMonitor();
                     QueryStats queryStats = progressMonitor.getFinalQueryStats();
@@ -577,6 +614,12 @@ public class Validator
     private static Comparator<Object> columnComparator(int precision)
     {
         return (a, b) -> {
+            if (a == null || b == null) {
+                if (a == null && b == null) {
+                    return 0;
+                }
+                return a == null ? -1 : 1;
+            }
             if (a instanceof Number && b instanceof Number) {
                 Number x = (Number) a;
                 Number y = (Number) b;
@@ -594,16 +637,64 @@ public class Validator
                 throw new TypesDoNotMatchException(format("item types do not match: %s vs %s", a.getClass().getName(), b.getClass().getName()));
             }
             if ((a.getClass().isArray() && b.getClass().isArray())) {
-                if (Arrays.deepEquals((Object[]) a, (Object[]) b)) {
-                    return 0;
+                Object[] aArray = (Object[]) a;
+                Object[] bArray = (Object[]) b;
+
+                if (aArray.length != bArray.length) {
+                    return Arrays.hashCode((Object[]) a) < Arrays.hashCode((Object[]) b) ? -1 : 1;
                 }
-                return Arrays.hashCode((Object[]) a) < Arrays.hashCode((Object[]) b) ? -1 : 1;
+
+                for (int i = 0; i < aArray.length; i++) {
+                    int compareResult = columnComparator(precision).compare(aArray[i], bArray[i]);
+                    if (compareResult != 0) {
+                        return compareResult;
+                    }
+                }
+
+                return 0;
             }
-            if ((a instanceof Map && b instanceof Map)) {
-                if (a.equals(b)) {
-                    return 0;
+            if (a instanceof List && b instanceof List) {
+                List aList = (List) a;
+                List bList = (List) b;
+
+                if (aList.size() != bList.size()) {
+                    return a.hashCode() < b.hashCode() ? -1 : 1;
                 }
-                return a.hashCode() < b.hashCode() ? -1 : 1;
+
+                for (int i = 0; i < aList.size(); i++) {
+                    int compareResult = columnComparator(precision).compare(aList.get(i), bList.get(i));
+                    if (compareResult != 0) {
+                        return compareResult;
+                    }
+                }
+
+                return 0;
+            }
+            if (a instanceof Map && b instanceof Map) {
+                Map aMap = (Map) a;
+                Map bMap = (Map) b;
+
+                if (aMap.size() != bMap.size()) {
+                    return a.hashCode() < b.hashCode() ? -1 : 1;
+                }
+
+                for (Object aKey : aMap.keySet()) {
+                    boolean foundMatchingKey = false;
+                    for (Object bKey : bMap.keySet()) {
+                        if (columnComparator(precision).compare(aKey, bKey) == 0) {
+                            int compareResult = columnComparator(precision).compare(aMap.get(aKey), bMap.get(bKey));
+                            if (compareResult != 0) {
+                                return compareResult;
+                            }
+                            foundMatchingKey = true;
+                        }
+                    }
+                    if (!foundMatchingKey) {
+                        return a.hashCode() < b.hashCode() ? -1 : 1;
+                    }
+                }
+
+                return 0;
             }
             checkArgument(a instanceof Comparable, "item is not Comparable: %s", a.getClass().getName());
             return ((Comparable<Object>) a).compareTo(b);

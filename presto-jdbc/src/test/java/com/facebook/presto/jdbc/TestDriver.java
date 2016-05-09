@@ -26,6 +26,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.DriverManager;
@@ -99,54 +100,73 @@ public class TestDriver
             try (Statement statement = connection.createStatement()) {
                 try (ResultSet rs = statement.executeQuery("" +
                         "SELECT " +
-                        "  123 _bigint" +
+                        "  123 _integer" +
+                        ",  12300000000 _bigint" +
                         ", 'foo' _varchar" +
                         ", 0.1 _double" +
                         ", true _boolean" +
                         ", cast('hello' as varbinary) _varbinary" +
+                        ", DECIMAL '1234567890.1234567' _decimal_short" +
+                        ", DECIMAL '.12345678901234567890123456789012345678' _decimal_long" +
                         ", approx_set(42) _hll")) {
                     ResultSetMetaData metadata = rs.getMetaData();
 
-                    assertEquals(metadata.getColumnCount(), 6);
+                    assertEquals(metadata.getColumnCount(), 9);
 
-                    assertEquals(metadata.getColumnLabel(1), "_bigint");
-                    assertEquals(metadata.getColumnType(1), Types.BIGINT);
+                    assertEquals(metadata.getColumnLabel(1), "_integer");
+                    assertEquals(metadata.getColumnType(1), Types.INTEGER);
 
-                    assertEquals(metadata.getColumnLabel(2), "_varchar");
-                    assertEquals(metadata.getColumnType(2), Types.LONGNVARCHAR);
+                    assertEquals(metadata.getColumnLabel(2), "_bigint");
+                    assertEquals(metadata.getColumnType(2), Types.BIGINT);
 
-                    assertEquals(metadata.getColumnLabel(3), "_double");
-                    assertEquals(metadata.getColumnType(3), Types.DOUBLE);
+                    assertEquals(metadata.getColumnLabel(3), "_varchar");
+                    assertEquals(metadata.getColumnType(3), Types.LONGNVARCHAR);
 
-                    assertEquals(metadata.getColumnLabel(4), "_boolean");
-                    assertEquals(metadata.getColumnType(4), Types.BOOLEAN);
+                    assertEquals(metadata.getColumnLabel(4), "_double");
+                    assertEquals(metadata.getColumnType(4), Types.DOUBLE);
 
-                    assertEquals(metadata.getColumnLabel(5), "_varbinary");
-                    assertEquals(metadata.getColumnType(5), Types.LONGVARBINARY);
+                    assertEquals(metadata.getColumnLabel(5), "_boolean");
+                    assertEquals(metadata.getColumnType(5), Types.BOOLEAN);
 
-                    assertEquals(metadata.getColumnLabel(6), "_hll");
-                    assertEquals(metadata.getColumnType(6), Types.JAVA_OBJECT);
+                    assertEquals(metadata.getColumnLabel(6), "_varbinary");
+                    assertEquals(metadata.getColumnType(6), Types.LONGVARBINARY);
+
+                    assertEquals(metadata.getColumnLabel(7), "_decimal_short");
+                    assertEquals(metadata.getColumnType(7), Types.DECIMAL);
+
+                    assertEquals(metadata.getColumnLabel(8), "_decimal_long");
+                    assertEquals(metadata.getColumnType(8), Types.DECIMAL);
+
+                    assertEquals(metadata.getColumnLabel(9), "_hll");
+                    assertEquals(metadata.getColumnType(9), Types.JAVA_OBJECT);
 
                     assertTrue(rs.next());
 
-                    assertEquals(rs.getObject(1), 123L);
-                    assertEquals(rs.getObject("_bigint"), 123L);
-                    assertEquals(rs.getLong(1), 123);
-                    assertEquals(rs.getLong("_bigint"), 123);
+                    assertEquals(rs.getObject(1), 123);
+                    assertEquals(rs.getObject("_integer"), 123);
+                    assertEquals(rs.getInt(1), 123);
+                    assertEquals(rs.getInt("_integer"), 123);
+                    assertEquals(rs.getLong(1), 123L);
+                    assertEquals(rs.getLong("_integer"), 123L);
 
-                    assertEquals(rs.getObject(2), "foo");
+                    assertEquals(rs.getObject(2), 12300000000L);
+                    assertEquals(rs.getObject("_bigint"), 12300000000L);
+                    assertEquals(rs.getLong(2), 12300000000L);
+                    assertEquals(rs.getLong("_bigint"), 12300000000L);
+
+                    assertEquals(rs.getObject(3), "foo");
                     assertEquals(rs.getObject("_varchar"), "foo");
-                    assertEquals(rs.getString(2), "foo");
+                    assertEquals(rs.getString(3), "foo");
                     assertEquals(rs.getString("_varchar"), "foo");
 
-                    assertEquals(rs.getObject(3), 0.1);
+                    assertEquals(rs.getObject(4), 0.1);
                     assertEquals(rs.getObject("_double"), 0.1);
-                    assertEquals(rs.getDouble(3), 0.1);
+                    assertEquals(rs.getDouble(4), 0.1);
                     assertEquals(rs.getDouble("_double"), 0.1);
 
-                    assertEquals(rs.getObject(4), true);
+                    assertEquals(rs.getObject(5), true);
                     assertEquals(rs.getObject("_boolean"), true);
-                    assertEquals(rs.getBoolean(4), true);
+                    assertEquals(rs.getBoolean(5), true);
                     assertEquals(rs.getBoolean("_boolean"), true);
                     assertEquals(rs.getByte("_boolean"), 1);
                     assertEquals(rs.getShort("_boolean"), 1);
@@ -155,14 +175,28 @@ public class TestDriver
                     assertEquals(rs.getFloat("_boolean"), 1.0f);
                     assertEquals(rs.getDouble("_boolean"), 1.0);
 
-                    assertEquals(rs.getObject(5), "hello".getBytes(UTF_8));
+                    assertEquals(rs.getObject(6), "hello".getBytes(UTF_8));
                     assertEquals(rs.getObject("_varbinary"), "hello".getBytes(UTF_8));
-                    assertEquals(rs.getBytes(5), "hello".getBytes(UTF_8));
+                    assertEquals(rs.getBytes(6), "hello".getBytes(UTF_8));
                     assertEquals(rs.getBytes("_varbinary"), "hello".getBytes(UTF_8));
 
-                    assertInstanceOf(rs.getObject(6), byte[].class);
+                    assertEquals(rs.getObject(7), new BigDecimal("1234567890.1234567"));
+                    assertEquals(rs.getObject("_decimal_short"), new BigDecimal("1234567890.1234567"));
+                    assertEquals(rs.getBigDecimal(7), new BigDecimal("1234567890.1234567"));
+                    assertEquals(rs.getBigDecimal("_decimal_short"), new BigDecimal("1234567890.1234567"));
+                    assertEquals(rs.getBigDecimal(7, 1), new BigDecimal("1234567890.1"));
+                    assertEquals(rs.getBigDecimal("_decimal_short", 1), new BigDecimal("1234567890.1"));
+
+                    assertEquals(rs.getObject(8), new BigDecimal(".12345678901234567890123456789012345678"));
+                    assertEquals(rs.getObject("_decimal_long"), new BigDecimal(".12345678901234567890123456789012345678"));
+                    assertEquals(rs.getBigDecimal(8), new BigDecimal(".12345678901234567890123456789012345678"));
+                    assertEquals(rs.getBigDecimal("_decimal_long"), new BigDecimal(".12345678901234567890123456789012345678"));
+                    assertEquals(rs.getBigDecimal(8, 6), new BigDecimal(".123457"));
+                    assertEquals(rs.getBigDecimal("_decimal_long", 6), new BigDecimal(".123457"));
+
+                    assertInstanceOf(rs.getObject(9), byte[].class);
                     assertInstanceOf(rs.getObject("_hll"), byte[].class);
-                    assertInstanceOf(rs.getBytes(6), byte[].class);
+                    assertInstanceOf(rs.getBytes(9), byte[].class);
                     assertInstanceOf(rs.getBytes("_hll"), byte[].class);
 
                     assertFalse(rs.next());

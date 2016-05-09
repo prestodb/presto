@@ -384,7 +384,8 @@ public final class SessionPropertyManager
                     propertyMetadata.getJavaType(),
                     propertyMetadata.getDefaultValue(),
                     propertyMetadata.isHidden(),
-                    propertyMetadata::decode);
+                    propertyMetadata::decode,
+                    propertyMetadata::encode);
         }
 
         public String getFullyQualifiedName()

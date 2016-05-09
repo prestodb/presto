@@ -17,12 +17,14 @@ import com.datastax.driver.core.Cluster.Builder;
 import com.datastax.driver.core.ColumnMetadata;
 import com.datastax.driver.core.DataType;
 import com.datastax.driver.core.Host;
+import com.datastax.driver.core.IndexMetadata;
 import com.datastax.driver.core.KeyspaceMetadata;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.ResultSetFuture;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.TableMetadata;
+import com.datastax.driver.core.VersionNumber;
 import com.datastax.driver.core.exceptions.NoHostAvailableException;
 import com.datastax.driver.core.querybuilder.Clause;
 import com.datastax.driver.core.querybuilder.QueryBuilder;
@@ -235,7 +237,7 @@ public class CassandraSession
         for (ColumnMetadata columnMeta : tableMeta.getPartitionKey()) {
             primaryKeySet.add(columnMeta.getName());
             boolean hidden = hiddenColumns.contains(columnMeta.getName());
-            CassandraColumnHandle columnHandle = buildColumnHandle(columnMeta, true, false, columnNames.indexOf(columnMeta.getName()), hidden);
+            CassandraColumnHandle columnHandle = buildColumnHandle(tableMeta, columnMeta, true, false, columnNames.indexOf(columnMeta.getName()), hidden);
             columnHandles.add(columnHandle);
         }
 
@@ -243,7 +245,7 @@ public class CassandraSession
         for (ColumnMetadata columnMeta : tableMeta.getClusteringColumns()) {
             primaryKeySet.add(columnMeta.getName());
             boolean hidden = hiddenColumns.contains(columnMeta.getName());
-            CassandraColumnHandle columnHandle = buildColumnHandle(columnMeta, false, true, columnNames.indexOf(columnMeta.getName()), hidden);
+            CassandraColumnHandle columnHandle = buildColumnHandle(tableMeta, columnMeta, false, true, columnNames.indexOf(columnMeta.getName()), hidden);
             columnHandles.add(columnHandle);
         }
 
@@ -251,7 +253,7 @@ public class CassandraSession
         for (ColumnMetadata columnMeta : tableMeta.getColumns()) {
             if (!primaryKeySet.contains(columnMeta.getName())) {
                 boolean hidden = hiddenColumns.contains(columnMeta.getName());
-                CassandraColumnHandle columnHandle = buildColumnHandle(columnMeta, false, false, columnNames.indexOf(columnMeta.getName()), hidden);
+                CassandraColumnHandle columnHandle = buildColumnHandle(tableMeta, columnMeta, false, false, columnNames.indexOf(columnMeta.getName()), hidden);
                 columnHandles.add(columnHandle);
             }
         }
@@ -283,7 +285,7 @@ public class CassandraSession
         throw new TableNotFoundException(schemaTableName);
     }
 
-    private CassandraColumnHandle buildColumnHandle(ColumnMetadata columnMeta, boolean partitionKey, boolean clusteringKey, int ordinalPosition, boolean hidden)
+    private CassandraColumnHandle buildColumnHandle(TableMetadata tableMetadata, ColumnMetadata columnMeta, boolean partitionKey, boolean clusteringKey, int ordinalPosition, boolean hidden)
     {
         CassandraType cassandraType = CassandraType.getCassandraType(columnMeta.getType().getName());
         List<CassandraType> typeArguments = null;
@@ -300,7 +302,13 @@ public class CassandraSession
                     throw new IllegalArgumentException("Invalid type arguments: " + typeArgs);
             }
         }
-        boolean indexed = columnMeta.getIndex() != null;
+        boolean indexed = false;
+        for (IndexMetadata idx : tableMetadata.getIndexes()) {
+            if (idx.getTarget().equals(columnMeta.getName())) {
+                indexed = true;
+                break;
+            }
+        }
         return new CassandraColumnHandle(connectorId, columnMeta.getName(), ordinalPosition, cassandraType, typeArguments, partitionKey, clusteringKey, indexed, hidden);
     }
 
@@ -389,6 +397,18 @@ public class CassandraSession
         partitionKeys.setFetchSize(fetchSizeForPartitionKeySelect);
 
         if (!fullPartitionKey) {
+            Set<Host> clusterHosts = getSession(schemaName).getCluster().getMetadata().getAllHosts();
+            if (!clusterHosts.isEmpty()) {
+                VersionNumber version = clusterHosts.iterator().next().getCassandraVersion();
+                // Cassandra 2.2 changes the functionality of COUNT(*) to be
+                // more like SQL standard. COUNT(*) can no longer
+                // be used to see if a table has < limitForPartitionKeySelect partitions.
+                // See CASSANDRA-8216
+                if (version.getMajor() >= 3 || (version.getMajor() == 2 && version.getMinor() >= 2)) {
+                    return null;
+                }
+            }
+
             addWhereClause(partitionKeys.where(), partitionKeyColumns, new ArrayList<>());
             ResultSetFuture partitionKeyFuture = executeWithSession(schemaName, new SessionCallable<ResultSetFuture>() {
                 @Override

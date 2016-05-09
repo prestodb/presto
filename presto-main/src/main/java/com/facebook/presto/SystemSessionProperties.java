@@ -16,6 +16,8 @@ package com.facebook.presto;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.memory.MemoryManagerConfig;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.collect.ImmutableList;
@@ -29,7 +31,10 @@ import java.util.List;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 
 public final class SystemSessionProperties
 {
@@ -39,10 +44,7 @@ public final class SystemSessionProperties
     public static final String HASH_PARTITION_COUNT = "hash_partition_count";
     public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
     public static final String TASK_WRITER_COUNT = "task_writer_count";
-    public static final String TASK_JOIN_CONCURRENCY = "task_join_concurrency";
-    public static final String TASK_HASH_BUILD_CONCURRENCY = "task_hash_build_concurrency";
-    public static final String TASK_AGGREGATION_CONCURRENCY = "task_aggregation_concurrency";
-    public static final String TASK_INTERMEDIATE_AGGREGATION = "task_intermediate_aggregation";
+    public static final String TASK_CONCURRENCY = "task_concurrency";
     public static final String TASK_SHARE_INDEX_LOADING = "task_share_index_loading";
     public static final String QUERY_MAX_MEMORY = "query_max_memory";
     public static final String QUERY_MAX_RUN_TIME = "query_max_run_time";
@@ -55,9 +57,11 @@ public final class SystemSessionProperties
     public static final String COLUMNAR_PROCESSING_DICTIONARY = "columnar_processing_dictionary";
     public static final String DICTIONARY_AGGREGATION = "dictionary_aggregation";
     public static final String PLAN_WITH_TABLE_NODE_PARTITIONING = "plan_with_table_node_partitioning";
+    public static final String COLOCATED_JOIN = "colocated_join";
     public static final String INITIAL_SPLITS_PER_NODE = "initial_splits_per_node";
     public static final String SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL = "split_concurrency_adjustment_interval";
     public static final String OPTIMIZE_METADATA_QUERIES = "optimize_metadata_queries";
+    public static final String QUERY_PRIORITY = "query_priority";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -119,26 +123,23 @@ public final class SystemSessionProperties
                         "Parallelize writes when using UNION ALL in queries that write data",
                         featuresConfig.isPushTableWriteThroughUnion(),
                         false),
-                integerSessionProperty(
-                        TASK_JOIN_CONCURRENCY,
-                        "Experimental: Default number of local parallel join jobs per worker",
-                        taskManagerConfig.getTaskJoinConcurrency(),
-                        false),
-                integerSessionProperty(
-                        TASK_HASH_BUILD_CONCURRENCY,
-                        "Experimental: Default number of local parallel hash build jobs per worker",
-                        taskManagerConfig.getTaskDefaultConcurrency(),
-                        false),
-                integerSessionProperty(
-                        TASK_AGGREGATION_CONCURRENCY,
-                        "Experimental: Default number of local parallel aggregation jobs per worker",
-                        taskManagerConfig.getTaskDefaultConcurrency(),
-                        false),
-                booleanSessionProperty(
-                        TASK_INTERMEDIATE_AGGREGATION,
-                        "Experimental: add intermediate aggregation jobs per worker",
-                        featuresConfig.isIntermediateAggregationsEnabled(),
-                        false),
+                new PropertyMetadata<>(
+                        TASK_CONCURRENCY,
+                        "Default number of local parallel jobs per worker",
+                        BIGINT,
+                        Integer.class,
+                        taskManagerConfig.getTaskConcurrency(),
+                        false,
+                        value -> {
+                            int concurrency = ((Number) value).intValue();
+                            if (Integer.bitCount(concurrency) != 1) {
+                                throw new PrestoException(
+                                        StandardErrorCode.INVALID_SESSION_PROPERTY,
+                                        format("%s must be a power of 2: %s", TASK_CONCURRENCY, concurrency));
+                            }
+                            return concurrency;
+                        },
+                        value -> value),
                 booleanSessionProperty(
                         TASK_SHARE_INDEX_LOADING,
                         "Share index join lookups and caching within a task",
@@ -151,7 +152,8 @@ public final class SystemSessionProperties
                         Duration.class,
                         queryManagerConfig.getQueryMaxRunTime(),
                         false,
-                        value -> Duration.valueOf((String) value)),
+                        value -> Duration.valueOf((String) value),
+                        Duration::toString),
                 new PropertyMetadata<>(
                         QUERY_MAX_CPU_TIME,
                         "Maximum CPU time of a query",
@@ -159,7 +161,8 @@ public final class SystemSessionProperties
                         Duration.class,
                         queryManagerConfig.getQueryMaxCpuTime(),
                         false,
-                        value -> Duration.valueOf((String) value)),
+                        value -> Duration.valueOf((String) value),
+                        Duration::toString),
                 new PropertyMetadata<>(
                         QUERY_MAX_MEMORY,
                         "Maximum amount of distributed memory a query can use",
@@ -167,7 +170,8 @@ public final class SystemSessionProperties
                         DataSize.class,
                         memoryManagerConfig.getMaxQueryMemory(),
                         true,
-                        value -> DataSize.valueOf((String) value)),
+                        value -> DataSize.valueOf((String) value),
+                        DataSize::toString),
                 booleanSessionProperty(
                         RESOURCE_OVERCOMMIT,
                         "Use resources which are not guaranteed to be available to the query",
@@ -200,16 +204,27 @@ public final class SystemSessionProperties
                         Duration.class,
                         taskManagerConfig.getSplitConcurrencyAdjustmentInterval(),
                         false,
-                        value -> Duration.valueOf((String) value)),
+                        value -> Duration.valueOf((String) value),
+                        Duration::toString),
                 booleanSessionProperty(
                         OPTIMIZE_METADATA_QUERIES,
                         "Enable optimization for metadata queries",
                         featuresConfig.isOptimizeMetadataQueries(),
                         false),
+                integerSessionProperty(
+                        QUERY_PRIORITY,
+                        "The priority of queries. Larger numbers are higher priority",
+                        1,
+                        false),
                 booleanSessionProperty(
                         PLAN_WITH_TABLE_NODE_PARTITIONING,
                         "Experimental: Adapt plan to pre-partitioned tables",
                         true,
+                        false),
+                booleanSessionProperty(
+                        COLOCATED_JOIN,
+                        "Experimental: Use a colocated join when possible",
+                        false,
                         false));
     }
 
@@ -263,24 +278,9 @@ public final class SystemSessionProperties
         return session.getProperty(PUSH_TABLE_WRITE_THROUGH_UNION, Boolean.class);
     }
 
-    public static int getTaskJoinConcurrency(Session session)
+    public static int getTaskConcurrency(Session session)
     {
-        return session.getProperty(TASK_JOIN_CONCURRENCY, Integer.class);
-    }
-
-    public static int getTaskHashBuildConcurrency(Session session)
-    {
-        return session.getProperty(TASK_HASH_BUILD_CONCURRENCY, Integer.class);
-    }
-
-    public static int getTaskAggregationConcurrency(Session session)
-    {
-        return session.getProperty(TASK_AGGREGATION_CONCURRENCY, Integer.class);
-    }
-
-    public static boolean isIntermediateAggregation(Session session)
-    {
-        return session.getProperty(TASK_INTERMEDIATE_AGGREGATION, Boolean.class);
+        return session.getProperty(TASK_CONCURRENCY, Integer.class);
     }
 
     public static boolean isShareIndexLoading(Session session)
@@ -328,9 +328,21 @@ public final class SystemSessionProperties
         return session.getProperty(PLAN_WITH_TABLE_NODE_PARTITIONING, Boolean.class);
     }
 
+    public static boolean isColocatedJoinEnabled(Session session)
+    {
+        return session.getProperty(COLOCATED_JOIN, Boolean.class);
+    }
+
     public static int getInitialSplitsPerNode(Session session)
     {
         return session.getProperty(INITIAL_SPLITS_PER_NODE, Integer.class);
+    }
+
+    public static int getQueryPriority(Session session)
+    {
+        Integer priority = session.getProperty(QUERY_PRIORITY, Integer.class);
+        checkArgument(priority > 0, "Query priority must be positive");
+        return priority;
     }
 
     public static Duration getSplitConcurrencyAdjustmentInterval(Session session)

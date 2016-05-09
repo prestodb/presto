@@ -32,6 +32,7 @@ import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.CurrentTime;
+import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
@@ -285,6 +286,13 @@ public class TestSqlParser
         assertCast("ARRAY<foo(42,55)>", "ARRAY(foo(42,55))");
         assertCast("varchar(42) ARRAY", "ARRAY(varchar(42))");
         assertCast("foo(42, 55) ARRAY", "ARRAY(foo(42,55))");
+
+        assertCast("ROW(m DOUBLE)", "ROW(m DOUBLE)");
+        assertCast("ROW(m DOUBLE)");
+        assertCast("ROW(x BIGINT,y DOUBLE)");
+        assertCast("ROW(x BIGINT, y DOUBLE)", "ROW(x bigint,y double)");
+        assertCast("ROW(x BIGINT, y DOUBLE, z ROW(m array<bigint>,n map<double,timestamp>))", "ROW(x BIGINT,y DOUBLE,z ROW(m array(bigint),n map(double,timestamp)))");
+        assertCast("array<ROW(x BIGINT, y TIMESTAMP)>", "ARRAY(ROW(x BIGINT,y TIMESTAMP))");
     }
 
     @Test
@@ -642,6 +650,22 @@ public class TestSqlParser
     }
 
     @Test
+    public void testDecimal()
+            throws Exception
+    {
+        assertExpression("DECIMAL '12.34'", new DecimalLiteral("12.34"));
+        assertExpression("DECIMAL '12.'", new DecimalLiteral("12."));
+        assertExpression("DECIMAL '12'", new DecimalLiteral("12"));
+        assertExpression("DECIMAL '.34'", new DecimalLiteral(".34"));
+        assertExpression("DECIMAL '+12.34'", new DecimalLiteral("+12.34"));
+        assertExpression("DECIMAL '+12'", new DecimalLiteral("+12"));
+        assertExpression("DECIMAL '-12.34'", new DecimalLiteral("-12.34"));
+        assertExpression("DECIMAL '-12'", new DecimalLiteral("-12"));
+        assertExpression("DECIMAL '+.34'", new DecimalLiteral("+.34"));
+        assertExpression("DECIMAL '-.34'", new DecimalLiteral("-.34"));
+    }
+
+    @Test
     public void testTime()
             throws Exception
     {
@@ -705,16 +729,17 @@ public class TestSqlParser
     public void testShowCatalogs()
             throws Exception
     {
-        assertStatement("SHOW CATALOGS", new ShowCatalogs());
+        assertStatement("SHOW CATALOGS", new ShowCatalogs(Optional.empty()));
+        assertStatement("SHOW CATALOGS LIKE '%'", new ShowCatalogs(Optional.of("%")));
     }
 
     @Test
     public void testShowSchemas()
             throws Exception
     {
-        assertStatement("SHOW SCHEMAS", new ShowSchemas(Optional.<String>empty()));
-        assertStatement("SHOW SCHEMAS FROM foo", new ShowSchemas(Optional.of("foo")));
-        assertStatement("SHOW SCHEMAS IN foo", new ShowSchemas(Optional.of("foo")));
+        assertStatement("SHOW SCHEMAS", new ShowSchemas(Optional.<String>empty(), Optional.empty()));
+        assertStatement("SHOW SCHEMAS FROM foo", new ShowSchemas(Optional.of("foo"), Optional.empty()));
+        assertStatement("SHOW SCHEMAS IN foo LIKE '%'", new ShowSchemas(Optional.of("foo"), Optional.of("%")));
     }
 
     @Test
@@ -1165,8 +1190,8 @@ public class TestSqlParser
     {
         assertStatement("WITH a (t, u) AS (SELECT * FROM x), b AS (SELECT * FROM y) TABLE z",
                 new Query(Optional.of(new With(false, ImmutableList.of(
-                        new WithQuery("a", simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("x"))), ImmutableList.of("t", "u")),
-                        new WithQuery("b", simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("y"))), null)))),
+                        new WithQuery("a", simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("x"))), Optional.of(ImmutableList.of("t", "u"))),
+                        new WithQuery("b", simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("y"))), Optional.empty())))),
                         new Table(QualifiedName.of("z")),
                         ImmutableList.of(),
                         Optional.<String>empty(),
@@ -1174,7 +1199,7 @@ public class TestSqlParser
 
         assertStatement("WITH RECURSIVE a AS (SELECT * FROM x) TABLE y",
                 new Query(Optional.of(new With(true, ImmutableList.of(
-                        new WithQuery("a", simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("x"))), null)))),
+                        new WithQuery("a", simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("x"))), Optional.empty())))),
                         new Table(QualifiedName.of("y")),
                         ImmutableList.of(),
                         Optional.<String>empty(),

@@ -42,7 +42,7 @@ import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren
 import static java.util.Objects.requireNonNull;
 
 public class ProjectionPushDown
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
@@ -177,6 +177,7 @@ public class ProjectionPushDown
             return new ExchangeNode(
                     exchange.getId(),
                     exchange.getType(),
+                    exchange.getScope(),
                     partitionFunction,
                     newSourceBuilder.build(),
                     inputsBuilder.build());

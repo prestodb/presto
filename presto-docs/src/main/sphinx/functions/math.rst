@@ -110,6 +110,20 @@ Mathematical Functions
 
     Returns ``x`` rounded to ``d`` decimal places.
 
+.. function:: sign(x) -> [same as input]
+
+    Returns the signum function of ``x``, that is:
+
+    * 0 if the argument is 0,
+    * 1 if the argument is greater than 0,
+    * -1 if the argument is less than 0.
+
+    For double arguments, the function additionally returns:
+
+    * NaN if tha argument is NaN,
+    * 1 if the argument is +Infinity,
+    * -1 if the argument is -Infinity.
+
 .. function:: sqrt(x) -> double
 
     Returns the square root of ``x``.
@@ -121,6 +135,17 @@ Mathematical Functions
 .. function:: truncate(x) -> double
 
     Returns ``x`` rounded to integer by dropping digits after decimal point.
+
+.. function:: width_bucket(x, bound1, bound2, n) -> bigint
+
+    Returns the bin number of ``x`` in an equi-width histogram with the
+    specified ``bound1`` and ``bound2`` bounds and ``n`` number of buckets.
+
+.. function:: width_bucket(x, bins) -> bigint
+
+    Returns the bin number of ``x`` according to the bins specified by the
+    array ``bins``. The ``bins`` parameter must be an array of doubles and is
+    assumed to be in sorted ascending order.
 
 Trigonometric Functions
 -----------------------
@@ -186,14 +211,3 @@ Floating Point Functions
 .. function:: nan() -> double
 
     Returns the constant representing not-a-number.
-
-.. function:: width_bucket(x, bound1, bound2, n) -> bigint
-
-    Returns the bin number of ``x`` in an equi-width histogram with the
-    specified ``bound1`` and ``bound2`` bounds and ``n`` number of buckets.
-
-.. function:: width_bucket(x, bins) -> bigint
-
-    Returns the bin number of ``x`` according to the bins specified by the
-    array ``bins``. The ``bins`` parameter must be an array of doubles and is
-    assumed to be in sorted ascending order.

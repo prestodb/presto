@@ -14,21 +14,22 @@
 package com.facebook.presto.hive.parquet.predicate;
 
 import com.facebook.presto.hive.HiveColumnHandle;
-import com.facebook.presto.hive.parquet.ParquetCodecFactory;
-import com.facebook.presto.hive.parquet.ParquetCodecFactory.BytesDecompressor;
 import com.facebook.presto.hive.parquet.ParquetDataSource;
+import com.facebook.presto.hive.parquet.ParquetDictionaryPage;
+import com.facebook.presto.hive.parquet.ParquetEncoding;
 import com.facebook.presto.hive.parquet.predicate.TupleDomainParquetPredicate.ColumnReference;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
-import org.apache.hadoop.conf.Configuration;
-import parquet.bytes.BytesInput;
+import io.airlift.slice.Slice;
 import parquet.column.ColumnDescriptor;
 import parquet.column.Encoding;
-import parquet.column.page.DictionaryPage;
 import parquet.column.statistics.Statistics;
 import parquet.format.DictionaryPageHeader;
 import parquet.format.PageHeader;
@@ -44,13 +45,18 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+
+import static com.facebook.presto.hive.parquet.ParquetCompressionUtils.decompress;
+import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getParquetEncoding;
+import static io.airlift.slice.Slices.wrappedBuffer;
+import static parquet.column.Encoding.BIT_PACKED;
+import static parquet.column.Encoding.PLAIN_DICTIONARY;
+import static parquet.column.Encoding.RLE;
 
 public final class ParquetPredicateUtils
 {
-    // definition level, repetition level, value
-    private static final int PARQUET_DATA_TRIPLE = 3;
-
     private ParquetPredicateUtils()
     {
     }
@@ -91,7 +97,6 @@ public final class ParquetPredicateUtils
 
     public static boolean predicateMatches(ParquetPredicate parquetPredicate,
             BlockMetaData block,
-            Configuration configuration,
             ParquetDataSource dataSource,
             MessageType requestedSchema,
             TupleDomain<HiveColumnHandle> effectivePredicate)
@@ -101,7 +106,7 @@ public final class ParquetPredicateUtils
             return false;
         }
 
-        Map<Integer, ParquetDictionaryDescriptor> dictionaries = getDictionariesByColumnOrdinal(block, configuration, dataSource, requestedSchema, effectivePredicate);
+        Map<Integer, ParquetDictionaryDescriptor> dictionaries = getDictionariesByColumnOrdinal(block, dataSource, requestedSchema, effectivePredicate);
         return parquetPredicate.matches(dictionaries);
     }
 
@@ -119,14 +124,10 @@ public final class ParquetPredicateUtils
 
     private static Map<Integer, ParquetDictionaryDescriptor> getDictionariesByColumnOrdinal(
             BlockMetaData blockMetadata,
-            Configuration configuration,
             ParquetDataSource dataSource,
             MessageType requestedSchema,
             TupleDomain<HiveColumnHandle> effectivePredicate)
     {
-        // todo should we call release?
-        ParquetCodecFactory codecFactory = new ParquetCodecFactory(configuration);
-
         ImmutableMap.Builder<Integer, ParquetDictionaryDescriptor> dictionaries = ImmutableMap.builder();
         for (int ordinal = 0; ordinal < blockMetadata.getColumns().size(); ordinal++) {
             ColumnChunkMetaData columnChunkMetaData = blockMetadata.getColumns().get(ordinal);
@@ -140,7 +141,7 @@ public final class ParquetPredicateUtils
                         int totalSize = Ints.checkedCast(columnChunkMetaData.getTotalSize());
                         byte[] buffer = new byte[totalSize];
                         dataSource.readFully(columnChunkMetaData.getStartingPos(), buffer);
-                        DictionaryPage dictionaryPage = readDictionaryPage(buffer, codecFactory, columnChunkMetaData.getCodec());
+                        Optional<ParquetDictionaryPage> dictionaryPage = readDictionaryPage(buffer, columnChunkMetaData.getCodec());
                         dictionaries.put(ordinal, new ParquetDictionaryDescriptor(columnDescriptor, dictionaryPage));
                     }
                     catch (IOException ignored) {
@@ -152,30 +153,25 @@ public final class ParquetPredicateUtils
         return dictionaries.build();
     }
 
-    private static DictionaryPage readDictionaryPage(byte[] data, ParquetCodecFactory codecFactory, CompressionCodecName codecName)
+    private static Optional<ParquetDictionaryPage> readDictionaryPage(byte[] data, CompressionCodecName codecName)
     {
         try {
             ByteArrayInputStream inputStream = new ByteArrayInputStream(data);
             PageHeader pageHeader = Util.readPageHeader(inputStream);
 
             if (pageHeader.type != PageType.DICTIONARY_PAGE) {
-                return null;
+                return Optional.empty();
             }
 
-            // todo this wrapper is not needed
-            BytesInput compressedData = BytesInput.from(data, data.length - inputStream.available(), pageHeader.getCompressed_page_size());
-
-            BytesDecompressor decompressor = codecFactory.getDecompressor(codecName);
-            BytesInput decompressed = decompressor.decompress(compressedData, pageHeader.getUncompressed_page_size());
-
+            Slice compressedData = wrappedBuffer(data, data.length - inputStream.available(), pageHeader.getCompressed_page_size());
             DictionaryPageHeader dicHeader = pageHeader.getDictionary_page_header();
-            Encoding encoding = Encoding.valueOf(dicHeader.getEncoding().name());
+            ParquetEncoding encoding = getParquetEncoding(Encoding.valueOf(dicHeader.getEncoding().name()));
             int dictionarySize = dicHeader.getNum_values();
 
-            return new DictionaryPage(decompressed, dictionarySize, encoding);
+            return Optional.of(new ParquetDictionaryPage(decompress(codecName, compressedData, pageHeader.getUncompressed_page_size()), dictionarySize, encoding));
         }
         catch (IOException ignored) {
-            return null;
+            return Optional.empty();
         }
     }
 
@@ -188,14 +184,22 @@ public final class ParquetPredicateUtils
                 .anyMatch(columnName::equals);
     }
 
-    private static boolean isOnlyDictionaryEncodingPages(Set<Encoding> encodings)
+    @VisibleForTesting
+    @SuppressWarnings("deprecation")
+    static boolean isOnlyDictionaryEncodingPages(Set<Encoding> encodings)
     {
-        // more than 1 encodings for values
-        if (encodings.size() > PARQUET_DATA_TRIPLE) {
-            return false;
+        // TODO: update to use EncodingStats in ColumnChunkMetaData when available
+        if (encodings.contains(PLAIN_DICTIONARY)) {
+            // PLAIN_DICTIONARY was present, which means at least one page was
+            // dictionary-encoded and 1.0 encodings are used
+            // The only other allowed encodings are RLE and BIT_PACKED which are used for repetition or definition levels
+            return Sets.difference(encodings, ImmutableSet.of(PLAIN_DICTIONARY, RLE, BIT_PACKED)).isEmpty();
         }
-        // definition level, repetition level never have dictionary encoding
-        // TODO: add PageEncodingStats in ColumnChunkMetaData
-        return encodings.stream().anyMatch(Encoding::usesDictionary);
+
+        // if PLAIN_DICTIONARY wasn't present, then either the column is not
+        // dictionary-encoded, or the 2.0 encoding, RLE_DICTIONARY, was used.
+        // for 2.0, this cannot determine whether a page fell back without
+        // page encoding stats
+        return false;
     }
 }

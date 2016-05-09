@@ -28,7 +28,7 @@ import javax.validation.constraints.NotNull;
 
 import java.util.concurrent.TimeUnit;
 
-@DefunctConfig({"experimental.big-query-max-task-memory", "task.max-memory", "task.http-notification-threads"})
+@DefunctConfig({"experimental.big-query-max-task-memory", "task.max-memory", "task.http-notification-threads", "task.info-refresh-max-wait"})
 public class TaskManagerConfig
 {
     private boolean verboseStats;
@@ -43,28 +43,49 @@ public class TaskManagerConfig
     private Duration splitConcurrencyAdjustmentInterval = new Duration(100, TimeUnit.MILLISECONDS);
 
     private DataSize sinkMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
+    private DataSize maxPagePartitioningBufferSize = new DataSize(32, Unit.MEGABYTE);
 
     private Duration clientTimeout = new Duration(2, TimeUnit.MINUTES);
     private Duration infoMaxAge = new Duration(15, TimeUnit.MINUTES);
-    private Duration infoRefreshMaxWait = new Duration(200, TimeUnit.MILLISECONDS);
+
+    private Duration statusRefreshMaxWait = new Duration(1, TimeUnit.SECONDS);
+    private Duration infoUpdateInterval = new Duration(200, TimeUnit.MILLISECONDS);
+
     private int writerCount = 1;
-    private int taskDefaultConcurrency = 1;
-    private Integer taskJoinConcurrency;
+    private int taskConcurrency = 1;
     private int httpResponseThreads = 100;
     private int httpTimeoutThreads = 3;
+
+    private int taskNotificationThreads = 5;
 
     @MinDuration("1ms")
     @MaxDuration("10s")
     @NotNull
-    public Duration getInfoRefreshMaxWait()
+    public Duration getStatusRefreshMaxWait()
     {
-        return infoRefreshMaxWait;
+        return statusRefreshMaxWait;
     }
 
-    @Config("task.info-refresh-max-wait")
-    public TaskManagerConfig setInfoRefreshMaxWait(Duration infoRefreshMaxWait)
+    @Config("task.status-refresh-max-wait")
+    public TaskManagerConfig setStatusRefreshMaxWait(Duration statusRefreshMaxWait)
     {
-        this.infoRefreshMaxWait = infoRefreshMaxWait;
+        this.statusRefreshMaxWait = statusRefreshMaxWait;
+        return this;
+    }
+
+    @MinDuration("1ms")
+    @MaxDuration("10s")
+    @NotNull
+    public Duration getInfoUpdateInterval()
+    {
+        return infoUpdateInterval;
+    }
+
+    @Config("task.info-update-interval")
+    @ConfigDescription("Interval between updating task data")
+    public TaskManagerConfig setInfoUpdateInterval(Duration infoUpdateInterval)
+    {
+        this.infoUpdateInterval = infoUpdateInterval;
         return this;
     }
 
@@ -216,6 +237,19 @@ public class TaskManagerConfig
         return this;
     }
 
+    @NotNull
+    public DataSize getMaxPagePartitioningBufferSize()
+    {
+        return maxPagePartitioningBufferSize;
+    }
+
+    @Config("driver.max-page-partitioning-buffer-size")
+    public TaskManagerConfig setMaxPagePartitioningBufferSize(DataSize size)
+    {
+        this.maxPagePartitioningBufferSize = size;
+        return this;
+    }
+
     @MinDuration("5s")
     @NotNull
     public Duration getClientTimeout()
@@ -258,33 +292,16 @@ public class TaskManagerConfig
     }
 
     @Min(1)
-    public int getTaskJoinConcurrency()
+    public int getTaskConcurrency()
     {
-        if (taskJoinConcurrency == null) {
-            return taskDefaultConcurrency;
-        }
-        return taskJoinConcurrency;
+        return taskConcurrency;
     }
 
-    @Config("task.join-concurrency")
-    @ConfigDescription("Local concurrency for join operators")
-    public TaskManagerConfig setTaskJoinConcurrency(int taskJoinConcurrency)
+    @Config("task.concurrency")
+    @ConfigDescription("Default number of local parallel jobs per worker")
+    public TaskManagerConfig setTaskConcurrency(int taskConcurrency)
     {
-        this.taskJoinConcurrency = taskJoinConcurrency;
-        return this;
-    }
-
-    @Min(1)
-    public int getTaskDefaultConcurrency()
-    {
-        return taskDefaultConcurrency;
-    }
-
-    @Config("task.default-concurrency")
-    @ConfigDescription("Default local concurrency for parallel operators")
-    public TaskManagerConfig setTaskDefaultConcurrency(int taskDefaultConcurrency)
-    {
-        this.taskDefaultConcurrency = taskDefaultConcurrency;
+        this.taskConcurrency = taskConcurrency;
         return this;
     }
 
@@ -311,6 +328,20 @@ public class TaskManagerConfig
     public TaskManagerConfig setHttpTimeoutThreads(int httpTimeoutThreads)
     {
         this.httpTimeoutThreads = httpTimeoutThreads;
+        return this;
+    }
+
+    @Min(1)
+    public int getTaskNotificationThreads()
+    {
+        return taskNotificationThreads;
+    }
+
+    @Config("task.task-notification-threads")
+    @ConfigDescription("Number of threads used for internal task event notifications")
+    public TaskManagerConfig setTaskNotificationThreads(int taskNotificationThreads)
+    {
+        this.taskNotificationThreads = taskNotificationThreads;
         return this;
     }
 }

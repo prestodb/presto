@@ -28,7 +28,9 @@ import org.apache.hadoop.hive.ql.io.orc.OrcProto.RowIndexEntry;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.CompressionKind.UNCOMPRESSED;
@@ -165,7 +167,8 @@ public class OrcMetadataReader
                 toIntegerStatistics(statistics.getIntStatistics()),
                 toDoubleStatistics(statistics.getDoubleStatistics()),
                 toStringStatistics(statistics.getStringStatistics(), isRowGroup),
-                toDateStatistics(statistics.getDateStatistics(), isRowGroup));
+                toDateStatistics(statistics.getDateStatistics(), isRowGroup),
+                toDecimalStatistics(statistics.getDecimalStatistics()));
     }
 
     private static List<ColumnStatistics> toColumnStatistics(List<OrcProto.ColumnStatistics> columnStatistics, final boolean isRowGroup)
@@ -254,6 +257,18 @@ public class OrcMetadataReader
         return new StringStatistics(minimum, maximum);
     }
 
+    private static DecimalStatistics toDecimalStatistics(OrcProto.DecimalStatistics decimalStatistics)
+    {
+        if (!decimalStatistics.hasMinimum() && !decimalStatistics.hasMaximum()) {
+            return null;
+        }
+
+        BigDecimal minimum = decimalStatistics.hasMinimum() ? new BigDecimal(decimalStatistics.getMinimum()) : null;
+        BigDecimal maximum = decimalStatistics.hasMaximum() ? new BigDecimal(decimalStatistics.getMaximum()) : null;
+
+        return new DecimalStatistics(minimum, maximum);
+    }
+
     @VisibleForTesting
     public static Slice getMaxSlice(String maximum)
     {
@@ -324,7 +339,13 @@ public class OrcMetadataReader
 
     private static OrcType toType(OrcProto.Type type)
     {
-        return new OrcType(toTypeKind(type.getKind()), type.getSubtypesList(), type.getFieldNamesList());
+        Optional<Integer> precision = Optional.empty();
+        Optional<Integer> scale = Optional.empty();
+        if (type.getKind() == OrcProto.Type.Kind.DECIMAL) {
+            precision = Optional.of(type.getPrecision());
+            scale = Optional.of(type.getScale());
+        }
+        return new OrcType(toTypeKind(type.getKind()), type.getSubtypesList(), type.getFieldNamesList(), precision, scale);
     }
 
     private static List<OrcType> toType(List<OrcProto.Type> types)

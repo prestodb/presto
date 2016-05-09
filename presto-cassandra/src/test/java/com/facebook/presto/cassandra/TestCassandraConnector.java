@@ -54,6 +54,7 @@ import static com.facebook.presto.cassandra.util.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -221,6 +222,9 @@ public class TestCassandraConnector
                 Type type = column.getType();
                 if (BOOLEAN.equals(type)) {
                     cursor.getBoolean(columnIndex);
+                }
+                else if (INTEGER.equals(type)) {
+                    cursor.getLong(columnIndex);
                 }
                 else if (BIGINT.equals(type)) {
                     cursor.getLong(columnIndex);

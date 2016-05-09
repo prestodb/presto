@@ -19,13 +19,17 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskState;
+import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.TypeToken;
 import io.airlift.concurrent.BoundedExecutor;
+import io.airlift.stats.TimeStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
@@ -39,6 +43,7 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.container.AsyncResponse;
+import javax.ws.rs.container.CompletionCallback;
 import javax.ws.rs.container.Suspended;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.GenericEntity;
@@ -51,6 +56,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
@@ -73,12 +79,14 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 @Path("/v1/task")
 public class TaskResource
 {
-    private static final Duration DEFAULT_MAX_WAIT_TIME = new Duration(1, SECONDS);
+    private static final Duration DEFAULT_MAX_WAIT_TIME = new Duration(2, SECONDS);
 
     private final TaskManager taskManager;
     private final SessionPropertyManager sessionPropertyManager;
     private final Executor responseExecutor;
     private final ScheduledExecutorService timeoutExecutor;
+    private final TimeStat readFromOutputBufferTime = new TimeStat();
+    private final TimeStat resultsRequestTime = new TimeStat();
 
     @Inject
     public TaskResource(TaskManager taskManager,
@@ -145,10 +153,11 @@ public class TaskResource
             return;
         }
 
+        Duration waitTime = randomizeWaitTime(maxWait);
         CompletableFuture<TaskInfo> futureTaskInfo = addTimeout(
                 taskManager.getTaskInfo(taskId, currentState),
                 () -> taskManager.getTaskInfo(taskId),
-                maxWait,
+                waitTime,
                 timeoutExecutor);
 
         if (shouldSummarize(uriInfo)) {
@@ -156,32 +165,54 @@ public class TaskResource
         }
 
         // For hard timeout, add an additional 5 seconds to max wait for thread scheduling contention and GC
-        Duration timeout = new Duration(maxWait.toMillis() + 5000, MILLISECONDS);
+        Duration timeout = new Duration(waitTime.toMillis() + 5000, MILLISECONDS);
         bindAsyncResponse(asyncResponse, futureTaskInfo, responseExecutor)
+                .withTimeout(timeout);
+    }
+
+    @GET
+    @Path("{taskId}/status")
+    @Produces(MediaType.APPLICATION_JSON)
+    public void getTaskStatus(@PathParam("taskId") TaskId taskId,
+            @HeaderParam(PRESTO_CURRENT_STATE) TaskState currentState,
+            @HeaderParam(PRESTO_MAX_WAIT) Duration maxWait,
+            @Context UriInfo uriInfo,
+            @Suspended AsyncResponse asyncResponse)
+    {
+        requireNonNull(taskId, "taskId is null");
+
+        if (currentState == null || maxWait == null) {
+            TaskStatus taskStatus = taskManager.getTaskInfo(taskId).getTaskStatus();
+            asyncResponse.resume(taskStatus);
+            return;
+        }
+
+        Duration waitTime = randomizeWaitTime(maxWait);
+        CompletableFuture<TaskStatus> futureTaskStatus = addTimeout(
+                taskManager.getTaskStatus(taskId, currentState),
+                () -> taskManager.getTaskStatus(taskId),
+                waitTime,
+                timeoutExecutor);
+
+        // For hard timeout, add an additional 5 seconds to max wait for thread scheduling contention and GC
+        Duration timeout = new Duration(waitTime.toMillis() + 5000, MILLISECONDS);
+        bindAsyncResponse(asyncResponse, futureTaskStatus, responseExecutor)
                 .withTimeout(timeout);
     }
 
     @DELETE
     @Path("{taskId}")
-    @Produces(MediaType.APPLICATION_JSON)
-    public Response deleteTask(@PathParam("taskId") TaskId taskId,
+    public void deleteTask(@PathParam("taskId") TaskId taskId,
             @QueryParam("abort") @DefaultValue("true") boolean abort,
             @Context UriInfo uriInfo)
     {
         requireNonNull(taskId, "taskId is null");
 
-        TaskInfo taskInfo;
         if (abort) {
-            taskInfo = taskManager.abortTask(taskId);
+            taskManager.abortTask(taskId);
+            return;
         }
-        else {
-            taskInfo = taskManager.cancelTask(taskId);
-        }
-
-        if (shouldSummarize(uriInfo)) {
-            taskInfo = taskInfo.summarize();
-        }
-        return Response.ok(taskInfo).build();
+        taskManager.cancelTask(taskId);
     }
 
     @GET
@@ -197,11 +228,13 @@ public class TaskResource
         requireNonNull(taskId, "taskId is null");
         requireNonNull(outputId, "outputId is null");
 
+        long start = System.nanoTime();
         CompletableFuture<BufferResult> bufferResultFuture = taskManager.getTaskResults(taskId, outputId, token, maxSize);
+        Duration waitTime = randomizeWaitTime(DEFAULT_MAX_WAIT_TIME);
         bufferResultFuture = addTimeout(
                 bufferResultFuture,
-                () -> BufferResult.emptyResults(taskManager.getTaskInfo(taskId).getTaskInstanceId(), token, false),
-                DEFAULT_MAX_WAIT_TIME,
+                () -> BufferResult.emptyResults(taskManager.getTaskInstanceId(taskId), token, false),
+                waitTime,
                 timeoutExecutor);
 
         CompletableFuture<Response> responseFuture = bufferResultFuture.thenApply(result -> {
@@ -227,15 +260,18 @@ public class TaskResource
         });
 
         // For hard timeout, add an additional 5 seconds to max wait for thread scheduling contention and GC
-        Duration timeout = new Duration(DEFAULT_MAX_WAIT_TIME.toMillis() + 5000, MILLISECONDS);
+        Duration timeout = new Duration(waitTime.toMillis() + 5000, MILLISECONDS);
         bindAsyncResponse(asyncResponse, responseFuture, responseExecutor)
                 .withTimeout(timeout,
                         Response.status(Status.NO_CONTENT)
-                                .header(PRESTO_TASK_INSTANCE_ID, taskManager.getTaskInfo(taskId).getTaskInstanceId())
+                                .header(PRESTO_TASK_INSTANCE_ID, taskManager.getTaskInstanceId(taskId))
                                 .header(PRESTO_PAGE_TOKEN, token)
                                 .header(PRESTO_PAGE_NEXT_TOKEN, token)
                                 .header(PRESTO_BUFFER_COMPLETE, false)
                                 .build());
+
+        responseFuture.whenComplete((response, exception) -> readFromOutputBufferTime.add(Duration.nanosSince(start)));
+        asyncResponse.register((CompletionCallback) throwable -> resultsRequestTime.add(Duration.nanosSince(start)));
     }
 
     @DELETE
@@ -253,8 +289,29 @@ public class TaskResource
         return Response.ok(taskInfo).build();
     }
 
+    @Managed
+    @Nested
+    public TimeStat getReadFromOutputBufferTime()
+    {
+        return readFromOutputBufferTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getResultsRequestTime()
+    {
+        return resultsRequestTime;
+    }
+
     private static boolean shouldSummarize(UriInfo uriInfo)
     {
         return uriInfo.getQueryParameters().containsKey("summarize");
+    }
+
+    private static Duration randomizeWaitTime(Duration waitTime)
+    {
+        // Randomize in [T/2, T], so wait is not near zero and the client-supplied max wait time is respected
+        long halfWaitMillis = waitTime.toMillis() / 2;
+        return new Duration(halfWaitMillis + ThreadLocalRandom.current().nextLong(halfWaitMillis), MILLISECONDS);
     }
 }

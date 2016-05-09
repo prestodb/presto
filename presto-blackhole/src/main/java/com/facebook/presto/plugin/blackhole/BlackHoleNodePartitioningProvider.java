@@ -32,7 +32,6 @@ import java.util.function.ToIntFunction;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
-import static java.lang.Math.abs;
 import static java.util.Objects.requireNonNull;
 
 public class BlackHoleNodePartitioningProvider
@@ -84,12 +83,16 @@ public class BlackHoleNodePartitioningProvider
             List<Type> partitionChannelTypes, int bucketCount)
     {
         return (page, position) -> {
-            int hash = 13;
+            long hash = 13;
             for (int i = 0; i < partitionChannelTypes.size(); i++) {
                 Type type = partitionChannelTypes.get(i);
                 hash = 31 * hash + type.hash(page.getBlock(i), position);
             }
-            return abs(hash) % bucketCount;
+
+            // clear the sign bit
+            hash &= 0x7fff_ffff_ffff_ffffL;
+
+            return (int) (hash % bucketCount);
         };
     }
 }

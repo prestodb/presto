@@ -30,7 +30,7 @@ public class TestQueryQueueRule
     {
         QueryQueueDefinition definition = new QueryQueueDefinition("user.${USER}", 1, 1);
         QueryQueueRule rule = new QueryQueueRule(Pattern.compile(".+"), null, ImmutableMap.of(), ImmutableList.of(definition));
-        assertEquals(rule.match(TEST_SESSION), ImmutableList.of(definition));
+        assertEquals(rule.match(TEST_SESSION.toSessionRepresentation()).get(), ImmutableList.of(definition));
     }
 
     @Test
@@ -39,6 +39,6 @@ public class TestQueryQueueRule
         Session session = TEST_SESSION.withSystemProperty("big_query", "true");
         QueryQueueDefinition definition = new QueryQueueDefinition("big", 1, 1);
         QueryQueueRule rule = new QueryQueueRule(null, null, ImmutableMap.of("big_query", Pattern.compile("true", Pattern.CASE_INSENSITIVE)), ImmutableList.of(definition));
-        assertEquals(rule.match(session), ImmutableList.of(definition));
+        assertEquals(rule.match(session.toSessionRepresentation()).get(), ImmutableList.of(definition));
     }
 }

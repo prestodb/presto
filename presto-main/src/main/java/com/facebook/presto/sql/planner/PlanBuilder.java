@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.analyzer.FieldOrExpression;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.Expression;
 
@@ -38,6 +37,11 @@ class PlanBuilder
         this.sampleWeight = sampleWeight;
     }
 
+    public PlanBuilder withNewRoot(PlanNode root)
+    {
+        return new PlanBuilder(translations, root, sampleWeight);
+    }
+
     public Optional<Symbol> getSampleWeight()
     {
         return sampleWeight;
@@ -58,19 +62,9 @@ class PlanBuilder
         return translations.get(expression);
     }
 
-    public Symbol translate(FieldOrExpression fieldOrExpression)
-    {
-        return translations.get(fieldOrExpression);
-    }
-
     public Expression rewrite(Expression expression)
     {
         return translations.rewrite(expression);
-    }
-
-    public Expression rewrite(FieldOrExpression fieldOrExpression)
-    {
-        return translations.rewrite(fieldOrExpression);
     }
 
     public TranslationMap getTranslations()

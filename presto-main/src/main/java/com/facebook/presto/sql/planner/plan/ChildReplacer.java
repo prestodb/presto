@@ -58,15 +58,21 @@ public class ChildReplacer
     }
 
     @Override
+    public PlanNode visitExplainAnalyze(ExplainAnalyzeNode node, List<PlanNode> newChildren)
+    {
+        return new ExplainAnalyzeNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getOutputSymbol());
+    }
+
+    @Override
     public PlanNode visitLimit(LimitNode node, List<PlanNode> newChildren)
     {
-        return new LimitNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getCount());
+        return new LimitNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getCount(), node.isPartial());
     }
 
     @Override
     public PlanNode visitDistinctLimit(DistinctLimitNode node, List<PlanNode> newChildren)
     {
-        return new DistinctLimitNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getLimit(), node.getHashSymbol());
+        return new DistinctLimitNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getLimit(), node.isPartial(), node.getHashSymbol());
     }
 
     @Override
@@ -82,6 +88,7 @@ public class ChildReplacer
         return new ExchangeNode(
                 node.getId(),
                 node.getType(),
+                node.getScope(),
                 node.getPartitionFunction(),
                 newChildren,
                 node.getInputs());
@@ -161,7 +168,7 @@ public class ChildReplacer
     @Override
     public PlanNode visitAggregation(AggregationNode node, List<PlanNode> newChildren)
     {
-        return new AggregationNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getMasks(), node.getStep(), node.getSampleWeight(), node.getConfidence(), node.getHashSymbol());
+        return new AggregationNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getMasks(), node.getGroupingSets(), node.getStep(), node.getSampleWeight(), node.getConfidence(), node.getHashSymbol());
     }
 
     @Override
@@ -241,6 +248,12 @@ public class ChildReplacer
     public PlanNode visitUnion(UnionNode node, List<PlanNode> newChildren)
     {
         return new UnionNode(node.getId(), newChildren, node.getSymbolMapping(), node.getOutputSymbols());
+    }
+
+    @Override
+    public PlanNode visitIntersect(IntersectNode node, List<PlanNode> newChildren)
+    {
+        return new IntersectNode(node.getId(), newChildren, node.getSymbolMapping(), node.getOutputSymbols());
     }
 
     @Override

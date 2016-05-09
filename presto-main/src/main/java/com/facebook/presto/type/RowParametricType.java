@@ -13,20 +13,15 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.metadata.SqlFunction;
-import com.facebook.presto.operator.scalar.RowFieldReference;
 import com.facebook.presto.spi.type.NamedType;
 import com.facebook.presto.spi.type.ParameterKind;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeParameter;
-import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.type.RowType.RowField;
-import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.stream.Collectors.toList;
 
@@ -58,19 +53,5 @@ public final class RowParametricType
         return new RowType(
                 namedTypes.stream().map(NamedType::getType).collect(toList()),
                 Optional.of(namedTypes.stream().map(NamedType::getName).collect(toList())));
-    }
-
-    public List<SqlFunction> createFunctions(Type type)
-    {
-        RowType rowType = checkType(type, RowType.class, "type");
-        ImmutableList.Builder<SqlFunction> builder = ImmutableList.builder();
-        List<RowField> fields = rowType.getFields();
-        for (int i = 0; i < fields.size(); i++) {
-            RowField field = fields.get(i);
-            int index = i;
-            field.getName()
-                    .ifPresent(name -> builder.add(new RowFieldReference(rowType, field.getType(), index, field.getName().get())));
-        }
-        return builder.build();
     }
 }

@@ -17,6 +17,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 
@@ -27,30 +28,30 @@ public class TestRankFunction
     public void testRank()
     {
         assertWindowQuery("rank() OVER (ORDER BY orderstatus)",
-                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
-                        .row(3, "F", 1)
-                        .row(5, "F", 1)
-                        .row(6, "F", 1)
-                        .row(33, "F", 1)
-                        .row(1, "O", 5)
-                        .row(2, "O", 5)
-                        .row(4, "O", 5)
-                        .row(7, "O", 5)
-                        .row(32, "O", 5)
-                        .row(34, "O", 5)
+                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
+                        .row(3, "F", 1L)
+                        .row(5, "F", 1L)
+                        .row(6, "F", 1L)
+                        .row(33, "F", 1L)
+                        .row(1, "O", 5L)
+                        .row(2, "O", 5L)
+                        .row(4, "O", 5L)
+                        .row(7, "O", 5L)
+                        .row(32, "O", 5L)
+                        .row(34, "O", 5L)
                         .build());
         assertWindowQueryWithNulls("rank() OVER (ORDER BY orderstatus)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
-                        .row(3, "F", 1)
-                        .row(5, "F", 1)
-                        .row(null, "F", 1)
-                        .row(null, "F", 1)
-                        .row(34, "O", 5)
-                        .row(null, "O", 5)
-                        .row(1, null, 7)
-                        .row(7, null, 7)
-                        .row(null, null, 7)
-                        .row(null, null, 7)
+                        .row(3L, "F", 1L)
+                        .row(5L, "F", 1L)
+                        .row(null, "F", 1L)
+                        .row(null, "F", 1L)
+                        .row(34L, "O", 5L)
+                        .row(null, "O", 5L)
+                        .row(1L, null, 7L)
+                        .row(7L, null, 7L)
+                        .row(null, null, 7L)
+                        .row(null, null, 7L)
                         .build());
     }
 }

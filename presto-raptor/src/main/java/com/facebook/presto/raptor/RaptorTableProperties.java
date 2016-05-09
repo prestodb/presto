@@ -105,7 +105,8 @@ public class RaptorTableProperties
                 String.class,
                 null,
                 false,
-                value -> ((String) value).toLowerCase(ENGLISH));
+                value -> ((String) value).toLowerCase(ENGLISH),
+                value -> value);
     }
 
     private static PropertyMetadata<?> stringListSessionProperty(TypeManager typeManager, String name, String description)
@@ -119,7 +120,8 @@ public class RaptorTableProperties
                 false,
                 value -> ImmutableList.copyOf(stringList(value).stream()
                         .map(s -> s.toLowerCase(ENGLISH))
-                        .collect(toList())));
+                        .collect(toList())),
+                value -> value);
     }
 
     @SuppressWarnings("unchecked")

@@ -151,7 +151,7 @@ public class LazyBlock
     }
 
     @Override
-    public int hash(int position, int offset, int length)
+    public long hash(int position, int offset, int length)
     {
         assureLoaded();
         return block.hash(position, offset, length);

@@ -13,51 +13,34 @@ package com.facebook.presto.operator.scalar;
  * limitations under the License.
  */
 
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.type.SqlType;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Map;
 
 import static com.facebook.presto.metadata.OperatorType.GREATER_THAN;
 import static com.facebook.presto.metadata.OperatorType.GREATER_THAN_OR_EQUAL;
-import static com.facebook.presto.metadata.Signature.internalOperator;
-import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.type.ArrayType.ARRAY_NULL_ELEMENT_MSG;
 import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
-import static com.facebook.presto.util.Reflection.methodHandle;
 
-public class ArrayGreaterThanOrEqualOperator
-        extends SqlOperator
+@ScalarOperator(GREATER_THAN_OR_EQUAL)
+public final class ArrayGreaterThanOrEqualOperator
 {
-    public static final ArrayGreaterThanOrEqualOperator ARRAY_GREATER_THAN_OR_EQUAL = new ArrayGreaterThanOrEqualOperator();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayGreaterThanOrEqualOperator.class, "greaterThanOrEqual", MethodHandle.class, Type.class, Block.class, Block.class);
+    private ArrayGreaterThanOrEqualOperator() {}
 
-    private ArrayGreaterThanOrEqualOperator()
-    {
-        super(GREATER_THAN_OR_EQUAL, ImmutableList.of(orderableTypeParameter("T")), StandardTypes.BOOLEAN, ImmutableList.of("array(T)", "array(T)"));
-    }
-
-    @Override
-    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
-    {
-        Type elementType = types.get("T");
-        MethodHandle greaterThanFunction = functionRegistry.getScalarFunctionImplementation(internalOperator(GREATER_THAN, BOOLEAN, ImmutableList.of(elementType, elementType))).getMethodHandle();
-        MethodHandle method = METHOD_HANDLE.bindTo(greaterThanFunction).bindTo(elementType);
-        return new ScalarFunctionImplementation(false, ImmutableList.of(false, false), method, isDeterministic());
-    }
-
-    public static boolean greaterThanOrEqual(MethodHandle greaterThanFunction, Type type, Block leftArray, Block rightArray)
+    @TypeParameter("T")
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean greaterThanOrEqual(
+            @OperatorDependency(operator = GREATER_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle greaterThanFunction,
+            @TypeParameter("T") Type type,
+            @SqlType("array(T)") Block leftArray,
+            @SqlType("array(T)") Block rightArray)
     {
         int len = Math.min(leftArray.getPositionCount(), rightArray.getPositionCount());
         int index = 0;

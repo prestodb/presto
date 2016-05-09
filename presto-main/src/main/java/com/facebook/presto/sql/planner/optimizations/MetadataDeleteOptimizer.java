@@ -43,7 +43,7 @@ import static java.util.Objects.requireNonNull;
  *     MetadataDelete
  */
 public class MetadataDeleteOptimizer
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     private final Metadata metadata;
 

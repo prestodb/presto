@@ -23,6 +23,8 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.DenyAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.type.DecimalParseResult;
+import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -41,16 +43,17 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CurrentTime;
+import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
+import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
@@ -98,6 +101,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.spi.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static com.facebook.presto.spi.type.TimeType.TIME;
@@ -303,7 +307,12 @@ public class ExpressionAnalyzer
                     return field.getType();
                 }
 
-                assertColumnPrefix(qualifiedName, node);
+                if (!isColumnPrefix(qualifiedName, tupleDescriptor)) {
+                    if (isReferenceToOuterRelation(context.getContext(), qualifiedName)) {
+                        throw new SemanticException(NOT_SUPPORTED, node, "Correlated queries not yet supported. Invalid column reference: '%s'", qualifiedName);
+                    }
+                    throw createMissingAttributeException(node);
+                }
             }
 
             Type baseType = process(node.getBase(), context);
@@ -328,19 +337,33 @@ public class ExpressionAnalyzer
             return rowFieldType;
         }
 
-        private void assertColumnPrefix(QualifiedName qualifiedName, Expression node)
+        private boolean isColumnPrefix(QualifiedName qualifiedName, RelationType tupleDescriptor)
         {
             // Recursively check if its prefix is a column.
             while (qualifiedName.getPrefix().isPresent()) {
                 qualifiedName = qualifiedName.getPrefix().get();
                 List<Field> matches = tupleDescriptor.resolveFields(qualifiedName);
                 if (!matches.isEmpty()) {
-                    // The AMBIGUOUS_ATTRIBUTE exception will be thrown later with the right node if matches.size() > 1
-                    return;
+                    return true;
                 }
             }
+            return false;
+        }
 
-            throw createMissingAttributeException(node);
+        private boolean isReferenceToOuterRelation(AnalysisContext context, QualifiedName qualifiedName)
+        {
+            AnalysisContext current = context;
+            while (current != null) {
+                RelationType type = current.getParentRelationType();
+                if (!type.resolveFields(qualifiedName).isEmpty()) {
+                    return true;
+                }
+                if (isColumnPrefix(qualifiedName, type)) {
+                    return true;
+                }
+                current = current.getParent().orElse(null);
+            }
+            return false;
         }
 
         private SemanticException createMissingAttributeException(Expression node)
@@ -497,7 +520,7 @@ public class ExpressionAnalyzer
                 case PLUS:
                     Type type = process(node.getValue(), context);
 
-                    if (!type.equals(BIGINT) && !type.equals(DOUBLE)) {
+                    if (!type.equals(BIGINT) && !type.equals(DOUBLE) && !type.equals(INTEGER)) {
                         // TODO: figure out a type-agnostic way of dealing with this. Maybe add a special unary operator
                         // that types can chose to implement, or piggyback on the existence of the negation operator
                         throw new SemanticException(TYPE_MISMATCH, node, "Unary '+' operator cannot by applied to %s type", type);
@@ -575,6 +598,11 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitLongLiteral(LongLiteral node, StackableAstVisitorContext<AnalysisContext> context)
         {
+            if (node.getValue() >= Integer.MIN_VALUE && node.getValue() <= Integer.MAX_VALUE) {
+                expressionTypes.put(node, INTEGER);
+                return INTEGER;
+            }
+
             expressionTypes.put(node, BIGINT);
             return BIGINT;
         }
@@ -584,6 +612,14 @@ public class ExpressionAnalyzer
         {
             expressionTypes.put(node, DOUBLE);
             return DOUBLE;
+        }
+
+        @Override
+        protected Type visitDecimalLiteral(DecimalLiteral node, StackableAstVisitorContext<AnalysisContext> context)
+        {
+            DecimalParseResult parseResult = Decimals.parse(node.getValue());
+            expressionTypes.put(node, parseResult.getType());
+            return parseResult.getType();
         }
 
         @Override
@@ -695,15 +731,15 @@ public class ExpressionAnalyzer
 
                     if (frame.getStart().getValue().isPresent()) {
                         Type type = process(frame.getStart().getValue().get(), context);
-                        if (!type.equals(BIGINT)) {
-                            throw new SemanticException(TYPE_MISMATCH, node, "Window frame start value type must be BIGINT (actual %s)", type);
+                        if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
+                            throw new SemanticException(TYPE_MISMATCH, node, "Window frame start value type must be INTEGER or BIGINT(actual %s)", type);
                         }
                     }
 
                     if (frame.getEnd().isPresent() && frame.getEnd().get().getValue().isPresent()) {
                         Type type = process(frame.getEnd().get().getValue().get(), context);
-                        if (!type.equals(BIGINT)) {
-                            throw new SemanticException(TYPE_MISMATCH, node, "Window frame end value type must be BIGINT (actual %s)", type);
+                        if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
+                            throw new SemanticException(TYPE_MISMATCH, node, "Window frame end value type must be INTEGER or BIGINT (actual %s)", type);
                         }
                     }
                 }
@@ -866,7 +902,7 @@ public class ExpressionAnalyzer
         protected Type visitSubqueryExpression(SubqueryExpression node, StackableAstVisitorContext<AnalysisContext> context)
         {
             StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node);
-            RelationType descriptor = analyzer.process(node.getQuery(), context.getContext());
+            RelationType descriptor = analyzer.process(node.getQuery(), new AnalysisContext(context.getContext(), tupleDescriptor));
 
             // Subquery should only produce one column
             if (descriptor.getVisibleFieldCount() != 1) {
@@ -890,9 +926,9 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        public Type visitInputReference(InputReference node, StackableAstVisitorContext<AnalysisContext> context)
+        public Type visitFieldReference(FieldReference node, StackableAstVisitorContext<AnalysisContext> context)
         {
-            Type type = tupleDescriptor.getFieldByIndex(node.getChannel()).getType();
+            Type type = tupleDescriptor.getFieldByIndex(node.getFieldIndex()).getType();
             expressionTypes.put(node, type);
             return type;
         }

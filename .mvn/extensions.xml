@@ -10,4 +10,9 @@
     <artifactId>takari-concurrent-localrepo</artifactId>
      <version>0.0.7</version>
   </extension>
+  <extension>
+    <groupId>co.leantechniques</groupId>
+    <artifactId>maven-buildtime-extension</artifactId>
+    <version>3.0.0</version>
+  </extension>
 </extensions>

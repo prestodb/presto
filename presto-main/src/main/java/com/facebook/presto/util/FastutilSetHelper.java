@@ -100,7 +100,7 @@ public final class FastutilSetHelper
         public int hashCode(long value)
         {
             try {
-                return Ints.checkedCast((long) hashCodeHandle.invokeExact(value));
+                return Long.hashCode((long) hashCodeHandle.invokeExact(value));
             }
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
@@ -139,7 +139,7 @@ public final class FastutilSetHelper
         public int hashCode(double value)
         {
             try {
-                return Ints.checkedCast((long) hashCodeHandle.invokeExact(value));
+                return Long.hashCode((long) hashCodeHandle.invokeExact(value));
             }
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
@@ -182,7 +182,7 @@ public final class FastutilSetHelper
         public int hashCode(Object value)
         {
             try {
-                return Ints.checkedCast((long) hashCodeHandle.invokeExact(value));
+                return Ints.checkedCast(Long.hashCode((long) hashCodeHandle.invokeExact(value)));
             }
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);

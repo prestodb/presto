@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.hive.parquet.reader;
 
-import com.facebook.presto.hive.parquet.ParquetCodecFactory;
 import com.facebook.presto.hive.parquet.ParquetCorruptionException;
 import com.facebook.presto.hive.parquet.ParquetDataSource;
+import com.facebook.presto.hive.parquet.RichColumnDescriptor;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.primitives.Ints;
@@ -25,9 +25,11 @@ import parquet.hadoop.metadata.BlockMetaData;
 import parquet.hadoop.metadata.ColumnChunkMetaData;
 import parquet.hadoop.metadata.ColumnPath;
 import parquet.schema.MessageType;
+import parquet.schema.PrimitiveType;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,7 +46,6 @@ public class ParquetReader
     private final MessageType requestedSchema;
     private final List<BlockMetaData> blocks;
     private final ParquetDataSource dataSource;
-    private final ParquetCodecFactory codecFactory;
 
     private int currentBlock;
     private BlockMetaData currentBlockMetadata;
@@ -67,7 +68,6 @@ public class ParquetReader
         this.requestedSchema = requestedSchema;
         this.blocks = blocks;
         this.dataSource = dataSource;
-        codecFactory = new ParquetCodecFactory(configuration);
         for (BlockMetaData block : blocks) {
             fileRowCount += block.getRowCount();
         }
@@ -79,7 +79,6 @@ public class ParquetReader
             throws IOException
     {
         dataSource.close();
-        codecFactory.release();
     }
 
     public float getProgress()
@@ -114,7 +113,7 @@ public class ParquetReader
 
         nextRowInGroup += batchSize;
         currentPosition += batchSize;
-        for (ColumnDescriptor column : requestedSchema.getColumns()) {
+        for (ColumnDescriptor column : getColumns(requestedSchema)) {
             ParquetColumnReader columnReader = columnReadersMap.get(column);
             columnReader.prepareNextRead(batchSize);
         }
@@ -150,7 +149,7 @@ public class ParquetReader
             byte[] buffer = new byte[totalSize];
             dataSource.readFully(startingPosition, buffer);
             ParquetColumnChunkDescriptor descriptor = new ParquetColumnChunkDescriptor(columnDescriptor, metadata, startingPosition, totalSize);
-            ParquetColumnChunk columnChunk = new ParquetColumnChunk(descriptor, buffer, 0, codecFactory);
+            ParquetColumnChunk columnChunk = new ParquetColumnChunk(descriptor, buffer, 0);
             columnReader.setPageReader(columnChunk.readAllPages());
         }
         return columnReader.readBlock(type);
@@ -169,8 +168,23 @@ public class ParquetReader
 
     private void initializeColumnReaders()
     {
-        for (ColumnDescriptor column : requestedSchema.getColumns()) {
+        for (RichColumnDescriptor column : getColumns(requestedSchema)) {
             columnReadersMap.put(column, ParquetColumnReader.createReader(column));
         }
+    }
+
+    private List<RichColumnDescriptor> getColumns(MessageType schema)
+    {
+        List<String[]> paths = schema.getPaths();
+        List<RichColumnDescriptor> columns = new ArrayList<>(paths.size());
+        for (String[] path : paths) {
+            PrimitiveType primitiveType = schema.getType(path).asPrimitiveType();
+            columns.add(new RichColumnDescriptor(
+                    path,
+                    primitiveType,
+                    schema.getMaxRepetitionLevel(path),
+                    schema.getMaxDefinitionLevel(path)));
+        }
+        return columns;
     }
 }

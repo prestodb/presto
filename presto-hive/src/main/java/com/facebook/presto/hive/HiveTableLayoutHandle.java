@@ -34,29 +34,34 @@ public final class HiveTableLayoutHandle
     private final List<ColumnHandle> partitionColumns;
     private final List<HivePartition> partitions;
     private final TupleDomain<ColumnHandle> promisedPredicate;
+    private final Optional<HiveBucketHandle> bucketHandle;
 
     @JsonCreator
     public HiveTableLayoutHandle(
             @JsonProperty("clientId") String clientId,
             @JsonProperty("partitionColumns") List<ColumnHandle> partitionColumns,
-            @JsonProperty("promisedPredicate") TupleDomain<ColumnHandle> promisedPredicate)
+            @JsonProperty("promisedPredicate") TupleDomain<ColumnHandle> promisedPredicate,
+            @JsonProperty("bucketHandle") Optional<HiveBucketHandle> bucketHandle)
     {
         this.clientId = requireNonNull(clientId, "clientId is null");
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
         this.partitions = null;
         this.promisedPredicate = requireNonNull(promisedPredicate, "promisedPredicate is null");
+        this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
     }
 
     public HiveTableLayoutHandle(
             String clientId,
             List<ColumnHandle> partitionColumns,
             List<HivePartition> partitions,
-            TupleDomain<ColumnHandle> promisedPredicate)
+            TupleDomain<ColumnHandle> promisedPredicate,
+            Optional<HiveBucketHandle> bucketHandle)
     {
         this.clientId = requireNonNull(clientId, "clientId is null");
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
         this.partitions = requireNonNull(partitions, "partitions is null");
         this.promisedPredicate = requireNonNull(promisedPredicate, "promisedPredicate is null");
+        this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
     }
 
     @JsonProperty
@@ -86,6 +91,12 @@ public final class HiveTableLayoutHandle
     public TupleDomain<ColumnHandle> getPromisedPredicate()
     {
         return promisedPredicate;
+    }
+
+    @JsonProperty
+    public Optional<HiveBucketHandle> getBucketHandle()
+    {
+        return bucketHandle;
     }
 
     @Override

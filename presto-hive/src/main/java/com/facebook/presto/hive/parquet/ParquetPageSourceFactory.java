@@ -57,7 +57,9 @@ import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.p
 import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
 import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.spi.type.StandardTypes.DATE;
+import static com.facebook.presto.spi.type.StandardTypes.DECIMAL;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
+import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
 import static com.facebook.presto.spi.type.StandardTypes.TIMESTAMP;
 import static com.facebook.presto.spi.type.StandardTypes.VARBINARY;
 import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
@@ -72,6 +74,7 @@ public class ParquetPageSourceFactory
             .add("org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe")
             .add("parquet.hive.serde.ParquetHiveSerDe")
             .build();
+    private static final Set<String> SUPPORTED_TYPES = ImmutableSet.of(INTEGER, BIGINT, BOOLEAN, DOUBLE, TIMESTAMP, VARCHAR, VARBINARY, DATE, DECIMAL);
 
     private final TypeManager typeManager;
     private final boolean useParquetColumnNames;
@@ -167,7 +170,7 @@ public class ParquetPageSourceFactory
             if (predicatePushdownEnabled) {
                 ParquetPredicate parquetPredicate = buildParquetPredicate(columns, effectivePredicate, fileMetaData.getSchema(), typeManager);
                 blocks = blocks.stream()
-                        .filter(block -> predicateMatches(parquetPredicate, block, configuration, dataSource, requestedSchema, effectivePredicate))
+                        .filter(block -> predicateMatches(parquetPredicate, block, dataSource, requestedSchema, effectivePredicate))
                         .collect(toList());
             }
 
@@ -181,9 +184,9 @@ public class ParquetPageSourceFactory
 
             return new ParquetPageSource(
                     parquetReader,
+                    dataSource,
                     fileSchema,
                     requestedSchema,
-                    path,
                     length,
                     schema,
                     columns,
@@ -216,6 +219,6 @@ public class ParquetPageSourceFactory
         return columns.stream()
                 .map(HiveColumnHandle::getTypeSignature)
                 .map(TypeSignature::getBase)
-                .allMatch(base -> BIGINT.equals(base) || BOOLEAN.equals(base) || DOUBLE.equals(base) || TIMESTAMP.equals(base) || VARCHAR.equals(base) || VARBINARY.equals(base) || DATE.equals(base));
+                .allMatch(SUPPORTED_TYPES::contains);
     }
 }

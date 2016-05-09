@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.Properties;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -42,6 +43,7 @@ public class HiveSplit
     private final String table;
     private final String partitionName;
     private final TupleDomain<HiveColumnHandle> effectivePredicate;
+    private final OptionalInt bucketNumber;
     private final boolean forceLocalScheduling;
 
     @JsonCreator
@@ -56,6 +58,7 @@ public class HiveSplit
             @JsonProperty("schema") Properties schema,
             @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys,
             @JsonProperty("addresses") List<HostAddress> addresses,
+            @JsonProperty("bucketNumber") OptionalInt bucketNumber,
             @JsonProperty("forceLocalScheduling") boolean forceLocalScheduling,
             @JsonProperty("effectivePredicate") TupleDomain<HiveColumnHandle> effectivePredicate)
     {
@@ -69,6 +72,7 @@ public class HiveSplit
         requireNonNull(schema, "schema is null");
         requireNonNull(partitionKeys, "partitionKeys is null");
         requireNonNull(addresses, "addresses is null");
+        requireNonNull(bucketNumber, "bucketNumber is null");
         requireNonNull(effectivePredicate, "tupleDomain is null");
 
         this.clientId = clientId;
@@ -81,6 +85,7 @@ public class HiveSplit
         this.schema = schema;
         this.partitionKeys = ImmutableList.copyOf(partitionKeys);
         this.addresses = ImmutableList.copyOf(addresses);
+        this.bucketNumber = bucketNumber;
         this.forceLocalScheduling = forceLocalScheduling;
         this.effectivePredicate = effectivePredicate;
     }
@@ -144,6 +149,12 @@ public class HiveSplit
     public List<HostAddress> getAddresses()
     {
         return addresses;
+    }
+
+    @JsonProperty
+    public OptionalInt getBucketNumber()
+    {
+        return bucketNumber;
     }
 
     @JsonProperty

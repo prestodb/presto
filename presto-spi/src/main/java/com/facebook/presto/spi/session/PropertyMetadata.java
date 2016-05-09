@@ -33,11 +33,7 @@ public final class PropertyMetadata<T>
     private final T defaultValue;
     private final boolean hidden;
     private final Function<Object, T> decoder;
-
-    public PropertyMetadata(String name, String description, Type sqlType, Class<T> javaType, T defaultValue, boolean hidden)
-    {
-        this(name, description, sqlType, javaType, defaultValue, hidden, javaType::cast);
-    }
+    private final Function<T, Object> encoder;
 
     public PropertyMetadata(
             String name,
@@ -46,13 +42,15 @@ public final class PropertyMetadata<T>
             Class<T> javaType,
             T defaultValue,
             boolean hidden,
-            Function<Object, T> decoder)
+            Function<Object, T> decoder,
+            Function<T, Object> encoder)
     {
         requireNonNull(name, "name is null");
         requireNonNull(description, "description is null");
         requireNonNull(sqlType, "type is null");
         requireNonNull(javaType, "javaType is null");
         requireNonNull(decoder, "decoder is null");
+        requireNonNull(encoder, "encoder is null");
 
         if (name.isEmpty() || !name.trim().toLowerCase(ENGLISH).equals(name)) {
             throw new IllegalArgumentException(String.format("Invalid session property name '%s'", name));
@@ -68,6 +66,7 @@ public final class PropertyMetadata<T>
         this.defaultValue = defaultValue;
         this.hidden = hidden;
         this.decoder = decoder;
+        this.encoder = encoder;
     }
 
     /**
@@ -126,7 +125,15 @@ public final class PropertyMetadata<T>
         return decoder.apply(value);
     }
 
-    public static PropertyMetadata<Boolean> booleanSessionProperty(String name, String description, Boolean defaultValue, boolean hidden)
+    /**
+     * Encodes the Java type value to SQL type object value
+     */
+    public Object encode(T value)
+    {
+        return encoder.apply(value);
+    }
+
+    public static <T> PropertyMetadata<Boolean> booleanSessionProperty(String name, String description, Boolean defaultValue, boolean hidden)
     {
         return new PropertyMetadata<>(
                 name,
@@ -135,7 +142,8 @@ public final class PropertyMetadata<T>
                 Boolean.class,
                 defaultValue,
                 hidden,
-                Boolean.class::cast);
+                Boolean.class::cast,
+                object -> object);
     }
 
     public static PropertyMetadata<Integer> integerSessionProperty(String name, String description, Integer defaultValue, boolean hidden)
@@ -147,7 +155,8 @@ public final class PropertyMetadata<T>
                 Integer.class,
                 defaultValue,
                 hidden,
-                value -> ((Number) value).intValue());
+                value -> ((Number) value).intValue(),
+                object -> object);
     }
 
     public static PropertyMetadata<Long> longSessionProperty(String name, String description, Long defaultValue, boolean hidden)
@@ -159,7 +168,8 @@ public final class PropertyMetadata<T>
                 Long.class,
                 defaultValue,
                 hidden,
-                value -> ((Number) value).longValue());
+                value -> ((Number) value).longValue(),
+                object -> object);
     }
 
     public static PropertyMetadata<Double> doubleSessionProperty(String name, String description, Double defaultValue, boolean hidden)
@@ -171,7 +181,8 @@ public final class PropertyMetadata<T>
                 Double.class,
                 defaultValue,
                 hidden,
-                value -> ((Number) value).doubleValue());
+                value -> ((Number) value).doubleValue(),
+                object -> object);
     }
 
     public static PropertyMetadata<String> stringSessionProperty(String name, String description, String defaultValue, boolean hidden)
@@ -183,6 +194,7 @@ public final class PropertyMetadata<T>
                 String.class,
                 defaultValue,
                 hidden,
-                String.class::cast);
+                String.class::cast,
+                object -> object);
     }
 }

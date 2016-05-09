@@ -77,12 +77,12 @@ public class SimplePagesHashStrategy
     }
 
     @Override
-    public int hashPosition(int blockIndex, int position)
+    public long hashPosition(int blockIndex, int position)
     {
         if (precomputedHashChannel != null) {
-            return (int) BIGINT.getLong(precomputedHashChannel.get(blockIndex), position);
+            return BIGINT.getLong(precomputedHashChannel.get(blockIndex), position);
         }
-        int result = 0;
+        long result = 0;
         for (int hashChannel : hashChannels) {
             Type type = types.get(hashChannel);
             Block block = channels.get(hashChannel).get(blockIndex);
@@ -92,9 +92,9 @@ public class SimplePagesHashStrategy
     }
 
     @Override
-    public int hashRow(int position, Block... blocks)
+    public long hashRow(int position, Block... blocks)
     {
-        int result = 0;
+        long result = 0;
         for (int i = 0; i < hashChannels.size(); i++) {
             int hashChannel = hashChannels.get(i);
             Type type = types.get(hashChannel);

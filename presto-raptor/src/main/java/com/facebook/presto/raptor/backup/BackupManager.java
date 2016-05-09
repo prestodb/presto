@@ -76,7 +76,7 @@ public class BackupManager
         }
 
         pendingBackups.incrementAndGet();
-        return runAsync(new BackgroundBackup(uuid, source))
+        return runAsync(new BackgroundBackup(uuid, source), executorService)
                 .whenComplete((none, throwable) -> pendingBackups.decrementAndGet());
     }
 

@@ -15,7 +15,7 @@ package com.facebook.presto.operator.index;
 
 import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.operator.LookupSourceSupplier;
-import com.facebook.presto.operator.OperatorContext;
+import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
@@ -27,6 +27,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class IndexLookupSourceSupplier
@@ -34,6 +35,7 @@ public class IndexLookupSourceSupplier
 {
     private final List<Type> outputTypes;
     private final Supplier<IndexLoader> indexLoaderSupplier;
+    private TaskContext taskContext;
 
     public IndexLookupSourceSupplier(
             Set<Integer> lookupSourceInputChannels,
@@ -63,22 +65,24 @@ public class IndexLookupSourceSupplier
     }
 
     @Override
-    public ListenableFuture<LookupSource> getLookupSource(OperatorContext operatorContext)
+    public void setTaskContext(TaskContext taskContext)
     {
+        this.taskContext = taskContext;
+    }
+
+    @Override
+    public ListenableFuture<LookupSource> getLookupSource()
+    {
+        checkState(taskContext != null, "taskContext not set");
+
         IndexLoader indexLoader = indexLoaderSupplier.get();
-        indexLoader.setContext(operatorContext.getDriverContext().getPipelineContext().getTaskContext());
+        indexLoader.setContext(taskContext);
         return Futures.immediateFuture(new IndexLookupSource(indexLoader));
     }
 
     @Override
-    public void release()
+    public void destroy()
     {
-        // no-op
-    }
-
-    @Override
-    public void retain()
-    {
-        // no-op
+        // nothing to do
     }
 }

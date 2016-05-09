@@ -34,6 +34,10 @@ public class HashBuilderOperator
     public static class HashBuilderOperatorFactory
             implements OperatorFactory
     {
+        private enum State {
+            NOT_CREATED, CREATED, CLOSED
+        }
+
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final SettableLookupSourceSupplier lookupSourceSupplier;
@@ -41,7 +45,7 @@ public class HashBuilderOperator
         private final Optional<Integer> hashChannel;
 
         private final int expectedPositions;
-        private boolean closed;
+        private State state = State.NOT_CREATED;
 
         public HashBuilderOperatorFactory(
                 int operatorId,
@@ -49,11 +53,12 @@ public class HashBuilderOperator
                 List<Type> types,
                 List<Integer> hashChannels,
                 Optional<Integer> hashChannel,
+                boolean outer,
                 int expectedPositions)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.lookupSourceSupplier = new SettableLookupSourceSupplier(requireNonNull(types, "types is null"));
+            this.lookupSourceSupplier = new SettableLookupSourceSupplier(requireNonNull(types, "types is null"), outer);
 
             Preconditions.checkArgument(!hashChannels.isEmpty(), "hashChannels is empty");
             this.hashChannels = ImmutableList.copyOf(requireNonNull(hashChannels, "hashChannels is null"));
@@ -76,7 +81,9 @@ public class HashBuilderOperator
         @Override
         public Operator createOperator(DriverContext driverContext)
         {
-            checkState(!closed, "Factory is already closed");
+            checkState(state == State.NOT_CREATED, "Only one hash build operator can be created");
+            state = State.CREATED;
+
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, HashBuilderOperator.class.getSimpleName());
             return new HashBuilderOperator(
                     operatorContext,
@@ -89,13 +96,13 @@ public class HashBuilderOperator
         @Override
         public void close()
         {
-            closed = true;
+            state = State.CLOSED;
         }
 
         @Override
         public OperatorFactory duplicate()
         {
-            return new HashBuilderOperatorFactory(operatorId, planNodeId, lookupSourceSupplier.getTypes(), hashChannels, hashChannel, expectedPositions);
+            throw new UnsupportedOperationException("Hash build can not be duplicated");
         }
     }
 
@@ -145,8 +152,9 @@ public class HashBuilderOperator
             return;
         }
 
-        // After this point the SharedLookupSource will take over our memory reservation, and ours will be zero
-        lookupSourceSupplier.setLookupSource(new SharedLookupSource(pagesIndex.createLookupSource(hashChannels, hashChannel), operatorContext));
+        // After this point the LookupSource will take over our memory reservation, and ours will be zero
+        LookupSource lookupSource = pagesIndex.createLookupSource(hashChannels, hashChannel);
+        lookupSourceSupplier.setLookupSource(lookupSource, operatorContext);
         finished = true;
     }
 

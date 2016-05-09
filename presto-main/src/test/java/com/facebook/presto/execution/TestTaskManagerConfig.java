@@ -34,7 +34,8 @@ public class TestTaskManagerConfig
         assertRecordedDefaults(recordDefaults(TaskManagerConfig.class)
                 .setInitialSplitsPerNode(Runtime.getRuntime().availableProcessors() * 4)
                 .setSplitConcurrencyAdjustmentInterval(new Duration(100, TimeUnit.MILLISECONDS))
-                .setInfoRefreshMaxWait(new Duration(200, TimeUnit.MILLISECONDS))
+                .setStatusRefreshMaxWait(new Duration(1, TimeUnit.SECONDS))
+                .setInfoUpdateInterval(new Duration(200, TimeUnit.MILLISECONDS))
                 .setVerboseStats(false)
                 .setTaskCpuTimerEnabled(true)
                 .setMaxWorkerThreads(Runtime.getRuntime().availableProcessors() * 4)
@@ -46,11 +47,12 @@ public class TestTaskManagerConfig
                 .setOperatorPreAllocatedMemory(new DataSize(16, Unit.MEGABYTE))
                 .setMaxPartialAggregationMemoryUsage(new DataSize(16, Unit.MEGABYTE))
                 .setSinkMaxBufferSize(new DataSize(32, Unit.MEGABYTE))
+                .setMaxPagePartitioningBufferSize(new DataSize(32, Unit.MEGABYTE))
                 .setWriterCount(1)
-                .setTaskDefaultConcurrency(1)
-                .setTaskJoinConcurrency(1)
+                .setTaskConcurrency(1)
                 .setHttpResponseThreads(100)
-                .setHttpTimeoutThreads(3));
+                .setHttpTimeoutThreads(3)
+                .setTaskNotificationThreads(5));
     }
 
     @Test
@@ -59,7 +61,8 @@ public class TestTaskManagerConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("task.initial-splits-per-node", "1")
                 .put("task.split-concurrency-adjustment-interval", "1s")
-                .put("task.info-refresh-max-wait", "1s")
+                .put("task.status-refresh-max-wait", "2s")
+                .put("task.info-update-interval", "2s")
                 .put("task.verbose-stats", "true")
                 .put("task.cpu-timer-enabled", "false")
                 .put("task.max-index-memory", "512MB")
@@ -71,17 +74,19 @@ public class TestTaskManagerConfig
                 .put("task.info.max-age", "22m")
                 .put("task.client.timeout", "10s")
                 .put("sink.max-buffer-size", "42MB")
+                .put("driver.max-page-partitioning-buffer-size", "40MB")
                 .put("task.writer-count", "3")
-                .put("task.default-concurrency", "7")
-                .put("task.join-concurrency", "8")
+                .put("task.concurrency", "5")
                 .put("task.http-response-threads", "4")
                 .put("task.http-timeout-threads", "10")
+                .put("task.task-notification-threads", "13")
                 .build();
 
         TaskManagerConfig expected = new TaskManagerConfig()
                 .setInitialSplitsPerNode(1)
                 .setSplitConcurrencyAdjustmentInterval(new Duration(1, TimeUnit.SECONDS))
-                .setInfoRefreshMaxWait(new Duration(1, TimeUnit.SECONDS))
+                .setStatusRefreshMaxWait(new Duration(2, TimeUnit.SECONDS))
+                .setInfoUpdateInterval(new Duration(2, TimeUnit.SECONDS))
                 .setVerboseStats(true)
                 .setTaskCpuTimerEnabled(false)
                 .setMaxIndexMemoryUsage(new DataSize(512, Unit.MEGABYTE))
@@ -93,11 +98,12 @@ public class TestTaskManagerConfig
                 .setInfoMaxAge(new Duration(22, TimeUnit.MINUTES))
                 .setClientTimeout(new Duration(10, TimeUnit.SECONDS))
                 .setSinkMaxBufferSize(new DataSize(42, Unit.MEGABYTE))
+                .setMaxPagePartitioningBufferSize(new DataSize(40, Unit.MEGABYTE))
                 .setWriterCount(3)
-                .setTaskDefaultConcurrency(7)
-                .setTaskJoinConcurrency(8)
+                .setTaskConcurrency(5)
                 .setHttpResponseThreads(4)
-                .setHttpTimeoutThreads(10);
+                .setHttpTimeoutThreads(10)
+                .setTaskNotificationThreads(13);
 
         assertFullMapping(properties, expected);
     }

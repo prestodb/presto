@@ -87,6 +87,7 @@ public class StatementClient
     private final AtomicBoolean valid = new AtomicBoolean(true);
     private final String timeZoneId;
     private final long requestTimeoutNanos;
+    private final String user;
 
     public StatementClient(HttpClient httpClient, JsonCodec<QueryResults> queryResultsCodec, ClientSession session, String query)
     {
@@ -101,6 +102,7 @@ public class StatementClient
         this.timeZoneId = session.getTimeZoneId();
         this.query = query;
         this.requestTimeoutNanos = session.getClientRequestTimeout().roundTo(NANOSECONDS);
+        this.user = session.getUser();
 
         Request request = buildQueryRequest(session, query);
         JsonResponse<QueryResults> response = httpClient.execute(request, responseHandler);
@@ -112,15 +114,11 @@ public class StatementClient
         processResponse(response);
     }
 
-    private static Request buildQueryRequest(ClientSession session, String query)
+    private Request buildQueryRequest(ClientSession session, String query)
     {
-        Request.Builder builder = preparePost()
-                .setUri(uriBuilderFrom(session.getServer()).replacePath("/v1/statement").build())
+        Request.Builder builder = prepareRequest(preparePost(), uriBuilderFrom(session.getServer()).replacePath("/v1/statement").build())
                 .setBodyGenerator(createStaticBodyGenerator(query, UTF_8));
 
-        if (session.getUser() != null) {
-            builder.setHeader(PrestoHeaders.PRESTO_USER, session.getUser());
-        }
         if (session.getSource() != null) {
             builder.setHeader(PrestoHeaders.PRESTO_SOURCE, session.getSource());
         }
@@ -132,7 +130,6 @@ public class StatementClient
         }
         builder.setHeader(PrestoHeaders.PRESTO_TIME_ZONE, session.getTimeZoneId());
         builder.setHeader(PrestoHeaders.PRESTO_LANGUAGE, session.getLocale().toLanguageTag());
-        builder.setHeader(USER_AGENT, USER_AGENT_VALUE);
 
         Map<String, String> property = session.getProperties();
         for (Entry<String, String> entry : property.entrySet()) {
@@ -216,6 +213,15 @@ public class StatementClient
         return valid.get() && (!isGone()) && (!isClosed());
     }
 
+    private Request.Builder prepareRequest(Request.Builder builder, URI nextUri)
+    {
+        builder.setHeader(PrestoHeaders.PRESTO_USER, user);
+        builder.setHeader(USER_AGENT, USER_AGENT_VALUE)
+                .setUri(nextUri);
+
+        return builder;
+    }
+
     public boolean advance()
     {
         URI nextUri = current().getNextUri();
@@ -224,10 +230,7 @@ public class StatementClient
             return false;
         }
 
-        Request request = prepareGet()
-                .setHeader(USER_AGENT, USER_AGENT_VALUE)
-                .setUri(nextUri)
-                .build();
+        Request request = prepareRequest(prepareGet(), nextUri).build();
 
         Exception cause = null;
         long start = System.nanoTime();
@@ -277,14 +280,14 @@ public class StatementClient
 
     private void processResponse(JsonResponse<QueryResults> response)
     {
-        for (String setSession : response.getHeaders().get(PRESTO_SET_SESSION)) {
+        for (String setSession : response.getHeaders(PRESTO_SET_SESSION)) {
             List<String> keyValue = SESSION_HEADER_SPLITTER.splitToList(setSession);
             if (keyValue.size() != 2) {
                 continue;
             }
             setSessionProperties.put(keyValue.get(0), keyValue.size() > 1 ? keyValue.get(1) : "");
         }
-        for (String clearSession : response.getHeaders().get(PRESTO_CLEAR_SESSION)) {
+        for (String clearSession : response.getHeaders(PRESTO_CLEAR_SESSION)) {
             resetSessionProperties.add(clearSession);
         }
 
@@ -319,10 +322,7 @@ public class StatementClient
             return false;
         }
 
-        Request request = prepareDelete()
-                .setHeader(USER_AGENT, USER_AGENT_VALUE)
-                .setUri(uri)
-                .build();
+        Request request = prepareRequest(prepareDelete(), uri).build();
 
         HttpResponseFuture<StatusResponse> response = httpClient.executeAsync(request, createStatusResponseHandler());
         try {
@@ -347,10 +347,7 @@ public class StatementClient
         if (!closed.getAndSet(true)) {
             URI uri = currentResults.get().getNextUri();
             if (uri != null) {
-                Request request = prepareDelete()
-                        .setHeader(USER_AGENT, USER_AGENT_VALUE)
-                        .setUri(uri)
-                        .build();
+                Request request = prepareRequest(prepareDelete(), uri).build();
                 httpClient.executeAsync(request, createStatusResponseHandler());
             }
         }

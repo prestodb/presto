@@ -25,6 +25,7 @@ import com.google.common.primitives.Ints;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 
@@ -40,9 +41,16 @@ public class HashBuildBenchmark
     protected List<Driver> createDrivers(TaskContext taskContext)
     {
         OperatorFactory ordersTableScan = createTableScanOperator(0, new PlanNodeId("test"), "orders", "orderkey", "totalprice");
-        HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(1, new PlanNodeId("test"), ordersTableScan.getTypes(), Ints.asList(0), Optional.empty(), 1_500_000);
+        HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(
+                1,
+                new PlanNodeId("test"),
+                ordersTableScan.getTypes(),
+                Ints.asList(0),
+                Optional.empty(),
+                false,
+                1_500_000);
 
-        DriverFactory driverFactory = new DriverFactory(true, true, ordersTableScan, hashBuilder);
+        DriverFactory driverFactory = new DriverFactory(true, true, ImmutableList.of(ordersTableScan, hashBuilder), OptionalInt.empty());
         Driver driver = driverFactory.createDriver(taskContext.addPipelineContext(true, true).addDriverContext());
         return ImmutableList.of(driver);
     }

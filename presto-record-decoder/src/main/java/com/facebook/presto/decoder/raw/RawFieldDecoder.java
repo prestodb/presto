@@ -17,6 +17,7 @@ import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.Varchars;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -140,7 +141,10 @@ public class RawFieldDecoder
             this.columnHandle = requireNonNull(columnHandle, "columnHandle is null");
             this.fieldType = requireNonNull(fieldType, "fieldType is null");
             this.size = value.limit() - value.position();
-            checkState(size >= fieldType.getSize(), "minimum byte size is %s, found %s,", fieldType.getSize(), size);
+            // check size for non-null fields
+            if (size > 0) {
+                checkState(size >= fieldType.getSize(), "minimum byte size is %s, found %s,", fieldType.getSize(), size);
+            }
             this.value = value;
         }
 
@@ -220,7 +224,11 @@ public class RawFieldDecoder
             }
 
             if (fieldType == FieldType.BYTE) {
-                return Slices.wrappedBuffer(value.slice());
+                Slice slice = Slices.wrappedBuffer(value.slice());
+                if (Varchars.isVarcharType(columnHandle.getType())) {
+                    slice = Varchars.truncateToLength(slice, columnHandle.getType());
+                }
+                return slice;
             }
 
             throw new PrestoException(DECODER_CONVERSION_NOT_SUPPORTED, format("conversion %s to Slice not supported", fieldType));

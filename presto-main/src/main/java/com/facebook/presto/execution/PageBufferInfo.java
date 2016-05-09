@@ -24,22 +24,22 @@ public class PageBufferInfo
 {
     private final int partition;
     private final long bufferedPages;
-    private final long queuedPages;
     private final long bufferedBytes;
+    private final long rowsAdded;
     private final long pagesAdded;
 
     @JsonCreator
     public PageBufferInfo(
             @JsonProperty("partition") int partition,
             @JsonProperty("bufferedPages") long bufferedPages,
-            @JsonProperty("queuedPages") long queuedPages,
             @JsonProperty("bufferedBytes") long bufferedBytes,
+            @JsonProperty("rowsAdded") long rowsAdded,
             @JsonProperty("pagesAdded") long pagesAdded)
     {
         this.partition = partition;
         this.bufferedPages = bufferedPages;
-        this.queuedPages = queuedPages;
         this.bufferedBytes = bufferedBytes;
+        this.rowsAdded = rowsAdded;
         this.pagesAdded = pagesAdded;
     }
 
@@ -56,15 +56,15 @@ public class PageBufferInfo
     }
 
     @JsonProperty
-    public long getQueuedPages()
-    {
-        return queuedPages;
-    }
-
-    @JsonProperty
     public long getBufferedBytes()
     {
         return bufferedBytes;
+    }
+
+    @JsonProperty
+    public long getRowsAdded()
+    {
+        return rowsAdded;
     }
 
     @JsonProperty
@@ -85,15 +85,15 @@ public class PageBufferInfo
         PageBufferInfo that = (PageBufferInfo) o;
         return Objects.equals(partition, that.partition) &&
                 Objects.equals(bufferedPages, that.bufferedPages) &&
-                Objects.equals(queuedPages, that.queuedPages) &&
                 Objects.equals(bufferedBytes, that.bufferedBytes) &&
+                Objects.equals(rowsAdded, that.rowsAdded) &&
                 Objects.equals(pagesAdded, that.pagesAdded);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(partition, bufferedPages, queuedPages, bufferedBytes, pagesAdded);
+        return Objects.hash(partition, bufferedPages, bufferedBytes, rowsAdded, pagesAdded);
     }
 
     @Override
@@ -102,8 +102,8 @@ public class PageBufferInfo
         return toStringHelper(this)
                 .add("partition", partition)
                 .add("bufferedPages", bufferedPages)
-                .add("queuedPages", queuedPages)
                 .add("bufferedBytes", bufferedBytes)
+                .add("rowsAdded", rowsAdded)
                 .add("pagesAdded", pagesAdded)
                 .toString();
     }

@@ -13,52 +13,36 @@ package com.facebook.presto.operator.scalar;
  * limitations under the License.
  */
 
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.type.SqlType;
+
+import javax.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Map;
 
 import static com.facebook.presto.metadata.OperatorType.EQUAL;
 import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
 import static com.facebook.presto.metadata.OperatorType.NOT_EQUAL;
-import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
-import static com.facebook.presto.metadata.Signature.internalOperator;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.util.Reflection.methodHandle;
 
-public class MapNotEqualOperator
-        extends SqlOperator
+@ScalarOperator(NOT_EQUAL)
+public final class MapNotEqualOperator
 {
-    public static final MapNotEqualOperator MAP_NOT_EQUAL = new MapNotEqualOperator();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(MapNotEqualOperator.class, "notEqual", MethodHandle.class, MethodHandle.class, MethodHandle.class, Type.class, Type.class, Block.class, Block.class);
+    private MapNotEqualOperator() {}
 
-    private MapNotEqualOperator()
-    {
-        super(NOT_EQUAL, ImmutableList.of(comparableTypeParameter("K"), comparableTypeParameter("V")), StandardTypes.BOOLEAN, ImmutableList.of("map(K,V)", "map(K,V)"));
-    }
-
-    @Override
-    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
-    {
-        Type keyType = types.get("K");
-        Type valueType = types.get("V");
-
-        MethodHandle keyEqualsFunction = functionRegistry.getScalarFunctionImplementation(internalOperator(EQUAL, BOOLEAN, ImmutableList.of(keyType, keyType))).getMethodHandle();
-        MethodHandle keyHashcodeFunction = functionRegistry.getScalarFunctionImplementation(internalOperator(HASH_CODE, BIGINT, ImmutableList.of(keyType))).getMethodHandle();
-        MethodHandle valueEqualsFunction = functionRegistry.getScalarFunctionImplementation(internalOperator(EQUAL, BOOLEAN, ImmutableList.of(valueType, valueType))).getMethodHandle();
-
-        MethodHandle method = METHOD_HANDLE.bindTo(keyEqualsFunction).bindTo(keyHashcodeFunction).bindTo(valueEqualsFunction).bindTo(keyType).bindTo(valueType);
-        return new ScalarFunctionImplementation(true, ImmutableList.of(false, false), method, isDeterministic());
-    }
-
-    public static Boolean notEqual(MethodHandle keyEqualsFunction, MethodHandle keyHashcodeFunction, MethodHandle valueEqualsFunction, Type keyType, Type valueType, Block left, Block right)
+    @TypeParameter("K")
+    @TypeParameter("V")
+    @Nullable
+    @SqlType(StandardTypes.BOOLEAN)
+    public static Boolean notEqual(
+            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"K", "K"}) MethodHandle keyEqualsFunction,
+            @OperatorDependency(operator = HASH_CODE, returnType = StandardTypes.BIGINT, argumentTypes = {"K"}) MethodHandle keyHashcodeFunction,
+            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"V", "V"}) MethodHandle valueEqualsFunction,
+            @TypeParameter("K") Type keyType,
+            @TypeParameter("V") Type valueType,
+            @SqlType("map(K,V)") Block left,
+            @SqlType("map(K,V)") Block right)
     {
         Boolean equals = MapEqualOperator.equals(keyEqualsFunction, keyHashcodeFunction, valueEqualsFunction, keyType, valueType, left, right);
         if (equals == null) {

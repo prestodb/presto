@@ -29,6 +29,11 @@ public final class VarcharType
     public static final int MAX_LENGTH = Integer.MAX_VALUE;
     public static final VarcharType VARCHAR = new VarcharType(MAX_LENGTH);
 
+    public static VarcharType createUnboundedVarcharType()
+    {
+        return VARCHAR;
+    }
+
     public static VarcharType createVarcharType(int length)
     {
         return new VarcharType(length);
@@ -89,7 +94,7 @@ public final class VarcharType
     }
 
     @Override
-    public int hash(Block block, int position)
+    public long hash(Block block, int position)
     {
         return block.hash(position, 0, block.getLength(position));
     }

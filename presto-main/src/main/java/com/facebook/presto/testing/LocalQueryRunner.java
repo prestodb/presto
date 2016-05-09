@@ -118,6 +118,7 @@ import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.testing.PageConsumerOperator.PageConsumerOutputFactory;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.facebook.presto.type.TypeRegistry;
@@ -149,7 +150,7 @@ import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -379,57 +380,6 @@ public class LocalQueryRunner
         return this;
     }
 
-    public static class MaterializedOutputFactory
-            implements OutputFactory
-    {
-        private final AtomicReference<MaterializedResult.Builder> materializedResultBuilder = new AtomicReference<>();
-
-        public MaterializedResult getMaterializedResult()
-        {
-            MaterializedResult.Builder resultBuilder = materializedResultBuilder.get();
-            checkState(resultBuilder != null, "Output not created");
-            return resultBuilder.build();
-        }
-
-        @Override
-        public OperatorFactory createOutputOperator(int operatorId, PlanNodeId planNodeId, List<Type> sourceTypes)
-        {
-            requireNonNull(sourceTypes, "sourceType is null");
-
-            return new OperatorFactory()
-            {
-                @Override
-                public List<Type> getTypes()
-                {
-                    return ImmutableList.of();
-                }
-
-                @Override
-                public Operator createOperator(DriverContext driverContext)
-                {
-                    MaterializedResult.Builder resultBuilder = materializedResultBuilder.get();
-                    if (resultBuilder == null) {
-                        materializedResultBuilder.compareAndSet(null, MaterializedResult.resultBuilder(driverContext.getSession(), sourceTypes));
-                        resultBuilder = materializedResultBuilder.get();
-                    }
-                    OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, MaterializingOperator.class.getSimpleName());
-                    return new MaterializingOperator(operatorContext, resultBuilder);
-                }
-
-                @Override
-                public void close()
-                {
-                }
-
-                @Override
-                public OperatorFactory duplicate()
-                {
-                    return createOutputOperator(operatorId, planNodeId, sourceTypes);
-                }
-            };
-        }
-    }
-
     @Override
     public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)
     {
@@ -482,7 +432,11 @@ public class LocalQueryRunner
     {
         lock.readLock().lock();
         try {
-            MaterializedOutputFactory outputFactory = new MaterializedOutputFactory();
+            AtomicReference<MaterializedResult.Builder> builder = new AtomicReference<>();
+            PageConsumerOutputFactory outputFactory = new PageConsumerOutputFactory(types -> {
+                builder.compareAndSet(null, MaterializedResult.resultBuilder(session, types));
+                return builder.get()::page;
+            });
 
             TaskContext taskContext = createTaskContext(executor, session);
             List<Driver> drivers = createDrivers(session, sql, outputFactory, taskContext);
@@ -499,7 +453,8 @@ public class LocalQueryRunner
                 done = !processed;
             }
 
-            return outputFactory.getMaterializedResult();
+            verify(builder.get() != null, "Output operator was not created");
+            return builder.get().build();
         }
         finally {
             lock.readLock().unlock();
@@ -546,7 +501,7 @@ public class LocalQueryRunner
             System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, session));
         }
 
-        SubPlan subplan = new PlanFragmenter().createSubPlans(plan);
+        SubPlan subplan = new PlanFragmenter().createSubPlans(session, metadata, plan);
         if (!subplan.getChildren().isEmpty()) {
             throw new AssertionError("Expected subplan to have no children");
         }
@@ -554,6 +509,7 @@ public class LocalQueryRunner
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
                 metadata,
                 sqlParser,
+                Optional.empty(),
                 pageSourceManager,
                 indexManager,
                 nodePartitioningManager,
@@ -562,8 +518,7 @@ public class LocalQueryRunner
                 compiler,
                 new IndexJoinLookupStats(),
                 new CompilerConfig().setInterpreterEnabled(false), // make sure tests fail if compiler breaks
-                new TaskManagerConfig().setTaskDefaultConcurrency(4)
-        );
+                new TaskManagerConfig().setTaskConcurrency(4));
 
         // plan query
         LocalExecutionPlan localExecutionPlan = executionPlanner.plan(
@@ -571,9 +526,7 @@ public class LocalQueryRunner
                 subplan.getFragment().getRoot(),
                 subplan.getFragment().getPartitionFunction().getOutputLayout(),
                 plan.getTypes(),
-                outputFactory,
-                true,
-                false);
+                outputFactory);
 
         // generate sources
         List<TaskSource> sources = new ArrayList<>();
@@ -586,7 +539,7 @@ public class LocalQueryRunner
             ImmutableSet.Builder<ScheduledSplit> scheduledSplits = ImmutableSet.builder();
             while (!splitSource.isFinished()) {
                 for (Split split : getFutureValue(splitSource.getNextBatch(1000))) {
-                    scheduledSplits.add(new ScheduledSplit(sequenceId++, split));
+                    scheduledSplits.add(new ScheduledSplit(sequenceId++, tableScan.getId(), split));
                 }
             }
 
@@ -597,13 +550,11 @@ public class LocalQueryRunner
         List<Driver> drivers = new ArrayList<>();
         Map<PlanNodeId, Driver> driversBySource = new HashMap<>();
         for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
-            for (int i = 0; i < driverFactory.getDriverInstances(); i++) {
+            for (int i = 0; i < driverFactory.getDriverInstances().orElse(1); i++) {
                 DriverContext driverContext = taskContext.addPipelineContext(driverFactory.isInputDriver(), driverFactory.isOutputDriver()).addDriverContext();
                 Driver driver = driverFactory.createDriver(driverContext);
                 drivers.add(driver);
-                for (PlanNodeId sourceId : driver.getSourceIds()) {
-                    driversBySource.put(sourceId, driver);
-                }
+                driver.getSourceId().ifPresent(sourceId -> driversBySource.put(sourceId, driver));
             }
             driverFactory.close();
         }

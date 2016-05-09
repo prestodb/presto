@@ -38,7 +38,9 @@ import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
 import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.spi.type.StandardTypes.DATE;
+import static com.facebook.presto.spi.type.StandardTypes.DECIMAL;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
+import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
 import static com.facebook.presto.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
 import static com.facebook.presto.spi.type.StandardTypes.INTERVAL_YEAR_TO_MONTH;
 import static com.facebook.presto.spi.type.StandardTypes.JSON;
@@ -55,6 +57,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.unmodifiableIterable;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 @Immutable
 public class QueryResults
@@ -203,12 +206,15 @@ public class QueryResults
             return null;
         }
         requireNonNull(columns, "columns is null");
+        List<TypeSignature> signatures = columns.stream()
+                .map(column -> parseTypeSignature(column.getType()))
+                .collect(toList());
         ImmutableList.Builder<List<Object>> rows = ImmutableList.builder();
         for (List<Object> row : data) {
             checkArgument(row.size() == columns.size(), "row/column size mismatch");
             List<Object> newRow = new ArrayList<>();
             for (int i = 0; i < row.size(); i++) {
-                newRow.add(fixValue(columns.get(i).getType(), row.get(i)));
+                newRow.add(fixValue(signatures.get(i), row.get(i)));
             }
             rows.add(unmodifiableList(newRow)); // allow nulls in list
         }
@@ -218,25 +224,25 @@ public class QueryResults
     /**
      * Force values coming from Jackson to have the expected object type.
      */
-    private static Object fixValue(String type, Object value)
+    private static Object fixValue(TypeSignature signature, Object value)
     {
         if (value == null) {
             return null;
         }
-        TypeSignature signature = parseTypeSignature(type);
+
         if (signature.getBase().equals(ARRAY)) {
             List<Object> fixedValue = new ArrayList<>();
             for (Object object : List.class.cast(value)) {
-                fixedValue.add(fixValue(signature.getTypeParametersAsTypeSignatures().get(0).toString(), object));
+                fixedValue.add(fixValue(signature.getTypeParametersAsTypeSignatures().get(0), object));
             }
             return fixedValue;
         }
         if (signature.getBase().equals(MAP)) {
-            String keyType = signature.getTypeParametersAsTypeSignatures().get(0).toString();
-            String valueType = signature.getTypeParametersAsTypeSignatures().get(1).toString();
+            TypeSignature keySignature = signature.getTypeParametersAsTypeSignatures().get(0);
+            TypeSignature valueSignature = signature.getTypeParametersAsTypeSignatures().get(1);
             Map<Object, Object> fixedValue = new HashMap<>();
             for (Map.Entry<?, ?> entry : (Set<Map.Entry<?, ?>>) Map.class.cast(value).entrySet()) {
-                fixedValue.put(fixValue(keyType, entry.getKey()), fixValue(valueType, entry.getValue()));
+                fixedValue.put(fixValue(keySignature, entry.getKey()), fixValue(valueSignature, entry.getValue()));
             }
             return fixedValue;
         }
@@ -252,7 +258,7 @@ public class QueryResults
                         parameter);
                 NamedTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
                 String key = namedTypeSignature.getName();
-                fixedValue.put(key, fixValue(namedTypeSignature.getTypeSignature().toString(), listValue.get(i)));
+                fixedValue.put(key, fixValue(namedTypeSignature.getTypeSignature(), listValue.get(i)));
             }
             return fixedValue;
         }
@@ -262,6 +268,11 @@ public class QueryResults
                     return Long.parseLong((String) value);
                 }
                 return ((Number) value).longValue();
+            case INTEGER:
+                if (value instanceof String) {
+                    return Integer.parseInt((String) value);
+                }
+                return ((Number) value).intValue();
             case DOUBLE:
                 if (value instanceof String) {
                     return Double.parseDouble((String) value);
@@ -281,6 +292,7 @@ public class QueryResults
             case DATE:
             case INTERVAL_YEAR_TO_MONTH:
             case INTERVAL_DAY_TO_SECOND:
+            case DECIMAL:
                 return String.class.cast(value);
             default:
                 // for now we assume that only the explicit types above are passed

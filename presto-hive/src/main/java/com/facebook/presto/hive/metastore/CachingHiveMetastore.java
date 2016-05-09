@@ -76,8 +76,8 @@ import java.util.function.Function;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
 import static com.facebook.presto.hive.HiveUtil.isPrestoView;
-import static com.facebook.presto.hive.metastore.HivePrivilege.OWNERSHIP;
-import static com.facebook.presto.hive.metastore.HivePrivilege.parsePrivilege;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.parsePrivilege;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.cache.CacheLoader.asyncReloading;
@@ -111,7 +111,7 @@ public class CachingHiveMetastore
     private final LoadingCache<HivePartitionName, Optional<Partition>> partitionCache;
     private final LoadingCache<PartitionFilter, Optional<List<String>>> partitionFilterCache;
     private final LoadingCache<String, Set<String>> userRolesCache;
-    private final LoadingCache<UserTableKey, Set<HivePrivilege>> userTablePrivileges;
+    private final LoadingCache<UserTableKey, Set<HivePrivilegeInfo>> userTablePrivileges;
 
     @Inject
     public CachingHiveMetastore(HiveCluster hiveCluster, @ForHiveMetastore ExecutorService executor, HiveClientConfig hiveClientConfig)
@@ -256,10 +256,10 @@ public class CachingHiveMetastore
         userTablePrivileges = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(asyncReloading(new CacheLoader<UserTableKey, Set<HivePrivilege>>()
+                .build(asyncReloading(new CacheLoader<UserTableKey, Set<HivePrivilegeInfo>>()
                 {
                     @Override
-                    public Set<HivePrivilege> load(UserTableKey key)
+                    public Set<HivePrivilegeInfo> load(UserTableKey key)
                             throws Exception
                     {
                         return loadTablePrivileges(key.getUser(), key.getDatabase(), key.getTable());
@@ -850,15 +850,22 @@ public class CachingHiveMetastore
     }
 
     private Set<String> loadRoles(String user)
+            throws Exception
     {
-        try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-            List<Role> roles = client.listRoles(user, USER);
-            if (roles == null) {
-                return ImmutableSet.of();
-            }
-            return ImmutableSet.copyOf(roles.stream()
-                    .map(Role::getRoleName)
-                    .collect(toSet()));
+        try {
+            return retry()
+                    .stopOnIllegalExceptions()
+                    .run("loadRoles", stats.getLoadRoles().wrap(() -> {
+                        try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                            List<Role> roles = client.listRoles(user, USER);
+                            if (roles == null) {
+                                return ImmutableSet.<String>of();
+                            }
+                            return ImmutableSet.copyOf(roles.stream()
+                                    .map(Role::getRoleName)
+                                    .collect(toSet()));
+                        }
+                    }));
         }
         catch (TException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
@@ -866,12 +873,12 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public Set<HivePrivilege> getDatabasePrivileges(String user, String databaseName)
+    public Set<HivePrivilegeInfo> getDatabasePrivileges(String user, String databaseName)
     {
-        ImmutableSet.Builder<HivePrivilege> privileges = ImmutableSet.builder();
+        ImmutableSet.Builder<HivePrivilegeInfo> privileges = ImmutableSet.builder();
 
         if (isDatabaseOwner(user, databaseName)) {
-            privileges.add(OWNERSHIP);
+            privileges.add(new HivePrivilegeInfo(OWNERSHIP, true));
         }
         privileges.addAll(getPrivileges(user, new HiveObjectRef(HiveObjectType.DATABASE, databaseName, null, null, null)));
 
@@ -879,7 +886,7 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public Set<HivePrivilege> getTablePrivileges(String user, String databaseName, String tableName)
+    public Set<HivePrivilegeInfo> getTablePrivileges(String user, String databaseName, String tableName)
     {
         return get(userTablePrivileges, new UserTableKey(user, tableName, databaseName));
     }
@@ -930,72 +937,62 @@ public class CachingHiveMetastore
         }
     }
 
-    @Override
-    public boolean hasPrivilegeWithGrantOptionOnTable(String user, String databaseName, String tableName, HivePrivilege hivePrivilege)
+    private Set<HivePrivilegeInfo> loadTablePrivileges(String user, String databaseName, String tableName)
     {
-        try (HiveMetastoreClient metastoreClient = clientProvider.createMetastoreClient()) {
-            PrincipalPrivilegeSet principalPrivilegeSet = metastoreClient.getPrivilegeSet(new HiveObjectRef(HiveObjectType.TABLE, databaseName, tableName, null, null), user, null);
-
-            for (PrivilegeGrantInfo privilegeGrantInfo : principalPrivilegeSet.getUserPrivileges().get(user)) {
-                if (privilegeGrantInfo.getPrivilege().equalsIgnoreCase(hivePrivilege.name()) && privilegeGrantInfo.isGrantOption()) {
-                    return true;
-                }
-            }
-            return false;
-        }
-        catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
-        }
-    }
-
-    private Set<HivePrivilege> loadTablePrivileges(String user, String databaseName, String tableName)
-    {
-        ImmutableSet.Builder<HivePrivilege> privileges = ImmutableSet.builder();
+        ImmutableSet.Builder<HivePrivilegeInfo> privileges = ImmutableSet.builder();
 
         if (isTableOwner(user, databaseName, tableName)) {
-            privileges.add(OWNERSHIP);
+            privileges.add(new HivePrivilegeInfo(OWNERSHIP, true));
         }
         privileges.addAll(getPrivileges(user, new HiveObjectRef(HiveObjectType.TABLE, databaseName, tableName, null, null)));
 
         return privileges.build();
     }
 
-    private Set<HivePrivilege> getPrivileges(String user, HiveObjectRef objectReference)
+    private Set<HivePrivilegeInfo> getPrivileges(String user, HiveObjectRef objectReference)
     {
-        ImmutableSet.Builder<HivePrivilege> privileges = ImmutableSet.builder();
-        try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-            PrincipalPrivilegeSet privilegeSet = client.getPrivilegeSet(objectReference, user, null);
+        try {
+            return retry()
+                    .stopOnIllegalExceptions()
+                    .run("getPrivilegeSet", stats.getGetPrivilegeSet().wrap(() -> {
+                        try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                            ImmutableSet.Builder<HivePrivilegeInfo> privileges = ImmutableSet.builder();
+                            PrincipalPrivilegeSet privilegeSet = client.getPrivilegeSet(objectReference, user, null);
+                            if (privilegeSet != null) {
+                                Map<String, List<PrivilegeGrantInfo>> userPrivileges = privilegeSet.getUserPrivileges();
+                                if (userPrivileges != null) {
+                                    privileges.addAll(toGrants(userPrivileges.get(user)));
+                                }
+                                for (List<PrivilegeGrantInfo> rolePrivileges : privilegeSet.getRolePrivileges().values()) {
+                                    privileges.addAll(toGrants(rolePrivileges));
+                                }
+                                // We do not add the group permissions as Hive does not seem to process these
+                            }
 
-            if (privilegeSet != null) {
-                Map<String, List<PrivilegeGrantInfo>> userPrivileges = privilegeSet.getUserPrivileges();
-                if (userPrivileges != null) {
-                    privileges.addAll(toGrants(userPrivileges.get(user)));
-                }
-                for (List<PrivilegeGrantInfo> rolePrivileges : privilegeSet.getRolePrivileges().values()) {
-                    privileges.addAll(toGrants(rolePrivileges));
-                }
-                // We do not add the group permissions as Hive does not seem to process these
-            }
+                            return privileges.build();
+                        }
+                    }));
         }
         catch (TException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
-
-        return privileges.build();
+        catch (Exception e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            throw Throwables.propagate(e);
+        }
     }
 
-    private static Set<HivePrivilege> toGrants(List<PrivilegeGrantInfo> userGrants)
+    private static Set<HivePrivilegeInfo> toGrants(List<PrivilegeGrantInfo> userGrants)
     {
         if (userGrants == null) {
             return ImmutableSet.of();
         }
 
-        ImmutableSet.Builder<HivePrivilege> privileges = ImmutableSet.builder();
+        ImmutableSet.Builder<HivePrivilegeInfo> privileges = ImmutableSet.builder();
         for (PrivilegeGrantInfo userGrant : userGrants) {
             privileges.addAll(parsePrivilege(userGrant));
-            if (userGrant.isGrantOption()) {
-                privileges.add(HivePrivilege.GRANT);
-            }
         }
         return privileges.build();
     }
