@@ -57,6 +57,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_TASK;
+import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
@@ -202,6 +203,22 @@ public class SqlTaskManager
     @PreDestroy
     public void close()
     {
+        boolean taskCanceled = false;
+        for (SqlTask task : tasks.asMap().values()) {
+            if (task.getTaskInfo().getTaskStatus().getState().isDone()) {
+                continue;
+            }
+            task.failed(new PrestoException(SERVER_SHUTTING_DOWN, format("Server is shutting down. Task %s has been canceled", task.getTaskId())));
+            taskCanceled = true;
+        }
+        if (taskCanceled) {
+            try {
+                TimeUnit.SECONDS.sleep(5);
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
         taskNotificationExecutor.shutdownNow();
         taskManagementExecutor.shutdownNow();
     }
