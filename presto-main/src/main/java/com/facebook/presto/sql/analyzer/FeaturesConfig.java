@@ -62,6 +62,11 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isExperimentalSyntaxEnabled()
+    {
+        return experimentalSyntaxEnabled;
+    }
+
     @LegacyConfig("analyzer.experimental-syntax-enabled")
     @Config("experimental-syntax-enabled")
     public FeaturesConfig setExperimentalSyntaxEnabled(boolean enabled)
@@ -70,9 +75,9 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isExperimentalSyntaxEnabled()
+    public boolean isDistributedIndexJoinsEnabled()
     {
-        return experimentalSyntaxEnabled;
+        return distributedIndexJoinsEnabled;
     }
 
     @Config("distributed-index-joins-enabled")
@@ -82,9 +87,9 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isDistributedIndexJoinsEnabled()
+    public boolean isDistributedJoinsEnabled()
     {
-        return distributedIndexJoinsEnabled;
+        return distributedJoinsEnabled;
     }
 
     @Config("distributed-joins-enabled")
@@ -104,11 +109,6 @@ public class FeaturesConfig
     {
         this.redistributeWrites = redistributeWrites;
         return this;
-    }
-
-    public boolean isDistributedJoinsEnabled()
-    {
-        return distributedJoinsEnabled;
     }
 
     public boolean isOptimizeMetadataQueries()
