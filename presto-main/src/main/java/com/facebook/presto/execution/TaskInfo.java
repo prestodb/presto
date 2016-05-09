@@ -120,4 +120,9 @@ public class TaskInfo
                 taskStats,
                 true);
     }
+
+    public TaskInfo withTaskStatus(TaskStatus taskStatus)
+    {
+        return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats, needsPlan);
+    }
 }

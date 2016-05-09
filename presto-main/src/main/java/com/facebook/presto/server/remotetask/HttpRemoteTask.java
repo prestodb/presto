@@ -540,7 +540,7 @@ public final class HttpRemoteTask
         }
 
         taskStatusFetcher.stop();
-        taskInfoFetcher.taskStatusDone();
+        taskInfoFetcher.taskStatusDone(getTaskStatus());
     }
 
     @Override
