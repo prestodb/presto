@@ -31,6 +31,7 @@ This chapter describes the SQL syntax used in Presto.
     sql/show-schemas
     sql/show-session
     sql/show-tables
+    sql/source
     sql/start-transaction
     sql/use
     sql/values

@@ -194,7 +194,8 @@ public class Console
                         command = command.substring(0, command.length() - 1).trim();
                     }
 
-                    switch (command.toLowerCase(ENGLISH)) {
+                    command = command.toLowerCase(ENGLISH);
+                    switch (command) {
                         case "exit":
                         case "quit":
                             return;
@@ -207,6 +208,13 @@ public class Console
                             System.out.println();
                             System.out.println(getHelpText());
                             continue;
+                    }
+
+                    if (command.startsWith("source ")) {
+                        String path = command.split(" ")[1];
+                        String sql = Files.toString(new File(path), UTF_8);
+                        executeCompleteStatements(sql, queryRunner, session, tableNameCompleter, reader);
+                        continue;
                     }
                 }
 

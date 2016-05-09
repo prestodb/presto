@@ -22,6 +22,7 @@ public final class Help
         return "" +
                 "Supported commands:\n" +
                 "QUIT\n" +
+                "SOURCE <file-path>\n" +
                 "EXPLAIN [ ( option [, ...] ) ] <query>\n" +
                 "    options: FORMAT { TEXT | GRAPHVIZ }\n" +
                 "             TYPE { LOGICAL | DISTRIBUTED }\n" +
