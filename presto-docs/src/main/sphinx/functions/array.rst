@@ -77,19 +77,19 @@ Array Functions
 
     Flattens an ``array(array(T))`` to an ``array(T)`` by concatenating the contained arrays.
 
-.. function:: sequence(start bigint, stop bigint) -> array<bigint>
+.. function:: sequence(start, stop) -> array<bigint>
 
-    Generate a sequence of integers from ``start`` to ``stop``, incrementing by 1 if ``start <= stop`` and -1 if
-    ``start > stop``.
+    Generate a sequence of integers from ``start`` to ``stop``, incrementing
+    by ``1`` if ``start`` is less than or equal to ``stop``, otherwise ``-1``.
 
-.. function:: sequence(start bigint, stop bigint, step bigint) -> array<bigint>
+.. function:: sequence(start, stop, step) -> array<bigint>
 
-    Generate a sequence of integers from ``start`` to ``stop`` incrementing by ``step``.
+    Generate a sequence of integers from ``start`` to ``stop``, incrementing by ``step``.
 
-.. function:: sequence(start timestamp, stop timestamp, step interval) -> array<timestamp>
+.. function:: sequence(start, stop, step) -> array<timestamp>
 
-    Generate a sequence of timestamps from ``start`` to ``stop`` incrementing by ``step``. The type of the ``step``
-    parameter can be either ``INTERVAL DAY TO SECOND`` or ``INTERVAL YEAR TO MONTH``.
+    Generate a sequence of timestamps from ``start`` to ``stop``, incrementing by ``step``.
+    The type of ``step`` can be either ``INTERVAL DAY TO SECOND`` or ``INTERVAL YEAR TO MONTH``.
 
 .. function:: slice(x, start, length) -> array
 
