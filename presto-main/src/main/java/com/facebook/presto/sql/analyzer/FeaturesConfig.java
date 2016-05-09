@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.LegacyConfig;
 
 import javax.validation.constraints.NotNull;
@@ -24,6 +25,7 @@ public class FeaturesConfig
     private boolean experimentalSyntaxEnabled;
     private boolean distributedIndexJoinsEnabled;
     private boolean distributedJoinsEnabled = true;
+    private boolean colocatedJoinsEnabled;
     private boolean redistributeWrites = true;
     private boolean optimizeMetadataQueries;
     private boolean optimizeHashGeneration = true;
@@ -96,6 +98,19 @@ public class FeaturesConfig
     public FeaturesConfig setDistributedJoinsEnabled(boolean distributedJoinsEnabled)
     {
         this.distributedJoinsEnabled = distributedJoinsEnabled;
+        return this;
+    }
+
+    public boolean isColocatedJoinsEnabled()
+    {
+        return colocatedJoinsEnabled;
+    }
+
+    @Config("colocated-joins-enabled")
+    @ConfigDescription("Experimental: Use a colocated join when possible")
+    public FeaturesConfig setColocatedJoinsEnabled(boolean colocatedJoinsEnabled)
+    {
+        this.colocatedJoinsEnabled = colocatedJoinsEnabled;
         return this;
     }
 
