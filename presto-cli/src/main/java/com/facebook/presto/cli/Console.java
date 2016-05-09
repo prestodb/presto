@@ -215,29 +215,9 @@ public class Console
 
                 // execute any complete statements
                 String sql = buffer.toString();
-                StatementSplitter splitter = new StatementSplitter(sql, ImmutableSet.of(";", "\\G"));
-                for (Statement split : splitter.getCompleteStatements()) {
-                    Optional<Object> statement = getParsedStatement(split.statement());
-                    if (statement.isPresent() && isSessionParameterChange(statement.get())) {
-                        Map<String, String> properties = queryRunner.getSession().getProperties();
-                        session = processSessionParameterChange(statement.get(), session, properties);
-                        queryRunner.setSession(session);
-                        tableNameCompleter.populateCache();
-                    }
-                    else {
-                        OutputFormat outputFormat = OutputFormat.ALIGNED;
-                        if (split.terminator().equals("\\G")) {
-                            outputFormat = OutputFormat.VERTICAL;
-                        }
-
-                        process(queryRunner, split.statement(), outputFormat, true);
-                    }
-                    reader.getHistory().add(squeezeStatement(split.statement()) + split.terminator());
-                }
-
+                String partial = executeCompleteStatements(sql, queryRunner, session, tableNameCompleter, reader);
                 // replace buffer with trailing partial statement
                 buffer = new StringBuilder();
-                String partial = splitter.getPartialStatement();
                 if (!partial.isEmpty()) {
                     buffer.append(partial).append('\n');
                 }
@@ -246,6 +226,35 @@ public class Console
         catch (IOException e) {
             System.err.println("Readline error: " + e.getMessage());
         }
+    }
+
+    /**
+     * Executes complete statements in {@code sql}
+     *
+     * @return partial statement or empty {@code String}
+     */
+    private static String executeCompleteStatements(String sql, QueryRunner queryRunner, ClientSession session, TableNameCompleter tableNameCompleter, LineReader reader)
+    {
+        StatementSplitter splitter = new StatementSplitter(sql, ImmutableSet.of(";", "\\G"));
+        for (Statement split : splitter.getCompleteStatements()) {
+            Optional<Object> statement = getParsedStatement(split.statement());
+            if (statement.isPresent() && isSessionParameterChange(statement.get())) {
+                Map<String, String> properties = queryRunner.getSession().getProperties();
+                session = processSessionParameterChange(statement.get(), session, properties);
+                queryRunner.setSession(session);
+                tableNameCompleter.populateCache();
+            }
+            else {
+                OutputFormat outputFormat = OutputFormat.ALIGNED;
+                if (split.terminator().equals("\\G")) {
+                    outputFormat = OutputFormat.VERTICAL;
+                }
+
+                process(queryRunner, split.statement(), outputFormat, true);
+            }
+            reader.getHistory().add(squeezeStatement(split.statement()) + split.terminator());
+        }
+        return splitter.getPartialStatement();
     }
 
     private static Optional<Object> getParsedStatement(String statement)
