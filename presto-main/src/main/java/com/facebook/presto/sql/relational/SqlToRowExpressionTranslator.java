@@ -53,6 +53,7 @@ import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
@@ -97,6 +98,7 @@ import static com.facebook.presto.sql.relational.Signatures.likePatternSignature
 import static com.facebook.presto.sql.relational.Signatures.likeSignature;
 import static com.facebook.presto.sql.relational.Signatures.logicalExpressionSignature;
 import static com.facebook.presto.sql.relational.Signatures.nullIfSignature;
+import static com.facebook.presto.sql.relational.Signatures.rowConstructorSignature;
 import static com.facebook.presto.sql.relational.Signatures.subscriptSignature;
 import static com.facebook.presto.sql.relational.Signatures.switchSignature;
 import static com.facebook.presto.sql.relational.Signatures.tryCastSignature;
@@ -618,6 +620,19 @@ public final class SqlToRowExpressionTranslator
                     .map(RowExpression::getType)
                     .collect(toImmutableList());
             return call(arrayConstructorSignature(types.get(node), argumentTypes), types.get(node), arguments);
+        }
+
+        @Override
+        protected RowExpression visitRow(Row node, Void context)
+        {
+            List<RowExpression> arguments = node.getItems().stream()
+                    .map(value -> process(value, context))
+                    .collect(toImmutableList());
+            Type returnType = types.get(node);
+            List<Type> argumentTypes = node.getItems().stream()
+                    .map(value -> types.get(value))
+                    .collect(toImmutableList());
+            return call(rowConstructorSignature(returnType, argumentTypes), returnType, arguments);
         }
     }
 }
