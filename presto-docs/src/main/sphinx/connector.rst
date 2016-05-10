@@ -14,10 +14,10 @@ from different data sources.
     connector/jmx
     connector/kafka
     connector/kafka-tutorial
+    connector/localfile
     connector/mongodb
     connector/mysql
     connector/postgresql
     connector/redis
     connector/system
     connector/tpch
-    connector/localfile
