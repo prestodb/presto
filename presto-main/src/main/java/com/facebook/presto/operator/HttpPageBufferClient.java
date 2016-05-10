@@ -240,7 +240,7 @@ public final class HttpPageBufferClient
             lastUpdate = DateTime.now();
         }
 
-        if (future != null) {
+        if (future != null && !future.isDone()) {
             future.cancel(true);
         }
 
