@@ -69,7 +69,6 @@ import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.GroupingElement;
-import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Join;
@@ -1287,6 +1286,8 @@ class StatementAnalyzer
                 ExpressionAnalysis rightExpressionAnalysis = analyzeExpression(rightExpression, right, context);
                 checkState(leftExpressionAnalysis.getSubqueryInPredicates().isEmpty(), "INVARIANT");
                 checkState(rightExpressionAnalysis.getSubqueryInPredicates().isEmpty(), "INVARIANT");
+                checkState(leftExpressionAnalysis.getScalarSubqueries().isEmpty(), "INVARIANT");
+                checkState(rightExpressionAnalysis.getScalarSubqueries().isEmpty(), "INVARIANT");
 
                 addCoercionForJoinCriteria(node, leftExpression, rightExpression);
                 expressions.add(new ComparisonExpression(EQUAL, leftExpression, rightExpression));
@@ -1331,8 +1332,8 @@ class StatementAnalyzer
             analysis.addCoercions(analyzer.getExpressionCoercions(), analyzer.getTypeOnlyCoercions());
 
             Set<Expression> postJoinConjuncts = new HashSet<>();
-            final Set<InPredicate> leftJoinInPredicates = new HashSet<>();
-            final Set<InPredicate> rightJoinInPredicates = new HashSet<>();
+            final Set<Expression> leftExpressions = new HashSet<>();
+            final Set<Expression> rightExpressions = new HashSet<>();
 
             for (Expression conjunct : ExpressionUtils.extractConjuncts((Expression) optimizedExpression)) {
                 conjunct = ExpressionUtils.normalize(conjunct);
@@ -1358,8 +1359,10 @@ class StatementAnalyzer
                     if (rightExpression != null) {
                         ExpressionAnalysis leftExpressionAnalysis = analyzeExpression(leftExpression, left, context);
                         ExpressionAnalysis rightExpressionAnalysis = analyzeExpression(rightExpression, right, context);
-                        leftJoinInPredicates.addAll(leftExpressionAnalysis.getSubqueryInPredicates());
-                        rightJoinInPredicates.addAll(rightExpressionAnalysis.getSubqueryInPredicates());
+                        leftExpressions.add(leftExpression);
+                        rightExpressions.add(rightExpression);
+                        analysis.recordSubqueries(node, leftExpressionAnalysis);
+                        analysis.recordSubqueries(node, rightExpressionAnalysis);
                         addCoercionForJoinCriteria(node, leftExpression, rightExpression);
                     }
                     else {
@@ -1374,9 +1377,8 @@ class StatementAnalyzer
                     postJoinConjuncts.add(conjunct);
                 }
             }
-            ExpressionAnalysis postJoinPredicatesConjunctsAnalysis = analyzeExpression(ExpressionUtils.combineConjuncts(postJoinConjuncts), output, context);
-            analysis.recordSubqueries(node, postJoinPredicatesConjunctsAnalysis);
-            analysis.addJoinInPredicates(node, new Analysis.JoinInPredicates(leftJoinInPredicates, rightJoinInPredicates));
+            Expression postJoinPredicate = ExpressionUtils.combineConjuncts(postJoinConjuncts);
+            analysis.recordSubqueries(node, analyzeExpression(postJoinPredicate, output, context));
             analysis.setJoinCriteria(node, (Expression) optimizedExpression);
         }
         else {

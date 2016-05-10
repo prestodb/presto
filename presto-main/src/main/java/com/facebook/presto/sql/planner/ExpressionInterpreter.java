@@ -69,6 +69,7 @@ import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
@@ -627,6 +628,15 @@ public class ExpressionInterpreter
                 return null;
             }
             return false;
+        }
+
+        @Override
+        protected Object visitSubqueryExpression(SubqueryExpression node, Object context)
+        {
+            if (!optimize) {
+                throw new UnsupportedOperationException("Subquery not yet implemented");
+            }
+            return node;
         }
 
         @Override

@@ -34,7 +34,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 
 import javax.annotation.concurrent.Immutable;
@@ -42,7 +41,6 @@ import javax.annotation.concurrent.Immutable;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -72,7 +70,6 @@ public class Analysis
     private final IdentityHashMap<Join, Expression> joins = new IdentityHashMap<>();
     private final ListMultimap<Node, InPredicate> inPredicatesSubqueries = ArrayListMultimap.create();
     private final ListMultimap<Node, SubqueryExpression> scalarSubqueries = ArrayListMultimap.create();
-    private final IdentityHashMap<Join, JoinInPredicates> joinInPredicates = new IdentityHashMap<>();
 
     private final IdentityHashMap<Table, TableHandle> tables = new IdentityHashMap<>();
 
@@ -276,16 +273,6 @@ public class Analysis
         return ImmutableList.of();
     }
 
-    public void addJoinInPredicates(Join node, JoinInPredicates joinInPredicates)
-    {
-        this.joinInPredicates.put(node, joinInPredicates);
-    }
-
-    public JoinInPredicates getJoinInPredicates(Join node)
-    {
-        return joinInPredicates.get(node);
-    }
-
     public void setWindowFunctions(QuerySpecification node, List<FunctionCall> functions)
     {
         windowFunctions.put(node, functions);
@@ -433,48 +420,6 @@ public class Analysis
     {
         Preconditions.checkState(sampleRatios.containsKey(relation), "Sample ratio missing for %s. Broken analysis?", relation);
         return sampleRatios.get(relation);
-    }
-
-    public static class JoinInPredicates
-    {
-        private final Set<InPredicate> leftInPredicates;
-        private final Set<InPredicate> rightInPredicates;
-
-        public JoinInPredicates(Set<InPredicate> leftInPredicates, Set<InPredicate> rightInPredicates)
-        {
-            this.leftInPredicates = ImmutableSet.copyOf(requireNonNull(leftInPredicates, "leftInPredicates is null"));
-            this.rightInPredicates = ImmutableSet.copyOf(requireNonNull(rightInPredicates, "rightInPredicates is null"));
-        }
-
-        public Set<InPredicate> getLeftInPredicates()
-        {
-            return leftInPredicates;
-        }
-
-        public Set<InPredicate> getRightInPredicates()
-        {
-            return rightInPredicates;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(leftInPredicates, rightInPredicates);
-        }
-
-        @Override
-        public boolean equals(Object obj)
-        {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null || getClass() != obj.getClass()) {
-                return false;
-            }
-            final JoinInPredicates other = (JoinInPredicates) obj;
-            return Objects.equals(this.leftInPredicates, other.leftInPredicates) &&
-                    Objects.equals(this.rightInPredicates, other.rightInPredicates);
-        }
     }
 
     @Immutable

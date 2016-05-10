@@ -74,6 +74,11 @@ class PlanBuilder
         return root;
     }
 
+    public boolean canTranslate(Expression expression)
+    {
+        return translations.containsSymbol(expression);
+    }
+
     public Symbol translate(Expression expression)
     {
         return translations.get(expression);
