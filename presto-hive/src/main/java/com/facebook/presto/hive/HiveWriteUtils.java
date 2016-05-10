@@ -348,11 +348,13 @@ public final class HiveWriteUtils
         }
 
         Path databasePath = new Path(location);
-        if (!pathExists(user, hdfsEnvironment, databasePath)) {
-            throw new PrestoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location does not exist: %s", schemaName, databasePath));
-        }
-        if (!isDirectory(user, hdfsEnvironment, databasePath)) {
-            throw new PrestoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not a directory: %s", schemaName, databasePath));
+        if (!isS3FileSystem(user, hdfsEnvironment, databasePath)) {
+            if (!pathExists(user, hdfsEnvironment, databasePath)) {
+                throw new PrestoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location does not exist: %s", schemaName, databasePath));
+            }
+            if (!isDirectory(user, hdfsEnvironment, databasePath)) {
+                throw new PrestoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not a directory: %s", schemaName, databasePath));
+            }
         }
 
         return new Path(databasePath, tableName);
@@ -367,6 +369,16 @@ public final class HiveWriteUtils
     {
         try {
             return hdfsEnvironment.getFileSystem(user, path).exists(path);
+        }
+        catch (IOException e) {
+            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
+        }
+    }
+
+    public static boolean isS3FileSystem(String user, HdfsEnvironment hdfsEnvironment, Path path)
+    {
+        try {
+            return hdfsEnvironment.getFileSystem(user, path) instanceof PrestoS3FileSystem;
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
