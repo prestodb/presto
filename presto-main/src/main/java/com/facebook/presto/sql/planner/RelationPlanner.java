@@ -77,7 +77,6 @@ import com.google.common.collect.UnmodifiableIterator;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -280,8 +279,8 @@ class RelationPlanner
             }
 
             // Add projections for join criteria
-            leftPlanBuilder = appendProjections(leftPlanBuilder, leftComparisonExpressions);
-            rightPlanBuilder = appendProjections(rightPlanBuilder, rightComparisonExpressions);
+            leftPlanBuilder = leftPlanBuilder.appendProjections(leftComparisonExpressions, symbolAllocator, idAllocator);
+            rightPlanBuilder = rightPlanBuilder.appendProjections(rightComparisonExpressions, symbolAllocator, idAllocator);
 
             for (int i = 0; i < leftComparisonExpressions.size(); i++) {
                 Symbol leftSymbol = leftPlanBuilder.translate(leftComparisonExpressions.get(i));
@@ -367,7 +366,7 @@ class RelationPlanner
 
         // Add a projection for all the unnest arguments
         PlanBuilder planBuilder = initializePlanBuilder(leftPlan);
-        planBuilder = appendProjections(planBuilder, node.getExpressions());
+        planBuilder = planBuilder.appendProjections(node.getExpressions(), symbolAllocator, idAllocator);
         TranslationMap translations = planBuilder.getTranslations();
         ProjectNode projectNode = checkType(planBuilder.getRoot(), ProjectNode.class, "planBuilder.getRoot()");
 
@@ -649,35 +648,6 @@ class RelationPlanner
         return new PlanBuilder(translations, relationPlan.getRoot(), relationPlan.getSampleWeight());
     }
 
-    private PlanBuilder appendProjections(PlanBuilder subPlan, Iterable<Expression> expressions)
-    {
-        TranslationMap translations = subPlan.copyTranslations();
-
-        ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
-
-        // add an identity projection for underlying plan
-        for (Symbol symbol : subPlan.getRoot().getOutputSymbols()) {
-            Expression expression = new QualifiedNameReference(symbol.toQualifiedName());
-            projections.put(symbol, expression);
-        }
-
-        ImmutableMap.Builder<Symbol, Expression> newTranslations = ImmutableMap.builder();
-        for (Expression expression : expressions) {
-            Symbol symbol = symbolAllocator.newSymbol(expression, analysis.getTypeWithCoercions(expression));
-
-            // TODO: CHECK IF THE REWRITE OF A SEMI JOINED EXPRESSION WILL WORK!!!!!!!
-
-            projections.put(symbol, translations.rewrite(expression));
-            newTranslations.put(symbol, expression);
-        }
-        // Now append the new translations into the TranslationMap
-        for (Map.Entry<Symbol, Expression> entry : newTranslations.build().entrySet()) {
-            translations.put(entry.getValue(), entry.getKey());
-        }
-
-        return new PlanBuilder(translations, new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), projections.build()), subPlan.getSampleWeight());
-    }
-
     private PlanBuilder appendInPredicateApplyNodes(PlanBuilder subPlan, Iterable<InPredicate> inPredicates)
     {
         for (InPredicate inPredicate : inPredicates) {
@@ -693,7 +663,7 @@ class RelationPlanner
         RelationPlanner relationPlanner = new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session);
         PlanNode valueListRelation = relationPlanner.process(subqueryExpression.getQuery(), null).getRoot();
 
-        subPlan = appendProjections(subPlan, ImmutableList.of(inPredicate.getValue()));
+        subPlan = subPlan.appendProjections(ImmutableList.of(inPredicate.getValue()), symbolAllocator, idAllocator);
 
         TranslationMap translations = subPlan.copyTranslations();
         QualifiedNameReference valueList = Iterables.getOnlyElement(valueListRelation.getOutputSymbols()).toQualifiedNameReference();

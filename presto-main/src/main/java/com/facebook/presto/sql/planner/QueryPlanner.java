@@ -524,7 +524,7 @@ class QueryPlanner
                 inputs.add(frameEnd);
             }
 
-            subPlan = appendProjections(subPlan, inputs.build());
+            subPlan = subPlan.appendProjections(inputs.build(), symbolAllocator, idAllocator);
 
             // Rewrite PARTITION BY in terms of pre-projected inputs
             ImmutableList.Builder<Symbol> partitionBySymbols = ImmutableList.builder();
@@ -600,33 +600,6 @@ class QueryPlanner
         return subPlan;
     }
 
-    private PlanBuilder appendProjections(PlanBuilder subPlan, Iterable<Expression> expressions)
-    {
-        TranslationMap translations = subPlan.copyTranslations();
-
-        ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
-
-        // add an identity projection for underlying plan
-        for (Symbol symbol : subPlan.getRoot().getOutputSymbols()) {
-            Expression expression = new QualifiedNameReference(symbol.toQualifiedName());
-            projections.put(symbol, expression);
-        }
-
-        ImmutableMap.Builder<Symbol, Expression> newTranslations = ImmutableMap.builder();
-        for (Expression expression : expressions) {
-            Symbol symbol = symbolAllocator.newSymbol(expression, analysis.getTypeWithCoercions(expression));
-
-            projections.put(symbol, translations.rewrite(expression));
-            newTranslations.put(symbol, expression);
-        }
-        // Now append the new translations into the TranslationMap
-        for (Map.Entry<Symbol, Expression> entry : newTranslations.build().entrySet()) {
-            translations.put(entry.getValue(), entry.getKey());
-        }
-
-        return new PlanBuilder(translations, new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), projections.build()), subPlan.getSampleWeight());
-    }
-
     private PlanBuilder handleSubqueries(PlanBuilder subPlan, Node node, Iterable<Expression> inputs)
     {
         for (Expression input : inputs) {
@@ -663,7 +636,7 @@ class QueryPlanner
 
     private PlanBuilder appendInPredicateApplyNode(PlanBuilder subPlan, InPredicate inPredicate)
     {
-        subPlan = appendProjections(subPlan, ImmutableList.of(inPredicate.getValue()));
+        subPlan = subPlan.appendProjections(ImmutableList.of(inPredicate.getValue()), symbolAllocator, idAllocator);
 
         checkState(inPredicate.getValueList() instanceof SubqueryExpression);
         RelationPlan valueListRelation = createRelationPlan((SubqueryExpression) inPredicate.getValueList());
