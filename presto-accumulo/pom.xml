@@ -89,13 +89,6 @@
                 </configuration>
             </plugin>
             <plugin>
-                <groupId>com.mycila</groupId>
-                <artifactId>license-maven-plugin</artifactId>
-                <configuration>
-                    <header>${project.basedir}/src/license/LICENSE-HEADER.txt</header>
-                </configuration>
-            </plugin>
-            <plugin>
                 <groupId>com.ning.maven.plugins</groupId>
                 <artifactId>maven-duplicate-finder-plugin</artifactId>
                 <configuration>
