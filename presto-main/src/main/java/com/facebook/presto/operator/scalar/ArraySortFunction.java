@@ -14,12 +14,13 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.operator.Description;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.SqlType;
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
 import java.lang.invoke.MethodHandle;
@@ -33,21 +34,32 @@ import static com.facebook.presto.metadata.OperatorType.LESS_THAN;
 @Description("Sorts the given array in ascending order according to the natural ordering of its elements.")
 public final class ArraySortFunction
 {
-    private ArraySortFunction() {}
+    private final PageBuilder pageBuilder;
+    private static final int INITIAL_LENGTH = 128;
+    private List<Integer> positions = Ints.asList(new int[INITIAL_LENGTH]);
+
+    @TypeParameter("E")
+    public ArraySortFunction(@TypeParameter("E") Type elementType)
+    {
+        pageBuilder = new PageBuilder(ImmutableList.of(elementType));
+    }
 
     @TypeParameter("E")
     @SqlType("array(E)")
-    public static Block sort(
+    public Block sort(
             @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle lessThanFunction,
             @TypeParameter("E") Type type,
             @SqlType("array(E)") Block block)
     {
-        List<Integer> positions = Ints.asList(new int[block.getPositionCount()]);
-        for (int i = 0; i < block.getPositionCount(); i++) {
+        int arrayLength = block.getPositionCount();
+        if (positions.size() < arrayLength) {
+            positions = Ints.asList(new int[arrayLength]);
+        }
+        for (int i = 0; i < arrayLength; i++) {
             positions.set(i, i);
         }
 
-        Collections.sort(positions, new Comparator<Integer>()
+        Collections.sort(positions.subList(0, arrayLength), new Comparator<Integer>()
         {
             @Override
             public int compare(Integer p1, Integer p2)
@@ -57,12 +69,17 @@ public final class ArraySortFunction
             }
         });
 
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount());
-
-        for (int position : positions) {
-            type.appendTo(block, position, blockBuilder);
+        if (pageBuilder.isFull()) {
+            pageBuilder.reset();
         }
 
-        return blockBuilder.build();
+        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
+
+        for (int i = 0; i < arrayLength; i++) {
+            type.appendTo(block, positions.get(i), blockBuilder);
+        }
+        pageBuilder.declarePositions(arrayLength);
+
+        return blockBuilder.getRegion(blockBuilder.getPositionCount() - arrayLength, arrayLength);
     }
 }
