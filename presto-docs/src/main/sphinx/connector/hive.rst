@@ -80,8 +80,9 @@ However there are still a few limitations:
 * Kerberos authentication by ticket cache is not yet supported.
 
 The properties that apply to Hive connector security are listed in the
-`Configuration Properties`_ table. Please see the :doc:`/security/hive` section
-for a more detailed discussion of the security options in the Hive connector.
+`Configuration Properties`_ table. Please see the
+:doc:`/connector/hive-security` section for a more detailed discussion of the
+security options in the Hive connector.
 
 Configuration Properties
 ------------------------
@@ -137,7 +138,7 @@ Property Name                                      Description                  
 ``hive.hdfs.authentication.type``                  HDFS authentication type.                                    ``NONE``
                                                    Possible values are ``NONE`` or ``KERBEROS``.
 
-``hive.hdfs.impersonation.enabled``                Enable HDFS calls impersonation.                             ``false``
+``hive.hdfs.impersonation.enabled``                Enable HDFS end user impersonation.                          ``false``
 
 ``hive.hdfs.presto.principal``                     The Kerberos principal that Presto will use when connecting
                                                    to HDFS.
