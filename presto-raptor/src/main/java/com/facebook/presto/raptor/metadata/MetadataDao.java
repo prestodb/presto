@@ -114,11 +114,13 @@ public interface MetadataDao
     @SqlUpdate("INSERT INTO tables (\n" +
             "  schema_name, table_name, compaction_enabled, organization_enabled, distribution_id,\n" +
             "  create_time, update_time, table_version,\n" +
-            "  shard_count, row_count, compressed_size, uncompressed_size)\n" +
+            "  shard_count, row_count, compressed_size, uncompressed_size," +
+            "  materialized_query_table_info)\n" +
             "VALUES (\n" +
             "  :schemaName, :tableName, :compactionEnabled, :organizationEnabled, :distributionId,\n" +
             "  :createTime, :createTime, 0,\n" +
-            "  0, 0, 0, 0)\n")
+            "  0, 0, 0, 0," +
+            "  :materializedQueryTableInfo)\n")
     @GetGeneratedKeys
     long insertTable(
             @Bind("schemaName") String schemaName,
@@ -126,7 +128,8 @@ public interface MetadataDao
             @Bind("compactionEnabled") boolean compactionEnabled,
             @Bind("organizationEnabled") boolean organizationEnabled,
             @Bind("distributionId") Long distributionId,
-            @Bind("createTime") long createTime);
+            @Bind("createTime") long createTime,
+            @Bind("materializedQueryTableInfo") String materializedQueryTableInfo);
 
     @SqlUpdate("UPDATE tables SET\n" +
             "  update_time = :updateTime\n" +
@@ -214,6 +217,9 @@ public interface MetadataDao
 
     @SqlQuery("SELECT compaction_enabled FROM tables WHERE table_id = :tableId")
     boolean isCompactionEnabled(@Bind("tableId") long tableId);
+
+    @SqlQuery("SELECT materialized_query_table_info FROM tables WHERE table_id = :tableId")
+    String getMaterializedQueryTableInfo(@Bind("tableId") long tableId);
 
     @SqlQuery("SELECT table_id FROM tables WHERE table_id = :tableId FOR UPDATE")
     Long getLockedTableId(@Bind("tableId") long tableId);

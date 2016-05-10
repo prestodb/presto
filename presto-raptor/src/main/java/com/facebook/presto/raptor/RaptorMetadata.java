@@ -37,6 +37,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.MaterializedQueryTableInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
@@ -127,6 +128,7 @@ public class RaptorMetadata
     private final ShardManager shardManager;
     private final JsonCodec<ShardInfo> shardInfoCodec;
     private final JsonCodec<ShardDelta> shardDeltaCodec;
+    private final JsonCodec<MaterializedQueryTableInfo> materializedQueryTableInfoJsonCodec;
     private final String connectorId;
 
     private final AtomicReference<Long> currentTransactionId = new AtomicReference<>();
@@ -136,7 +138,8 @@ public class RaptorMetadata
             IDBI dbi,
             ShardManager shardManager,
             JsonCodec<ShardInfo> shardInfoCodec,
-            JsonCodec<ShardDelta> shardDeltaCodec)
+            JsonCodec<ShardDelta> shardDeltaCodec,
+            JsonCodec<MaterializedQueryTableInfo> materializedQueryTableInfoJsonCodec)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.dbi = requireNonNull(dbi, "dbi is null");
@@ -144,6 +147,7 @@ public class RaptorMetadata
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
         this.shardInfoCodec = requireNonNull(shardInfoCodec, "shardInfoCodec is null");
         this.shardDeltaCodec = requireNonNull(shardDeltaCodec, "shardDeltaCodec is null");
+        this.materializedQueryTableInfoJsonCodec = requireNonNull(materializedQueryTableInfoJsonCodec, "materializedQueryTableInfoJsonCodec is null");
     }
 
     @Override
@@ -227,7 +231,10 @@ public class RaptorMetadata
 
         columns.add(hiddenColumn(SHARD_UUID_COLUMN_NAME, SHARD_UUID_COLUMN_TYPE));
         columns.add(hiddenColumn(BUCKET_NUMBER_COLUMN_NAME, INTEGER));
-        return new ConnectorTableMetadata(tableName, columns, properties.build());
+
+        Optional<MaterializedQueryTableInfo> materializedQueryTableInfo = Optional.ofNullable(dao.getMaterializedQueryTableInfo(handle.getTableId()))
+                .map(info -> materializedQueryTableInfoJsonCodec.fromJson(info));
+        return new ConnectorTableMetadata(tableName, columns, properties.build(), false, materializedQueryTableInfo);
     }
 
     @Override
@@ -534,6 +541,7 @@ public class RaptorMetadata
                 transactionId,
                 tableMetadata.getTable().getSchemaName(),
                 tableMetadata.getTable().getTableName(),
+                tableMetadata.getMaterializedQueryTableInfo(),
                 columnHandles.build(),
                 columnTypes.build(),
                 Optional.ofNullable(sampleWeightColumnHandle),
@@ -604,7 +612,9 @@ public class RaptorMetadata
 
             Long distributionId = table.getDistributionId().isPresent() ? table.getDistributionId().getAsLong() : null;
             // TODO: update default value of organization_enabled to true
-            long tableId = dao.insertTable(table.getSchemaName(), table.getTableName(), true, false, distributionId, updateTime);
+            String materializedQueryInfo = table.getMaterializedQueryTableInfo().isPresent() ?
+                    materializedQueryTableInfoJsonCodec.toJson(table.getMaterializedQueryTableInfo().get()) : null;
+            long tableId = dao.insertTable(table.getSchemaName(), table.getTableName(), true, false, distributionId, updateTime, materializedQueryInfo);
 
             List<RaptorColumnHandle> sortColumnHandles = table.getSortColumnHandles();
             List<RaptorColumnHandle> bucketColumnHandles = table.getBucketColumnHandles();

@@ -82,11 +82,11 @@ public class TestShardOrganizationManager
     public void testOrganizationEligibleTables()
             throws Exception
     {
-        long table1 = metadataDao.insertTable("schema", "table1", false, true, null, 0);
+        long table1 = metadataDao.insertTable("schema", "table1", false, true, null, 0, null);
         metadataDao.insertColumn(table1, 1, "foo", 1, "bigint", 1, null);
 
-        metadataDao.insertTable("schema", "table2", false, true, null, 0);
-        metadataDao.insertTable("schema", "table3", false, false, null, 0);
+        metadataDao.insertTable("schema", "table2", false, true, null, 0, null);
+        metadataDao.insertTable("schema", "table3", false, false, null, 0, null);
         assertEquals(metadataDao.getOrganizationEligibleTables(), ImmutableSet.of(table1));
     }
 
@@ -94,13 +94,13 @@ public class TestShardOrganizationManager
     public void testTableDiscovery()
             throws Exception
     {
-        long table1 = metadataDao.insertTable("schema", "table1", false, true, null, 0);
+        long table1 = metadataDao.insertTable("schema", "table1", false, true, null, 0, null);
         metadataDao.insertColumn(table1, 1, "foo", 1, "bigint", 1, null);
 
-        long table2 = metadataDao.insertTable("schema", "table2", false, true, null, 0);
+        long table2 = metadataDao.insertTable("schema", "table2", false, true, null, 0, null);
         metadataDao.insertColumn(table2, 1, "foo", 1, "bigint", 1, null);
 
-        metadataDao.insertTable("schema", "table3", false, false, null, 0);
+        metadataDao.insertTable("schema", "table3", false, false, null, 0, null);
 
         long intervalMillis = 100;
         ShardOrganizationManager organizationManager = createShardOrganizationManager(intervalMillis);

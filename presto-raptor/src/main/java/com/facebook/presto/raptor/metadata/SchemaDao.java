@@ -41,6 +41,7 @@ public interface SchemaDao
             "  row_count BIGINT NOT NULL,\n" +
             "  compressed_size BIGINT NOT NULL,\n" +
             "  uncompressed_size BIGINT NOT NULL,\n" +
+            "  materialized_query_table_info TEXT,\n" +
             "  UNIQUE (schema_name, table_name),\n" +
             "  FOREIGN KEY (distribution_id) REFERENCES distributions (distribution_id)\n" +
             ")")
