@@ -108,7 +108,7 @@ public class QueryMonitor
                 }
             }
 
-            Optional<TaskInfo> task = findFailedTask(queryInfo.getOutputStage());
+            Optional<TaskInfo> task = queryInfo.getOutputStage().flatMap(QueryMonitor::findFailedTask);
             String failureHost = task.map(x -> x.getTaskStatus().getSelf().getHost()).orElse(null);
             String failureTask = task.map(x -> x.getTaskStatus().getTaskId().toString()).orElse(null);
 
@@ -162,10 +162,6 @@ public class QueryMonitor
 
     private static Optional<TaskInfo> findFailedTask(StageInfo stageInfo)
     {
-        if (stageInfo == null) {
-            return Optional.empty();
-        }
-
         for (StageInfo subStage : stageInfo.getSubStages()) {
             Optional<TaskInfo> task = findFailedTask(subStage);
             if (task.isPresent()) {

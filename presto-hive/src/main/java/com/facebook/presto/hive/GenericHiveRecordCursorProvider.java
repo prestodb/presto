@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
+import com.google.inject.Inject;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Writable;
@@ -26,9 +27,19 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 
+import static java.util.Objects.requireNonNull;
+
 public class GenericHiveRecordCursorProvider
         implements HiveRecordCursorProvider
 {
+    private final HdfsEnvironment hdfsEnvironment;
+
+    @Inject
+    public GenericHiveRecordCursorProvider(HdfsEnvironment hdfsEnvironment)
+    {
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+    }
+
     @Override
     public Optional<HiveRecordCursor> createHiveRecordCursor(
             String clientId,
@@ -44,7 +55,8 @@ public class GenericHiveRecordCursorProvider
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager)
     {
-        RecordReader<?, ?> recordReader = HiveUtil.createRecordReader(configuration, path, start, length, schema, columns);
+        RecordReader<?, ?> recordReader = hdfsEnvironment.doAs(session.getUser(),
+                () -> HiveUtil.createRecordReader(configuration, path, start, length, schema, columns));
 
         return Optional.<HiveRecordCursor>of(new GenericHiveRecordCursor<>(
                 genericRecordReader(recordReader),

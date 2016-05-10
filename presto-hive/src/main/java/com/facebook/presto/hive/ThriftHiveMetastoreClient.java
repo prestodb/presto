@@ -188,4 +188,11 @@ public class ThriftHiveMetastoreClient
     {
         return client.grant_privileges(privilegeBag);
     }
+
+    @Override
+    public boolean revokePrivileges(PrivilegeBag privilegeBag)
+            throws TException
+    {
+        return client.revoke_privileges(privilegeBag);
+    }
 }

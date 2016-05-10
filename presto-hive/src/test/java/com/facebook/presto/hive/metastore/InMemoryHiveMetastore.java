@@ -170,7 +170,7 @@ public class InMemoryHiveMetastore
 
         // if the name did not change, this is a simple schema change
         if (oldName.equals(newName)) {
-            if (relations.replace(oldName, newTable) != null) {
+            if (relations.replace(oldName, newTable) == null) {
                 throw new TableNotFoundException(oldName);
             }
             return;
@@ -392,6 +392,18 @@ public class InMemoryHiveMetastore
                 .collect(toImmutableSet());
 
         setTablePrivileges(grantee, USER, databaseName, tableName, hivePrivileges);
+    }
+
+    @Override
+    public void revokeTablePrivileges(String databaseName, String tableName, String grantee, Set<PrivilegeGrantInfo> privilegeGrantInfoSet)
+    {
+        Set<HivePrivilegeInfo> currentPrivileges = getTablePrivileges(grantee, databaseName, tableName);
+        currentPrivileges.removeAll(privilegeGrantInfoSet.stream()
+                .map(HivePrivilegeInfo::parsePrivilege)
+                .flatMap(Collection::stream)
+                .collect(toImmutableSet()));
+
+        setTablePrivileges(grantee, USER, databaseName, tableName, currentPrivileges);
     }
 
     private static boolean isParentDir(File directory, File baseDirectory)

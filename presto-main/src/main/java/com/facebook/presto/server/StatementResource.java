@@ -383,7 +383,7 @@ public class StatementResource
                 if (queryInfo.getState() != QueryState.FINISHED) {
                     exchangeClient.close();
                 }
-                else if (queryInfo.getOutputStage() == null) {
+                else if (!queryInfo.getOutputStage().isPresent()) {
                     // For simple executions (e.g. drop table), there will never be an output stage,
                     // so close the exchange as soon as the query is done.
                     exchangeClient.close();
@@ -443,8 +443,9 @@ public class StatementResource
                 queryInfo = queryManager.getQueryInfo(queryId);
             }
 
+            StageInfo outputStage = queryInfo.getOutputStage().orElse(null);
             // if query did not finish starting or does not have output, just return
-            if (!isQueryStarted(queryInfo) || queryInfo.getOutputStage() == null) {
+            if (!isQueryStarted(queryInfo) || outputStage == null) {
                 return null;
             }
 
@@ -452,9 +453,9 @@ public class StatementResource
                 columns = createColumnsList(queryInfo);
             }
 
-            List<Type> types = queryInfo.getOutputStage().getTypes();
+            List<Type> types = outputStage.getTypes();
 
-            updateExchangeClient(queryInfo.getOutputStage());
+            updateExchangeClient(outputStage);
 
             ImmutableList.Builder<RowIterable> pages = ImmutableList.builder();
             // wait up to max wait for data to arrive; then try to return at least DESIRED_RESULT_BYTES
@@ -538,11 +539,10 @@ public class StatementResource
         private static List<Column> createColumnsList(QueryInfo queryInfo)
         {
             requireNonNull(queryInfo, "queryInfo is null");
-            StageInfo outputStage = queryInfo.getOutputStage();
-            requireNonNull(outputStage, "outputStage is null");
+            checkArgument(queryInfo.getOutputStage().isPresent(), "outputStage is not present");
 
             List<String> names = queryInfo.getFieldNames();
-            List<Type> types = outputStage.getTypes();
+            List<Type> types = queryInfo.getOutputStage().get().getTypes();
 
             checkArgument(names.size() == types.size(), "names and types size mismatch");
 
@@ -559,11 +559,12 @@ public class StatementResource
         private static StatementStats toStatementStats(QueryInfo queryInfo)
         {
             QueryStats queryStats = queryInfo.getQueryStats();
+            StageInfo outputStage = queryInfo.getOutputStage().orElse(null);
 
             return StatementStats.builder()
                     .setState(queryInfo.getState().toString())
                     .setScheduled(queryInfo.isScheduled())
-                    .setNodes(globalUniqueNodes(queryInfo.getOutputStage()).size())
+                    .setNodes(globalUniqueNodes(outputStage).size())
                     .setTotalSplits(queryStats.getTotalDrivers())
                     .setQueuedSplits(queryStats.getQueuedDrivers())
                     .setRunningSplits(queryStats.getRunningDrivers())
@@ -573,7 +574,7 @@ public class StatementResource
                     .setWallTimeMillis(queryStats.getTotalScheduledTime().toMillis())
                     .setProcessedRows(queryStats.getRawInputPositions())
                     .setProcessedBytes(queryStats.getRawInputDataSize().toBytes())
-                    .setRootStage(toStageStats(queryInfo.getOutputStage()))
+                    .setRootStage(toStageStats(outputStage))
                     .build();
         }
 
@@ -635,13 +636,8 @@ public class StatementResource
 
         private static URI findCancelableLeafStage(QueryInfo queryInfo)
         {
-            if (queryInfo.getOutputStage() == null) {
-                // query is not running yet, cannot cancel leaf stage
-                return null;
-            }
-
-            // query is running, find the leaf-most running stage
-            return findCancelableLeafStage(queryInfo.getOutputStage());
+            // if query is running, find the leaf-most running stage
+            return queryInfo.getOutputStage().map(Query::findCancelableLeafStage).orElse(null);
         }
 
         private static URI findCancelableLeafStage(StageInfo stage)

@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.HiveWriteUtils.FieldSetter;
 import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.spi.ConnectorPageSink;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageIndexer;
 import com.facebook.presto.spi.PageIndexerFactory;
@@ -147,6 +148,8 @@ public class HivePageSink
     private final List<Int2ObjectMap<HiveRecordWriter>> bucketWriters;
     private int bucketWriterCount = 0;
 
+    private final ConnectorSession session;
+
     public HivePageSink(
             String schemaName,
             String tableName,
@@ -165,7 +168,8 @@ public class HivePageSink
             int maxOpenPartitions,
             boolean immutablePartitions,
             boolean compress,
-            JsonCodec<PartitionUpdate> partitionUpdateCodec)
+            JsonCodec<PartitionUpdate> partitionUpdateCodec,
+            ConnectorSession session)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -273,10 +277,19 @@ public class HivePageSink
             Path hdfsEnvironmentPath = locationService.writePathRoot(locationHandle).orElseGet(() -> locationService.targetPathRoot(locationHandle));
             conf = new JobConf(hdfsEnvironment.getConfiguration(hdfsEnvironmentPath));
         }
+
+        this.session = requireNonNull(session, "session is null");
     }
 
     @Override
     public Collection<Slice> finish()
+    {
+        // Must be wrapped in doAs entirely
+        // Implicit FileSystem initializations are possible in HiveRecordWriter#commit -> RecordWriter#close
+        return hdfsEnvironment.doAs(session.getUser(), this::doFinish);
+    }
+
+    private ImmutableList<Slice> doFinish()
     {
         ImmutableList.Builder<Slice> partitionUpdates = ImmutableList.builder();
         if (!bucketCount.isPresent()) {
@@ -302,6 +315,13 @@ public class HivePageSink
 
     @Override
     public void abort()
+    {
+        // Must be wrapped in doAs entirely
+        // Implicit FileSystem initializations are possible in HiveRecordWriter#rollback -> RecordWriter#close
+        hdfsEnvironment.doAs(session.getUser(), this::doAbort);
+    }
+
+    private void doAbort()
     {
         if (!bucketCount.isPresent()) {
             for (HiveRecordWriter writer : writers) {
@@ -334,6 +354,13 @@ public class HivePageSink
             throw new PrestoException(HIVE_TOO_MANY_OPEN_PARTITIONS, "Too many open partitions");
         }
 
+        // Must be wrapped in doAs entirely
+        // Implicit FileSystem initializations are possible in HiveRecordWriter#addRow or #createWriter
+        return hdfsEnvironment.doAs(session.getUser(), () -> doAppend(page, dataBlocks, partitionBlocks, indexes));
+    }
+
+    private CompletableFuture<?> doAppend(Page page, Block[] dataBlocks, Block[] partitionBlocks, int[] indexes)
+    {
         if (!bucketCount.isPresent()) {
             if (pageIndexer.getMaxIndex() >= writers.length) {
                 writers = Arrays.copyOf(writers, pageIndexer.getMaxIndex() + 1);
@@ -435,7 +462,7 @@ public class HivePageSink
                 if (partitionName.isPresent() && !target.equals(write)) {
                     // When target path is different from write path,
                     // verify that the target directory for the partition does not already exist
-                    if (HiveWriteUtils.pathExists(hdfsEnvironment, target)) {
+                    if (HiveWriteUtils.pathExists(session.getUser(), hdfsEnvironment, target)) {
                         throw new PrestoException(HIVE_PATH_ALREADY_EXISTS, format("Target directory for new partition '%s' of table '%s.%s' already exists: %s",
                                 partitionName,
                                 schemaName,

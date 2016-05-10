@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.memory.MemoryPoolId;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -30,6 +31,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -41,6 +43,8 @@ import static com.facebook.presto.execution.QueryState.PLANNING;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.QueryState.STARTING;
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -120,7 +124,7 @@ public class TestQueryStateMachine
 
         stateMachine = createQueryStateMachine();
         assertTrue(stateMachine.transitionToFailed(FAILED_CAUSE));
-        assertState(stateMachine, FAILED);
+        assertState(stateMachine, FAILED, FAILED_CAUSE);
     }
 
     @Test
@@ -151,7 +155,7 @@ public class TestQueryStateMachine
         stateMachine = createQueryStateMachine();
         stateMachine.transitionToPlanning();
         assertTrue(stateMachine.transitionToFailed(FAILED_CAUSE));
-        assertState(stateMachine, FAILED);
+        assertState(stateMachine, FAILED, FAILED_CAUSE);
     }
 
     @Test
@@ -180,7 +184,7 @@ public class TestQueryStateMachine
         stateMachine = createQueryStateMachine();
         stateMachine.transitionToStarting();
         assertTrue(stateMachine.transitionToFailed(FAILED_CAUSE));
-        assertState(stateMachine, FAILED);
+        assertState(stateMachine, FAILED, FAILED_CAUSE);
     }
 
     @Test
@@ -207,7 +211,7 @@ public class TestQueryStateMachine
         stateMachine = createQueryStateMachine();
         stateMachine.transitionToRunning();
         assertTrue(stateMachine.transitionToFailed(FAILED_CAUSE));
-        assertState(stateMachine, FAILED);
+        assertState(stateMachine, FAILED, FAILED_CAUSE);
     }
 
     @Test
@@ -225,35 +229,53 @@ public class TestQueryStateMachine
     {
         QueryStateMachine stateMachine = createQueryStateMachine();
         assertTrue(stateMachine.transitionToFailed(FAILED_CAUSE));
-        assertFinalState(stateMachine, FAILED);
+        assertFinalState(stateMachine, FAILED, FAILED_CAUSE);
+    }
+
+    @Test
+    public void testCanceled()
+    {
+        QueryStateMachine stateMachine = createQueryStateMachine();
+        assertTrue(stateMachine.transitionToCanceled());
+        assertFinalState(stateMachine, FAILED, new PrestoException(USER_CANCELED, "canceled"));
     }
 
     private static void assertFinalState(QueryStateMachine stateMachine, QueryState expectedState)
     {
+        assertFinalState(stateMachine, expectedState, null);
+    }
+
+    private static void assertFinalState(QueryStateMachine stateMachine, QueryState expectedState, Exception expectedException)
+    {
         assertTrue(expectedState.isDone());
-        assertState(stateMachine, expectedState);
+        assertState(stateMachine, expectedState, expectedException);
 
         assertFalse(stateMachine.transitionToPlanning());
-        assertState(stateMachine, expectedState);
+        assertState(stateMachine, expectedState, expectedException);
 
         assertFalse(stateMachine.transitionToStarting());
-        assertState(stateMachine, expectedState);
+        assertState(stateMachine, expectedState, expectedException);
 
         assertFalse(stateMachine.transitionToRunning());
-        assertState(stateMachine, expectedState);
+        assertState(stateMachine, expectedState, expectedException);
 
         assertFalse(stateMachine.transitionToFinishing());
-        assertState(stateMachine, expectedState);
+        assertState(stateMachine, expectedState, expectedException);
 
         assertFalse(stateMachine.transitionToFailed(FAILED_CAUSE));
-        assertState(stateMachine, expectedState);
+        assertState(stateMachine, expectedState, expectedException);
 
         // attempt to fail with another exception, which will fail
         assertFalse(stateMachine.transitionToFailed(new IOException("failure after finish")));
-        assertState(stateMachine, expectedState);
+        assertState(stateMachine, expectedState, expectedException);
     }
 
     private static void assertState(QueryStateMachine stateMachine, QueryState expectedState)
+    {
+        assertState(stateMachine, expectedState, null);
+    }
+
+    private static void assertState(QueryStateMachine stateMachine, QueryState expectedState, Exception expectedException)
     {
         assertEquals(stateMachine.getQueryId(), QUERY_ID);
         assertEqualSessions(stateMachine.getSession().withoutTransactionId(), TEST_SESSION);
@@ -261,10 +283,10 @@ public class TestQueryStateMachine
         assertEquals(stateMachine.getSetSessionProperties(), SET_SESSION_PROPERTIES);
         assertEquals(stateMachine.getResetSessionProperties(), RESET_SESSION_PROPERTIES);
 
-        QueryInfo queryInfo = stateMachine.getQueryInfo(null);
+        QueryInfo queryInfo = stateMachine.getQueryInfo(Optional.empty());
         assertEquals(queryInfo.getQueryId(), QUERY_ID);
         assertEquals(queryInfo.getSelf(), LOCATION);
-        assertNull(queryInfo.getOutputStage());
+        assertFalse(queryInfo.getOutputStage().isPresent());
         assertEquals(queryInfo.getQuery(), QUERY);
         assertEquals(queryInfo.getInputs(), INPUTS);
         assertEquals(queryInfo.getFieldNames(), OUTPUT_FIELD_NAMES);
@@ -322,8 +344,13 @@ public class TestQueryStateMachine
         if (expectedState == FAILED) {
             FailureInfo failure = queryInfo.getFailureInfo();
             assertNotNull(failure);
-            assertEquals(failure.getMessage(), FAILED_CAUSE.getMessage());
-            assertEquals(failure.getType(), FAILED_CAUSE.getClass().getName());
+            assertEquals(failure.getType(), expectedException.getClass().getName());
+            if (expectedException instanceof PrestoException) {
+                assertEquals(queryInfo.getErrorCode(), ((PrestoException) expectedException).getErrorCode());
+            }
+            else {
+                assertEquals(queryInfo.getErrorCode(), INTERNAL_ERROR.toErrorCode());
+            }
         }
         else {
             assertNull(queryInfo.getFailureInfo());

@@ -41,6 +41,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.io.Resources.getResource;
@@ -144,15 +145,20 @@ public class QueryExecutionResource
         return Response.ok(result).build();
     }
 
-    private static List<StageInfo> collectStages(StageInfo stage)
+    private static List<StageInfo> collectStages(Optional<StageInfo> stage)
     {
         ImmutableList.Builder<StageInfo> result = ImmutableList.builder();
-        result.add(stage);
-        for (StageInfo child : stage.getSubStages()) {
-            result.addAll(collectStages(child));
-        }
-
+        collectStages(stage, result);
         return result.build();
+    }
+
+    private static void collectStages(Optional<StageInfo> stageInfo, ImmutableList.Builder<StageInfo> result)
+    {
+        stageInfo.ifPresent(stage -> {
+            result.add(stage);
+            stage.getSubStages().stream()
+                    .forEach(subStage -> collectStages(Optional.ofNullable(subStage), result));
+        });
     }
 
     public static class Flow

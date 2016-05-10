@@ -39,6 +39,7 @@ import static com.teradata.tempto.process.CliProcess.trimLines;
 import static com.teradata.tempto.process.JavaProcessLauncher.defaultJavaProcessLauncher;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class PrestoCliTests
@@ -54,6 +55,38 @@ public class PrestoCliTests
     @Inject
     @Named("databases.presto.server_address")
     private String serverAddress;
+
+    @Inject(optional = true)
+    @Named("databases.presto.cli_authentication")
+    private boolean authentication;
+
+    @Inject(optional = true)
+    @Named("databases.presto.cli_kerberos_principal")
+    private String kerberosPrincipal;
+
+    @Inject(optional = true)
+    @Named("databases.presto.cli_kerberos_keytab")
+    private String kerberosKeytab;
+
+    @Inject(optional = true)
+    @Named("databases.presto.cli_kerberos_config_path")
+    private String kerberosConfigPath;
+
+    @Inject(optional = true)
+    @Named("databases.presto.cli_kerberos_service_name")
+    private String kerberosServiceName;
+
+    @Inject(optional = true)
+    @Named("databases.presto.cli_keystore")
+    private String keystorePath;
+
+    @Inject(optional = true)
+    @Named("databases.presto.cli_keystore_password")
+    private String keystorePassword;
+
+    @Inject(optional = true)
+    @Named("databases.presto.cli_kerberos_use_canonical_hostname")
+    private boolean kerberosUseCanonicalHostname;
 
     private PrestoCliProcess presto;
 
@@ -130,7 +163,33 @@ public class PrestoCliTests
     private void launchPrestoCliWithServerArgument(String... arguments)
             throws IOException, InterruptedException
     {
-        launchPrestoCli(ImmutableList.<String>builder().add("--server", serverAddress).add(arguments).build());
+        if (!authentication) {
+            launchPrestoCli(ImmutableList.<String>builder().add("--server", serverAddress).add(arguments).build());
+        }
+        else {
+            requireNonNull(kerberosPrincipal, "databases.presto.cli_kerberos_principal is null");
+            requireNonNull(kerberosKeytab, "databases.presto.cli_kerberos_keytab is null");
+            requireNonNull(kerberosServiceName, "databases.presto.cli_kerberos_service_name is null");
+            requireNonNull(kerberosConfigPath, "databases.presto.cli_kerberos_config_path is null");
+            requireNonNull(keystorePath, "databases.presto.cli_keystore is null");
+            requireNonNull(keystorePassword, "databases.presto.cli_keystore_password is null");
+
+            ImmutableList.Builder<String> prestoClientOptions = ImmutableList.builder();
+            prestoClientOptions.add(
+                    "--server", serverAddress,
+                    "--enable-authentication",
+                    "--krb5-principal", kerberosPrincipal,
+                    "--krb5-keytab-path", kerberosKeytab,
+                    "--krb5-remote-service-name", kerberosServiceName,
+                    "--krb5-config-path", kerberosConfigPath,
+                    "--keystore-path", keystorePath,
+                    "--keystore-password", keystorePassword);
+            if (!kerberosUseCanonicalHostname) {
+                prestoClientOptions.add("--krb5-disable-remote-service-hostname-canonicalization");
+            }
+            prestoClientOptions.add(arguments);
+            launchPrestoCli(prestoClientOptions.build());
+        }
     }
 
     private void launchPrestoCli(String... arguments)

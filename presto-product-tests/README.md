@@ -102,21 +102,38 @@ The Presto product tests must be run explicitly because they do not run
 as part of the Maven build like the unit tests do. Note that the product
 tests cannot be run in parallel. This means that only one instance of a
 test can be run at once in a given environment. To run all product
-tests and exclude the `quarantine` and `big_query` groups run the
-following command:
+tests and exclude the `quarantine`, `big_query` and `profile_specific_tests`
+groups run the following command:
 
 ```
 ./mvnw install -DskipTests
-presto-product-tests/bin/run_on_docker.sh <profile> -x quarantine,big_query
+presto-product-tests/bin/run_on_docker.sh <profile> -x quarantine,big_query,mysql_connector,postgresql_connector,profile_specific_tests
 ```
 
-where `<profile>` is one of either:
+where [profile](#profile) is one of either:
 - **multinode** - pseudo-distributed Hadoop installation running on a
  single Docker container and a distributed Presto installation running on
- multiple Docker containers.
+ multiple Docker containers. For multinode the default configuration is
+ 1 coordinator and 1 worker.
 - **singlenode** - pseudo-distributed Hadoop installation running on a
  single Docker container and a single node installation of Presto also running
  on a single Docker container.
+- **singlenode-hdfs-impersonation** - pseudo-distributed Hadoop installation
+ running on a single Docker container and a single node installation of Presto
+ also running on a single Docker container. Presto impersonates the user who
+ is running the query when accessing HDFS.
+- **singlenode-kerberos-hdfs-impersonation** - pseudo-distributed kerberized
+ Hadoop installation running on a single Docker container and a single node
+ installation of kerberized Presto also running on a single Docker container.
+ This profile has Kerberos impersonation. Presto impersonates the user who
+ is running the query when accessing HDFS.
+- **singlenode-kerberos-hdfs-no-impersonation** - pseudo-distributed Hadoop
+ installation running on a single Docker container and a single node
+ installation of kerberized Presto also running on a single Docker container.
+ This profile runs Kerberos without impersonation.
+
+For more information on the various ways in which Presto can be configured to
+interact with Kerberized Hive and Hadoop, please refer to the [Hive connector documentation](https://prestodb.io/docs/current/connector/hive.html).
 
 The `run_on_docker.sh` script can also run individual product tests. Presto
 product tests are either [Java based](https://github.com/prestodb/tempto#java-based-tests)
@@ -128,6 +145,42 @@ and each type can be run individually with the following commands:
 presto-product-tests/bin/run_on_docker.sh <profile> -t com.facebook.presto.tests.functions.operators.Comparison.testLessThanOrEqualOperatorExists
 # Run single convention based test
 presto-product-tests/bin/run_on_docker.sh <profile> -t sql_tests.testcases.system.selectInformationSchemaTables
+```
+
+Tests belong to a single or possibly multiple groups. Java based tests are
+tagged with groups in the `@Test` annotation and convention based tests have
+group information in the first line of their test file. Instead of running
+single tests, or all tests, users can also run one or more test groups.
+This enables users to test features in a cross functional way. To run a
+particular group, use the `-g` argument as shown:
+
+```
+# Run all tests in the string_functions and create_table groups
+presto-product-tests/bin/run_on_docker.sh <profile> -g string_functions,create_tables
+```
+
+Some groups of tests can only be run with certain profiles. For example,
+impersonation tests can only be run with profiles where
+impersonation is enabled (`singlenode-hdfs-impersonation` and
+`singlenode-kerberos-hdfs-impersonation`) and no impersonation tests can
+only be run with profiles where impersonation is disabled (`singlenode`
+and `singlenode-kerberos-hdfs-no-impersonation`). Tests that require
+a specific profile to run are called profile specific tests. In addition
+to their respective group, all such tests also belong to a parent group
+called `profile_specific_tests`. To exclude such tests from a run
+make sure to add the `profile_specific_tests` group to the list of
+excluded groups. The examples below illustrate the above concepts:
+
+```
+# Run the HDFS impersonation tests, where <profile> is one of either
+# singlenode-hdfs-impersonation or singlenode-kerberos-hdfs-impersonation
+presto-product-tests/bin/run_on_docker.sh <profile> -g hdfs_impersonation
+# Run the no HDFS impersonation tests, where <profile> is one of either
+# singlenode or singlenode-kerberos-hdfs-no-impersonation
+presto-product-tests/bin/run_on_docker.sh <profile> -g hdfs_no_impersonation
+# Run all tests excluding all profile specific tests
+presto-product-tests/bin/run_on_docker.sh <profile> -x quarantine,big_query,mysql_connector,postgresql_connector,profile_specific_tests
+where <profile> can be any one of the available profiles
 ```
 
 For running Java based tests from IntelliJ see the section on
@@ -246,8 +299,7 @@ running the debugger.
 ## Troubleshooting
 
 Use the `docker-compose` and `docker` utilities to control and troubleshoot
-containers. In the following examples `<profile>` is either `singlenode` or
-`multinode`.
+containers. In the following examples ``<profile>`` is [profile](#profile).
 
 1. Use the following command to view output from running containers:
 

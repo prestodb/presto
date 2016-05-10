@@ -22,8 +22,8 @@ import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Grant;
 import com.facebook.presto.transaction.TransactionManager;
-import com.google.common.collect.ImmutableSet;
 
+import java.util.EnumSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -61,7 +61,7 @@ public class GrantTask
         }
         else {
             // All privileges
-            privileges = ImmutableSet.copyOf(Privilege.values());
+            privileges = EnumSet.allOf(Privilege.class);
         }
 
         // verify current identity has permissions to grant permissions

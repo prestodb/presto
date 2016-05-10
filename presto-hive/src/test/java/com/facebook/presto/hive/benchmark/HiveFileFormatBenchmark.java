@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.benchmark;
 
 import com.facebook.presto.hadoop.HadoopNative;
+import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.hive.HiveSessionProperties;
@@ -58,6 +59,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.hive.HiveTestUtils.createTestHdfsEnvironment;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.airlift.testing.FileUtils.createTempDir;
 import static io.airlift.testing.FileUtils.deleteRecursively;
@@ -77,10 +79,13 @@ public class HiveFileFormatBenchmark
     }
 
     @SuppressWarnings("deprecation")
-    public static final ConnectorSession SESSION = new TestingConnectorSession(new HiveSessionProperties(
-            new HiveClientConfig()
-                    .setParquetOptimizedReaderEnabled(true))
+    public static final HiveClientConfig CONFIG = new HiveClientConfig()
+            .setParquetOptimizedReaderEnabled(true);
+
+    public static final ConnectorSession SESSION = new TestingConnectorSession(new HiveSessionProperties(CONFIG)
             .getSessionProperties());
+
+    public static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(CONFIG);
 
     @Param({
             "NONE",
@@ -184,6 +189,7 @@ public class HiveFileFormatBenchmark
         List<Page> pages = new ArrayList<>(100);
         try (ConnectorPageSource pageSource = fileFormat.createFileFormatReader(
                 SESSION,
+                HDFS_ENVIRONMENT,
                 dataFile,
                 columnNames,
                 fileFormat.supportsDate() ? columnTypes : noDateColumnTypes)) {
