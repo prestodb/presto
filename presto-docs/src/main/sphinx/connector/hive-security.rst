@@ -4,7 +4,7 @@ Hive Security Configuration
 
 The default security configuration of the :doc:`/connector/hive` does not use
 authentication when connecting to a Hadoop cluster. All queries are executed as
-the user who runs the Presto process, regardless of the user who submits the
+the user who runs the Presto process, regardless of which user who submits the
 query.
 
 The Hive connector provides additional security options to support Hadoop
@@ -50,58 +50,59 @@ configured in the connector's properties file using the following properties:
 ================================================== ============================================================ ==========
 Property Name                                      Description                                                  Default
 ================================================== ============================================================ ==========
-``hive.metastore.authentication.type``             One of ``NONE`` or ``KERBEROS``. When using the default      ``NONE``
-                                                   value of ``NONE``, Kerberos authentication is disabled and
-                                                   no other properties need to be configured.
+``hive.metastore.authentication.type``             Hive metastore authentication type.                          ``NONE``
+                                                   Possible values are ``NONE`` or ``KERBEROS``.
 
-                                                   When set to ``KERBEROS`` the Hive connector will connect to
-                                                   the Hive metastore Thrift service using SASL and
-                                                   authenticate using Kerberos.
-
-``hive.metastore.service.principal``               The Kerberos principal of the Hive metastore service. The
-                                                   Presto coordinator will use this to authenticate the Hive
-                                                   metastore.
-
-                                                   The ``_HOST`` placeholder can be used in this property
-                                                   value. When connecting to the Hive metastore, the Hive
-                                                   connector will substitute in the hostname of the
-                                                   **metastore** server it is connecting to. This is useful if
-                                                   the metastore runs on multiple hosts.
-
-                                                   Example: ``hive/hive-server-host@EXAMPLE.COM`` or
-                                                   ``hive/_HOST@EXAMPLE.COM``.
+``hive.metastore.service.principal``               The Kerberos principal of the Hive metastore service.
 
 ``hive.metastore.client.principal``                The Kerberos principal that Presto will use when connecting
-                                                   to the Hive metastore.
+                                                   to the Hive metastore service.
 
-                                                   The ``_HOST`` placeholder can be used in this property
-                                                   value. When connecting to the Hive metastore, the Hive
-                                                   connector will substitute in the hostname of the
-                                                   **worker** node Presto is running on. This is useful if each
-                                                   worker node has its own Kerberos principal.
-
-                                                   Example: ``presto/presto-server-node@EXAMPLE.COM`` or
-                                                   ``presto/_HOST@EXAMPLE.COM``.
-
-``hive.metastore.presto.keytab``                   The path to the keytab file that contains a key for the
-                                                   principal specified by ``hive.metastore.presto.principal``.
-                                                   This file must be readable by the operating system user
-                                                   running Presto.
+``hive.metastore.client.keytab``                   Hive metastore client keytab location.
 ================================================== ============================================================ ==========
 
-``NONE``
-^^^^^^^^^^
+``hive.metastore.authentication.type``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. code-block:: none
+One of ``NONE`` or ``KERBEROS``. When using the default value of ``NONE``,
+Kerberos authentication is disabled and no other properties need to be
+configured.
 
-    hive.metastore.authentication.type=NONE
+When set to ``KERBEROS`` the Hive connector will connect to the Hive metastore
+Thrift service using SASL and authenticate using Kerberos.
 
-The default authentication type for the Hive metastore is ``NONE``. When the
-authentication type is ``NONE``, Presto connects to an unsecured Hive
-metastore. Kerberos is not used.
+This property is optional; the default is ``NONE``.
 
-``KERBEROS``
-^^^^^^^^^^^^
+``hive.metastore.service.principal``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Kerberos principal of the Hive metastore service. The Presto coordinator
+will use this to authenticate the Hive metastore.
+
+The ``_HOST`` placeholder can be used in this property value. When connecting
+to the Hive metastore, the Hive connector will substitute in the hostname of
+the **metastore** server it is connecting to. This is useful if the metastore
+runs on multiple hosts.
+
+Example: ``hive/hive-server-host@EXAMPLE.COM`` or ``hive/_HOST@EXAMPLE.COM``.
+
+This property is optional; no default value.
+
+``hive.metastore.client.principal``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Kerberos principal that Presto will use when connecting to the Hive
+metastore.
+
+The ``_HOST`` placeholder can be used in this property value. When connecting
+to the Hive metastore, the Hive connector will substitute in the hostname of
+the **worker** node Presto is running on. This is useful if each worker node
+has its own Kerberos principal.
+
+Example: ``presto/presto-server-node@EXAMPLE.COM`` or
+``presto/_HOST@EXAMPLE.COM``.
+
+This property is optional; no default value.
 
 .. warning::
 
@@ -115,12 +116,35 @@ metastore. Kerberos is not used.
     authentication, all of the HDFS operations performed by the metastore are
     impersonated. Errors deleting data are silently ignored.
 
+``hive.metastore.client.keytab``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The path to the keytab file that contains a key for the principal specified by
+``hive.metastore.client.principal``. This file must be readable by the
+operating system user running Presto.
+
+This property is optional; no default value.
+
+Example configuration with ``NONE`` authentication
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: none
+
+    hive.metastore.authentication.type=NONE
+
+The default authentication type for the Hive metastore is ``NONE``. When the
+authentication type is ``NONE``, Presto connects to an unsecured Hive
+metastore. Kerberos is not used.
+
+Example configuration with ``KERBEROS`` authentication
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 .. code-block:: none
 
     hive.metastore.authentication.type=KERBEROS
     hive.metastore.principal=hive/hive-metastore-host.example.com@EXAMPLE.COM
-    hive.metastore.presto.principal=presto@EXAMPLE.COM
-    hive.metastore.presto.keytab=/etc/presto/hive.keytab
+    hive.metastore.client.principal=presto@EXAMPLE.COM
+    hive.metastore.client.keytab=/etc/presto/hive.keytab
 
 When the authentication type for the Hive metastore Thrift service is
 ``KERBEROS``, Presto will connect as the Kerberos principal specified by the
@@ -131,7 +155,7 @@ property, and will verify that the identity of the metastore matches
 
 Keytab files must be distributed to every node in the cluster that runs Presto.
 
-:ref:`Additional information on keytab files.<hive-security-additional-keytab>`
+:ref:`Additional Information About Keytab Files.<hive-security-additional-keytab>`
 
 HDFS Authentication
 -------------------
@@ -143,42 +167,67 @@ file using the following properties:
 ================================================== ============================================================ ==========
 Property Name                                      Description                                                  Default
 ================================================== ============================================================ ==========
-``hive.hdfs.authentication.type``                  One of ``NONE`` or ``KERBEROS``. When using the default      ``NONE``
-                                                   value of ``NONE``, Kerberos authentication is disabled and
-                                                   no other properties need to be configured.
+``hive.hdfs.authentication.type``                  HDFS authentication type.                                    ``NONE``
+                                                   Possible values are ``NONE`` or ``KERBEROS``.
 
-                                                   When set to ``KERBEROS``, the Hive connector authenticates
-                                                   to HDFS using Kerberos.
-
-``hive.hdfs.impersonation.enabled``                Enable end-user HDFS impersonation.                          ``false``
-
-                                                   The section
-                                                   :ref:`End User Impersonation<hive-security-impersonation>`
-                                                   gives an in-depth explanation of HDFS impersonation.
+``hive.hdfs.impersonation.enabled``                Enable HDFS end-user impersonation.                          ``false``
 
 ``hive.hdfs.presto.principal``                     The Kerberos principal that Presto will use when connecting
                                                    to HDFS.
 
-                                                   The ``_HOST`` placeholder can be used in this property
-                                                   value. When connecting to HDFS, the Hive connector will
-                                                   substitute in the hostname of the **worker** node Presto is
-                                                   running on. This is useful if each worker node has its own
-                                                   Kerberos principal.
-
-                                                   Example:
-                                                   ``presto-hdfs-superuser/presto-server-node@EXAMPLE.COM`` or
-                                                   ``presto-hdfs-superuser/_HOST@EXAMPLE.COM``.
-
-``hive.hdfs.presto.keytab``                        The path to the keytab file that contains a key for the
-                                                   principal specified by ``hive.hdfs.presto.principal``.
-                                                   This file must be readable by the operating system user
-                                                   running Presto.
+``hive.hdfs.presto.keytab``                        HDFS client keytab location.
 ================================================== ============================================================ ==========
+
+``hive.hdfs.authentication.type``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+One of ``NONE`` or ``KERBEROS``. When using the default value of ``NONE``,
+Kerberos authentication is disabled and no other properties need to be
+configured.
+
+When set to ``KERBEROS``, the Hive connector authenticates to HDFS using
+Kerberos.
+
+This property is optional; the default is ``NONE``.
+
+``hive.hdfs.impersonation.enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Enable end-user HDFS impersonation.
+
+The section :ref:`End User Impersonation<hive-security-impersonation>` gives an
+in-depth explanation of HDFS impersonation.
+
+This property is optional; the default is ``false``.
+
+``hive.hdfs.presto.principal``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Kerberos principal that Presto will use when connecting to HDFS.
+
+The ``_HOST`` placeholder can be used in this property value. When connecting
+to HDFS, the Hive connector will substitute in the hostname of the **worker**
+node Presto is running on. This is useful if each worker node has its own
+Kerberos principal.
+
+Example: ``presto-hdfs-superuser/presto-server-node@EXAMPLE.COM`` or
+``presto-hdfs-superuser/_HOST@EXAMPLE.COM``.
+
+This property is optional; no default value.
+
+``hive.hdfs.presto.keytab``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The path to the keytab file that contains a key for the principal specified by
+``hive.hdfs.presto.principal``. This file must be readable by the operating
+system user running Presto.
+
+This property is optional; no default value.
 
 .. _hive-security-simple:
 
-``NONE``
-^^^^^^^^^^
+Example configuration with ``NONE`` authentication
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: none
 
@@ -190,8 +239,8 @@ mechanism. Kerberos is not used.
 
 .. _hive-security-kerberos:
 
-``KERBEROS``
-^^^^^^^^^^^^
+Example configuration with ``KERBEROS`` authentication
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: none
 
@@ -206,7 +255,7 @@ authenticate this principal using the keytab specified by the
 
 Keytab files must be distributed to every node in the cluster that runs Presto.
 
-:ref:`Additional information on keytab files.<hive-security-additional-keytab>`
+:ref:`Additional Information About Keytab Files.<hive-security-additional-keytab>`
 
 .. _hive-security-impersonation:
 
@@ -218,7 +267,7 @@ Impersonation Accessing HDFS
 
 Presto can impersonate the end user who is running a query. In the case of a
 user running a query from the command line interface, the end user is the
-username associated with the Presto cli process or argument to the optional
+username associated with the Presto CLI process or argument to the optional
 ``--user`` option. Impersonating the end user can provide additional security
 when accessing HDFS if HDFS permissions or ACLs are used.
 
@@ -262,7 +311,7 @@ impersonate this user, as discussed in the section
 
 Keytab files must be distributed to every node in the cluster that runs Presto.
 
-:ref:`Additional information on keytab files.<hive-security-additional-keytab>`
+:ref:`Additional Information About Keytab Files.<hive-security-additional-keytab>`
 
 Impersonation Accessing the Hive Metastore
 ------------------------------------------
