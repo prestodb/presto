@@ -14,7 +14,6 @@
 package com.facebook.presto.hive.parquet;
 
 import com.facebook.presto.spi.PrestoException;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -91,10 +90,9 @@ public class HdfsParquetDataSource
         }
     }
 
-    public static HdfsParquetDataSource buildHdfsParquetDataSource(Path path, Configuration configuration, long start, long length)
+    public static HdfsParquetDataSource buildHdfsParquetDataSource(FileSystem fileSystem, Path path, long start, long length)
     {
         try {
-            FileSystem fileSystem = path.getFileSystem(configuration);
             long size = fileSystem.getFileStatus(path).getLen();
             FSDataInputStream inputStream = fileSystem.open(path);
             return new HdfsParquetDataSource(path, size, inputStream);

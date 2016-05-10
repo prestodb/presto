@@ -56,7 +56,7 @@ function check_presto() {
 function run_product_tests() {
   run_in_application_runner_container \
     ${DOCKER_PRESTO_VOLUME}/presto-product-tests/bin/run.sh \
-    --config-local ${DOCKER_PRESTO_VOLUME}/presto-product-tests/conf/tempto/tempto-configuration.yaml "$@"
+    --config-local "${TEMPTO_CONFIGURATION}" "$@"
 }
 
 # docker-compose down is not good enough because it's ignores services created with "run" command
@@ -114,20 +114,27 @@ function terminate() {
   exit 130
 }
 
-ENVIRONMENT=$1
+function getAvailableEnvironments() {
+  for i in $(ls -d $ENVIRONMENT_LOCATION/*/); do echo ${i%%/}; done | grep -v files | xargs -n1 basename
+}
 
-if [[ "$ENVIRONMENT" != "singlenode" && "$ENVIRONMENT" != "multinode" ]]; then
-   echo "Usage: run_on_docker.sh <singlenode|multinode> <product test args>"
+ENVIRONMENT=$1
+SCRIPT_DIR=$(dirname $(absolutepath "$0"))
+PRODUCT_TESTS_ROOT="${SCRIPT_DIR}/.."
+PROJECT_ROOT="${PRODUCT_TESTS_ROOT}/.."
+ENVIRONMENT_LOCATION="${PRODUCT_TESTS_ROOT}/conf/docker"
+
+# Get the list of valid environments
+if [[ ! -d "$ENVIRONMENT_LOCATION/$ENVIRONMENT" ]]; then
+   echo "Usage: run_on_docker.sh <`getAvailableEnvironments | tr '\n' '|'`> <product test args>"
    exit 1
 fi
 
 shift 1
 
-SCRIPT_DIR=$(dirname $(absolutepath "$0"))
-PRODUCT_TESTS_ROOT="${SCRIPT_DIR}/.."
-PROJECT_ROOT="${PRODUCT_TESTS_ROOT}/.."
 DOCKER_COMPOSE_LOCATION="${PRODUCT_TESTS_ROOT}/conf/docker/${ENVIRONMENT}/docker-compose.yml"
 DOCKER_PRESTO_VOLUME="/docker/volumes/presto"
+TEMPTO_CONFIGURATION="/docker/volumes/tempto/tempto-configuration-local.yaml"
 
 PRESTO_SERVICES="presto-master"
 if [[ "$ENVIRONMENT" == "multinode" ]]; then
@@ -141,9 +148,10 @@ source "${PRODUCT_TESTS_ROOT}/target/classes/presto.env"
 docker-compose version
 docker version
 
-# stop already running containers
-stop_docker_compose_containers "${PRODUCT_TESTS_ROOT}/conf/docker/singlenode/docker-compose.yml"
-stop_docker_compose_containers "${PRODUCT_TESTS_ROOT}/conf/docker/multinode/docker-compose.yml"
+for available_docker_environment in $(getAvailableEnvironments)
+do
+    stop_docker_compose_containers "${PRODUCT_TESTS_ROOT}/conf/docker/${available_docker_environment}/docker-compose.yml"
+done
 
 # catch terminate signals
 trap terminate INT TERM EXIT

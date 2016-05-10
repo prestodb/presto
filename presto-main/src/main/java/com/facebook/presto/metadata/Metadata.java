@@ -238,6 +238,11 @@ public interface Metadata
      */
     void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, String grantee, boolean grantOption);
 
+    /**
+     * Revokes the specified privilege on the specified table from the specified user
+     */
+    void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, String grantee, boolean grantOption);
+
     FunctionRegistry getFunctionRegistry();
 
     ProcedureRegistry getProcedureRegistry();

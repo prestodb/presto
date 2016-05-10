@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.authentication.HiveMetastoreAuthentication;
 import com.facebook.presto.hive.metastore.HiveMetastoreClient;
 import com.facebook.presto.hive.thrift.Transport;
 import com.google.common.net.HostAndPort;
@@ -23,26 +24,30 @@ import org.apache.thrift.transport.TTransportException;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
+import static java.util.Objects.requireNonNull;
+
 public class HiveMetastoreClientFactory
 {
     private final HostAndPort socksProxy;
     private final int timeoutMillis;
+    private final HiveMetastoreAuthentication metastoreAuthentication;
 
-    public HiveMetastoreClientFactory(@Nullable HostAndPort socksProxy, Duration timeout)
+    public HiveMetastoreClientFactory(@Nullable HostAndPort socksProxy, Duration timeout, HiveMetastoreAuthentication metastoreAuthentication)
     {
         this.socksProxy = socksProxy;
         this.timeoutMillis = Ints.checkedCast(timeout.toMillis());
+        this.metastoreAuthentication = requireNonNull(metastoreAuthentication, "metastoreAuthentication is null");
     }
 
     @Inject
-    public HiveMetastoreClientFactory(HiveClientConfig config)
+    public HiveMetastoreClientFactory(HiveClientConfig config, HiveMetastoreAuthentication metastoreAuthentication)
     {
-        this(config.getMetastoreSocksProxy(), config.getMetastoreTimeout());
+        this(config.getMetastoreSocksProxy(), config.getMetastoreTimeout(), metastoreAuthentication);
     }
 
     public HiveMetastoreClient create(String host, int port)
             throws TTransportException
     {
-        return new ThriftHiveMetastoreClient(Transport.create(host, port, socksProxy, timeoutMillis));
+        return new ThriftHiveMetastoreClient(Transport.create(host, port, socksProxy, timeoutMillis, metastoreAuthentication));
     }
 }

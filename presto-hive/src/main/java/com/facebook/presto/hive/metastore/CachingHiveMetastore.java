@@ -937,6 +937,53 @@ public class CachingHiveMetastore
         }
     }
 
+    @Override
+    public void revokeTablePrivileges(String databaseName, String tableName, String grantee, Set<PrivilegeGrantInfo> privilegeGrantInfoSet)
+    {
+        try {
+            retry()
+                    .stopOnIllegalExceptions()
+                    .run("revokeTablePrivileges", stats.getRevokeTablePrivileges().wrap(() -> {
+                        try (HiveMetastoreClient metastoreClient = clientProvider.createMetastoreClient()) {
+                            PrincipalType principalType;
+
+                            if (metastoreClient.getRoleNames().contains(grantee)) {
+                                principalType = ROLE;
+                            }
+                            else {
+                                principalType = USER;
+                            }
+
+                            ImmutableList.Builder<HiveObjectPrivilege> privilegeBagBuilder = ImmutableList.builder();
+                            for (PrivilegeGrantInfo privilegeGrantInfo : privilegeGrantInfoSet) {
+                                privilegeBagBuilder.add(
+                                        new HiveObjectPrivilege(
+                                                new HiveObjectRef(HiveObjectType.TABLE, databaseName, tableName, null, null),
+                                                grantee,
+                                                principalType,
+                                                privilegeGrantInfo));
+                            }
+                            // TODO: Check whether the user/role exists in the hive metastore.
+                            // TODO: Check whether the user possesses the given privilege before revoking.
+                            metastoreClient.revokePrivileges(new PrivilegeBag(privilegeBagBuilder.build()));
+                        }
+                        return null;
+                    }));
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            throw Throwables.propagate(e);
+        }
+        finally {
+            userTablePrivileges.invalidate(new UserTableKey(grantee, tableName, databaseName));
+        }
+    }
+
     private Set<HivePrivilegeInfo> loadTablePrivileges(String user, String databaseName, String tableName)
     {
         ImmutableSet.Builder<HivePrivilegeInfo> privileges = ImmutableSet.builder();

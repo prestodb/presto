@@ -31,6 +31,7 @@ import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.TypeRegistry;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -62,7 +63,7 @@ public class TestLearnAggregations
     public void testLearn()
             throws Exception
     {
-        Type mapType = typeManager.getParameterizedType("map", ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.DOUBLE)), ImmutableList.of());
+        Type mapType = typeManager.getParameterizedType("map", ImmutableList.of(TypeSignatureParameter.of(parseTypeSignature(StandardTypes.BIGINT)), TypeSignatureParameter.of(parseTypeSignature(StandardTypes.DOUBLE))));
         InternalAggregationFunction aggregation = new AggregationCompiler(typeManager).generateAggregationFunction(LearnClassifierAggregation.class, ClassifierType.BIGINT_CLASSIFIER, ImmutableList.of(BigintType.BIGINT, mapType));
         assertLearnClassifer(aggregation.bind(ImmutableList.of(0, 1), Optional.empty(), Optional.empty(), 1.0).createAccumulator());
     }
@@ -71,7 +72,7 @@ public class TestLearnAggregations
     public void testLearnLibSvm()
             throws Exception
     {
-        Type mapType = typeManager.getParameterizedType("map", ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.DOUBLE)), ImmutableList.of());
+        Type mapType = typeManager.getParameterizedType("map", ImmutableList.of(TypeSignatureParameter.of(parseTypeSignature(StandardTypes.BIGINT)), TypeSignatureParameter.of(parseTypeSignature(StandardTypes.DOUBLE))));
         InternalAggregationFunction aggregation = new AggregationCompiler(typeManager).generateAggregationFunction(LearnLibSvmClassifierAggregation.class, ClassifierType.BIGINT_CLASSIFIER, ImmutableList.of(BigintType.BIGINT, mapType, VarcharType.VARCHAR));
         assertLearnClassifer(aggregation.bind(ImmutableList.of(0, 1, 2), Optional.empty(), Optional.empty(), 1.0).createAccumulator());
     }
@@ -92,7 +93,7 @@ public class TestLearnAggregations
     private static Page getPage()
             throws JsonProcessingException
     {
-        Type mapType = typeManager.getParameterizedType("map", ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.DOUBLE)), ImmutableList.of());
+        Type mapType = typeManager.getParameterizedType("map", ImmutableList.of(TypeSignatureParameter.of(parseTypeSignature(StandardTypes.BIGINT)), TypeSignatureParameter.of(parseTypeSignature(StandardTypes.DOUBLE))));
         int datapoints = 100;
         RowPageBuilder builder = RowPageBuilder.rowPageBuilder(BigintType.BIGINT, mapType, VarcharType.VARCHAR);
         Random rand = new Random(0);

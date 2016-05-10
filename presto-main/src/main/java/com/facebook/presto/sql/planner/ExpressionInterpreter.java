@@ -27,6 +27,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.AnalysisContext;
@@ -105,7 +106,6 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_
 import static com.facebook.presto.sql.gen.TryCodeGenerator.tryExpressionExceptionHandler;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpressions;
-import static com.facebook.presto.type.TypeRegistry.canCoerce;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -153,7 +153,7 @@ public class ExpressionInterpreter
         analyzer.analyze(expression, new RelationType(), new AnalysisContext());
 
         Type actualType = analyzer.getExpressionTypes().get(expression);
-        if (!canCoerce(actualType, expectedType)) {
+        if (!metadata.getTypeManager().canCoerce(actualType, expectedType)) {
             throw new SemanticException(SemanticErrorCode.TYPE_MISMATCH, expression, String.format("Cannot cast type %s to %s",
                     expectedType.getTypeSignature(),
                     actualType.getTypeSignature()));
@@ -1037,7 +1037,25 @@ public class ExpressionInterpreter
         @Override
         protected Object visitRow(Row node, Object context)
         {
-            throw new PrestoException(NOT_SUPPORTED, "Row expressions not yet supported");
+            RowType rowType = checkType(expressionTypes.get(node), RowType.class, "type");
+            List<Type> parameterTypes = rowType.getTypeParameters();
+            List<Expression> arguments = node.getItems();
+
+            int cardinality = arguments.size();
+            List<Object> values = new ArrayList<>(cardinality);
+            for (Expression argument : arguments) {
+                values.add(process(argument, context));
+            }
+            if (hasUnresolvedValue(values)) {
+                return new Row(toExpressions(values, parameterTypes));
+            }
+            else {
+                BlockBuilder blockBuilder =  new InterleavedBlockBuilder(parameterTypes, new BlockBuilderStatus(), cardinality);
+                for (int i = 0; i < cardinality; ++i) {
+                    writeNativeValue(parameterTypes.get(i), blockBuilder, values.get(i));
+                }
+                return blockBuilder.build();
+            }
         }
 
         @Override

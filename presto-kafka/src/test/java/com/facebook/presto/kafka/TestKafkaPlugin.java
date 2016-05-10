@@ -82,12 +82,6 @@ public class TestKafkaPlugin
         }
 
         @Override
-        public Type getParameterizedType(String baseTypeName, List<TypeSignature> typeParameters, List<String> literalParameters)
-        {
-            return null;
-        }
-
-        @Override
         public List<Type> getTypes()
         {
             return ImmutableList.of();
@@ -100,9 +94,21 @@ public class TestKafkaPlugin
         }
 
         @Override
+        public boolean isTypeOnlyCoercion(Type actualType, Type expectedType)
+        {
+            return false;
+        }
+
+        @Override
         public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
         {
             return Optional.empty();
+        }
+
+        @Override
+        public Optional<Type> coerceTypeBase(Type sourceType, String resultTypeBase)
+        {
+            throw new UnsupportedOperationException();
         }
     }
 

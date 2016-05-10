@@ -341,6 +341,12 @@ public final class SqlQueryExecution
     }
 
     @Override
+    public void cancelQuery()
+    {
+        stateMachine.transitionToCanceled();
+    }
+
+    @Override
     public void cancelStage(StageId stageId)
     {
         requireNonNull(stageId, "stageId is null");
@@ -380,20 +386,21 @@ public final class SqlQueryExecution
     public void pruneInfo()
     {
         QueryInfo queryInfo = finalQueryInfo.get();
-        if (queryInfo == null || queryInfo.getOutputStage() == null) {
+        if (queryInfo == null || !queryInfo.getOutputStage().isPresent()) {
             return;
         }
 
+        StageInfo outputStage = queryInfo.getOutputStage().get();
         StageInfo prunedOutputStage = new StageInfo(
-                queryInfo.getOutputStage().getStageId(),
-                queryInfo.getOutputStage().getState(),
-                queryInfo.getOutputStage().getSelf(),
+                outputStage.getStageId(),
+                outputStage.getState(),
+                outputStage.getSelf(),
                 null, // Remove the plan
-                queryInfo.getOutputStage().getTypes(),
-                queryInfo.getOutputStage().getStageStats(),
+                outputStage.getTypes(),
+                outputStage.getStageStats(),
                 ImmutableList.of(), // Remove the tasks
                 ImmutableList.of(), // Remove the substages
-                queryInfo.getOutputStage().getFailureCause()
+                outputStage.getFailureCause()
         );
 
         QueryInfo prunedQueryInfo = new QueryInfo(
@@ -411,7 +418,7 @@ public final class SqlQueryExecution
                 queryInfo.getStartedTransactionId(),
                 queryInfo.isClearTransactionId(),
                 queryInfo.getUpdateType(),
-                prunedOutputStage,
+                Optional.of(prunedOutputStage),
                 queryInfo.getFailureInfo(),
                 queryInfo.getErrorCode(),
                 queryInfo.getInputs()
@@ -451,9 +458,9 @@ public final class SqlQueryExecution
 
     private QueryInfo buildQueryInfo(SqlQueryScheduler scheduler)
     {
-        StageInfo stageInfo = null;
+        Optional<StageInfo> stageInfo = Optional.empty();
         if (scheduler != null) {
-            stageInfo = scheduler.getStageInfo();
+            stageInfo = Optional.ofNullable(scheduler.getStageInfo());
         }
         return stateMachine.getQueryInfo(stageInfo);
     }

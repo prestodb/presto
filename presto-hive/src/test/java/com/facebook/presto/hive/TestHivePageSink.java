@@ -50,6 +50,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.hive.HiveCompressionCodec.NONE;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
+import static com.facebook.presto.hive.HiveTestUtils.createTestHdfsEnvironment;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveDataStreamFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
 import static com.facebook.presto.hive.HiveType.HIVE_DATE;
@@ -198,7 +199,7 @@ public class TestHivePageSink
         splitProperties.setProperty("columns", Joiner.on(',').join(getColumnHandles().stream().map(HiveColumnHandle::getName).collect(toList())));
         splitProperties.setProperty("columns.types", Joiner.on(',').join(getColumnHandles().stream().map(HiveColumnHandle::getHiveType).map(HiveType::getHiveTypeName).collect(toList())));
         HiveSplit split = new HiveSplit(CLIENT_ID, SCHEMA_NAME, TABLE_NAME, "", "file:///" + outputFile.getAbsolutePath(), 0, outputFile.length(), splitProperties, ImmutableList.of(), ImmutableList.of(), OptionalInt.empty(), false, TupleDomain.all());
-        HivePageSourceProvider provider = new HivePageSourceProvider(config, createHdfsEnvironment(config), getDefaultHiveRecordCursorProvider(config), getDefaultHiveDataStreamFactories(config), TYPE_MANAGER);
+        HivePageSourceProvider provider = new HivePageSourceProvider(config, createTestHdfsEnvironment(config), getDefaultHiveRecordCursorProvider(config), getDefaultHiveDataStreamFactories(config), TYPE_MANAGER);
         return provider.createPageSource(transaction, getSession(config), split, ImmutableList.copyOf(getColumnHandles()));
     }
 
@@ -207,7 +208,7 @@ public class TestHivePageSink
         LocationHandle locationHandle = new LocationHandle(outputPath, Optional.of(outputPath), false);
         HiveOutputTableHandle handle = new HiveOutputTableHandle(CLIENT_ID, SCHEMA_NAME, TABLE_NAME, getColumnHandles(), "test", locationHandle, config.getHiveStorageFormat(), config.getHiveStorageFormat(), ImmutableList.of(), Optional.empty(), "test", ImmutableMap.of());
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
-        HdfsEnvironment hdfsEnvironment = createHdfsEnvironment(config);
+        HdfsEnvironment hdfsEnvironment = createTestHdfsEnvironment(config);
         HivePageSinkProvider provider = new HivePageSinkProvider(hdfsEnvironment, metastore, new GroupByHashPageIndexerFactory(), TYPE_MANAGER, config, new HiveLocationService(metastore, hdfsEnvironment), partitionUpdateCodec);
         return provider.createPageSink(transaction, getSession(config), handle);
     }
@@ -253,10 +254,5 @@ public class TestHivePageSink
             default:
                 throw new UnsupportedOperationException();
         }
-    }
-
-    private static HdfsEnvironment createHdfsEnvironment(HiveClientConfig config)
-    {
-        return new HdfsEnvironment(new HiveHdfsConfiguration(new HdfsConfigurationUpdater(config)), config);
     }
 }

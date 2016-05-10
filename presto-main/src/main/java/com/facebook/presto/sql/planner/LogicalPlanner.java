@@ -61,7 +61,6 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
-import static com.facebook.presto.type.TypeRegistry.isTypeOnlyCoercion;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
@@ -195,7 +194,7 @@ public class LogicalPlanner
                 Type tableType = column.getType();
                 Type queryType = symbolAllocator.getTypes().get(input);
 
-                if (queryType.equals(tableType) || isTypeOnlyCoercion(queryType, tableType)) {
+                if (queryType.equals(tableType) || metadata.getTypeManager().isTypeOnlyCoercion(queryType, tableType)) {
                     assignments.put(output, input.toQualifiedNameReference());
                 }
                 else {

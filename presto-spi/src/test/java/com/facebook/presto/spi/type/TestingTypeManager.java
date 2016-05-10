@@ -27,7 +27,6 @@ import static com.facebook.presto.spi.type.TestingIdType.ID;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static java.util.stream.Collectors.toList;
 
 public class TestingTypeManager
         implements TypeManager
@@ -50,17 +49,6 @@ public class TestingTypeManager
     }
 
     @Override
-    public Type getParameterizedType(String baseTypeName, List<TypeSignature> typeParameters, List<String> literalParameters)
-    {
-        if (literalParameters.isEmpty()) {
-            return getParameterizedType(
-                    baseTypeName,
-                    typeParameters.stream().map(TypeSignatureParameter::of).collect(toList()));
-        }
-        return getType(new TypeSignature(baseTypeName, typeParameters, literalParameters));
-    }
-
-    @Override
     public List<Type> getTypes()
     {
         return ImmutableList.<Type>of(BOOLEAN, BIGINT, DOUBLE, VARCHAR, VARBINARY, TIMESTAMP, DATE, ID, HYPER_LOG_LOG);
@@ -74,6 +62,18 @@ public class TestingTypeManager
 
     @Override
     public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean isTypeOnlyCoercion(Type actualType, Type expectedType)
+    {
+        return false;
+    }
+
+    @Override
+    public Optional<Type> coerceTypeBase(Type sourceType, String resultTypeBase)
     {
         throw new UnsupportedOperationException();
     }

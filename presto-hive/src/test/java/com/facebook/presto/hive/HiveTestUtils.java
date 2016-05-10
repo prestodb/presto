@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetRecordCursorProvider;
@@ -39,22 +40,26 @@ public final class HiveTestUtils
 
     public static final TypeRegistry TYPE_MANAGER = new TypeRegistry();
 
+    public static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(new HiveClientConfig());
+
     public static Set<HivePageSourceFactory> getDefaultHiveDataStreamFactories(HiveClientConfig hiveClientConfig)
     {
+        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig);
         return ImmutableSet.<HivePageSourceFactory>builder()
-                .add(new RcFilePageSourceFactory(TYPE_MANAGER))
-                .add(new OrcPageSourceFactory(TYPE_MANAGER, hiveClientConfig))
-                .add(new DwrfPageSourceFactory(TYPE_MANAGER))
+                .add(new RcFilePageSourceFactory(TYPE_MANAGER, testHdfsEnvironment))
+                .add(new OrcPageSourceFactory(TYPE_MANAGER, hiveClientConfig, testHdfsEnvironment))
+                .add(new DwrfPageSourceFactory(TYPE_MANAGER, testHdfsEnvironment))
                 .build();
     }
 
     public static Set<HiveRecordCursorProvider> getDefaultHiveRecordCursorProvider(HiveClientConfig hiveClientConfig)
     {
+        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig);
         return ImmutableSet.<HiveRecordCursorProvider>builder()
-                .add(new ParquetRecordCursorProvider(hiveClientConfig))
-                .add(new ColumnarTextHiveRecordCursorProvider())
-                .add(new ColumnarBinaryHiveRecordCursorProvider())
-                .add(new GenericHiveRecordCursorProvider())
+                .add(new ParquetRecordCursorProvider(hiveClientConfig, testHdfsEnvironment))
+                .add(new ColumnarTextHiveRecordCursorProvider(testHdfsEnvironment))
+                .add(new ColumnarBinaryHiveRecordCursorProvider(testHdfsEnvironment))
+                .add(new GenericHiveRecordCursorProvider(testHdfsEnvironment))
                 .build();
     }
 
@@ -65,5 +70,10 @@ public final class HiveTestUtils
             types.add(TYPE_MANAGER.getType(((HiveColumnHandle) columnHandle).getTypeSignature()));
         }
         return types.build();
+    }
+
+    public static HdfsEnvironment createTestHdfsEnvironment(HiveClientConfig config)
+    {
+        return new HdfsEnvironment(new HiveHdfsConfiguration(new HdfsConfigurationUpdater(config)), config, new NoHdfsAuthentication());
     }
 }

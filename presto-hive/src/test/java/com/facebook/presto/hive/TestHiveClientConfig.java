@@ -92,7 +92,15 @@ public class TestHiveClientConfig
                 .setAssumeCanonicalPartitionKeys(false)
                 .setOrcMaxMergeDistance(new DataSize(1, Unit.MEGABYTE))
                 .setOrcMaxBufferSize(new DataSize(8, Unit.MEGABYTE))
-                .setOrcStreamBufferSize(new DataSize(8, Unit.MEGABYTE)));
+                .setOrcStreamBufferSize(new DataSize(8, Unit.MEGABYTE))
+                .setHiveMetastoreAuthenticationType(HiveClientConfig.HiveMetastoreAuthenticationType.NONE)
+                .setHiveMetastoreServicePrincipal(null)
+                .setHiveMetastoreClientPrincipal(null)
+                .setHiveMetastoreClientKeytab(null)
+                .setHdfsAuthenticationType(HiveClientConfig.HdfsAuthenticationType.NONE)
+                .setHdfsImpersonationEnabled(false)
+                .setHdfsPrestoPrincipal(null)
+                .setHdfsPrestoKeytab(null));
     }
 
     @Test
@@ -156,6 +164,14 @@ public class TestHiveClientConfig
                 .put("hive.orc.max-merge-distance", "22kB")
                 .put("hive.orc.max-buffer-size", "44kB")
                 .put("hive.orc.stream-buffer-size", "55kB")
+                .put("hive.metastore.authentication.type", "KERBEROS")
+                .put("hive.metastore.service.principal", "hive/_HOST@EXAMPLE.COM")
+                .put("hive.metastore.client.principal", "metastore@EXAMPLE.COM")
+                .put("hive.metastore.client.keytab", "/tmp/metastore.keytab")
+                .put("hive.hdfs.authentication.type", "KERBEROS")
+                .put("hive.hdfs.impersonation.enabled", "true")
+                .put("hive.hdfs.presto.principal", "presto@EXAMPLE.COM")
+                .put("hive.hdfs.presto.keytab", "/tmp/presto.keytab")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -215,7 +231,15 @@ public class TestHiveClientConfig
                 .setAssumeCanonicalPartitionKeys(true)
                 .setOrcMaxMergeDistance(new DataSize(22, Unit.KILOBYTE))
                 .setOrcMaxBufferSize(new DataSize(44, Unit.KILOBYTE))
-                .setOrcStreamBufferSize(new DataSize(55, Unit.KILOBYTE));
+                .setOrcStreamBufferSize(new DataSize(55, Unit.KILOBYTE))
+                .setHiveMetastoreAuthenticationType(HiveClientConfig.HiveMetastoreAuthenticationType.KERBEROS)
+                .setHiveMetastoreServicePrincipal("hive/_HOST@EXAMPLE.COM")
+                .setHiveMetastoreClientPrincipal("metastore@EXAMPLE.COM")
+                .setHiveMetastoreClientKeytab("/tmp/metastore.keytab")
+                .setHdfsAuthenticationType(HiveClientConfig.HdfsAuthenticationType.KERBEROS)
+                .setHdfsImpersonationEnabled(true)
+                .setHdfsPrestoPrincipal("presto@EXAMPLE.COM")
+                .setHdfsPrestoKeytab("/tmp/presto.keytab");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

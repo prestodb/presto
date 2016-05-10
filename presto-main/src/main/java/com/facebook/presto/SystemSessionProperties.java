@@ -224,7 +224,7 @@ public final class SystemSessionProperties
                 booleanSessionProperty(
                         COLOCATED_JOIN,
                         "Experimental: Use a colocated join when possible",
-                        false,
+                        featuresConfig.isColocatedJoinsEnabled(),
                         false));
     }
 

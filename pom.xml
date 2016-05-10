@@ -43,12 +43,14 @@
         <air.check.skip-checkstyle>false</air.check.skip-checkstyle>
 
         <air.java.version>1.8.0-40</air.java.version>
+        <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.5.1</dep.antlr.version>
         <dep.airlift.version>0.128</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.19</dep.slice.version>
         <dep.aws-sdk.version>1.9.40</dep.aws-sdk.version>
+        <dep.tempto.version>1.8</dep.tempto.version>
 
         <!--
         Versions newer than 6.9 appear to have an issue where the @BeforeClass method in
@@ -723,19 +725,19 @@
             <dependency>
                 <groupId>com.teradata.tempto</groupId>
                 <artifactId>tempto-core</artifactId>
-                <version>1.7</version>
+                <version>${dep.tempto.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>com.teradata.tempto</groupId>
                 <artifactId>tempto-runner</artifactId>
-                <version>1.7</version>
+                <version>${dep.tempto.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>com.facebook.presto.hive</groupId>
                 <artifactId>hive-apache-jdbc</artifactId>
-                <version>0.13.1-1</version>
+                <version>0.13.1-3</version>
             </dependency>
 
             <dependency>

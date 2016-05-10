@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.hadoop.HadoopFileStatus;
+import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.hive.orc.OrcPageSource;
@@ -56,12 +57,14 @@ import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.TestingConnectorSession;
@@ -179,12 +182,15 @@ public abstract class AbstractTestHiveClient
     protected static final String INVALID_TABLE = "totally_invalid_table_name";
     protected static final String INVALID_COLUMN = "totally_invalid_column_name";
 
-    private static final Type ARRAY_TYPE = TYPE_MANAGER.getParameterizedType(ARRAY, ImmutableList.of(createUnboundedVarcharType().getTypeSignature()), ImmutableList.of());
-    private static final Type MAP_TYPE = TYPE_MANAGER.getParameterizedType(MAP, ImmutableList.of(createUnboundedVarcharType().getTypeSignature(), BIGINT.getTypeSignature()), ImmutableList.of());
+    private static final Type ARRAY_TYPE = TYPE_MANAGER.getParameterizedType(ARRAY, ImmutableList.of(TypeSignatureParameter.of(createUnboundedVarcharType().getTypeSignature())));
+    private static final Type MAP_TYPE = TYPE_MANAGER.getParameterizedType(MAP, ImmutableList.of(TypeSignatureParameter.of(createUnboundedVarcharType().getTypeSignature()), TypeSignatureParameter.of(BIGINT.getTypeSignature())));
     private static final Type ROW_TYPE = TYPE_MANAGER.getParameterizedType(
             ROW,
-            ImmutableList.of(createUnboundedVarcharType().getTypeSignature(), BIGINT.getTypeSignature(), BOOLEAN.getTypeSignature()),
-            ImmutableList.of("f_string", "f_bigint", "f_boolean"));
+            ImmutableList.of(
+                    TypeSignatureParameter.of(new NamedTypeSignature("f_string", createUnboundedVarcharType().getTypeSignature())),
+                    TypeSignatureParameter.of(new NamedTypeSignature("f_bigint", BIGINT.getTypeSignature())),
+                    TypeSignatureParameter.of(new NamedTypeSignature("f_boolean", BOOLEAN.getTypeSignature())))
+    );
 
     private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS = ImmutableList.<ColumnMetadata>builder()
             .add(new ColumnMetadata("id", BIGINT))
@@ -437,7 +443,7 @@ public abstract class AbstractTestHiveClient
         HiveConnectorId connectorId = new HiveConnectorId(connectorName);
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveClientConfig));
 
-        hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig);
+        hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig, new NoHdfsAuthentication());
         locationService = new HiveLocationService(metastoreClient, hdfsEnvironment);
         TypeManager typeManager = new TypeRegistry();
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
@@ -1168,7 +1174,7 @@ public abstract class AbstractTestHiveClient
         ConnectorPageSourceProvider pageSourceProvider = new HivePageSourceProvider(
                 new HiveClientConfig().setTimeZone(timeZone.getID()),
                 hdfsEnvironment,
-                ImmutableSet.<HiveRecordCursorProvider>of(new ColumnarTextHiveRecordCursorProvider()),
+                ImmutableSet.<HiveRecordCursorProvider>of(new ColumnarTextHiveRecordCursorProvider(hdfsEnvironment)),
                 ImmutableSet.<HivePageSourceFactory>of(),
                 TYPE_MANAGER);
 
@@ -1202,7 +1208,7 @@ public abstract class AbstractTestHiveClient
         ConnectorPageSourceProvider pageSourceProvider = new HivePageSourceProvider(
                 new HiveClientConfig().setTimeZone(timeZone.getID()),
                 hdfsEnvironment,
-                ImmutableSet.<HiveRecordCursorProvider>of(new ColumnarBinaryHiveRecordCursorProvider()),
+                ImmutableSet.<HiveRecordCursorProvider>of(new ColumnarBinaryHiveRecordCursorProvider(hdfsEnvironment)),
                 ImmutableSet.<HivePageSourceFactory>of(),
                 TYPE_MANAGER);
 
@@ -1815,7 +1821,7 @@ public abstract class AbstractTestHiveClient
             throws IOException
     {
         Set<String> result = new HashSet<>();
-        FileSystem fileSystem = hdfsEnvironment.getFileSystem(path);
+        FileSystem fileSystem = hdfsEnvironment.getFileSystem("user", path);
         if (fileSystem.exists(path)) {
             for (FileStatus fileStatus : fileSystem.listStatus(path)) {
                 if (HadoopFileStatus.isFile(fileStatus)) {
@@ -2575,9 +2581,9 @@ public abstract class AbstractTestHiveClient
         String tableName = schemaTableName.getTableName();
 
         LocationService locationService = getLocationService(schemaName);
-        LocationHandle locationHandle = locationService.forNewTable(session.getQueryId(), schemaName, tableName);
+        LocationHandle locationHandle = locationService.forNewTable(session.getUser(), session.getQueryId(), schemaName, tableName);
         Path targetPath = locationService.targetPathRoot(locationHandle);
-        HiveWriteUtils.createDirectory(hdfsEnvironment, targetPath);
+        HiveWriteUtils.createDirectory(session.getUser(), hdfsEnvironment, targetPath);
 
         SerDeInfo serdeInfo = new SerDeInfo();
         serdeInfo.setName(tableName);

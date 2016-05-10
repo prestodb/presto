@@ -36,15 +36,12 @@ final class PrestoSystemRequirements
 
     public static void verifyJvmRequirements()
     {
-        String specVersion = StandardSystemProperty.JAVA_SPECIFICATION_VERSION.value();
-        if ((specVersion == null) || (specVersion.compareTo("1.8") < 0)) {
-            failRequirement("Presto requires Java 1.8+ (found %s)", specVersion);
-        }
-
         String vendor = StandardSystemProperty.JAVA_VENDOR.value();
         if (!"Oracle Corporation".equals(vendor)) {
             failRequirement("Presto requires an Oracle or OpenJDK JVM (found %s)", vendor);
         }
+
+        verifyJavaVersion();
 
         String dataModel = System.getProperty("sun.arch.data.model");
         if (!"64".equals(dataModel)) {
@@ -74,6 +71,33 @@ final class PrestoSystemRequirements
         verifyFileDescriptor();
 
         verifySlice();
+    }
+
+    private static void verifyJavaVersion()
+    {
+        String javaVersion = StandardSystemProperty.JAVA_VERSION.value();
+        if (javaVersion == null) {
+            failRequirement("Java version not defined");
+        }
+
+        String[] versionParts = javaVersion.split("_");
+        if (versionParts.length != 2) {
+            failRequirement("Java version has an unknown format: %s", javaVersion);
+        }
+
+        String majorVersion = versionParts[0];
+        int minorVersion = 0;
+        try {
+            minorVersion = Integer.parseInt(versionParts[1]);
+        }
+        catch (NumberFormatException e) {
+            failRequirement("Java minor version is not a number: %s", javaVersion);
+        }
+
+        if ((majorVersion.compareTo("1.8.0") < 0) ||
+                ((majorVersion.compareTo("1.8.0") == 0) && (minorVersion < 60))) {
+            failRequirement("Presto requires Java 8u60+ (found %s)", javaVersion);
+        }
     }
 
     private static void verifyFileDescriptor()

@@ -113,6 +113,12 @@ public interface AccessControl
     void checkCanGrantTablePrivilege(Identity identity, Privilege privilege, QualifiedObjectName tableName);
 
     /**
+     * Check if identity is allowed to revoke a privilege on the specified table.
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanRevokeTablePrivilege(Identity identity, Privilege privilege, QualifiedObjectName tableName);
+
+    /**
      * Check if identity is allowed to set the specified system property.
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
