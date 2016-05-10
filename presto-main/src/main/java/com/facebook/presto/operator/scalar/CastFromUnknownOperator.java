@@ -26,6 +26,7 @@ import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.metadata.OperatorType.CAST;
 import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public final class CastFromUnknownOperator
@@ -40,7 +41,11 @@ public final class CastFromUnknownOperator
 
     public CastFromUnknownOperator()
     {
-        super(CAST, ImmutableList.of(typeVariable("E")), ImmutableList.of(), "E", ImmutableList.of("unknown"));
+        super(CAST,
+                ImmutableList.of(typeVariable("E")),
+                ImmutableList.of(),
+                parseTypeSignature("E"),
+                ImmutableList.of(parseTypeSignature("unknown")));
     }
 
     @Override

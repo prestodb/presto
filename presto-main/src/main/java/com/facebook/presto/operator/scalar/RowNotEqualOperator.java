@@ -26,6 +26,7 @@ import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.metadata.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.metadata.Signature.comparableWithVariadicBound;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class RowNotEqualOperator
@@ -36,7 +37,11 @@ public class RowNotEqualOperator
 
     private RowNotEqualOperator()
     {
-        super(NOT_EQUAL, ImmutableList.of(comparableWithVariadicBound("T", "row")), ImmutableList.of(), StandardTypes.BOOLEAN, ImmutableList.of("T", "T"));
+        super(NOT_EQUAL,
+                ImmutableList.of(comparableWithVariadicBound("T", "row")),
+                ImmutableList.of(),
+                parseTypeSignature(StandardTypes.BOOLEAN),
+                ImmutableList.of(parseTypeSignature("T"), parseTypeSignature("T")));
     }
 
     @Override

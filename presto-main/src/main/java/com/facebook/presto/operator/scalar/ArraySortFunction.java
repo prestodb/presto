@@ -14,7 +14,9 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.BoundVariables;
+import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -30,6 +32,7 @@ import java.util.Comparator;
 import java.util.List;
 
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -43,7 +46,14 @@ public final class ArraySortFunction
 
     public ArraySortFunction()
     {
-        super(FUNCTION_NAME, ImmutableList.of(orderableTypeParameter("E")), ImmutableList.of(), "array(E)", ImmutableList.of("array(E)"));
+        super(new Signature(
+                FUNCTION_NAME,
+                FunctionKind.SCALAR,
+                ImmutableList.of(orderableTypeParameter("E")),
+                ImmutableList.of(),
+                parseTypeSignature("array(E)"),
+                ImmutableList.of(parseTypeSignature("array(E)")),
+                false));
     }
 
     @Override

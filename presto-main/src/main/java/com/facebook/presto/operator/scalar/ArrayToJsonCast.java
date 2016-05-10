@@ -40,6 +40,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -52,7 +53,11 @@ public class ArrayToJsonCast
 
     private ArrayToJsonCast()
     {
-        super(OperatorType.CAST, ImmutableList.of(typeVariable("T")), ImmutableList.of(), StandardTypes.JSON, ImmutableList.of("array(T)"));
+        super(OperatorType.CAST,
+                ImmutableList.of(typeVariable("T")),
+                ImmutableList.of(),
+                parseTypeSignature(StandardTypes.JSON),
+                ImmutableList.of(parseTypeSignature("array(T)")));
     }
 
     @Override

@@ -28,6 +28,7 @@ import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
 import static com.facebook.presto.metadata.Signature.comparableWithVariadicBound;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class RowHashCodeOperator
@@ -38,7 +39,11 @@ public class RowHashCodeOperator
 
     private RowHashCodeOperator()
     {
-        super(HASH_CODE, ImmutableList.of(comparableWithVariadicBound("T", "row")), ImmutableList.of(), StandardTypes.BIGINT, ImmutableList.of("T"));
+        super(HASH_CODE,
+                ImmutableList.of(comparableWithVariadicBound("T", "row")),
+                ImmutableList.of(),
+                parseTypeSignature(StandardTypes.BIGINT),
+                ImmutableList.of(parseTypeSignature("T")));
     }
 
     @Override

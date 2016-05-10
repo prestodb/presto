@@ -37,6 +37,7 @@ import java.util.Map;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
 import static com.facebook.presto.type.TypeJsonUtils.canCastFromJson;
 import static com.facebook.presto.type.TypeJsonUtils.stackRepresentationToObject;
@@ -52,7 +53,11 @@ public class JsonToMapCast
 
     private JsonToMapCast()
     {
-        super(OperatorType.CAST, ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")), ImmutableList.of(), "map(K,V)", ImmutableList.of(StandardTypes.JSON));
+        super(OperatorType.CAST,
+                ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
+                ImmutableList.of(),
+                parseTypeSignature("map(K,V)"),
+                ImmutableList.of(parseTypeSignature(StandardTypes.JSON)));
     }
 
     @Override
