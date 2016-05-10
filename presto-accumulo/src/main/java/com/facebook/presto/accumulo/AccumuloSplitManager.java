@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.accumulo;
 
-import com.facebook.presto.accumulo.conf.AccumuloSessionProperties;
 import com.facebook.presto.accumulo.model.AccumuloColumnConstraint;
 import com.facebook.presto.accumulo.model.AccumuloColumnHandle;
 import com.facebook.presto.accumulo.model.AccumuloSplit;
@@ -84,32 +83,22 @@ public class AccumuloSplitManager
         String tableName = tableHandle.getTable();
         String rowIdName = tableHandle.getRowId();
 
-        // If the column filter optimization is enabled, then get the list of column constraints to
-        // pack into a split
-        // These constraints are later converted to an Accumulo iterator and run on the tablet
-        // server
-        List<AccumuloColumnConstraint> iteratorConstraints;
-        if (AccumuloSessionProperties.isOptimizeColumnFiltersEnabled(session)) {
-            iteratorConstraints = getColumnConstraints(rowIdName, layoutHandle.getConstraint());
-        }
-        else {
-            iteratorConstraints = ImmutableList.of();
-        }
+        // Get non-row ID column constraints
+        List<AccumuloColumnConstraint> constraints = getColumnConstraints(rowIdName, layoutHandle.getConstraint());
 
         // Get the row domain column range
         Domain rDom = getRangeDomain(rowIdName, layoutHandle.getConstraint());
 
         // Call out to our client to retrieve all tablet split metadata using the row ID domain
-        // and the secondary index, if enabled and proper to do so
+        // and the secondary index, if enabled
         List<TabletSplitMetadata> tSplits = client.getTabletSplits(session, schemaName, tableName,
-                rDom, getColumnConstraints(rowIdName, layoutHandle.getConstraint()),
-                tableHandle.getSerializerInstance());
+                rDom, constraints, tableHandle.getSerializerInstance());
 
         // Pack the tablet split metadata into a connector split
         ImmutableList.Builder<ConnectorSplit> cSplits = ImmutableList.builder();
         for (TabletSplitMetadata smd : tSplits) {
             AccumuloSplit split = new AccumuloSplit(connectorId, schemaName, tableName, rowIdName,
-                    tableHandle.getSerializerClassName(), smd.getRanges(), iteratorConstraints,
+                    tableHandle.getSerializerClassName(), smd.getRanges(), constraints,
                     tableHandle.getScanAuthorizations(), smd.getHostPort());
             LOG.debug("Added split %s", split);
             cSplits.add(split);

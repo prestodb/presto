@@ -144,7 +144,8 @@ public class AccumuloRecordCursor
         }
 
         // Add column iterators and retrieve the iterator
-        addColumnIterators(constraints);
+        // TODO Predicate pushdown via iterators needs work
+        // addColumnIterators(constraints);
         iterator = this.scan.iterator();
     }
 
