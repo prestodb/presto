@@ -21,13 +21,12 @@ import org.apache.hadoop.hive.metastore.api.Table;
 
 import javax.inject.Inject;
 
-import java.io.IOException;
 import java.util.Optional;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveWriteUtils.createTemporaryPath;
 import static com.facebook.presto.hive.HiveWriteUtils.getTableDefaultLocation;
+import static com.facebook.presto.hive.HiveWriteUtils.isS3FileSystem;
 import static com.facebook.presto.hive.HiveWriteUtils.pathExists;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -84,13 +83,8 @@ public class HiveLocationService
 
     private boolean shouldUseTemporaryDirectory(String user, Path path)
     {
-        try {
-            // skip using temporary directory for S3
-            return !(hdfsEnvironment.getFileSystem(user, path) instanceof PrestoS3FileSystem);
-        }
-        catch (IOException e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
-        }
+        // skip using temporary directory for S3
+        return !isS3FileSystem(user, hdfsEnvironment, path);
     }
 
     @Override
