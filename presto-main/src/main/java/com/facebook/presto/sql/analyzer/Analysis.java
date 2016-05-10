@@ -72,7 +72,8 @@ public class Analysis
     private final IdentityHashMap<Join, Expression> joins = new IdentityHashMap<>();
     private final ListMultimap<Node, InPredicate> inPredicatesSubqueries = ArrayListMultimap.create();
     private final ListMultimap<Node, SubqueryExpression> scalarSubqueries = ArrayListMultimap.create();
-    private final IdentityHashMap<Join, JoinInPredicates> joinInPredicates = new IdentityHashMap<>();
+    private final IdentityHashMap<Join, JoinSideExpressions> joinSideExpressions = new IdentityHashMap<>();
+    private final IdentityHashMap<Join, Expression> postJoinConjunct = new IdentityHashMap<>();
 
     private final IdentityHashMap<Table, TableHandle> tables = new IdentityHashMap<>();
 
@@ -276,14 +277,24 @@ public class Analysis
         return ImmutableList.of();
     }
 
-    public void addJoinInPredicates(Join node, JoinInPredicates joinInPredicates)
+    public void addJoinSideExpressions(Join node, JoinSideExpressions joinSideExpressions)
     {
-        this.joinInPredicates.put(node, joinInPredicates);
+        this.joinSideExpressions.put(node, joinSideExpressions);
     }
 
-    public JoinInPredicates getJoinInPredicates(Join node)
+    public JoinSideExpressions getJoinSideExpressions(Join node)
     {
-        return joinInPredicates.get(node);
+        return joinSideExpressions.get(node);
+    }
+
+    public void setPostJoinConjunct(Join node, Expression postJoinConjunct)
+    {
+        this.postJoinConjunct.put(node, postJoinConjunct);
+    }
+
+    public Optional<Expression> getPostJoinConjunct(Join node)
+    {
+        return Optional.ofNullable(postJoinConjunct.get(node));
     }
 
     public void setWindowFunctions(QuerySpecification node, List<FunctionCall> functions)
@@ -435,31 +446,31 @@ public class Analysis
         return sampleRatios.get(relation);
     }
 
-    public static class JoinInPredicates
+    public static class JoinSideExpressions
     {
-        private final Set<InPredicate> leftInPredicates;
-        private final Set<InPredicate> rightInPredicates;
+        private final Set<Expression> left;
+        private final Set<Expression> right;
 
-        public JoinInPredicates(Set<InPredicate> leftInPredicates, Set<InPredicate> rightInPredicates)
+        public JoinSideExpressions(Set<Expression> left, Set<Expression> right)
         {
-            this.leftInPredicates = ImmutableSet.copyOf(requireNonNull(leftInPredicates, "leftInPredicates is null"));
-            this.rightInPredicates = ImmutableSet.copyOf(requireNonNull(rightInPredicates, "rightInPredicates is null"));
+            this.left = ImmutableSet.copyOf(requireNonNull(left, "left is null"));
+            this.right = ImmutableSet.copyOf(requireNonNull(right, "right is null"));
         }
 
-        public Set<InPredicate> getLeftInPredicates()
+        public Set<Expression> getLeft()
         {
-            return leftInPredicates;
+            return left;
         }
 
-        public Set<InPredicate> getRightInPredicates()
+        public Set<Expression> getRight()
         {
-            return rightInPredicates;
+            return right;
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(leftInPredicates, rightInPredicates);
+            return Objects.hash(left, right);
         }
 
         @Override
@@ -471,9 +482,9 @@ public class Analysis
             if (obj == null || getClass() != obj.getClass()) {
                 return false;
             }
-            final JoinInPredicates other = (JoinInPredicates) obj;
-            return Objects.equals(this.leftInPredicates, other.leftInPredicates) &&
-                    Objects.equals(this.rightInPredicates, other.rightInPredicates);
+            final JoinSideExpressions other = (JoinSideExpressions) obj;
+            return Objects.equals(this.left, other.left) &&
+                    Objects.equals(this.right, other.right);
         }
     }
 

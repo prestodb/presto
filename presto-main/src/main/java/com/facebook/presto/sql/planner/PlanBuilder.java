@@ -18,6 +18,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
@@ -87,6 +88,11 @@ class PlanBuilder
     public TranslationMap getTranslations()
     {
         return translations;
+    }
+
+    public PlanBuilder appendProjection(Expression expression, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    {
+        return appendProjections(ImmutableList.of(expression), symbolAllocator, idAllocator);
     }
 
     public PlanBuilder appendProjections(Iterable<Expression> expressions, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
