@@ -162,7 +162,7 @@ public class IndexLookup
         if (!AccumuloSessionProperties.isIndexMetricsEnabled(session)) {
             LOG.info("Use of index metrics is disabled");
             // Get the ranges via the index table
-            final List<Range> idxRanges = getIndexRanges(Indexer.getIndexTableName(schema, table),
+            List<Range> idxRanges = getIndexRanges(Indexer.getIndexTableName(schema, table),
                     constraintRangePairs, rowIdRanges);
 
             if (idxRanges.size() > 0) {
@@ -208,7 +208,7 @@ public class IndexLookup
         String metricsTable = Indexer.getMetricsTableName(schema, table);
         long numRows = getNumRowsInTable(metricsTable);
         double threshold = AccumuloSessionProperties.getIndexThreshold(session);
-        final List<Range> idxRanges;
+        List<Range> idxRanges;
 
         // If the smallest cardinality in our list is above the lowest cardinality threshold, we
         // should look at intersecting the row ID ranges to try and get under the threshold

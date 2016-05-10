@@ -250,7 +250,7 @@ public class Indexer
      *
      * @param m Mutation to index
      */
-    public void index(final Mutation m)
+    public void index(Mutation m)
     {
         // Increment the cardinality for the number of rows in the table
         metrics.get(METRICS_TABLE_ROW_ID).get(METRICS_TABLE_ROWS_CF).incrementAndGet();
