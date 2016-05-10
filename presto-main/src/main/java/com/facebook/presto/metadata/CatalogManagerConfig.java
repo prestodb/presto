@@ -29,6 +29,7 @@ public class CatalogManagerConfig
 
     private File catalogConfigurationDir = new File("etc/catalog/");
     private List<String> disabledCatalogs;
+    private boolean autoDetectCatalog;
 
     @NotNull
     public File getCatalogConfigurationDir()
@@ -59,6 +60,18 @@ public class CatalogManagerConfig
     public CatalogManagerConfig setDisabledCatalogs(List<String> catalogs)
     {
         this.disabledCatalogs = (catalogs == null) ? null : ImmutableList.copyOf(catalogs);
+        return this;
+    }
+
+    public boolean isAutoDetectCatalog()
+    {
+        return autoDetectCatalog;
+    }
+
+    @Config("catalog.auto-detect")
+    public CatalogManagerConfig setAutoDetectCatalog(boolean autoDetectCatalog)
+    {
+        this.autoDetectCatalog = autoDetectCatalog;
         return this;
     }
 }

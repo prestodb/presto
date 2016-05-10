@@ -58,6 +58,7 @@ public class CatalogManager
     private final AtomicBoolean catalogsLoading = new AtomicBoolean();
     private final AtomicBoolean catalogsLoaded = new AtomicBoolean();
     private final AtomicBoolean stopCatalogWatcher = new AtomicBoolean(false);
+    private final boolean autoDetectCatalog;
 
     @Inject
     public CatalogManager(Announcer announcer, ConnectorManager connectorManager, CatalogManagerConfig config)
@@ -65,15 +66,21 @@ public class CatalogManager
         this(announcer,
                 connectorManager,
                 config.getCatalogConfigurationDir(),
-                firstNonNull(config.getDisabledCatalogs(), ImmutableList.<String>of()));
+                firstNonNull(config.getDisabledCatalogs(), ImmutableList.<String>of()),
+                config.isAutoDetectCatalog());
     }
 
-    public CatalogManager(Announcer announcer, ConnectorManager connectorManager, File catalogConfigurationDir, List<String> disabledCatalogs)
+    public CatalogManager(Announcer announcer,
+                          ConnectorManager connectorManager,
+                          File catalogConfigurationDir,
+                          List<String> disabledCatalogs,
+                          boolean autoDetectCatalog)
     {
         this.announcer = announcer;
         this.connectorManager = connectorManager;
         this.catalogConfigurationDir = catalogConfigurationDir;
         this.disabledCatalogs = ImmutableSet.copyOf(disabledCatalogs);
+        this.autoDetectCatalog = autoDetectCatalog;
     }
 
     public boolean areCatalogsLoaded()
@@ -96,16 +103,18 @@ public class CatalogManager
 
         catalogsLoaded.set(true);
 
-        // add catalogs automatically
-        new Thread(() -> {
-            try {
-                log.info("-- Catalog watcher thread start --");
-                startCatalogWatcher(catalogConfigurationDir);
-            }
-            catch (Exception e) {
-                e.printStackTrace();
-            }
-        }).start();
+        if (autoDetectCatalog) {
+            // add catalogs automatically
+            new Thread(() -> {
+                try {
+                    log.info("-- Catalog watcher thread start --");
+                    startCatalogWatcher(catalogConfigurationDir);
+                }
+                catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }).start();
+        }
     }
 
     private void loadCatalog(File file)

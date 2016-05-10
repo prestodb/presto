@@ -31,6 +31,7 @@ public class TestCatalogManagerConfig
     {
         assertRecordedDefaults(recordDefaults(CatalogManagerConfig.class)
                 .setCatalogConfigurationDir(new File("etc/catalog"))
+                .setAutoDetectCatalog(false)
                 .setDisabledCatalogs((String) null));
     }
 
@@ -40,11 +41,13 @@ public class TestCatalogManagerConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("catalog.config-dir", "/foo")
                 .put("catalog.disabled-catalogs", "abc,xyz")
+                .put("catalog.auto-detect", "true")
                 .build();
 
         CatalogManagerConfig expected = new CatalogManagerConfig()
                 .setCatalogConfigurationDir(new File("/foo"))
-                .setDisabledCatalogs(ImmutableList.of("abc", "xyz"));
+                .setDisabledCatalogs(ImmutableList.of("abc", "xyz"))
+                .setAutoDetectCatalog(true);
 
         assertFullMapping(properties, expected);
     }
