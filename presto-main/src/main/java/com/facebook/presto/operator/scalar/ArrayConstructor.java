@@ -24,13 +24,16 @@ import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.metadata.BoundVariables;
+import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
@@ -68,7 +71,13 @@ public final class ArrayConstructor
 
     public ArrayConstructor()
     {
-        super("array_constructor", ImmutableList.of(typeVariable("E")), ImmutableList.of(), "array(E)", ImmutableList.of("E", "E"), true);
+        super(new Signature("array_constructor",
+                FunctionKind.SCALAR,
+                ImmutableList.of(typeVariable("E")),
+                ImmutableList.of(),
+                TypeSignature.parseTypeSignature("array(E)"),
+                ImmutableList.of(TypeSignature.parseTypeSignature("E"), TypeSignature.parseTypeSignature("E")),
+                true));
     }
 
     @Override

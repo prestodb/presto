@@ -15,8 +15,10 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.BoundVariables;
+import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.OperatorType;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
@@ -33,6 +35,7 @@ import java.lang.invoke.MethodHandle;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
@@ -49,7 +52,14 @@ public class MapElementAtFunction
 
     protected MapElementAtFunction()
     {
-        super("element_at", ImmutableList.of(typeVariable("K"), typeVariable("V")), ImmutableList.of(), "V", ImmutableList.of("map(K,V)", "K"));
+        super(new Signature(
+                "element_at",
+                FunctionKind.SCALAR,
+                ImmutableList.of(typeVariable("K"), typeVariable("V")),
+                ImmutableList.of(),
+                parseTypeSignature("V"),
+                ImmutableList.of(parseTypeSignature("map(K,V)"), parseTypeSignature("K")),
+                false));
     }
 
     @Override

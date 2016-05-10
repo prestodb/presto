@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -56,7 +57,11 @@ public class MapToJsonCast
 
     private MapToJsonCast()
     {
-        super(OperatorType.CAST, ImmutableList.of(typeVariable("K"), typeVariable("V")), ImmutableList.of(), StandardTypes.JSON, ImmutableList.of("map(K,V)"));
+        super(OperatorType.CAST,
+                ImmutableList.of(typeVariable("K"), typeVariable("V")),
+                ImmutableList.of(),
+                parseTypeSignature(StandardTypes.JSON),
+                ImmutableList.of(parseTypeSignature("map(K,V)")));
     }
 
     @Override

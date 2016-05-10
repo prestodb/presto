@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.BoundVariables;
+import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
@@ -25,6 +26,7 @@ import com.google.common.primitives.Primitives;
 import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static java.lang.invoke.MethodHandles.catchException;
 import static java.lang.invoke.MethodHandles.constant;
@@ -38,7 +40,14 @@ public class TryCastFunction
 
     public TryCastFunction()
     {
-        super("TRY_CAST", ImmutableList.of(typeVariable("F"), typeVariable("T")), ImmutableList.of(), "T", ImmutableList.of("F"));
+        super(new Signature(
+                "TRY_CAST",
+                FunctionKind.SCALAR,
+                ImmutableList.of(typeVariable("F"), typeVariable("T")),
+                ImmutableList.of(),
+                parseTypeSignature("T"),
+                ImmutableList.of(parseTypeSignature("F")),
+                false));
     }
 
     @Override

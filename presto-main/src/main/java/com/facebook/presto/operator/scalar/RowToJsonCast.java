@@ -40,6 +40,7 @@ import java.util.List;
 
 import static com.facebook.presto.metadata.Signature.withVariadicBound;
 import static com.facebook.presto.operator.scalar.JsonFunctions.getJsonObjectValue;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -52,7 +53,11 @@ public class RowToJsonCast
 
     private RowToJsonCast()
     {
-        super(OperatorType.CAST, ImmutableList.of(withVariadicBound("T", "row")), ImmutableList.of(), StandardTypes.JSON, ImmutableList.of("T"));
+        super(OperatorType.CAST,
+                ImmutableList.of(withVariadicBound("T", "row")),
+                ImmutableList.of(),
+                parseTypeSignature(StandardTypes.JSON),
+                ImmutableList.of(parseTypeSignature("T")));
     }
 
     @Override
