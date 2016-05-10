@@ -64,6 +64,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
 import static java.nio.ByteBuffer.wrap;
+import static java.util.Objects.requireNonNull;
 
 /**
  * This utility class assists the Presto connector, and external applications, in populating the
@@ -186,9 +187,11 @@ public class Indexer
     public Indexer(Connector conn, Authorizations auths, AccumuloTable table, BatchWriterConfig bwc)
             throws TableNotFoundException
     {
-        this.conn = conn;
-        this.table = table;
-        this.bwc = bwc;
+        this.conn =  requireNonNull(conn, "conn is null");
+        this.table =  requireNonNull(table, "table is null");
+        this.bwc =  requireNonNull(bwc, "bwc is null");
+        requireNonNull(auths, "auths is null");
+
         this.serializer = table.getSerializerInstance();
 
         // Create our batch writer

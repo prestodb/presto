@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
+import static java.util.Objects.requireNonNull;
 
 /**
  * This class is a light wrapper for Accumulo's Connector object.
@@ -43,7 +44,7 @@ public class AccumuloTableManager
 
     public AccumuloTableManager(AccumuloConfig config)
     {
-        this.conn = AccumuloClient.getAccumuloConnector(config);
+        this.conn = AccumuloClient.getAccumuloConnector(requireNonNull(config, "config is null"));
     }
 
     /**

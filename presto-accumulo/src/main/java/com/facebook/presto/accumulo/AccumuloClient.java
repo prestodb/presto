@@ -125,6 +125,8 @@ public class AccumuloClient
             return conn;
         }
 
+        requireNonNull(config, "config is null");
+
         try {
             if (config.isMiniAccumuloCluster()) {
                 // Create MAC directory

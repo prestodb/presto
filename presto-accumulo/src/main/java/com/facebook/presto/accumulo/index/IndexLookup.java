@@ -46,6 +46,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.INTERNAL_ERROR;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Class to assist the Presto connector, and maybe external applications, leverage the secondary
@@ -75,9 +76,9 @@ public class IndexLookup
      */
     public IndexLookup(Connector conn, AccumuloConfig config, Authorizations auths)
     {
-        this.conn = conn;
-        this.auths = auths;
-        this.ccCache = new ColumnCardinalityCache(conn, config, auths);
+        this.conn = requireNonNull(conn, "conn is null");
+        this.auths = requireNonNull(auths, "auths is null");
+        this.ccCache = new ColumnCardinalityCache(conn, requireNonNull(config, "config is null"), auths);
     }
 
     /**

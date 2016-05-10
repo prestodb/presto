@@ -73,6 +73,7 @@ public class AccumuloRecordSet
     public AccumuloRecordSet(ConnectorSession session, AccumuloConfig config, AccumuloSplit split,
             List<AccumuloColumnHandle> columnHandles)
     {
+        requireNonNull(session, "session is null");
         requireNonNull(config, "config is null");
         requireNonNull(split, "split is null");
         constraints = requireNonNull(split.getConstraints(), "constraints is null");

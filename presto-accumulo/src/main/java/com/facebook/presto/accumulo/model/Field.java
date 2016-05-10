@@ -44,6 +44,7 @@ import java.util.Objects;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.NOT_SUPPORTED;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Class to contain a single field within a Presto {@link Row}.
@@ -81,7 +82,7 @@ public class Field
     public Field(Object v, Type t, boolean indexed)
     {
         this.value = cleanObject(v, t);
-        this.type = t;
+        this.type = requireNonNull(t, "type is null");
         this.indexed = indexed;
     }
 

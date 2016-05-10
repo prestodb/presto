@@ -44,6 +44,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * This class is an indexing utility to cache the cardinality of a column value for every table.
  * Each table has its own cache that is independent of every other, and every column also has its
@@ -70,10 +72,10 @@ public class ColumnCardinalityCache
      */
     public ColumnCardinalityCache(Connector conn, AccumuloConfig config, Authorizations auths)
     {
-        this.conn = conn;
-        this.size = config.getCardinalityCacheSize();
+        this.conn = requireNonNull(conn, "conn is null");
+        this.size = requireNonNull(config, "config is null").getCardinalityCacheSize();
         this.expireSeconds = config.getCardinalityCacheExpireSeconds();
-        this.auths = auths;
+        this.auths = requireNonNull(auths, "auths is null");
     }
 
     /**

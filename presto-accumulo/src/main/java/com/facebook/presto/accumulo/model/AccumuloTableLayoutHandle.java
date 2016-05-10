@@ -41,9 +41,10 @@ public class AccumuloTableLayoutHandle
      * @param constraint Constraints against the table
      */
     @JsonCreator
-    public AccumuloTableLayoutHandle(@JsonProperty("table") AccumuloTableHandle table, @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
+    public AccumuloTableLayoutHandle(@JsonProperty("table") AccumuloTableHandle table,
+            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
     {
-        this.table = table;
+        this.table = requireNonNull(table, "table is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
     }
 

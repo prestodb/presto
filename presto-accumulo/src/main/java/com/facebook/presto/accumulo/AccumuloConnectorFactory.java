@@ -62,10 +62,10 @@ public class AccumuloConnectorFactory
      * @param requiredConfig Required configuration parameters
      */
     @Override
-    public Connector create(final String connectorId, Map<String, String> requiredConfig)
+    public Connector create(String connectorId, Map<String, String> requiredConfig)
     {
+        requireNonNull(connectorId, "connectorId is null");
         requireNonNull(requiredConfig, "requiredConfig is null");
-        requireNonNull(optionalConfig, "optionalConfig is null");
 
         try {
             // A plugin is not required to use Guice; it is just very convenient

@@ -44,6 +44,7 @@ import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Class to contain an entire Presto row, made up of {@link Field} objects.
@@ -68,6 +69,7 @@ public class Row
      */
     public Row(Row row)
     {
+        requireNonNull(row, "row is null");
         for (Field f : row.fields) {
             fields.add(new Field(f));
         }

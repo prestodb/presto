@@ -21,6 +21,8 @@ import com.facebook.presto.spi.type.TypeManager;
 
 import java.util.List;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * An implementation of a FunctionFactory to provide additional UDF functionality for Presto
  *
@@ -38,7 +40,7 @@ public class AccumuloFunctionFactory
      */
     public AccumuloFunctionFactory(TypeManager typeManager)
     {
-        this.typeManager = typeManager;
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     /**
