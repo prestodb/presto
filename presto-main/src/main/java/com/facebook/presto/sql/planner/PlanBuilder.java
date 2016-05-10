@@ -15,8 +15,12 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.google.common.collect.ImmutableMap;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -83,5 +87,32 @@ class PlanBuilder
     public TranslationMap getTranslations()
     {
         return translations;
+    }
+
+    public PlanBuilder appendProjections(Iterable<Expression> expressions, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    {
+        TranslationMap translations = copyTranslations();
+
+        ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
+
+        // add an identity projection for underlying plan
+        for (Symbol symbol : getRoot().getOutputSymbols()) {
+            Expression expression = new QualifiedNameReference(symbol.toQualifiedName());
+            projections.put(symbol, expression);
+        }
+
+        ImmutableMap.Builder<Symbol, Expression> newTranslations = ImmutableMap.builder();
+        for (Expression expression : expressions) {
+            Symbol symbol = symbolAllocator.newSymbol(expression, getAnalysis().getTypeWithCoercions(expression));
+
+            projections.put(symbol, translations.rewrite(expression));
+            newTranslations.put(symbol, expression);
+        }
+        // Now append the new translations into the TranslationMap
+        for (Map.Entry<Symbol, Expression> entry : newTranslations.build().entrySet()) {
+            translations.put(entry.getValue(), entry.getKey());
+        }
+
+        return new PlanBuilder(translations, new ProjectNode(idAllocator.getNextId(), getRoot(), projections.build()), getSampleWeight());
     }
 }
