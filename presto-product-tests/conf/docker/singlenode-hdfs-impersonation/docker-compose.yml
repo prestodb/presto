@@ -2,7 +2,7 @@ version: '2'
 services:
   hadoop-master:
     hostname: hadoop-master
-    image: 'teradatalabs/cdh5-hive:2'
+    image: 'teradatalabs/cdh5-hive:3'
     ports:
       - '1080:1080'
       - '8020:8020'
@@ -14,7 +14,7 @@ services:
 
   presto-master:
     hostname: presto-master
-    image: 'teradatalabs/centos6-java8-oracle:jdk1.8.0_40-4e54a19'
+    image: 'teradatalabs/centos6-java8-oracle:jdk1.8.0_92-80a011f'
     depends_on:
       - 'hadoop-master'
     command: /docker/volumes/presto/presto-product-tests/conf/docker/files/presto-launcher-wrapper.sh singlenode run
@@ -27,7 +27,7 @@ services:
 
   application-runner:
     hostname: application-runner
-    image: 'teradatalabs/centos6-java8-oracle:jdk1.8.0_40-4e54a19'
+    image: 'teradatalabs/centos6-java8-oracle:jdk1.8.0_92-80a011f'
     depends_on:
       - 'presto-master'
     volumes_from:
