@@ -61,7 +61,7 @@ public class IndexLookup
 
     private final ColumnCardinalityCache ccCache;
     private final Connector conn;
-    private final Authorizations auths;
+    private Authorizations auths;
     private final Text tmpCQ = new Text();
     private final ConstraintCardinalityComparator constraintComparator =
             new ConstraintCardinalityComparator();
@@ -71,13 +71,33 @@ public class IndexLookup
      *
      * @param conn Accumulo connector
      * @param config Presto config for Accumulo connector
-     * @param auths Authorizations for the scanners
+     * @param auths Initial Authorizations for the scanners
      */
     public IndexLookup(Connector conn, AccumuloConfig config, Authorizations auths)
     {
         this.conn = conn;
         this.auths = auths;
         this.ccCache = new ColumnCardinalityCache(conn, config, auths);
+    }
+
+    /**
+     * Gets the current Authorizations for the index lookup
+     *
+     * @return Authorizations
+     */
+    public Authorizations getAuths()
+    {
+        return auths;
+    }
+
+    /**
+     * Sets the Authorizations used for the index lookup
+     *
+     * @param auths Authorizations
+     */
+    public void setAuths(Authorizations auths)
+    {
+        this.auths = auths;
     }
 
     /**

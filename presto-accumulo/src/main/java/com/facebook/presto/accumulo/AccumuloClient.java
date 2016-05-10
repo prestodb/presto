@@ -110,6 +110,7 @@ public class AccumuloClient
     private final Authorizations auths;
     private final Random random = new Random();
     private final AccumuloTableManager tableManager;
+    private final IndexLookup sIndexLookup;
 
     /**
      * Gets an Accumulo Connector based on the given configuration.
@@ -190,6 +191,9 @@ public class AccumuloClient
 
         // Creates and sets CONNECTOR in the event it has not yet been created
         this.auths = getAccumuloConnector(this.conf).securityOperations().getUserAuthorizations(conf.getUsername());
+
+        // Create the index lookup utility
+        this.sIndexLookup = new IndexLookup(conn, conf, this.auths);
     }
 
     /**
@@ -856,10 +860,8 @@ public class AccumuloClient
 
             // Use the secondary index, if enabled
             if (AccumuloSessionProperties.isOptimizeIndexEnabled(session)) {
-                // Get the scan authorizations to query the index and create the index lookup
-                // utility
-                Authorizations scanAuths = getScanAuthorizations(session, schema, table);
-                IndexLookup sIndexLookup = new IndexLookup(conn, conf, scanAuths);
+                // Get the scan authorizations to query the index and set them in our lookup utility
+                sIndexLookup.setAuths(getScanAuthorizations(session, schema, table));
 
                 // Check the secondary index based on the column constraints
                 // If this returns true, return the tablet splits to Presto
