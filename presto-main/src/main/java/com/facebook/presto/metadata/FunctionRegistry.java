@@ -199,6 +199,7 @@ import static com.facebook.presto.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static com.facebook.presto.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
 import static com.facebook.presto.operator.scalar.TryCastFunction.TRY_CAST;
 import static com.facebook.presto.operator.scalar.VarcharToVarcharCast.VARCHAR_TO_VARCHAR_CAST;
+import static com.facebook.presto.operator.scalar.ZipFunction.ZIP_FUNCTIONS;
 import static com.facebook.presto.operator.window.AggregateWindowFunction.supplier;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
@@ -406,6 +407,7 @@ public class FunctionRegistry
                 .scalar(MapCardinalityFunction.class)
                 .scalar(MapConcatFunction.class)
                 .scalar(MapToMapCast.class)
+                .functions(ZIP_FUNCTIONS)
                 .functions(ARRAY_JOIN, ARRAY_JOIN_WITH_NULL_REPLACEMENT)
                 .functions(ARRAY_TO_ARRAY_CAST, ARRAY_LESS_THAN)
                 .functions(ARRAY_TO_ELEMENT_CONCAT_FUNCTION, ELEMENT_TO_ARRAY_CONCAT_FUNCTION)
