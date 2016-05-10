@@ -32,7 +32,6 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LookupSymbolResolver;
-import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PartitioningScheme.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -106,6 +105,7 @@ import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.stripDeterministicConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.stripNonDeterministicConjuncts;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
+import static com.facebook.presto.sql.planner.FragmentTableScanCounter.hasMultipleSources;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_RANDOM_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -851,8 +851,7 @@ public class AddExchanges
                     }
 
                     // if colocated joins are disabled, force redistribute when using a custom partitioning
-                    boolean customConnectorPartitioning = !isColocatedJoinEnabled(session) && !(left.getNode() instanceof ExchangeNode) &&
-                            left.getProperties().getNodePartitioningHandle().flatMap(PartitioningHandle::getConnectorId).isPresent();
+                    boolean customConnectorPartitioning = !isColocatedJoinEnabled(session) && hasMultipleSources(left.getNode(), right.getNode());
 
                     if (customConnectorPartitioning || !left.getProperties().isNodePartitionedWith(right.getProperties(), leftToRight::get)) {
                         Function<Symbol, Optional<Symbol>> leftToRightTranslator = leftSymbol -> leftToRight.get(leftSymbol).stream().findAny();
@@ -940,8 +939,7 @@ public class AddExchanges
                 }
 
                 // if colocated joins are disabled, force redistribute when using a custom partitioning
-                boolean customConnectorPartitioning = !isColocatedJoinEnabled(session) && !(source.getNode() instanceof ExchangeNode) &&
-                        source.getProperties().getNodePartitioningHandle().flatMap(PartitioningHandle::getConnectorId).isPresent();
+                boolean customConnectorPartitioning = !isColocatedJoinEnabled(session) && hasMultipleSources(source.getNode(), filteringSource.getNode());
 
                 if (customConnectorPartitioning || !source.getProperties().withReplicatedNulls(true).isNodePartitionedWith(filteringSource.getProperties(), sourceToFilteringSource::get)) {
                     // The following statements would normally be written as: if (condition) { filteringSource = ...; }
