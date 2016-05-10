@@ -87,7 +87,6 @@ Property Name                                      Description                  
                                                    principal specified by ``hive.metastore.presto.principal``.
                                                    This file must be readable by the operating system user
                                                    running Presto.
-
 ================================================== ============================================================ ==========
 
 ``NONE``
@@ -174,7 +173,6 @@ Property Name                                      Description                  
                                                    principal specified by ``hive.hdfs.presto.principal``.
                                                    This file must be readable by the operating system user
                                                    running Presto.
-
 ================================================== ============================================================ ==========
 
 .. _hive-security-simple:
