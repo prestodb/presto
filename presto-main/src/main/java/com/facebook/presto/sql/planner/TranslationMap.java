@@ -62,6 +62,11 @@ class TranslationMap
         return rewriteBase;
     }
 
+    public Analysis getAnalysis()
+    {
+        return analysis;
+    }
+
     public void setFieldMappings(List<Symbol> symbols)
     {
         checkArgument(symbols.size() == fieldSymbols.length, "size of symbols list (%s) doesn't match number of expected fields (%s)", symbols.size(), fieldSymbols.length);

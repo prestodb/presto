@@ -334,7 +334,7 @@ class QueryPlanner
 
     private PlanBuilder explicitCoercionSymbols(PlanBuilder subPlan, Iterable<Symbol> alreadyCoerced, Iterable<? extends Expression> uncoerced)
     {
-        TranslationMap translations = copyTranslations(subPlan);
+        TranslationMap translations = subPlan.copyTranslations();
         ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
 
         projections.putAll(coerce(uncoerced, subPlan, translations));
@@ -553,7 +553,7 @@ class QueryPlanner
                     frameStartType, frameStartSymbol,
                     frameEndType, frameEndSymbol);
 
-            TranslationMap outputTranslations = copyTranslations(subPlan);
+            TranslationMap outputTranslations = subPlan.copyTranslations();
 
             ImmutableMap.Builder<Symbol, FunctionCall> assignments = ImmutableMap.builder();
             Map<Symbol, Signature> signatures = new HashMap<>();
@@ -602,7 +602,7 @@ class QueryPlanner
 
     private PlanBuilder appendProjections(PlanBuilder subPlan, Iterable<Expression> expressions)
     {
-        TranslationMap translations = copyTranslations(subPlan);
+        TranslationMap translations = subPlan.copyTranslations();
 
         ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
 
@@ -668,7 +668,7 @@ class QueryPlanner
         checkState(inPredicate.getValueList() instanceof SubqueryExpression);
         RelationPlan valueListRelation = createRelationPlan((SubqueryExpression) inPredicate.getValueList());
 
-        TranslationMap translationMap = copyTranslations(subPlan);
+        TranslationMap translationMap = subPlan.copyTranslations();
         QualifiedNameReference valueList = getOnlyElement(valueListRelation.getOutputSymbols()).toQualifiedNameReference();
         translationMap.setExpressionAsAlreadyTranslated(valueList);
         translationMap.put(inPredicate, new InPredicate(inPredicate.getValue(), valueList));
@@ -682,13 +682,6 @@ class QueryPlanner
                 subPlan.getSampleWeight());
     }
 
-    private TranslationMap copyTranslations(PlanBuilder subPlan)
-    {
-        TranslationMap translations = new TranslationMap(subPlan.getRelationPlan(), analysis);
-        translations.copyMappingsFrom(subPlan.getTranslations());
-        return translations;
-    }
-
     private PlanBuilder appendScalarSubqueryApplyNodes(PlanBuilder builder, Set<SubqueryExpression> scalarSubqueries)
     {
         for (SubqueryExpression scalarSubquery : scalarSubqueries) {
@@ -697,17 +690,17 @@ class QueryPlanner
         return builder;
     }
 
-    private PlanBuilder appendScalarSubqueryApplyNode(PlanBuilder builder, SubqueryExpression scalarSubquery)
+    private PlanBuilder appendScalarSubqueryApplyNode(PlanBuilder subPlan, SubqueryExpression scalarSubquery)
     {
         EnforceSingleRowNode enforceSingleRowNode = new EnforceSingleRowNode(idAllocator.getNextId(), createRelationPlan(scalarSubquery).getRoot());
 
-        TranslationMap translations = copyTranslations(builder);
+        TranslationMap translations = subPlan.copyTranslations();
         translations.put(scalarSubquery, getOnlyElement(enforceSingleRowNode.getOutputSymbols()));
 
-        PlanNode root = builder.getRoot();
+        PlanNode root = subPlan.getRoot();
         if (root.getOutputSymbols().isEmpty()) {
             // there is nothing to join with - e.g. SELECT (SELECT 1)
-            return new PlanBuilder(translations, enforceSingleRowNode, builder.getSampleWeight());
+            return new PlanBuilder(translations, enforceSingleRowNode, subPlan.getSampleWeight());
         }
         else {
             return new PlanBuilder(translations,
@@ -716,7 +709,7 @@ class QueryPlanner
                             root,
                             enforceSingleRowNode,
                             ImmutableList.of()),
-                    builder.getSampleWeight());
+                    subPlan.getSampleWeight());
         }
     }
 

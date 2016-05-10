@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.Expression;
 
@@ -35,6 +36,18 @@ class PlanBuilder
         this.translations = translations;
         this.root = root;
         this.sampleWeight = sampleWeight;
+    }
+
+    public TranslationMap copyTranslations()
+    {
+        TranslationMap translations = new TranslationMap(getRelationPlan(), getAnalysis());
+        translations.copyMappingsFrom(getTranslations());
+        return translations;
+    }
+
+    private Analysis getAnalysis()
+    {
+        return translations.getAnalysis();
     }
 
     public PlanBuilder withNewRoot(PlanNode root)
