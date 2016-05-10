@@ -651,10 +651,7 @@ class RelationPlanner
 
     private PlanBuilder appendProjections(PlanBuilder subPlan, Iterable<Expression> expressions)
     {
-        TranslationMap translations = new TranslationMap(subPlan.getRelationPlan(), analysis);
-
-        // Carry over the translations from the source because we are appending projections
-        translations.copyMappingsFrom(subPlan.getTranslations());
+        TranslationMap translations = subPlan.copyTranslations();
 
         ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
 
@@ -698,8 +695,7 @@ class RelationPlanner
 
         subPlan = appendProjections(subPlan, ImmutableList.of(inPredicate.getValue()));
 
-        TranslationMap translations = new TranslationMap(subPlan.getRelationPlan(), analysis);
-        translations.copyMappingsFrom(subPlan.getTranslations());
+        TranslationMap translations = subPlan.copyTranslations();
         QualifiedNameReference valueList = Iterables.getOnlyElement(valueListRelation.getOutputSymbols()).toQualifiedNameReference();
         translations.setExpressionAsAlreadyTranslated(valueList);
         translations.put(inPredicate, new InPredicate(inPredicate.getValue(), valueList));
