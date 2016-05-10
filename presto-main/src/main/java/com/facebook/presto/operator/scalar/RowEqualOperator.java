@@ -28,6 +28,7 @@ import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.metadata.OperatorType.EQUAL;
 import static com.facebook.presto.metadata.Signature.comparableWithVariadicBound;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class RowEqualOperator
@@ -38,7 +39,11 @@ public class RowEqualOperator
 
     private RowEqualOperator()
     {
-        super(EQUAL, ImmutableList.of(comparableWithVariadicBound("T", "row")), ImmutableList.of(), StandardTypes.BOOLEAN, ImmutableList.of("T", "T"));
+        super(EQUAL,
+                ImmutableList.of(comparableWithVariadicBound("T", "row")),
+                ImmutableList.of(),
+                parseTypeSignature(StandardTypes.BOOLEAN),
+                ImmutableList.of(parseTypeSignature("T"), parseTypeSignature("T")));
     }
 
     @Override

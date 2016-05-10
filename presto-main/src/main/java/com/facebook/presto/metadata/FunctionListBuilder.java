@@ -142,8 +142,7 @@ public class FunctionListBuilder
             String description,
             boolean hidden,
             boolean nullable,
-            List<Boolean> nullableArguments,
-            Set<String> literalParameters)
+            List<Boolean> nullableArguments)
     {
         functions.add(SqlScalarFunction.create(
                 signature,
@@ -153,8 +152,7 @@ public class FunctionListBuilder
                 instanceFactory,
                 deterministic,
                 nullable,
-                nullableArguments,
-                literalParameters));
+                nullableArguments));
         return this;
     }
 
@@ -167,8 +165,7 @@ public class FunctionListBuilder
             MethodHandle function,
             Optional<MethodHandle> instanceFactory,
             boolean nullable,
-            List<Boolean> nullableArguments,
-            Set<String> literalParameters)
+            List<Boolean> nullableArguments)
     {
         operatorType.validateSignature(returnType, argumentTypes);
         functions.add(SqlOperator.create(
@@ -180,8 +177,7 @@ public class FunctionListBuilder
                 function,
                 instanceFactory,
                 nullable,
-                nullableArguments,
-                literalParameters));
+                nullableArguments));
         return this;
     }
 
@@ -259,16 +255,14 @@ public class FunctionListBuilder
 
         List<Boolean> nullableArguments = getNullableArguments(method);
 
-        scalar(
-                signature,
+        scalar(signature,
                 methodHandle,
                 instanceFactory,
                 scalarFunction.deterministic(),
                 getDescription(method),
                 scalarFunction.hidden(),
                 method.isAnnotationPresent(Nullable.class),
-                nullableArguments,
-                literalParameters);
+                nullableArguments);
         for (String alias : scalarFunction.alias()) {
             scalar(signature.withAlias(alias.toLowerCase(ENGLISH)),
                     methodHandle,
@@ -277,8 +271,7 @@ public class FunctionListBuilder
                     getDescription(method),
                     scalarFunction.hidden(),
                     method.isAnnotationPresent(Nullable.class),
-                    nullableArguments,
-                    literalParameters);
+                    nullableArguments);
         }
         return true;
     }
@@ -443,8 +436,7 @@ public class FunctionListBuilder
                 methodHandle,
                 instanceFactory,
                 method.isAnnotationPresent(Nullable.class),
-                nullableArguments,
-                literalParameters);
+                nullableArguments);
         return true;
     }
 

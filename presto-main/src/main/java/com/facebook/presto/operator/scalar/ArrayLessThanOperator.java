@@ -31,6 +31,7 @@ import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.type.ArrayType.ARRAY_NULL_ELEMENT_MSG;
 import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
@@ -44,7 +45,11 @@ public class ArrayLessThanOperator
 
     private ArrayLessThanOperator()
     {
-        super(LESS_THAN, ImmutableList.of(orderableTypeParameter("T")), ImmutableList.of(), StandardTypes.BOOLEAN, ImmutableList.of("array(T)", "array(T)"));
+        super(LESS_THAN,
+                ImmutableList.of(orderableTypeParameter("T")),
+                ImmutableList.of(),
+                parseTypeSignature(StandardTypes.BOOLEAN),
+                ImmutableList.of(parseTypeSignature("array(T)"), parseTypeSignature("array(T)")));
     }
 
     @Override
