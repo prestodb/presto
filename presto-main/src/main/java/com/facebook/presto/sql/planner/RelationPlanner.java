@@ -26,7 +26,6 @@ import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IntersectNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -47,7 +46,6 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -59,7 +57,6 @@ import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SetOperation;
-import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
@@ -70,7 +67,6 @@ import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.UnmodifiableIterator;
 
@@ -99,6 +95,7 @@ class RelationPlanner
     private final PlanNodeIdAllocator idAllocator;
     private final Metadata metadata;
     private final Session session;
+    private final SubqueryPlanner subqueryPlanner;
 
     RelationPlanner(Analysis analysis, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Metadata metadata, Session session)
     {
@@ -113,6 +110,7 @@ class RelationPlanner
         this.idAllocator = idAllocator;
         this.metadata = metadata;
         this.session = session;
+        this.subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, metadata, session);
     }
 
     @Override
@@ -270,13 +268,8 @@ class RelationPlanner
                 }
             }
 
-            Analysis.JoinInPredicates joinInPredicates = analysis.getJoinInPredicates(node);
-
-            // Add semi joins if necessary
-            if (joinInPredicates != null) {
-                leftPlanBuilder = appendInPredicateApplyNodes(leftPlanBuilder, joinInPredicates.getLeftInPredicates());
-                rightPlanBuilder = appendInPredicateApplyNodes(rightPlanBuilder, joinInPredicates.getRightInPredicates());
-            }
+            leftPlanBuilder = subqueryPlanner.handleSubqueries(leftPlanBuilder, leftComparisonExpressions, node);
+            rightPlanBuilder = subqueryPlanner.handleSubqueries(rightPlanBuilder, rightComparisonExpressions, node);
 
             // Add projections for join criteria
             leftPlanBuilder = leftPlanBuilder.appendProjections(leftComparisonExpressions, symbolAllocator, idAllocator);
@@ -326,7 +319,7 @@ class RelationPlanner
         translationMap.putExpressionMappingsFrom(leftPlanBuilder.getTranslations());
         translationMap.putExpressionMappingsFrom(rightPlanBuilder.getTranslations());
         PlanBuilder rootPlanBuilder = new PlanBuilder(translationMap, root, sampleWeight);
-        rootPlanBuilder = appendInPredicateApplyNodes(rootPlanBuilder, analysis.getInPredicateSubqueries(node));
+        rootPlanBuilder = subqueryPlanner.handleSubqueries(rootPlanBuilder, complexJoinExpressions, node);
         for (Expression expression : complexJoinExpressions) {
             postInnerJoinConditions.add(rootPlanBuilder.rewrite(expression));
         }
@@ -646,36 +639,6 @@ class RelationPlanner
         translations.setFieldMappings(relationPlan.getOutputSymbols());
 
         return new PlanBuilder(translations, relationPlan.getRoot(), relationPlan.getSampleWeight());
-    }
-
-    private PlanBuilder appendInPredicateApplyNodes(PlanBuilder subPlan, Iterable<InPredicate> inPredicates)
-    {
-        for (InPredicate inPredicate : inPredicates) {
-            subPlan = appendInPredicateApplyNode(subPlan, inPredicate);
-        }
-        return subPlan;
-    }
-
-    private PlanBuilder appendInPredicateApplyNode(PlanBuilder subPlan, InPredicate inPredicate)
-    {
-        checkState(inPredicate.getValueList() instanceof SubqueryExpression);
-        SubqueryExpression subqueryExpression = (SubqueryExpression) inPredicate.getValueList();
-        RelationPlanner relationPlanner = new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session);
-        PlanNode valueListRelation = relationPlanner.process(subqueryExpression.getQuery(), null).getRoot();
-
-        subPlan = subPlan.appendProjections(ImmutableList.of(inPredicate.getValue()), symbolAllocator, idAllocator);
-
-        TranslationMap translations = subPlan.copyTranslations();
-        QualifiedNameReference valueList = Iterables.getOnlyElement(valueListRelation.getOutputSymbols()).toQualifiedNameReference();
-        translations.setExpressionAsAlreadyTranslated(valueList);
-        translations.put(inPredicate, new InPredicate(inPredicate.getValue(), valueList));
-
-        return new PlanBuilder(translations,
-                new ApplyNode(idAllocator.getNextId(),
-                        subPlan.getRoot(),
-                        valueListRelation,
-                        ImmutableList.of()),
-                subPlan.getSampleWeight());
     }
 
     private PlanNode distinct(PlanNode node)

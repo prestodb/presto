@@ -26,6 +26,7 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collection;
 import java.util.Set;
 
 import static com.facebook.presto.sql.util.AstUtils.nodeContains;
@@ -55,6 +56,14 @@ class SubqueryPlanner
         this.idAllocator = idAllocator;
         this.metadata = metadata;
         this.session = session;
+    }
+
+    public PlanBuilder handleSubqueries(PlanBuilder builder, Collection<Expression> expressions, Node node)
+    {
+        for (Expression expression : expressions) {
+            builder = handleSubqueries(builder, expression, node);
+        }
+        return builder;
     }
 
     public PlanBuilder handleSubqueries(PlanBuilder builder, Expression expression, Node node)
@@ -113,6 +122,11 @@ class SubqueryPlanner
 
     private PlanBuilder appendScalarSubqueryApplyNode(PlanBuilder subPlan, SubqueryExpression scalarSubquery)
     {
+        if (subPlan.canTranslate(scalarSubquery)) {
+            // given subquery is already appended
+            return subPlan;
+        }
+
         EnforceSingleRowNode enforceSingleRowNode = new EnforceSingleRowNode(idAllocator.getNextId(), createRelationPlan(scalarSubquery).getRoot());
 
         TranslationMap translations = subPlan.copyTranslations();
