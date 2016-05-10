@@ -42,11 +42,12 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.primitives.Primitives.wrap;
 import static java.util.Objects.requireNonNull;
 
 public class AggregationMetadata
 {
-    public static final Set<Class<?>> SUPPORTED_PARAMETER_TYPES = ImmutableSet.of(Block.class, long.class, double.class, boolean.class, Slice.class);
+    public static final Set<Class<?>> SUPPORTED_PARAMETER_TYPES = ImmutableSet.of(Block.class, long.class, double.class, boolean.class, Slice.class, Void.class);
 
     private final String name;
     private final List<ParameterMetadata> inputMetadata;
@@ -184,7 +185,7 @@ public class AggregationMetadata
                     break;
                 case INPUT_CHANNEL:
                     checkArgument(SUPPORTED_PARAMETER_TYPES.contains(parameters[i]), "Unsupported type: %s", parameters[i].getSimpleName());
-                    checkArgument(parameters[i] == metadata.getSqlType().getJavaType(),
+                    checkArgument(parameters[i] == metadata.getSqlType().getJavaType() || wrap(parameters[i]) == wrap(metadata.getSqlType().getJavaType()),
                             "Expected method %s parameter %s type to be %s (%s)",
                             method,
                             i,

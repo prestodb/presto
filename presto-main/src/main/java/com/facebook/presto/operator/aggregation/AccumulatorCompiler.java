@@ -56,6 +56,7 @@ import static com.facebook.presto.bytecode.OpCode.NOP;
 import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantNull;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.not;
@@ -455,6 +456,10 @@ public class AccumulatorCompiler
                     .append(getBlockBytecode)
                     .append(position)
                     .invokeInterface(Type.class, "getSlice", Slice.class, Block.class, int.class);
+        }
+        else if (parameter == Void.class) {
+            block.comment("static null for unknown type")
+                    .append(constantNull(Void.class));
         }
         else {
             block.comment("%s.getObject(block, position)", sqlType.getTypeSignature())

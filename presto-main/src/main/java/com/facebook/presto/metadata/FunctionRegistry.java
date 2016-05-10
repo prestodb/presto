@@ -116,7 +116,6 @@ import com.facebook.presto.type.TimeOperators;
 import com.facebook.presto.type.TimeWithTimeZoneOperators;
 import com.facebook.presto.type.TimestampOperators;
 import com.facebook.presto.type.TimestampWithTimeZoneOperators;
-import com.facebook.presto.type.UnknownOperators;
 import com.facebook.presto.type.VarbinaryOperators;
 import com.facebook.presto.type.VarcharOperators;
 import com.google.common.annotations.VisibleForTesting;
@@ -143,6 +142,7 @@ import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -200,12 +200,12 @@ import static com.facebook.presto.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
 import static com.facebook.presto.operator.scalar.TryCastFunction.TRY_CAST;
 import static com.facebook.presto.operator.scalar.VarcharToVarcharCast.VARCHAR_TO_VARCHAR_CAST;
 import static com.facebook.presto.operator.window.AggregateWindowFunction.supplier;
+import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
@@ -214,9 +214,11 @@ import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_BIGINT_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_BOOLEAN_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_DOUBLE_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_INTEGER_CAST;
+import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_JSON_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_VARCHAR_CAST;
 import static com.facebook.presto.type.DecimalCasts.DOUBLE_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.INTEGER_TO_DECIMAL_CAST;
+import static com.facebook.presto.type.DecimalCasts.JSON_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.VARCHAR_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalInequalityOperators.DECIMAL_BETWEEN_OPERATOR;
 import static com.facebook.presto.type.DecimalInequalityOperators.DECIMAL_EQUAL_OPERATOR;
@@ -233,11 +235,14 @@ import static com.facebook.presto.type.DecimalOperators.DECIMAL_SUBTRACT_OPERATO
 import static com.facebook.presto.type.DecimalSaturatedFloorCasts.DECIMAL_TO_DECIMAL_SATURATED_FLOOR_CAST;
 import static com.facebook.presto.type.DecimalToDecimalCasts.DECIMAL_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
+import static com.facebook.presto.type.UnknownOperators.UNKNOWN_OPERATORS;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -356,7 +361,7 @@ public class FunctionRegistry
                 .scalar(ColorFunctions.class)
                 .scalar(ColorOperators.class)
                 .scalar(HyperLogLogFunctions.class)
-                .scalar(UnknownOperators.class)
+                .functions(UNKNOWN_OPERATORS)
                 .scalar(BooleanOperators.class)
                 .scalar(BigintOperators.class)
                 .scalar(IntegerOperators.class)
@@ -415,6 +420,7 @@ public class FunctionRegistry
                 .functions(MAP_AGG, MULTIMAP_AGG)
                 .functions(DECIMAL_TO_VARCHAR_CAST, DECIMAL_TO_INTEGER_CAST, DECIMAL_TO_BIGINT_CAST, DECIMAL_TO_DOUBLE_CAST, DECIMAL_TO_BOOLEAN_CAST)
                 .functions(VARCHAR_TO_DECIMAL_CAST, INTEGER_TO_DECIMAL_CAST, BIGINT_TO_DECIMAL_CAST, DOUBLE_TO_DECIMAL_CAST, BOOLEAN_TO_DECIMAL_CAST)
+                .functions(JSON_TO_DECIMAL_CAST, DECIMAL_TO_JSON_CAST)
                 .functions(DECIMAL_ADD_OPERATOR, DECIMAL_SUBTRACT_OPERATOR, DECIMAL_MULTIPLY_OPERATOR, DECIMAL_DIVIDE_OPERATOR, DECIMAL_MODULUS_OPERATOR)
                 .functions(DECIMAL_EQUAL_OPERATOR, DECIMAL_NOT_EQUAL_OPERATOR)
                 .functions(DECIMAL_LESS_THAN_OPERATOR, DECIMAL_LESS_THAN_OR_EQUAL_OPERATOR)
@@ -470,67 +476,37 @@ public class FunctionRegistry
 
     public Signature resolveFunction(QualifiedName name, List<TypeSignature> parameterTypes, boolean approximate)
     {
-        List<SqlFunction> candidates = functions.get(name).stream()
+        List<SqlFunction> allCandidates = functions.get(name).stream()
                 .filter(function -> function.getSignature().getKind() == SCALAR || (function.getSignature().getKind() == APPROXIMATE_AGGREGATE) == approximate)
                 .collect(toImmutableList());
 
-        List<Type> resolvedTypes = resolveTypes(parameterTypes, typeManager);
-        // search for exact match
-        Optional<Signature> match = Optional.empty();
-        for (SqlFunction function : candidates) {
-            Optional<Signature> signature = new SignatureBinder(typeManager, function.getSignature(), false).bind(resolvedTypes);
-            if (signature.isPresent()) {
-                checkArgument(!match.isPresent(), "Ambiguous call to %s with parameters %s", name, parameterTypes);
-                match = signature;
-            }
-        }
+        List<SqlFunction> candidatesWithExplicitlySpecifiedParameters = allCandidates.stream()
+                .filter(function -> function.getSignature().getTypeVariableConstraints().isEmpty())
+                .collect(Collectors.toList());
 
+        List<Type> resolvedTypes = resolveTypes(parameterTypes, typeManager);
+
+        Optional<Signature> match = searchForExactMatch(candidatesWithExplicitlySpecifiedParameters, resolvedTypes);
         if (match.isPresent()) {
             return match.get();
         }
 
-        // search for coerced matches
-        List<SqlFunction> coercedCandidates = new ArrayList<>();
-        Optional<Signature> firstCoercedMatch = Optional.empty();
-        for (SqlFunction function : candidates) {
-            Optional<Signature> signature = new SignatureBinder(typeManager, function.getSignature(), true).bind(resolvedTypes);
-            if (signature.isPresent()) {
-                coercedCandidates.add(function);
-
-                if (!firstCoercedMatch.isPresent()) {
-                    firstCoercedMatch = signature;
-                }
-            }
-        }
-
-        // search for a 'best' coerced match if it exists
-        // TODO: remove when we move to a lattice-based type coercion system
-        // TODO: this is a hack that relies on the fact that all functions are specified for bigints, but not for the narrower integral types
-        // converts any ints to bigints and then see if there is an exact match
-        List<Type> promotedTypes = resolvedTypes.stream()
-                .map(type -> type == INTEGER ? BIGINT : type)
+        List<SqlFunction> candidatesWithGenericParameters = allCandidates.stream()
+                .filter(function -> !function.getSignature().getTypeVariableConstraints().isEmpty())
                 .collect(Collectors.toList());
 
-        for (SqlFunction coercedFunction : coercedCandidates) {
-            Optional<Signature> signature = new SignatureBinder(typeManager, coercedFunction.getSignature(), false).bind(promotedTypes);
-            if (signature.isPresent()) {
-                checkState(!match.isPresent(), "ambiguous function implementations found when integers were cast to bigints");
-                match = signature;
-                break;
-            }
+        match = searchForExactMatch(candidatesWithGenericParameters, resolvedTypes);
+        if (match.isPresent()) {
+            return match.get();
         }
 
-        if (!match.isPresent() || coercedCandidates.size() == 1) {
-            // i.e. revert to old behavior
-            match = firstCoercedMatch; // TODO: this does not deal with ambiguities
-        }
-
+        match = searchWithCoercions(allCandidates, resolvedTypes);
         if (match.isPresent()) {
             return match.get();
         }
 
         List<String> expectedParameters = new ArrayList<>();
-        for (SqlFunction function : candidates) {
+        for (SqlFunction function : allCandidates) {
             expectedParameters.add(format("%s(%s) %s",
                     name,
                     Joiner.on(", ").join(function.getSignature().getArgumentTypes()),
@@ -560,6 +536,106 @@ public class FunctionRegistry
         }
 
         throw new PrestoException(FUNCTION_NOT_FOUND, message);
+    }
+
+    private Optional<Signature> searchForExactMatch(List<SqlFunction> candidates, List<Type> actualParameters)
+    {
+        Optional<Signature> match = Optional.empty();
+        for (SqlFunction function : candidates) {
+            Optional<Signature> signature = new SignatureBinder(typeManager, function.getSignature(), false).bind(actualParameters);
+            if (signature.isPresent()) {
+                checkArgument(!match.isPresent(), "Ambiguous call to %s with parameters %s", function.getSignature().getName(), actualParameters);
+                match = signature;
+            }
+        }
+        return match;
+    }
+
+    private Optional<Signature> searchWithCoercions(List<SqlFunction> candidates, List<Type> actualParameters)
+    {
+        List<ApplicableFunction> applicableFunctions = identifyPotentiallyApplicableFunctions(candidates, actualParameters);
+
+        if (applicableFunctions.isEmpty()) {
+            return Optional.empty();
+        }
+
+        List<ApplicableFunction> mostSpecificFunctions = filterOutLessSpecificFunctions(applicableFunctions);
+        checkState(!mostSpecificFunctions.isEmpty(), "at least single function must be left");
+
+        if (mostSpecificFunctions.size() == 1) {
+            ApplicableFunction mostSpecificFunction = getOnlyElement(mostSpecificFunctions);
+            return Optional.of(mostSpecificFunction.getBoundSignature());
+        }
+
+        // if there is more than one function, look for functions that only cast the unknown arguments
+        List<ApplicableFunction> unknownCastFunctions = mostSpecificFunctions.stream().filter(f -> onlyCastsUnknown(f, actualParameters)).collect(Collectors.toList());
+        if (!unknownCastFunctions.isEmpty()) {
+            if (unknownCastFunctions.size() == 1) {
+                return Optional.of(getOnlyElement(unknownCastFunctions).getBoundSignature());
+            }
+
+            // When casting unknown arguments, prefer functions whose arguments are all of the same type.
+            List<ApplicableFunction> sameArgumentFunctions = unknownCastFunctions.stream()
+                    .filter(function -> new HashSet<>(function.getBoundSignature().getArgumentTypes()).size() == 1)
+                    .collect(Collectors.toList());
+            if (sameArgumentFunctions.size() == 1) {
+                return Optional.of(getOnlyElement(sameArgumentFunctions).getBoundSignature());
+            }
+        }
+
+        List<Signature> mostSpecificFunctionDefinitions = mostSpecificFunctions.stream()
+                .map(ApplicableFunction::getDeclaredSignature)
+                .collect(Collectors.toList());
+
+        // sort just to have a deterministic exception
+        mostSpecificFunctionDefinitions.sort((o1, o2) -> o1.toString().compareTo(o2.toString()));
+
+        throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, format("Ambiguous call to %s with parameters %s", mostSpecificFunctionDefinitions.toString(), actualParameters.toString()));
+    }
+
+    private boolean onlyCastsUnknown(ApplicableFunction applicableFunction, List<Type> actualParameters)
+    {
+        List<Type> boundTypes = resolveTypes(applicableFunction.getBoundSignature().getArgumentTypes(), typeManager);
+        checkState(actualParameters.size() == boundTypes.size(), "type lists are of different lengths");
+        for (int i = 0; i < actualParameters.size(); i++) {
+            if (!boundTypes.get(i).equals(actualParameters.get(i)) && actualParameters.get(i) != UNKNOWN) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private List<ApplicableFunction> identifyPotentiallyApplicableFunctions(List<SqlFunction> candidates, List<Type> actualParameters)
+    {
+        ImmutableList.Builder<ApplicableFunction> applicableFunctions = ImmutableList.builder();
+        for (SqlFunction function : candidates) {
+            Signature declaredSignature = function.getSignature();
+            Optional<Signature> boundSignature = new SignatureBinder(typeManager, declaredSignature, true)
+                    .bind(actualParameters);
+            if (boundSignature.isPresent()) {
+                applicableFunctions.add(new ApplicableFunction(declaredSignature, boundSignature.get()));
+            }
+        }
+        return applicableFunctions.build();
+    }
+
+    private List<ApplicableFunction> filterOutLessSpecificFunctions(List<ApplicableFunction> applicableFunctions)
+    {
+        final List<ApplicableFunction> mostSpecificFunctions = new ArrayList<>();
+
+        for (ApplicableFunction function : applicableFunctions) {
+            Optional<Integer> mostSpecificId = function.getIdOfFunctionFamily(mostSpecificFunctions);
+            if (mostSpecificId.isPresent() && function.isMoreSpecificThan(mostSpecificFunctions.get(mostSpecificId.get()))) {
+                mostSpecificFunctions.set(mostSpecificId.get(), function);
+            }
+
+            if (!mostSpecificId.isPresent()) {
+                // the 'function' does not fit to any specific family
+                mostSpecificFunctions.add(function);
+            }
+        }
+
+        return ImmutableList.copyOf(mostSpecificFunctions);
     }
 
     public WindowFunctionSupplier getWindowFunctionImplementation(Signature signature)
@@ -832,6 +908,54 @@ public class FunctionRegistry
         public Collection<SqlFunction> get(QualifiedName name)
         {
             return functions.get(name);
+        }
+    }
+
+    private class ApplicableFunction
+    {
+        private final Signature declaredSignature;
+        private final Signature boundSignature;
+
+        private ApplicableFunction(Signature declaredSignature, Signature boundSignature)
+        {
+            this.declaredSignature = declaredSignature;
+            this.boundSignature = boundSignature;
+        }
+
+        public Signature getDeclaredSignature()
+        {
+            return declaredSignature;
+        }
+
+        public Signature getBoundSignature()
+        {
+            return boundSignature;
+        }
+
+        /**
+         * One method is more specific than another if invocation handled by the first method could be passed on to the other one
+         */
+        public boolean isMoreSpecificThan(ApplicableFunction other)
+        {
+            List<Type> resolvedTypes = resolveTypes(boundSignature.getArgumentTypes(), typeManager);
+            Optional<BoundVariables> boundVariables = new SignatureBinder(typeManager, other.getDeclaredSignature(), true)
+                    .bindVariables(resolvedTypes);
+            return boundVariables.isPresent();
+        }
+
+        public boolean isInSameFamilyAs(ApplicableFunction other)
+        {
+            return isMoreSpecificThan(other) || other.isMoreSpecificThan(this);
+        }
+
+        private Optional<Integer> getIdOfFunctionFamily(List<ApplicableFunction> representatives)
+        {
+            for (int i = 0; i < representatives.size(); ++i) {
+                if (isInSameFamilyAs(representatives.get(i))) {
+                    return Optional.of(i);
+                }
+            }
+            return Optional.empty();
         }
     }
 }
