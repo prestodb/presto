@@ -361,6 +361,19 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testRowInValueList()
+            throws Exception
+    {
+        assertQuery("SELECT x from (values 1,2,3) t(x) where (2, x) in ((2,0), (2,2), (2,4))", "SELECT 2");
+        assertQuery("SELECT x from (values (1,2),(3,4),(5,6)) t(x,y) where (x,y) in ((2,0), (3,4), (2,4))", "SELECT 3");
+
+        // with null
+        assertQuery("select x from (values (1,2),(3,4),(5,6), (7,8)) t(x,y) where ((x,y) in ( (1,2), (3,null), (null, 6))) = false", "select 7");
+        assertQuery("select x from (values (1,2),(3,4),(5,6), (7,8)) t(x,y) where ((x,y) in ( (1,2), (3,null), (null, 6))) is null", "select * from values (3), (5)");
+        assertQuery("select x from (values (1,2),(3,4),(5,6), (7,8)) t(x,y) where (x,y) in ( (1,2), (3,null), (null, 6))", "select * from values (1)");
+    }
+
+    @Test
     public void testMapInValueList()
             throws Exception
     {
