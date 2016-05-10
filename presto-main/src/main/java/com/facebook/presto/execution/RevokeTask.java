@@ -20,7 +20,7 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.tree.Grant;
+import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.transaction.TransactionManager;
 
 import java.util.EnumSet;
@@ -34,17 +34,17 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
-public class GrantTask
-        implements DataDefinitionTask<Grant>
+public class RevokeTask
+        implements DataDefinitionTask<Revoke>
 {
     @Override
     public String getName()
     {
-        return "GRANT";
+        return "REVOKE";
     }
 
     @Override
-    public CompletableFuture<?> execute(Grant statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
+    public CompletableFuture<?> execute(Revoke statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName());
@@ -64,16 +64,16 @@ public class GrantTask
             privileges = EnumSet.allOf(Privilege.class);
         }
 
-        // verify current identity has permissions to grant permissions
+        // verify current identity has permissions to revoke permissions
         for (Privilege privilege : privileges) {
-            accessControl.checkCanGrantTablePrivilege(session.getIdentity(), privilege, tableName);
+            accessControl.checkCanRevokeTablePrivilege(session.getIdentity(), privilege, tableName);
         }
 
-        metadata.grantTablePrivileges(session, tableName, privileges, statement.getGrantee(), statement.isWithGrantOption());
+        metadata.revokeTablePrivileges(session, tableName, privileges, statement.getGrantee(), statement.isGrantOptionFor());
         return completedFuture(null);
     }
 
-    private static Privilege parsePrivilege(Grant statement, String privilegeString)
+    private static Privilege parsePrivilege(Revoke statement, String privilegeString)
     {
         for (Privilege privilege : Privilege.values()) {
             if (privilege.name().equalsIgnoreCase(privilegeString)) {

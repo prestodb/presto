@@ -147,4 +147,9 @@ public class NoAccessControl
     public void checkCanGrantTablePrivilege(Identity identity, Privilege privilege, SchemaTableName tableName)
     {
     }
+
+    @Override
+    public void checkCanRevokeTablePrivilege(Identity identity, Privilege privilege, SchemaTableName tableName)
+    {
+    }
 }

@@ -239,6 +239,12 @@ public class MockHiveMetastoreClient
     }
 
     @Override
+    public boolean revokePrivileges(PrivilegeBag privilegeBag)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void close()
     {
         // No-op
