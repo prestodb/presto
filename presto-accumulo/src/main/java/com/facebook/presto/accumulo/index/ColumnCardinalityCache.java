@@ -20,6 +20,9 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.TreeMultimap;
 import io.airlift.log.Logger;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
@@ -31,13 +34,10 @@ import org.apache.accumulo.core.data.PartialKey;
 import org.apache.accumulo.core.data.Range;
 import org.apache.accumulo.core.data.Value;
 import org.apache.accumulo.core.security.Authorizations;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.io.Text;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ExecutionException;
@@ -101,25 +101,29 @@ public class ColumnCardinalityCache
      * @param schema Schema name
      * @param table Table name
      * @param idxConstraintRangePairs Mapping of all ranges for a given constraint
-     * @return A list of
+     * @return An immutable multimap of cardinality to column constraint, sorted by cardinality from smallest to largest
      * @throws AccumuloException If an error occurs retrieving the cardinalities from Accumulo
      * @throws AccumuloSecurityException If a security exception is raised
      * @throws TableNotFoundException If the metrics table does not exist
      * @throws ExecutionException If another error occurs; I really don't even know anymore.
      */
-    public List<Pair<AccumuloColumnConstraint, Long>> getCardinalities(String schema, String table,
-            Map<AccumuloColumnConstraint, Collection<Range>> idxConstraintRangePairs)
+    public Multimap<Long, AccumuloColumnConstraint> getCardinalities(String schema, String table,
+            Multimap<AccumuloColumnConstraint, Range> idxConstraintRangePairs)
             throws AccumuloException, AccumuloSecurityException, TableNotFoundException,
             ExecutionException
     {
-        List<Pair<AccumuloColumnConstraint, Long>> cardBuilder = new ArrayList<>();
-        for (Entry<AccumuloColumnConstraint, Collection<Range>> e : idxConstraintRangePairs
-                .entrySet()) {
+        // Create a multi map sorted by cardinality, sort columns by name
+        TreeMultimap<Long, AccumuloColumnConstraint> cardinalityToConstraints =
+                TreeMultimap.create(Long::compare,
+                        (AccumuloColumnConstraint o1, AccumuloColumnConstraint o2) -> o1.getName().compareTo(o2.getName()));
+
+        for (Entry<AccumuloColumnConstraint, Collection<Range>> e : idxConstraintRangePairs.asMap().entrySet()) {
             long card = getColumnCardinality(schema, table, e.getKey(), e.getValue());
             LOG.debug("Cardinality for column %s is %d", e.getKey().getName(), card);
-            cardBuilder.add(Pair.of(e.getKey(), card));
+            cardinalityToConstraints.put(card, e.getKey());
         }
-        return cardBuilder;
+
+        return ImmutableMultimap.copyOf(cardinalityToConstraints);
     }
 
     /**
@@ -221,7 +225,7 @@ public class ColumnCardinalityCache
 
             // Collect all exact Accumulo Ranges, i.e. single value entries vs. a full scan
             Collection<Range> exactRanges =
-                    colValues.stream().filter(x -> isExact(x)).collect(Collectors.toList());
+                    colValues.stream().filter(this::isExact).collect(Collectors.toList());
             LOG.debug("Column values contain %s exact ranges of %s", exactRanges.size(),
                     colValues.size());
 

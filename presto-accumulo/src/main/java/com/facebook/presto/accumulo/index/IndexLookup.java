@@ -21,8 +21,13 @@ import com.facebook.presto.accumulo.model.TabletSplitMetadata;
 import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.Multimap;
 import io.airlift.log.Logger;
+import org.apache.accumulo.core.client.AccumuloException;
+import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.BatchScanner;
 import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.client.Scanner;
@@ -34,15 +39,12 @@ import org.apache.accumulo.core.security.Authorizations;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.io.Text;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.INTERNAL_ERROR;
@@ -64,8 +66,6 @@ public class IndexLookup
     private final Connector conn;
     private Authorizations auths;
     private final Text tmpCQ = new Text();
-    private final ConstraintCardinalityComparator constraintComparator =
-            new ConstraintCardinalityComparator();
 
     /**
      * Creates a new instance of {@link IndexLookup}
@@ -139,21 +139,10 @@ public class IndexLookup
         LOG.info("Secondary index is enabled");
 
         // Collect Accumulo ranges for each indexed column constraint
-        Map<AccumuloColumnConstraint, Collection<Range>> constraintRangePairs = new HashMap<>();
-        for (AccumuloColumnConstraint acc : constraints) {
-            if (acc.isIndexed()) {
-                constraintRangePairs.put(acc,
-                        AccumuloClient.getRangesFromDomain(acc.getDomain(), serializer));
-            }
-            else {
-                LOG.warn(
-                        "Query containts constraint on non-indexed column %s. Is it worth indexing?",
-                        acc.getName());
-            }
-        }
+        Multimap<AccumuloColumnConstraint, Range> constraintRanges = getIndexedConstraintRanges(constraints, serializer);
 
         // If there is no constraints on an index column, we again will bail out
-        if (constraintRangePairs.size() == 0) {
+        if (constraintRanges.size() == 0) {
             LOG.info("Query contains no constraints on indexed columns, skipping secondary index");
             return false;
         }
@@ -163,7 +152,7 @@ public class IndexLookup
             LOG.info("Use of index metrics is disabled");
             // Get the ranges via the index table
             List<Range> idxRanges = getIndexRanges(Indexer.getIndexTableName(schema, table),
-                    constraintRangePairs, rowIdRanges);
+                    constraintRanges, rowIdRanges);
 
             if (idxRanges.size() > 0) {
                 // Bin the ranges into TabletMetadataSplits and return true to use the tablet splits
@@ -181,25 +170,57 @@ public class IndexLookup
         else {
             LOG.info("Use of index metrics is enabled");
             // Get ranges using the metrics
-            return getRangesWithMetrics(session, schema, table, constraintRangePairs, rowIdRanges,
+            return getRangesWithMetrics(session, schema, table, constraintRanges, rowIdRanges,
                     tabletSplits);
         }
     }
 
+    /**
+     * Gets a multimap of constraint to collection of ranges for the indexed columns
+     *
+     * @param constraints Collection of constraints
+     * @param serializer Data serializer
+     * @return Multimap
+     * @throws AccumuloSecurityException
+     * @throws AccumuloException
+     * @throws TableNotFoundException
+     */
+    private Multimap<AccumuloColumnConstraint, Range> getIndexedConstraintRanges(Collection<AccumuloColumnConstraint> constraints, AccumuloRowSerializer serializer)
+            throws AccumuloSecurityException, AccumuloException, TableNotFoundException
+    {
+        ImmutableListMultimap.Builder<AccumuloColumnConstraint, Range> builder = ImmutableListMultimap.builder();
+        for (AccumuloColumnConstraint acc : constraints) {
+            if (acc.isIndexed()) {
+                for (Range r : AccumuloClient.getRangesFromDomain(acc.getDomain(), serializer)) {
+                    builder.put(acc, r);
+                }
+            }
+            else {
+                LOG.warn(
+                        "Query containts constraint on non-indexed column %s. Is it worth indexing?",
+                        acc.getName());
+            }
+        }
+        return builder.build();
+    }
+
     private boolean getRangesWithMetrics(ConnectorSession session, String schema, String table,
-            Map<AccumuloColumnConstraint, Collection<Range>> constraintRangePairs,
+            Multimap<AccumuloColumnConstraint, Range> constraintRanges,
             Collection<Range> rowIdRanges, List<TabletSplitMetadata> tabletSplits)
             throws Exception
     {
         // Get the cardinalities from the metrics table
-        List<Pair<AccumuloColumnConstraint, Long>> cardinalities =
-                ccCache.getCardinalities(schema, table, constraintRangePairs);
+        Multimap<Long, AccumuloColumnConstraint> cardinalities =
+                ccCache.getCardinalities(schema, table, constraintRanges);
+        Optional<Entry<Long, AccumuloColumnConstraint>> entryOptional = cardinalities.entries().stream().findFirst();
+        if (!entryOptional.isPresent()) {
+            return false;
+        }
 
-        // Order by cardinality, ascending
-        Collections.sort(cardinalities, constraintComparator);
+        Entry<Long, AccumuloColumnConstraint> lowestCardinality = entryOptional.get();
 
         // If first entry has cardinality zero, the query would have no results
-        if (cardinalities.get(0).getRight() == 0) {
+        if (lowestCardinality.getKey() == 0L) {
             LOG.info("Query would return no results, returning empty list of splits");
             return true;
         }
@@ -212,11 +233,11 @@ public class IndexLookup
 
         // If the smallest cardinality in our list is above the lowest cardinality threshold, we
         // should look at intersecting the row ID ranges to try and get under the threshold
-        if (smallestCardAboveThreshold(session, numRows, cardinalities)) {
+        if (smallestCardAboveThreshold(session, numRows, lowestCardinality.getKey())) {
             // If we only have one column, we can skip the intersection process and just check the
             // index threshold
             if (cardinalities.size() == 1) {
-                long numEntries = cardinalities.get(0).getRight();
+                long numEntries = lowestCardinality.getKey();
                 double ratio = ((double) numEntries / (double) numRows);
                 LOG.info(
                         "Use of index would scan %d of %d rows, ratio %s. Threshold %2f, Using for table? %b",
@@ -227,8 +248,8 @@ public class IndexLookup
             }
 
             // Else, get the intersection of all row IDs for all column constraints
-            LOG.info("%d indexed columns, intersecting ranges", constraintRangePairs.size());
-            idxRanges = getIndexRanges(indexTable, constraintRangePairs, rowIdRanges);
+            LOG.info("%d indexed columns, intersecting ranges", constraintRanges.size());
+            idxRanges = getIndexRanges(indexTable, constraintRanges, rowIdRanges);
             LOG.info("Intersection results in %d ranges from secondary index", idxRanges.size());
         }
         else {
@@ -237,8 +258,8 @@ public class IndexLookup
             LOG.info("Not intersecting columns, using column with lowest cardinality ");
             idxRanges =
                     getIndexRanges(indexTable,
-                            ImmutableMap.of(cardinalities.get(0).getKey(),
-                                    constraintRangePairs.get(cardinalities.get(0).getKey())),
+                            ImmutableMultimap.of(lowestCardinality.getValue(),
+                                    constraintRanges.get(lowestCardinality.getValue()).stream().findFirst().get()),
                             rowIdRanges);
         }
 
@@ -275,17 +296,16 @@ public class IndexLookup
      *
      * @param session Current client session
      * @param numRows Number of rows in the table
-     * @param cardinalities Sorted list of cardinalities
+     * @param smallestCardinality Lowest cardinality
      * @return True if the ratio is greater than the configured threshold, false otherwise
      */
     private boolean smallestCardAboveThreshold(ConnectorSession session, long numRows,
-            List<Pair<AccumuloColumnConstraint, Long>> cardinalities)
+            long smallestCardinality)
     {
-        long lowCard = cardinalities.get(0).getRight();
-        double ratio = ((double) lowCard / (double) numRows);
+        double ratio = ((double) smallestCardinality / (double) numRows);
         double threshold = AccumuloSessionProperties.getIndexSmallCardThreshold(session);
-        LOG.info("Lowest cardinality is %d, num rows is %d, ratio is %2f with threshold of %f",
-                lowCard, numRows, ratio, threshold);
+        LOG.info("Smallest cardinality is %d, num rows is %d, ratio is %2f with threshold of %f",
+                smallestCardinality, numRows, ratio, threshold);
         return ratio > threshold;
     }
 
@@ -323,21 +343,20 @@ public class IndexLookup
      * Gets all index ranges based on the given column constraint/range pairs.
      *
      * @param indexTable Fully-qualified index table name
-     * @param constraintRangePairs Mapping of column constraint to Accumulo Ranges for that constraint
+     * @param constraintRanges Mapping of column constraint to Accumulo Ranges for that constraint
      * @param rowIDRanges Collection of Ranges based on any predicate from the row ID. Used to drop and row
      * IDs that are not in one of these Ranges
      * @return A collection of Ranges containing row IDs in the main table to scan
      * @throws TableNotFoundException
      */
     private List<Range> getIndexRanges(String indexTable,
-            Map<AccumuloColumnConstraint, Collection<Range>> constraintRangePairs,
+            Multimap<AccumuloColumnConstraint, Range> constraintRanges,
             Collection<Range> rowIDRanges)
             throws TableNotFoundException
     {
         Set<Range> finalRanges = null;
         // For each column/constraint pair
-        for (Entry<AccumuloColumnConstraint, Collection<Range>> e : constraintRangePairs
-                .entrySet()) {
+        for (Entry<AccumuloColumnConstraint, Collection<Range>> e : constraintRanges.asMap().entrySet()) {
             // Create a batch scanner against the index table, setting the ranges
             BatchScanner scan = conn.createBatchScanner(indexTable, auths, 10);
             scan.setRanges(e.getValue());
@@ -377,7 +396,12 @@ public class IndexLookup
         }
 
         // Return the final ranges for all constraint pairs
-        return new ArrayList<>(finalRanges);
+        if (finalRanges != null) {
+            return ImmutableList.copyOf(finalRanges);
+        }
+        else {
+            return ImmutableList.of();
+        }
     }
 
     /**
@@ -390,9 +414,6 @@ public class IndexLookup
     private void binRanges(int numRangesPerBin, List<Range> splitRanges,
             List<TabletSplitMetadata> prestoSplits)
     {
-        // Shuffle the handles to give an even distribution across all tablet splits
-        Collections.shuffle(splitRanges);
-
         // Location here doesn't matter, I think this 9997 is left over from the connector example
         // Let's leave it to pay homage to where this thing came from
         String loc = "localhost:9997";
@@ -426,19 +447,5 @@ public class IndexLookup
             }
         }
         return false;
-    }
-
-    /**
-     * Internal class for sorting the pairs of column constraints and cardinality
-     */
-    private class ConstraintCardinalityComparator
-            implements Comparator<Pair<AccumuloColumnConstraint, Long>>
-    {
-        @Override
-        public int compare(Pair<AccumuloColumnConstraint, Long> o1,
-                Pair<AccumuloColumnConstraint, Long> o2)
-        {
-            return o1.getRight().compareTo(o2.getRight());
-        }
     }
 }
