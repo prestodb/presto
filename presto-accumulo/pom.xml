@@ -297,6 +297,10 @@
             <artifactId>commons-codec</artifactId>
             <version>1.9</version>
         </dependency>
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>units</artifactId>
+        </dependency>
 
         <!-- Presto SPI -->
         <dependency>
@@ -364,11 +368,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log-manager</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>units</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

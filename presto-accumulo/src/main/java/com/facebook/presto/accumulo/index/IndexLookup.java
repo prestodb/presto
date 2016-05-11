@@ -64,7 +64,6 @@ public class IndexLookup
     private final ColumnCardinalityCache ccCache;
     private final Connector conn;
     private Authorizations auths;
-    private final Text tmpCQ = new Text();
 
     /**
      * Creates a new instance of {@link IndexLookup}
@@ -366,13 +365,14 @@ public class IndexLookup
             scan.fetchColumnFamily(cf);
 
             // For each entry in the scanner
+            Text tmpQualifier = new Text();
             Set<Range> columnRanges = new HashSet<>();
             for (Entry<Key, Value> entry : scan) {
-                entry.getKey().getColumnQualifier(tmpCQ);
+                entry.getKey().getColumnQualifier(tmpQualifier);
 
                 // Add to our column ranges if it is in one of the row ID ranges
-                if (inRange(tmpCQ, rowIDRanges)) {
-                    columnRanges.add(new Range(tmpCQ));
+                if (inRange(tmpQualifier, rowIDRanges)) {
+                    columnRanges.add(new Range(tmpQualifier));
                 }
             }
 

@@ -44,7 +44,7 @@ import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProp
  * <br>
  * <br>
  * CREATE TABLE foo (a VARCHAR, b INT)
- * WITH (column_mapping = 'b:md:b', internal = true);
+ * WITH (column_mapping = 'b:md:b', external = true);
  */
 public final class AccumuloTableProperties
 {
@@ -93,7 +93,7 @@ public final class AccumuloTableProperties
                 null, false);
 
         PropertyMetadata<String> s6 =
-                new PropertyMetadata<String>(SERIALIZER,
+                new PropertyMetadata<>(SERIALIZER,
                         "Serializer for Accumulo data encodings. Can either be 'default', "
                                 + "'string', 'lexicoder', or a Java class name. Default is 'default', i.e. "
                                 + "the value from AccumuloRowSerializer.getDefault(), i.e. 'lexicoder'.",
@@ -239,6 +239,7 @@ public final class AccumuloTableProperties
     {
         return (String) tableProperties.get(SERIALIZER);
     }
+
 
     /**
      * Gets a Boolean value indicating whether or not this table is external and Presto should only
