@@ -55,7 +55,6 @@ public class TopologyAwareNodeSelector
     private final boolean includeCoordinator;
     private final boolean doubleScheduling;
     private final AtomicReference<Supplier<NodeMap>> nodeMap;
-    private final int minCandidates;
     private final int maxSplitsPerNode;
     private final int maxSplitsPerNodePerTaskWhenFull;
     private final List<CounterStat> topologicalSplitCounters;
@@ -68,7 +67,6 @@ public class TopologyAwareNodeSelector
             boolean includeCoordinator,
             boolean doubleScheduling,
             Supplier<NodeMap> nodeMap,
-            int minCandidates,
             int maxSplitsPerNode,
             int maxSplitsPerNodePerTaskWhenFull,
             List<CounterStat> topologicalSplitCounters,
@@ -80,7 +78,6 @@ public class TopologyAwareNodeSelector
         this.includeCoordinator = includeCoordinator;
         this.doubleScheduling = doubleScheduling;
         this.nodeMap = new AtomicReference<>(nodeMap);
-        this.minCandidates = minCandidates;
         this.maxSplitsPerNode = maxSplitsPerNode;
         this.maxSplitsPerNodePerTaskWhenFull = maxSplitsPerNodePerTaskWhenFull;
         this.topologicalSplitCounters = requireNonNull(topologicalSplitCounters, "topologicalSplitCounters is null");
@@ -114,7 +111,7 @@ public class TopologyAwareNodeSelector
     }
 
     @Override
-    public Multimap<Node, Split> computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks)
+    public Multimap<Node, Split> computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, int limit)
     {
         NodeMap nodeMap = this.nodeMap.get().get();
         Multimap<Node, Split> assignment = HashMultimap.create();
@@ -129,7 +126,7 @@ public class TopologyAwareNodeSelector
                     log.debug("No nodes available to schedule %s. Available nodes %s", split, nodeMap.getNodesByHost().keys());
                     throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
                 }
-                Node chosenNode = bestNodeSplitCount(candidateNodes.iterator(), minCandidates, maxSplitsPerNodePerTaskWhenFull, assignmentStats);
+                Node chosenNode = bestNodeSplitCount(candidateNodes.iterator(), limit, maxSplitsPerNodePerTaskWhenFull, assignmentStats);
                 if (chosenNode != null) {
                     assignment.put(chosenNode, split);
                     assignmentStats.addAssignedSplit(chosenNode);
@@ -163,7 +160,7 @@ public class TopologyAwareNodeSelector
                     }
                     Set<Node> nodes = nodeMap.getWorkersByNetworkPath().get(location);
                     double queueFraction = (1.0 + i) / (1.0 + depth);
-                    chosenNode = bestNodeSplitCount(new ResettableRandomizedIterator<>(nodes), minCandidates, (int) Math.ceil(queueFraction * maxSplitsPerNodePerTaskWhenFull), assignmentStats);
+                    chosenNode = bestNodeSplitCount(new ResettableRandomizedIterator<>(nodes), limit, (int) Math.ceil(queueFraction * maxSplitsPerNodePerTaskWhenFull), assignmentStats);
                     if (chosenNode != null) {
                         chosenDepth = i;
                         break;
@@ -186,7 +183,7 @@ public class TopologyAwareNodeSelector
     }
 
     @Override
-    public Multimap<Node, Split> computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, NodePartitionMap partitioning)
+    public Multimap<Node, Split> computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, NodePartitionMap partitioning, int limit)
     {
         return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsPerNode, splits, existingTasks, partitioning);
     }

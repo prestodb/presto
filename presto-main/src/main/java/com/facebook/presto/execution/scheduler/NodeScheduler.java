@@ -165,7 +165,6 @@ public class NodeScheduler
                     includeCoordinator,
                     doubleScheduling,
                     nodeMap,
-                    minCandidates,
                     maxSplitsPerNode,
                     maxSplitsPerNodePerTaskWhenFull,
                     topologicalSplitCounters,
@@ -173,7 +172,7 @@ public class NodeScheduler
                     networkLocationCache);
         }
         else {
-            return new SimpleNodeSelector(nodeManager, nodeTaskMap, includeCoordinator, doubleScheduling, nodeMap, minCandidates, maxSplitsPerNode, maxSplitsPerNodePerTaskWhenFull);
+            return new SimpleNodeSelector(nodeManager, nodeTaskMap, includeCoordinator, doubleScheduling, nodeMap, maxSplitsPerNode, maxSplitsPerNodePerTaskWhenFull);
         }
     }
 

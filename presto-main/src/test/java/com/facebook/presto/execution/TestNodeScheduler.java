@@ -71,6 +71,7 @@ public class TestNodeScheduler
     private NodeSelector nodeSelector;
     private Map<Node, RemoteTask> taskMap;
     private ExecutorService remoteTaskExecutor;
+    private int minCandidates;
 
     @BeforeMethod
     public void setUp()
@@ -96,6 +97,7 @@ public class TestNodeScheduler
         taskMap = new HashMap<>();
         nodeSelector = nodeScheduler.createNodeSelector("foo");
         remoteTaskExecutor = Executors.newCachedThreadPool(daemonThreadsNamed("remoteTaskExecutor-%s"));
+        minCandidates = nodeSchedulerConfig.getMinCandidates();
 
         finalizerService.start();
     }
@@ -115,7 +117,7 @@ public class TestNodeScheduler
         Split split = new Split("foo", TestingTransactionHandle.create("test"), new TestSplitLocal());
         Set<Split> splits = ImmutableSet.of(split);
 
-        Map.Entry<Node, Split> assignment = Iterables.getOnlyElement(nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).entries());
+        Map.Entry<Node, Split> assignment = Iterables.getOnlyElement(nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values()), minCandidates).entries());
         assertEquals(assignment.getKey().getHostAndPort(), split.getAddresses().get(0));
         assertEquals(assignment.getValue(), split);
     }
@@ -167,7 +169,7 @@ public class TestNodeScheduler
             nonRackLocalBuilder.add(new Split("foo", transactionHandle, new TestSplitRemote(HostAddress.fromParts("data.other_rack", 1))));
         }
         Set<Split> nonRackLocalSplits = nonRackLocalBuilder.build();
-        Multimap<Node, Split> assignments = nodeSelector.computeAssignments(nonRackLocalSplits, ImmutableList.copyOf(taskMap.values()));
+        Multimap<Node, Split> assignments = nodeSelector.computeAssignments(nonRackLocalSplits, ImmutableList.copyOf(taskMap.values()), minCandidates);
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor);
         int task = 0;
         for (Node node : assignments.keySet()) {
@@ -180,7 +182,7 @@ public class TestNodeScheduler
         }
         // Continue assigning to fill up part of the queue
         nonRackLocalSplits = Sets.difference(nonRackLocalSplits, new HashSet<>(assignments.values()));
-        assignments = nodeSelector.computeAssignments(nonRackLocalSplits, ImmutableList.copyOf(taskMap.values()));
+        assignments = nodeSelector.computeAssignments(nonRackLocalSplits, ImmutableList.copyOf(taskMap.values()), minCandidates);
         for (Node node : assignments.keySet()) {
             RemoteTask remoteTask = taskMap.get(node);
             remoteTask.addSplits(ImmutableMultimap.<PlanNodeId, Split>builder()
@@ -201,7 +203,7 @@ public class TestNodeScheduler
         for (int i = 0; i < 6; i++) {
             rackLocalSplits.add(new Split("foo", transactionHandle, new TestSplitRemote(dataHost2)));
         }
-        assignments = nodeSelector.computeAssignments(rackLocalSplits.build(), ImmutableList.copyOf(taskMap.values()));
+        assignments = nodeSelector.computeAssignments(rackLocalSplits.build(), ImmutableList.copyOf(taskMap.values()), minCandidates);
         for (Node node : assignments.keySet()) {
             RemoteTask remoteTask = taskMap.get(node);
             remoteTask.addSplits(ImmutableMultimap.<PlanNodeId, Split>builder()
@@ -222,7 +224,7 @@ public class TestNodeScheduler
             }
             MILLISECONDS.sleep(10);
         }
-        assignments = nodeSelector.computeAssignments(unassigned, ImmutableList.copyOf(taskMap.values()));
+        assignments = nodeSelector.computeAssignments(unassigned, ImmutableList.copyOf(taskMap.values()), minCandidates);
         for (Node node : assignments.keySet()) {
             RemoteTask remoteTask = taskMap.get(node);
             remoteTask.addSplits(ImmutableMultimap.<PlanNodeId, Split>builder()
@@ -254,7 +256,7 @@ public class TestNodeScheduler
         localSplits.add(new Split("foo", transactionHandle, new TestSplitRemote(HostAddress.fromParts("host1.rack1", 1))));
         localSplits.add(new Split("foo", transactionHandle, new TestSplitRemote(HostAddress.fromParts("host2.rack1", 1))));
         localSplits.add(new Split("foo", transactionHandle, new TestSplitRemote(HostAddress.fromParts("host3.rack2", 1))));
-        assignments = nodeSelector.computeAssignments(localSplits.build(), ImmutableList.copyOf(taskMap.values()));
+        assignments = nodeSelector.computeAssignments(localSplits.build(), ImmutableList.copyOf(taskMap.values()), minCandidates);
         assertEquals(assignments.size(), 3);
         assertEquals(assignments.keySet().size(), 3);
     }
@@ -293,7 +295,7 @@ public class TestNodeScheduler
     {
         Set<Split> splits = new HashSet<>();
         splits.add(new Split("foo", TestingTransactionHandle.create("foo"), new TestSplitRemote()));
-        Multimap<Node, Split> assignments = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values()));
+        Multimap<Node, Split> assignments = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values()), minCandidates);
         assertEquals(assignments.size(), 1);
     }
 
@@ -306,7 +308,7 @@ public class TestNodeScheduler
         for (int i = 0; i < 3; i++) {
             splits.add(new Split("foo", TestingTransactionHandle.create("foo"), new TestSplitRemote()));
         }
-        Multimap<Node, Split> assignments = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values()));
+        Multimap<Node, Split> assignments = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values()), minCandidates);
         assertEquals(assignments.entries().size(), 3);
         for (Node node : nodeManager.getActiveDatasourceNodes("foo")) {
             assertTrue(assignments.keySet().contains(node));
@@ -341,7 +343,7 @@ public class TestNodeScheduler
         for (int i = 0; i < 5; i++) {
             splits.add(new Split("foo", transactionHandle, new TestSplitRemote()));
         }
-        Multimap<Node, Split> assignments = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values()));
+        Multimap<Node, Split> assignments = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values()), minCandidates);
 
         // no split should be assigned to the newNode, as it already has maxNodeSplits assigned to it
         assertFalse(assignments.keySet().contains(newNode));
@@ -387,7 +389,7 @@ public class TestNodeScheduler
         for (int i = 0; i < 5; i++) {
             splits.add(new Split("foo", transactionHandle, new TestSplitRemote()));
         }
-        Multimap<Node, Split> assignments = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values()));
+        Multimap<Node, Split> assignments = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values()), minCandidates);
 
         // no split should be assigned to the newNode, as it already has
         // maxSplitsPerNode + maxSplitsPerNodePerTask assigned to it

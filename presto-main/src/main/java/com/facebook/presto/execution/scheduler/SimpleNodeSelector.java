@@ -48,7 +48,6 @@ public class SimpleNodeSelector
     private final boolean includeCoordinator;
     private final boolean doubleScheduling;
     private final AtomicReference<Supplier<NodeMap>> nodeMap;
-    private final int minCandidates;
     private final int maxSplitsPerNode;
     private final int maxSplitsPerNodePerTaskWhenFull;
 
@@ -58,7 +57,6 @@ public class SimpleNodeSelector
             boolean includeCoordinator,
             boolean doubleScheduling,
             Supplier<NodeMap> nodeMap,
-            int minCandidates,
             int maxSplitsPerNode,
             int maxSplitsPerNodePerTaskWhenFull)
     {
@@ -67,7 +65,6 @@ public class SimpleNodeSelector
         this.includeCoordinator = includeCoordinator;
         this.doubleScheduling = doubleScheduling;
         this.nodeMap = new AtomicReference<>(nodeMap);
-        this.minCandidates = minCandidates;
         this.maxSplitsPerNode = maxSplitsPerNode;
         this.maxSplitsPerNodePerTaskWhenFull = maxSplitsPerNodePerTaskWhenFull;
     }
@@ -98,7 +95,7 @@ public class SimpleNodeSelector
     }
 
     @Override
-    public Multimap<Node, Split> computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks)
+    public Multimap<Node, Split> computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, int limit)
     {
         Multimap<Node, Split> assignment = HashMultimap.create();
         NodeMap nodeMap = this.nodeMap.get().get();
@@ -113,7 +110,7 @@ public class SimpleNodeSelector
                 candidateNodes = selectExactNodes(nodeMap, split.getAddresses(), includeCoordinator);
             }
             else {
-                candidateNodes = selectNodes(minCandidates, randomCandidates, doubleScheduling);
+                candidateNodes = selectNodes(limit, randomCandidates, doubleScheduling);
             }
             if (candidateNodes.isEmpty()) {
                 log.debug("No nodes available to schedule %s. Available nodes %s", split, nodeMap.getNodesByHost().keys());
@@ -148,7 +145,7 @@ public class SimpleNodeSelector
     }
 
     @Override
-    public Multimap<Node, Split> computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, NodePartitionMap partitioning)
+    public Multimap<Node, Split> computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, NodePartitionMap partitioning, int limit)
     {
         return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsPerNode, splits, existingTasks, partitioning);
     }

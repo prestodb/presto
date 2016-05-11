@@ -126,6 +126,11 @@ public final class SqlStageExecution
         return stateMachine.getState();
     }
 
+    public Session getSession()
+    {
+        return stateMachine.getSession();
+    }
+
     public void addStateChangeListener(StateChangeListener<StageState> stateChangeListener)
     {
         stateMachine.addStateChangeListener(stateChangeListener::stateChanged);

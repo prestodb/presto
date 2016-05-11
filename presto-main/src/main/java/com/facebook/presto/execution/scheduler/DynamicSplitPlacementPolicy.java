@@ -37,9 +37,9 @@ public class DynamicSplitPlacementPolicy
     }
 
     @Override
-    public Multimap<Node, Split> computeAssignments(Set<Split> splits)
+    public Multimap<Node, Split> computeAssignments(Set<Split> splits, int limit)
     {
-        return nodeSelector.computeAssignments(splits, remoteTasks.get());
+        return nodeSelector.computeAssignments(splits, remoteTasks.get(), limit);
     }
 
     @Override
