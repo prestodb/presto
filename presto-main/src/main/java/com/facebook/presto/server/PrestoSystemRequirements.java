@@ -21,10 +21,14 @@ import org.joda.time.DateTime;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
+import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.nio.ByteOrder;
+import java.util.List;
+import java.util.Locale;
 import java.util.OptionalLong;
 
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static java.lang.management.ManagementFactory.OPERATING_SYSTEM_MXBEAN_NAME;
 
 final class PrestoSystemRequirements
@@ -68,6 +72,8 @@ final class PrestoSystemRequirements
             failRequirement("Presto requires a little endian platform (found %s)", ByteOrder.nativeOrder());
         }
 
+        verifyUsingG1Gc();
+
         verifyFileDescriptor();
 
         verifySlice();
@@ -97,6 +103,23 @@ final class PrestoSystemRequirements
         if ((majorVersion.compareTo("1.8.0") < 0) ||
                 ((majorVersion.compareTo("1.8.0") == 0) && (minorVersion < 60))) {
             failRequirement("Presto requires Java 8u60+ (found %s)", javaVersion);
+        }
+    }
+
+    private static void verifyUsingG1Gc()
+    {
+        try {
+            List<String> garbageCollectors = ManagementFactory.getGarbageCollectorMXBeans().stream()
+                    .map(GarbageCollectorMXBean::getName)
+                    .collect(toImmutableList());
+
+            if (garbageCollectors.stream().noneMatch(name -> name.toUpperCase(Locale.US).startsWith("G1 "))) {
+                warnRequirement("Current garbage collectors are %s. Presto recommends the G1 garbage collector.", garbageCollectors);
+            }
+        }
+        catch (RuntimeException e) {
+            // This should never happen since we have verified the OS and JVM above
+            failRequirement("Cannot read garbage collector information: %s", e);
         }
     }
 
