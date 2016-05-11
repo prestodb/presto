@@ -21,20 +21,20 @@ import java.net.URI;
 
 import static com.facebook.presto.example.MetadataUtil.TABLE_CODEC;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static org.testng.Assert.assertEquals;
 
 public class TestExampleTable
 {
     private final ExampleTable exampleTable = new ExampleTable("tableName",
-            ImmutableList.of(new ExampleColumn("a", VARCHAR), new ExampleColumn("b", BIGINT)),
+            ImmutableList.of(new ExampleColumn("a", createUnboundedVarcharType()), new ExampleColumn("b", BIGINT)),
             ImmutableList.of(URI.create("file://table-1.json"), URI.create("file://table-2.json")));
 
     @Test
     public void testColumnMetadata()
     {
         assertEquals(exampleTable.getColumnsMetadata(), ImmutableList.of(
-                new ColumnMetadata("a", VARCHAR),
+                new ColumnMetadata("a", createUnboundedVarcharType()),
                 new ColumnMetadata("b", BIGINT)));
     }
 
