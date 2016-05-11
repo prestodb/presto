@@ -59,6 +59,12 @@ public class GroupingSets
     }
 
     @Override
+    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitGroupingSets(this, context);
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {
