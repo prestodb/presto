@@ -101,7 +101,9 @@ public class TestHiveClientConfig
                 .setHdfsAuthenticationType(HiveClientConfig.HdfsAuthenticationType.NONE)
                 .setHdfsImpersonationEnabled(false)
                 .setHdfsPrestoPrincipal(null)
-                .setHdfsPrestoKeytab(null));
+                .setHdfsPrestoKeytab(null)
+                .setBucketExecutionEnabled(true)
+                .setBucketWritingEnabled(true));
     }
 
     @Test
@@ -174,6 +176,8 @@ public class TestHiveClientConfig
                 .put("hive.hdfs.impersonation.enabled", "true")
                 .put("hive.hdfs.presto.principal", "presto@EXAMPLE.COM")
                 .put("hive.hdfs.presto.keytab", "/tmp/presto.keytab")
+                .put("hive.bucket-execution", "false")
+                .put("hive.bucket-writing", "false")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -242,7 +246,9 @@ public class TestHiveClientConfig
                 .setHdfsAuthenticationType(HiveClientConfig.HdfsAuthenticationType.KERBEROS)
                 .setHdfsImpersonationEnabled(true)
                 .setHdfsPrestoPrincipal("presto@EXAMPLE.COM")
-                .setHdfsPrestoKeytab("/tmp/presto.keytab");
+                .setHdfsPrestoKeytab("/tmp/presto.keytab")
+                .setBucketExecutionEnabled(false)
+                .setBucketWritingEnabled(false);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
