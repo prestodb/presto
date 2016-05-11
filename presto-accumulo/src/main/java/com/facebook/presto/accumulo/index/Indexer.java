@@ -61,6 +61,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_DNE;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
 import static java.nio.ByteBuffer.wrap;
@@ -187,9 +188,9 @@ public class Indexer
     public Indexer(Connector conn, Authorizations auths, AccumuloTable table, BatchWriterConfig bwc)
             throws TableNotFoundException
     {
-        this.conn =  requireNonNull(conn, "conn is null");
-        this.table =  requireNonNull(table, "table is null");
-        this.bwc =  requireNonNull(bwc, "bwc is null");
+        this.conn = requireNonNull(conn, "conn is null");
+        this.table = requireNonNull(table, "table is null");
+        this.bwc = requireNonNull(bwc, "bwc is null");
         requireNonNull(auths, "auths is null");
 
         this.serializer = table.getSerializerInstance();
@@ -331,7 +332,7 @@ public class Indexer
         }
         catch (MutationsRejectedException e) {
             throw new PrestoException(INTERNAL_ERROR,
-                    "Invalid mutation added to index", e);
+                    "Index mutation rejected by server", e);
         }
 
         // Increment the cardinality metrics for this value of index
@@ -373,9 +374,13 @@ public class Indexer
             cfMap.put(METRICS_TABLE_ROWS_CF, new AtomicLong(0));
             metrics.put(METRICS_TABLE_ROW_ID, cfMap);
         }
-        catch (MutationsRejectedException | TableNotFoundException e) {
+        catch (MutationsRejectedException e) {
             throw new PrestoException(INTERNAL_ERROR,
-                    "Invalid mutation added to index metrics", e);
+                    "Index mutation was rejected by server on flush", e);
+        }
+        catch (TableNotFoundException e) {
+            throw new PrestoException(ACCUMULO_TABLE_DNE,
+                    "Accumulo table does not exist", e);
         }
     }
 
@@ -390,7 +395,7 @@ public class Indexer
             indexWrtr.close();
         }
         catch (MutationsRejectedException e) {
-            throw new PrestoException(INTERNAL_ERROR, e);
+            throw new PrestoException(INTERNAL_ERROR, "Mutation was rejected by server on close", e);
         }
     }
 

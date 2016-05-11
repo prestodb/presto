@@ -249,7 +249,7 @@ public class AccumuloPageSink
                     }
                 }
                 catch (MutationsRejectedException e) {
-                    throw new PrestoException(INTERNAL_ERROR, e);
+                    throw new PrestoException(INTERNAL_ERROR, "Mutation rejected by server", e);
                 }
             }
             else {
@@ -275,7 +275,7 @@ public class AccumuloPageSink
             }
         }
         catch (MutationsRejectedException e) {
-            throw new PrestoException(INTERNAL_ERROR, e);
+            throw new PrestoException(INTERNAL_ERROR, "Mutation rejected by server on flush", e);
         }
 
         // TODO Look into any use of the metadata for writing out the rows
