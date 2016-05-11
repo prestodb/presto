@@ -24,6 +24,7 @@ import com.fasterxml.jackson.annotation.JsonSetter;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -63,6 +64,8 @@ public final class AccumuloColumnHandle
         this.qualifier = qualifier;
         this.type = requireNonNull(type, "type is null");
         this.ordinal = requireNonNull(ordinal, "type is null");
+        checkArgument(ordinal >= 0, "ordinal must be >= zero");
+
         this.comment = requireNonNull(comment, "comment is null");
         this.indexed = requireNonNull(indexed, "indexed is null");
     }

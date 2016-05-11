@@ -36,11 +36,9 @@ import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.Range;
 import org.apache.accumulo.core.data.Value;
 import org.apache.accumulo.core.security.Authorizations;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.io.Text;
 
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
@@ -48,6 +46,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.INTERNAL_ERROR;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -414,6 +413,7 @@ public class IndexLookup
     private void binRanges(int numRangesPerBin, List<Range> splitRanges,
             List<TabletSplitMetadata> prestoSplits)
     {
+        checkArgument(numRangesPerBin > 0, "number of ranges per bin must positivebe greater than zero");
         int toAdd = splitRanges.size();
         int fromIndex = 0;
         int toIndex = Math.min(toAdd, numRangesPerBin);
@@ -436,14 +436,9 @@ public class IndexLookup
      * @param ranges Ranges to look into
      * @return True if the text object is in one of the ranges, false otherwise
      */
-    private boolean inRange(Text t, Collection<Range> ranges)
+    private static boolean inRange(Text t, Collection<Range> ranges)
     {
         Key kCq = new Key(t);
-        for (Range r : ranges) {
-            if (!r.beforeStartKey(kCq) && !r.afterEndKey(kCq)) {
-                return true;
-            }
-        }
-        return false;
+        return ranges.stream().anyMatch(r -> !r.beforeStartKey(kCq) && !r.afterEndKey(kCq));
     }
 }

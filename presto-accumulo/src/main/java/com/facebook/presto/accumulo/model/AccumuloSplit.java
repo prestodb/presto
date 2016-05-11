@@ -39,6 +39,7 @@ import java.util.List;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Lists.newArrayList;
 import static java.util.Objects.requireNonNull;
 
@@ -202,6 +203,7 @@ public class AccumuloSplit
     @JsonSetter
     public void setRanges(List<Range> ranges)
     {
+        checkArgument(ranges.size() > 0, "split Ranges must be greater than zero");
         this.ranges = ranges;
     }
 
