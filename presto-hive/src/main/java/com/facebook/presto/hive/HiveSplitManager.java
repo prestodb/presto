@@ -34,6 +34,7 @@ import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.hadoop.hive.ql.metadata.HiveException;
 
 import javax.inject.Inject;
 
@@ -46,6 +47,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
@@ -228,8 +230,19 @@ public class HiveSplitManager
                 // without modifying existing partitions is allowed, but every
                 // column that exists in both the table and partition must have
                 // the same type.
-                List<FieldSchema> tableColumns = table.getSd().getCols();
-                List<FieldSchema> partitionColumns = partition.getSd().getCols();
+                org.apache.hadoop.hive.ql.metadata.Table mTable = new org.apache.hadoop.hive.ql.metadata.Table(table);
+                org.apache.hadoop.hive.ql.metadata.Partition mPartition = null;
+                try {
+                    mPartition = new org.apache.hadoop.hive.ql.metadata.Partition(mTable, partition);
+                }
+                catch (HiveException e) {
+                    throw new PrestoException(HIVE_INVALID_PARTITION_VALUE,
+                        format("Invalid partition value '%s' for table '%s'", partName, tableName),
+                        e);
+                }
+
+                List<FieldSchema> tableColumns = mTable.getCols();
+                List<FieldSchema> partitionColumns = mPartition.getCols();
                 if ((tableColumns == null) || (partitionColumns == null)) {
                     throw new PrestoException(HIVE_INVALID_METADATA, format("Table '%s' or partition '%s' has null columns", tableName, partName));
                 }
