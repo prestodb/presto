@@ -47,11 +47,10 @@ service using :abbr:`SASL (Simple Authentication and Security Layer)` and
 authenticates using Kerberos. Kerberos authentication for the metastore is
 configured in the connector's properties file using the following properties:
 
-================================================== ============================================================ ==========
-Property Name                                      Description                                                  Default
-================================================== ============================================================ ==========
-``hive.metastore.authentication.type``             Hive metastore authentication type.                          ``NONE``
-                                                   Possible values are ``NONE`` or ``KERBEROS``.
+================================================== ============================================================
+Property Name                                      Description
+================================================== ============================================================
+``hive.metastore.authentication.type``             Hive metastore authentication type.
 
 ``hive.metastore.service.principal``               The Kerberos principal of the Hive metastore service.
 
@@ -59,7 +58,7 @@ Property Name                                      Description                  
                                                    to the Hive metastore service.
 
 ``hive.metastore.client.keytab``                   Hive metastore client keytab location.
-================================================== ============================================================ ==========
+================================================== ============================================================
 
 ``hive.metastore.authentication.type``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -164,19 +163,19 @@ In a Kerberized Hadoop cluster, Presto authenticates to HDFS using Kerberos.
 Kerberos authentication for HDFS is configured in the connector's properties
 file using the following properties:
 
-================================================== ============================================================ ==========
-Property Name                                      Description                                                  Default
-================================================== ============================================================ ==========
-``hive.hdfs.authentication.type``                  HDFS authentication type.                                    ``NONE``
+================================================== ============================================================
+Property Name                                      Description
+================================================== ============================================================
+``hive.hdfs.authentication.type``                  HDFS authentication type.
                                                    Possible values are ``NONE`` or ``KERBEROS``.
 
-``hive.hdfs.impersonation.enabled``                Enable HDFS end-user impersonation.                          ``false``
+``hive.hdfs.impersonation.enabled``                Enable HDFS end-user impersonation.
 
 ``hive.hdfs.presto.principal``                     The Kerberos principal that Presto will use when connecting
                                                    to HDFS.
 
 ``hive.hdfs.presto.keytab``                        HDFS client keytab location.
-================================================== ============================================================ ==========
+================================================== ============================================================
 
 ``hive.hdfs.authentication.type``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
