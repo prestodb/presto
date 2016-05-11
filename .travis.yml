@@ -1,8 +1,5 @@
 language: java
 
-jdk:
-  - oraclejdk8
-
 env:
   global:
     - MAVEN_OPTS="-Xmx256M"
@@ -16,6 +13,11 @@ env:
 
 sudo: required
 dist: trusty
+
+addons:
+  apt:
+    packages:
+      - oracle-java8-installer
 
 services:
   - docker
