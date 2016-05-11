@@ -14,7 +14,6 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import com.facebook.presto.operator.scalar.TestingRowConstructor;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.SqlTimestamp;
@@ -41,10 +40,7 @@ import static org.testng.Assert.fail;
 public class TestRowOperators
         extends AbstractTestFunctions
 {
-    public TestRowOperators()
-    {
-        registerScalar(TestingRowConstructor.class);
-    }
+    public TestRowOperators() {}
 
     @Test
     public void testRowTypeLookup()
@@ -76,25 +72,17 @@ public class TestRowOperators
     public void testFieldAccessor()
             throws Exception
     {
-        // test_row has both (bigint, double) and (bigint, bigint) so this method is non-deterministic
-        // assertFunction("test_row(1, NULL).col1", INTEGER,  null);
-        // test_row has both (boolean, boolean) and (boolean, array<bigint>), so this method is non-deterministic
-        // assertFunction("test_row(TRUE, NULL).col1", BOOLEAN, null);
-
-        // test_row has both (boolean, boolean) and (boolean, array<bigint>) so this method is non-deterministic
-        // assertFunction("test_row(TRUE, NULL).col1", BOOLEAN, null);
-
-        assertFunction("test_row(1, CAST(NULL AS DOUBLE)).col1", DOUBLE, null);
-        assertFunction("test_row(TRUE, CAST(NULL AS BOOLEAN)).col1", BOOLEAN, null);
-        assertFunction("test_row(TRUE, CAST(NULL AS ARRAY<INTEGER>)).col1", new ArrayType(INTEGER), null);
-        assertFunction("test_row(1.0, CAST(NULL AS VARCHAR)).col1", VARCHAR, null);
-        assertFunction("test_row(1, 2).col0", INTEGER, 1);
-        assertFunction("test_row(1, 'kittens').col1", VARCHAR, "kittens");
-        assertFunction("test_row(1, 2).\"col1\"", INTEGER, 2);
-        assertFunction("array[test_row(1, 2)][1].col1", INTEGER, 2);
-        assertFunction("test_row(FALSE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0])).col1", new ArrayType(INTEGER), ImmutableList.of(1, 2));
-        assertFunction("test_row(FALSE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0])).col2", new MapType(INTEGER, DOUBLE), ImmutableMap.of(1, 2.0, 3, 4.0));
-        assertFunction("test_row(1.0, ARRAY[test_row(31, 4.1), test_row(32, 4.2)], test_row(3, 4.0)).col1[2].col0", INTEGER, 32);
+        assertFunction("CAST(row(1, CAST(NULL AS DOUBLE)) AS ROW(col0 integer, col1 double)).col1", DOUBLE, null);
+        assertFunction("CAST(row(TRUE, CAST(NULL AS BOOLEAN)) AS ROW(col0 boolean, col1 boolean)).col1", BOOLEAN, null);
+        assertFunction("CAST(row(TRUE, CAST(NULL AS ARRAY<INTEGER>)) AS ROW(col0 boolean, col1 array(integer))).col1", new ArrayType(INTEGER), null);
+        assertFunction("CAST(row(1.0, CAST(NULL AS VARCHAR)) AS ROW(col0 double, col1 varchar)).col1", VARCHAR, null);
+        assertFunction("CAST(row(1, 2) AS ROW(col0 integer, col1 integer)).col0", INTEGER, 1);
+        assertFunction("CAST(row(1, 'kittens') AS ROW(col0 integer, col1 varchar)).col1", VARCHAR, "kittens");
+        assertFunction("CAST(row(1, 2) AS ROW(col0 integer, col1 integer)).\"col1\"", INTEGER, 2);
+        assertFunction("CAST(array[row(1, 2)] AS array(row(col0 integer, col1 integer)))[1].col1", INTEGER, 2);
+        assertFunction("CAST(row(FALSE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0])) AS ROW(col0 boolean , col1 array(integer), col2 map(integer, double))).col1", new ArrayType(INTEGER), ImmutableList.of(1, 2));
+        assertFunction("CAST(row(FALSE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0])) AS ROW(col0 boolean , col1 array(integer), col2 map(integer, double))).col2", new MapType(INTEGER, DOUBLE), ImmutableMap.of(1, 2.0, 3, 4.0));
+        assertFunction("CAST(row(1.0, ARRAY[row(31, 4.1), row(32, 4.2)], row(3, 4.0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double))).col1[2].col0", INTEGER, 32);
 
         // Using ROW constructor
         assertFunction("CAST(ROW(1, 2) AS ROW(a BIGINT, b DOUBLE)).a", BIGINT, 1L);
@@ -110,11 +98,11 @@ public class TestRowOperators
     @Test
     public void testRowCast()
     {
-        assertFunction("cast(test_row(2, 3) as row(aa bigint, bb bigint)).aa", BIGINT, 2L);
-        assertFunction("cast(test_row(2, 3) as row(aa bigint, bb bigint)).bb", BIGINT, 3L);
-        assertFunction("cast(test_row(2, 3) as row(aa bigint, bb boolean)).bb", BOOLEAN, true);
-        assertFunction("cast(test_row(2, cast(null as double)) as row(aa bigint, bb double)).bb", DOUBLE, null);
-        assertFunction("cast(test_row(2, 'test_str') as row(aa bigint, bb varchar)).bb", VARCHAR, "test_str");
+        assertFunction("cast(row(2, 3) as row(aa bigint, bb bigint)).aa", BIGINT, 2L);
+        assertFunction("cast(row(2, 3) as row(aa bigint, bb bigint)).bb", BIGINT, 3L);
+        assertFunction("cast(row(2, 3) as row(aa bigint, bb boolean)).bb", BOOLEAN, true);
+        assertFunction("cast(row(2, cast(null as double)) as row(aa bigint, bb double)).bb", DOUBLE, null);
+        assertFunction("cast(row(2, 'test_str') as row(aa bigint, bb varchar)).bb", VARCHAR, "test_str");
 
         try {
             assertFunction("CAST(ROW(1, 2) AS ROW(a BIGINT, A DOUBLE)).a", BIGINT, 1L);
@@ -125,7 +113,7 @@ public class TestRowOperators
         }
 
         // there are totally 7 field names
-        String longFieldNameCast = "CAST(test_row(1.2, ARRAY[test_row(233, 6.9)], test_row(1000, 6.3)) AS ROW(%s VARCHAR, %s ARRAY(ROW(%s VARCHAR, %s VARCHAR)), %s ROW(%s VARCHAR, %s VARCHAR))).%s[1].%s";
+        String longFieldNameCast = "CAST(row(1.2, ARRAY[row(233, 6.9)], row(1000, 6.3)) AS ROW(%s VARCHAR, %s ARRAY(ROW(%s VARCHAR, %s VARCHAR)), %s ROW(%s VARCHAR, %s VARCHAR))).%s[1].%s";
         int fieldCount = 7;
         char[] chars = new char[9333];
         String[] fields = new String[fieldCount];
@@ -140,55 +128,55 @@ public class TestRowOperators
     public void testRowEquality()
             throws Exception
     {
-        assertFunction("test_row(TIMESTAMP '2001-01-02 03:04:05.321 +07:09', TIMESTAMP '2001-01-02 03:04:05.321 +07:10') = " +
-                "test_row(TIMESTAMP '2001-01-02 03:04:05.321 +07:09', TIMESTAMP '2001-01-02 03:04:05.321 +07:10')", BOOLEAN, true);
-        assertFunction("test_row(1.0, test_row(TIMESTAMP '2001-01-02 03:04:05.321 +07:09', TIMESTAMP '2001-01-02 03:04:05.321 +07:10')) =" +
-                "test_row(1.0, test_row(TIMESTAMP '2001-01-02 03:04:05.321 +07:09', TIMESTAMP '2001-01-02 03:04:05.321 +07:10'))", BOOLEAN, true);
-        assertFunction("test_row(1.0, 'kittens') = test_row(1.0, 'kittens')", BOOLEAN, true);
-        assertFunction("test_row(1, 2.0) = test_row(1, 2.0)", BOOLEAN, true);
-        assertFunction("test_row(TRUE, FALSE, TRUE, FALSE) = test_row(TRUE, FALSE, TRUE, FALSE)", BOOLEAN, true);
-        assertFunction("test_row(TRUE, FALSE, TRUE, FALSE) = test_row(TRUE, TRUE, TRUE, FALSE)", BOOLEAN, false);
-        assertFunction("test_row(1, 2.0, TRUE, 'kittens', from_unixtime(1)) = test_row(1, 2.0, TRUE, 'kittens', from_unixtime(1))", BOOLEAN, true);
+        assertFunction("row(TIMESTAMP '2001-01-02 03:04:05.321 +07:09', TIMESTAMP '2001-01-02 03:04:05.321 +07:10') = " +
+                "row(TIMESTAMP '2001-01-02 03:04:05.321 +07:09', TIMESTAMP '2001-01-02 03:04:05.321 +07:10')", BOOLEAN, true);
+        assertFunction("row(1.0, row(TIMESTAMP '2001-01-02 03:04:05.321 +07:09', TIMESTAMP '2001-01-02 03:04:05.321 +07:10')) =" +
+                "row(1.0, row(TIMESTAMP '2001-01-02 03:04:05.321 +07:09', TIMESTAMP '2001-01-02 03:04:05.321 +07:10'))", BOOLEAN, true);
+        assertFunction("row(1.0, 'kittens') = row(1.0, 'kittens')", BOOLEAN, true);
+        assertFunction("row(1, 2.0) = row(1, 2.0)", BOOLEAN, true);
+        assertFunction("row(TRUE, FALSE, TRUE, FALSE) = row(TRUE, FALSE, TRUE, FALSE)", BOOLEAN, true);
+        assertFunction("row(TRUE, FALSE, TRUE, FALSE) = row(TRUE, TRUE, TRUE, FALSE)", BOOLEAN, false);
+        assertFunction("row(1, 2.0, TRUE, 'kittens', from_unixtime(1)) = row(1, 2.0, TRUE, 'kittens', from_unixtime(1))", BOOLEAN, true);
 
-        assertFunction("test_row(1.0, test_row(TIMESTAMP '2001-01-02 03:04:05.321 +07:09', TIMESTAMP '2001-01-02 03:04:05.321 +07:10')) !=" +
-                "test_row(1.0, test_row(TIMESTAMP '2001-01-02 03:04:05.321 +07:09', TIMESTAMP '2001-01-02 03:04:05.321 +07:11'))", BOOLEAN, true);
-        assertFunction("test_row(TIMESTAMP '2001-01-02 03:04:05.321 +07:09', TIMESTAMP '2001-01-02 03:04:05.321 +07:10') != " +
-                "test_row(TIMESTAMP '2001-01-02 03:04:05.321 +07:09', TIMESTAMP '2001-01-02 03:04:05.321 +07:11')", BOOLEAN, true);
-        assertFunction("test_row(1.0, 'kittens') != test_row(1.0, 'kittens')", BOOLEAN, false);
-        assertFunction("test_row(1, 2.0) != test_row(1, 2.0)", BOOLEAN, false);
-        assertFunction("test_row(TRUE, FALSE, TRUE, FALSE) != test_row(TRUE, FALSE, TRUE, FALSE)", BOOLEAN, false);
-        assertFunction("test_row(TRUE, FALSE, TRUE, FALSE) != test_row(TRUE, TRUE, TRUE, FALSE)", BOOLEAN, true);
-        assertFunction("test_row(1, 2.0, TRUE, 'kittens', from_unixtime(1)) != test_row(1, 2.0, TRUE, 'puppies', from_unixtime(1))", BOOLEAN, true);
+        assertFunction("row(1.0, row(TIMESTAMP '2001-01-02 03:04:05.321 +07:09', TIMESTAMP '2001-01-02 03:04:05.321 +07:10')) !=" +
+                "row(1.0, row(TIMESTAMP '2001-01-02 03:04:05.321 +07:09', TIMESTAMP '2001-01-02 03:04:05.321 +07:11'))", BOOLEAN, true);
+        assertFunction("row(TIMESTAMP '2001-01-02 03:04:05.321 +07:09', TIMESTAMP '2001-01-02 03:04:05.321 +07:10') != " +
+                "row(TIMESTAMP '2001-01-02 03:04:05.321 +07:09', TIMESTAMP '2001-01-02 03:04:05.321 +07:11')", BOOLEAN, true);
+        assertFunction("row(1.0, 'kittens') != row(1.0, 'kittens')", BOOLEAN, false);
+        assertFunction("row(1, 2.0) != row(1, 2.0)", BOOLEAN, false);
+        assertFunction("row(TRUE, FALSE, TRUE, FALSE) != row(TRUE, FALSE, TRUE, FALSE)", BOOLEAN, false);
+        assertFunction("row(TRUE, FALSE, TRUE, FALSE) != row(TRUE, TRUE, TRUE, FALSE)", BOOLEAN, true);
+        assertFunction("row(1, 2.0, TRUE, 'kittens', from_unixtime(1)) != row(1, 2.0, TRUE, 'puppies', from_unixtime(1))", BOOLEAN, true);
 
         try {
-            assertFunction("test_row(cast(cast ('' as varbinary) as hyperloglog)) = test_row(cast(cast ('' as varbinary) as hyperloglog))", BOOLEAN, true);
+            assertFunction("cast(row(cast(cast ('' as varbinary) as hyperloglog)) as row(col0 hyperloglog)) = cast(row(cast(cast ('' as varbinary) as hyperloglog)) as row(col0 hyperloglog))", BOOLEAN, true);
             fail("hyperloglog is not comparable");
         }
         catch (SemanticException e) {
-            if (!e.getMessage().matches("\\Qline 1:55: '=' cannot be applied to row(col0 HyperLogLog), row(col0 HyperLogLog)\\E")) {
+            if (!e.getMessage().matches("\\Qline 1:81: '=' cannot be applied to row(COL0 HyperLogLog), row(COL0 HyperLogLog)\\E")) {
                 throw e;
             }
             //Expected
         }
 
-        assertFunction("test_row(TRUE, ARRAY [1], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0])) = test_row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0]))", BOOLEAN, false);
-        assertFunction("test_row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0])) = test_row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0]))", BOOLEAN, true);
+        assertFunction("row(TRUE, ARRAY [1], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0])) = row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0]))", BOOLEAN, false);
+        assertFunction("row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0])) = row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0]))", BOOLEAN, true);
 
         try {
-            assertFunction("test_row(1, CAST(NULL AS INTEGER)) = test_row(1, 2)", BOOLEAN, false);
+            assertFunction("row(1, CAST(NULL AS INTEGER)) = row(1, 2)", BOOLEAN, false);
             fail("ROW comparison not implemented for NULL values");
         }
         catch (PrestoException e) {
             assertEquals(e.getErrorCode().getCode(), StandardErrorCode.NOT_SUPPORTED.toErrorCode().getCode());
         }
 
-        assertFunction("test_row(TRUE, ARRAY [1]) = test_row(TRUE, ARRAY [1])", BOOLEAN, true);
-        assertFunction("test_row(TRUE, ARRAY [1]) = test_row(TRUE, ARRAY [1,2])", BOOLEAN, false);
-        assertFunction("test_row(1.0, ARRAY [1,2,3], test_row(2,2.0)) = test_row(1.0, ARRAY [1,2,3], test_row(2,2.0))", BOOLEAN, true);
+        assertFunction("row(TRUE, ARRAY [1]) = row(TRUE, ARRAY [1])", BOOLEAN, true);
+        assertFunction("row(TRUE, ARRAY [1]) = row(TRUE, ARRAY [1,2])", BOOLEAN, false);
+        assertFunction("row(1.0, ARRAY [1,2,3], row(2,2.0)) = row(1.0, ARRAY [1,2,3], row(2,2.0))", BOOLEAN, true);
 
-        assertFunction("test_row(TRUE, ARRAY [1]) != test_row(TRUE, ARRAY [1])", BOOLEAN, false);
-        assertFunction("test_row(TRUE, ARRAY [1]) != test_row(TRUE, ARRAY [1,2])", BOOLEAN, true);
-        assertFunction("test_row(1.0, ARRAY [1,2,3], test_row(2,2.0)) != test_row(1.0, ARRAY [1,2,3], test_row(1,2.0))", BOOLEAN, true);
+        assertFunction("row(TRUE, ARRAY [1]) != row(TRUE, ARRAY [1])", BOOLEAN, false);
+        assertFunction("row(TRUE, ARRAY [1]) != row(TRUE, ARRAY [1,2])", BOOLEAN, true);
+        assertFunction("row(1.0, ARRAY [1,2,3], row(2,2.0)) != row(1.0, ARRAY [1,2,3], row(1,2.0))", BOOLEAN, true);
 
         assertFunction("ROW(1, 2) = ROW(1, 2)", BOOLEAN, true);
         assertFunction("ROW(2, 1) != ROW(1, 2)", BOOLEAN, true);

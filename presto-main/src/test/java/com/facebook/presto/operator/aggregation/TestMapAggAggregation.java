@@ -35,9 +35,9 @@ import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringArraysBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
+import static com.facebook.presto.operator.OperatorAssertion.toRow;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.operator.aggregation.MapAggregationFunction.NAME;
-import static com.facebook.presto.operator.scalar.TestingRowConstructor.testRowIntegerInteger;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -227,9 +227,9 @@ public class TestMapAggAggregation
                 innerRowType.getTypeSignature()));
 
         BlockBuilder builder = innerRowType.createBlockBuilder(new BlockBuilderStatus(), 3);
-        innerRowType.writeObject(builder, testRowIntegerInteger(1L, 1.0));
-        innerRowType.writeObject(builder, testRowIntegerInteger(2L, 2.0));
-        innerRowType.writeObject(builder, testRowIntegerInteger(3L, 3.0));
+        innerRowType.writeObject(builder, toRow(ImmutableList.of(INTEGER, DOUBLE), 1L, 1.0));
+        innerRowType.writeObject(builder, toRow(ImmutableList.of(INTEGER, DOUBLE), 2L, 2.0));
+        innerRowType.writeObject(builder, toRow(ImmutableList.of(INTEGER, DOUBLE), 3L, 3.0));
 
         assertAggregation(
                 aggFunc,

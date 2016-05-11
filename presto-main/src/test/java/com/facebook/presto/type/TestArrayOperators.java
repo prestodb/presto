@@ -14,7 +14,6 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import com.facebook.presto.operator.scalar.TestingRowConstructor;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
@@ -63,10 +62,7 @@ import static org.testng.Assert.fail;
 public class TestArrayOperators
         extends AbstractTestFunctions
 {
-    public TestArrayOperators()
-    {
-        registerScalar(TestingRowConstructor.class);
-    }
+    public TestArrayOperators() {}
 
     @Test
     public void testStackRepresentation()
@@ -301,7 +297,7 @@ public class TestArrayOperators
 
         assertInvalidFunction("ARRAY_JOIN(ARRAY [ARRAY [1], ARRAY [2]], '-')", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("ARRAY_JOIN(ARRAY [MAP(ARRAY [1], ARRAY [2])], '-')", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("ARRAY_JOIN(ARRAY [test_row(1, 2)], '-')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("ARRAY_JOIN(ARRAY [cast(row(1, 2) AS row(col0 bigint, col1 bigint))], '-')", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.operator.scalar.TestingRowConstructor;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -32,6 +31,7 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 
 import static com.facebook.presto.block.BlockSerdeUtil.writeBlock;
+import static com.facebook.presto.operator.OperatorAssertion.toRow;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_FIRST;
@@ -504,7 +504,7 @@ public abstract class AbstractTestType
             RowType rowType = (RowType) type;
             List<Type> elementTypes = rowType.getTypeParameters();
             Object[] elementNonNullValues = elementTypes.stream().map(AbstractTestType::getNonNullValueForType).toArray(Object[]::new);
-            return TestingRowConstructor.toStackRepresentation(elementTypes, elementNonNullValues);
+            return toRow(elementTypes, elementNonNullValues);
         }
         throw new IllegalStateException("Unsupported Java type " + type.getJavaType() + " (for type " + type + ")");
     }
