@@ -24,7 +24,9 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multimap;
 import com.google.common.primitives.UnsignedBytes;
 import org.apache.accumulo.core.client.BatchWriter;
 import org.apache.accumulo.core.client.BatchWriterConfig;
@@ -53,7 +55,6 @@ import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -159,13 +160,13 @@ public class Indexer
     /**
      * Mapping of column family to set of column qualifiers for all indexed Presto columns
      */
-    private final Map<ByteBuffer, Set<ByteBuffer>> indexColumns = new HashMap<>();
+    private final Multimap<ByteBuffer, ByteBuffer> indexColumns;
 
     /**
      * Mapping of column family to column qualifier to Presto column type for all indexed Presto
      * columns
      */
-    private final Map<ByteBuffer, Map<ByteBuffer, Type>> indexColumnTypes = new HashMap<>();
+    private final Map<ByteBuffer, Map<ByteBuffer, Type>> indexColumnTypes;
 
     /**
      * Serializer class for the table
@@ -198,31 +199,31 @@ public class Indexer
         // Create our batch writer
         indexWrtr = conn.createBatchWriter(table.getIndexTableName(), bwc);
 
+        ImmutableMultimap.Builder<ByteBuffer, ByteBuffer> indexColumnsBuilder = ImmutableMultimap.builder();
+        Map<ByteBuffer, Map<ByteBuffer, Type>> indexColumnTypesBuilder = new HashMap<>();
+
         // Initialize metadata
         table.getColumns().stream().forEach(col -> {
             if (col.isIndexed()) {
-                // Wrap the column family and qualifier for this column
+                // Wrap the column family and qualifier for this column and add it to
+                // collection of indexed columns
                 ByteBuffer cf = wrap(col.getFamily().get().getBytes());
                 ByteBuffer cq = wrap(col.getQualifier().get().getBytes());
-
-                // Get all qualifiers for this given column family, creating a new one if necessary
-                Set<ByteBuffer> qualifiers = indexColumns.get(cf);
-                if (qualifiers == null) {
-                    qualifiers = new HashSet<>();
-                    indexColumns.put(cf, qualifiers);
-                }
-                qualifiers.add(cq);
+                indexColumnsBuilder.put(cf, cq);
 
                 // Create a mapping for this column's Presto type, again creating a new one for the
                 // family if necessary
-                Map<ByteBuffer, Type> types = indexColumnTypes.get(cf);
+                Map<ByteBuffer, Type> types = indexColumnTypesBuilder.get(cf);
                 if (types == null) {
                     types = new HashMap<>();
-                    indexColumnTypes.put(cf, types);
+                    indexColumnTypesBuilder.put(cf, types);
                 }
                 types.put(cq, col.getType());
             }
         });
+
+        indexColumns = indexColumnsBuilder.build();
+        indexColumnTypes = ImmutableMap.copyOf(indexColumnTypesBuilder);
 
         // If there are no indexed columns, throw an exception
         if (indexColumns.size() == 0) {
@@ -269,7 +270,7 @@ public class Indexer
         for (ColumnUpdate cu : m.getUpdates()) {
             // Get the column qualifiers we want to index for this column family (if any)
             ByteBuffer cf = wrap(cu.getColumnFamily());
-            Set<ByteBuffer> indexCQs = indexColumns.get(cf);
+            Collection<ByteBuffer> indexCQs = indexColumns.get(cf);
 
             // If we have column qualifiers we want to index for this column family
             if (indexCQs != null) {
