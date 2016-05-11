@@ -30,7 +30,7 @@ import java.util.Map;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
 public class CatalogSystemTable
@@ -39,8 +39,8 @@ public class CatalogSystemTable
     public static final SchemaTableName CATALOG_TABLE_NAME = new SchemaTableName("metadata", "catalogs");
 
     public static final ConnectorTableMetadata CATALOG_TABLE = tableMetadataBuilder(CATALOG_TABLE_NAME)
-            .column("catalog_name", VARCHAR)
-            .column("connector_id", VARCHAR)
+            .column("catalog_name", createUnboundedVarcharType())
+            .column("connector_id", createUnboundedVarcharType())
             .build();
     private final Metadata metadata;
 

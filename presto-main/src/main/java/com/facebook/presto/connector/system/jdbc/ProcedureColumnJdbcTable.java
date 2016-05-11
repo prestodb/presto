@@ -23,7 +23,7 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 
 public class ProcedureColumnJdbcTable
         extends JdbcTable
@@ -31,26 +31,26 @@ public class ProcedureColumnJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "procedure_columns");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
-            .column("procedure_cat", VARCHAR)
-            .column("procedure_schem", VARCHAR)
-            .column("procedure_name", VARCHAR)
-            .column("column_name", VARCHAR)
+            .column("procedure_cat", createUnboundedVarcharType())
+            .column("procedure_schem", createUnboundedVarcharType())
+            .column("procedure_name", createUnboundedVarcharType())
+            .column("column_name", createUnboundedVarcharType())
             .column("column_type", BIGINT)
             .column("data_type", BIGINT)
-            .column("type_name", VARCHAR)
+            .column("type_name", createUnboundedVarcharType())
             .column("precision", BIGINT)
             .column("length", BIGINT)
             .column("scale", BIGINT)
             .column("radix", BIGINT)
             .column("nullable", BIGINT)
-            .column("remarks", VARCHAR)
-            .column("column_def", VARCHAR)
+            .column("remarks", createUnboundedVarcharType())
+            .column("column_def", createUnboundedVarcharType())
             .column("sql_data_type", BIGINT)
             .column("sql_datetime_sub", BIGINT)
             .column("char_octet_length", BIGINT)
             .column("ordinal_position", BIGINT)
-            .column("is_nullable", VARCHAR)
-            .column("specific_name", VARCHAR)
+            .column("is_nullable", createUnboundedVarcharType())
+            .column("specific_name", createUnboundedVarcharType())
             .build();
 
     @Override
