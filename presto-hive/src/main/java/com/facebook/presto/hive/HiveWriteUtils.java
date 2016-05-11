@@ -348,10 +348,10 @@ public final class HiveWriteUtils
         }
 
         Path databasePath = new Path(location);
-        if (!pathExists(user, hdfsEnvironment, databasePath)) {
+        if (!pathExists(hdfsEnvironment, databasePath) && !location.startsWith("s3")) {
             throw new PrestoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location does not exist: %s", schemaName, databasePath));
         }
-        if (!isDirectory(user, hdfsEnvironment, databasePath)) {
+        if (!isDirectory(hdfsEnvironment, databasePath) && !location.startsWith("s3")) {
             throw new PrestoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not a directory: %s", schemaName, databasePath));
         }
 
