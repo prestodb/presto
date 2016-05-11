@@ -848,7 +848,7 @@ public class TestHiveIntegrationSmokeTest
     public void testRows()
             throws Exception
     {
-        assertUpdate("CREATE TABLE tmp_row1 AS SELECT test_row(1, CAST(NULL as BIGINT)) AS a", 1);
+        assertUpdate("CREATE TABLE tmp_row1 AS SELECT cast(row(1, CAST(NULL as BIGINT)) AS row(col0 bigint, col1 bigint)) AS a", 1);
 
         assertQuery(
                 "SELECT a.col0, a.col1 FROM tmp_row1",

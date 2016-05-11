@@ -37,9 +37,9 @@ import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringArraysBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
+import static com.facebook.presto.operator.OperatorAssertion.toRow;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.operator.aggregation.Histogram.NAME;
-import static com.facebook.presto.operator.scalar.TestingRowConstructor.testRowBigintBigint;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -226,9 +226,9 @@ public class TestHistogram
                         innerRowType.getTypeSignature()));
 
         BlockBuilder builder = innerRowType.createBlockBuilder(new BlockBuilderStatus(), 3);
-        innerRowType.writeObject(builder, testRowBigintBigint(1L, 1.0));
-        innerRowType.writeObject(builder, testRowBigintBigint(2L, 2.0));
-        innerRowType.writeObject(builder, testRowBigintBigint(3L, 3.0));
+        innerRowType.writeObject(builder, toRow(ImmutableList.of(BIGINT, DOUBLE), 1L, 1.0));
+        innerRowType.writeObject(builder, toRow(ImmutableList.of(BIGINT, DOUBLE), 2L, 2.0));
+        innerRowType.writeObject(builder, toRow(ImmutableList.of(BIGINT, DOUBLE), 3L, 3.0));
 
         assertAggregation(
                 aggregationFunction,
