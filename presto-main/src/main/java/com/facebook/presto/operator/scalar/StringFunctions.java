@@ -390,9 +390,13 @@ public final class StringFunctions
                 Slice key = keyValuePair.slice(0, keyValueDelimiterIndex);
                 Slice value = keyValuePair.slice(offset, keyValuePair.length() - offset);
 
+                if (value.indexOf(keyValueDelimiter) >= 0) {
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key-value delimiter must appear exactly once in each entry: " + keyValuePair.toString());
+                }
                 if (map.containsKey(key)) {
                     throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Duplicate keys are not allowed: " + key.toString());
                 }
+
                 map.put(key, value);
             }
 
