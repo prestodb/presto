@@ -66,7 +66,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
@@ -516,7 +516,7 @@ public class MongoSession
     {
         TypeSignature typeSignature = null;
         if (value instanceof String) {
-            typeSignature = VARCHAR.getTypeSignature();
+            typeSignature = createUnboundedVarcharType().getTypeSignature();
         }
         else if (value instanceof Integer || value instanceof Long) {
             typeSignature = BIGINT.getTypeSignature();
