@@ -97,8 +97,9 @@ import static java.util.Objects.requireNonNull;
  */
 public class AccumuloClient
 {
+    public static final String DUMMY_LOCATION = "localhost:9997";
+
     private static final Logger LOG = Logger.get(AccumuloClient.class);
-    private static final String DUMMY_LOCATION = "localhost:9997";
     private static final String MAC_PASSWORD = "secret";
     private static final String MAC_USER = "root";
     private static final Splitter COMMA_SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();

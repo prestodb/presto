@@ -414,15 +414,13 @@ public class IndexLookup
     private void binRanges(int numRangesPerBin, List<Range> splitRanges,
             List<TabletSplitMetadata> prestoSplits)
     {
-        // Location here doesn't matter, I think this 9997 is left over from the connector example
-        // Let's leave it to pay homage to where this thing came from
-        String loc = "localhost:9997";
         int toAdd = splitRanges.size();
         int fromIndex = 0;
         int toIndex = Math.min(toAdd, numRangesPerBin);
         do {
             // Add the sublist of range handles
-            prestoSplits.add(new TabletSplitMetadata(loc, splitRanges.subList(fromIndex, toIndex)));
+            // Use dummy location because we are binning multiple Ranges spread across many tablet servers
+            prestoSplits.add(new TabletSplitMetadata(AccumuloClient.DUMMY_LOCATION, splitRanges.subList(fromIndex, toIndex)));
             toAdd -= toIndex - fromIndex;
             fromIndex = toIndex;
             toIndex += Math.min(toAdd, numRangesPerBin);
