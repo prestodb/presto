@@ -180,7 +180,7 @@ public class BenchmarkNodeScheduler
                             .setMaxSplitsPerNode(MAX_SPLITS_PER_NODE)
                             .setIncludeCoordinator(false)
                             .setNetworkTopology(topologyName)
-                            .setMaxPendingSplitsPerNodePerTask(MAX_PENDING_SPLITS_PER_TASK_PER_NODE);
+                            .setMaxPendingSplitsPerNodePerStage(MAX_PENDING_SPLITS_PER_TASK_PER_NODE);
         }
 
         private NetworkTopology getNetworkTopology()

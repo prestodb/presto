@@ -31,7 +31,7 @@ public class TestNodeSchedulerConfig
                 .setNetworkTopology(LEGACY_NETWORK_TOPOLOGY)
                 .setMinCandidates(10)
                 .setMaxSplitsPerNode(100)
-                .setMaxPendingSplitsPerNodePerTask(10)
+                .setMaxPendingSplitsPerNodePerStage(10)
                 .setIncludeCoordinator(true)
                 .setMultipleTasksPerNodeEnabled(false));
     }
@@ -43,7 +43,7 @@ public class TestNodeSchedulerConfig
                 .put("node-scheduler.network-topology", "flat")
                 .put("node-scheduler.min-candidates", "11")
                 .put("node-scheduler.include-coordinator", "false")
-                .put("node-scheduler.max-pending-splits-per-node-per-task", "11")
+                .put("node-scheduler.max-pending-splits-per-node-per-stage", "11")
                 .put("node-scheduler.max-splits-per-node", "101")
                 .put("node-scheduler.multiple-tasks-per-node-enabled", "true")
                 .build();
@@ -53,7 +53,7 @@ public class TestNodeSchedulerConfig
                 .setIncludeCoordinator(false)
                 .setMultipleTasksPerNodeEnabled(true)
                 .setMaxSplitsPerNode(101)
-                .setMaxPendingSplitsPerNodePerTask(11)
+                .setMaxPendingSplitsPerNodePerStage(11)
                 .setMinCandidates(11);
 
         ConfigAssertions.assertFullMapping(properties, expected);
