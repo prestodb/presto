@@ -22,6 +22,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.http.client.FullJsonResponseHandler;
 import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
@@ -29,6 +30,7 @@ import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
 
+import java.net.URI;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -189,8 +191,12 @@ public class TaskInfoFetcher
             return;
         }
 
+        HttpUriBuilder httpUriBuilder = uriBuilderFrom(taskStatus.getSelf());
+        // if this is the last request, don't summarize, get the complete taskInfo
+        URI uri = lastRequest.get() ? httpUriBuilder.build() : httpUriBuilder.addParameter("summarize").build();
+
         Request request = prepareGet()
-                .setUri(uriBuilderFrom(taskStatus.getSelf()).addParameter("summarize").build())
+                .setUri(uri)
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .build();
 
