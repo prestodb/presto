@@ -27,7 +27,6 @@ import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
@@ -42,6 +41,9 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.net.InetAddresses.toAddrString;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -50,7 +52,7 @@ import static java.util.Objects.requireNonNull;
 public enum CassandraType
         implements FullCassandraType
 {
-    ASCII(VarcharType.VARCHAR, String.class),
+    ASCII(createUnboundedVarcharType(), String.class),
     BIGINT(BigintType.BIGINT, Long.class),
     BLOB(VarbinaryType.VARBINARY, ByteBuffer.class),
     CUSTOM(VarbinaryType.VARBINARY, ByteBuffer.class),
@@ -59,17 +61,26 @@ public enum CassandraType
     DECIMAL(DoubleType.DOUBLE, BigDecimal.class),
     DOUBLE(DoubleType.DOUBLE, Double.class),
     FLOAT(DoubleType.DOUBLE, Float.class),
-    INET(VarcharType.VARCHAR, InetAddress.class),
+    INET(createVarcharType(Constants.IP_ADDRESS_STRING_MAX_LENGTH), InetAddress.class),
     INT(IntegerType.INTEGER, Integer.class),
-    TEXT(VarcharType.VARCHAR, String.class),
+    TEXT(createUnboundedVarcharType(), String.class),
     TIMESTAMP(TimestampType.TIMESTAMP, Date.class),
-    UUID(VarcharType.VARCHAR, java.util.UUID.class),
-    TIMEUUID(VarcharType.VARCHAR, java.util.UUID.class),
-    VARCHAR(VarcharType.VARCHAR, String.class),
-    VARINT(VarcharType.VARCHAR, BigInteger.class),
-    LIST(VarcharType.VARCHAR, null),
-    MAP(VarcharType.VARCHAR, null),
-    SET(VarcharType.VARCHAR, null);
+    UUID(createVarcharType(Constants.UUID_STRING_MAX_LENGTH), java.util.UUID.class),
+    TIMEUUID(createVarcharType(Constants.UUID_STRING_MAX_LENGTH), java.util.UUID.class),
+    VARCHAR(createUnboundedVarcharType(), String.class),
+    VARINT(createUnboundedVarcharType(), BigInteger.class),
+    LIST(createUnboundedVarcharType(), null),
+    MAP(createUnboundedVarcharType(), null),
+    SET(createUnboundedVarcharType(), null);
+
+    private static class Constants
+    {
+        private static final int UUID_STRING_MAX_LENGTH = 36;
+        // IPv4: 255.255.255.255 - 15 characters
+        // IPv6: FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF - 39 characters
+        // IPv4 embedded into IPv6: FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:255.255.255.255 - 45 characters
+        private static final int IP_ADDRESS_STRING_MAX_LENGTH = 45;
+    }
 
     private final Type nativeType;
     private final Class<?> javaType;
@@ -457,7 +468,7 @@ public enum CassandraType
         else if (type.equals(DoubleType.DOUBLE)) {
             return DOUBLE;
         }
-        else if (type.equals(VarcharType.VARCHAR)) {
+        else if (isVarcharType(type)) {
             return TEXT;
         }
         else if (type.equals(DateType.DATE)) {
