@@ -26,7 +26,6 @@ import com.google.inject.Inject;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
-import java.security.InvalidParameterException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -38,6 +37,8 @@ import java.util.Set;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
+import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
 
 /**
  * Class contains all table properties for the Accumulo connector. Used when creating a table:
@@ -145,16 +146,8 @@ public final class AccumuloTableProperties
         Map<String, Pair<String, String>> mapping = new HashMap<>();
         for (String m : COMMA_SPLITTER.split(strMapping)) {
             String[] tokens = Iterables.toArray(COLON_SPLITTER.split(m), String.class);
-
-            // If there are three tokens, parse out the mapping
-            // Else throw an exception!
-            if (tokens.length == 3) {
-                mapping.put(tokens[0], Pair.of(tokens[1], tokens[2]));
-            }
-            else {
-                throw new InvalidParameterException(String
-                        .format("Mapping of %s contains %d tokens instead of 3", m, tokens.length));
-            }
+            checkState(tokens.length == 3, format("Mapping of %s contains %d tokens instead of 3", m, tokens.length));
+            mapping.put(tokens[0], Pair.of(tokens[1], tokens[2]));
         }
 
         return mapping;
@@ -239,7 +232,6 @@ public final class AccumuloTableProperties
     {
         return (String) tableProperties.get(SERIALIZER);
     }
-
 
     /**
      * Gets a Boolean value indicating whether or not this table is external and Presto should only
