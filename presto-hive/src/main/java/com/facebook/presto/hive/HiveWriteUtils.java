@@ -343,12 +343,6 @@ public final class HiveWriteUtils
             throw new PrestoException(HIVE_INVALID_METADATA, format("%s does not contain a valid storage descriptor", tablePartitionDescription));
         }
 
-        // verify bucketing
-        List<String> bucketColumns = storageDescriptor.getBucketCols();
-        if (bucketColumns != null && !bucketColumns.isEmpty()) {
-            throw new PrestoException(NOT_SUPPORTED, "Writing to bucketed Hive table has been temporarily disabled");
-        }
-
         // verify sorting
         List<Order> sortColumns = storageDescriptor.getSortCols();
         if (sortColumns != null && !sortColumns.isEmpty()) {

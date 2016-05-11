@@ -128,6 +128,9 @@ public class HiveClientConfig
     private String hdfsPrestoPrincipal;
     private String hdfsPrestoKeytab;
 
+    private boolean bucketExecutionEnabled = true;
+    private boolean bucketWritingEnabled = true;
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -1013,6 +1016,32 @@ public class HiveClientConfig
     public HiveClientConfig setHdfsPrestoKeytab(String hdfsPrestoKeytab)
     {
         this.hdfsPrestoKeytab = hdfsPrestoKeytab;
+        return this;
+    }
+
+    public boolean isBucketExecutionEnabled()
+    {
+        return bucketExecutionEnabled;
+    }
+
+    @Config("hive.bucket-execution")
+    @ConfigDescription("Use bucketing to speed up execution")
+    public HiveClientConfig setBucketExecutionEnabled(boolean bucketExecutionEnabled)
+    {
+        this.bucketExecutionEnabled = bucketExecutionEnabled;
+        return this;
+    }
+
+    public boolean isBucketWritingEnabled()
+    {
+        return bucketWritingEnabled;
+    }
+
+    @Config("hive.bucket-writing")
+    @ConfigDescription("Enable writing to bucketed tables")
+    public HiveClientConfig setBucketWritingEnabled(boolean bucketWritingEnabled)
+    {
+        this.bucketWritingEnabled = bucketWritingEnabled;
         return this;
     }
 }

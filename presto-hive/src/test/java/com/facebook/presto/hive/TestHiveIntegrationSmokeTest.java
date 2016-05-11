@@ -381,8 +381,7 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate("CREATE TABLE test_create_table_non_supported_varchar_column (apple varchar(65536))");
     }
 
-    // TODO: re-enable when bucketing is fixed
-    @Test(enabled = false)
+    @Test
     public void testCreatePartitionedBucketedTableAs()
             throws Exception
     {
@@ -445,8 +444,7 @@ public class TestHiveIntegrationSmokeTest
         assertFalse(queryRunner.tableExists(getSession(), "test_create_partitioned_bucketed_table_as"));
     }
 
-    // TODO: re-enable when bucketing is fixed
-    @Test(enabled = false)
+    @Test
     public void testInsertPartitionedBucketedTable()
             throws Exception
     {
