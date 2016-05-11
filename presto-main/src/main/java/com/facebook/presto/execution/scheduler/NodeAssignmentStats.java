@@ -50,7 +50,7 @@ public final class NodeAssignmentStats
         return assignmentCount.getOrDefault(node, 0) + splitCountByNode.computeIfAbsent(node, nodeTaskMap::getPartitionedSplitsOnNode);
     }
 
-    public int getTotalQueuedSplitCount(Node node)
+    public int getQueuedSplitCountForStage(Node node)
     {
         return queuedSplitCountByNode.getOrDefault(node.getNodeIdentifier(), 0) + assignmentCount.getOrDefault(node, 0);
     }

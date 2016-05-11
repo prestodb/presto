@@ -59,7 +59,7 @@ public class NodeScheduler
     private final int minCandidates;
     private final boolean includeCoordinator;
     private final int maxSplitsPerNode;
-    private final int maxSplitsPerNodePerTaskWhenFull;
+    private final int maxPendingSplitsPerNodePerStageWhenFull;
     private final NodeTaskMap nodeTaskMap;
     private final boolean doubleScheduling;
     private final boolean useNetworkTopology;
@@ -83,9 +83,9 @@ public class NodeScheduler
         this.includeCoordinator = config.isIncludeCoordinator();
         this.doubleScheduling = config.isMultipleTasksPerNodeEnabled();
         this.maxSplitsPerNode = config.getMaxSplitsPerNode();
-        this.maxSplitsPerNodePerTaskWhenFull = config.getMaxPendingSplitsPerNodePerTask();
+        this.maxPendingSplitsPerNodePerStageWhenFull = config.getMaxPendingSplitsPerNodePerStage();
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
-        checkArgument(maxSplitsPerNode > maxSplitsPerNodePerTaskWhenFull, "maxSplitsPerNode must be > maxSplitsPerNodePerTaskWhenFull");
+        checkArgument(maxSplitsPerNode > maxPendingSplitsPerNodePerStageWhenFull, "maxSplitsPerNode must be > maxPendingSplitsPerNodePerStageWhenFull");
         this.useNetworkTopology = !config.getNetworkTopology().equals(LEGACY_NETWORK_TOPOLOGY);
 
         ImmutableList.Builder<CounterStat> builder = ImmutableList.builder();
@@ -167,13 +167,13 @@ public class NodeScheduler
                     nodeMap,
                     minCandidates,
                     maxSplitsPerNode,
-                    maxSplitsPerNodePerTaskWhenFull,
+                    maxPendingSplitsPerNodePerStageWhenFull,
                     topologicalSplitCounters,
                     networkLocationSegmentNames,
                     networkLocationCache);
         }
         else {
-            return new SimpleNodeSelector(nodeManager, nodeTaskMap, includeCoordinator, doubleScheduling, nodeMap, minCandidates, maxSplitsPerNode, maxSplitsPerNodePerTaskWhenFull);
+            return new SimpleNodeSelector(nodeManager, nodeTaskMap, includeCoordinator, doubleScheduling, nodeMap, minCandidates, maxSplitsPerNode, maxPendingSplitsPerNodePerStageWhenFull);
         }
     }
 

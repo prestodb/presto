@@ -16,6 +16,7 @@ package com.facebook.presto.execution.scheduler;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
+import io.airlift.configuration.LegacyConfig;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -28,7 +29,7 @@ public class NodeSchedulerConfig
     private boolean includeCoordinator = true;
     private boolean multipleTasksPerNode;
     private int maxSplitsPerNode = 100;
-    private int maxPendingSplitsPerNodePerTask = 10;
+    private int maxPendingSplitsPerNodePerStage = 10;
     private String networkTopology = LEGACY_NETWORK_TOPOLOGY;
 
     @NotNull
@@ -82,16 +83,17 @@ public class NodeSchedulerConfig
         return this;
     }
 
-    @Config("node-scheduler.max-pending-splits-per-node-per-task")
-    public NodeSchedulerConfig setMaxPendingSplitsPerNodePerTask(int maxPendingSplitsPerNodePerTask)
+    @Config("node-scheduler.max-pending-splits-per-node-per-stage")
+    @LegacyConfig("node-scheduler.max-pending-splits-per-node-per-task")
+    public NodeSchedulerConfig setMaxPendingSplitsPerNodePerStage(int maxPendingSplitsPerNodePerStage)
     {
-        this.maxPendingSplitsPerNodePerTask = maxPendingSplitsPerNodePerTask;
+        this.maxPendingSplitsPerNodePerStage = maxPendingSplitsPerNodePerStage;
         return this;
     }
 
-    public int getMaxPendingSplitsPerNodePerTask()
+    public int getMaxPendingSplitsPerNodePerStage()
     {
-        return maxPendingSplitsPerNodePerTask;
+        return maxPendingSplitsPerNodePerStage;
     }
 
     public int getMaxSplitsPerNode()
