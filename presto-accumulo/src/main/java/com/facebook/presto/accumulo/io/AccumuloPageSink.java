@@ -54,6 +54,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+import static com.facebook.presto.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_DNE;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
@@ -119,9 +120,13 @@ public class AccumuloPageSink
                 indexer = null;
             }
         }
-        catch (TableNotFoundException | AccumuloException | AccumuloSecurityException e) {
+        catch (AccumuloException | AccumuloSecurityException e) {
             throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR,
                     "Accumulo error when creating BatchWriter and/or Indexer", e);
+        }
+        catch (TableNotFoundException e) {
+            throw new PrestoException(ACCUMULO_TABLE_DNE,
+                    "Accumulo error when creating BatchWriter and/or Indexer, table does not exist", e);
         }
     }
 
