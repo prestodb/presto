@@ -38,7 +38,7 @@ import java.util.Set;
 import static com.facebook.presto.localfile.LocalFileColumnHandle.SERVER_ADDRESS_COLUMN_NAME;
 import static com.facebook.presto.localfile.LocalFileColumnHandle.SERVER_ADDRESS_ORDINAL_POSITION;
 import static com.facebook.presto.localfile.Types.checkType;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
@@ -47,7 +47,7 @@ public class LocalFileMetadata
         implements ConnectorMetadata
 {
     public static final String PRESTO_LOGS_SCHEMA = "logs";
-    public static final ColumnMetadata SERVER_ADDRESS_COLUMN = new ColumnMetadata("server_address", VARCHAR);
+    public static final ColumnMetadata SERVER_ADDRESS_COLUMN = new ColumnMetadata("server_address", createUnboundedVarcharType());
     private static final List<String> SCHEMA_NAMES = ImmutableList.of(PRESTO_LOGS_SCHEMA);
 
     private final LocalFileTables localFileTables;

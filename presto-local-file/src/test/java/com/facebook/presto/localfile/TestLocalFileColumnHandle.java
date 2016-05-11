@@ -24,13 +24,13 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static org.testng.Assert.assertEquals;
 
 public class TestLocalFileColumnHandle
 {
     private final List<LocalFileColumnHandle> columnHandle = ImmutableList.of(
-            new LocalFileColumnHandle("columnName", VARCHAR, 0),
+            new LocalFileColumnHandle("columnName", createUnboundedVarcharType(), 0),
             new LocalFileColumnHandle("columnName", BIGINT, 0),
             new LocalFileColumnHandle("columnName", DOUBLE, 0),
             new LocalFileColumnHandle("columnName", DATE, 0),
