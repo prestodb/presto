@@ -26,7 +26,7 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import javax.inject.Inject;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
 public class CatalogJdbcTable
@@ -35,7 +35,7 @@ public class CatalogJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "catalogs");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
-            .column("table_cat", VARCHAR)
+            .column("table_cat", createUnboundedVarcharType())
             .build();
 
     private final Metadata metadata;

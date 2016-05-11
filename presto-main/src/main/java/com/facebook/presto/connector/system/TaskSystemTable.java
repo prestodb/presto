@@ -37,7 +37,7 @@ import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tab
 import static com.facebook.presto.spi.SystemTable.Distribution.ALL_NODES;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 
 public class TaskSystemTable
         implements SystemTable
@@ -45,12 +45,12 @@ public class TaskSystemTable
     public static final SchemaTableName TASK_TABLE_NAME = new SchemaTableName("runtime", "tasks");
 
     public static final ConnectorTableMetadata TASK_TABLE = tableMetadataBuilder(TASK_TABLE_NAME)
-            .column("node_id", VARCHAR)
+            .column("node_id", createUnboundedVarcharType())
 
-            .column("task_id", VARCHAR)
-            .column("stage_id", VARCHAR)
-            .column("query_id", VARCHAR)
-            .column("state", VARCHAR)
+            .column("task_id", createUnboundedVarcharType())
+            .column("stage_id", createUnboundedVarcharType())
+            .column("query_id", createUnboundedVarcharType())
+            .column("state", createUnboundedVarcharType())
 
             .column("splits", BIGINT)
             .column("queued_splits", BIGINT)
