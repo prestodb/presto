@@ -30,7 +30,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Locale.ENGLISH;
 
 final class MetadataUtil
@@ -59,7 +59,7 @@ final class MetadataUtil
                 .put(StandardTypes.DOUBLE, DOUBLE)
                 .put(StandardTypes.TIMESTAMP, TIMESTAMP)
                 .put(StandardTypes.DATE, DATE)
-                .put(StandardTypes.VARCHAR, VARCHAR)
+                .put(StandardTypes.VARCHAR, createUnboundedVarcharType())
                 .build();
 
         public TestingTypeDeserializer()

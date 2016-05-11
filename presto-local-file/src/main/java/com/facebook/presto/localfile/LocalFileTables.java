@@ -37,7 +37,7 @@ import static com.facebook.presto.localfile.LocalFileTables.HttpRequestLogTable.
 import static com.facebook.presto.localfile.LocalFileTables.HttpRequestLogTable.getTimestampColumn;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -116,16 +116,16 @@ public class LocalFileTables
         private static final List<ColumnMetadata> COLUMNS = ImmutableList.of(
                 SERVER_ADDRESS_COLUMN,
                 new ColumnMetadata("timestamp", TIMESTAMP),
-                new ColumnMetadata("client_address", VARCHAR),
-                new ColumnMetadata("method", VARCHAR),
-                new ColumnMetadata("request_uri", VARCHAR),
-                new ColumnMetadata("user", VARCHAR),
-                new ColumnMetadata("agent", VARCHAR),
+                new ColumnMetadata("client_address", createUnboundedVarcharType()),
+                new ColumnMetadata("method", createUnboundedVarcharType()),
+                new ColumnMetadata("request_uri", createUnboundedVarcharType()),
+                new ColumnMetadata("user", createUnboundedVarcharType()),
+                new ColumnMetadata("agent", createUnboundedVarcharType()),
                 new ColumnMetadata("response_code", BIGINT),
                 new ColumnMetadata("request_size", BIGINT),
                 new ColumnMetadata("response_size", BIGINT),
                 new ColumnMetadata("time_to_last_byte", BIGINT),
-                new ColumnMetadata("trace_token", VARCHAR));
+                new ColumnMetadata("trace_token", createUnboundedVarcharType()));
 
         private static final String TABLE_NAME = "http_request_log";
 
