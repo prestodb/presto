@@ -32,7 +32,7 @@ import java.util.Optional;
 import static com.facebook.presto.connector.system.jdbc.FilterUtil.filter;
 import static com.facebook.presto.connector.system.jdbc.FilterUtil.toSession;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.util.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
@@ -42,8 +42,8 @@ public class SchemaJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "schemas");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
-            .column("table_schem", VARCHAR)
-            .column("table_catalog", VARCHAR)
+            .column("table_schem", createUnboundedVarcharType())
+            .column("table_catalog", createUnboundedVarcharType())
             .build();
 
     private final Metadata metadata;

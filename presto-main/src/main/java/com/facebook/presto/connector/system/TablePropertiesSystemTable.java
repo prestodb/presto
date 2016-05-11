@@ -33,7 +33,7 @@ import java.util.TreeMap;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static java.util.Objects.requireNonNull;
 
@@ -43,11 +43,11 @@ public class TablePropertiesSystemTable
     public static final SchemaTableName TABLE_PROPERTIES_TABLE_NAME = new SchemaTableName("metadata", "table_properties");
 
     public static final ConnectorTableMetadata TABLE_PROPERTIES_TABLE = tableMetadataBuilder(TABLE_PROPERTIES_TABLE_NAME)
-            .column("catalog_name", VARCHAR)
-            .column("property_name", VARCHAR)
-            .column("default_value", VARCHAR)
-            .column("type", VARCHAR)
-            .column("description", VARCHAR)
+            .column("catalog_name", createUnboundedVarcharType())
+            .column("property_name", createUnboundedVarcharType())
+            .column("default_value", createUnboundedVarcharType())
+            .column("type", createUnboundedVarcharType())
+            .column("description", createUnboundedVarcharType())
             .build();
     private final Metadata metadata;
 

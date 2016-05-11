@@ -38,7 +38,7 @@ import static com.facebook.presto.spi.NodeState.INACTIVE;
 import static com.facebook.presto.spi.NodeState.SHUTTING_DOWN;
 import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
 public class NodeSystemTable
@@ -47,11 +47,11 @@ public class NodeSystemTable
     public static final SchemaTableName NODES_TABLE_NAME = new SchemaTableName("runtime", "nodes");
 
     public static final ConnectorTableMetadata NODES_TABLE = tableMetadataBuilder(NODES_TABLE_NAME)
-            .column("node_id", VARCHAR)
-            .column("http_uri", VARCHAR)
-            .column("node_version", VARCHAR)
+            .column("node_id", createUnboundedVarcharType())
+            .column("http_uri", createUnboundedVarcharType())
+            .column("node_version", createUnboundedVarcharType())
             .column("coordinator", BOOLEAN)
-            .column("state", VARCHAR)
+            .column("state", createUnboundedVarcharType())
             .build();
 
     private final InternalNodeManager nodeManager;
