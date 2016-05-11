@@ -35,7 +35,6 @@ import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -53,10 +52,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.tpch.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
@@ -291,7 +287,7 @@ public class TpchMetadata
             case DOUBLE:
                 return DoubleType.DOUBLE;
             case VARCHAR:
-                return VarcharType.VARCHAR;
+                return createUnboundedVarcharType();
         }
         throw new IllegalArgumentException("Unsupported type " + tpchType);
     }
