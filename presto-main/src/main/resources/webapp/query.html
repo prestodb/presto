@@ -566,7 +566,7 @@ function precisionRound(n) {
 }
 
 function renderTable(id, data) {
-    var body = d3.select('#' + id).append("tbody");
+    var body = d3.select('#' + id).append("tbody").attr("class", "filterable");
 
     var rows = body.selectAll("tr")
             .data(data)
@@ -587,6 +587,31 @@ function renderTable(id, data) {
                     return d["sortableString"];
                 }
             });
+}
+
+var currentFilterStageId = null;
+
+function filterTaskTable(stageIdToFilter) {
+    if (currentFilterStageId != null && currentFilterStageId == stageIdToFilter) {
+        resetTaskTableFilter();
+        currentFilterStageId = null;
+        return;
+    }
+    else {
+        currentFilterStageId = stageIdToFilter;
+    }
+
+    $('.filterable tr').hide();
+    $('.filterable tr').filter(function () {
+        var taskId = $(this).find('td.sorted').text();
+        var stageTaskId = removeQueryId(taskId);
+        var currentStageId = stageTaskId.split('.')[0];
+        return currentStageId == stageIdToFilter;
+    }).show();
+}
+
+function resetTaskTableFilter() {
+    $('.filterable tr').show();
 }
 
 function renderStagesTree(source) {
@@ -657,7 +682,10 @@ function renderStagesTree(source) {
                 .attr("r", 1e-6)
                 .style("fill", function (d) {
                     return d._children ? "lightsteelblue" : "#fff";
-                });
+                })
+                .on("click", function (d) {
+                    return filterTaskTable(removeQueryId(d.stageId))
+                 });
 
         nodeEnter.append("svg:text")
                 .attr("x", function (d) {
