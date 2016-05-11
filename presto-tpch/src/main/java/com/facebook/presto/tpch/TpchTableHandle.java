@@ -28,14 +28,23 @@ public class TpchTableHandle
     private final String connectorId;
     private final String tableName;
     private final double scaleFactor;
+    private final String schemaName;
+    private final boolean useDecimalNumericType;
 
     @JsonCreator
-    public TpchTableHandle(@JsonProperty("connectorId") String connectorId, @JsonProperty("tableName") String tableName, @JsonProperty("scaleFactor") double scaleFactor)
+    public TpchTableHandle(
+            @JsonProperty("connectorId") String connectorId,
+            @JsonProperty("tableName") String tableName,
+            @JsonProperty("scaleFactor") double scaleFactor,
+            @JsonProperty("schemaName") String schemaName,
+            @JsonProperty("useDecimalNumericType") boolean useDecimalNumericType)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         checkArgument(scaleFactor > 0, "Scale factor must be larger than 0");
         this.scaleFactor = scaleFactor;
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.useDecimalNumericType = useDecimalNumericType;
     }
 
     @JsonProperty
@@ -56,6 +65,18 @@ public class TpchTableHandle
         return scaleFactor;
     }
 
+    @JsonProperty
+    public String getSchemaName()
+    {
+        return schemaName;
+    }
+
+    @JsonProperty
+    public boolean isUseDecimalNumericType()
+    {
+        return useDecimalNumericType;
+    }
+
     @Override
     public String toString()
     {
@@ -65,7 +86,7 @@ public class TpchTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, tableName, scaleFactor);
+        return Objects.hash(connectorId, tableName, scaleFactor, schemaName, useDecimalNumericType);
     }
 
     @Override
@@ -80,6 +101,8 @@ public class TpchTableHandle
         TpchTableHandle other = (TpchTableHandle) obj;
         return Objects.equals(this.tableName, other.tableName) &&
                 Objects.equals(this.scaleFactor, other.scaleFactor) &&
-                Objects.equals(this.connectorId, other.connectorId);
+                Objects.equals(this.connectorId, other.connectorId) &&
+                Objects.equals(this.schemaName, other.schemaName) &&
+                Objects.equals(this.useDecimalNumericType, other.useDecimalNumericType);
     }
 }

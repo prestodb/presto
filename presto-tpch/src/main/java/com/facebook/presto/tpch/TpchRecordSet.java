@@ -37,31 +37,34 @@ public class TpchRecordSet<E extends TpchEntity>
 {
     public static <E extends TpchEntity> TpchRecordSet<E> createTpchRecordSet(TpchTable<E> table, double scaleFactor)
     {
-        return createTpchRecordSet(table, table.getColumns(), scaleFactor, 1, 1);
+        return createTpchRecordSet(table, table.getColumns(), scaleFactor, false, 1, 1);
     }
 
     public static <E extends TpchEntity> TpchRecordSet<E> createTpchRecordSet(
             TpchTable<E> table,
             Iterable<TpchColumn<E>> columns,
             double scaleFactor,
+            boolean useDecimalNumericType,
             int part,
             int partCount)
     {
-        return new TpchRecordSet<>(table.createGenerator(scaleFactor, part, partCount), columns);
+        return new TpchRecordSet<>(table.createGenerator(scaleFactor, part, partCount), columns, useDecimalNumericType);
     }
 
     private final Iterable<E> table;
     private final List<TpchColumn<E>> columns;
     private final List<Type> columnTypes;
+    private final boolean useDecimalNumericType;
 
-    public TpchRecordSet(Iterable<E> table, Iterable<TpchColumn<E>> columns)
+    public TpchRecordSet(Iterable<E> table, Iterable<TpchColumn<E>> columns, boolean useDecimalNumericType)
     {
         requireNonNull(table, "readerSupplier is null");
 
         this.table = table;
         this.columns = ImmutableList.copyOf(columns);
 
-        this.columnTypes = ImmutableList.copyOf(transform(columns, column -> getPrestoType(column.getType())));
+        this.columnTypes = ImmutableList.copyOf(transform(columns, column -> getPrestoType(column.getType(), useDecimalNumericType)));
+        this.useDecimalNumericType = useDecimalNumericType;
     }
 
     @Override
@@ -73,7 +76,7 @@ public class TpchRecordSet<E extends TpchEntity>
     @Override
     public RecordCursor cursor()
     {
-        return new TpchRecordCursor<>(table.iterator(), columns);
+        return new TpchRecordCursor<>(table.iterator(), columns, useDecimalNumericType);
     }
 
     public class TpchRecordCursor<E extends TpchEntity>
@@ -81,13 +84,15 @@ public class TpchRecordSet<E extends TpchEntity>
     {
         private final Iterator<E> rows;
         private final List<TpchColumn<E>> columns;
+        private final boolean useDecimalNumericType;
         private E row;
         private boolean closed;
 
-        public TpchRecordCursor(Iterator<E> rows, List<TpchColumn<E>> columns)
+        public TpchRecordCursor(Iterator<E> rows, List<TpchColumn<E>> columns, boolean useDecimalNumericType)
         {
             this.rows = rows;
             this.columns = columns;
+            this.useDecimalNumericType = useDecimalNumericType;
         }
 
         @Override
@@ -111,7 +116,7 @@ public class TpchRecordSet<E extends TpchEntity>
         @Override
         public Type getType(int field)
         {
-            return getPrestoType(getTpchColumn(field).getType());
+            return getPrestoType(getTpchColumn(field).getType(), useDecimalNumericType);
         }
 
         @Override
