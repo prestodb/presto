@@ -52,6 +52,7 @@ import org.apache.hadoop.io.Text;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_DNE;
@@ -73,7 +74,7 @@ public class AccumuloPageSink
 {
     private final AccumuloRowSerializer serializer;
     private final BatchWriter wrtr;
-    private final Indexer indexer;
+    private final Optional<Indexer> indexer;
     private final List<AccumuloColumnHandle> columns;
     private Integer rowIdOrdinal;
 
@@ -112,12 +113,12 @@ public class AccumuloPageSink
 
             // If the table is indexed, create an instance of an Indexer, else null
             if (table.isIndexed()) {
-                indexer = new Indexer(conn,
+                indexer = Optional.of(new Indexer(conn,
                         conn.securityOperations().getUserAuthorizations(config.getUsername()),
-                        table, conf);
+                        table, conf));
             }
             else {
-                indexer = null;
+                indexer = Optional.empty();
             }
         }
         catch (AccumuloException | AccumuloSecurityException e) {
@@ -168,7 +169,7 @@ public class AccumuloPageSink
                 setText(row.getField(ach.getOrdinal()), value, serializer);
 
                 // And add the bytes to the Mutation
-                m.put(ach.getFamily(), ach.getQualifier(), new Value(value.copyBytes()));
+                m.put(ach.getFamily().get(), ach.getQualifier().get(), new Value(value.copyBytes()));
             }
         }
 
@@ -230,7 +231,7 @@ public class AccumuloPageSink
     {
         // For each position within the page, i.e. row
         for (int position = 0; position < page.getPositionCount(); ++position) {
-            Row row = Row.newRow();
+            Row row = new Row();
             // For each channel within the page, i.e. column
             for (int channel = 0; channel < page.getChannelCount(); ++channel) {
                 // Get the type for this channel
@@ -249,8 +250,8 @@ public class AccumuloPageSink
                 try {
                     // Write the mutation and index it
                     wrtr.addMutation(m);
-                    if (indexer != null) {
-                        indexer.index(m);
+                    if (indexer.isPresent()) {
+                        indexer.get().index(m);
                     }
                 }
                 catch (MutationsRejectedException e) {
@@ -275,8 +276,8 @@ public class AccumuloPageSink
             // Done serializing rows, so flush and close the writer and indexer
             wrtr.flush();
             wrtr.close();
-            if (indexer != null) {
-                indexer.close();
+            if (indexer.isPresent()) {
+                indexer.get().close();
             }
         }
         catch (MutationsRejectedException e) {

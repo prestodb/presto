@@ -202,8 +202,8 @@ public class Indexer
         table.getColumns().stream().forEach(col -> {
             if (col.isIndexed()) {
                 // Wrap the column family and qualifier for this column
-                ByteBuffer cf = wrap(col.getFamily().getBytes());
-                ByteBuffer cq = wrap(col.getQualifier().getBytes());
+                ByteBuffer cf = wrap(col.getFamily().get().getBytes());
+                ByteBuffer cq = wrap(col.getQualifier().get().getBytes());
 
                 // Get all qualifiers for this given column family, creating a new one if necessary
                 Set<ByteBuffer> qualifiers = indexColumns.get(cf);
@@ -402,7 +402,7 @@ public class Indexer
     /**
      * Gets a collection of mutations based on the current metric map
      *
-     * @return
+     * @return A collection of Mutations
      */
     private Collection<Mutation> getMetricsMutations()
     {
@@ -501,11 +501,11 @@ public class Indexer
     {
         Map<String, Set<Text>> groups = new HashMap<>();
         // For each indexed column
-        for (AccumuloColumnHandle acc : table.getColumns().stream().filter(x -> x.isIndexed())
+        for (AccumuloColumnHandle acc : table.getColumns().stream().filter(AccumuloColumnHandle::isIndexed)
                 .collect(Collectors.toList())) {
             // Create a Text version of the index column family
             Text indexColumnFamily = new Text(
-                    getIndexColumnFamily(acc.getFamily().getBytes(), acc.getQualifier().getBytes())
+                    getIndexColumnFamily(acc.getFamily().get().getBytes(), acc.getQualifier().get().getBytes())
                             .array());
 
             // Add this to the locality groups, it is a 1:1 mapping of locality group to column

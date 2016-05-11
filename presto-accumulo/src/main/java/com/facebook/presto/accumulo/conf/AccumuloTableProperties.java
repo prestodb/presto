@@ -224,9 +224,9 @@ public final class AccumuloTableProperties
      * @param tableProperties The map of table properties
      * @return The scan authorizations
      */
-    public static String getScanAuthorizations(Map<String, Object> tableProperties)
+    public static Optional<String> getScanAuthorizations(Map<String, Object> tableProperties)
     {
-        return (String) tableProperties.get(SCAN_AUTHS);
+        return Optional.ofNullable((String) tableProperties.get(SCAN_AUTHS));
     }
 
     /**
@@ -238,18 +238,6 @@ public final class AccumuloTableProperties
     public static String getSerializerClass(Map<String, Object> tableProperties)
     {
         return (String) tableProperties.get(SERIALIZER);
-    }
-
-    /**
-     * Gets a Boolean value indicating whether or not the given table properties have locality
-     * groups set.
-     *
-     * @param tableProperties The map of table properties
-     * @return True if locality groups is set, false otherwise
-     */
-    public static boolean hasLocalityGroups(Map<String, Object> tableProperties)
-    {
-        return tableProperties.containsKey(LOCALITY_GROUPS);
     }
 
     /**

@@ -36,6 +36,7 @@ import org.apache.hadoop.io.DataOutputBuffer;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -55,8 +56,8 @@ public class AccumuloSplit
     private final String rowId;
     private final String schema;
     private final String table;
-    private String serializerClassName;
-    private final String scanAuthorizations;
+    private final String serializerClassName;
+    private final Optional<String> scanAuthorizations;
     private final List<HostAddress> addresses;
 
     @JsonSerialize(contentUsing = RangeSerializer.class)
@@ -85,16 +86,16 @@ public class AccumuloSplit
             @JsonProperty("serializerClassName") String serializerClassName,
             @JsonProperty("ranges") List<Range> ranges,
             @JsonProperty("constraints") List<AccumuloColumnConstraint> constraints,
-            @JsonProperty("scanAuthorizations") String scanAuthorizations,
+            @JsonProperty("scanAuthorizations") Optional<String> scanAuthorizations,
             @JsonProperty("hostPort") String hostPort)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.rowId = requireNonNull(rowId, "rowId is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
-        this.serializerClassName = serializerClassName;
+        this.serializerClassName = requireNonNull(serializerClassName, "serializerClassName is null");
         this.constraints = requireNonNull(constraints, "constraints is null");
-        this.scanAuthorizations = scanAuthorizations;
+        this.scanAuthorizations = requireNonNull(scanAuthorizations, "scanAuthorizations is null");
         this.hostPort = requireNonNull(hostPort, "hostPort is null");
 
         // We don't "requireNotNull" this field, Jackson parses objects using a top-down approach,
@@ -243,20 +244,9 @@ public class AccumuloSplit
      * @return Scan authorizations
      */
     @JsonProperty
-    public String getScanAuthorizations()
+    public Optional<String> getScanAuthorizations()
     {
         return scanAuthorizations;
-    }
-
-    /**
-     * Gets a Boolean value indicating whether or not this split has any set scan authorizations
-     *
-     * @return True if set, false otherwise
-     */
-    @JsonIgnore
-    public boolean hasScanAuthorizations()
-    {
-        return scanAuthorizations != null;
     }
 
     /**

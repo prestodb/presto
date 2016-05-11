@@ -26,6 +26,7 @@ import com.fasterxml.jackson.annotation.JsonSetter;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -47,7 +48,7 @@ public class AccumuloTable
     private List<AccumuloColumnHandle> columns;
     private final List<ColumnMetadata> columnsMetadata;
     private final String serializerClassName;
-    private final String scanAuthorizations;
+    private final Optional<String> scanAuthorizations;
     private SchemaTableName schemaTableName;
 
     /***
@@ -67,7 +68,7 @@ public class AccumuloTable
             @JsonProperty("columns") List<AccumuloColumnHandle> columns,
             @JsonProperty("rowId") String rowId, @JsonProperty("external") boolean external,
             @JsonProperty("serializerClassName") String serializerClassName,
-            @JsonProperty("scanAuthorizations") String scanAuthorizations)
+            @JsonProperty("scanAuthorizations") Optional<String> scanAuthorizations)
     {
         this.external = requireNonNull(external, "external is null");
         this.rowId = requireNonNull(rowId, "rowId is null");
@@ -267,7 +268,7 @@ public class AccumuloTable
      * @return Scan authorizations
      */
     @JsonProperty
-    public String getScanAuthorizations()
+    public Optional<String> getScanAuthorizations()
     {
         return scanAuthorizations;
     }

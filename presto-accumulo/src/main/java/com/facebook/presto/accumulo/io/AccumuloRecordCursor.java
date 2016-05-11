@@ -131,13 +131,13 @@ public class AccumuloRecordCursor
                 // Make sure to skip the row ID!
                 if (!cHandle.getName().equals(rowIdName)) {
                     // Set the mapping of presto column name to the family/qualifier
-                    this.serializer.setMapping(cHandle.getName(), cHandle.getFamily(),
-                            cHandle.getQualifier());
+                    this.serializer.setMapping(cHandle.getName(), cHandle.getFamily().get(),
+                            cHandle.getQualifier().get());
 
                     // Set our scanner to fetch this family/qualifier column
                     // This will help us prune which data we receive from Accumulo
-                    fam.set(cHandle.getFamily());
-                    qual.set(cHandle.getQualifier());
+                    fam.set(cHandle.getFamily().get());
+                    qual.set(cHandle.getQualifier().get());
                     this.scan.fetchColumn(fam, qual);
                 }
             }
@@ -453,7 +453,11 @@ public class AccumuloRecordCursor
         for (AccumuloColumnConstraint col : constraints) {
             // If this column's predicate domain allows null values, then add a NullRowFilter
             // setting
-            Domain dom = col.getDomain();
+            if (!col.getDomain().isPresent()) {
+                continue;
+            }
+
+            Domain dom = col.getDomain().get();
             List<IteratorSetting> colSettings = new ArrayList<>();
             if (dom.isNullAllowed()) {
                 colSettings.add(getNullFilterSetting(col, priority));

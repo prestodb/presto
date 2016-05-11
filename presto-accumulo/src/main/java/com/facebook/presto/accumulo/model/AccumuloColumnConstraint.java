@@ -18,6 +18,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSetter;
 
+import java.util.Optional;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -32,7 +34,7 @@ public class AccumuloColumnConstraint
     private final String family;
     private final String qualifier;
     private final boolean indexed;
-    private Domain domain;
+    private Optional<Domain> domain;
 
     /**
      * JSON creator for an {@link AccumuloColumnConstraint}
@@ -46,16 +48,13 @@ public class AccumuloColumnConstraint
     @JsonCreator
     public AccumuloColumnConstraint(@JsonProperty("name") String name,
             @JsonProperty("family") String family, @JsonProperty("qualifier") String qualifier,
-            @JsonProperty("domain") Domain domain, @JsonProperty("indexed") boolean indexed)
+            @JsonProperty("domain") Optional<Domain> domain, @JsonProperty("indexed") boolean indexed)
     {
         this.name = requireNonNull(name, "name is null");
         this.family = requireNonNull(family, "family is null");
         this.qualifier = requireNonNull(qualifier, "qualifier is null");
         this.indexed = requireNonNull(indexed, "indexed is null");
-
-        // We don't require this to be null, as JSON does a top-down approach when deserializing
-        // JSON objects. Will throw an exception during object resolution.
-        this.domain = domain;
+        this.domain = requireNonNull(domain, "domain is null");
     }
 
     /**
@@ -109,7 +108,7 @@ public class AccumuloColumnConstraint
      * @return Column qualifier
      */
     @JsonProperty
-    public Domain getDomain()
+    public Optional<Domain> getDomain()
     {
         return domain;
     }
@@ -120,7 +119,7 @@ public class AccumuloColumnConstraint
      * @param domain Column domain
      */
     @JsonSetter
-    public void setDomain(Domain domain)
+    public void setDomain(Optional<Domain> domain)
     {
         this.domain = domain;
     }

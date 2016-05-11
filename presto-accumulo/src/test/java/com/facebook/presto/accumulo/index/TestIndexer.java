@@ -41,6 +41,7 @@ import org.testng.annotations.Test;
 
 import java.util.Iterator;
 import java.util.Map.Entry;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -89,12 +90,12 @@ public class TestIndexer
         conn = inst.getConnector("root", new PasswordToken(""));
 
         AccumuloColumnHandle c1 =
-                new AccumuloColumnHandle("id", null, null, VARCHAR, 0, "", false);
+                new AccumuloColumnHandle("id", Optional.empty(), Optional.empty(), VARCHAR, 0, "", false);
         AccumuloColumnHandle c2 =
-                new AccumuloColumnHandle("age", "cf", "age", BIGINT, 1, "", true);
-        AccumuloColumnHandle c3 = new AccumuloColumnHandle("firstname", "cf",
-                "firstname", VARCHAR, 2, "", true);
-        AccumuloColumnHandle c4 = new AccumuloColumnHandle("arr", "cf", "arr",
+                new AccumuloColumnHandle("age", Optional.of("cf"), Optional.of("age"), BIGINT, 1, "", true);
+        AccumuloColumnHandle c3 = new AccumuloColumnHandle("firstname", Optional.of("cf"),
+                Optional.of("firstname"), VARCHAR, 2, "", true);
+        AccumuloColumnHandle c4 = new AccumuloColumnHandle("arr", Optional.of("cf"), Optional.of("arr"),
                 new ArrayType(VARCHAR), 3, "", true);
 
         table = new AccumuloTable("default", "index_test_table", ImmutableList.of(c1, c2, c3, c4),

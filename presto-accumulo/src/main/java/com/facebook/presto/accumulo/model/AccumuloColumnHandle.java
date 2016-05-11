@@ -22,6 +22,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSetter;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -36,8 +37,8 @@ public final class AccumuloColumnHandle
 {
     private final boolean indexed;
     private String name;
-    private final String family;
-    private final String qualifier;
+    private final Optional<String> family;
+    private final Optional<String> qualifier;
     private final Type type;
     private int ordinal;
     private final String comment;
@@ -46,22 +47,22 @@ public final class AccumuloColumnHandle
      * JSON Creator for a new {@link AccumuloColumnHandle} object
      *
      * @param name Presto column name
-     * @param family Accumulo column family
-     * @param qualifier Accumulo column qualifier
+     * @param family Accumulo column family, optional if column is row ID
+     * @param qualifier Accumulo column qualifier, optional if column is row ID
      * @param type Presto type
      * @param ordinal Ordinal of the column within the row
      * @param comment Comment for the column
      * @param indexed True if the column has entries in the index table, false otherwise
      */
     @JsonCreator
-    public AccumuloColumnHandle(@JsonProperty("name") String name, @JsonProperty("family") String family,
-            @JsonProperty("qualifier") String qualifier, @JsonProperty("type") Type type,
+    public AccumuloColumnHandle(@JsonProperty("name") String name, @JsonProperty("family") Optional<String> family,
+            @JsonProperty("qualifier") Optional<String> qualifier, @JsonProperty("type") Type type,
             @JsonProperty("ordinal") int ordinal, @JsonProperty("comment") String comment,
             @JsonProperty("indexed") boolean indexed)
     {
         this.name = requireNonNull(name, "name is null");
-        this.family = family;
-        this.qualifier = qualifier;
+        this.family = requireNonNull(family, "family is null");
+        this.qualifier = requireNonNull(qualifier, "qualifier is null");
         this.type = requireNonNull(type, "type is null");
         this.ordinal = requireNonNull(ordinal, "type is null");
         checkArgument(ordinal >= 0, "ordinal must be >= zero");
@@ -100,7 +101,7 @@ public final class AccumuloColumnHandle
      * @return Column family
      */
     @JsonProperty
-    public String getFamily()
+    public Optional<String> getFamily()
     {
         return family;
     }
@@ -111,7 +112,7 @@ public final class AccumuloColumnHandle
      * @return Column qualifier
      */
     @JsonProperty
-    public String getQualifier()
+    public Optional<String> getQualifier()
     {
         return qualifier;
     }

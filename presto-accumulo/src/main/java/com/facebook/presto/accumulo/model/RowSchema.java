@@ -18,6 +18,7 @@ import com.facebook.presto.spi.type.Type;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.COLUMN_NOT_FOUND;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -49,7 +50,7 @@ public class RowSchema
      */
     public RowSchema addRowId(String name, Type type)
     {
-        columns.add(new AccumuloColumnHandle(name, null, null, type, columns.size(),
+        columns.add(new AccumuloColumnHandle(name, Optional.empty(), Optional.empty(), type, columns.size(),
                 "Accumulo row ID", false));
         return this;
     }
@@ -58,12 +59,12 @@ public class RowSchema
      * Appends a new non-indexed column to the end of the schema.
      *
      * @param prestoName Presto column name
-     * @param family Accumulo column family
-     * @param qualifier Accumulo column qualifier
+     * @param family Accumulo column family, optional if column is row ID
+     * @param qualifier Accumulo column qualifier, optional if column is row ID
      * @param type Presto type of the column
      * @return this, for schema
      */
-    public RowSchema addColumn(String prestoName, String family, String qualifier, Type type)
+    public RowSchema addColumn(String prestoName, Optional<String> family, Optional<String> qualifier, Type type)
     {
         return addColumn(prestoName, family, qualifier, type, false);
     }
@@ -72,13 +73,13 @@ public class RowSchema
      * Appends a new column to the end of the schema.
      *
      * @param prestoName Presto column name
-     * @param family Accumulo column family
-     * @param qualifier Accumulo column qualifier
+     * @param family Accumulo column family, optional if column is row ID
+     * @param qualifier Accumulo column qualifier, optional if column is row ID
      * @param type Presto type of the column
      * @param indexed True if indexed, false otherwise
      * @return this, for schema
      */
-    public RowSchema addColumn(String prestoName, String family, String qualifier, Type type,
+    public RowSchema addColumn(String prestoName, Optional<String> family, Optional<String> qualifier, Type type,
             boolean indexed)
     {
         columns.add(new AccumuloColumnHandle(prestoName, family, qualifier, type,

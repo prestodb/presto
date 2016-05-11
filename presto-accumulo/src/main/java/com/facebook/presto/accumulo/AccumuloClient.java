@@ -439,7 +439,7 @@ public class AccumuloClient
 
             // Special case if this column is the
             if (cm.getName().toLowerCase().equals(rowIdColumn)) {
-                cBuilder.add(new AccumuloColumnHandle(rowIdColumn, null, null,
+                cBuilder.add(new AccumuloColumnHandle(rowIdColumn, Optional.empty(), Optional.empty(),
                         cm.getType(), ordinal, "Accumulo row ID", false));
             }
             else {
@@ -455,8 +455,8 @@ public class AccumuloClient
                         famqual.getLeft(), famqual.getRight(), indexed);
 
                 // Create a new AccumuloColumnHandle object
-                cBuilder.add(new AccumuloColumnHandle(cm.getName(), famqual.getLeft(),
-                        famqual.getRight(), cm.getType(), ordinal, comment, indexed));
+                cBuilder.add(new AccumuloColumnHandle(cm.getName(), Optional.of(famqual.getLeft()),
+                        Optional.of(famqual.getRight()), cm.getType(), ordinal, comment, indexed));
             }
         }
 
@@ -486,7 +486,7 @@ public class AccumuloClient
                 // We already validated this earlier, so it'll exist
                 famBldr.add(new Text(table.getColumns().stream()
                         .filter(x -> x.getName().equals(col)).collect(Collectors.toList())
-                        .get(0).getFamily()));
+                        .get(0).getFamily().get()));
             }
             localityGroupsBldr.put(g.getKey(), famBldr.build());
         }
@@ -850,7 +850,7 @@ public class AccumuloClient
      * @return List of TabletSplitMetadata objects for Presto
      */
     public List<TabletSplitMetadata> getTabletSplits(ConnectorSession session, String schema,
-            String table, Domain rowIdDom, List<AccumuloColumnConstraint> constraints,
+            String table, Optional<Domain> rowIdDom, List<AccumuloColumnConstraint> constraints,
             AccumuloRowSerializer serializer)
     {
         try {
@@ -941,9 +941,9 @@ public class AccumuloClient
             return scanAuths;
         }
 
-        String strAuths = this.getTable(new SchemaTableName(schema, table)).getScanAuthorizations();
-        if (strAuths != null) {
-            Authorizations scanAuths = new Authorizations(Iterables.toArray(COMMA_SPLITTER.split(strAuths), String.class));
+        Optional<String> strAuths = this.getTable(new SchemaTableName(schema, table)).getScanAuthorizations();
+        if (strAuths.isPresent()) {
+            Authorizations scanAuths = new Authorizations(Iterables.toArray(COMMA_SPLITTER.split(strAuths.get()), String.class));
             LOG.info("scan_auths table property set, using: %s", scanAuths);
             return scanAuths;
         }
@@ -1120,16 +1120,16 @@ public class AccumuloClient
      * @throws AccumuloSecurityException If Accumulo credentials are not valid
      * @throws TableNotFoundException If the Accumulo table is not found
      */
-    public static Collection<Range> getRangesFromDomain(Domain dom, AccumuloRowSerializer serializer)
+    public static Collection<Range> getRangesFromDomain(Optional<Domain> dom, AccumuloRowSerializer serializer)
             throws AccumuloException, AccumuloSecurityException, TableNotFoundException
     {
         // if we have no predicate pushdown, use the full range
-        if (dom == null) {
+        if (!dom.isPresent()) {
             return ImmutableSet.of(new Range());
         }
 
         ImmutableSet.Builder<Range> rangeBuilder = ImmutableSet.builder();
-        for (com.facebook.presto.spi.predicate.Range r : dom.getValues().getRanges()
+        for (com.facebook.presto.spi.predicate.Range r : dom.get().getValues().getRanges()
                 .getOrderedRanges()) {
             rangeBuilder.add(getRangeFromPrestoRange(r, serializer));
         }

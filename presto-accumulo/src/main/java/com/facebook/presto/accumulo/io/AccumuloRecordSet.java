@@ -36,6 +36,7 @@ import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.security.Authorizations;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
@@ -136,8 +137,9 @@ public class AccumuloRecordSet
             return scanAuths;
         }
 
-        if (split.hasScanAuthorizations()) {
-            Authorizations auths = new Authorizations(Iterables.toArray(COMMA_SPLITTER.split(split.getScanAuthorizations()), String.class));
+        Optional<String> scanAuths = split.getScanAuthorizations();
+        if (scanAuths.isPresent()) {
+            Authorizations auths = new Authorizations(Iterables.toArray(COMMA_SPLITTER.split(scanAuths.get()), String.class));
             LOG.debug("scan_auths table property set: %s", auths);
             return auths;
         }

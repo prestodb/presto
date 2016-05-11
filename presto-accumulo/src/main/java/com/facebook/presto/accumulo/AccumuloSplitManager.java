@@ -35,6 +35,7 @@ import io.airlift.log.Logger;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.accumulo.Types.checkType;
 import static java.util.Objects.requireNonNull;
@@ -87,7 +88,7 @@ public class AccumuloSplitManager
         List<AccumuloColumnConstraint> constraints = getColumnConstraints(rowIdName, layoutHandle.getConstraint());
 
         // Get the row domain column range
-        Domain rDom = getRangeDomain(rowIdName, layoutHandle.getConstraint());
+        Optional<Domain> rDom = getRangeDomain(rowIdName, layoutHandle.getConstraint());
 
         // Call out to our client to retrieve all tablet split metadata using the row ID domain
         // and the secondary index, if enabled
@@ -115,17 +116,17 @@ public class AccumuloSplitManager
      * @param constraint Query constraints
      * @return Domain on the row ID, or null if there is none
      */
-    private Domain getRangeDomain(String rowIdName, TupleDomain<ColumnHandle> constraint)
+    private static Optional<Domain> getRangeDomain(String rowIdName, TupleDomain<ColumnHandle> constraint)
     {
         for (ColumnDomain<ColumnHandle> cd : constraint.getColumnDomains().get()) {
             AccumuloColumnHandle col =
                     checkType(cd.getColumn(), AccumuloColumnHandle.class, "column handle");
             if (col.getName().equals(rowIdName)) {
-                return cd.getDomain();
+                return Optional.of(cd.getDomain());
             }
         }
 
-        return null;
+        return Optional.empty();
     }
 
     /**
@@ -136,7 +137,7 @@ public class AccumuloSplitManager
      * @param constraint Set of query constraints
      * @return List of all column constraints
      */
-    private List<AccumuloColumnConstraint> getColumnConstraints(String rowIdName,
+    private static List<AccumuloColumnConstraint> getColumnConstraints(String rowIdName,
             TupleDomain<ColumnHandle> constraint)
     {
         ImmutableList.Builder<AccumuloColumnConstraint> constraintBuilder = ImmutableList.builder();
@@ -145,8 +146,9 @@ public class AccumuloSplitManager
                     checkType(cd.getColumn(), AccumuloColumnHandle.class, "column handle");
 
             if (!col.getName().equals(rowIdName)) {
-                constraintBuilder.add(new AccumuloColumnConstraint(col.getName(), col.getFamily(),
-                        col.getQualifier(), cd.getDomain(), col.isIndexed()));
+                // Family and qualifier will exist for non-row ID columns
+                constraintBuilder.add(new AccumuloColumnConstraint(col.getName(), col.getFamily().get(),
+                        col.getQualifier().get(), Optional.of(cd.getDomain()), col.isIndexed()));
             }
         }
 

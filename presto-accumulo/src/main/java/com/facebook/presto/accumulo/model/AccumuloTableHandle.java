@@ -24,6 +24,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -39,7 +40,7 @@ public final class AccumuloTableHandle
     private final boolean external;
     private final String connectorId;
     private final String rowId;
-    private final String scanAuthorizations;
+    private final Optional<String> scanAuthorizations;
     private final String schema;
     private final String serializerClassName;
     private final String table;
@@ -61,7 +62,7 @@ public final class AccumuloTableHandle
             @JsonProperty("schema") String schema, @JsonProperty("table") String table,
             @JsonProperty("rowId") String rowId, @JsonProperty("external") boolean external,
             @JsonProperty("serializerClassName") String serializerClassName,
-            @JsonProperty("scanAuthorizations") String scanAuthorizations)
+            @JsonProperty("scanAuthorizations") Optional<String> scanAuthorizations)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.external = requireNonNull(external, "external is null");
@@ -101,7 +102,7 @@ public final class AccumuloTableHandle
      * @return Scan authorizations
      */
     @JsonProperty
-    public String getScanAuthorizations()
+    public Optional<String> getScanAuthorizations()
     {
         return scanAuthorizations;
     }
