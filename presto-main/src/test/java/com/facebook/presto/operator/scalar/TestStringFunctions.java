@@ -247,7 +247,6 @@ public class TestStringFunctions
     public void testSplitToMap()
     {
         assertFunction("SPLIT_TO_MAP('', ',', '=')", new MapType(VARCHAR, VARCHAR), ImmutableMap.of());
-        assertFunction("SPLIT_TO_MAP('a=123,b=.4,c=', ' ', ' ')", new MapType(VARCHAR, VARCHAR), ImmutableMap.of());
 
         assertFunction("SPLIT_TO_MAP('a=123,b=.4,c=', ' ', '=')",
                 new MapType(VARCHAR, VARCHAR),
@@ -317,6 +316,10 @@ public class TestStringFunctions
         assertFunction("SPLIT_TO_MAP('\u4EA0\u4EFF\u4EFF\u4EA1\u4E00\u4EB0\u4EFF\u4EB1\u4EFF\u4EB2\u4E00\u4EC0\u4EFF\u4EC1\u4EFF', '\u4E00', '\u4EFF')",
                 new MapType(VARCHAR, VARCHAR),
                 ImmutableMap.of("\u4EA0", "\u4EFF\u4EA1", "\u4EB0", "\u4EB1\u4EFF\u4EB2", "\u4EC0", "\u4EC1\u4EFF"));
+
+        // Entry delimiter and key-value delimiter must not be the same.
+        assertInvalidFunction("SPLIT_TO_MAP('a=123,b=.4,c=', '=', '=')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("SPLIT_TO_MAP('\u4EA0\u4EA1\u4EA2\u4EA3\u4EA4\u4EA5', '\u4EFF', '\u4EFF')", INVALID_FUNCTION_ARGUMENT);
 
         // Duplicate keys are not allowed to exist.
         assertInvalidFunction("SPLIT_TO_MAP('a=123,a=.4,a=', ',', '=')", INVALID_FUNCTION_ARGUMENT);

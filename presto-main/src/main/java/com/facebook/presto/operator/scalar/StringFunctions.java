@@ -367,6 +367,7 @@ public final class StringFunctions
     {
         checkCondition(entryDelimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "The entryDelimiter may not be the empty string");
         checkCondition(keyValueDelimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "The keyValueDelimiter may not be the empty string");
+        checkCondition(!(entryDelimiter.equals(keyValueDelimiter)), INVALID_FUNCTION_ARGUMENT, "The entryDelimiter and keyValueDelimiter must not be the same");
 
         final Map<Slice, Slice> map = new TreeMap<>();
         int index = 0;
