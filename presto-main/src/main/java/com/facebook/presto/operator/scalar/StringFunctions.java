@@ -31,7 +31,9 @@ import io.airlift.slice.Slices;
 import javax.annotation.Nullable;
 
 import java.text.Normalizer;
+import java.util.Map;
 import java.util.OptionalInt;
+import java.util.TreeMap;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -366,7 +368,7 @@ public final class StringFunctions
         checkCondition(entryDelimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "The entryDelimiter may not be the empty string");
         checkCondition(keyValueDelimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "The keyValueDelimiter may not be the empty string");
 
-        final BlockBuilder parts = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 32);
+        final Map<Slice, Slice> map = new TreeMap<>();
         int index = 0;
         while (index < string.length()) {
             // Extract key-value pair based on current index
@@ -386,8 +388,11 @@ public final class StringFunctions
                 final int offset = keyValueDelimiterIndex + keyValueDelimiter.length();
                 Slice key = keyValuePair.slice(0, keyValueDelimiterIndex);
                 Slice value = keyValuePair.slice(offset, keyValuePair.length() - offset);
-                VARCHAR.writeSlice(parts, key);
-                VARCHAR.writeSlice(parts, value);
+
+                if (map.containsKey(key)) {
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Duplicate keys are not allowed: " + key.toString());
+                }
+                map.put(key, value);
             }
 
             if (entryDelimiterIndex < 0) { // No more pairs to add
@@ -395,6 +400,12 @@ public final class StringFunctions
             }
             // Next possible pair is placed next to the current entryDelimiter
             index = entryDelimiterIndex + entryDelimiter.length();
+        }
+
+        final BlockBuilder parts = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), map.size());
+        for (Map.Entry<Slice, Slice> e : map.entrySet()) {
+            VARCHAR.writeSlice(parts, e.getKey());
+            VARCHAR.writeSlice(parts, e.getValue());
         }
 
         return parts.build();
