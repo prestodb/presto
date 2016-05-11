@@ -18,12 +18,12 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.example.MetadataUtil.COLUMN_CODEC;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static org.testng.Assert.assertEquals;
 
 public class TestExampleColumnHandle
 {
-    private final ExampleColumnHandle columnHandle = new ExampleColumnHandle("connectorId", "columnName", VARCHAR, 0);
+    private final ExampleColumnHandle columnHandle = new ExampleColumnHandle("connectorId", "columnName", createUnboundedVarcharType(), 0);
 
     @Test
     public void testJsonRoundTrip()
@@ -38,20 +38,20 @@ public class TestExampleColumnHandle
     {
         EquivalenceTester.equivalenceTester()
                 .addEquivalentGroup(
-                        new ExampleColumnHandle("connectorId", "columnName", VARCHAR, 0),
-                        new ExampleColumnHandle("connectorId", "columnName", VARCHAR, 0),
+                        new ExampleColumnHandle("connectorId", "columnName", createUnboundedVarcharType(), 0),
+                        new ExampleColumnHandle("connectorId", "columnName", createUnboundedVarcharType(), 0),
                         new ExampleColumnHandle("connectorId", "columnName", BIGINT, 0),
-                        new ExampleColumnHandle("connectorId", "columnName", VARCHAR, 1))
+                        new ExampleColumnHandle("connectorId", "columnName", createUnboundedVarcharType(), 1))
                 .addEquivalentGroup(
-                        new ExampleColumnHandle("connectorIdX", "columnName", VARCHAR, 0),
-                        new ExampleColumnHandle("connectorIdX", "columnName", VARCHAR, 0),
+                        new ExampleColumnHandle("connectorIdX", "columnName", createUnboundedVarcharType(), 0),
+                        new ExampleColumnHandle("connectorIdX", "columnName", createUnboundedVarcharType(), 0),
                         new ExampleColumnHandle("connectorIdX", "columnName", BIGINT, 0),
-                        new ExampleColumnHandle("connectorIdX", "columnName", VARCHAR, 1))
+                        new ExampleColumnHandle("connectorIdX", "columnName", createUnboundedVarcharType(), 1))
                 .addEquivalentGroup(
-                        new ExampleColumnHandle("connectorId", "columnNameX", VARCHAR, 0),
-                        new ExampleColumnHandle("connectorId", "columnNameX", VARCHAR, 0),
+                        new ExampleColumnHandle("connectorId", "columnNameX", createUnboundedVarcharType(), 0),
+                        new ExampleColumnHandle("connectorId", "columnNameX", createUnboundedVarcharType(), 0),
                         new ExampleColumnHandle("connectorId", "columnNameX", BIGINT, 0),
-                        new ExampleColumnHandle("connectorId", "columnNameX", VARCHAR, 1))
+                        new ExampleColumnHandle("connectorId", "columnNameX", createUnboundedVarcharType(), 1))
                 .check();
     }
 }
