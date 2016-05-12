@@ -440,9 +440,6 @@ public class AccumuloClient
     {
         SchemaTableName tableName = new SchemaTableName(table.getSchema(), table.getTable());
 
-        // Drop cardinality cache from index lookup
-        indexLookup.dropCache(tableName.getSchemaName(), tableName.getTableName());
-
         // Remove the table metadata from Presto
         if (metaManager.getTable(tableName) != null) {
             metaManager.deleteTableMetadata(tableName);

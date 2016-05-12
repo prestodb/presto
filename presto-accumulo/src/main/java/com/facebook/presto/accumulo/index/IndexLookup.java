@@ -72,11 +72,6 @@ public class IndexLookup
         this.cardinalityCache = new ColumnCardinalityCache(connector, requireNonNull(config, "config is null"), auths);
     }
 
-    public void dropCache(String schema, String table)
-    {
-        cardinalityCache.deleteCache(schema, table);
-    }
-
     /**
      * Scans the index table, applying the index based on the given column constraints to return a set of tablet splits.
      * <p>
@@ -180,8 +175,20 @@ public class IndexLookup
             Authorizations auths)
             throws Exception
     {
+        String metricsTable = Indexer.getMetricsTableName(schema, table);
+        long numRows = getNumRowsInTable(metricsTable, auths);
+
         // Get the cardinalities from the metrics table
-        Multimap<Long, AccumuloColumnConstraint> cardinalities = cardinalityCache.getCardinalities(schema, table, constraintRanges);
+        Multimap<Long, AccumuloColumnConstraint> cardinalities;
+        if (AccumuloSessionProperties.isIndexShortCircuitEnabled(session)) {
+            cardinalities = cardinalityCache.getCardinalities(schema, table, constraintRanges,
+                    (long) (numRows * AccumuloSessionProperties.getIndexSmallCardThreshold(session)));
+        }
+        else {
+            // disable short circuit using 0
+            cardinalities = cardinalityCache.getCardinalities(schema, table, constraintRanges, 0);
+        }
+
         Optional<Entry<Long, AccumuloColumnConstraint>> entry = cardinalities.entries().stream().findFirst();
         if (!entry.isPresent()) {
             return false;
@@ -189,8 +196,6 @@ public class IndexLookup
 
         Entry<Long, AccumuloColumnConstraint> lowestCardinality = entry.get();
         String indexTable = Indexer.getIndexTableName(schema, table);
-        String metricsTable = Indexer.getMetricsTableName(schema, table);
-        long numRows = getNumRowsInTable(metricsTable, auths);
         double threshold = AccumuloSessionProperties.getIndexThreshold(session);
         List<Range> indexRanges;
 
