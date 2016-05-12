@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.util;
 
-import com.facebook.presto.sql.planner.PartitioningScheme.PartitionFunctionArgumentBinding;
+import com.facebook.presto.sql.planner.Partitioning.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.Symbol;

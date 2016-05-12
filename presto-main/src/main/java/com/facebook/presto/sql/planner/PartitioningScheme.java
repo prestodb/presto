@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.sql.planner.Partitioning.PartitionFunctionArgumentBinding;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -190,84 +190,5 @@ public class PartitioningScheme
                 .add("replicateNulls", replicateNulls)
                 .add("bucketToPartition", bucketToPartition)
                 .toString();
-    }
-
-    public static final class PartitionFunctionArgumentBinding
-    {
-        private final Symbol column;
-        private final NullableValue constant;
-
-        public PartitionFunctionArgumentBinding(Symbol column)
-        {
-            this.column = requireNonNull(column, "column is null");
-            this.constant = null;
-        }
-
-        public PartitionFunctionArgumentBinding(NullableValue constant)
-        {
-            this.constant = requireNonNull(constant, "constant is null");
-            this.column = null;
-        }
-
-        @JsonCreator
-        public PartitionFunctionArgumentBinding(
-                @JsonProperty("column") Symbol column,
-                @JsonProperty("constant") NullableValue constant)
-        {
-            this.column = column;
-            this.constant = constant;
-            checkArgument((column == null) != (constant == null), "Column or constant be set");
-        }
-
-        public boolean isConstant()
-        {
-            return constant != null;
-        }
-
-        public boolean isVariable()
-        {
-            return column != null;
-        }
-
-        @JsonProperty
-        public Symbol getColumn()
-        {
-            return column;
-        }
-
-        @JsonProperty
-        public NullableValue getConstant()
-        {
-            return constant;
-        }
-
-        @Override
-        public String toString()
-        {
-            if (constant != null) {
-                return constant.toString();
-            }
-            return "\"" + column + "\"";
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            PartitionFunctionArgumentBinding that = (PartitionFunctionArgumentBinding) o;
-            return Objects.equals(column, that.column) &&
-                    Objects.equals(constant, that.constant);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(column, constant);
-        }
     }
 }

@@ -16,8 +16,9 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.spi.ConstantProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.sql.planner.Partitioning;
+import com.facebook.presto.sql.planner.Partitioning.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.PartitioningHandle;
-import com.facebook.presto.sql.planner.PartitioningScheme.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
@@ -38,7 +39,6 @@ import java.util.function.Function;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.collect.Iterables.transform;
 import static java.util.Objects.requireNonNull;
 
@@ -363,7 +363,7 @@ class ActualProperties
                 return false;
             }
 
-            return nodePartitioning.get().getPartitioningHandle().isSingleNode();
+            return nodePartitioning.get().getHandle().isSingleNode();
         }
 
         private boolean isCoordinatorOnly()
@@ -372,7 +372,7 @@ class ActualProperties
                 return false;
             }
 
-            return nodePartitioning.get().getPartitioningHandle().isCoordinatorOnly();
+            return nodePartitioning.get().getHandle().isCoordinatorOnly();
         }
 
         private boolean isNodePartitionedOn(Collection<Symbol> columns, Set<Symbol> constants, boolean nullsReplicated)
@@ -403,12 +403,12 @@ class ActualProperties
 
         private Optional<PartitioningHandle> getNodePartitioningHandle()
         {
-            return nodePartitioning.map(Partitioning::getPartitioningHandle);
+            return nodePartitioning.map(Partitioning::getHandle);
         }
 
         private Optional<List<PartitionFunctionArgumentBinding>> getNodePartitioningColumns()
         {
-            return nodePartitioning.map(Partitioning::getPartitioningArguments);
+            return nodePartitioning.map(Partitioning::getArguments);
         }
 
         private boolean isStreamPartitionedOn(Collection<Symbol> columns, Set<Symbol> constants, boolean nullsReplicated)
@@ -468,206 +468,6 @@ class ActualProperties
                     .add("nodePartitioning", nodePartitioning)
                     .add("streamPartitioning", streamPartitioning)
                     .add("nullsReplicated", nullsReplicated)
-                    .toString();
-        }
-    }
-
-    @Immutable
-    public static final class Partitioning
-    {
-        private final PartitioningHandle partitioningHandle;
-        private final List<PartitionFunctionArgumentBinding> partitioningArguments;
-
-        public Partitioning(PartitioningHandle partitioningHandle, List<PartitionFunctionArgumentBinding> partitioningArguments)
-        {
-            this.partitioningHandle = requireNonNull(partitioningHandle, "partitioningHandle is null");
-            this.partitioningArguments = ImmutableList.copyOf(requireNonNull(partitioningArguments, "partitioningArguments is null"));
-        }
-
-        public PartitioningHandle getPartitioningHandle()
-        {
-            return partitioningHandle;
-        }
-
-        public List<PartitionFunctionArgumentBinding> getPartitioningArguments()
-        {
-            return partitioningArguments;
-        }
-
-        public boolean isPartitionedOn(PartitioningHandle partitioning, List<Symbol> columns)
-        {
-            if (!partitioningHandle.equals(partitioning)) {
-                return false;
-            }
-
-            if (partitioningArguments.size() != columns.size()) {
-                return false;
-            }
-
-            for (int i = 0; i < partitioningArguments.size(); i++) {
-                PartitionFunctionArgumentBinding argument = partitioningArguments.get(i);
-                if (argument.isVariable() && !argument.getColumn().equals(columns.get(i))) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        public boolean isPartitionedWith(Partitioning right,
-                Function<Symbol, Set<Symbol>> leftToRightMappings,
-                Function<Symbol, NullableValue> leftConstantMapping,
-                Function<Symbol, NullableValue> rightConstantMapping)
-        {
-            if (!partitioningHandle.equals(right.partitioningHandle)) {
-                return false;
-            }
-
-            if (partitioningArguments.size() != right.partitioningArguments.size()) {
-                return false;
-            }
-
-            for (int i = 0; i < partitioningArguments.size(); i++) {
-                PartitionFunctionArgumentBinding leftArgument = partitioningArguments.get(i);
-                PartitionFunctionArgumentBinding rightArgument = right.partitioningArguments.get(i);
-
-                if (!isPartitionedWith(leftArgument, leftConstantMapping, rightArgument, rightConstantMapping, leftToRightMappings)) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        private static boolean isPartitionedWith(
-                PartitionFunctionArgumentBinding leftArgument,
-                Function<Symbol, NullableValue> leftConstantMapping,
-                PartitionFunctionArgumentBinding rightArgument,
-                Function<Symbol, NullableValue> rightConstantMapping,
-                Function<Symbol, Set<Symbol>> leftToRightMappings)
-        {
-            if (leftArgument.isVariable()) {
-                if (rightArgument.isVariable()) {
-                    // variable == variable
-                    Set<Symbol> mappedColumns = leftToRightMappings.apply(leftArgument.getColumn());
-                    return mappedColumns.contains(rightArgument.getColumn());
-                }
-                else {
-                    // variable == constant
-                    // Normally, this would be a false condition, but if we happen to have an external
-                    // mapping from the symbol to a constant value and that constant value matches the
-                    // right value, then we are co-partitioned.
-                    NullableValue leftConstant = leftConstantMapping.apply(leftArgument.getColumn());
-                    return leftConstant != null && leftConstant.equals(rightArgument.getConstant());
-                }
-            }
-            else {
-                if (rightArgument.isConstant()) {
-                    // constant == constant
-                    return leftArgument.getConstant().equals(rightArgument.getConstant());
-                }
-                else {
-                    // constant == variable
-                    NullableValue rightConstant = rightConstantMapping.apply(rightArgument.getColumn());
-                    return leftArgument.getConstant().equals(rightConstant);
-                }
-            }
-        }
-
-        public boolean isPartitionedOn(Collection<Symbol> columns, Set<Symbol> knownConstants)
-        {
-            // partitioned on (k_1, k_2, ..., k_n) => partitioned on (k_1, k_2, ..., k_n, k_n+1, ...)
-            // can safely ignore all constant columns when comparing partition properties
-            return partitioningArguments.stream()
-                    .filter(PartitionFunctionArgumentBinding::isVariable)
-                    .map(PartitionFunctionArgumentBinding::getColumn)
-                    .filter(symbol -> !knownConstants.contains(symbol))
-                    .allMatch(columns::contains);
-        }
-
-        public boolean isEffectivelySinglePartition(Set<Symbol> knownConstants)
-        {
-            return isPartitionedOn(ImmutableSet.of(), knownConstants);
-        }
-
-        public boolean isRepartitionEffective(Collection<Symbol> keys, Set<Symbol> knownConstants)
-        {
-            Set<Symbol> keysWithoutConstants = keys.stream()
-                    .filter(symbol -> !knownConstants.contains(symbol))
-                    .collect(toImmutableSet());
-            Set<Symbol> nonConstantArgs = partitioningArguments.stream()
-                    .filter(PartitionFunctionArgumentBinding::isVariable)
-                    .map(PartitionFunctionArgumentBinding::getColumn)
-                    .filter(symbol -> !knownConstants.contains(symbol))
-                    .collect(toImmutableSet());
-            return !nonConstantArgs.equals(keysWithoutConstants);
-        }
-
-        public Optional<Partitioning> translate(Function<Symbol, Optional<Symbol>> translator, Function<Symbol, Optional<NullableValue>> constants)
-        {
-            ImmutableList.Builder<PartitionFunctionArgumentBinding> newArguments = ImmutableList.builder();
-            for (PartitionFunctionArgumentBinding argument : partitioningArguments) {
-                Optional<PartitionFunctionArgumentBinding> newArgument = translate(argument, translator, constants);
-                if (!newArgument.isPresent()) {
-                    return Optional.empty();
-                }
-                newArguments.add(newArgument.get());
-            }
-
-            return Optional.of(new Partitioning(partitioningHandle, newArguments.build()));
-        }
-
-        private static Optional<PartitionFunctionArgumentBinding> translate(
-                PartitionFunctionArgumentBinding argument,
-                Function<Symbol, Optional<Symbol>> translator,
-                Function<Symbol, Optional<NullableValue>> constants)
-        {
-            // pass through constant arguments
-            if (argument.isConstant()) {
-                return Optional.of(argument);
-            }
-
-            // attempt to translate the symbol to a new symbol
-            Optional<Symbol> newSymbol = translator.apply(argument.getColumn());
-            if (newSymbol.isPresent()) {
-                return Optional.of(new PartitionFunctionArgumentBinding(newSymbol.get()));
-            }
-
-            // As a last resort, check for a constant mapping for the symbol
-            // Note: this MUST be last because we want to favor the symbol representation
-            // as it makes further optimizations possible.
-            Optional<NullableValue> constant = constants.apply(argument.getColumn());
-            if (constant.isPresent()) {
-                return Optional.of(new PartitionFunctionArgumentBinding(constant.get()));
-            }
-
-            return Optional.empty();
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(partitioningHandle, partitioningArguments);
-        }
-
-        @Override
-        public boolean equals(Object obj)
-        {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null || getClass() != obj.getClass()) {
-                return false;
-            }
-            final Partitioning other = (Partitioning) obj;
-            return Objects.equals(this.partitioningHandle, other.partitioningHandle) &&
-                    Objects.equals(this.partitioningArguments, other.partitioningArguments);
-        }
-
-        @Override
-        public String toString()
-        {
-            return MoreObjects.toStringHelper(this)
-                    .add("partitioningHandle", partitioningHandle)
-                    .add("partitioningColumns", partitioningArguments)
                     .toString();
         }
     }
