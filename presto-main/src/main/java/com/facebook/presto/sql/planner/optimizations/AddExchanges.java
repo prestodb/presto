@@ -953,43 +953,21 @@ public class AddExchanges
                     verify(filteringSourcePartitionColumns.isPresent(), "Could not translate SEMI JOIN source partitioning to filtering source symbols");
                     verify(filteringSourcePartitionColumns.get().size() == 1, "size of partitionFunctionArguments is not 1 when nullPartition is REPLICATE.");
                     PartitionFunctionArgumentBinding functionArgumentBinding = filteringSourcePartitionColumns.get().get(0);
+                    verify(functionArgumentBinding.isVariable(), "Expected exactly one variable binding for semi-join partitioning");
 
-                    if (functionArgumentBinding.isVariable()) {
-                        filteringSource = withDerivedProperties(
-                                partitionedExchange(
-                                        idAllocator.getNextId(),
-                                        REMOTE,
-                                        filteringSource.getNode(),
-                                        new PartitioningScheme(
-                                                source.getProperties().getNodePartitioningHandle().get(),
-                                                node.getFilteringSource().getOutputSymbols(),
-                                                filteringSourcePartitionColumns.get(),
-                                                Optional.empty(),
-                                                true,
-                                                Optional.empty())),
-                                filteringSource.getProperties());
-                    }
-                    else if (!functionArgumentBinding.getConstant().isNull()) {
-                        // non null constant - do not enable replicate nulls
-                        // todo replace semi join with a projection or at least replace filter with a values node
-                        filteringSource = withDerivedProperties(
-                                partitionedExchange(
-                                        idAllocator.getNextId(),
-                                        REMOTE,
-                                        filteringSource.getNode(),
-                                        new PartitioningScheme(
-                                                source.getProperties().getNodePartitioningHandle().get(),
-                                                node.getFilteringSource().getOutputSymbols(),
-                                                filteringSourcePartitionColumns.get())),
-                                filteringSource.getProperties());
-                    }
-                    else {
-                        // all values are null - broadcast the nulls
-                        // todo replace semi join with a projection or at least replace filter with a values node
-                        filteringSource = withDerivedProperties(
-                                replicatedExchange(idAllocator.getNextId(), REMOTE, filteringSource.getNode()),
-                                filteringSource.getProperties());
-                    }
+                    filteringSource = withDerivedProperties(
+                            partitionedExchange(
+                                    idAllocator.getNextId(),
+                                    REMOTE,
+                                    filteringSource.getNode(),
+                                    new PartitioningScheme(
+                                            source.getProperties().getNodePartitioningHandle().get(),
+                                            node.getFilteringSource().getOutputSymbols(),
+                                            filteringSourcePartitionColumns.get(),
+                                            Optional.empty(),
+                                            true,
+                                            Optional.empty())),
+                            filteringSource.getProperties());
                 }
             }
             else {
