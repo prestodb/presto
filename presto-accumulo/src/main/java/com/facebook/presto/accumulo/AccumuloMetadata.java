@@ -50,9 +50,11 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_EXISTS;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.accumulo.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -96,7 +98,7 @@ public class AccumuloMetadata
                 table.getRowId(), table.isExternal(), table.getSerializerClassName(),
                 table.getScanAuthorizations());
 
-        setRollback(() -> rollbackCreateTable(handle));
+        setRollback(() -> rollbackCreateTable(table));
 
         return handle;
     }
@@ -109,9 +111,9 @@ public class AccumuloMetadata
         clearRollback();
     }
 
-    private void rollbackCreateTable(ConnectorOutputTableHandle tableHandle)
+    private void rollbackCreateTable(AccumuloTable table)
     {
-        // TODO this
+        client.dropTable(table);
     }
 
     /**
@@ -257,9 +259,6 @@ public class AccumuloMetadata
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session,
             ConnectorTableHandle tableHandle)
     {
-        // This is all metadata management for the insert op
-        // Not much to do here but validate the type and return the new table handle (which is the
-        // same)
         checkNoRollback();
         AccumuloTableHandle handle = checkType(tableHandle, AccumuloTableHandle.class, "table");
         setRollback(() -> rollbackInsert(handle));
@@ -269,13 +268,18 @@ public class AccumuloMetadata
     @Override
     public void finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
     {
-        // TODO anything?
         clearRollback();
     }
 
     private void rollbackInsert(ConnectorInsertTableHandle insertHandle)
     {
-        // TODO rollback
+        // Rollbacks for inserts are off the table when it comes to data in Accumulo.
+        // When a batch of Mutations fails to be inserted, the general strategy
+        // is to run the insert operation again until it is successful
+        // Any mutations that were successfully written will be overwritten
+        // with the same values, so that isn't a problem.
+        AccumuloTableHandle handle = checkType(insertHandle, AccumuloTableHandle.class, "table");
+        throw new PrestoException(NOT_SUPPORTED, format("Unable to rollback insert for table %s.%s. Some rows may have been written. Please run your insert again.", handle.getSchema(), handle.getTable()));
     }
 
     /**
