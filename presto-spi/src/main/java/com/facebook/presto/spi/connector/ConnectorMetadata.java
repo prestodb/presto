@@ -45,6 +45,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
+import static java.util.stream.Collectors.toList;
 
 public interface ConnectorMetadata
 {
@@ -168,6 +169,28 @@ public interface ConnectorMetadata
     default Optional<ConnectorNewTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         return Optional.empty();
+    }
+
+    /**
+     * Get the physical layout for a inserting into an existing table.
+     */
+    default Optional<ConnectorTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        List<ConnectorTableLayout> layouts = getTableLayouts(session, tableHandle, new Constraint<>(TupleDomain.all(), map -> true), Optional.empty())
+                .stream()
+                .map(ConnectorTableLayoutResult::getTableLayout)
+                .filter(layout -> layout.getNodePartitioning().isPresent())
+                .collect(toList());
+
+        if (layouts.isEmpty()) {
+            return Optional.empty();
+        }
+
+        if (layouts.size() > 1) {
+            throw new PrestoException(NOT_SUPPORTED, "Tables with multiple layouts can not be written");
+        }
+
+        return Optional.of(layouts.get(0));
     }
 
     /**
