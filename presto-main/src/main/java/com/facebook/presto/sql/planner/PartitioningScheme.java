@@ -74,7 +74,7 @@ public class PartitioningScheme
         hashColumn.ifPresent(column -> checkArgument(outputLayout.contains(column),
                 "Output layout (%s) don't include hash column (%s)", outputLayout, column));
 
-        checkArgument(!replicateNulls || columns.size() == 1, "Must have exactly one partitioning column when nullPartition is REPLICATE.");
+        checkArgument(!replicateNulls || columns.size() <= 1, "Must have at most one partitioning column when nullPartition is REPLICATE.");
         this.replicateNulls = replicateNulls;
         this.bucketToPartition = requireNonNull(bucketToPartition, "bucketToPartition is null");
     }

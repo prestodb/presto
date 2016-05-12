@@ -421,8 +421,9 @@ class PropertyDerivations
 
             switch (node.getType()) {
                 case GATHER:
+                    boolean coordinatorOnly = node.getPartitioningScheme().getPartitioning().getHandle().isCoordinatorOnly();
                     return ActualProperties.builder()
-                            .global(singleStreamPartition())
+                            .global(coordinatorOnly ? coordinatorSingleStreamPartition() : singleStreamPartition())
                             .constants(constants)
                             .build();
                 case REPARTITION:
