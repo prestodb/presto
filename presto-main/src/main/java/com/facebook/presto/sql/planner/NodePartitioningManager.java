@@ -93,7 +93,7 @@ public class NodePartitioningManager
         requireNonNull(partitioningHandle, "partitioningHandle is null");
 
         if (partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle) {
-            return ((SystemPartitioningHandle) partitioningHandle.getConnectorHandle()).getNodePartitionMap(session, nodeScheduler);
+            return ((SystemPartitioningHandle) partitioningHandle.getConnectorHandle()).getNodePartitionMap(nodeScheduler);
         }
 
         ConnectorNodePartitioningProvider partitioningProvider = partitioningProviders.get(partitioningHandle.getConnectorId().get());

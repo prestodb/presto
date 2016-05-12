@@ -24,8 +24,8 @@ import com.google.common.collect.Sets;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
-import java.util.function.Function;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.preferStreamingOperators;
@@ -39,6 +39,7 @@ import static java.util.Objects.requireNonNull;
 class StreamPreferredProperties
 {
     private final Optional<StreamDistribution> distribution;
+    private final OptionalInt streamCount;
 
     private final boolean exactColumnOrder;
     private final Optional<List<Symbol>> partitioningColumns; // if missing => any partitioning scheme is acceptable
@@ -47,16 +48,18 @@ class StreamPreferredProperties
 
     private StreamPreferredProperties(Optional<StreamDistribution> distribution, Optional<? extends Iterable<Symbol>> partitioningColumns, boolean orderSensitive)
     {
-        this(distribution, false, partitioningColumns, orderSensitive);
+        this(distribution, OptionalInt.empty(), false, partitioningColumns, orderSensitive);
     }
 
     private StreamPreferredProperties(
             Optional<StreamDistribution> distribution,
+            OptionalInt streamCount,
             boolean exactColumnOrder,
             Optional<? extends Iterable<Symbol>> partitioningColumns,
             boolean orderSensitive)
     {
         this.distribution = requireNonNull(distribution, "distribution is null");
+        this.streamCount = requireNonNull(streamCount, "streamCount is null");
         this.partitioningColumns = requireNonNull(partitioningColumns, "partitioningColumns is null").map(ImmutableList::copyOf);
         this.exactColumnOrder = exactColumnOrder;
         this.orderSensitive = orderSensitive;
@@ -74,9 +77,10 @@ class StreamPreferredProperties
         return new StreamPreferredProperties(Optional.of(SINGLE), Optional.empty(), false);
     }
 
-    public static StreamPreferredProperties fixedParallelism()
+    public static StreamPreferredProperties fixedParallelism(int streamCount)
     {
-        return new StreamPreferredProperties(Optional.of(FIXED), Optional.empty(), false);
+        checkArgument(streamCount > 0, "Stream count must be at least 1");
+        return new StreamPreferredProperties(Optional.of(FIXED), OptionalInt.of(streamCount), false, Optional.empty(), false);
     }
 
     public static StreamPreferredProperties defaultParallelism(Session session)
@@ -103,7 +107,7 @@ class StreamPreferredProperties
         }
 
         // this must be the exact partitioning symbols, in the exact order
-        return new StreamPreferredProperties(Optional.of(FIXED), true, Optional.of(ImmutableList.copyOf(partitionSymbols)), false);
+        return new StreamPreferredProperties(Optional.of(FIXED), OptionalInt.empty(), true, Optional.of(ImmutableList.copyOf(partitionSymbols)), false);
     }
 
     public StreamPreferredProperties withoutPreference()
@@ -135,7 +139,7 @@ class StreamPreferredProperties
             }
         }
 
-        return new StreamPreferredProperties(distribution, Optional.of(desiredPartitioning), false);
+        return new StreamPreferredProperties(distribution, streamCount, false, Optional.of(desiredPartitioning), false);
     }
 
     public StreamPreferredProperties withDefaultParallelism(Session session)
@@ -197,6 +201,11 @@ class StreamPreferredProperties
         return distribution.isPresent() && distribution.get() != SINGLE;
     }
 
+    public OptionalInt getStreamCount()
+    {
+        return streamCount;
+    }
+
     public Optional<List<Symbol>> getPartitioningColumns()
     {
         return partitioningColumns;
@@ -205,27 +214,6 @@ class StreamPreferredProperties
     public boolean isOrderSensitive()
     {
         return orderSensitive;
-    }
-
-    public StreamPreferredProperties translate(Function<Symbol, Optional<Symbol>> translator)
-    {
-        return new StreamPreferredProperties(
-                distribution,
-                partitioningColumns.flatMap(partitioning -> translateSymbols(partitioning, translator)),
-                orderSensitive);
-    }
-
-    private static Optional<List<Symbol>> translateSymbols(Iterable<Symbol> partitioning, Function<Symbol, Optional<Symbol>> translator)
-    {
-        ImmutableList.Builder<Symbol> newPartitioningColumns = ImmutableList.builder();
-        for (Symbol partitioningColumn : partitioning) {
-            Optional<Symbol> translated = translator.apply(partitioningColumn);
-            if (!translated.isPresent()) {
-                return Optional.empty();
-            }
-            newPartitioningColumns.add(translated.get());
-        }
-        return Optional.of(newPartitioningColumns.build());
     }
 
     @Override
@@ -240,7 +228,7 @@ class StreamPreferredProperties
 
     public StreamPreferredProperties withOrderSensitivity()
     {
-        return new StreamPreferredProperties(distribution, false, Optional.empty(), true);
+        return new StreamPreferredProperties(distribution, OptionalInt.empty(), false, Optional.empty(), true);
     }
 
     public StreamPreferredProperties constrainTo(Iterable<Symbol> symbols)
@@ -261,6 +249,6 @@ class StreamPreferredProperties
         if (common.isEmpty()) {
             return any();
         }
-        return new StreamPreferredProperties(distribution, Optional.of(common), false);
+        return new StreamPreferredProperties(distribution, streamCount, false, Optional.of(common), false);
     }
 }

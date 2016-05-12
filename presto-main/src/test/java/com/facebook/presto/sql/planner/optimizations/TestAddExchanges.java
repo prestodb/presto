@@ -761,7 +761,7 @@ public class TestAddExchanges
 
     private static Global hashDistributedOn(String... columnNames)
     {
-        return partitionedOn(fixedHashPartitioning(arguments(columnNames)), Optional.of(unknownPartitioning(arguments(columnNames))));
+        return partitionedOn(fixedHashPartitioning(8, arguments(columnNames)), Optional.of(unknownPartitioning(arguments(columnNames))));
     }
 
     public static Global singleStream()

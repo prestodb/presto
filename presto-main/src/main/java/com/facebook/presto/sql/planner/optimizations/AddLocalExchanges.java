@@ -425,8 +425,8 @@ public class AddLocalExchanges
             StreamPreferredProperties requiredProperties;
             StreamPreferredProperties preferredProperties;
             if (getTaskWriterCount(session) > 1) {
-                requiredProperties = fixedParallelism();
-                preferredProperties = fixedParallelism();
+                requiredProperties = fixedParallelism(getTaskWriterCount(session));
+                preferredProperties = fixedParallelism(getTaskWriterCount(session));
             }
             else {
                 requiredProperties = singleStream();
@@ -486,7 +486,7 @@ public class AddLocalExchanges
                         REPARTITION,
                         LOCAL,
                         new PartitioningScheme(
-                                fixedHashPartitioning(preferredPartitionColumns.get()),
+                                fixedHashPartitioning(getTaskConcurrency(session), preferredPartitionColumns.get()),
                                 node.getOutputSymbols(),
                                 Optional.empty()),
                         sources,
@@ -499,7 +499,7 @@ public class AddLocalExchanges
                     idAllocator.getNextId(),
                     REPARTITION,
                     LOCAL,
-                    new PartitioningScheme(fixedRandomPartitioning(), node.getOutputSymbols()),
+                    new PartitioningScheme(fixedRandomPartitioning(getTaskConcurrency(session)), node.getOutputSymbols()),
                     sources,
                     inputLayouts);
             ExchangeNode exchangeNode = result;
@@ -616,7 +616,7 @@ public class AddLocalExchanges
                         LOCAL,
                         planWithProperties.getNode(),
                         new PartitioningScheme(
-                                fixedRandomPartitioning(),
+                                fixedRandomPartitioning(getTaskConcurrency(session)),
                                 planWithProperties.getNode().getOutputSymbols()));
 
                 return deriveProperties(exchangeNode, planWithProperties.getProperties());
@@ -629,7 +629,8 @@ public class AddLocalExchanges
                         LOCAL,
                         planWithProperties.getNode(),
                         requiredPartitionColumns.get(),
-                        Optional.empty());
+                        Optional.empty(),
+                        requiredProperties.getStreamCount().orElse(getTaskConcurrency(session)));
                 return deriveProperties(exchangeNode, planWithProperties.getProperties());
             }
 

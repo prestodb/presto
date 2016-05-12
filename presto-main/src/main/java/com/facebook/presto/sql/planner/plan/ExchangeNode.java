@@ -96,19 +96,26 @@ public class ExchangeNode
         this.inputs = ImmutableList.copyOf(inputs);
     }
 
-    public static ExchangeNode partitionedExchange(PlanNodeId id, Scope scope, PlanNode child, List<Symbol> partitioningColumns, Optional<Symbol> hashColumns)
+    public static ExchangeNode partitionedExchange(PlanNodeId id, Scope scope, PlanNode child, List<Symbol> partitioningColumns, Optional<Symbol> hashColumns, int partitionCount)
     {
-        return partitionedExchange(id, scope, child, partitioningColumns, hashColumns, false);
+        return partitionedExchange(id, scope, child, partitioningColumns, hashColumns, false, partitionCount);
     }
 
-    public static ExchangeNode partitionedExchange(PlanNodeId id, Scope scope, PlanNode child, List<Symbol> partitioningColumns, Optional<Symbol> hashColumns, boolean nullsReplicated)
+    public static ExchangeNode partitionedExchange(
+            PlanNodeId id,
+            Scope scope,
+            PlanNode child,
+            List<Symbol> partitioningColumns,
+            Optional<Symbol> hashColumns,
+            boolean nullsReplicated,
+            int partitionCount)
     {
         return partitionedExchange(
                 id,
                 scope,
                 child,
                 new PartitioningScheme(
-                        fixedHashPartitioning(partitioningColumns),
+                        fixedHashPartitioning(partitionCount, partitioningColumns),
                         child.getOutputSymbols(),
                         hashColumns,
                         nullsReplicated,
@@ -129,13 +136,13 @@ public class ExchangeNode
                 ImmutableList.of(child.getOutputSymbols()));
     }
 
-    public static ExchangeNode replicatedExchange(PlanNodeId id, Scope scope, PlanNode child)
+    public static ExchangeNode replicatedExchange(PlanNodeId id, Scope scope, PlanNode child, int partitionCount)
     {
         return new ExchangeNode(
                 id,
                 ExchangeNode.Type.REPLICATE,
                 scope,
-                new PartitioningScheme(fixedBroadcastPartitioning(), child.getOutputSymbols()),
+                new PartitioningScheme(fixedBroadcastPartitioning(partitionCount), child.getOutputSymbols()),
                 ImmutableList.of(child),
                 ImmutableList.of(child.getOutputSymbols()));
     }
