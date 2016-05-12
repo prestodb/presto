@@ -690,7 +690,7 @@ public class TestHashJoinOperator
     private static LookupSourceSupplier buildHash(boolean parallelBuild, TaskContext taskContext, List<Integer> hashChannels, RowPagesBuilder buildPages, Optional<JoinFilterFunction> filterFunction)
     {
         if (parallelBuild) {
-            LocalExchange localExchange = new LocalExchange(fixedHashPartitioning(ImmutableList.of()), PARTITION_COUNT, buildPages.getTypes(), hashChannels, buildPages.getHashChannel());
+            LocalExchange localExchange = new LocalExchange(fixedHashPartitioning(PARTITION_COUNT, ImmutableList.of()), buildPages.getTypes(), hashChannels, buildPages.getHashChannel());
             LocalExchangeSinkFactory sinkFactory = localExchange.createSinkFactory();
             sinkFactory.noMoreSinkFactories();
 
