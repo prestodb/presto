@@ -131,6 +131,7 @@ public class SimpleNodeSelector
                 }
             }
             if (chosenNode == null) {
+                // min is guaranteed to be MAX_VALUE at this line
                 for (Node node : candidateNodes) {
                     int totalSplitCount = assignmentStats.getQueuedSplitCountForStage(node);
                     if (totalSplitCount < min && totalSplitCount < maxPendingSplitsPerNodePerStageWhenFull) {
@@ -150,6 +151,6 @@ public class SimpleNodeSelector
     @Override
     public Multimap<Node, Split> computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, NodePartitionMap partitioning)
     {
-        return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsPerNode, splits, existingTasks, partitioning);
+        return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsPerNode, maxPendingSplitsPerNodePerStageWhenFull, splits, existingTasks, partitioning);
     }
 }

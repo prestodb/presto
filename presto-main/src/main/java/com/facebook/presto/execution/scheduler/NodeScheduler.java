@@ -270,6 +270,7 @@ public class NodeScheduler
             NodeMap nodeMap,
             NodeTaskMap nodeTaskMap,
             int maxSplitsPerNode,
+            int maxPendingSplitsPerNodePerStageWhenFull,
             Set<Split> splits,
             List<RemoteTask> existingTasks,
             NodePartitionMap partitioning)
@@ -282,8 +283,10 @@ public class NodeScheduler
             Node node = partitioning.getNode(split);
 
             // if node is full, don't schedule now, which will push back on the scheduling of splits
-            if (assignmentStats.getTotalSplitCount(node) < maxSplitsPerNode) {
+            if (assignmentStats.getTotalSplitCount(node) < maxSplitsPerNode ||
+                    assignmentStats.getQueuedSplitCountForStage(node) < maxPendingSplitsPerNodePerStageWhenFull) {
                 assignments.put(node, split);
+                assignmentStats.addAssignedSplit(node);
             }
         }
         return ImmutableMultimap.copyOf(assignments);
