@@ -33,6 +33,7 @@ import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
@@ -47,6 +48,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.GREATER_THAN;
 import static com.facebook.presto.sql.util.AstUtils.nodeContains;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -121,16 +123,30 @@ class SubqueryPlanner
         checkState(inPredicate.getValueList() instanceof SubqueryExpression);
         SubqueryExpression subqueryExpression = (SubqueryExpression) inPredicate.getValueList();
         RelationPlan valueListRelation = createRelationPlan(subqueryExpression.getQuery());
+        PlanNode subqueryNode = valueListRelation.getRoot();
 
         TranslationMap translationMap = subPlan.copyTranslations();
-        SymbolReference valueList = getOnlyElement(valueListRelation.getOutputSymbols()).toSymbolReference();
+        SymbolReference valueList;
+        if (valueListRelation.getOutputSymbols().size() == 1) {
+            valueList = getOnlyElement(valueListRelation.getOutputSymbols()).toSymbolReference();
+        }
+        else {
+            Row row = new Row(
+                    valueListRelation.getOutputSymbols()
+                            .stream()
+                            .map(Symbol::toSymbolReference)
+                            .collect(toImmutableList()));
+            Symbol rowSymbol = symbolAllocator.newSymbol(row, analysis.getType(inPredicate.getValueList()));
+            subqueryNode = new ProjectNode(idAllocator.getNextId(), subqueryNode, ImmutableMap.of(rowSymbol, row));
+            valueList = rowSymbol.toSymbolReference();
+        }
         translationMap.put(inPredicate, new InPredicate(inPredicate.getValue(), valueList));
 
         return new PlanBuilder(translationMap,
                 // TODO handle correlation
                 new ApplyNode(idAllocator.getNextId(),
                         subPlan.getRoot(),
-                        valueListRelation.getRoot(),
+                        subqueryNode,
                         ImmutableList.of()),
                 subPlan.getSampleWeight());
     }
