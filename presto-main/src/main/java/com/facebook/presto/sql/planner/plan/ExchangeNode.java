@@ -118,6 +118,9 @@ public class ExchangeNode
 
     public static ExchangeNode partitionedExchange(PlanNodeId id, Scope scope, PlanNode child, PartitioningScheme partitioningScheme)
     {
+        if (partitioningScheme.getPartitioning().getHandle().isSingleNode()) {
+            return gatheringExchange(id, scope, child);
+        }
         return new ExchangeNode(
                 id,
                 ExchangeNode.Type.REPARTITION,

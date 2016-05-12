@@ -311,9 +311,12 @@ public class LocalExecutionPlanner
 
         PartitionFunction partitionFunction = nodePartitioningManager.getPartitionFunction(session, partitioningScheme, partitionChannelTypes);
         OptionalInt nullChannel = OptionalInt.empty();
-        if (partitioningScheme.isReplicateNulls()) {
-            checkArgument(partitioningScheme.getPartitioning().getColumns().size() == 1);
-            nullChannel = OptionalInt.of(outputLayout.indexOf(getOnlyElement(partitioningScheme.getPartitioning().getColumns())));
+        Set<Symbol> partitioningColumns = partitioningScheme.getPartitioning().getColumns();
+
+        // partitioningColumns expected to have one column in the normal case, and zero columns when partitioning on a constant
+        checkArgument(!partitioningScheme.isReplicateNulls() || partitioningColumns.size() <= 1);
+        if (partitioningScheme.isReplicateNulls() && partitioningColumns.size() == 1) {
+            nullChannel = OptionalInt.of(outputLayout.indexOf(getOnlyElement(partitioningColumns)));
         }
 
         return plan(
