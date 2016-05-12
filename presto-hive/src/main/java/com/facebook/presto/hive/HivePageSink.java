@@ -426,7 +426,7 @@ public class HivePageSink
                         Object value = getField(partitionColumnTypes.get(field), partitionBlocks[field], position);
                         partitionRow.set(field, value);
                     }
-                    writer = createWriter(partitionRow, filePrefix + "_bucket-" + Strings.padStart(Integer.toString(bucket), BUCKET_NUMBER_PADDING, '0'));
+                    writer = createWriter(partitionRow, computeBucketedFileName(filePrefix, bucket));
                     writers.put(bucket, writer);
                 }
 
@@ -434,6 +434,11 @@ public class HivePageSink
             }
         }
         return NOT_BLOCKED;
+    }
+
+    public static String computeBucketedFileName(String filePrefix, int bucket)
+    {
+        return filePrefix + "_bucket-" + Strings.padStart(Integer.toString(bucket), BUCKET_NUMBER_PADDING, '0');
     }
 
     private HiveRecordWriter createWriter(List<Object> partitionRow, String fileName)
@@ -560,14 +565,14 @@ public class HivePageSink
                 outputFormat,
                 serDe,
                 schema,
-                fileName + getFileExtension(outputFormat),
+                fileName + getFileExtension(conf, outputFormat),
                 write.toString(),
                 target.toString(),
                 typeManager,
                 conf);
     }
 
-    private String getFileExtension(String outputFormat)
+    static String getFileExtension(JobConf conf, String outputFormat)
     {
         // text format files must have the correct extension when compressed
         if (!HiveConf.getBoolVar(conf, COMPRESSRESULT) || !HiveIgnoreKeyTextOutputFormat.class.getName().equals(outputFormat)) {

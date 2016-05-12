@@ -55,6 +55,8 @@ import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.conf.HiveConf;
+import org.apache.hadoop.hive.metastore.MetaStoreUtils;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Partition;
@@ -64,6 +66,8 @@ import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
+import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
 
 import java.io.FileNotFoundException;
@@ -75,6 +79,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -92,6 +97,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TIMEZONE_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
@@ -128,6 +134,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
 import static org.apache.hadoop.hive.serde.serdeConstants.STRING_TYPE_NAME;
 
 public class HiveMetadata
@@ -589,8 +596,6 @@ public class HiveMetadata
 
         PartitionCommitter partitionCommitter = new PartitionCommitter(handle.getSchemaName(), handle.getTableName(), metastore, PARTITION_COMMIT_BATCH_SIZE);
         try {
-            partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
-
             Table table = buildTableObject(
                     handle.getSchemaName(),
                     handle.getTableName(),
@@ -601,6 +606,19 @@ public class HiveMetadata
                     handle.getBucketProperty(),
                     handle.getAdditionalTableParameters(),
                     targetPath);
+
+            partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
+
+            if (handle.getBucketProperty().isPresent()) {
+                ImmutableList<PartitionUpdate> partitionUpdatesForMissingBuckets = computePartitionUpdatesForMissingBuckets(handle, table, partitionUpdates);
+                // replace partitionUpdates before creating the empty files so that those files will be cleaned up if we end up rollback
+                partitionUpdates = PartitionUpdate.mergePartitionUpdates(Iterables.concat(partitionUpdates, partitionUpdatesForMissingBuckets));
+                for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
+                    Optional<Partition> partition = table.getPartitionKeys().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(table, partitionUpdate));
+                    createEmptyFile(handle, partitionUpdate.getTargetPath(), table, partition, partitionUpdate.getFileNames());
+                }
+            }
+
             metastore.createTable(table);
 
             if (!handle.getPartitionedBy().isEmpty()) {
@@ -620,6 +638,84 @@ public class HiveMetadata
         }
 
         clearRollback();
+    }
+
+    private ImmutableList<PartitionUpdate> computePartitionUpdatesForMissingBuckets(HiveWritableTableHandle handle, Table table, List<PartitionUpdate> partitionUpdates)
+    {
+        ImmutableList.Builder<PartitionUpdate> partitionUpdatesForMissingBucketsBuilder = ImmutableList.builder();
+        HiveStorageFormat storageFormat = table.getPartitionKeys().isEmpty() ? handle.getTableStorageFormat() : handle.getPartitionStorageFormat();
+        for (PartitionUpdate partitionUpdate : partitionUpdates) {
+            int bucketCount = handle.getBucketProperty().get().getBucketCount();
+
+            List<String> fileNamesForMissingBuckets = computeFileNamesForMissingBuckets(
+                    storageFormat,
+                    partitionUpdate.getTargetPath(),
+                    handle.getFilePrefix(),
+                    bucketCount,
+                    partitionUpdate);
+            partitionUpdatesForMissingBucketsBuilder.add(new PartitionUpdate(
+                    partitionUpdate.getName(),
+                    partitionUpdate.isNew(),
+                    partitionUpdate.getWritePath(),
+                    partitionUpdate.getTargetPath(),
+                    fileNamesForMissingBuckets));
+        }
+        return partitionUpdatesForMissingBucketsBuilder.build();
+    }
+
+    private List<String> computeFileNamesForMissingBuckets(HiveStorageFormat storageFormat, Path targetPath, String filePrefix, int bucketCount, PartitionUpdate partitionUpdate)
+    {
+        if (partitionUpdate.getFileNames().size() == bucketCount) {
+            // fast path for common case
+            return ImmutableList.of();
+        }
+        JobConf conf = new JobConf(hdfsEnvironment.getConfiguration(targetPath));
+        String fileExtension = HivePageSink.getFileExtension(conf, storageFormat.getOutputFormat());
+        Set<String> fileNames = partitionUpdate.getFileNames().stream()
+                .collect(Collectors.toSet());
+        ImmutableList.Builder<String> missingFileNamesBuilder = ImmutableList.builder();
+        for (int i = 0; i < bucketCount; i++) {
+            String fileName = HivePageSink.computeBucketedFileName(filePrefix, i) + fileExtension;
+            if (!fileNames.contains(fileName)) {
+                missingFileNamesBuilder.add(fileName);
+            }
+        }
+        List<String> missingFileNames = missingFileNamesBuilder.build();
+        verify(fileNames.size() + missingFileNames.size() == bucketCount);
+        return missingFileNames;
+    }
+
+    private void createEmptyFile(HiveWritableTableHandle tableHandle, Path targetPath, Table table, Optional<Partition> partition, List<String> fileNames)
+    {
+        JobConf conf = new JobConf(hdfsEnvironment.getConfiguration(targetPath));
+        boolean compress = HiveConf.getBoolVar(conf, COMPRESSRESULT);
+
+        Properties schema;
+        String outputFormat;
+        if (partition.isPresent()) {
+            schema = MetaStoreUtils.getSchema(partition.get(), table);
+            outputFormat = tableHandle.getPartitionStorageFormat().getOutputFormat();
+        }
+        else {
+            schema = MetaStoreUtils.getTableMetadata(table);
+            outputFormat = tableHandle.getTableStorageFormat().getOutputFormat();
+        }
+
+        for (String fileName : fileNames) {
+            writeEmptyFile(new Path(targetPath, fileName), conf, compress, schema, outputFormat);
+        }
+    }
+
+    private static void writeEmptyFile(Path target, JobConf conf, boolean compress, Properties properties, String outputFormatName)
+    {
+        // The code below is not a try with resources because RecordWriter is not Closeable.
+        FileSinkOperator.RecordWriter recordWriter = HiveWriteUtils.createRecordWriter(target, conf, compress, properties, outputFormatName);
+        try {
+            recordWriter.close(false);
+        }
+        catch (IOException e) {
+            throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error write empty file to Hive", e);
+        }
     }
 
     private void rollbackCreateTable(String user, ConnectorOutputTableHandle tableHandle)
@@ -752,6 +848,16 @@ public class HiveMetadata
             }
             if (!table.get().getSd().getInputFormat().equals(tableStorageFormat.getInputFormat()) && respectTableFormat) {
                 throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Table format changed during insert");
+            }
+
+            if (handle.getBucketProperty().isPresent()) {
+                ImmutableList<PartitionUpdate> partitionUpdatesForMissingBuckets = computePartitionUpdatesForMissingBuckets(handle, table.get(), partitionUpdates);
+                // replace partitionUpdates before creating the empty files so that those files will be cleaned up if we end up rollback
+                partitionUpdates = PartitionUpdate.mergePartitionUpdates(Iterables.concat(partitionUpdates, partitionUpdatesForMissingBuckets));
+                for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
+                    Optional<Partition> partition = table.get().getPartitionKeys().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(table.get(), partitionUpdate));
+                    createEmptyFile(handle, partitionUpdate.getWritePath(), table.get(), partition, partitionUpdate.getFileNames());
+                }
             }
 
             List<CompletableFuture<?>> fileRenameFutures = new ArrayList<>();
