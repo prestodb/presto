@@ -31,7 +31,9 @@ import io.airlift.slice.Slices;
 import javax.annotation.Nullable;
 
 import java.text.Normalizer;
+import java.util.Map;
 import java.util.OptionalInt;
+import java.util.TreeMap;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -356,6 +358,62 @@ public final class StringFunctions
 
         // index is too big, null is returned
         return null;
+    }
+
+    @Description("creates a map using entryDelimiter and keyValueDelimiter")
+    @ScalarFunction
+    @SqlType("map<varchar,varchar>")
+    public static Block splitToMap(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice entryDelimiter, @SqlType(StandardTypes.VARCHAR) Slice keyValueDelimiter)
+    {
+        checkCondition(entryDelimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "The entryDelimiter may not be the empty string");
+        checkCondition(keyValueDelimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "The keyValueDelimiter may not be the empty string");
+        checkCondition(!(entryDelimiter.equals(keyValueDelimiter)), INVALID_FUNCTION_ARGUMENT, "The entryDelimiter and keyValueDelimiter must not be the same");
+
+        final Map<Slice, Slice> map = new TreeMap<>();
+        int index = 0;
+        while (index < string.length()) {
+            // Extract key-value pair based on current index
+            // then add the pair if it can be split by keyValueDelimiter
+            final Slice keyValuePair;
+            final int entryDelimiterIndex = string.indexOf(entryDelimiter, index);
+            if (entryDelimiterIndex >= 0) {
+                keyValuePair = string.slice(index, entryDelimiterIndex - index);
+            }
+            else {
+                // The rest of the string is the last possible pair.
+                keyValuePair = string.slice(index, string.length() - index);
+            }
+
+            final int keyValueDelimiterIndex = keyValuePair.indexOf(keyValueDelimiter);
+            if (keyValueDelimiterIndex >= 0) { // Found key-value pair
+                final int offset = keyValueDelimiterIndex + keyValueDelimiter.length();
+                Slice key = keyValuePair.slice(0, keyValueDelimiterIndex);
+                Slice value = keyValuePair.slice(offset, keyValuePair.length() - offset);
+
+                if (value.indexOf(keyValueDelimiter) >= 0) {
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key-value delimiter must appear exactly once in each entry: " + keyValuePair.toString());
+                }
+                if (map.containsKey(key)) {
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Duplicate keys are not allowed: " + key.toString());
+                }
+
+                map.put(key, value);
+            }
+
+            if (entryDelimiterIndex < 0) { // No more pairs to add
+                break;
+            }
+            // Next possible pair is placed next to the current entryDelimiter
+            index = entryDelimiterIndex + entryDelimiter.length();
+        }
+
+        final BlockBuilder parts = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), map.size());
+        for (Map.Entry<Slice, Slice> e : map.entrySet()) {
+            VARCHAR.writeSlice(parts, e.getKey());
+            VARCHAR.writeSlice(parts, e.getValue());
+        }
+
+        return parts.build();
     }
 
     @Description("removes whitespace from the beginning of a string")
