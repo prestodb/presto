@@ -52,6 +52,7 @@ import static com.facebook.presto.hive.HiveUtil.annotateColumnComment;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.tpch.TpchTable.ORDERS;
@@ -382,6 +383,57 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testCreatePartitionedBucketedTableAsFewRows()
+            throws Exception
+    {
+        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
+            testCreatePartitionedBucketedTableAsFewRows(storageFormat);
+        }
+    }
+
+    private void testCreatePartitionedBucketedTableAsFewRows(HiveStorageFormat storageFormat)
+            throws Exception
+    {
+        String tableName = "test_create_partitioned_bucketed_table_as_few_rows";
+
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE " + tableName + " " +
+                "WITH (" +
+                "format = '" + storageFormat + "', " +
+                "partitioned_by = ARRAY[ 'partition_key' ], " +
+                "bucketed_by = ARRAY[ 'bucket_key' ], " +
+                "bucket_count = 11 " +
+                ") " +
+                "AS " +
+                "SELECT * " +
+                "FROM (" +
+                "VALUES " +
+                "  (VARCHAR 'a', VARCHAR 'b', VARCHAR 'c'), " +
+                "  ('aa', 'bb', 'cc'), " +
+                "  ('aaa', 'bbb', 'ccc')" +
+                ") t(bucket_key, col, partition_key)";
+
+        assertUpdate(
+                // make sure that we will get one file per bucket regardless of writer count configured
+                getSession().withSystemProperty("task_writer_count", "3"),
+                createTable,
+                3);
+
+        verifyPartitionedBucketedTableAsFewRows(storageFormat, tableName);
+
+        try {
+            assertUpdate("INSERT INTO test_create_partitioned_bucketed_table_as_few_rows VALUES ('a0', 'b0', 'c')", 1);
+            fail("expected failure");
+        }
+        catch (Exception e) {
+            assertEquals(e.getMessage(), "Can not insert into existing partitions of bucketed Hive table");
+        }
+
+        assertUpdate("DROP TABLE test_create_partitioned_bucketed_table_as_few_rows");
+        assertFalse(queryRunner.tableExists(getSession(), tableName));
+    }
+
+    @Test
     public void testCreatePartitionedBucketedTableAs()
             throws Exception
     {
@@ -404,6 +456,7 @@ public class TestHiveIntegrationSmokeTest
                 "FROM tpch.tiny.orders";
 
         assertUpdate(
+                // make sure that we will get one file per bucket regardless of writer count configured
                 getSession().withSystemProperty("task_writer_count", "3"),
                 createTable,
                 "SELECT count(*) from orders");
@@ -445,6 +498,82 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testInsertPartitionedBucketedTableFewRows()
+            throws Exception
+    {
+        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
+            testInsertPartitionedBucketedTableFewRows(storageFormat);
+        }
+    }
+
+    private void testInsertPartitionedBucketedTableFewRows(HiveStorageFormat storageFormat)
+            throws Exception
+    {
+        String tableName = "test_insert_partitioned_bucketed_table_few_rows";
+
+        assertUpdate("" +
+                "CREATE TABLE " + tableName + " (" +
+                "  bucket_key varchar," +
+                "  col varchar," +
+                "  partition_key varchar)" +
+                "WITH (" +
+                "format = '" + storageFormat + "', " +
+                "partitioned_by = ARRAY[ 'partition_key' ], " +
+                "bucketed_by = ARRAY[ 'bucket_key' ], " +
+                "bucket_count = 11)");
+
+        assertUpdate(
+                // make sure that we will get one file per bucket regardless of writer count configured
+                getSession().withSystemProperty("task_writer_count", "3"),
+                "INSERT INTO " + tableName + " " +
+                        "VALUES " +
+                        "  (VARCHAR 'a', VARCHAR 'b', VARCHAR 'c'), " +
+                        "  ('aa', 'bb', 'cc'), " +
+                        "  ('aaa', 'bbb', 'ccc')",
+                3);
+
+        verifyPartitionedBucketedTableAsFewRows(storageFormat, tableName);
+
+        try {
+            assertUpdate("INSERT INTO test_insert_partitioned_bucketed_table_few_rows VALUES ('a0', 'b0', 'c')", 1);
+            fail("expected failure");
+        }
+        catch (Exception e) {
+            assertEquals(e.getMessage(), "Can not insert into existing partitions of bucketed Hive table");
+        }
+
+        assertUpdate("DROP TABLE test_insert_partitioned_bucketed_table_few_rows");
+        assertFalse(queryRunner.tableExists(getSession(), tableName));
+    }
+
+    private void verifyPartitionedBucketedTableAsFewRows(HiveStorageFormat storageFormat, String tableName)
+    {
+        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
+        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+
+        List<String> partitionedBy = ImmutableList.of("partition_key");
+        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), partitionedBy);
+        for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
+            boolean partitionKey = partitionedBy.contains(columnMetadata.getName());
+            assertEquals(columnMetadata.getComment(), annotateColumnComment(null, partitionKey));
+        }
+
+        assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY), ImmutableList.of("bucket_key"));
+        assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY), 11);
+
+        List<?> partitions = getPartitions(tableName);
+        assertEquals(partitions.size(), 3);
+
+        MaterializedResult actual = computeActual("SELECT * from " + tableName);
+        MaterializedResult expected = resultBuilder(getSession(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType())
+                .row("a", "b", "c")
+                .row("aa", "bb", "cc")
+                .row("aaa", "bbb", "ccc")
+                .build();
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
     public void testInsertPartitionedBucketedTable()
             throws Exception
     {
@@ -469,6 +598,7 @@ public class TestHiveIntegrationSmokeTest
         for (int i = 0; i < orderStatusList.size(); i++) {
             String orderStatus = orderStatusList.get(i);
             assertUpdate(
+                    // make sure that we will get one file per bucket regardless of writer count configured
                     getSession().withSystemProperty("task_writer_count", "3"),
                     format(
                             "INSERT INTO test_insert_partitioned_bucketed_table " +

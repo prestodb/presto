@@ -106,7 +106,7 @@ public class PartitionUpdate
                 .toString();
     }
 
-    public static List<PartitionUpdate> mergePartitionUpdates(List<PartitionUpdate> unMergedUpdates)
+    public static List<PartitionUpdate> mergePartitionUpdates(Iterable<PartitionUpdate> unMergedUpdates)
     {
         ImmutableList.Builder<PartitionUpdate> partitionUpdates = ImmutableList.builder();
         for (Collection<PartitionUpdate> partitionGroup : Multimaps.index(unMergedUpdates, PartitionUpdate::getName).asMap().values()) {
