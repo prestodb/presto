@@ -90,6 +90,7 @@ import static com.facebook.presto.hive.HiveWriteUtils.getRowColumnInspectors;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -303,11 +304,31 @@ public class HivePageSink
         }
         else {
             for (Int2ObjectMap<HiveRecordWriter> writers : bucketWriters) {
+                PartitionUpdate firstPartitionUpdate = null;
+                ImmutableList.Builder<String> fileNamesBuilder = ImmutableList.builder();
                 for (HiveRecordWriter writer : writers.values()) {
                     writer.commit();
                     PartitionUpdate partitionUpdate = writer.getPartitionUpdate();
-                    partitionUpdates.add(wrappedBuffer(partitionUpdateCodec.toJsonBytes(partitionUpdate)));
+                    if (firstPartitionUpdate == null) {
+                        firstPartitionUpdate = partitionUpdate;
+                    }
+                    else {
+                        verify(firstPartitionUpdate.getName().equals(partitionUpdate.getName()));
+                        verify(firstPartitionUpdate.isNew() == partitionUpdate.isNew());
+                        verify(firstPartitionUpdate.getTargetPath().equals(partitionUpdate.getTargetPath()));
+                        verify(firstPartitionUpdate.getWritePath().equals(partitionUpdate.getWritePath()));
+                    }
+                    fileNamesBuilder.addAll(partitionUpdate.getFileNames());
                 }
+                if (firstPartitionUpdate == null) {
+                    continue;
+                }
+                partitionUpdates.add(wrappedBuffer(partitionUpdateCodec.toJsonBytes(new PartitionUpdate(
+                        firstPartitionUpdate.getName(),
+                        firstPartitionUpdate.isNew(),
+                        firstPartitionUpdate.getWritePath(),
+                        firstPartitionUpdate.getTargetPath(),
+                        fileNamesBuilder.build()))));
             }
         }
         return partitionUpdates.build();
