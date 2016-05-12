@@ -20,6 +20,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.util.Reflection;
+import com.google.common.primitives.Primitives;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -29,6 +30,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.metadata.SignatureBinder.bindVariables;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
@@ -123,12 +125,12 @@ class PolymorphicScalarFunction
 
         Class<?>[] methodParameterJavaTypes = method.getParameterTypes();
         for (int i = 0; i < resolvedTypes.size(); ++i) {
-            if (!methodParameterJavaTypes[i].equals(resolvedTypes.get(i).getJavaType())) {
+            if (!methodParameterJavaTypes[i].equals(getNullAwareContainerType(resolvedTypes.get(i).getJavaType(), nullableArguments.get(i)))) {
                 return false;
             }
         }
 
-        return method.getReturnType().equals(returnType.getJavaType());
+        return method.getReturnType().equals(getNullAwareContainerType(returnType.getJavaType(), nullableResult));
     }
 
     private boolean onlyFirstMatchedMethodHasPredicate(MethodsGroup matchingMethodsGroup, MethodsGroup methodsGroup)
@@ -157,5 +159,14 @@ class PolymorphicScalarFunction
         MethodHandle matchingMethodHandle = Reflection.methodHandle(matchingMethod);
         matchingMethodHandle = MethodHandles.insertArguments(matchingMethodHandle, signature.getArgumentTypes().size(), extraParameters.toArray());
         return matchingMethodHandle;
+    }
+
+    private static Class<?> getNullAwareContainerType(Class<?> clazz, boolean nullable)
+    {
+        if (nullable) {
+            return Primitives.wrap(clazz);
+        }
+        checkArgument(clazz != void.class);
+        return clazz;
     }
 }
