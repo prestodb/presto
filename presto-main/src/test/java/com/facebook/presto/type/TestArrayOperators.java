@@ -45,6 +45,7 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.type.JsonType.JSON;
@@ -204,7 +205,7 @@ public class TestArrayOperators
         assertInvalidFunction("ARRAY [ARRAY[1]] || ARRAY[ARRAY[true], ARRAY[false]]", FUNCTION_NOT_FOUND);
 
         // This query is ambiguous. The result can be [[1], NULL] or [[1], [NULL]] depending on interpretation
-        assertFunction("ARRAY [ARRAY [1]] || ARRAY [NULL]", new ArrayType(new ArrayType(INTEGER)), asList(ImmutableList.of(1), null));
+        assertInvalidFunction("ARRAY [ARRAY [1]] || ARRAY [NULL]", AMBIGUOUS_FUNCTION_CALL);
 
         try {
             assertFunction("ARRAY [ARRAY [1]] || ARRAY [ARRAY ['x']]", new ArrayType(new ArrayType(INTEGER)), null);
