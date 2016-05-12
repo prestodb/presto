@@ -23,6 +23,7 @@ import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
@@ -53,7 +54,6 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
@@ -91,7 +91,6 @@ import static com.facebook.presto.metadata.TableLayout.fromConnectorLayout;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -486,33 +485,26 @@ public class MetadataManager
     }
 
     @Override
-    public Optional<NewTableLayout> getInsertLayout(Session session, TableHandle target)
+    public Optional<NewTableLayout> getInsertLayout(Session session, TableHandle table)
     {
-        List<TableLayout> layouts = getLayouts(session, target, new Constraint<>(TupleDomain.all(), map -> true), Optional.empty())
-                .stream()
-                .map(TableLayoutResult::getLayout)
-                .filter(layout -> layout.getNodePartitioning().isPresent())
-                .collect(toImmutableList());
+        ConnectorEntry entry = getConnectorMetadata(table.getConnectorId());
 
-        if (layouts.isEmpty()) {
+        Optional<ConnectorTableLayout> insertLayout = entry.getMetadataForWrite(session).getInsertLayout(session.toConnectorSession(entry.getCatalog()), table.getConnectorHandle());
+        if (!insertLayout.isPresent()) {
             return Optional.empty();
         }
+        ConnectorTableLayout layout = insertLayout.get();
 
-        if (layouts.size() > 1) {
-            throw new PrestoException(NOT_SUPPORTED, "Tables with multiple layouts can not be written");
-        }
+        ConnectorPartitioningHandle partitioningHandle = layout.getNodePartitioning().get().getPartitioningHandle();
 
-        TableLayout layout = Iterables.getOnlyElement(layouts);
-        ConnectorPartitioningHandle partitioningHandle = layout.getNodePartitioning().get().getPartitioningHandle().getConnectorHandle();
-
-        Map<ColumnHandle, String> columnNamesByHandle = ImmutableBiMap.copyOf(getColumnHandles(session, target)).inverse();
+        Map<ColumnHandle, String> columnNamesByHandle = ImmutableBiMap.copyOf(getColumnHandles(session, table)).inverse();
         List<String> partitionColumns = layout.getNodePartitioning().get().getPartitioningColumns().stream()
                 .map(columnNamesByHandle::get)
                 .collect(toImmutableList());
 
         return Optional.of(new NewTableLayout(
-                layout.getConnectorId(),
-                lookupConnectorFor(target).getTransactionHandle(session),
+                entry.getConnectorId(),
+                entry.getTransactionHandle(session),
                 new ConnectorNewTableLayout(partitioningHandle, partitionColumns)));
     }
 
