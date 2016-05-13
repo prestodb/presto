@@ -380,10 +380,11 @@ public class HiveMetadata
         Path targetPath = locationService.targetPathRoot(locationHandle);
         createDirectory(session.getUser(), hdfsEnvironment, targetPath);
 
-        createTable(schemaName, tableName, tableMetadata.getOwner(), columnHandles, hiveStorageFormat, partitionedBy, bucketProperty, additionalTableParameters, targetPath);
+        Table table = buildTableObject(schemaName, tableName, tableMetadata.getOwner(), columnHandles, hiveStorageFormat, partitionedBy, bucketProperty, additionalTableParameters, targetPath);
+        metastore.createTable(table);
     }
 
-    private Table createTable(
+    private Table buildTableObject(
             String schemaName,
             String tableName,
             String tableOwner,
@@ -442,7 +443,6 @@ public class HiveMetadata
                 ImmutableMap.of(),
                 ImmutableMap.of()));
 
-        metastore.createTable(table);
         return table;
     }
 
@@ -591,7 +591,7 @@ public class HiveMetadata
         try {
             partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
 
-            Table table = createTable(
+            Table table = buildTableObject(
                     handle.getSchemaName(),
                     handle.getTableName(),
                     handle.getTableOwner(),
@@ -601,13 +601,14 @@ public class HiveMetadata
                     handle.getBucketProperty(),
                     handle.getAdditionalTableParameters(),
                     targetPath);
+            metastore.createTable(table);
 
             if (!handle.getPartitionedBy().isEmpty()) {
                 if (respectTableFormat) {
                     Verify.verify(handle.getPartitionStorageFormat() == handle.getTableStorageFormat());
                 }
                 partitionUpdates.stream()
-                        .map(partitionUpdate -> createPartition(table, partitionUpdate))
+                        .map(partitionUpdate -> buildPartitionObject(table, partitionUpdate))
                         .forEach(partitionCommitter::addPartition);
             }
             partitionCommitter.flush();
@@ -767,7 +768,7 @@ public class HiveMetadata
                                 new Path(partitionUpdate.getTargetPath()));
                     }
                     // add new partition
-                    Partition partition = createPartition(table.get(), partitionUpdate);
+                    Partition partition = buildPartitionObject(table.get(), partitionUpdate);
                     if (!partition.getSd().getInputFormat().equals(handle.getPartitionStorageFormat().getInputFormat()) && respectTableFormat) {
                         throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Partition format changed during insert");
                     }
@@ -816,7 +817,7 @@ public class HiveMetadata
         clearRollback();
     }
 
-    private Partition createPartition(Table table, PartitionUpdate partitionUpdate)
+    private Partition buildPartitionObject(Table table, PartitionUpdate partitionUpdate)
     {
         List<String> values = HivePartitionManager.extractPartitionKeyValues(partitionUpdate.getName());
         Partition partition = new Partition();
