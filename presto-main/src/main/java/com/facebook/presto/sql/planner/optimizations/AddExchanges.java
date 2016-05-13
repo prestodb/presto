@@ -1018,7 +1018,7 @@ public class AddExchanges
                 return false;
             }
 
-            Optional<PreferredProperties.Partitioning> parentPartitioningPreferences = parentPreferredProperties.getGlobalProperties()
+            Optional<PreferredProperties.PartitioningProperties> parentPartitioningPreferences = parentPreferredProperties.getGlobalProperties()
                     .flatMap(PreferredProperties.Global::getPartitioningProperties);
 
             // Disable repartitioning if it would disrupt a parent's partitioning preference when streaming is enabled
@@ -1055,7 +1055,7 @@ public class AddExchanges
             PreferredProperties parentPreference = context.getPreferredProperties();
             Optional<PreferredProperties.Global> parentGlobal = parentPreference.getGlobalProperties();
             if (parentGlobal.isPresent() && parentGlobal.get().isDistributed() && parentGlobal.get().getPartitioningProperties().isPresent()) {
-                PreferredProperties.Partitioning partitioningPreference = parentGlobal.get().getPartitioningProperties().get();
+                PreferredProperties.PartitioningProperties partitioningPreference = parentGlobal.get().getPartitioningProperties().get();
 
                 // Use the requested hash partitioning, otherwise arbitrarily establish a hash partitioning column order
                 List<Symbol> hashingColumns = partitioningPreference.getHashingOrder().orElse(ImmutableList.copyOf(partitioningPreference.getPartitioningColumns()));
@@ -1071,7 +1071,7 @@ public class AddExchanges
                     List<Symbol> sourceHashColumns = hashColumnsBuilder.build();
 
                     PreferredProperties childPreferred = PreferredProperties.builder()
-                            .global(PreferredProperties.Global.distributed(PreferredProperties.Partitioning.hashPartitioned(sourceHashColumns)
+                            .global(PreferredProperties.Global.distributed(PreferredProperties.PartitioningProperties.hashPartitioned(sourceHashColumns)
                                     .withNullsReplicated(partitioningPreference.isNullsReplicated())))
                             .build();
                     PlanWithProperties source = node.getSources().get(sourceIndex).accept(this, context.withPreferredProperties(childPreferred));
