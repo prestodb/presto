@@ -53,7 +53,7 @@ public class FinalizerService
         if (executor.isShutdown()) {
             throw new IllegalStateException("Finalizer service has been destroyed");
         }
-        finalizerTask = executor.submit((Runnable) this::processFinalizerQueue);
+        finalizerTask = executor.submit(this::processFinalizerQueue);
     }
 
     @PreDestroy
