@@ -203,20 +203,13 @@ public class PartitionFunctionBinding
             this.constant = null;
         }
 
-        public PartitionFunctionArgumentBinding(NullableValue constant)
-        {
-            this.constant = requireNonNull(constant, "constant is null");
-            this.column = null;
-        }
-
         @JsonCreator
         public PartitionFunctionArgumentBinding(
                 @JsonProperty("column") Symbol column,
                 @JsonProperty("constant") NullableValue constant)
         {
-            this.column = column;
+            this.column = requireNonNull(column, "column is null");
             this.constant = constant;
-            checkArgument((column == null) != (constant == null), "Column or constant be set");
         }
 
         public boolean isConstant()
@@ -226,7 +219,7 @@ public class PartitionFunctionBinding
 
         public boolean isVariable()
         {
-            return column != null;
+            return constant == null;
         }
 
         @JsonProperty
