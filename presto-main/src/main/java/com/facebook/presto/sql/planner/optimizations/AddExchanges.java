@@ -878,15 +878,15 @@ public class AddExchanges
                 left = node.getLeft().accept(this, context.withPreferredProperties(PreferredProperties.any()));
                 right = node.getRight().accept(this, context.withPreferredProperties(PreferredProperties.any()));
 
-                if (left.getProperties().isSingleNode() && !right.getProperties().isSingleNode()) {
-                    // force single-node join
-                    // TODO: if inner join, flip order and do a broadcast join
-                    right = withDerivedProperties(
-                            gatheringExchange(idAllocator.getNextId(), REMOTE, right.getNode()),
-                            right.getProperties());
+                if (left.getProperties().isSingleNode()) {
+                    if (!right.getProperties().isSingleNode() ||
+                            (!isColocatedJoinEnabled(session) && checkForMultipleSources(left.getNode(), right.getNode()))) {
+                        right = withDerivedProperties(
+                                gatheringExchange(idAllocator.getNextId(), REMOTE, right.getNode()),
+                                right.getProperties());
+                    }
                 }
-                else if (!left.getProperties().isSingleNode() &&
-                        (!left.getProperties().isNodePartitionedOn(FIXED_HASH_DISTRIBUTION, leftSymbols) || !right.getProperties().isNodePartitionedOn(FIXED_HASH_DISTRIBUTION, rightSymbols))) {
+                else {
                     right = withDerivedProperties(
                             replicatedExchange(idAllocator.getNextId(), REMOTE, right.getNode()),
                             right.getProperties());
