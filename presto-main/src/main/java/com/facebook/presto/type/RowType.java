@@ -203,9 +203,12 @@ public class RowType
         Block arrayBlock = block.getObject(position, Block.class);
         long result = 1;
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
-            checkElementNotNull(arrayBlock.isNull(i));
-            Type elementType = fields.get(i).getType();
-            result = 31 * result + elementType.hash(arrayBlock, i);
+            long currentHash = 0;
+            if (!arrayBlock.isNull(i)) {
+                Type elementType = fields.get(i).getType();
+                currentHash = elementType.hash(arrayBlock, i);
+            }
+            result = 31 * result + currentHash;
         }
         return result;
     }
