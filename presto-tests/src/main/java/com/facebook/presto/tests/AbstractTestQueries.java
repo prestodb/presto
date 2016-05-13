@@ -929,6 +929,22 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testAny()
+            throws Exception
+    {
+        assertQuery("SELECT * FROM orders WHERE clerk ANY ARRAY ['Clerk#000000001', 'Clerk#000000002']");
+        assertQuery("SELECT * FROM orders WHERE ARRAY ['Clerk#000000001', 'Clerk#000000002'] ANY clerk");
+    }
+
+    @Test
+    public void testSome()
+            throws Exception
+    {
+        assertQuery("SELECT * FROM orders WHERE clerk SOME ARRAY ['Clerk#000000001', 'Clerk#000000002']");
+        assertQuery("SELECT * FROM orders WHERE ARRAY ['Clerk#000000001', 'Clerk#000000002'] SOME clerk");
+    }
+
+    @Test
     public void testOrderByLimit()
             throws Exception
     {

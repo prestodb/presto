@@ -402,6 +402,9 @@ public class ExpressionAnalyzer
             if (node.getType() == ComparisonExpression.Type.IS_DISTINCT_FROM) {
                 operatorType = OperatorType.EQUAL;
             }
+            else if (node.getType() == ComparisonExpression.Type.ANY) {
+                operatorType = OperatorType.ANY;
+            }
             else {
                 operatorType = OperatorType.valueOf(node.getType().name());
             }

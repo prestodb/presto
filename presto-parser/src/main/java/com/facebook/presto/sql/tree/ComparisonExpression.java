@@ -29,7 +29,8 @@ public class ComparisonExpression
         LESS_THAN_OR_EQUAL("<="),
         GREATER_THAN(">"),
         GREATER_THAN_OR_EQUAL(">="),
-        IS_DISTINCT_FROM("IS DISTINCT FROM");
+        IS_DISTINCT_FROM("IS DISTINCT FROM"),
+        ANY("ANY");
 
         private final String value;
 
@@ -60,6 +61,8 @@ public class ComparisonExpression
                     return LESS_THAN_OR_EQUAL;
                 case IS_DISTINCT_FROM:
                     return IS_DISTINCT_FROM;
+                case ANY:
+                    return ANY;
                 default:
                     throw new IllegalArgumentException("Unsupported comparison: " + this);
             }

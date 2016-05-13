@@ -131,6 +131,15 @@ public enum OperatorType
                 }
             },
 
+    ANY("ANY")
+            {
+                @Override
+                void validateSignature(TypeSignature returnType, List<TypeSignature> argumentTypes)
+                {
+                    validateComparisonOperatorSignature(this, returnType, argumentTypes, 2);
+                }
+            },
+
     BETWEEN("BETWEEN")
             {
                 @Override

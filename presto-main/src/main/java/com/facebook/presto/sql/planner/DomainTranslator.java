@@ -27,6 +27,7 @@ import com.facebook.presto.spi.predicate.SortedRangeSet;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.Utils;
 import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.FunctionInvoker;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
@@ -102,6 +103,20 @@ public final class DomainTranslator
     {
         if (domain.getValues().isNone()) {
             return domain.isNullAllowed() ? new IsNullPredicate(reference) : FALSE_LITERAL;
+        }
+
+        if (domain.getValues().isAny()) {
+            List<Expression> disjuncts = new ArrayList<>();
+            for (Object s : domain.getValues().getDiscreteValues().getValues()) {
+                Expression e = new ComparisonExpression(ComparisonExpression.Type.ANY, toExpression(s, domain.getType()), reference);
+                if (!domain.getValues().getDiscreteValues().isWhiteList()) {
+                    disjuncts.add(new NotExpression(e));
+                }
+                else {
+                    disjuncts.add(e);
+                }
+            }
+            return combineDisjunctsWithDefault(disjuncts, TRUE_LITERAL);
         }
 
         if (domain.getValues().isAll()) {
@@ -401,6 +416,24 @@ public final class DomainTranslator
 
             Optional<NullableValue> coercedValue = coerce(value, fieldType);
             if (coercedValue.isPresent()) {
+                // This block of code was written against version 0.131
+                // This whole method has had a lot of changes since then and therefore it may no longer be viable
+                if (node.getType().equals(ComparisonExpression.Type.ANY)) {
+                    if (fieldType.getTypeSignature().getBase().equals(StandardTypes.ARRAY)) {
+                        Type elementType = fieldType.getTypeParameters().get(0);
+                        checkState(value.isNull() || value.getType().equals(elementType), "INVARIANT: ANY comparison array element type must be the same as value");
+                        return createComparisonExtractionResult(normalized.getComparisonType(), symbol, elementType, value.getValue(), complement);
+                    }
+                    else if (value.getType().getTypeSignature().getBase().equals(StandardTypes.ARRAY)) {
+                        Type elementType = value.getType().getTypeParameters().get(0);
+                        checkState(value.isNull() || fieldType.equals(elementType), "INVARIANT: ANY comparison array element type must be the same as value");
+                        return createComparisonExtractionResult(normalized.getComparisonType(), symbol, value.getType(), value.getValue(), complement);
+                    }
+                    else {
+                        throw new IllegalStateException("INVARIANT: ANY comparison array element type must be the same as value");
+                    }
+                }
+
                 return createComparisonExtractionResult(normalized.getComparisonType(), symbol, fieldType, coercedValue.get().getValue(), complement);
             }
 
@@ -470,6 +503,8 @@ public final class DomainTranslator
         {
             checkArgument(value != null);
             switch (comparisonType) {
+                case ANY:
+                    return Domain.create(complementIfNecessary(ValueSet.any(type, value), complement), false);
                 case EQUAL:
                     return Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.equal(type, value)), complement), false);
                 case GREATER_THAN:
@@ -494,6 +529,8 @@ public final class DomainTranslator
         {
             checkArgument(value != null);
             switch (comparisonType) {
+                case ANY:
+                    return Domain.create(complementIfNecessary(ValueSet.any(type, value), complement), false);
                 case EQUAL:
                     return Domain.create(complementIfNecessary(ValueSet.of(type, value), complement), false);
                 case NOT_EQUAL:
