@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.sql.planner.Partitioning.PartitionFunctionArgumentBinding;
+import com.facebook.presto.sql.planner.Partitioning;
+import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -84,7 +85,7 @@ public class ExchangeNode
             checkArgument(sources.get(i).getOutputSymbols().containsAll(inputs.get(i)), "Source does not supply all required input symbols");
         }
 
-        checkArgument(scope != LOCAL || partitioningScheme.getPartitionFunctionArguments().stream().allMatch(PartitionFunctionArgumentBinding::isVariable),
+        checkArgument(scope != LOCAL || partitioningScheme.getPartitioning().getArguments().stream().allMatch(ArgumentBinding::isVariable),
                 "local exchanges do not support constant partition function arguments");
 
         checkArgument(scope != REMOTE || type == Type.REPARTITION || !partitioningScheme.isReplicateNulls(), "Only REPARTITION can remotely replicate nulls");
@@ -108,11 +109,8 @@ public class ExchangeNode
                 scope,
                 child,
                 new PartitioningScheme(
-                        FIXED_HASH_DISTRIBUTION,
+                        Partitioning.create(FIXED_HASH_DISTRIBUTION, partitioningColumns),
                         child.getOutputSymbols(),
-                        partitioningColumns.stream()
-                                .map(PartitionFunctionArgumentBinding::new)
-                                .collect(toImmutableList()),
                         hashColumns,
                         nullsReplicated,
                         Optional.empty()));
@@ -135,7 +133,7 @@ public class ExchangeNode
                 id,
                 ExchangeNode.Type.REPLICATE,
                 scope,
-                new PartitioningScheme(FIXED_BROADCAST_DISTRIBUTION, child.getOutputSymbols(), ImmutableList.of()),
+                new PartitioningScheme(Partitioning.create(FIXED_BROADCAST_DISTRIBUTION, ImmutableList.of()), child.getOutputSymbols()),
                 ImmutableList.of(child),
                 ImmutableList.of(child.getOutputSymbols()));
     }
@@ -146,7 +144,7 @@ public class ExchangeNode
                 id,
                 ExchangeNode.Type.GATHER,
                 scope,
-                new PartitioningScheme(SINGLE_DISTRIBUTION, child.getOutputSymbols(), ImmutableList.of()),
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), child.getOutputSymbols()),
                 ImmutableList.of(child),
                 ImmutableList.of(child.getOutputSymbols()));
     }
@@ -157,7 +155,7 @@ public class ExchangeNode
                 id,
                 ExchangeNode.Type.GATHER,
                 scope,
-                new PartitioningScheme(SINGLE_DISTRIBUTION, outputLayout, ImmutableList.of()),
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), outputLayout),
                 children,
                 children.stream()
                         .map(PlanNode::getOutputSymbols)

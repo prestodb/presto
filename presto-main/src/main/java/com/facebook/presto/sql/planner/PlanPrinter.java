@@ -281,7 +281,7 @@ public class PlanPrinter
                         Joiner.on(", ").join(partitioningScheme.getOutputLayout())));
 
         boolean replicateNulls = partitioningScheme.isReplicateNulls();
-        List<String> arguments = partitioningScheme.getPartitionFunctionArguments().stream()
+        List<String> arguments = partitioningScheme.getPartitioning().getArguments().stream()
                 .map(argument -> {
                         if (argument.isConstant()) {
                             NullableValue constant = argument.getConstant();
@@ -294,12 +294,12 @@ public class PlanPrinter
         builder.append(indentString(1));
         if (replicateNulls) {
             builder.append(format("Output partitioning: %s (replicate nulls) [%s]\n",
-                    partitioningScheme.getPartitioningHandle(),
+                    partitioningScheme.getPartitioning().getHandle(),
                     Joiner.on(", ").join(arguments)));
         }
         else {
             builder.append(format("Output partitioning: %s [%s]\n",
-                    partitioningScheme.getPartitioningHandle(),
+                    partitioningScheme.getPartitioning().getHandle(),
                     Joiner.on(", ").join(arguments)));
         }
 
@@ -323,7 +323,7 @@ public class PlanPrinter
                 types,
                 SINGLE_DISTRIBUTION,
                 ImmutableList.of(plan.getId()),
-                new PartitioningScheme(SINGLE_DISTRIBUTION, plan.getOutputSymbols(), ImmutableList.of()));
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getOutputSymbols()));
         return GraphvizPrinter.printLogical(ImmutableList.of(fragment));
     }
 
@@ -809,9 +809,9 @@ public class PlanPrinter
         {
             if (node.getScope() == Scope.LOCAL) {
                 print(indent, "- LocalExchange[%s%s] (%s) => %s",
-                        node.getPartitioningScheme().getPartitioningHandle(),
+                        node.getPartitioningScheme().getPartitioning().getHandle(),
                         node.getPartitioningScheme().isReplicateNulls() ? " - REPLICATE NULLS" : "",
-                        Joiner.on(", ").join(node.getPartitioningScheme().getPartitionFunctionArguments()),
+                        Joiner.on(", ").join(node.getPartitioningScheme().getPartitioning().getArguments()),
                         formatOutputs(node.getOutputSymbols()));
             }
             else {

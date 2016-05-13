@@ -18,7 +18,6 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
-import com.facebook.presto.sql.planner.Partitioning.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -272,9 +271,8 @@ public class UnaliasSymbolReferences
             }
 
             PartitioningScheme partitioningScheme = new PartitioningScheme(
-                    node.getPartitioningScheme().getPartitioningHandle(),
+                    node.getPartitioningScheme().getPartitioning().translate(this::canonicalize),
                     outputs.build(),
-                    canonicalizePartitionFunctionArgument(node.getPartitioningScheme().getPartitionFunctionArguments()),
                     canonicalize(node.getPartitioningScheme().getHashColumn()),
                     node.getPartitioningScheme().isReplicateNulls(),
                     node.getPartitioningScheme().getBucketToPartition());
@@ -603,13 +601,6 @@ public class UnaliasSymbolReferences
                     .collect(toImmutableSet());
         }
 
-        private List<PartitionFunctionArgumentBinding> canonicalizePartitionFunctionArgument(List<PartitionFunctionArgumentBinding> arguments)
-        {
-            return arguments.stream()
-                    .map(argument -> argument.isConstant() ? argument : new PartitionFunctionArgumentBinding(canonicalize(argument.getColumn())))
-                    .collect(toImmutableList());
-        }
-
         private List<JoinNode.EquiJoinClause> canonicalizeJoinCriteria(List<JoinNode.EquiJoinClause> criteria)
         {
             ImmutableList.Builder<JoinNode.EquiJoinClause> builder = ImmutableList.builder();
@@ -639,15 +630,14 @@ public class UnaliasSymbolReferences
             return builder.build();
         }
 
-        private PartitioningScheme canonicalizePartitionFunctionBinding(PartitioningScheme function)
+        private PartitioningScheme canonicalizePartitionFunctionBinding(PartitioningScheme scheme)
         {
             return new PartitioningScheme(
-                    function.getPartitioningHandle(),
-                    canonicalize(function.getOutputLayout()),
-                    canonicalizePartitionFunctionArgument(function.getPartitionFunctionArguments()),
-                    canonicalize(function.getHashColumn()),
-                    function.isReplicateNulls(),
-                    function.getBucketToPartition());
+                    scheme.getPartitioning().translate(this::canonicalize),
+                    canonicalize(scheme.getOutputLayout()),
+                    canonicalize(scheme.getHashColumn()),
+                    scheme.isReplicateNulls(),
+                    scheme.getBucketToPartition());
         }
     }
 }

@@ -16,6 +16,7 @@ package com.facebook.presto.execution.scheduler;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.Symbol;
@@ -239,6 +240,6 @@ public class TestPhasedExecutionSchedule
                 types.build(),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(planNode.getId()),
-                new PartitioningScheme(SINGLE_DISTRIBUTION, planNode.getOutputSymbols(), ImmutableList.of()));
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputSymbols()));
     }
 }

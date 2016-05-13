@@ -28,7 +28,6 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
-import com.facebook.presto.sql.planner.Partitioning.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.optimizations.ActualProperties.Global;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -429,9 +428,8 @@ class PropertyDerivations
                 case REPARTITION:
                     return ActualProperties.builder()
                             .global(partitionedOn(
-                                    node.getPartitioningScheme().getPartitioningHandle(),
-                                    node.getPartitioningScheme().getPartitionFunctionArguments(),
-                                    Optional.of(node.getPartitioningScheme().getPartitionFunctionArguments()))
+                                    node.getPartitioningScheme().getPartitioning(),
+                                    Optional.of(node.getPartitioningScheme().getPartitioning()))
                                     .withReplicatedNulls(node.getPartitioningScheme().isReplicateNulls()))
                             .constants(constants)
                             .build();
@@ -586,15 +584,14 @@ class PropertyDerivations
 
         private Global deriveGlobalProperties(TableLayout layout, Map<ColumnHandle, Symbol> assignments, Map<ColumnHandle, NullableValue> constants)
         {
-            Optional<List<PartitionFunctionArgumentBinding>> partitioning = layout.getPartitioningColumns()
+            Optional<List<Symbol>> partitioning = layout.getPartitioningColumns()
                     .flatMap(columns -> translateToNonConstantSymbols(columns, assignments, constants));
 
             if (planWithTableNodePartitioning(session) && layout.getNodePartitioning().isPresent()) {
                 NodePartitioning nodePartitioning = layout.getNodePartitioning().get();
                 if (assignments.keySet().containsAll(nodePartitioning.getPartitioningColumns())) {
-                    List<PartitionFunctionArgumentBinding> arguments = nodePartitioning.getPartitioningColumns().stream()
+                    List<Symbol> arguments = nodePartitioning.getPartitioningColumns().stream()
                             .map(assignments::get)
-                            .map(PartitionFunctionArgumentBinding::new)
                             .collect(toImmutableList());
 
                     return partitionedOn(nodePartitioning.getPartitioningHandle(), arguments, partitioning);
@@ -607,7 +604,7 @@ class PropertyDerivations
             return arbitraryPartition();
         }
 
-        private static Optional<List<PartitionFunctionArgumentBinding>> translateToNonConstantSymbols(
+        private static Optional<List<Symbol>> translateToNonConstantSymbols(
                 Set<ColumnHandle> columnHandles,
                 Map<ColumnHandle, Symbol> assignments,
                 Map<ColumnHandle, NullableValue> globalConstants)
@@ -617,13 +614,13 @@ class PropertyDerivations
                     .filter(column -> !globalConstants.containsKey(column))
                     .collect(toImmutableSet());
 
-            ImmutableSet.Builder<PartitionFunctionArgumentBinding> builder = ImmutableSet.builder();
+            ImmutableSet.Builder<Symbol> builder = ImmutableSet.builder();
             for (ColumnHandle column : constantsStrippedColumns) {
                 Symbol translated = assignments.get(column);
                 if (translated == null) {
                     return Optional.empty();
                 }
-                builder.add(new PartitionFunctionArgumentBinding(translated));
+                builder.add(translated);
             }
 
             return Optional.of(ImmutableList.copyOf(builder.build()));
