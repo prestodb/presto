@@ -84,8 +84,8 @@ public final class Partitioning
 
     public boolean isPartitionedWith(Partitioning right,
             Function<Symbol, Set<Symbol>> leftToRightMappings,
-            Function<Symbol, NullableValue> leftConstantMapping,
-            Function<Symbol, NullableValue> rightConstantMapping)
+            Function<Symbol, Optional<NullableValue>> leftConstantMapping,
+            Function<Symbol, Optional<NullableValue>> rightConstantMapping)
     {
         if (!handle.equals(right.handle)) {
             return false;
@@ -108,9 +108,9 @@ public final class Partitioning
 
     private static boolean isPartitionedWith(
             ArgumentBinding leftArgument,
-            Function<Symbol, NullableValue> leftConstantMapping,
+            Function<Symbol, Optional<NullableValue>> leftConstantMapping,
             ArgumentBinding rightArgument,
-            Function<Symbol, NullableValue> rightConstantMapping,
+            Function<Symbol, Optional<NullableValue>> rightConstantMapping,
             Function<Symbol, Set<Symbol>> leftToRightMappings)
     {
         if (leftArgument.isVariable()) {
@@ -124,8 +124,8 @@ public final class Partitioning
                 // Normally, this would be a false condition, but if we happen to have an external
                 // mapping from the symbol to a constant value and that constant value matches the
                 // right value, then we are co-partitioned.
-                NullableValue leftConstant = leftConstantMapping.apply(leftArgument.getColumn());
-                return leftConstant != null && leftConstant.equals(rightArgument.getConstant());
+                Optional<NullableValue> leftConstant = leftConstantMapping.apply(leftArgument.getColumn());
+                return leftConstant.isPresent() && leftConstant.get().equals(rightArgument.getConstant());
             }
         }
         else {
@@ -135,8 +135,8 @@ public final class Partitioning
             }
             else {
                 // constant == variable
-                NullableValue rightConstant = rightConstantMapping.apply(rightArgument.getColumn());
-                return leftArgument.getConstant().equals(rightConstant);
+                Optional<NullableValue> rightConstant = rightConstantMapping.apply(rightArgument.getColumn());
+                return rightConstant.isPresent() && rightConstant.get().equals(leftArgument.getConstant());
             }
         }
     }

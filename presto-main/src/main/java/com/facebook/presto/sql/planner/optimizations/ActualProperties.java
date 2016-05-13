@@ -125,8 +125,8 @@ class ActualProperties
         return global.isNodePartitionedWith(
                 other.global,
                 symbolMappings,
-                constants::get,
-                other.constants::get);
+                symbol -> Optional.ofNullable(constants.get(symbol)),
+                symbol -> Optional.ofNullable(other.constants.get(symbol)));
     }
 
     /**
@@ -385,8 +385,8 @@ class ActualProperties
         private boolean isNodePartitionedWith(
                 Global other,
                 Function<Symbol, Set<Symbol>> symbolMappings,
-                Function<Symbol, NullableValue> leftConstantMapping,
-                Function<Symbol, NullableValue> rightConstantMapping)
+                Function<Symbol, Optional<NullableValue>> leftConstantMapping,
+                Function<Symbol, Optional<NullableValue>> rightConstantMapping)
         {
             return nodePartitioning.isPresent() &&
                     other.nodePartitioning.isPresent() &&
