@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.ExpressionSymbolInliner;
-import com.facebook.presto.sql.planner.Partitioning.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -126,9 +125,7 @@ public class ProjectionPushDown
                 ImmutableList.Builder<Symbol> inputs = ImmutableList.builder();
 
                 // Need to retain the partition keys for the exchange
-                exchange.getPartitioningScheme().getPartitionFunctionArguments().stream()
-                        .filter(PartitionFunctionArgumentBinding::isVariable)
-                        .map(PartitionFunctionArgumentBinding::getColumn)
+                exchange.getPartitioningScheme().getPartitioning().getColumns().stream()
                         .map(outputToInputMap::get)
                         .forEach(nameReference -> {
                             Symbol symbol = Symbol.fromQualifiedName(nameReference.getName());
@@ -154,9 +151,7 @@ public class ProjectionPushDown
 
             // Construct the output symbols in the same order as the sources
             ImmutableList.Builder<Symbol> outputBuilder = ImmutableList.builder();
-            exchange.getPartitioningScheme().getPartitionFunctionArguments().stream()
-                    .filter(PartitionFunctionArgumentBinding::isVariable)
-                    .map(PartitionFunctionArgumentBinding::getColumn)
+            exchange.getPartitioningScheme().getPartitioning().getColumns().stream()
                     .forEach(outputBuilder::add);
             if (exchange.getPartitioningScheme().getHashColumn().isPresent()) {
                 outputBuilder.add(exchange.getPartitioningScheme().getHashColumn().get());
@@ -167,9 +162,8 @@ public class ProjectionPushDown
 
             // outputBuilder contains all partition and hash symbols so simply swap the output layout
             PartitioningScheme partitioningScheme = new PartitioningScheme(
-                    exchange.getPartitioningScheme().getPartitioningHandle(),
+                    exchange.getPartitioningScheme().getPartitioning(),
                     outputBuilder.build(),
-                    exchange.getPartitioningScheme().getPartitionFunctionArguments(),
                     exchange.getPartitioningScheme().getHashColumn(),
                     exchange.getPartitioningScheme().isReplicateNulls(),
                     exchange.getPartitioningScheme().getBucketToPartition());

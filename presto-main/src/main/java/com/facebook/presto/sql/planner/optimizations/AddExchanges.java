@@ -32,7 +32,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LookupSymbolResolver;
-import com.facebook.presto.sql.planner.Partitioning.PartitionFunctionArgumentBinding;
+import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -123,7 +123,6 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.replicatedExchan
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -607,7 +606,7 @@ public class AddExchanges
 
             Optional<PartitioningScheme> partitioningScheme = node.getPartitioningScheme();
             if (!partitioningScheme.isPresent() && redistributeWrites) {
-                partitioningScheme = Optional.of(new PartitioningScheme(FIXED_RANDOM_DISTRIBUTION, source.getNode().getOutputSymbols(), ImmutableList.of()));
+                partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(FIXED_RANDOM_DISTRIBUTION, ImmutableList.of()), source.getNode().getOutputSymbols()));
             }
 
             if (partitioningScheme.isPresent()) {
@@ -809,24 +808,18 @@ public class AddExchanges
                             rightToLeft.put(rightSymbols.get(i), leftSymbols.get(i));
                         }
 
-                        Function<Symbol, Optional<Symbol>> rightToLeftTranslator = rightSymbol -> rightToLeft.get(rightSymbol).stream().findAny();
-                        Optional<List<PartitionFunctionArgumentBinding>> leftPartitionColumns = right.getProperties().translate(rightToLeftTranslator).getNodePartitioningColumns();
-
-                        verify(leftPartitionColumns.isPresent(), "Could not translate JOIN build partitioning to probe symbols");
+                        Function<Symbol, Symbol> rightToLeftTranslator = rightSymbol -> rightToLeft.get(rightSymbol).iterator().next();
+                        Partitioning leftPartitioning = right.getProperties().getNodePartitioning().get().translate(rightToLeftTranslator);
 
                         partitioningScheme = new PartitioningScheme(
-                                right.getProperties().getNodePartitioningHandle().get(),
+                                leftPartitioning,
                                 node.getLeft().getOutputSymbols(),
-                                leftPartitionColumns.get(),
                                 Optional.empty());
                     }
                     else {
                         partitioningScheme = new PartitioningScheme(
-                                FIXED_HASH_DISTRIBUTION,
+                                Partitioning.create(FIXED_HASH_DISTRIBUTION, leftSymbols),
                                 left.getNode().getOutputSymbols(),
-                                leftSymbols.stream()
-                                        .map(PartitionFunctionArgumentBinding::new)
-                                        .collect(toImmutableList()),
                                 node.getLeftHashSymbol());
                     }
 
@@ -854,15 +847,12 @@ public class AddExchanges
                     boolean customConnectorPartitioning = !isColocatedJoinEnabled(session) && hasMultipleSources(left.getNode(), right.getNode());
 
                     if (customConnectorPartitioning || !left.getProperties().isNodePartitionedWith(right.getProperties(), leftToRight::get)) {
-                        Function<Symbol, Optional<Symbol>> leftToRightTranslator = leftSymbol -> leftToRight.get(leftSymbol).stream().findAny();
-                        Optional<List<PartitionFunctionArgumentBinding>> rightPartitionColumns = left.getProperties().translate(leftToRightTranslator).getNodePartitioningColumns();
-
-                        verify(rightPartitionColumns.isPresent(), "Could not translate JOIN probe partitioning to build symbols");
+                        Function<Symbol, Symbol> leftToRightTranslator = leftSymbol -> leftToRight.get(leftSymbol).iterator().next();
+                        Partitioning rightPartitioning = left.getProperties().getNodePartitioning().get().translate(leftToRightTranslator);
 
                         PartitioningScheme partitioningScheme = new PartitioningScheme(
-                                left.getProperties().getNodePartitioningHandle().get(),
+                                rightPartitioning,
                                 node.getRight().getOutputSymbols(),
-                                rightPartitionColumns.get(),
                                 Optional.empty());
 
                         right = withDerivedProperties(
@@ -945,15 +935,11 @@ public class AddExchanges
                     // The following statements would normally be written as: if (condition) { filteringSource = ...; }
                     // However, the if-condition will always evaluate to true in this case because no externally-visible node produces partition with null replicate.
                     // As a result, it is written as checkState instead.
-                    Function<Symbol, Optional<Symbol>> leftToRightTranslator = sourceSymbol -> sourceToFilteringSource.get(sourceSymbol).stream().findAny();
-                    Optional<List<PartitionFunctionArgumentBinding>> filteringSourcePartitionColumns = source.getProperties()
-                            .translate(leftToRightTranslator)
-                            .getNodePartitioningColumns();
+                    Function<Symbol, Symbol> leftToRightTranslator = sourceSymbol -> sourceToFilteringSource.get(sourceSymbol).iterator().next();
+                    Partitioning filteringPartitioning = source.getProperties().getNodePartitioning().get()
+                            .translate(leftToRightTranslator);
 
-                    verify(filteringSourcePartitionColumns.isPresent(), "Could not translate SEMI JOIN source partitioning to filtering source symbols");
-                    verify(filteringSourcePartitionColumns.get().size() == 1, "size of partitionFunctionArguments is not 1 when nullPartition is REPLICATE.");
-                    PartitionFunctionArgumentBinding functionArgumentBinding = filteringSourcePartitionColumns.get().get(0);
-                    verify(functionArgumentBinding.isVariable(), "Expected exactly one variable binding for semi-join partitioning");
+                    verify(filteringPartitioning.getColumns().size() == 1, "size of partitionFunctionArguments is not 1 when nullPartition is REPLICATE.");
 
                     filteringSource = withDerivedProperties(
                             partitionedExchange(
@@ -961,9 +947,8 @@ public class AddExchanges
                                     REMOTE,
                                     filteringSource.getNode(),
                                     new PartitioningScheme(
-                                            source.getProperties().getNodePartitioningHandle().get(),
+                                            filteringPartitioning,
                                             node.getFilteringSource().getOutputSymbols(),
-                                            filteringSourcePartitionColumns.get(),
                                             Optional.empty(),
                                             true,
                                             Optional.empty())),
@@ -1090,7 +1075,7 @@ public class AddExchanges
                                     .withNullsReplicated(partitioningPreference.isNullsReplicated())))
                             .build();
                     PlanWithProperties source = node.getSources().get(sourceIndex).accept(this, context.withPreferredProperties(childPreferred));
-                    if (!source.getProperties().isNodePartitionedOn(FIXED_HASH_DISTRIBUTION, sourceHashColumns, partitioningPreference.isNullsReplicated())) {
+                    if (!source.getProperties().isNodePartitionedOn(Partitioning.create(FIXED_HASH_DISTRIBUTION, sourceHashColumns), partitioningPreference.isNullsReplicated())) {
                         source = withDerivedProperties(
                                 partitionedExchange(
                                         idAllocator.getNextId(),
@@ -1113,14 +1098,10 @@ public class AddExchanges
                         outputToSourcesMapping.build(),
                         ImmutableList.copyOf(outputToSourcesMapping.build().keySet()));
 
-                List<PartitionFunctionArgumentBinding> hashArguments = hashingColumns.stream()
-                        .map(PartitionFunctionArgumentBinding::new)
-                        .collect(toImmutableList());
-
                 return new PlanWithProperties(
                         newNode,
                         ActualProperties.builder()
-                                .global(partitionedOn(FIXED_HASH_DISTRIBUTION, hashArguments, Optional.of(hashArguments)))
+                                .global(partitionedOn(FIXED_HASH_DISTRIBUTION, hashingColumns, Optional.of(hashingColumns)))
                                 .build()
                                 .withReplicatedNulls(partitioningPreference.isNullsReplicated()));
             }
@@ -1155,7 +1136,7 @@ public class AddExchanges
                         idAllocator.getNextId(),
                         GATHER,
                         REMOTE,
-                        new PartitioningScheme(SINGLE_DISTRIBUTION, node.getOutputSymbols(), ImmutableList.of()),
+                        new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
                         partitionedChildren,
                         partitionedOutputLayouts);
 

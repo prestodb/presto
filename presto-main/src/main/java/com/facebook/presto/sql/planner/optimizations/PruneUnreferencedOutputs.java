@@ -18,7 +18,6 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DependencyExtractor;
-import com.facebook.presto.sql.planner.Partitioning.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -124,9 +123,7 @@ public class PruneUnreferencedOutputs
         {
             Set<Symbol> expectedOutputSymbols = Sets.newHashSet(context.get());
             node.getPartitioningScheme().getHashColumn().ifPresent(expectedOutputSymbols::add);
-            node.getPartitioningScheme().getPartitionFunctionArguments().stream()
-                    .filter(PartitionFunctionArgumentBinding::isVariable)
-                    .map(PartitionFunctionArgumentBinding::getColumn)
+            node.getPartitioningScheme().getPartitioning().getColumns().stream()
                     .forEach(expectedOutputSymbols::add);
 
             List<List<Symbol>> inputsBySource = new ArrayList<>(node.getInputs().size());
@@ -147,9 +144,8 @@ public class PruneUnreferencedOutputs
 
             // newOutputSymbols contains all partition and hash symbols so simply swap the output layout
             PartitioningScheme partitioningScheme = new PartitioningScheme(
-                    node.getPartitioningScheme().getPartitioningHandle(),
+                    node.getPartitioningScheme().getPartitioning(),
                     newOutputSymbols,
-                    node.getPartitioningScheme().getPartitionFunctionArguments(),
                     node.getPartitioningScheme().getHashColumn(),
                     node.getPartitioningScheme().isReplicateNulls(),
                     node.getPartitioningScheme().getBucketToPartition());
@@ -582,9 +578,7 @@ public class PruneUnreferencedOutputs
             }
             if (node.getPartitioningScheme().isPresent()) {
                 PartitioningScheme partitioningScheme = node.getPartitioningScheme().get();
-                partitioningScheme.getPartitionFunctionArguments().stream()
-                        .filter(PartitionFunctionArgumentBinding::isVariable)
-                        .map(PartitionFunctionArgumentBinding::getColumn)
+                partitioningScheme.getPartitioning().getColumns().stream()
                         .forEach(expectedInputs::add);
                 partitioningScheme.getHashColumn().ifPresent(expectedInputs::add);
             }

@@ -17,7 +17,6 @@ import com.facebook.presto.spi.ConstantProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.sql.planner.Partitioning;
-import com.facebook.presto.sql.planner.Partitioning.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.base.MoreObjects;
@@ -116,14 +115,9 @@ class ActualProperties
         return global.isNodePartitionedOn(columns, constants.keySet(), nullsReplicated);
     }
 
-    public boolean isNodePartitionedOn(PartitioningHandle partitioning, List<Symbol> columns)
+    public boolean isNodePartitionedOn(Partitioning partitioning, boolean nullsReplicated)
     {
-        return isNodePartitionedOn(partitioning, columns, false);
-    }
-
-    public boolean isNodePartitionedOn(PartitioningHandle partitioning, List<Symbol> columns, boolean nullsReplicated)
-    {
-        return global.isNodePartitionedOn(partitioning, columns, nullsReplicated);
+        return global.isNodePartitionedOn(partitioning, nullsReplicated);
     }
 
     public boolean isNodePartitionedWith(ActualProperties other, Function<Symbol, Set<Symbol>> symbolMappings)
@@ -167,14 +161,9 @@ class ActualProperties
                 .build();
     }
 
-    public Optional<PartitioningHandle> getNodePartitioningHandle()
+    public Optional<Partitioning> getNodePartitioning()
     {
-        return global.getNodePartitioningHandle();
-    }
-
-    public Optional<List<PartitionFunctionArgumentBinding>> getNodePartitioningColumns()
-    {
-        return global.getNodePartitioningColumns();
+        return global.getNodePartitioning();
     }
 
     public Map<Symbol, NullableValue> getConstants()
@@ -328,19 +317,27 @@ class ActualProperties
             return new Global(Optional.empty(), Optional.empty(), false);
         }
 
-        public static Global partitionedOn(PartitioningHandle nodePartitioningHandle, List<PartitionFunctionArgumentBinding> nodePartitioning, Optional<List<PartitionFunctionArgumentBinding>> streamPartitioning)
+        public static Global partitionedOn(PartitioningHandle nodePartitioningHandle, List<Symbol> nodePartitioning, Optional<List<Symbol>> streamPartitioning)
         {
             return new Global(
-                    Optional.of(new Partitioning(nodePartitioningHandle, nodePartitioning)),
-                    streamPartitioning.map(columns -> new Partitioning(SOURCE_DISTRIBUTION, columns)),
+                    Optional.of(Partitioning.create(nodePartitioningHandle, nodePartitioning)),
+                    streamPartitioning.map(columns -> Partitioning.create(SOURCE_DISTRIBUTION, columns)),
                     false);
         }
 
-        public static Global streamPartitionedOn(List<PartitionFunctionArgumentBinding> streamPartitioning)
+        public static Global partitionedOn(Partitioning nodePartitioning, Optional<Partitioning> streamPartitioning)
+        {
+            return new Global(
+                    Optional.of(nodePartitioning),
+                    streamPartitioning,
+                    false);
+        }
+
+        public static Global streamPartitionedOn(List<Symbol> streamPartitioning)
         {
             return new Global(
                     Optional.empty(),
-                    Optional.of(new Partitioning(SOURCE_DISTRIBUTION, streamPartitioning)),
+                    Optional.of(Partitioning.create(SOURCE_DISTRIBUTION, streamPartitioning)),
                     false);
         }
 
@@ -380,9 +377,9 @@ class ActualProperties
             return nodePartitioning.isPresent() && nodePartitioning.get().isPartitionedOn(columns, constants) && this.nullsReplicated == nullsReplicated;
         }
 
-        private boolean isNodePartitionedOn(PartitioningHandle partitioning, List<Symbol> columns, boolean nullsReplicated)
+        private boolean isNodePartitionedOn(Partitioning partitioning, boolean nullsReplicated)
         {
-            return nodePartitioning.isPresent() && nodePartitioning.get().isPartitionedOn(partitioning, columns) && this.nullsReplicated == nullsReplicated;
+            return nodePartitioning.isPresent() && nodePartitioning.get().equals(partitioning) && this.nullsReplicated == nullsReplicated;
         }
 
         private boolean isNodePartitionedWith(
@@ -401,14 +398,9 @@ class ActualProperties
                     nullsReplicated == other.nullsReplicated;
         }
 
-        private Optional<PartitioningHandle> getNodePartitioningHandle()
+        private Optional<Partitioning> getNodePartitioning()
         {
-            return nodePartitioning.map(Partitioning::getHandle);
-        }
-
-        private Optional<List<PartitionFunctionArgumentBinding>> getNodePartitioningColumns()
-        {
-            return nodePartitioning.map(Partitioning::getArguments);
+            return nodePartitioning;
         }
 
         private boolean isStreamPartitionedOn(Collection<Symbol> columns, Set<Symbol> constants, boolean nullsReplicated)

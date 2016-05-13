@@ -17,7 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.Partitioning.PartitionFunctionArgumentBinding;
+import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -436,11 +436,11 @@ public class HashGenerationOptimizer
             // Currently, precomputed hash values are only supported for system hash distributions without constants
             Optional<HashComputation> partitionSymbols = Optional.empty();
             PartitioningScheme partitioningScheme = node.getPartitioningScheme();
-            if (partitioningScheme.getPartitioningHandle().equals(FIXED_HASH_DISTRIBUTION) &&
-                    partitioningScheme.getPartitionFunctionArguments().stream().allMatch(PartitionFunctionArgumentBinding::isVariable)) {
+            if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_HASH_DISTRIBUTION) &&
+                    partitioningScheme.getPartitioning().getArguments().stream().allMatch(ArgumentBinding::isVariable)) {
                 // add precomputed hash for exchange
-                partitionSymbols = computeHash(partitioningScheme.getPartitionFunctionArguments().stream()
-                        .map(PartitionFunctionArgumentBinding::getColumn)
+                partitionSymbols = computeHash(partitioningScheme.getPartitioning().getArguments().stream()
+                        .map(ArgumentBinding::getColumn)
                         .collect(toImmutableList()));
                 preference = preference.withHashComputation(partitionSymbols);
             }
@@ -454,14 +454,13 @@ public class HashGenerationOptimizer
 
             // rewrite partition function to include new symbols (and precomputed hash
             partitioningScheme = new PartitioningScheme(
-                    partitioningScheme.getPartitioningHandle(),
+                    partitioningScheme.getPartitioning(),
                     ImmutableList.<Symbol>builder()
                             .addAll(partitioningScheme.getOutputLayout())
                             .addAll(hashSymbolOrder.stream()
                                     .map(newHashSymbols::get)
                                     .collect(toImmutableList()))
                             .build(),
-                    partitioningScheme.getPartitionFunctionArguments(),
                     partitionSymbols.map(newHashSymbols::get),
                     partitioningScheme.isReplicateNulls(),
                     partitioningScheme.getBucketToPartition());
