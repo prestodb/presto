@@ -38,7 +38,7 @@ public class TestTaskManagerConfig
                 .setInfoUpdateInterval(new Duration(200, TimeUnit.MILLISECONDS))
                 .setVerboseStats(false)
                 .setTaskCpuTimerEnabled(true)
-                .setMaxWorkerThreads(Runtime.getRuntime().availableProcessors() * 4)
+                .setMaxWorkerThreads(Runtime.getRuntime().availableProcessors() * 2)
                 .setMinDrivers(Runtime.getRuntime().availableProcessors() * 4 * 2)
                 .setInfoMaxAge(new Duration(15, TimeUnit.MINUTES))
                 .setClientTimeout(new Duration(2, TimeUnit.MINUTES))
