@@ -17,12 +17,15 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
@@ -33,21 +36,21 @@ public class GroupIdNode
         extends PlanNode
 {
     private final PlanNode source;
-    private final List<Symbol> inputSymbols;
     private final List<List<Symbol>> groupingSets;
+    private final Map<Symbol, Symbol> identityMappings;
     private final Symbol groupIdSymbol;
 
     @JsonCreator
     public GroupIdNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("inputSymbols") List<Symbol> inputSymbols,
             @JsonProperty("groupingSets") List<List<Symbol>> groupingSets,
+            @JsonProperty("identityMappings") Map<Symbol, Symbol> identityMappings,
             @JsonProperty("groupIdSymbol") Symbol groupIdSymbol)
     {
         super(id);
         this.source = requireNonNull(source);
-        this.inputSymbols = ImmutableList.copyOf(requireNonNull(inputSymbols));
         this.groupingSets = ImmutableList.copyOf(requireNonNull(groupingSets));
+        this.identityMappings = ImmutableMap.copyOf(requireNonNull(identityMappings));
         this.groupIdSymbol = requireNonNull(groupIdSymbol);
     }
 
@@ -55,7 +58,8 @@ public class GroupIdNode
     public List<Symbol> getOutputSymbols()
     {
         return ImmutableList.<Symbol>builder()
-                .addAll(source.getOutputSymbols())
+                .addAll(getDistinctGroupingColumns())
+                .addAll(identityMappings.values())
                 .add(groupIdSymbol)
                 .build();
     }
@@ -72,16 +76,24 @@ public class GroupIdNode
         return source;
     }
 
-    @JsonProperty
-    public List<Symbol> getInputSymbols()
+    public Set<Symbol> getInputSymbols()
     {
-        return inputSymbols;
+        return ImmutableSet.<Symbol>builder()
+                .addAll(identityMappings.keySet())
+                .addAll(getDistinctGroupingColumns())
+                .build();
     }
 
     @JsonProperty
     public List<List<Symbol>> getGroupingSets()
     {
         return groupingSets;
+    }
+
+    @JsonProperty
+    public Map<Symbol, Symbol> getIdentityMappings()
+    {
+        return identityMappings;
     }
 
     public List<Symbol> getDistinctGroupingColumns()

@@ -174,7 +174,7 @@ public class ChildReplacer
     @Override
     public PlanNode visitGroupId(GroupIdNode node, List<PlanNode> newChildren)
     {
-        return new GroupIdNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getInputSymbols(), node.getGroupingSets(), node.getGroupIdSymbol());
+        return new GroupIdNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getGroupingSets(), node.getIdentityMappings(), node.getGroupIdSymbol());
     }
 
     @Override

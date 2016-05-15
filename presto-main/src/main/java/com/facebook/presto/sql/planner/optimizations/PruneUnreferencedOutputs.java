@@ -405,12 +405,21 @@ public class PruneUnreferencedOutputs
         {
             checkState(node.getDistinctGroupingColumns().stream().allMatch(column -> context.get().contains(column)));
 
-            PlanNode source = context.rewrite(node.getSource(), ImmutableSet.copyOf(context.get()));
-            List<Symbol> requiredSymbols = context.get().stream()
-                    .filter(symbol -> !symbol.equals(node.getGroupIdSymbol()))
-                    .collect(toImmutableList());
+            ImmutableMap.Builder<Symbol, Symbol> identityMappingBuilder = ImmutableMap.builder();
+            for (Map.Entry<Symbol, Symbol> entry : node.getIdentityMappings().entrySet()) {
+                if (context.get().contains(entry.getValue())) {
+                    identityMappingBuilder.put(entry);
+                }
+            }
 
-            return new GroupIdNode(node.getId(), source, requiredSymbols, node.getGroupingSets(), node.getGroupIdSymbol());
+            Map<Symbol, Symbol> identityMapping = identityMappingBuilder.build();
+
+            PlanNode source = context.rewrite(node.getSource(), ImmutableSet.<Symbol>builder()
+                    .addAll(identityMapping.keySet())
+                    .addAll(node.getDistinctGroupingColumns())
+                    .build());
+
+            return new GroupIdNode(node.getId(), source, node.getGroupingSets(), identityMapping, node.getGroupIdSymbol());
         }
 
         @Override
