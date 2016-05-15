@@ -21,10 +21,12 @@ import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -44,6 +46,7 @@ public class GroupIdOperator
         private final List<Type> inputTypes;
         private final List<Type> outputTypes;
         private final List<List<Integer>> groupingSetChannels;
+        private final Map<Integer, Integer> passthroughChannelMapping;
 
         private boolean closed;
 
@@ -51,15 +54,16 @@ public class GroupIdOperator
                 int operatorId,
                 PlanNodeId planNodeId,
                 List<? extends Type> inputTypes,
-                List<List<Integer>> groupingSetChannels)
+                List<? extends Type> outputTypes,
+                List<List<Integer>> groupingSetChannels,
+                Map<Integer, Integer> passthroughChannelMapping)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.groupingSetChannels = ImmutableList.copyOf(requireNonNull(groupingSetChannels));
             this.inputTypes = ImmutableList.copyOf(requireNonNull(inputTypes));
-
-            // add the groupId channel to the output types
-            this.outputTypes = ImmutableList.<Type>builder().addAll(inputTypes).add(BIGINT).build();
+            this.outputTypes = ImmutableList.copyOf(requireNonNull(outputTypes));
+            this.groupingSetChannels = ImmutableList.copyOf(requireNonNull(groupingSetChannels));
+            this.passthroughChannelMapping = ImmutableMap.copyOf(requireNonNull(passthroughChannelMapping));
         }
 
         @Override
@@ -78,6 +82,7 @@ public class GroupIdOperator
                     .flatMap(Collection::stream)
                     .collect(toImmutableSet());
 
+            // use a an array of bitset for fast lookup of which columns are part of a given grouping set
             // will have a 'true' for every channel that should be set to null for each grouping set
             BitSet[] groupingSetNullChannels = new BitSet[groupingSetChannels.size()];
             for (int i = 0; i < groupingSetChannels.size(); i++) {
@@ -92,6 +97,7 @@ public class GroupIdOperator
                 }
             }
 
+            // create null blocks beforehand as a performance optimization
             Block[] nullBlocks = new Block[inputTypes.size()];
             for (int i = 0; i < nullBlocks.length; i++) {
                 nullBlocks[i] = inputTypes.get(i).createBlockBuilder(new BlockBuilderStatus(), 1)
@@ -99,6 +105,7 @@ public class GroupIdOperator
                         .build();
             }
 
+            // create groupid blocks beforehand as a performance optimization
             Block[] groupIdBlocks = new Block[groupingSetNullChannels.length];
             for (int i = 0; i < groupingSetNullChannels.length; i++) {
                 BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 1);
@@ -106,7 +113,16 @@ public class GroupIdOperator
                 groupIdBlocks[i] = builder.build();
             }
 
-            return new GroupIdOperator(operatorContext, outputTypes, groupingSetNullChannels, nullBlocks, groupIdBlocks);
+            // use an array instead of a map to store mappings between input columns and output passthrough columns
+            int[] passthroughChannelArray = new int[inputTypes.size()];
+            for (int i = 0; i < passthroughChannelArray.length; i++) {
+                passthroughChannelArray[i] = -1;
+            }
+            for (Integer inputChannel : passthroughChannelMapping.keySet()) {
+                passthroughChannelArray[inputChannel] = passthroughChannelMapping.get(inputChannel);
+            }
+
+            return new GroupIdOperator(operatorContext, outputTypes, groupingSetNullChannels, nullBlocks, groupIdBlocks, passthroughChannelArray);
         }
 
         @Override
@@ -118,7 +134,7 @@ public class GroupIdOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new GroupIdOperatorFactory(operatorId, planNodeId, inputTypes, groupingSetChannels);
+            return new GroupIdOperatorFactory(operatorId, planNodeId, inputTypes, outputTypes, groupingSetChannels, passthroughChannelMapping);
         }
     }
 
@@ -127,6 +143,7 @@ public class GroupIdOperator
     private final BitSet[] groupingSetNullChannels;
     private final Block[] nullBlocks;
     private final Block[] groupIdBlocks;
+    private final int[] passthroughChannelMap;
 
     private Page currentPage = null;
     private int currentGroupingSet = 0;
@@ -137,15 +154,16 @@ public class GroupIdOperator
             List<Type> types,
             BitSet[] groupingSetNullChannels,
             Block[] nullBlocks,
-            Block[] groupIdBlocks)
+            Block[] groupIdBlocks,
+            int[] passthroughChannelMap)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.types = requireNonNull(types, "inputTypes is null");
+        this.types = requireNonNull(types, "types is null");
         this.groupingSetNullChannels =  requireNonNull(groupingSetNullChannels, "groupingSetNullChannels is null");
         this.nullBlocks = requireNonNull(nullBlocks);
-        checkArgument(nullBlocks.length == (types.size() - 1), "length of nullBlocks must be one plus length of types");
         this.groupIdBlocks = requireNonNull(groupIdBlocks);
         checkArgument(groupIdBlocks.length == groupingSetNullChannels.length, "groupIdBlocks and groupingSetNullChannels must have the same length");
+        this.passthroughChannelMap = requireNonNull(passthroughChannelMap);
     }
 
     @Override
@@ -201,7 +219,7 @@ public class GroupIdOperator
     {
         // generate 'n' pages for every input page, where n is the number of grouping sets
         Block[] inputBlocks = currentPage.getBlocks();
-        Block[] outputBlocks = new Block[currentPage.getChannelCount() + 1];
+        Block[] outputBlocks = new Block[types.size()];
 
         for (int channel = 0; channel < currentPage.getChannelCount(); channel++) {
             if (groupingSetNullChannels[currentGroupingSet].get(channel)) {
@@ -209,6 +227,11 @@ public class GroupIdOperator
             }
             else {
                 outputBlocks[channel] = inputBlocks[channel];
+            }
+
+            // this column needs to be passed through
+            if (passthroughChannelMap[channel] != -1) {
+                outputBlocks[passthroughChannelMap[channel]] = inputBlocks[channel];
             }
         }
 

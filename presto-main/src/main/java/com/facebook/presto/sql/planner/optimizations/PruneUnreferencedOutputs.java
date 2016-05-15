@@ -404,13 +404,11 @@ public class PruneUnreferencedOutputs
         public PlanNode visitGroupId(GroupIdNode node, RewriteContext<Set<Symbol>> context)
         {
             checkState(node.getDistinctGroupingColumns().stream().allMatch(column -> context.get().contains(column)));
+            checkState(node.getPassthroughSymbolMap().keySet().stream().allMatch(column -> context.get().contains(column)));
 
             PlanNode source = context.rewrite(node.getSource(), ImmutableSet.copyOf(context.get()));
-            List<Symbol> requiredSymbols = context.get().stream()
-                    .filter(symbol -> !symbol.equals(node.getGroupIdSymbol()))
-                    .collect(toImmutableList());
 
-            return new GroupIdNode(node.getId(), source, requiredSymbols, node.getGroupingSets(), node.getGroupIdSymbol());
+            return new GroupIdNode(node.getId(), source, node.getInputSymbols(), node.getGroupingSets(), node.getPassthroughSymbolMap(), node.getGroupIdSymbol());
         }
 
         @Override

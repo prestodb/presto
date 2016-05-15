@@ -818,24 +818,43 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitGroupId(GroupIdNode node, LocalExecutionPlanContext context)
         {
             PhysicalOperation source = node.getSource().accept(this, context);
+            ImmutableMap.Builder<Symbol, Integer> newLayout = ImmutableMap.builder();
+            ImmutableList.Builder<Type> outputTypes = ImmutableList.builder();
 
-            // add groupId to the layout
-            int groupIdChannel = source.getLayout().values().stream()
+            // add all pre-existing columns
+            newLayout.putAll(source.getLayout());
+            outputTypes.addAll(source.getTypes());
+
+            int lastChannel = source.getLayout().values().stream()
                     .mapToInt(Integer::intValue)
                     .max()
                     .orElse(-1) + 1;
 
-            Map<Symbol, Integer> newLayout = ImmutableMap.<Symbol, Integer>builder()
-                    .putAll(source.getLayout())
-                    .put(node.getGroupIdSymbol(), groupIdChannel)
-                    .build();
+            ImmutableMap.Builder<Integer, Integer> passthroughChannelMapping = ImmutableMap.builder();
+            for (Symbol inputSymbol : node.getPassthroughSymbolMap().keySet()) {
+                int passthroughOutputChannel = lastChannel++;
+                int passthroughInputChannel = source.getLayout().get(inputSymbol);
+
+                passthroughChannelMapping.put(passthroughInputChannel, passthroughOutputChannel);
+                newLayout.put(node.getPassthroughSymbolMap().get(inputSymbol), passthroughOutputChannel);
+                outputTypes.add(source.getTypes().get(passthroughInputChannel));
+            }
+
+            newLayout.put(node.getGroupIdSymbol(), lastChannel);
+            outputTypes.add(BIGINT);
 
             List<List<Integer>> groupingSetChannels = node.getGroupingSets().stream()
                     .map(groupingSet -> getChannelsForSymbols(groupingSet, source.getLayout()))
                     .collect(toImmutableList());
 
-            OperatorFactory groupIdOperatorFactory = new GroupIdOperator.GroupIdOperatorFactory(context.getNextOperatorId(), node.getId(), source.getTypes(), groupingSetChannels);
-            return new PhysicalOperation(groupIdOperatorFactory, newLayout, source);
+            OperatorFactory groupIdOperatorFactory = new GroupIdOperator.GroupIdOperatorFactory(context.getNextOperatorId(),
+                    node.getId(),
+                    source.getTypes(),
+                    outputTypes.build(),
+                    groupingSetChannels,
+                    passthroughChannelMapping.build());
+
+            return new PhysicalOperation(groupIdOperatorFactory, newLayout.build(), source);
         }
 
         @Override
