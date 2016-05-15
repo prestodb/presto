@@ -162,7 +162,12 @@ public class UnaliasSymbolReferences
                     .map(this::canonicalize)
                     .collect(Collectors.toList());
 
-            return new GroupIdNode(node.getId(), source, canonicalize(node.getInputSymbols()), groupingSetsSymbols, canonicalize(node.getGroupIdSymbol()));
+            ImmutableMap.Builder<Symbol, Symbol> newPassthroughMap = ImmutableMap.builder();
+            for (Symbol inputSymbol : node.getIdentityMappings().keySet()) {
+                newPassthroughMap.put(canonicalize(inputSymbol), canonicalize(node.getIdentityMappings().get(inputSymbol)));
+            }
+
+            return new GroupIdNode(node.getId(), source, groupingSetsSymbols, newPassthroughMap.build(), canonicalize(node.getGroupIdSymbol()));
         }
 
         @Override

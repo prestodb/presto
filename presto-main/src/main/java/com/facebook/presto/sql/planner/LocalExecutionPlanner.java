@@ -818,24 +818,42 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitGroupId(GroupIdNode node, LocalExecutionPlanContext context)
         {
             PhysicalOperation source = node.getSource().accept(this, context);
+            ImmutableMap.Builder<Symbol, Integer> newLayout = ImmutableMap.builder();
+            ImmutableList.Builder<Type> outputTypes = ImmutableList.builder();
 
-            // add groupId to the layout
-            int groupIdChannel = source.getLayout().values().stream()
-                    .mapToInt(Integer::intValue)
-                    .max()
-                    .orElse(-1) + 1;
+            int outputChannel = 0;
 
-            Map<Symbol, Integer> newLayout = ImmutableMap.<Symbol, Integer>builder()
-                    .putAll(source.getLayout())
-                    .put(node.getGroupIdSymbol(), groupIdChannel)
-                    .build();
+            ImmutableList.Builder<Integer> groupingChannels = ImmutableList.builder();
+            for (Symbol inputSymbol : node.getDistinctGroupingColumns()) {
+                int inputChannel = source.getLayout().get(inputSymbol);
+                newLayout.put(inputSymbol, outputChannel++);
+                outputTypes.add(source.getTypes().get(inputChannel));
+                groupingChannels.add(inputChannel);
+            }
+
+            ImmutableList.Builder<Integer> copyChannels = ImmutableList.builder();
+            for (Symbol inputSymbol : node.getIdentityMappings().keySet()) {
+                int inputChannel = source.getLayout().get(inputSymbol);
+                newLayout.put(node.getIdentityMappings().get(inputSymbol), outputChannel++);
+                outputTypes.add(source.getTypes().get(inputChannel));
+                copyChannels.add(inputChannel);
+            }
+
+            newLayout.put(node.getGroupIdSymbol(), outputChannel);
+            outputTypes.add(BIGINT);
 
             List<List<Integer>> groupingSetChannels = node.getGroupingSets().stream()
                     .map(groupingSet -> getChannelsForSymbols(groupingSet, source.getLayout()))
                     .collect(toImmutableList());
 
-            OperatorFactory groupIdOperatorFactory = new GroupIdOperator.GroupIdOperatorFactory(context.getNextOperatorId(), node.getId(), source.getTypes(), groupingSetChannels);
-            return new PhysicalOperation(groupIdOperatorFactory, newLayout, source);
+            OperatorFactory groupIdOperatorFactory = new GroupIdOperator.GroupIdOperatorFactory(context.getNextOperatorId(),
+                    node.getId(),
+                    outputTypes.build(),
+                    groupingSetChannels,
+                    groupingChannels.build(),
+                    copyChannels.build());
+
+            return new PhysicalOperation(groupIdOperatorFactory, newLayout.build(), source);
         }
 
         @Override

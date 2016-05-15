@@ -71,23 +71,28 @@ public class TestGroupIdOperator
                 .build();
 
         GroupIdOperatorFactory operatorFactory =
-                new GroupIdOperatorFactory(0, new PlanNodeId("test"), ImmutableList.of(BIGINT, VARCHAR, BOOLEAN, BIGINT), ImmutableList.of(ImmutableList.of(1, 2), ImmutableList.of(3)));
+                new GroupIdOperatorFactory(0,
+                        new PlanNodeId("test"),
+                        ImmutableList.of(VARCHAR, BOOLEAN, BIGINT, BIGINT, BIGINT),
+                        ImmutableList.of(ImmutableList.of(1, 2), ImmutableList.of(3)),
+                        ImmutableList.of(1, 2, 3),
+                        ImmutableList.of(0));
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, VARCHAR, BOOLEAN, BIGINT, BIGINT)
-                .row(100L, "400", true, null, 0L)
-                .row(101L, "401", false, null, 0L)
-                .row(102L, "402", true, null, 0L)
-                .row(200L, "500", true, null, 0L)
-                .row(201L, "501", false, null, 0L)
-                .row(202L, "502", true, null, 0L)
-                .row(100L, null, null, 1000L, 1L)
-                .row(101L, null, null, 1001L, 1L)
-                .row(102L, null, null, 1002L, 1L)
-                .row(200L, null, null, 1100L, 1L)
-                .row(201L, null, null, 1101L, 1L)
-                .row(202L, null, null, 1102L, 1L)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BOOLEAN, BIGINT, BIGINT, BIGINT)
+                .row("400", true, null, 100L, 0L)
+                .row("401", false, null, 101L, 0L)
+                .row("402", true, null, 102L, 0L)
+                .row("500", true, null, 200L, 0L)
+                .row("501", false, null, 201L, 0L)
+                .row("502", true, null, 202L, 0L)
+                .row(null, null, 1000L, 100L, 1L)
+                .row(null, null, 1001L, 101L, 1L)
+                .row(null, null, 1002L, 102L, 1L)
+                .row(null, null, 1100L, 200L, 1L)
+                .row(null, null, 1101L, 201L, 1L)
+                .row(null, null, 1102L, 202L, 1L)
                 .build();
 
         List<Page> pages = toPages(operator, input.iterator());
