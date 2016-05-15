@@ -66,6 +66,7 @@ import com.google.common.collect.Iterables;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -380,11 +381,49 @@ class QueryPlanner
         }
 
         // 2. Aggregate
+        // 2.a. Rewrite group by expressions in terms of pre-projected inputs
+        TranslationMap translations = new TranslationMap(subPlan.getRelationPlan(), analysis);
+        ImmutableList.Builder<List<Symbol>> groupingSetsSymbolsBuilder = ImmutableList.builder();
+        ImmutableSet.Builder<Symbol> distinctGroupingSymbolsBuilder = ImmutableSet.builder();
+        for (List<FieldOrExpression> groupingSet : groupingSets) {
+            ImmutableList.Builder<Symbol> groupingColumns = ImmutableList.builder();
+            for (FieldOrExpression fieldOrExpression : groupingSet) {
+                Symbol symbol = subPlan.translate(fieldOrExpression);
+                groupingColumns.add(symbol);
+                distinctGroupingSymbolsBuilder.add(symbol);
+                translations.put(fieldOrExpression, symbol);
+            }
+            groupingSetsSymbolsBuilder.add(groupingColumns.build());
+        }
+
+        // 2.b. Add a groupIdNode and groupIdSymbol if there are multiple grouping sets
+        List<List<Symbol>> groupingSetsSymbols = groupingSetsSymbolsBuilder.build();
+        if (groupingSets.size() > 1) {
+            Set<Symbol> groupIdInputs = new HashSet<>();
+            distinctGroupingColumns.stream()
+                    .map(subPlan::translate)
+                    .forEach(groupIdInputs::add);
+
+            ImmutableMap.Builder<Symbol, Symbol> identityMapping = ImmutableMap.builder();
+            for (FieldOrExpression argument : ImmutableSet.copyOf(arguments)) {
+                checkState(argument.isExpression(), "aggregation argument cannot be a field index");
+                Symbol output = symbolAllocator.newSymbol(argument.getExpression(), analysis.getTypeWithCoercions(argument.getExpression()), "id");
+                identityMapping.put(subPlan.translate(argument), output);
+                groupIdInputs.add(subPlan.translate(argument));
+
+                // relies on the fact that group by expressions have already been re-written, and will not be affected by this mapping change
+                subPlan.getTranslations().put(argument, output);
+            }
+
+            Symbol groupIdSymbol = symbolAllocator.newSymbol("groupId", BIGINT);
+            GroupIdNode groupId = new GroupIdNode(idAllocator.getNextId(), subPlan.getRoot(), groupingSetsSymbols, identityMapping.build(), groupIdSymbol);
+            subPlan = new PlanBuilder(subPlan.getTranslations(), groupId, subPlan.getSampleWeight());
+            distinctGroupingSymbolsBuilder.add(groupIdSymbol);
+        }
+
+        // 2.c. Rewrite aggregates in terms of pre-projected inputs
         ImmutableMap.Builder<Symbol, FunctionCall> aggregationAssignments = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, Signature> functions = ImmutableMap.builder();
-
-        // 2.a. Rewrite aggregates in terms of pre-projected inputs
-        TranslationMap translations = new TranslationMap(subPlan.getRelationPlan(), analysis);
         boolean needPostProjectionCoercion = false;
         for (FunctionCall aggregate : analysis.getAggregates(node)) {
             Expression rewritten = subPlan.rewrite(aggregate);
@@ -401,30 +440,6 @@ class QueryPlanner
 
             functions.put(newSymbol, analysis.getFunctionSignature(aggregate));
         }
-
-        // 2.b. Rewrite group by expressions in terms of pre-projected inputs
-        ImmutableList.Builder<List<Symbol>> groupingSetsSymbolsBuilder = ImmutableList.builder();
-        ImmutableSet.Builder<Symbol> distinctGroupingSymbolsBuilder = ImmutableSet.builder();
-        for (List<FieldOrExpression> groupingSet : groupingSets) {
-            ImmutableList.Builder<Symbol> groupingColumns = ImmutableList.builder();
-            for (FieldOrExpression fieldOrExpression : groupingSet) {
-                Symbol symbol = subPlan.translate(fieldOrExpression);
-                groupingColumns.add(symbol);
-                distinctGroupingSymbolsBuilder.add(symbol);
-                translations.put(fieldOrExpression, symbol);
-            }
-            groupingSetsSymbolsBuilder.add(groupingColumns.build());
-        }
-
-        List<List<Symbol>> groupingSetsSymbols = groupingSetsSymbolsBuilder.build();
-        // 2.c. Add a groupIdNode and groupIdSymbol if there are multiple grouping sets
-        if (groupingSets.size() > 1) {
-            Symbol groupIdSymbol = symbolAllocator.newSymbol("groupId", BIGINT);
-            GroupIdNode groupId = new GroupIdNode(idAllocator.getNextId(), subPlan.getRoot(), subPlan.getRoot().getOutputSymbols(), groupingSetsSymbols, groupIdSymbol);
-            subPlan = new PlanBuilder(subPlan.getTranslations(), groupId, subPlan.getSampleWeight());
-            distinctGroupingSymbolsBuilder.add(groupIdSymbol);
-        }
-        List<Symbol> distinctGroupingSymbols = distinctGroupingSymbolsBuilder.build().asList();
 
         // 2.d. Mark distinct rows for each aggregate that has DISTINCT
         // Map from aggregate function arguments to marker symbols, so that we can reuse the markers, if two aggregates have the same argument
@@ -448,6 +463,7 @@ class QueryPlanner
             masks.put(aggregateSymbol, marker);
         }
 
+        List<Symbol> distinctGroupingSymbols = distinctGroupingSymbolsBuilder.build().asList();
         for (Map.Entry<Set<Expression>, Symbol> entry : argumentMarkers.entrySet()) {
             ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
             builder.addAll(distinctGroupingSymbols);
