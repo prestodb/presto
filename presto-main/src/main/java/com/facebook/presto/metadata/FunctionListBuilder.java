@@ -43,6 +43,7 @@ import io.airlift.joni.Regex;
 import javax.annotation.Nullable;
 
 import java.lang.annotation.Annotation;
+
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
@@ -60,6 +61,7 @@ import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -102,10 +104,9 @@ public class FunctionListBuilder
                 WINDOW,
                 ImmutableList.of(typeVariable(typeVariable)),
                 ImmutableList.of(),
-                typeVariable,
-                ImmutableList.copyOf(argumentTypes),
-                false,
-                ImmutableSet.of());
+                parseTypeSignature(typeVariable),
+                Arrays.asList(argumentTypes).stream().map(TypeSignature::parseTypeSignature).collect(toImmutableList()),
+                false);
         functions.add(new SqlWindowFunction(new ReflectionWindowFunctionSupplier<>(signature, clazz)));
         return this;
     }
@@ -301,8 +302,8 @@ public class FunctionListBuilder
     private static List<TypeSignature> parameterTypeSignatures(Method method, Set<String> literalParameters)
     {
         Annotation[][] parameterAnnotations = method.getParameterAnnotations();
+        ImmutableList.Builder<TypeSignature> parameters = ImmutableList.builder();
 
-        ImmutableList.Builder<TypeSignature> types = ImmutableList.builder();
         for (int i = 0; i < method.getParameterTypes().length; i++) {
             Class<?> clazz = method.getParameterTypes()[i];
             // skip session parameters
@@ -319,9 +320,9 @@ public class FunctionListBuilder
                 }
             }
             checkArgument(explicitType != null, "Method %s argument %s does not have a @SqlType annotation", method, i);
-            types.add(parseTypeSignature(explicitType.value(), literalParameters));
+            parameters.add(parseTypeSignature(explicitType.value(), literalParameters));
         }
-        return types.build();
+        return parameters.build();
     }
 
     private static void verifyMethodSignature(Method method, TypeSignature returnTypeName, List<TypeSignature> argumentTypeNames, TypeManager typeManager)

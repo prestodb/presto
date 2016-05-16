@@ -54,8 +54,8 @@ public class TestInCodeGenerator
                 new Signature(
                         CAST,
                         SCALAR,
-                        INTEGER.getDisplayName(),
-                        DOUBLE.getDisplayName()
+                        INTEGER.getTypeSignature(),
+                        DOUBLE.getTypeSignature()
                 ),
                 INTEGER,
                 Collections.singletonList(new ConstantExpression(12345678901234.0, DOUBLE))
@@ -86,8 +86,8 @@ public class TestInCodeGenerator
                 new Signature(
                         CAST,
                         SCALAR,
-                        BIGINT.getDisplayName(),
-                        DOUBLE.getDisplayName()
+                        BIGINT.getTypeSignature(),
+                        DOUBLE.getTypeSignature()
                 ),
                 BIGINT,
                 Collections.singletonList(new ConstantExpression(12345678901234.0, DOUBLE))

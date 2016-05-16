@@ -15,7 +15,6 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -91,14 +90,7 @@ public abstract class SqlScalarFunction
                 boolean nullable,
                 List<Boolean> nullableArguments)
         {
-            super(new Signature(
-                    signature.getName(),
-                    FunctionKind.SCALAR,
-                    ImmutableList.of(),
-                    ImmutableList.of(),
-                    signature.getReturnType(),
-                    signature.getArgumentTypes(),
-                    false));
+            super(signature);
             checkArgument(signature.getTypeVariableConstraints().isEmpty(), "%s is parametric", signature);
             this.description = description;
             this.hidden = hidden;

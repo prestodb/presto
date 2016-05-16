@@ -22,9 +22,11 @@ import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.metadata.SqlScalarFunctionBuilder.SpecializeContext;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Decimals;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
@@ -45,6 +47,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.Decimals.bigIntegerTenToNth;
 import static com.facebook.presto.spi.type.Decimals.longTenToNth;
 import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static java.lang.Integer.max;
 
@@ -107,12 +110,13 @@ public class DecimalInequalityOperators
 
     private static SqlScalarFunction binaryOperator(OperatorType operatorType, MethodHandle getResultMethodHandle)
     {
+        TypeSignature decimalASignature = parseTypeSignature("decimal(a_precision, a_scale)", ImmutableSet.of("a_precision", "a_scale"));
+        TypeSignature decimalBSignature = parseTypeSignature("decimal(b_precision, b_scale)", ImmutableSet.of("b_precision", "b_scale"));
         Signature signature = Signature.builder()
                 .kind(SCALAR)
                 .operatorType(operatorType)
-                .literalParameters("a_precision", "a_scale", "b_precision", "b_scale")
-                .argumentTypes("decimal(a_precision, a_scale)", "decimal(b_precision, b_scale)")
-                .returnType(BOOLEAN)
+                .argumentTypes(decimalASignature, decimalBSignature)
+                .returnType(parseTypeSignature(BOOLEAN))
                 .build();
         return SqlScalarFunction.builder(DecimalInequalityOperators.class)
                 .signature(signature)
@@ -215,12 +219,14 @@ public class DecimalInequalityOperators
 
     private static SqlScalarFunction betweenOperator()
     {
+        TypeSignature valueSignature = parseTypeSignature("decimal(value_precision, value_scale)", ImmutableSet.of("value_precision", "value_scale"));
+        TypeSignature lowSignature = parseTypeSignature("decimal(low_precision, low_scale)", ImmutableSet.of("low_precision", "low_scale"));
+        TypeSignature highSignature = parseTypeSignature("decimal(high_precision, high_scale)", ImmutableSet.of("high_precision", "high_scale"));
         Signature signature = Signature.builder()
                 .kind(SCALAR)
                 .operatorType(BETWEEN)
-                .literalParameters("low_precision", "low_scale", "high_precision", "high_scale", "value_precision", "value_scale")
-                .argumentTypes("decimal(value_precision, value_scale)", "decimal(low_precision, low_scale)", "decimal(high_precision, high_scale)")
-                .returnType(BOOLEAN)
+                .argumentTypes(valueSignature, lowSignature, highSignature)
+                .returnType(parseTypeSignature(BOOLEAN))
                 .build();
         return SqlScalarFunction.builder(DecimalInequalityOperators.class)
                 .signature(signature)

@@ -22,7 +22,9 @@ import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
 
@@ -42,6 +44,7 @@ import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.type.Decimals.bigIntegerTenToNth;
 import static com.facebook.presto.spi.type.Decimals.checkOverflow;
 import static com.facebook.presto.spi.type.Decimals.longTenToNth;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.Integer.max;
 import static java.math.BigInteger.ONE;
 import static java.math.BigInteger.TEN;
@@ -61,15 +64,18 @@ public final class DecimalOperators
 
     private static SqlScalarFunction decimalAddOperator()
     {
+        TypeSignature decimalLeftSignature = parseTypeSignature("decimal(a_precision, a_scale)", ImmutableSet.of("a_precision", "a_scale"));
+        TypeSignature decimalRightSignature = parseTypeSignature("decimal(b_precision, b_scale)", ImmutableSet.of("b_precision", "b_scale"));
+        TypeSignature decimalResultSignature = parseTypeSignature("decimal(r_precision, r_scale)", ImmutableSet.of("r_precision", "r_scale"));
+
         Signature signature = Signature.builder()
                 .kind(SCALAR)
                 .operatorType(ADD)
-                .literalParameters("a_precision", "a_scale", "b_precision", "b_scale", "r_precision", "r_scale")
                 .longVariableConstraints(
                         longVariableExpression("r_precision", "min(38, max(a_precision - a_scale, b_precision - b_scale) + max(a_scale, b_scale) + 1)"),
                         longVariableExpression("r_scale", "max(a_scale, b_scale)"))
-                .argumentTypes("decimal(a_precision, a_scale)", "decimal(b_precision, b_scale)")
-                .returnType("decimal(r_precision, r_scale)")
+                .argumentTypes(decimalLeftSignature, decimalRightSignature)
+                .returnType(decimalResultSignature)
                 .build();
         return SqlScalarFunction.builder(DecimalOperators.class)
                 .signature(signature)
@@ -131,15 +137,18 @@ public final class DecimalOperators
 
     private static SqlScalarFunction decimalSubtractOperator()
     {
+        TypeSignature decimalLeftSignature = parseTypeSignature("decimal(a_precision, a_scale)", ImmutableSet.of("a_precision", "a_scale"));
+        TypeSignature decimalRightSignature = parseTypeSignature("decimal(b_precision, b_scale)", ImmutableSet.of("b_precision", "b_scale"));
+        TypeSignature decimalResultSignature = parseTypeSignature("decimal(r_precision, r_scale)", ImmutableSet.of("r_precision", "r_scale"));
+
         Signature signature = Signature.builder()
                 .kind(SCALAR)
                 .operatorType(SUBTRACT)
-                .literalParameters("a_precision", "a_scale", "b_precision", "b_scale", "r_precision", "r_scale")
                 .longVariableConstraints(
                         longVariableExpression("r_precision", "min(38, max(a_precision - a_scale, b_precision - b_scale) + max(a_scale, b_scale) + 1)"),
                         longVariableExpression("r_scale", "max(a_scale, b_scale)"))
-                .argumentTypes("decimal(a_precision, a_scale)", "decimal(b_precision, b_scale)")
-                .returnType("decimal(r_precision, r_scale)")
+                .argumentTypes(decimalLeftSignature, decimalRightSignature)
+                .returnType(decimalResultSignature)
                 .build();
         return SqlScalarFunction.builder(DecimalOperators.class)
                 .signature(signature)
@@ -201,16 +210,19 @@ public final class DecimalOperators
 
     private static SqlScalarFunction decimalMultiplyOperator()
     {
+        TypeSignature decimalLeftSignature = parseTypeSignature("decimal(a_precision, a_scale)", ImmutableSet.of("a_precision", "a_scale"));
+        TypeSignature decimalRightSignature = parseTypeSignature("decimal(b_precision, b_scale)", ImmutableSet.of("b_precision", "b_scale"));
+        TypeSignature decimalResultSignature = parseTypeSignature("decimal(r_precision, r_scale)", ImmutableSet.of("r_precision", "r_scale"));
+
         Signature signature = Signature.builder()
                 .kind(SCALAR)
                 .operatorType(MULTIPLY)
-                .literalParameters("a_precision", "a_scale", "b_precision", "b_scale", "r_precision", "r_scale")
                 .longVariableConstraints(
                         longVariableExpression("r_precision", "min(38, a_precision + b_precision)"),
                         longVariableExpression("r_scale", "a_scale + b_scale")
                 )
-                .argumentTypes("decimal(a_precision, a_scale)", "decimal(b_precision, b_scale)")
-                .returnType("decimal(r_precision, r_scale)")
+                .argumentTypes(decimalLeftSignature, decimalRightSignature)
+                .returnType(decimalResultSignature)
                 .build();
         return SqlScalarFunction.builder(DecimalOperators.class)
                 .signature(signature)
@@ -265,6 +277,10 @@ public final class DecimalOperators
 
     private static SqlScalarFunction decimalDivideOperator()
     {
+        TypeSignature decimalLeftSignature = parseTypeSignature("decimal(a_precision, a_scale)", ImmutableSet.of("a_precision", "a_scale"));
+        TypeSignature decimalRightSignature = parseTypeSignature("decimal(b_precision, b_scale)", ImmutableSet.of("b_precision", "b_scale"));
+        TypeSignature decimalResultSignature = parseTypeSignature("decimal(r_precision, r_scale)", ImmutableSet.of("r_precision", "r_scale"));
+
         // we extend target precision by b_scale. This is upper bound on how much division result will grow.
         // pessimistic case is a / 0.0000001
         // if scale of divisor is greater than scale of dividend we extend scale further as we
@@ -272,13 +288,12 @@ public final class DecimalOperators
         Signature signature = Signature.builder()
                 .kind(SCALAR)
                 .operatorType(DIVIDE)
-                .literalParameters("a_precision", "a_scale", "b_precision", "b_scale", "r_precision", "r_scale")
                 .longVariableConstraints(
                         longVariableExpression("r_precision", "min(38, a_precision + b_scale + max(b_scale - a_scale, 0))"),
                         longVariableExpression("r_scale", "max(a_scale, b_scale)")
                 )
-                .argumentTypes("decimal(a_precision, a_scale)", "decimal(b_precision, b_scale)")
-                .returnType("decimal(r_precision, r_scale)")
+                .argumentTypes(decimalLeftSignature, decimalRightSignature)
+                .returnType(decimalResultSignature)
                 .build();
         return SqlScalarFunction.builder(DecimalOperators.class)
                 .signature(signature)
@@ -452,16 +467,19 @@ public final class DecimalOperators
 
     private static SqlScalarFunction decimalModulusOperator()
     {
+        TypeSignature decimalLeftSignature = parseTypeSignature("decimal(a_precision, a_scale)", ImmutableSet.of("a_precision", "a_scale"));
+        TypeSignature decimalRightSignature = parseTypeSignature("decimal(b_precision, b_scale)", ImmutableSet.of("b_precision", "b_scale"));
+        TypeSignature decimalResultSignature = parseTypeSignature("decimal(r_precision, r_scale)", ImmutableSet.of("r_precision", "r_scale"));
+
         Signature signature = Signature.builder()
                 .kind(SCALAR)
                 .operatorType(MODULUS)
-                .literalParameters("a_precision", "a_scale", "b_precision", "b_scale", "r_precision", "r_scale")
                 .longVariableConstraints(
                         longVariableExpression("r_precision", "min(b_precision - b_scale, a_precision - a_scale) + max(a_scale, b_scale)"),
                         longVariableExpression("r_scale", "max(a_scale, b_scale)")
                 )
-                .argumentTypes("decimal(a_precision, a_scale)", "decimal(b_precision, b_scale)")
-                .returnType("decimal(r_precision, r_scale)")
+                .argumentTypes(decimalLeftSignature, decimalRightSignature)
+                .returnType(decimalResultSignature)
                 .build();
         return SqlScalarFunction.builder(DecimalOperators.class)
                 .signature(signature)

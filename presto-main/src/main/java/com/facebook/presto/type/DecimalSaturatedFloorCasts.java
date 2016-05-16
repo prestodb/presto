@@ -17,6 +17,7 @@ import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 
@@ -28,6 +29,7 @@ import static com.facebook.presto.metadata.OperatorType.SATURATED_FLOOR_CAST;
 import static com.facebook.presto.spi.type.Decimals.bigIntegerTenToNth;
 import static com.facebook.presto.spi.type.Decimals.decodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static java.math.BigInteger.ONE;
 import static java.math.RoundingMode.FLOOR;
 
@@ -39,9 +41,8 @@ public final class DecimalSaturatedFloorCasts
             .signature(Signature.builder()
                     .kind(SCALAR)
                     .operatorType(SATURATED_FLOOR_CAST)
-                    .literalParameters("source_precision", "source_scale", "result_precision", "result_scale")
-                    .argumentTypes("decimal(source_precision,source_scale)")
-                    .returnType("decimal(result_precision,result_scale)")
+                    .argumentTypes(parseTypeSignature("decimal(source_precision,source_scale)", ImmutableSet.of("source_precision", "source_scale")))
+                    .returnType(parseTypeSignature("decimal(result_precision,result_scale)", ImmutableSet.of("result_precision", "result_scale")))
                     .build()
             )
             .implementation(b -> b

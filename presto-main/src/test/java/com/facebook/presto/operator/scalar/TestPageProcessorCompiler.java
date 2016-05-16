@@ -20,6 +20,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.block.SliceArrayBlock;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
@@ -41,6 +42,7 @@ import static com.facebook.presto.metadata.OperatorType.LESS_THAN;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.wrappedIntArray;
 import static java.lang.Boolean.TRUE;
@@ -96,7 +98,8 @@ public class TestPageProcessorCompiler
     public void testSanityFilterOnDictionary()
             throws Exception
     {
-        CallExpression lengthVarchar = new CallExpression(new Signature("length", SCALAR, "bigint", "varchar"), BIGINT, ImmutableList.of(new InputReferenceExpression(0, VARCHAR)));
+        CallExpression lengthVarchar = new CallExpression(
+                new Signature("length", SCALAR, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.VARCHAR)), BIGINT, ImmutableList.of(new InputReferenceExpression(0, VARCHAR)));
         Signature lessThan = internalOperator(LESS_THAN, BOOLEAN, ImmutableList.of(BIGINT, BIGINT));
         CallExpression filter = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(lengthVarchar, new ConstantExpression(10L, BIGINT)));
 
@@ -164,7 +167,8 @@ public class TestPageProcessorCompiler
             throws Exception
     {
         Signature lessThan = internalOperator(LESS_THAN, BOOLEAN, ImmutableList.of(BIGINT, BIGINT));
-        CallExpression random = new CallExpression(new Signature("random", SCALAR, "bigint", "bigint"), BIGINT, singletonList(new ConstantExpression(10L, BIGINT)));
+        CallExpression random = new CallExpression(
+                new Signature("random", SCALAR, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BIGINT)), BIGINT, singletonList(new ConstantExpression(10L, BIGINT)));
         InputReferenceExpression col0 = new InputReferenceExpression(0, BIGINT);
         CallExpression lessThanRandomExpression = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(col0, random));
 

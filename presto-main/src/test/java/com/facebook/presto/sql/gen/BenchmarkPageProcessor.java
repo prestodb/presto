@@ -50,6 +50,7 @@ import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
@@ -194,37 +195,37 @@ public class BenchmarkPageProcessor
     //    and discount >= 0.05
     //    and discount <= 0.07
     //    and quantity < 24;
-    private static final RowExpression FILTER = call(new Signature("AND", SCALAR, StandardTypes.BOOLEAN),
+    private static final RowExpression FILTER = call(new Signature("AND", SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
             BOOLEAN,
-            call(new Signature(OperatorType.GREATER_THAN_OR_EQUAL.name(), SCALAR, StandardTypes.BOOLEAN, StandardTypes.VARCHAR, StandardTypes.VARCHAR),
+            call(new Signature(OperatorType.GREATER_THAN_OR_EQUAL.name(), SCALAR, parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR)),
                     BOOLEAN,
                     field(SHIP_DATE, VARCHAR),
                     constant(MIN_SHIP_DATE, VARCHAR)),
-            call(new Signature("AND", SCALAR, StandardTypes.BOOLEAN),
+            call(new Signature("AND", SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
                     BOOLEAN,
-                    call(new Signature(OperatorType.LESS_THAN.name(), SCALAR, StandardTypes.BOOLEAN, StandardTypes.VARCHAR, StandardTypes.VARCHAR),
+                    call(new Signature(OperatorType.LESS_THAN.name(), SCALAR, parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR)),
                             BOOLEAN,
                             field(SHIP_DATE, VARCHAR),
                             constant(MAX_SHIP_DATE, VARCHAR)),
-                    call(new Signature("AND", SCALAR, StandardTypes.BOOLEAN),
+                    call(new Signature("AND", SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
                             BOOLEAN,
-                            call(new Signature(OperatorType.GREATER_THAN_OR_EQUAL.name(), SCALAR, StandardTypes.BOOLEAN, StandardTypes.DOUBLE, StandardTypes.DOUBLE),
+                            call(new Signature(OperatorType.GREATER_THAN_OR_EQUAL.name(), SCALAR, parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(StandardTypes.DOUBLE)),
                                     BOOLEAN,
                                     field(DISCOUNT, DOUBLE),
                                     constant(0.05, DOUBLE)),
-                            call(new Signature("AND", SCALAR, StandardTypes.BOOLEAN),
+                            call(new Signature("AND", SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
                                     BOOLEAN,
-                                    call(new Signature(OperatorType.LESS_THAN_OR_EQUAL.name(), SCALAR, StandardTypes.BOOLEAN, StandardTypes.DOUBLE, StandardTypes.DOUBLE),
+                                    call(new Signature(OperatorType.LESS_THAN_OR_EQUAL.name(), SCALAR, parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(StandardTypes.DOUBLE)),
                                             BOOLEAN,
                                             field(DISCOUNT, DOUBLE),
                                             constant(0.07, DOUBLE)),
-                                    call(new Signature(OperatorType.LESS_THAN.name(), SCALAR, StandardTypes.BOOLEAN, StandardTypes.DOUBLE, StandardTypes.DOUBLE),
+                                    call(new Signature(OperatorType.LESS_THAN.name(), SCALAR, parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(StandardTypes.DOUBLE)),
                                             BOOLEAN,
                                             field(QUANTITY, DOUBLE),
                                             constant((long) 24, DOUBLE))))));
 
     private static final RowExpression PROJECT = call(
-            new Signature(OperatorType.MULTIPLY.name(), SCALAR, StandardTypes.DOUBLE, StandardTypes.DOUBLE, StandardTypes.DOUBLE),
+            new Signature(OperatorType.MULTIPLY.name(), SCALAR, parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(StandardTypes.DOUBLE)),
             DOUBLE,
             field(EXTENDED_PRICE, DOUBLE),
             field(DISCOUNT, DOUBLE));

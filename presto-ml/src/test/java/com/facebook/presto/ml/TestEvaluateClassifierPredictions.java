@@ -38,6 +38,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
@@ -54,7 +55,10 @@ public class TestEvaluateClassifierPredictions
         typeRegistry.addType(RegressorType.REGRESSOR);
         typeRegistry.addType(ModelType.MODEL);
         metadata.addFunctions(new MLFunctionFactory(typeRegistry).listFunctions());
-        InternalAggregationFunction aggregation = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("evaluate_classifier_predictions", AGGREGATE, StandardTypes.VARCHAR, StandardTypes.BIGINT, StandardTypes.BIGINT));
+        InternalAggregationFunction aggregation = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("evaluate_classifier_predictions",
+                        AGGREGATE,
+                        parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BIGINT)));
         Accumulator accumulator = aggregation.bind(ImmutableList.of(0, 1), Optional.empty(), Optional.empty(), 1.0).createAccumulator();
         accumulator.addInput(getPage());
         BlockBuilder finalOut = accumulator.getFinalType().createBlockBuilder(new BlockBuilderStatus(), 1);
