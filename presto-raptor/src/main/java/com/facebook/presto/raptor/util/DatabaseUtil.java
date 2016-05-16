@@ -81,7 +81,7 @@ public final class DatabaseUtil
             for (Throwable throwable : Throwables.getCausalChain(e)) {
                 if (throwable instanceof SQLException) {
                     String state = ((SQLException) throwable).getSQLState();
-                    if (state.startsWith("23")) {
+                    if (state != null && state.startsWith("23")) {
                         return;
                     }
                 }
