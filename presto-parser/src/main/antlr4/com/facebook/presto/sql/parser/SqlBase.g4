@@ -313,6 +313,7 @@ intervalField
 type
     : type ARRAY
     | ARRAY '<' type '>'
+    | MULTISET '<' type '>'
     | MAP '<' type ',' type '>'
     | ROW '(' identifier type (',' identifier type)* ')'
     | baseType ('(' typeParameter (',' typeParameter)* ')')?
@@ -566,6 +567,7 @@ RENAME: 'RENAME';
 UNNEST: 'UNNEST';
 ORDINALITY: 'ORDINALITY';
 ARRAY: 'ARRAY';
+MULTISET: 'MULTISET';
 MAP: 'MAP';
 SET: 'SET';
 RESET: 'RESET';

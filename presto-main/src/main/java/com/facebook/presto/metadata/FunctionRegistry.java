@@ -179,6 +179,7 @@ import static com.facebook.presto.operator.scalar.ArraySubscriptOperator.ARRAY_S
 import static com.facebook.presto.operator.scalar.ArrayToArrayCast.ARRAY_TO_ARRAY_CAST;
 import static com.facebook.presto.operator.scalar.ArrayToElementConcatFunction.ARRAY_TO_ELEMENT_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArrayToJsonCast.ARRAY_TO_JSON;
+import static com.facebook.presto.operator.scalar.ArrayToMultisetCast.ARRAY_TO_MULTISET_CAST;
 import static com.facebook.presto.operator.scalar.CastFromUnknownOperator.CAST_FROM_UNKNOWN;
 import static com.facebook.presto.operator.scalar.ConcatFunction.CONCAT;
 import static com.facebook.presto.operator.scalar.ElementToArrayConcatFunction.ELEMENT_TO_ARRAY_CONCAT_FUNCTION;
@@ -192,6 +193,7 @@ import static com.facebook.presto.operator.scalar.MapElementAtFunction.MAP_ELEME
 import static com.facebook.presto.operator.scalar.MapHashCodeOperator.MAP_HASH_CODE;
 import static com.facebook.presto.operator.scalar.MapSubscriptOperator.MAP_SUBSCRIPT;
 import static com.facebook.presto.operator.scalar.MapToJsonCast.MAP_TO_JSON;
+import static com.facebook.presto.operator.scalar.MultisetToArrayCast.MULTISET_TO_ARRAY_CAST;
 import static com.facebook.presto.operator.scalar.RowEqualOperator.ROW_EQUAL;
 import static com.facebook.presto.operator.scalar.RowHashCodeOperator.ROW_HASH_CODE;
 import static com.facebook.presto.operator.scalar.RowNotEqualOperator.ROW_NOT_EQUAL;
@@ -414,6 +416,7 @@ public class FunctionRegistry
                 .function(ARRAY_FLATTEN_FUNCTION)
                 .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_SORT_FUNCTION, ARRAY_TO_JSON, JSON_TO_ARRAY)
                 .functions(MAP_CONSTRUCTOR, MAP_SUBSCRIPT, MAP_TO_JSON, JSON_TO_MAP)
+                .functions(MULTISET_TO_ARRAY_CAST, ARRAY_TO_MULTISET_CAST)
                 .functions(MAP_AGG, MULTIMAP_AGG)
                 .functions(DECIMAL_TO_VARCHAR_CAST, DECIMAL_TO_INTEGER_CAST, DECIMAL_TO_BIGINT_CAST, DECIMAL_TO_DOUBLE_CAST, DECIMAL_TO_BOOLEAN_CAST)
                 .functions(VARCHAR_TO_DECIMAL_CAST, INTEGER_TO_DECIMAL_CAST, BIGINT_TO_DECIMAL_CAST, DOUBLE_TO_DECIMAL_CAST, BOOLEAN_TO_DECIMAL_CAST)

@@ -58,6 +58,7 @@ import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.MapParametricType.MAP;
+import static com.facebook.presto.type.MultisetParametricType.MULTISET;
 import static com.facebook.presto.type.RegexpType.REGEXP;
 import static com.facebook.presto.type.RowParametricType.ROW;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
@@ -111,6 +112,7 @@ public final class TypeRegistry
         addParametricType(ROW);
         addParametricType(ARRAY);
         addParametricType(MAP);
+        addParametricType(MULTISET);
         addParametricType(FUNCTION);
 
         for (Type type : types) {
