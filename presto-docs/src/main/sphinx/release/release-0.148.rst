@@ -41,3 +41,9 @@ Cassandra Changes
 -----------------
 
 * Allow configuring load balancing policy and no host available retry.
+
+Kafka Changes
+-------------
+
+* Update to Kafka client 0.8.2.2. This enables support for LZ4 data.
+
