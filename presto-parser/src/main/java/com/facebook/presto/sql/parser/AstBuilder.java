@@ -1606,6 +1606,14 @@ class AstBuilder
             return "ROW" + builder.toString();
         }
 
+        if (type.MULTISET() != null) {
+            return "MULTISET<" + getType(type.type(0)) + ">";
+        }
+
+        if (type.MULTISET() != null) {
+            return "MULTISET<" + getType(type.type(0)) + ">";
+        }
+
         throw new IllegalArgumentException("Unsupported type specification: " + type.getText());
     }
 

@@ -119,6 +119,13 @@ public class TestArrayOperators
     }
 
     @Test
+    public void testArrayToMultiSet()
+            throws Exception
+    {
+        assertFunction("CAST(CAST(ARRAY [1,2,3] AS MULTISET<INTEGER>) AS ARRAY<INTEGER>)", new ArrayType(INTEGER), ImmutableList.of(1, 2, 3));
+    }
+
+    @Test
     public void testArrayToJson()
             throws Exception
     {
@@ -366,7 +373,7 @@ public class TestArrayOperators
             throws Exception
     {
         assertFunction("ARRAY_POSITION(ARRAY [10, 20, 30, 40], 30)", BIGINT, 3L);
-        assertFunction("ARRAY_POSITION(CAST (JSON '[]' as array(bigint)), 30)", BIGINT, 0L);
+        assertFunction("ARRAY_POSITION(CAST (JSON '[]' as ARRAY(BIGINT)), 30)", BIGINT, 0L);
         assertFunction("ARRAY_POSITION(ARRAY [cast(NULL as bigint)], 30)", BIGINT, 0L);
         assertFunction("ARRAY_POSITION(ARRAY [cast(NULL as bigint), NULL, NULL], 30)", BIGINT, 0L);
         assertFunction("ARRAY_POSITION(ARRAY [NULL, NULL, 30, NULL], 30)", BIGINT, 3L);
