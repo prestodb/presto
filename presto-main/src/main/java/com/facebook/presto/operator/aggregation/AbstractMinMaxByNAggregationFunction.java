@@ -45,6 +45,7 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
 
@@ -60,7 +61,11 @@ public abstract class AbstractMinMaxByNAggregationFunction
 
     protected AbstractMinMaxByNAggregationFunction(String name, Function<Type, BlockComparator> typeToComparator)
     {
-        super(name, ImmutableList.of(typeVariable("V"), orderableTypeParameter("K")), ImmutableList.of(), "array(V)", ImmutableList.of("V", "K", StandardTypes.BIGINT));
+        super(name,
+                ImmutableList.of(typeVariable("V"), orderableTypeParameter("K")),
+                ImmutableList.of(),
+                parseTypeSignature("array(V)"),
+                ImmutableList.of(parseTypeSignature("V"), parseTypeSignature("K"), parseTypeSignature(StandardTypes.BIGINT)));
         this.name = requireNonNull(name, "name is null");
         this.typeToComparator = requireNonNull(typeToComparator, "typeToComparator is null");
     }

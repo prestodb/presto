@@ -48,6 +48,7 @@ import java.util.function.Function;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.GREATER_THAN_OR_EQUAL;
@@ -96,7 +97,7 @@ public class ImplementIntersectAsUnion
             extends SimplePlanRewriter<Void>
     {
         private static final String INTERSECT_MARKER = "intersect_marker";
-        private static final Signature COUNT_AGGREGATION = new Signature("count", AGGREGATE, "bigint", "boolean");
+        private static final Signature COUNT_AGGREGATION = new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BOOLEAN));
         private final PlanNodeIdAllocator idAllocator;
         private final SymbolAllocator symbolAllocator;
 

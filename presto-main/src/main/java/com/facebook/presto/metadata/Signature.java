@@ -19,16 +19,13 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Stream.concat;
@@ -66,51 +63,7 @@ public final class Signature
         this.variableArity = variableArity;
     }
 
-    public Signature(
-            String name,
-            FunctionKind kind,
-            List<TypeVariableConstraint> typeVariableConstraints,
-            List<LongVariableConstraint> longVariableConstraints,
-            String returnType,
-            List<String> argumentTypes,
-            boolean variableArity)
-    {
-        this(name, kind, typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, variableArity, ImmutableSet.of());
-    }
-
-    public Signature(
-            String name,
-            FunctionKind kind,
-            List<TypeVariableConstraint> typeVariableConstraints,
-            List<LongVariableConstraint> longVariableConstraints,
-            String returnType,
-            List<String> argumentTypes,
-            boolean variableArity,
-            Set<String> literalParameters)
-    {
-        this(name,
-                kind,
-                typeVariableConstraints,
-                longVariableConstraints,
-                parseTypeSignature(returnType, literalParameters),
-                argumentTypes.stream().map(argument -> parseTypeSignature(argument, literalParameters)).collect(toImmutableList()),
-                variableArity
-        );
-    }
-
-    public Signature(String name, FunctionKind kind, String returnType, List<String> argumentTypes)
-    {
-        this(name,
-                kind,
-                ImmutableList.<TypeVariableConstraint>of(),
-                ImmutableList.<LongVariableConstraint>of(),
-                parseTypeSignature(returnType),
-                argumentTypes.stream().map(TypeSignature::parseTypeSignature).collect(toImmutableList()),
-                false
-        );
-    }
-
-    public Signature(String name, FunctionKind kind, String returnType, String... argumentTypes)
+    public Signature(String name, FunctionKind kind, TypeSignature returnType, TypeSignature... argumentTypes)
     {
         this(name, kind, returnType, ImmutableList.copyOf(argumentTypes));
     }
@@ -120,17 +73,12 @@ public final class Signature
         this(name, kind, ImmutableList.<TypeVariableConstraint>of(), ImmutableList.<LongVariableConstraint>of(), returnType, argumentTypes, false);
     }
 
-    public Signature(String name, FunctionKind kind, TypeSignature returnType, TypeSignature... argumentTypes)
-    {
-        this(name, kind, returnType, ImmutableList.copyOf(argumentTypes));
-    }
-
     public static Signature internalOperator(OperatorType operator, Type returnType, List<? extends Type> argumentTypes)
     {
         return internalScalarFunction(mangleOperatorName(operator.name()), returnType.getTypeSignature(), argumentTypes.stream().map(Type::getTypeSignature).collect(toImmutableList()));
     }
 
-    public static Signature internalOperator(OperatorType operator, String returnType, List<String> argumentTypes)
+    public static Signature internalOperator(OperatorType operator, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
         return internalScalarFunction(mangleOperatorName(operator.name()), returnType, argumentTypes);
     }
@@ -143,16 +91,6 @@ public final class Signature
     public static Signature internalOperator(String name, TypeSignature returnType, TypeSignature... argumentTypes)
     {
         return internalScalarFunction(mangleOperatorName(name), returnType, ImmutableList.copyOf(argumentTypes));
-    }
-
-    public static Signature internalScalarFunction(String name, String returnType, String... argumentTypes)
-    {
-        return internalScalarFunction(name, returnType, ImmutableList.copyOf(argumentTypes));
-    }
-
-    public static Signature internalScalarFunction(String name, String returnType, List<String> argumentTypes)
-    {
-        return new Signature(name, SCALAR, ImmutableList.<TypeVariableConstraint>of(), ImmutableList.<LongVariableConstraint>of(), returnType, argumentTypes, false, ImmutableSet.of());
     }
 
     public static Signature internalScalarFunction(String name, TypeSignature returnType, TypeSignature... argumentTypes)

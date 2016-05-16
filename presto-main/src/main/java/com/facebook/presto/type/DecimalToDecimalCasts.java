@@ -35,6 +35,7 @@ import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.longTenToNth;
 import static com.facebook.presto.spi.type.Decimals.overflows;
 import static com.facebook.presto.spi.type.StandardTypes.DECIMAL;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.String.format;
 
 public final class DecimalToDecimalCasts
@@ -43,8 +44,8 @@ public final class DecimalToDecimalCasts
             .kind(SCALAR)
             .operatorType(CAST)
             .typeVariableConstraints(withVariadicBound("F", DECIMAL), withVariadicBound("T", DECIMAL))
-            .argumentTypes("F")
-            .returnType("T")
+            .argumentTypes(parseTypeSignature("F"))
+            .returnType(parseTypeSignature("T"))
             .build();
 
     // TODO: filtering mechanism could be used to return NoOp method when only precision is increased

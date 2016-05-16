@@ -23,6 +23,7 @@ import com.facebook.presto.spi.type.Decimals;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -52,6 +53,7 @@ import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
 import static com.facebook.presto.spi.type.StandardTypes.JSON;
 import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Types.checkType;
 import static java.lang.Math.multiplyExact;
@@ -80,9 +82,8 @@ public final class DecimalCasts
         Signature signature = Signature.builder()
                 .kind(SCALAR)
                 .operatorType(CAST)
-                .argumentTypes("decimal(precision,scale)")
-                .literalParameters("precision", "scale")
-                .returnType(to)
+                .argumentTypes(parseTypeSignature("decimal(precision,scale)", ImmutableSet.of("precision", "scale")))
+                .returnType(parseTypeSignature(to, ImmutableSet.of("x", "precision", "scale")))
                 .build();
         return SqlScalarFunction.builder(DecimalCasts.class)
                 .signature(signature)
@@ -109,8 +110,8 @@ public final class DecimalCasts
                 .kind(SCALAR)
                 .operatorType(CAST)
                 .typeVariableConstraints(withVariadicBound("X", DECIMAL))
-                .argumentTypes(from)
-                .returnType("X")
+                .argumentTypes(parseTypeSignature(from))
+                .returnType(parseTypeSignature("X"))
                 .build();
         return SqlScalarFunction.builder(DecimalCasts.class)
                 .signature(signature)

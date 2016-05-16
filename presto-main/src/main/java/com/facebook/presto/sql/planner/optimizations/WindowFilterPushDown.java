@@ -46,6 +46,7 @@ import java.util.OptionalInt;
 import static com.facebook.presto.metadata.FunctionKind.WINDOW;
 import static com.facebook.presto.spi.predicate.Marker.Bound.BELOW;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.planner.DomainTranslator.ExtractionResult;
 import static com.facebook.presto.sql.planner.DomainTranslator.fromPredicate;
 import static com.facebook.presto.sql.planner.DomainTranslator.toPredicate;
@@ -58,7 +59,7 @@ import static java.util.stream.Collectors.toMap;
 public class WindowFilterPushDown
         implements PlanOptimizer
 {
-    private static final Signature ROW_NUMBER_SIGNATURE = new Signature("row_number", WINDOW, StandardTypes.BIGINT, ImmutableList.<String>of());
+    private static final Signature ROW_NUMBER_SIGNATURE = new Signature("row_number", WINDOW, parseTypeSignature(StandardTypes.BIGINT), ImmutableList.of());
 
     private final Metadata metadata;
 

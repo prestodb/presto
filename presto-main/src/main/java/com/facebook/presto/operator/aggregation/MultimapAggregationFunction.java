@@ -42,6 +42,7 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static java.lang.String.format;
 
@@ -56,7 +57,11 @@ public class MultimapAggregationFunction
 
     public MultimapAggregationFunction()
     {
-        super(NAME, ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")), ImmutableList.of(), "map(K,array(V))", ImmutableList.of("K", "V"));
+        super(NAME,
+                ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
+                ImmutableList.of(),
+                parseTypeSignature("map(K,array(V))"),
+                ImmutableList.of(parseTypeSignature("K"), parseTypeSignature("V")));
     }
 
     @Override
