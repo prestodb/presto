@@ -67,8 +67,9 @@ public class BucketShards
     public String toString()
     {
         return toStringHelper(this)
-                .add("bucketNumber", bucketNumber.getAsInt())
+                .add("bucketNumber", bucketNumber.isPresent() ? bucketNumber.getAsInt() : null)
                 .add("shards", shards)
+                .omitNullValues()
                 .toString();
     }
 }
