@@ -26,6 +26,7 @@ import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
@@ -94,7 +95,7 @@ class ShardPredicate
 
         for (Entry<RaptorColumnHandle, Domain> entry : tupleDomain.getDomains().get().entrySet()) {
             Domain domain = entry.getValue();
-            if (domain.isNullAllowed() || domain.isAll()) {
+            if (domain.isAll()) {
                 continue;
             }
             RaptorColumnHandle handle = entry.getKey();
@@ -106,21 +107,11 @@ class ShardPredicate
             }
 
             if (handle.isShardUuid()) {
-                // TODO: support multiple shard UUIDs
-                if (domain.isSingleValue()) {
-                    Slice uuidText = checkType(entry.getValue().getSingleValue(), Slice.class, "value");
-                    Slice uuidBytes;
-                    try {
-                        uuidBytes = uuidStringToBytes(uuidText);
-                    }
-                    catch (IllegalArgumentException e) {
-                        predicate.add("false");
-                        continue;
-                    }
-                    predicate.add("shard_uuid = ?");
-                    types.add(jdbcType);
-                    values.add(uuidBytes);
-                }
+                predicate.add(createShardPredicate(types, values, domain, jdbcType));
+                continue;
+            }
+
+            if (domain.isNullAllowed()) {
                 continue;
             }
 
@@ -165,8 +156,50 @@ class ShardPredicate
                 values.add(maxValue);
             }
         }
-
         return new ShardPredicate(predicate.toString(), types.build(), values.build());
+    }
+
+    private static String createShardPredicate(ImmutableList.Builder<JDBCType> types, ImmutableList.Builder<Object> values, Domain domain, JDBCType jdbcType)
+    {
+        List<Range> ranges = domain.getValues().getRanges().getOrderedRanges();
+
+        // if we do not have single values to match against, don't apply a special predicate
+        if (!ranges.stream().allMatch(Range::isSingleValue)) {
+            return "true";
+        }
+
+        ImmutableList.Builder<Object> valuesBuilder = ImmutableList.<Object>builder();
+        ImmutableList.Builder<JDBCType> typesBuilder = ImmutableList.<JDBCType>builder();
+
+        StringJoiner rangePredicate = new StringJoiner(" OR ").setEmptyValue("true");
+        for (Range range : ranges) {
+            Slice uuidText = checkType(range.getSingleValue(), Slice.class, "uuid");
+            try {
+                Slice uuidBytes = uuidStringToBytes(uuidText);
+                typesBuilder.add(jdbcType);
+                valuesBuilder.add(uuidBytes);
+            }
+            catch (IllegalArgumentException e) {
+                return "true";
+            }
+            rangePredicate.add("shard_uuid = ?");
+        }
+
+        types.addAll(typesBuilder.build());
+        values.addAll(valuesBuilder.build());
+        return rangePredicate.toString();
+    }
+
+    @VisibleForTesting
+    protected List<JDBCType> getTypes()
+    {
+        return types;
+    }
+
+    @VisibleForTesting
+    protected List<Object> getValues()
+    {
+        return values;
     }
 
     public static void bindValue(PreparedStatement statement, JDBCType type, Object value, int index)

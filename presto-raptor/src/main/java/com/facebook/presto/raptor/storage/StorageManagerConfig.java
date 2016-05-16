@@ -49,9 +49,9 @@ public class StorageManagerConfig
     private int recoveryThreads = 10;
     private int compactionThreads = 5;
 
-    private long maxShardRows = 1_000_000;
+    private long maxShardRows = 1_000;
     private DataSize maxShardSize = new DataSize(256, MEGABYTE);
-    private DataSize maxBufferSize = new DataSize(256, MEGABYTE);
+    private DataSize maxBufferSize = new DataSize(1, MEGABYTE);
     private int oneSplitPerBucketThreshold;
 
     @NotNull
