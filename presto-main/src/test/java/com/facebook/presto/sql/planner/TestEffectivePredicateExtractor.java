@@ -21,6 +21,7 @@ import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -724,7 +725,7 @@ public class TestEffectivePredicateExtractor
 
     private static Signature fakeFunctionHandle(String name, FunctionKind kind)
     {
-        return new Signature(name, kind, UnknownType.NAME, ImmutableList.<String>of());
+        return new Signature(name, kind, TypeSignature.parseTypeSignature(UnknownType.NAME), ImmutableList.<TypeSignature>of());
     }
 
     private Set<Expression> normalizeConjuncts(Expression... conjuncts)

@@ -40,6 +40,7 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class ArrayAggregationFunction
@@ -53,7 +54,11 @@ public class ArrayAggregationFunction
 
     public ArrayAggregationFunction()
     {
-        super(NAME, ImmutableList.of(typeVariable("T")), ImmutableList.of(), "array(T)", ImmutableList.of("T"));
+        super(NAME,
+                ImmutableList.of(typeVariable("T")),
+                ImmutableList.of(),
+                parseTypeSignature("array(T)"),
+                ImmutableList.of(parseTypeSignature("T")));
     }
 
     @Override

@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -23,6 +24,7 @@ import static com.facebook.presto.metadata.OperatorType.LESS_THAN;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static java.util.Collections.singletonList;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -35,7 +37,14 @@ public class TestDeterminismEvaluator
     {
         DeterminismEvaluator determinismEvaluator = new DeterminismEvaluator(createTestMetadataManager().getFunctionRegistry());
 
-        CallExpression random = new CallExpression(new Signature("random", SCALAR, "bigint", "bigint"), BIGINT, singletonList(new ConstantExpression(10L, BIGINT)));
+        CallExpression random = new CallExpression(
+                new Signature(
+                        "random",
+                        SCALAR,
+                        parseTypeSignature(StandardTypes.BIGINT),
+                        parseTypeSignature(StandardTypes.BIGINT)),
+                BIGINT,
+                singletonList(new ConstantExpression(10L, BIGINT)));
         assertFalse(determinismEvaluator.isDeterministic(random));
 
         InputReferenceExpression col0 = new InputReferenceExpression(0, BIGINT);

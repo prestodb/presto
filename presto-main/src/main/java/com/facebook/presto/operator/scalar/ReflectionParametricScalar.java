@@ -74,6 +74,7 @@ import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Failures.checkCondition;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -269,8 +270,8 @@ public class ReflectionParametricScalar
         private final String functionName;
         private final boolean nullable;
         private final List<Boolean> nullableArguments = new ArrayList<>();
-        private final String returnType;
-        private final List<String> argumentTypes = new ArrayList<>();
+        private final TypeSignature returnType;
+        private final List<TypeSignature> argumentTypes = new ArrayList<>();
         private final List<Class<?>> argumentNativeContainerTypes = new ArrayList<>();
         private final MethodHandle methodHandle;
         private final List<ImplementationDependency> dependencies = new ArrayList<>();
@@ -286,21 +287,21 @@ public class ReflectionParametricScalar
             this.functionName = requireNonNull(functionName, "functionName is null");
             this.nullable = method.getAnnotation(Nullable.class) != null;
 
-            SqlType returnType = method.getAnnotation(SqlType.class);
-            requireNonNull(returnType, format("%s is missing @SqlType annotation", method));
-            this.returnType = returnType.value();
-
-            Class<?> actualReturnType = method.getReturnType();
-            if (Primitives.isWrapperType(actualReturnType)) {
-                checkArgument(nullable, "Method %s has return value with type %s that is missing @Nullable", method, actualReturnType);
-            }
-
             Stream.of(method.getAnnotationsByType(TypeParameter.class))
                     .forEach(typeParameters::add);
 
             LiteralParameters literalParametersAnnotation = method.getAnnotation(LiteralParameters.class);
             if (literalParametersAnnotation != null) {
                 literalParameters.addAll(asList(literalParametersAnnotation.value()));
+            }
+
+            SqlType returnType = method.getAnnotation(SqlType.class);
+            requireNonNull(returnType, format("%s is missing @SqlType annotation", method));
+            this.returnType = parseTypeSignature(returnType.value(), literalParameters);
+
+            Class<?> actualReturnType = method.getReturnType();
+            if (Primitives.isWrapperType(actualReturnType)) {
+                checkArgument(nullable, "Method %s has return value with type %s that is missing @Nullable", method, actualReturnType);
             }
 
             Stream.of(method.getAnnotationsByType(Constraint.class))
@@ -361,7 +362,7 @@ public class ReflectionParametricScalar
                         specializedTypeParameters.put(type.value(), nativeParameterType);
                     }
                     argumentNativeContainerTypes.add(parameterType);
-                    argumentTypes.add(type.value());
+                    argumentTypes.add(parseTypeSignature(type.value(), literalParameters));
                     nullableArguments.add(nullableArgument);
                 }
             }
@@ -482,7 +483,10 @@ public class ReflectionParametricScalar
             }
             if (annotation instanceof OperatorDependency) {
                 OperatorDependency operator = (OperatorDependency) annotation;
-                return new OperatorImplementationDependency(operator.operator(), operator.returnType(), asList(operator.argumentTypes()));
+                return new OperatorImplementationDependency(
+                        operator.operator(),
+                        parseTypeSignature(operator.returnType()),
+                        asList(operator.argumentTypes()).stream().map(TypeSignature::parseTypeSignature).collect(toImmutableList()));
             }
             throw new IllegalArgumentException("Unsupported annotation " + annotation.getClass().getSimpleName());
         }
@@ -502,7 +506,14 @@ public class ReflectionParametricScalar
 
         public Implementation get()
         {
-            Signature signature = new Signature(functionName, SCALAR, createTypeVariableConstraints(typeParameters, dependencies), longVariableConstraints, returnType, argumentTypes, false, literalParameters);
+            Signature signature = new Signature(
+                    functionName,
+                    SCALAR,
+                    createTypeVariableConstraints(typeParameters, dependencies),
+                    longVariableConstraints,
+                    returnType,
+                    argumentTypes,
+                    false);
             return new Implementation(
                     signature,
                     nullable,
@@ -654,7 +665,7 @@ public class ReflectionParametricScalar
         private final OperatorType operator;
         private final Signature signature;
 
-        private OperatorImplementationDependency(OperatorType operator, String returnType, List<String> argumentTypes)
+        private OperatorImplementationDependency(OperatorType operator, TypeSignature returnType, List<TypeSignature> argumentTypes)
         {
             this.operator = requireNonNull(operator, "operator is null");
             requireNonNull(returnType, "returnType is null");

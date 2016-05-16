@@ -26,6 +26,7 @@ import io.airlift.json.ObjectMapperProvider;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static org.testng.Assert.assertEquals;
 
 public class TestSignature
@@ -37,7 +38,11 @@ public class TestSignature
         objectMapperProvider.setJsonDeserializers(ImmutableMap.<Class<?>, JsonDeserializer<?>>of(Type.class, new TypeDeserializer(new TypeRegistry())));
         JsonCodec<Signature> codec = new JsonCodecFactory(objectMapperProvider, true).jsonCodec(Signature.class);
 
-        Signature expected = new Signature("function", SCALAR, StandardTypes.BIGINT, ImmutableList.of(StandardTypes.BOOLEAN, StandardTypes.DOUBLE, StandardTypes.VARCHAR));
+        Signature expected = new Signature(
+                "function",
+                SCALAR,
+                parseTypeSignature(StandardTypes.BIGINT),
+                ImmutableList.of(parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(StandardTypes.VARCHAR)));
 
         String json = codec.toJson(expected);
         Signature actual = codec.fromJson(json);

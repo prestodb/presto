@@ -36,6 +36,7 @@ import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getF
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getIntermediateBlock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -48,7 +49,13 @@ public class TestNumericHistogramAggregation
     {
         TypeRegistry typeRegistry = new TypeRegistry();
         FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), true);
-        InternalAggregationFunction function = functionRegistry.getAggregateFunctionImplementation(new Signature("numeric_histogram", AGGREGATE, "map(double,double)", StandardTypes.BIGINT, StandardTypes.DOUBLE, StandardTypes.DOUBLE));
+        InternalAggregationFunction function = functionRegistry.getAggregateFunctionImplementation(
+                new Signature("numeric_histogram",
+                        AGGREGATE,
+                        parseTypeSignature("map(double,double)"),
+                        parseTypeSignature(StandardTypes.BIGINT),
+                        parseTypeSignature(StandardTypes.DOUBLE),
+                        parseTypeSignature(StandardTypes.DOUBLE)));
         factory = function.bind(ImmutableList.of(0, 1, 2), Optional.empty(), Optional.empty(), 1.0);
 
         input = makeInput(10);
