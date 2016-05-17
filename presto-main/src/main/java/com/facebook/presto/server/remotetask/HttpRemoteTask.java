@@ -232,6 +232,7 @@ public final class HttpRemoteTask
                     taskInfoUpdateInterval,
                     taskInfoCodec,
                     minErrorDuration,
+                    summarizeTaskInfo,
                     executor,
                     updateScheduledExecutor,
                     errorScheduledExecutor,

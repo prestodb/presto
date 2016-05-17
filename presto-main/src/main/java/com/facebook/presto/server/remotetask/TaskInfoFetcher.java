@@ -66,6 +66,8 @@ public class TaskInfoFetcher
     private final HttpClient httpClient;
     private final RequestErrorTracker errorTracker;
 
+    private final boolean summarizeTaskInfo;
+
     @GuardedBy("this")
     private final AtomicLong currentRequestStartNanos = new AtomicLong();
 
@@ -93,6 +95,7 @@ public class TaskInfoFetcher
             Duration updateInterval,
             JsonCodec<TaskInfo> taskInfoCodec,
             Duration minErrorDuration,
+            boolean summarizeTaskInfo,
             Executor executor,
             ScheduledExecutorService updateScheduledExecutor,
             ScheduledExecutorService errorScheduledExecutor,
@@ -110,6 +113,8 @@ public class TaskInfoFetcher
         this.updateIntervalMillis = requireNonNull(updateInterval, "updateInterval is null").toMillis();
         this.updateScheduledExecutor = requireNonNull(updateScheduledExecutor, "updateScheduledExecutor is null");
         this.errorTracker = new RequestErrorTracker(taskId, initialTask.getTaskStatus().getSelf(), minErrorDuration, errorScheduledExecutor, "getting info for task");
+
+        this.summarizeTaskInfo = summarizeTaskInfo;
 
         this.executor = requireNonNull(executor, "executor is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
@@ -210,6 +215,9 @@ public class TaskInfoFetcher
         // if this is the last request, don't summarize, get the complete taskInfo
         URI uri = lastRequest.get() ? httpUriBuilder.build() : httpUriBuilder.addParameter("summarize").build();
 
+        if (summarizeTaskInfo) {
+            httpUriBuilder.addParameter("summarize");
+        }
         Request request = prepareGet()
                 .setUri(uri)
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
