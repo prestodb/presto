@@ -59,6 +59,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.INTEGER)
     public static long absInt(@SqlType(StandardTypes.INTEGER) long num)
     {
+        checkCondition(num != Integer.MIN_VALUE, NUMERIC_VALUE_OUT_OF_RANGE, "Value -2147483648 is out of range for abs()");
         return Math.abs(num);
     }
 
