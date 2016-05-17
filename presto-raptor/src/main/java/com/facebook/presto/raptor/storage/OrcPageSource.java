@@ -34,6 +34,7 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -50,10 +51,10 @@ import static java.util.Objects.requireNonNull;
 public class OrcPageSource
         implements UpdatablePageSource
 {
-    public static final int NULL_SIZE = 0;
     public static final int NULL_COLUMN = -1;
     public static final int ROWID_COLUMN = -2;
     public static final int SHARD_UUID_COLUMN = -3;
+    public static final int BUCKET_NUMBER_COLUMN = -4;
 
     private final Optional<ShardRewriter> shardRewriter;
 
@@ -81,6 +82,7 @@ public class OrcPageSource
             List<Type> columnTypes,
             List<Integer> columnIndexes,
             UUID shardUuid,
+            OptionalInt bucketNumber,
             AggregatedMemoryContext systemMemoryContext)
     {
         this.shardRewriter = requireNonNull(shardRewriter, "shardRewriter is null");
@@ -108,6 +110,14 @@ public class OrcPageSource
             }
             else if (this.columnIndexes[i] == SHARD_UUID_COLUMN) {
                 constantBlocks[i] = buildSingleValueBlock(columnTypes.get(i), utf8Slice(shardUuid.toString()));
+            }
+            else if (this.columnIndexes[i] == BUCKET_NUMBER_COLUMN) {
+                if (bucketNumber.isPresent()) {
+                    constantBlocks[i] = buildSingleValueBlock(columnTypes.get(i), (long) bucketNumber.getAsInt());
+                }
+                else {
+                    constantBlocks[i] = buildSingleValueBlock(columnTypes.get(i), null);
+                }
             }
         }
 

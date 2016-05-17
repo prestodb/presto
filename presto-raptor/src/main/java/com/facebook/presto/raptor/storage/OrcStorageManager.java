@@ -81,11 +81,17 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import static com.facebook.presto.raptor.RaptorColumnHandle.isBucketNumberColumn;
+import static com.facebook.presto.raptor.RaptorColumnHandle.isHiddenColumn;
 import static com.facebook.presto.raptor.RaptorColumnHandle.isShardRowIdColumn;
 import static com.facebook.presto.raptor.RaptorColumnHandle.isShardUuidColumn;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_TIMEOUT;
+import static com.facebook.presto.raptor.storage.OrcPageSource.BUCKET_NUMBER_COLUMN;
+import static com.facebook.presto.raptor.storage.OrcPageSource.NULL_COLUMN;
+import static com.facebook.presto.raptor.storage.OrcPageSource.ROWID_COLUMN;
+import static com.facebook.presto.raptor.storage.OrcPageSource.SHARD_UUID_COLUMN;
 import static com.facebook.presto.raptor.storage.ShardStats.computeColumnStats;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -218,18 +224,14 @@ public class OrcStorageManager
             ImmutableList.Builder<Integer> columnIndexes = ImmutableList.builder();
             for (int i = 0; i < columnIds.size(); i++) {
                 long columnId = columnIds.get(i);
-                if (isShardRowIdColumn(columnId)) {
-                    columnIndexes.add(OrcPageSource.ROWID_COLUMN);
-                    continue;
-                }
-                if (isShardUuidColumn(columnId)) {
-                    columnIndexes.add(OrcPageSource.SHARD_UUID_COLUMN);
+                if (isHiddenColumn(columnId)) {
+                    columnIndexes.add(toSpecialIndex(columnId));
                     continue;
                 }
 
                 Integer index = indexMap.get(columnId);
                 if (index == null) {
-                    columnIndexes.add(OrcPageSource.NULL_COLUMN);
+                    columnIndexes.add(NULL_COLUMN);
                 }
                 else {
                     columnIndexes.add(index);
@@ -246,7 +248,7 @@ public class OrcStorageManager
                 shardRewriter = Optional.of(createShardRewriter(transactionId.getAsLong(), bucketNumber, shardUuid));
             }
 
-            return new OrcPageSource(shardRewriter, recordReader, dataSource, columnIds, columnTypes, columnIndexes.build(), shardUuid, systemMemoryUsage);
+            return new OrcPageSource(shardRewriter, recordReader, dataSource, columnIds, columnTypes, columnIndexes.build(), shardUuid, bucketNumber, systemMemoryUsage);
         }
         catch (IOException | RuntimeException e) {
             try {
@@ -257,6 +259,20 @@ public class OrcStorageManager
             }
             throw new PrestoException(RAPTOR_ERROR, "Failed to create page source for shard " + shardUuid, e);
         }
+    }
+
+    private static int toSpecialIndex(long columnId)
+    {
+        if (isShardRowIdColumn(columnId)) {
+            return ROWID_COLUMN;
+        }
+        if (isShardUuidColumn(columnId)) {
+            return SHARD_UUID_COLUMN;
+        }
+        if (isBucketNumberColumn(columnId)) {
+            return BUCKET_NUMBER_COLUMN;
+        }
+        throw new PrestoException(RAPTOR_ERROR, "Invalid column ID: " + columnId);
     }
 
     @Override
