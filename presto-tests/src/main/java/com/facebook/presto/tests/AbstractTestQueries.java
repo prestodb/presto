@@ -4277,10 +4277,10 @@ public abstract class AbstractTestQueries
                 .row("orderstatus", "varchar(1)", "")
                 .row("totalprice", "double",  "")
                 .row("orderdate", "date", "")
-                .row("orderpriority", "varchar(5)", "")
-                .row("clerk", "varchar(25)", "")
+                .row("orderpriority", "varchar(15)", "")
+                .row("clerk", "varchar(15)", "")
                 .row("shippriority", "integer", "")
-                .row("comment", "varchar(115)", "")
+                .row("comment", "varchar(79)", "")
                 .build();
 
         // Until we migrate all connectors to parametrized varchar we check two options
