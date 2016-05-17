@@ -23,6 +23,8 @@ import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.IntegerType;
@@ -54,6 +56,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
+import static com.facebook.presto.sql.gen.BytecodeUtils.unboxPrimitive;
 import static com.facebook.presto.util.FastutilSetHelper.toFastutilHashSet;
 import static java.util.Objects.requireNonNull;
 
@@ -122,10 +125,11 @@ public class InCodeGenerator
         Type type = arguments.get(0).getType();
         Class<?> javaType = type.getJavaType();
 
-        SwitchGenerationCase switchGenerationCase  = checkSwitchGenerationCase(type, values);
+        SwitchGenerationCase switchGenerationCase = checkSwitchGenerationCase(type, values);
 
         Signature hashCodeSignature = internalOperator(HASH_CODE, BIGINT, ImmutableList.of(type));
         MethodHandle hashCodeFunction = generatorContext.getRegistry().getScalarFunctionImplementation(hashCodeSignature).getMethodHandle();
+        MethodHandle equalFunction = generatorContext.getRegistry().getScalarFunctionImplementation(internalOperator(EQUAL, BOOLEAN, ImmutableList.of(type, type))).getMethodHandle();
 
         ImmutableListMultimap.Builder<Integer, BytecodeNode> hashBucketsBuilder = ImmutableListMultimap.builder();
         ImmutableList.Builder<BytecodeNode> defaultBucket = ImmutableList.builder();
@@ -134,7 +138,7 @@ public class InCodeGenerator
         for (RowExpression testValue : values) {
             BytecodeNode testBytecode = generatorContext.generate(testValue);
 
-            if (testValue instanceof ConstantExpression && ((ConstantExpression) testValue).getValue() != null) {
+            if (testValue instanceof ConstantExpression && ((ConstantExpression) testValue).getValue() != null && !containsNull(equalFunction, (ConstantExpression) testValue)) {
                 ConstantExpression constant = (ConstantExpression) testValue;
                 Object object = constant.getValue();
                 switch (switchGenerationCase) {
@@ -239,6 +243,7 @@ public class InCodeGenerator
 
         BytecodeBlock block = new BytecodeBlock()
                 .comment("IN")
+                .append(generatorContext.wasNull().set(constantFalse()))
                 .append(value)
                 .append(ifWasNullPopAndGoto(scope, end, boolean.class, javaType))
                 .append(switchBlock)
@@ -280,34 +285,29 @@ public class InCodeGenerator
             Collection<BytecodeNode> testValues,
             boolean checkForNulls)
     {
-        Variable caseWasNull = null; // caseWasNull is set to true the first time a null in `testValues` is encountered
-        if (checkForNulls) {
-            caseWasNull = scope.createTempVariable(boolean.class);
-        }
+        Variable caseWasNull = scope.createTempVariable(boolean.class);
 
         BytecodeBlock caseBlock = new BytecodeBlock()
                 .visitLabel(caseLabel);
 
-        if (checkForNulls) {
-            caseBlock.putVariable(caseWasNull, false);
-        }
+        Variable wasNull = generatorContext.wasNull();
+        caseBlock.append(caseWasNull.set(wasNull));
 
         LabelNode elseLabel = new LabelNode("else");
         BytecodeBlock elseBlock = new BytecodeBlock()
                 .visitLabel(elseLabel);
 
-        Variable wasNull = generatorContext.wasNull();
-        if (checkForNulls) {
-            elseBlock.append(wasNull.set(caseWasNull));
-        }
+        elseBlock.append(wasNull.set(caseWasNull));
 
         elseBlock.gotoLabel(noMatchLabel);
 
         ScalarFunctionImplementation operator = generatorContext.getRegistry().getScalarFunctionImplementation(internalOperator(EQUAL, BOOLEAN, ImmutableList.of(type, type)));
+        MethodHandle methodHandle = operator.getMethodHandle();
+        boolean nullable = methodHandle.type().returnType() == Boolean.class;
 
         Binding equalsFunction = generatorContext
                 .getCallSiteBinder()
-                .bind(operator.getMethodHandle());
+                .bind(methodHandle);
 
         BytecodeNode elseNode = elseBlock;
         for (BytecodeNode testNode : testValues) {
@@ -333,6 +333,21 @@ public class InCodeGenerator
             test.condition()
                     .append(invoke(equalsFunction, EQUAL.name()));
 
+            if (nullable) {
+                BytecodeBlock wasResultNull = new BytecodeBlock().comment("if the result is null, clear wasNull, pop the null value, and goto next test value");
+                LabelNode notNull = new LabelNode("result not null");
+                wasResultNull.dup()
+                        .ifNotNullGoto(notNull)
+                        .append(caseWasNull.set(constantTrue()))
+                        .append(wasNull.set(constantFalse()))
+                        .pop(Boolean.class)
+                        .gotoLabel(elseLabel);
+                test.condition()
+                        .append(wasResultNull)
+                        .visitLabel(notNull)
+                        .append(unboxPrimitive(boolean.class));
+            }
+
             test.ifTrue().gotoLabel(matchLabel);
             test.ifFalse(elseNode);
 
@@ -341,5 +356,19 @@ public class InCodeGenerator
         }
         caseBlock.append(elseNode);
         return caseBlock;
+    }
+
+    private static boolean containsNull(MethodHandle equalFunction, ConstantExpression constantExpression)
+    {
+        boolean nullable = equalFunction.type().returnType() == Boolean.class;
+        if (nullable) {
+            try {
+                return equalFunction.invoke(constantExpression.getValue(), constantExpression.getValue()) == null;
+            }
+            catch (Throwable t) {
+                throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
+            }
+        }
+        return false;
     }
 }
