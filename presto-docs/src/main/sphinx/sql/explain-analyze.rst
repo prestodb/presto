@@ -18,8 +18,6 @@ along with the cost of each operation.
 .. note::
 
     The stats may not be entirely accurate, especially for queries that complete quickly.
-    Also, queries that have a ``Project`` or ``Filter`` above a ``TableScan`` are always
-    inaccurate at this time (the cost will be attributed to a single node).
 
 Examples
 --------
@@ -34,27 +32,37 @@ wall time, which may or may not be correlated to CPU time.
 
                                               Query Plan
     -----------------------------------------------------------------------------------------------
-    Fragment 1 [HASH]
-        Cost: CPU 111.00us, Input 1000 (37.11kB), Output 10 (160B)
-        Output layout: [clerk, $hashvalue, count]
+    Fragment 1 [SINGLE]
+        Cost: CPU 2.06ms, Input: 0 lines (0B), Output: 0 lines (0B)
+        Output layout: [count]
         Output partitioning: SINGLE []
-        - Aggregate(FINAL)[clerk] => [clerk:varchar, $hashvalue:bigint, count:bigint]
-                Cost: 0.00%, Output 0 (0B)
-                count := "count"("count_8")
-            - RemoteSource[2] => [clerk:varchar, $hashvalue:bigint, count_8:bigint]
-                    Cost: 100.00%, Output 1000 (37.11kB)
+        - Output[Query Plan] => [count:bigint]
+                Cost: ?, Output: 0 lines (0B)
+                Query Plan := count
+            - RemoteSource[2] => [count:bigint]
+                    Cost: ?, Output: 0 lines (0B)
 
-    Fragment 2 [SOURCE]
-        Cost: CPU 8.38s, Input 1500000 (41.49MB), Output 4000 (148.45kB)
-        Output layout: [clerk, $hashvalue, count_8]
+    Fragment 2 [HASH]
+        Cost: CPU 700.00us, Input: 0 lines (0B), Output: 0 lines (0B)
+        Output layout: [count]
+        Output partitioning: SINGLE []
+        - ScanFilterAndProject[] => [count:bigint]
+                Cost: ?, Input: 0 lines (0B), Output: 0 lines (0B), Filtered: ?
+            - Aggregate(FINAL)[clerk] => [clerk:varchar, $hashvalue:bigint, count:bigint]
+                    Cost: ?, Output: 0 lines (0B)
+                    count := "count"("count_8")
+                - RemoteSource[3] => [clerk:varchar, count_8:bigint, $hashvalue:bigint]
+                        Cost: ?, Output: 0 lines (0B)
+
+    Fragment 3 [tpch:orders:150000]
+        Cost: CPU 4.04s, Input: 29493 lines (835.29kB), Output: 0 lines (0B)
+        Output layout: [clerk, count_8, $hashvalue_9]
         Output partitioning: HASH [clerk]
-        - Aggregate(PARTIAL)[clerk] => [clerk:varchar, $hashvalue:bigint, count_8:bigint]
-                Cost: 7.45%, Output 4000 (148.45kB)
+        - Aggregate(PARTIAL)[clerk] => [clerk:varchar, $hashvalue_9:bigint, count_8:bigint]
+                Cost: 15.99%, Output: 0 lines (0B)
                 count_8 := "count"(*)
-            - Project => [clerk:varchar, $hashvalue:bigint]
-                    Cost: 92.55%, Output 1500000 (41.49MB)
-                    $hashvalue := "combine_hash"(0, COALESCE("$operator$hash_code"("clerk"), 0))
-                - TableScan[tpch:tpch:orders:sf1.0, originalConstraint = true] => [clerk:varchar]
-                        Cost: unknown, Output: unknown
-                        clerk := tpch:clerk
+            - ScanFilterAndProject[table = tpch:tpch:orders:sf0.1, originalConstraint = true] => [clerk:varchar, $hashvalue_9:bigint]
+                    Cost: 84.01%, Input: 29493 lines (0B), Output: 29493 lines (835.29kB), Filtered: 0.00%
+                    $hashvalue_9 := "combine_hash"(BIGINT '0', COALESCE("$operator$hash_code"("clerk"), 0))
+                    clerk := tpch:clerk
 
