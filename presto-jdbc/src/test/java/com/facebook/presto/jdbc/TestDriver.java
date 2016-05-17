@@ -27,6 +27,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
+import java.net.URI;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.DriverManager;
@@ -1137,6 +1138,18 @@ public class TestDriver
                     assertEquals(rs.getString("table_catalog"), TEST_CATALOG);
                 }
             }
+        }
+    }
+
+    @Test
+    public void testConnectionWithSSL()
+            throws Exception
+    {
+        String url = format("jdbc:presto://some-ssl-server:443/%s", "blackhole");
+        try (PrestoConnection connection = (PrestoConnection) DriverManager.getConnection(url, "test", null)) {
+            URI uri = connection.getHttpUri();
+            assertEquals(uri.getPort(), 443);
+            assertEquals(uri.getScheme(), "https");
         }
     }
 

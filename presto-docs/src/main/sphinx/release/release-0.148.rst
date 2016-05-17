@@ -16,6 +16,7 @@ General Changes
 * Improve planning of co-partitioned JOIN and UNION.
 * Improve planning of aggregations over partitioned data.
 * Add support for colocated unions.
+* Use HTTPS in JDBC driver when using port 443.
 
 Hive Changes
 ------------
