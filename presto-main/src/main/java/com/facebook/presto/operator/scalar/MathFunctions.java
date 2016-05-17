@@ -41,7 +41,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.TINYINT)
     public static long absTinyint(@SqlType(StandardTypes.TINYINT) long num)
     {
-        checkCondition(num != Byte.MIN_VALUE, NUMERIC_VALUE_OUT_OF_RANGE, "Value -128 is out of range for abs()");
+        checkCondition(num != Byte.MIN_VALUE, NUMERIC_VALUE_OUT_OF_RANGE, "Value -128 is out of range for abs(tinyint)");
         return Math.abs(num);
     }
 
@@ -50,7 +50,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.SMALLINT)
     public static long absSmallint(@SqlType(StandardTypes.SMALLINT) long num)
     {
-        checkCondition(num != Short.MIN_VALUE, NUMERIC_VALUE_OUT_OF_RANGE, "Value -32768 is out of range for abs()");
+        checkCondition(num != Short.MIN_VALUE, NUMERIC_VALUE_OUT_OF_RANGE, "Value -32768 is out of range for abs(smallint)");
         return Math.abs(num);
     }
 
@@ -59,7 +59,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.INTEGER)
     public static long absInt(@SqlType(StandardTypes.INTEGER) long num)
     {
-        checkCondition(num != Integer.MIN_VALUE, NUMERIC_VALUE_OUT_OF_RANGE, "Value -2147483648 is out of range for abs()");
+        checkCondition(num != Integer.MIN_VALUE, NUMERIC_VALUE_OUT_OF_RANGE, "Value -2147483648 is out of range for abs(integer)");
         return Math.abs(num);
     }
 
@@ -68,7 +68,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long abs(@SqlType(StandardTypes.BIGINT) long num)
     {
-        checkCondition(num != Long.MIN_VALUE, NUMERIC_VALUE_OUT_OF_RANGE, "Value -9223372036854775808 is out of range for abs()");
+        checkCondition(num != Long.MIN_VALUE, NUMERIC_VALUE_OUT_OF_RANGE, "Value -9223372036854775808 is out of range for abs(bigint)");
         return Math.abs(num);
     }
 
