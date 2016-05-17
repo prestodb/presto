@@ -568,12 +568,6 @@ public class SharedBuffer
                     return false;
                 }
 
-                // if request is for pages before the current position, just return an empty page
-                if (startingSequenceId < namedBuffer.getSequenceId()) {
-                    future.complete(emptyResults(taskInstanceId, startingSequenceId, false));
-                    return true;
-                }
-
                 // read pages from the buffer
                 BufferResult bufferResult = namedBuffer.getPages(startingSequenceId, maxSize);
 
