@@ -23,7 +23,7 @@ import com.google.inject.Inject;
 
 import java.util.concurrent.CompletableFuture;
 
-import static com.facebook.presto.sql.SqlFormatter.getFormattedSql;
+import static com.facebook.presto.execution.TaskUtils.getFormattedSql;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 

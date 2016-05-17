@@ -34,9 +34,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
+import static com.facebook.presto.execution.TaskUtils.getFormattedSql;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
-import static com.facebook.presto.sql.SqlFormatter.getFormattedSql;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
