@@ -40,6 +40,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -174,7 +175,7 @@ public interface ConnectorMetadata
     /**
      * Get the physical layout for a inserting into an existing table.
      */
-    default Optional<ConnectorTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
+    default Optional<ConnectorNewTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         List<ConnectorTableLayout> layouts = getTableLayouts(session, tableHandle, new Constraint<>(TupleDomain.all(), map -> true), Optional.empty())
                 .stream()
@@ -190,7 +191,15 @@ public interface ConnectorMetadata
             throw new PrestoException(NOT_SUPPORTED, "Tables with multiple layouts can not be written");
         }
 
-        return Optional.of(layouts.get(0));
+        ConnectorTableLayout layout = layouts.get(0);
+        ConnectorPartitioningHandle partitioningHandle = layout.getNodePartitioning().get().getPartitioningHandle();
+        Map<ColumnHandle, String> columnNamesByHandle = getColumnHandles(session, tableHandle).entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
+        List<String> partitionColumns = layout.getNodePartitioning().get().getPartitioningColumns().stream()
+                .map(columnNamesByHandle::get)
+                .collect(toList());
+
+        return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitionColumns));
     }
 
     /**
