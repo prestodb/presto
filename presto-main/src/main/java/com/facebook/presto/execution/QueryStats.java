@@ -25,7 +25,9 @@ import org.joda.time.DateTime;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.Duration.succinctNanos;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class QueryStats
 {
@@ -236,6 +238,16 @@ public class QueryStats
     public Duration getQueuedTime()
     {
         return queuedTime;
+    }
+
+    @JsonProperty
+    public Duration getExecutionTime()
+    {
+        if (queuedTime == null) {
+            // counter-intuitively, this means that the query is still queued
+            return new Duration(0, NANOSECONDS);
+        }
+        return succinctNanos((long) elapsedTime.getValue(NANOSECONDS) - (long) queuedTime.getValue(NANOSECONDS));
     }
 
     @JsonProperty

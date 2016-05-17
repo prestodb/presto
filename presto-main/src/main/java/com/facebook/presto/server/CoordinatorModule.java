@@ -177,6 +177,9 @@ public class CoordinatorModule
                 config -> config.isResourceGroupsEnabled() && FILE_BASED_RESOURCE_GROUP_MANAGER.equalsIgnoreCase(config.getResourceGroupManager()),
                 moduleBinder -> moduleBinder.install(new FileResourceGroupsModule())));
 
+        // cluster statistics
+        jaxrsBinder(binder).bind(ClusterStatsResource.class);
+
         // query explainer
         binder.bind(QueryExplainer.class).in(Scopes.SINGLETON);
 

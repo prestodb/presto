@@ -1,0 +1,486 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/** Element preset overrides **/
+/** ======================== **/
+
+body {
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+
+h3 {
+    color: #fff;
+}
+
+pre {
+    margin: 0;
+    padding: 5px;
+    color: #999;
+    background-color: #2C2F38;
+    border: 1px #404040 solid;
+    border: none;
+}
+
+/** Boostrap overrides **/
+/** ================== **/
+
+.container {
+    min-width:960px;
+    width: auto !important;
+    max-width:1200px;
+}
+
+/* To make the table striping less stark */
+.table-striped > tbody > tr:nth-of-type(odd) {
+  background-color: #353944;
+}
+
+.table > tbody > tr > td {
+    border-top-color: #4A4A4A;
+}
+
+/** Convenience classes */
+/** =================== */
+
+.font-large {
+    font-size: 24px;
+}
+
+.font-white {
+    color: #fff;
+}
+
+/** Navbar **/
+/** ====== **/
+
+.navbar {
+  padding: 0 5px 0px 5px;
+  border-bottom: 1px solid #1EDCFF;
+}
+
+.navbar-brand {
+    color: #fff;
+    text-transform: uppercase;
+    font-size: 24px;
+    padding-left: 30px;
+    padding-top: 25px;
+}
+
+.navbar img {
+    width:40px;
+    height: auto;
+    padding-top: 17px;
+}
+
+.navbar-cluster-info {
+    display: block;
+    box-sizing: border-box;
+    padding: 15px;
+    position: relative;
+    color: #666;
+    text-transform: uppercase;
+    font-size: 11px;
+}
+
+.navbar-cluster-info .text {
+    color: #fff;
+    font-size: 16px;
+}
+
+/** ===================== **/
+/** Cluster Overview Page **/
+/** ===================== **/
+
+/** HUD **/
+/** === **/
+
+.hud-container {
+    background-size: 5px 5px;
+    background-image: linear-gradient(to right, #2d2d2d 1px, transparent 1px), linear-gradient(to bottom, #2d2d2d 1px, transparent 1px);
+    margin: -15px 0 0 0;
+    padding: 15px 0 0 0;
+    height: 375px;
+}
+
+.stat-line-end {
+    padding-top: 3px;
+    margin-bottom: 20px;
+}
+
+.stat {
+    color: #fff;
+    border-bottom: 1px #424242 solid;
+    border-left: 1px #424242 solid;
+    margin: 0 0 0 0px;
+    font-size: 72px;
+    height: 81px;
+    display: flex;
+    align-items: center;
+    padding-left: 0;
+    padding-top:15px;
+}
+
+.stat-text {
+    padding:0 5px 0 5px;
+    z-index: 9999;
+}
+
+.stat-title {
+    text-align: left;
+    text-transform: uppercase;
+    margin: 0;
+    font-size: 16px;
+    line-height: 1;
+}
+
+.stat-title > .text {
+    padding: 5px;
+    background-color: #3e3e3e;
+    color: #ccc;
+}
+
+.sparkline {
+    height: 80px;
+    width: 100%;
+    margin:0;
+}
+
+.sparkline-tooltip {
+    color: pink;
+    background-color: #fff;
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    visibility: hidden;
+    background: rgb(0, 0, 0) transparent;
+    background-color: rgba(0,0,0,0.6);
+    filter:progid:DXImageTransform.Microsoft.gradient(startColorstr=#99000000, endColorstr=#99000000);
+    -ms-filter: "progid:DXImageTransform.Microsoft.gradient(startColorstr=#99000000, endColorstr=#99000000)";
+    color: white;
+    font: 20px arial, san serif;
+    text-align: left;
+    white-space: nowrap;
+    padding: 0 40px 5px 5px;
+    border: none;
+    z-index: 10000;
+}
+
+/** Query list **/
+/** ========== **/
+
+#query-list-title {
+    font-size: 22px;
+    background-color: #696E77;
+    padding: 3px 3px 3px 7px;
+    text-transform: uppercase;
+    color: #fff;
+    border-top: 1px solid #9DA4AF;
+}
+
+#query-list {
+    padding: 5px 0 0 15px;
+    border-bottom: 1px #424242 solid;
+    border-left: 1px #424242 solid;
+    border-right: 1px #424242 solid;
+}
+
+.error-message {
+    text-align: center;
+    padding: 20px;
+}
+
+.query {
+    border-bottom: 1px #424242 solid;
+    margin-bottom: 0px;
+    margin-left: -15px;
+    padding-left: 15px;
+}
+
+.query-snippet {
+    height: 116px;
+    overflow: hidden;
+}
+
+.query-snippet code {
+    overflow: hidden;
+}
+
+.progress {
+    margin: 0;
+    background-color: #808286;
+    height: 28px;
+}
+
+.progress-bar {
+    padding: 4px;
+    min-width: 14%;
+}
+
+.tinystat-row {
+    padding-right: 0;
+}
+
+.tinystat {
+    display: inline-block;
+    width: 100px;
+}
+
+.stat-row {
+    padding: 2px 0 1px 0;
+}
+
+.stat-header {
+    margin-left: -15px;
+    background-color: #1b1b1b;
+    margin-right: -35px;
+    padding: 4px 0 4px 0;
+}
+
+.stat-header-queryid {
+    text-align: right;
+    color: #b1b1b1;
+}
+
+/** Query List Toolbar **/
+/** ================== **/
+
+.toolbar-row {
+    padding-right: 15px;
+}
+
+.toolbar-col {
+    background-color: #454a58;
+    margin-top: -5px;
+    padding: 5px;
+}
+
+.toolbar-row .form-control {
+    color: #000;
+}
+
+.toolbar-row .input-group-btn .btn:focus {
+    outline: none;
+    background-color: #5bc0de;
+    border: 1px #529eb5 solid;
+}
+
+.toolbar-row .input-group-btn .active:focus {
+    outline: none;
+    background-color: #277F98;
+    border: 1px #529eb5 solid;
+}
+
+.toolbar-row .input-group-btn .active {
+    background-color: #277F98;
+    border:  1px #529eb5 solid;
+}
+
+.style-radio {
+    color: #ebe6ff;
+    background-color: #2e264e;
+    border:  1px #5d4f94 solid;
+    font-weight: 500;
+}
+
+.filter-addon {
+    color: #000;
+    background-color: #fff;
+    border: none;
+    border-top: 2px solid #454A58;
+    border-bottom: 3px solid #454A58;
+}
+
+.toolbar-row .input-group .form-control {
+    margin-top: 2px;
+    margin-bottom: -2px;
+    width:98%;
+}
+
+.toolbar-row .dropdown-menu li a {
+    color: #424242;
+}
+
+.toolbar-row .dropdown-menu li .selected {
+    background-color: #418194;
+    color: #fff;
+    font-weight: 500;
+}
+
+/** Loading indicators **/
+/** ================== **/
+
+.sparkline .loader {
+    margin: 0 0 0 90px;
+}
+
+.sparkline .loader, .loader:after {
+    width: 50px;
+    height: 50px;
+}
+
+/** ================== **/
+/** Query Details Page **/
+/** ================== **/
+
+#query-detail {
+    color: #cecece;
+    font-size: 16px;
+}
+
+.query-links {
+    text-align: right;
+    margin-top: 20px;
+}
+
+.progress-large {
+    margin: 0;
+    background-color: #808286;
+    height: 36px;
+    width: 100%;
+}
+
+.progress-large .progress-bar {
+    font-size: 18px;
+    line-height: 30px;
+}
+
+#query-detail pre {
+    border: 1px #fff solid;
+}
+
+/** Summary Section **/
+/** =============== **/
+
+.info-title {
+    width: 170px;
+    font-weight: 500;
+    text-align: right;
+}
+
+.info-text {
+    color: #fff;
+}
+
+.table > tbody > tr > .info-sparkline-text {
+    color: #fff;
+    border-top: none;
+    text-align: right;
+    padding-top: 0;
+    font-size: 23px;
+}
+
+.stack-trace {
+    font-size: 10px;
+    line-height: 14px;
+    word-wrap: normal;
+    overflow-y: hidden;
+}
+
+/** Stage List **/
+/** =========== **/
+
+#stage-list{
+    margin-top: 5px;
+    text-align: right;
+}
+
+.stage-id {
+    font-size:72px;
+    color: #b5b5b5;
+    text-align: center;
+}
+
+.single-stage-table > tbody > tr > td {
+    border-top: none;
+}
+
+.stage-table .stage-table-stat-header {
+    color: #fff;
+}
+
+.stage-table {
+    width: 170px;
+    display: inline-table;
+    margin: -8px;
+}
+
+.stage-table-time {
+    width: 170px;
+}
+
+.stage-table-memory {
+    width: 140px;
+}
+
+.stage-table-tasks {
+    width: 100px;
+}
+
+.stage-table .stage-table-chart-header {
+    color: #fff;
+    text-align: center;
+}
+
+.stage-table tr td {
+    padding-right: 5px;
+}
+
+.stage-table tr th {
+    padding-right: 5px;
+}
+
+.stage-table-stat-title {
+    font-size: 12px;
+    line-height: 16px;
+    text-align: right;
+    text-transform: uppercase;
+    font-style: italic;
+    color: #757575;
+    width: 80px;
+}
+
+.stage-table-stat-text {
+    text-align: left;
+}
+
+.bar-chart-container {
+    padding-top: 10px;
+}
+
+.histogram-table {
+    margin-right: 10px;
+}
+
+.histogram-container {
+    padding-top: 10px;
+}
+
+.table > tbody > tr > td .expand-charts-container {
+    padding-top: 40px;
+}
+
+.expand-charts-button {
+    padding: 34px 3px 34px 4px;
+    background-color: #3A3F4C;
+}
+
+.expanded-chart-title {
+    width: 100px;
+    padding-right: 5px;
+}
+
+.expanded-chart {
+    display: inline-table;
+}
