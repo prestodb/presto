@@ -60,7 +60,12 @@ public final class ArrayContains
                 continue;
             }
             try {
-                if ((boolean) equals.invokeExact((Block) elementType.getObject(arrayBlock, i), value)) {
+                Boolean result = (Boolean) equals.invokeExact((Block) elementType.getObject(arrayBlock, i), value);
+                if (result == null) {
+                    foundNull = true;
+                    continue;
+                }
+                if (result) {
                     return true;
                 }
             }

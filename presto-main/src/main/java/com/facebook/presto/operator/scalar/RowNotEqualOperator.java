@@ -15,17 +15,23 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.List;
 
 import static com.facebook.presto.metadata.Signature.comparableWithVariadicBound;
+import static com.facebook.presto.metadata.Signature.internalOperator;
+import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
@@ -33,7 +39,7 @@ public class RowNotEqualOperator
         extends SqlOperator
 {
     public static final RowNotEqualOperator ROW_NOT_EQUAL = new RowNotEqualOperator();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(RowNotEqualOperator.class, "notEqual", Type.class, Block.class, Block.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(RowNotEqualOperator.class, "notEqual", List.class, Type.class, Block.class, Block.class);
 
     private RowNotEqualOperator()
     {
@@ -48,11 +54,26 @@ public class RowNotEqualOperator
     public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type type = boundVariables.getTypeVariable("T");
-        return new ScalarFunctionImplementation(false, ImmutableList.of(false, false), METHOD_HANDLE.bindTo(type), isDeterministic());
+        List<Type> internalTypes = type.getTypeParameters();
+        ImmutableList.Builder<MethodHandle> equalFunctions = ImmutableList.builder();
+        for (int i = 0; i < internalTypes.size(); i++) {
+            TypeSignature typeSignature = internalTypes.get(i).getTypeSignature();
+            Signature signature = internalOperator(
+                    EQUAL.name(),
+                    BOOLEAN.getTypeSignature(),
+                    ImmutableList.of(typeSignature, typeSignature));
+            ScalarFunctionImplementation function = functionRegistry.getScalarFunctionImplementation(signature);
+            equalFunctions.add(function.getMethodHandle());
+        }
+        return new ScalarFunctionImplementation(true, ImmutableList.of(false, false), METHOD_HANDLE.bindTo(equalFunctions.build()).bindTo(type), isDeterministic());
     }
 
-    public static boolean notEqual(Type rowType, Block leftRow, Block rightRow)
+    public static Boolean notEqual(List<MethodHandle> equalFunctions, Type rowType, Block leftRow, Block rightRow)
     {
-        return !RowEqualOperator.equals(rowType, leftRow, rightRow);
+        Boolean equals = RowEqualOperator.equals(equalFunctions, rowType, leftRow, rightRow);
+        if (equals == null) {
+            return null;
+        }
+        return !equals;
     }
 }
