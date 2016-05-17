@@ -23,7 +23,6 @@ import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
@@ -33,7 +32,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -50,7 +48,6 @@ import com.facebook.presto.type.TypeRegistry;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.google.common.base.Joiner;
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -489,23 +486,12 @@ public class MetadataManager
     {
         ConnectorEntry entry = getConnectorMetadata(table.getConnectorId());
 
-        Optional<ConnectorTableLayout> insertLayout = entry.getMetadataForWrite(session).getInsertLayout(session.toConnectorSession(entry.getCatalog()), table.getConnectorHandle());
+        Optional<ConnectorNewTableLayout> insertLayout = entry.getMetadataForWrite(session).getInsertLayout(session.toConnectorSession(entry.getCatalog()), table.getConnectorHandle());
         if (!insertLayout.isPresent()) {
             return Optional.empty();
         }
-        ConnectorTableLayout layout = insertLayout.get();
 
-        ConnectorPartitioningHandle partitioningHandle = layout.getNodePartitioning().get().getPartitioningHandle();
-
-        Map<ColumnHandle, String> columnNamesByHandle = ImmutableBiMap.copyOf(getColumnHandles(session, table)).inverse();
-        List<String> partitionColumns = layout.getNodePartitioning().get().getPartitioningColumns().stream()
-                .map(columnNamesByHandle::get)
-                .collect(toImmutableList());
-
-        return Optional.of(new NewTableLayout(
-                entry.getConnectorId(),
-                entry.getTransactionHandle(session),
-                new ConnectorNewTableLayout(partitioningHandle, partitionColumns)));
+        return Optional.of(new NewTableLayout(entry.getConnectorId(), entry.getTransactionHandle(session), insertLayout.get()));
     }
 
     @Override
