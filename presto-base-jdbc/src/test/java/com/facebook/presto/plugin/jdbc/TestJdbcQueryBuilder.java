@@ -20,10 +20,15 @@ import com.facebook.presto.spi.predicate.SortedRangeSet;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.TimeType;
+import com.facebook.presto.spi.type.TimestampType;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -35,6 +40,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -57,12 +63,16 @@ public class TestJdbcQueryBuilder
                 "\"col_0\" BIGINT, " +
                 "\"col_1\" DOUBLE, " +
                 "\"col_2\" BOOLEAN, " +
+                "\"col_3\" TIMESTAMP, " +
+                "\"col_4\" Time, " +
+                "\"col_5\" DATE, " +
+                "\"col_6\" VARCHAR, " +
                 ")");
         preparedStatement.execute();
         StringBuilder stringBuilder = new StringBuilder("insert into \"test_table\" values ");
         int len = 1000;
         for (int i = 0; i < len; i++) {
-            stringBuilder.append("(" + i + ", " + (200000.0 + i / 2.0) + ", " + (i % 2 == 0) + ")");
+            stringBuilder.append("(" + i + ", " + (200000.0 + i / 2.0) + ", " + (i % 2 == 0) + ", now(), now(), current_date, 'test'" + ")");
             if (i != len - 1) {
                 stringBuilder.append(",");
             }
@@ -70,9 +80,14 @@ public class TestJdbcQueryBuilder
         PreparedStatement preparedStatement2 = connection.prepareStatement(stringBuilder.toString());
         preparedStatement2.execute();
 
+        cols.clear();
         cols.add(new JdbcColumnHandle("test_id", "col_0", BigintType.BIGINT));
         cols.add(new JdbcColumnHandle("test_id", "col_1", DoubleType.DOUBLE));
         cols.add(new JdbcColumnHandle("test_id", "col_2", BooleanType.BOOLEAN));
+        cols.add(new JdbcColumnHandle("test_id", "col_3", TimestampType.TIMESTAMP));
+        cols.add(new JdbcColumnHandle("test_id", "col_4", TimeType.TIME));
+        cols.add(new JdbcColumnHandle("test_id", "col_5", DateType.DATE));
+        cols.add(new JdbcColumnHandle("test_id", "col_6", VarcharType.VARCHAR));
     }
 
     @AfterMethod
@@ -136,5 +151,125 @@ public class TestJdbcQueryBuilder
 
         ResultSet res = preparedStatement.executeQuery();
         assertEquals(res.next(), false);
+    }
+
+    @Test
+    public void testPushdownTimestamp()
+            throws SQLException
+    {
+        Connection connection = database.getConnection();
+
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+            cols.get(3), Domain.create(SortedRangeSet.copyOf(TimestampType.TIMESTAMP,
+                ImmutableList.of(
+                    Range.greaterThan(TimestampType.TIMESTAMP, System.currentTimeMillis())
+                        )),
+                        false)
+                ));
+        PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", cols, tupleDomain);
+        String sql = preparedStatement.toString();
+        assertEquals(sql.contains("\"col_3\" > ?"), true);
+
+        tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+            cols.get(3), Domain.create(SortedRangeSet.copyOf(TimestampType.TIMESTAMP,
+                ImmutableList.of(
+                    Range.lessThan(TimestampType.TIMESTAMP, System.currentTimeMillis())
+                        )),
+                        false)
+                ));
+        preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", cols, tupleDomain);
+        sql = preparedStatement.toString();
+        assertEquals(sql.contains("\"col_3\" < ?"), true);
+
+        tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+            cols.get(3), Domain.create(SortedRangeSet.copyOf(TimestampType.TIMESTAMP,
+                ImmutableList.of(
+                    Range.lessThanOrEqual(TimestampType.TIMESTAMP, System.currentTimeMillis())
+                        )),
+                        false)
+                ));
+        preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", cols, tupleDomain);
+        sql = preparedStatement.toString();
+        assertEquals(sql.contains("\"col_3\" <= ?"), true);
+
+        tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+            cols.get(3), Domain.create(SortedRangeSet.copyOf(TimestampType.TIMESTAMP,
+                ImmutableList.of(
+                    Range.greaterThanOrEqual(TimestampType.TIMESTAMP, System.currentTimeMillis())
+                        )),
+                        false)
+                ));
+        preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", cols, tupleDomain);
+        sql = preparedStatement.toString();
+        assertEquals(sql.contains("\"col_3\" >= ?"), true);
+    }
+
+    @Test
+    public void testPushdownDate()
+            throws SQLException
+    {
+        Connection connection = database.getConnection();
+
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+            cols.get(5), Domain.create(SortedRangeSet.copyOf(DateType.DATE,
+                ImmutableList.of(
+                    Range.greaterThan(DateType.DATE, (long) 16900)
+                        )),
+                        false)
+                ));
+        PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", cols, tupleDomain);
+        String sql = preparedStatement.toString();
+        assertEquals(sql.contains("\"col_5\" > ?"), true);
+
+        tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+            cols.get(5), Domain.create(SortedRangeSet.copyOf(DateType.DATE,
+                ImmutableList.of(
+                    Range.lessThan(DateType.DATE, (long) 16900)
+                        )),
+                        false)
+                ));
+        preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", cols, tupleDomain);
+        sql = preparedStatement.toString();
+        assertEquals(sql.contains("\"col_5\" < ?"), true);
+
+        tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+            cols.get(5), Domain.create(SortedRangeSet.copyOf(DateType.DATE,
+                ImmutableList.of(
+                    Range.lessThanOrEqual(DateType.DATE, (long) 16900)
+                        )),
+                        false)
+                ));
+        preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", cols, tupleDomain);
+        sql = preparedStatement.toString();
+        assertEquals(sql.contains("\"col_5\" <= ?"), true);
+
+        tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+            cols.get(5), Domain.create(SortedRangeSet.copyOf(DateType.DATE,
+                ImmutableList.of(
+                    Range.greaterThanOrEqual(DateType.DATE, (long) 16900)
+                        )),
+                        false)
+                ));
+        preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", cols, tupleDomain);
+        sql = preparedStatement.toString();
+        assertEquals(sql.contains("\"col_5\" >= ?"), true);
+    }
+
+    @Test
+    public void testPushdownString()
+            throws SQLException
+    {
+        Connection connection = database.getConnection();
+
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+            cols.get(6), Domain.create(SortedRangeSet.copyOf(VarcharType.VARCHAR,
+                ImmutableList.of(
+                    Range.equal(VarcharType.VARCHAR, utf8Slice("test"))
+                        )),
+                        false)
+                ));
+        PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", cols, tupleDomain);
+        String sql = preparedStatement.toString();
+        assertEquals(sql.contains("\"col_6\" = ?"), true);
     }
 }
