@@ -3,6 +3,11 @@ language: java
 env:
   global:
     - MAVEN_OPTS="-Xmx256M"
+  jenkins_matrix:
+    - TEST_MODULES=!presto-tests,!presto-kafka,!presto-redis,!presto-cassandra,!presto-raptor,!presto-postgresql,!presto-mysql
+    - TEST_MODULES=presto-tests
+    - TEST_MODULES=presto-raptor,presto-redis,presto-cassandra,presto-kafka,presto-postgresql,presto-mysql
+    - RUN_PRODUCT_TESTS=true
   matrix:
     - TEST_MODULES=!presto-tests,!presto-kafka,!presto-redis,!presto-cassandra,!presto-raptor,!presto-postgresql,!presto-mysql
     - TEST_MODULES=presto-tests
