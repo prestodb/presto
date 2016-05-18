@@ -161,9 +161,6 @@ public class OrcPageSource
                 else if (columnIndexes[fieldId] == ROWID_COLUMN) {
                     blocks[fieldId] = buildSequenceBlock(filePosition, batchSize);
                 }
-                else if (columnIndexes[fieldId] == SHARD_UUID_COLUMN) {
-                    blocks[fieldId] = constantBlocks[fieldId].getRegion(0, batchSize);
-                }
                 else {
                     blocks[fieldId] = new LazyBlock(batchSize, new OrcBlockLoader(columnIndexes[fieldId], type));
                 }
