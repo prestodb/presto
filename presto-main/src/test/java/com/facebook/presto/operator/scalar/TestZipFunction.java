@@ -18,7 +18,6 @@ import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.RowType;
 import org.testng.annotations.Test;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.IntStream;
@@ -29,9 +28,10 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Arrays.asList;
+import static java.util.stream.Collectors.toList;
 
 public class TestZipFunction
         extends AbstractTestFunctions
@@ -42,43 +42,43 @@ public class TestZipFunction
     {
         assertFunction("zip(ARRAY[1, 2], ARRAY['a', 'b'])",
                 zipReturnType(INTEGER, createVarcharType(1)),
-                asList(asList(1, "a"), asList(2, "b")));
+                list(list(1, "a"), list(2, "b")));
 
         assertFunction("zip(ARRAY[1, 2], ARRAY['a', CAST('b' AS VARCHAR)])",
                 zipReturnType(INTEGER, VARCHAR),
-                asList(asList(1, "a"), asList(2, "b")));
+                list(list(1, "a"), list(2, "b")));
 
         assertFunction("zip(ARRAY[1, 2, 3, 4], ARRAY['a', 'b', 'c', 'd'])",
                 zipReturnType(INTEGER, createVarcharType(1)),
-                asList(asList(1, "a"), asList(2, "b"), asList(3, "c"), asList(4, "d")));
+                list(list(1, "a"), list(2, "b"), list(3, "c"), list(4, "d")));
 
         assertFunction("zip(ARRAY[1, 2], ARRAY['a', 'b'],  ARRAY['c', 'd'])",
                 zipReturnType(INTEGER, createVarcharType(1), createVarcharType(1)),
-                asList(asList(1, "a", "c"), asList(2, "b", "d")));
+                list(list(1, "a", "c"), list(2, "b", "d")));
 
         assertFunction("zip(ARRAY[1, 2], ARRAY['a', 'b'],  ARRAY['c', 'd'], ARRAY['e', 'f'])",
                 zipReturnType(INTEGER, createVarcharType(1), createVarcharType(1), createVarcharType(1)),
-                asList(asList(1, "a", "c", "e"), asList(2, "b", "d", "f")));
+                list(list(1, "a", "c", "e"), list(2, "b", "d", "f")));
 
         assertFunction("zip(ARRAY[], ARRAY[])",
                 zipReturnType(UNKNOWN, UNKNOWN),
-                asList());
+                list());
 
         assertFunction("zip(ARRAY[], ARRAY[], ARRAY[])",
                 zipReturnType(UNKNOWN, UNKNOWN, UNKNOWN),
-                asList());
+                list());
 
         assertFunction("zip(ARRAY[], ARRAY[], ARRAY[], ARRAY[])",
                 zipReturnType(UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN),
-                asList());
+                list());
 
         assertFunction("zip(ARRAY[NULL], ARRAY[NULL])",
                 zipReturnType(UNKNOWN, UNKNOWN),
-                asList(asList(null, null)));
+                list(list(null, null)));
 
         assertFunction("zip(ARRAY[ARRAY[1, 1], ARRAY[1, 2]], ARRAY[ARRAY[2, 1], ARRAY[2, 2]])",
                 zipReturnType(new ArrayType(INTEGER), new ArrayType(INTEGER)),
-                asList(asList(asList(1, 1), asList(2, 1)), asList(asList(1, 2), asList(2, 2))));
+                list(list(list(1, 1), list(2, 1)), list(list(1, 2), list(2, 2))));
     }
 
     @Test
@@ -87,19 +87,19 @@ public class TestZipFunction
     {
         assertFunction("zip(ARRAY[1], ARRAY['a', 'b'])",
                 zipReturnType(INTEGER, createVarcharType(1)),
-                asList(asList(1, "a"), asList(null, "b")));
+                list(list(1, "a"), list(null, "b")));
 
         assertFunction("zip(ARRAY[NULL, 2], ARRAY['a'])",
                 zipReturnType(INTEGER, createVarcharType(1)),
-                asList(asList(null, "a"), (List<Integer>) asList(2, null)));
+                list(list(null, "a"), list(2, null)));
 
         assertFunction("zip(ARRAY[], ARRAY[1], ARRAY[1, 2], ARRAY[1, 2, 3])",
                 zipReturnType(UNKNOWN, INTEGER, INTEGER, INTEGER),
-                asList(asList(null, 1, 1, 1), asList(null, null, 2, 2), asList(null, null, null, 3)));
+                list(list(null, 1, 1, 1), list(null, null, 2, 2), list(null, null, null, 3)));
 
         assertFunction("zip(ARRAY[], ARRAY[NULL], ARRAY[NULL, NULL])",
                 zipReturnType(UNKNOWN, UNKNOWN, UNKNOWN),
-                asList(asList(null, null, null), asList(null, null, null)));
+                list(list(null, null, null), list(null, null, null)));
     }
 
     @Test
@@ -115,16 +115,28 @@ public class TestZipFunction
     public void testAllArities()
             throws Exception
     {
-        IntStream.rangeClosed(MIN_ARITY, MAX_ARITY).forEach(
-                arity -> assertFunction(
-                        "zip(" + join(", ", IntStream.rangeClosed(1, arity).mapToObj(index -> "ARRAY[" + index + "]").toArray(String[]::new)) + ")",
-                        zipReturnType(IntStream.rangeClosed(1, arity).mapToObj(index -> INTEGER).toArray(Type[]::new)),
-                        asList(IntStream.rangeClosed(1, arity).mapToObj(index -> index).collect(toImmutableList())))
-        );
+        for (int arity = MIN_ARITY; arity <= MAX_ARITY; arity++) {
+            String[] arguments = IntStream.rangeClosed(1, arity)
+                    .mapToObj(index -> "ARRAY[" + index + "]")
+                    .toArray(String[]::new);
+            Type[] types = IntStream.rangeClosed(1, arity)
+                    .mapToObj(index -> INTEGER)
+                    .toArray(Type[]::new);
+            assertFunction(
+                    format("zip(%s)", join(", ", list(arguments))),
+                    zipReturnType(types),
+                    list(IntStream.rangeClosed(1, arity).boxed().collect(toList())));
+        }
     }
 
     private static Type zipReturnType(Type... types)
     {
-        return new ArrayType(new RowType(Arrays.asList(types), Optional.empty()));
+        return new ArrayType(new RowType(list(types), Optional.empty()));
+    }
+
+    @SafeVarargs
+    private static <T> List<T> list(T... a)
+    {
+        return asList(a);
     }
 }
