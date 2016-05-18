@@ -107,7 +107,7 @@ groups run the following command:
 
 ```
 ./mvnw install -DskipTests
-presto-product-tests/bin/run_on_docker.sh <profile> -x quarantine,big_query,mysql_connector,postgresql_connector,profile_specific_tests
+presto-product-tests/bin/run_on_docker.sh <profile> -x quarantine,big_query,profile_specific_tests
 ```
 
 where [profile](#profile) is one of either:
@@ -179,7 +179,7 @@ presto-product-tests/bin/run_on_docker.sh <profile> -g hdfs_impersonation
 # singlenode or singlenode-kerberos-hdfs-no-impersonation
 presto-product-tests/bin/run_on_docker.sh <profile> -g hdfs_no_impersonation
 # Run all tests excluding all profile specific tests
-presto-product-tests/bin/run_on_docker.sh <profile> -x quarantine,big_query,mysql_connector,postgresql_connector,profile_specific_tests
+presto-product-tests/bin/run_on_docker.sh <profile> -x quarantine,big_query,profile_specific_tests
 where <profile> can be any one of the available profiles
 ```
 
