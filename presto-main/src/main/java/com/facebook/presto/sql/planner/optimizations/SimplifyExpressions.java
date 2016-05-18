@@ -25,6 +25,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -34,6 +35,8 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
@@ -93,6 +96,7 @@ public class SimplifyExpressions
         private final Session session;
         private final Map<Symbol, Type> types;
         private final PlanNodeIdAllocator idAllocator;
+        private boolean isGroupIdNodePresent;
 
         public Rewriter(Metadata metadata, SqlParser sqlParser, Session session, Map<Symbol, Type> types, PlanNodeIdAllocator idAllocator)
         {
@@ -101,6 +105,7 @@ public class SimplifyExpressions
             this.session = session;
             this.types = types;
             this.idAllocator = idAllocator;
+            this.isGroupIdNodePresent = false;
         }
 
         @Override
@@ -144,10 +149,24 @@ public class SimplifyExpressions
                     originalConstraint);
         }
 
+        @Override
+        public PlanNode visitGroupId(GroupIdNode node, RewriteContext<Void> context)
+        {
+            isGroupIdNodePresent = true;
+            return node;
+        }
+
         private Expression simplifyExpression(Expression expression)
         {
             expression = ExpressionTreeRewriter.rewriteWith(new PushDownNegationsExpressionRewriter(), expression);
             expression = ExpressionTreeRewriter.rewriteWith(new ExtractCommonPredicatesExpressionRewriter(), expression, NodeContext.ROOT_NODE);
+            if (expression instanceof GroupingOperation && !isGroupIdNodePresent) {
+                // No GroupIdNode and a GROUPING() operation imply a single grouping, which
+                // means that any columns specified as arguments to GROUPING() will be included
+                // in the group. Hence, re-write the GroupingOperation to a 0 literal.
+                // See SQL:2011:4.16.2.
+                expression = new GenericLiteral("BIGINT", "0");
+            }
             IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, types, expression);
             ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
             return LiteralInterpreter.toExpression(interpreter.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(expression));

@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DecimalParseResult;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.TimeZoneKey;
@@ -41,6 +42,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -308,6 +310,23 @@ public final class SqlToRowExpressionTranslator
             Signature signature = new Signature(node.getName().getSuffix(), functionKind, types.get(node).getTypeSignature(), argumentTypes);
 
             return call(signature, types.get(node), arguments);
+        }
+
+        @Override
+        protected RowExpression visitGroupingOperation(GroupingOperation node, Void context)
+        {
+            List<RowExpression> arguments = node.getArguments().stream()
+                    .map(value -> process(value, context))
+                    .collect(toImmutableList());
+
+            List<TypeSignature> argumentTypes = arguments.stream()
+                    .map(RowExpression::getType)
+                    .map(Type::getTypeSignature)
+                    .collect(toImmutableList());
+
+            Signature signature = new Signature("grouping", SCALAR, BigintType.BIGINT.getTypeSignature(), argumentTypes);
+
+            return call(signature, BigintType.BIGINT, arguments);
         }
 
         @Override

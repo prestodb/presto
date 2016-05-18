@@ -52,6 +52,7 @@ import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -936,6 +937,16 @@ public class ExpressionAnalyzer
             Type type = tupleDescriptor.getFieldByIndex(node.getFieldIndex()).getType();
             expressionTypes.put(node, type);
             return type;
+        }
+
+        @Override
+        public Type visitGroupingOperation(GroupingOperation node, StackableAstVisitorContext<AnalysisContext> context)
+        {
+            for (Expression columnArgument : node.getArguments()) {
+                process(columnArgument, context);
+            }
+            expressionTypes.put(node, BIGINT);
+            return BIGINT;
         }
 
         @Override

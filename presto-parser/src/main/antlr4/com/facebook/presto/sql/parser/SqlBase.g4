@@ -287,6 +287,7 @@ primaryExpression
     | SUBSTRING '(' valueExpression FROM valueExpression (FOR valueExpression)? ')'  #substring
     | NORMALIZE '(' valueExpression (',' normalForm)? ')'                            #normalize
     | EXTRACT '(' identifier FROM valueExpression ')'                                #extract
+    | GROUPING '(' (qualifiedName (',' qualifiedName)*)? ')'                         #groupingOperation
     | '(' expression ')'                                                             #parenthesizedExpression
     ;
 
