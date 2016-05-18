@@ -188,11 +188,6 @@ public class HiveMetadata
         return metastore;
     }
 
-    public HivePartitionManager getPartitionManager()
-    {
-        return partitionManager;
-    }
-
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
