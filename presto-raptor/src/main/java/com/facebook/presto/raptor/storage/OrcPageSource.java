@@ -21,16 +21,13 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.block.LazyBlockLoader;
-import com.facebook.presto.spi.block.SliceArrayBlock;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import java.io.IOException;
 import java.util.BitSet;
@@ -42,11 +39,12 @@ import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
+import static com.facebook.presto.spi.predicate.Utils.nativeValueToBlock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.Slices.wrappedIntArray;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 
 public class OrcPageSource
@@ -106,10 +104,10 @@ public class OrcPageSource
         for (int i = 0; i < size; i++) {
             this.columnIndexes[i] = columnIndexes.get(i);
             if (this.columnIndexes[i] == NULL_COLUMN) {
-                constantBlocks[i] = buildNullBlock(columnTypes.get(i));
+                constantBlocks[i] = buildSingleValueBlock(columnTypes.get(i), null);
             }
             else if (this.columnIndexes[i] == SHARD_UUID_COLUMN) {
-                constantBlocks[i] = buildSingleValueBlock(Slices.utf8Slice(shardUuid.toString()));
+                constantBlocks[i] = buildSingleValueBlock(columnTypes.get(i), utf8Slice(shardUuid.toString()));
             }
         }
 
@@ -238,19 +236,10 @@ public class OrcPageSource
         return builder.build();
     }
 
-    private static Block buildNullBlock(Type type)
+    private static Block buildSingleValueBlock(Type type, Object value)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), MAX_BATCH_SIZE, NULL_SIZE);
-        for (int i = 0; i < MAX_BATCH_SIZE; i++) {
-            blockBuilder.appendNull();
-        }
-        return blockBuilder.build();
-    }
-
-    private static Block buildSingleValueBlock(Slice value)
-    {
-        SliceArrayBlock dictionary = new SliceArrayBlock(1, new Slice[] { value });
-        return new DictionaryBlock(MAX_BATCH_SIZE, dictionary, wrappedIntArray(new int[MAX_BATCH_SIZE]));
+        Block block = nativeValueToBlock(type, value);
+        return new RunLengthEncodedBlock(block, MAX_BATCH_SIZE);
     }
 
     private final class OrcBlockLoader
