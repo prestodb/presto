@@ -1,0 +1,48 @@
+version: '2'
+services:
+
+  java-8-base:
+    image: 'teradatalabs/centos6-java8-oracle:jdk1.8.0_92-80a011f'
+    env_file:
+      - ../../../target/classes/presto.env
+    volumes:
+      - ../../../../:/docker/volumes/presto
+
+  hadoop-base:
+    image: 'teradatalabs/cdh5-hive:2'
+    env_file:
+      - ../../../target/classes/presto.env
+    volumes:
+      - ../../../../:/docker/volumes/presto
+
+  hadoop-master-common:
+    extends:
+      service: hadoop-base
+    hostname: hadoop-master
+    ports:
+      - '1080:1080'
+      - '8020:8020'
+      - '8088:8088'
+      - '9083:9083'
+      - '10000:10000'
+      - '50070:50070'
+      - '50075:50075'
+  
+  presto-master-common:
+    extends:
+      service: java-8-base
+    hostname: presto-master
+    volumes:
+      - ../../../../presto-product-tests/conf/tempto/tempto-configuration-for-docker-default.yaml:/docker/volumes/tempto/tempto-configuration-local.yaml
+    ports:
+      - '8080:8080'
+
+  presto-worker-common:
+    extends:
+      service: java-8-base
+    command: /docker/volumes/presto/presto-product-tests/conf/docker/files/presto-launcher-wrapper.sh multinode-worker run
+
+  application-runner-common:
+    extends:
+      service: java-8-base
+    hostname: application-runner

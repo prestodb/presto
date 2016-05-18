@@ -1,0 +1,35 @@
+version: '2'
+services:
+
+  hadoop-kerberos:
+    # cdh5-hive-kerberized contains keytabs and the `krb5.conf` within
+    image: 'teradatalabs/cdh5-hive-kerberized:3'
+    env_file:
+      - ../../../target/classes/presto.env
+    volumes:
+      - ../../../../:/docker/volumes/presto
+
+  hadoop-master-kerberos:
+    extends:
+      service: hadoop-kerberos
+    hostname: hadoop-master
+    ports:
+      - '1080:1080'
+      - '8020:8020'
+      - '8088:8088'
+      - '9083:9083'
+      - '10000:10000'
+      - '50070:50070'
+      - '50075:50075'
+
+  presto-master-kerberos:
+    extends:
+      service: hadoop-kerberos
+    command: /docker/volumes/presto/presto-product-tests/conf/docker/files/presto-launcher-wrapper.sh singlenode-kerberized run
+    volumes:
+      - ../../../../presto-product-tests/conf/tempto/tempto-configuration-for-docker-kerberos.yaml:/docker/volumes/tempto/tempto-configuration-local.yaml
+
+  application-runner-kerberos:
+    extends:
+      service: hadoop-kerberos
+    hostname: application-runner
