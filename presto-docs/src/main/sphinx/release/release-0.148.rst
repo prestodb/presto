@@ -17,6 +17,12 @@ General Changes
 * Improve planning of aggregations over partitioned data.
 * Add support for colocated unions.
 * Use HTTPS in JDBC driver when using port 443.
+* Increase default value for ``query.initial-hash-partitions`` to ``100``.
+* Add :func:`element_at` function for map type.
+* Add :func:`split_to_map` function.
+* Add ``ROW`` syntax for constructing row types.
+* Reduce initial memory usage of :func:`array_agg` function.
+* Change default value of ``query.max-memory-per-node`` to ``10%`` of the Java heap.
 
 Hive Changes
 ------------
