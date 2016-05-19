@@ -211,6 +211,13 @@ public final class DoubleOperators
     }
 
     @ScalarOperator(CAST)
+    @SqlType(StandardTypes.FLOAT)
+    public static long castToFloat(@SqlType(StandardTypes.DOUBLE) double value)
+    {
+        return Float.floatToRawIntBits((float) value);
+    }
+
+    @ScalarOperator(CAST)
     @SqlType(StandardTypes.VARCHAR)
     public static Slice castToVarchar(@SqlType(StandardTypes.DOUBLE) double value)
     {

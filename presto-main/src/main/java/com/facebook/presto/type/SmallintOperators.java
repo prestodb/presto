@@ -208,6 +208,13 @@ public final class SmallintOperators
     }
 
     @ScalarOperator(CAST)
+    @SqlType(StandardTypes.FLOAT)
+    public static long castToFloat(@SqlType(StandardTypes.SMALLINT) long value)
+    {
+        return (long) Float.floatToRawIntBits((float) value);
+    }
+
+    @ScalarOperator(CAST)
     @SqlType(StandardTypes.VARCHAR)
     public static Slice castToVarchar(@SqlType(StandardTypes.SMALLINT) long value)
     {

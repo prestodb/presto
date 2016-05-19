@@ -230,6 +230,13 @@ public final class BigintOperators
     }
 
     @ScalarOperator(CAST)
+    @SqlType(StandardTypes.FLOAT)
+    public static long castToFloat(@SqlType(StandardTypes.BIGINT) long value)
+    {
+        return (long) Float.floatToRawIntBits((float) value);
+    }
+
+    @ScalarOperator(CAST)
     @SqlType(StandardTypes.VARCHAR)
     public static Slice castToVarchar(@SqlType(StandardTypes.BIGINT) long value)
     {

@@ -16,8 +16,14 @@ package com.facebook.presto.type;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.FloatType.FLOAT;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class TestFloatOperators
         extends AbstractTestFunctions
@@ -167,5 +173,75 @@ public class TestFloatOperators
         assertFunction("FLOAT'0.0' BETWEEN FLOAT'-1.2' AND FLOAT'2.3'", BOOLEAN, true);
         assertFunction("FLOAT'56.78' BETWEEN FLOAT'12.34' AND FLOAT'34.56'", BOOLEAN, false);
         assertFunction("FLOAT'56.78' BETWEEN FLOAT'78.89' AND FLOAT'98.765'", BOOLEAN, false);
+    }
+
+    @Test
+    public void testCastToVarchar()
+            throws Exception
+    {
+        assertFunction("CAST(FLOAT'754.1985' as VARCHAR)", VARCHAR, "754.1985");
+        assertFunction("CAST(FLOAT'-754.2008' as VARCHAR)", VARCHAR, "-754.2008");
+        assertFunction("CAST(FLOAT'Infinity' as VARCHAR)", VARCHAR, "Infinity");
+        assertFunction("CAST(FLOAT'0.0' / FLOAT'0.0' as VARCHAR)", VARCHAR, "NaN");
+    }
+
+    @Test
+    public void testCastToBigInt()
+            throws Exception
+    {
+        assertFunction("CAST(FLOAT'754.1985' as BIGINT)", BIGINT, 754L);
+        assertFunction("CAST(FLOAT'-754.2008' as BIGINT)", BIGINT, -754L);
+        assertFunction("CAST(FLOAT'1.98' as BIGINT)", BIGINT, 2L);
+        assertFunction("CAST(FLOAT'-0.0' as BIGINT)", BIGINT, 0L);
+    }
+
+    @Test
+    public void testCastToInteger()
+            throws Exception
+    {
+        assertFunction("CAST(FLOAT'754.2008' AS INTEGER)", INTEGER, 754);
+        assertFunction("CAST(FLOAT'-754.1985' AS INTEGER)", INTEGER, -754);
+        assertFunction("CAST(FLOAT'9.99' AS INTEGER)", INTEGER, 10);
+        assertFunction("CAST(FLOAT'-0.0' AS INTEGER)", INTEGER, 0);
+    }
+
+    @Test
+    public void testCastToSmallint()
+            throws Exception
+    {
+        assertFunction("CAST(FLOAT'754.2008' AS SMALLINT)", SMALLINT, (short) 754);
+        assertFunction("CAST(FLOAT'-754.1985' AS SMALLINT)", SMALLINT, (short) -754);
+        assertFunction("CAST(FLOAT'9.99' AS SMALLINT)", SMALLINT, (short) 10);
+        assertFunction("CAST(FLOAT'-0.0' AS SMALLINT)", SMALLINT, (short) 0);
+    }
+
+    @Test
+    public void testCastToTinyint()
+            throws Exception
+    {
+        assertFunction("CAST(FLOAT'127.45' AS TINYINT)", TINYINT, (byte) 127);
+        assertFunction("CAST(FLOAT'-128.234' AS TINYINT)", TINYINT, (byte) -128);
+        assertFunction("CAST(FLOAT'9.99' AS TINYINT)", TINYINT, (byte) 10);
+        assertFunction("CAST(FLOAT'-0.0' AS TINYINT)", TINYINT, (byte) 0);
+    }
+
+    @Test
+    public void testCastToDouble()
+            throws Exception
+    {
+        assertFunction("CAST(FLOAT'754.1985' AS DOUBLE)", DOUBLE, (double) 754.1985f);
+        assertFunction("CAST(FLOAT'-754.2008' AS DOUBLE)", DOUBLE, (double) -754.2008f);
+        assertFunction("CAST(FLOAT'0.0' AS DOUBLE)", DOUBLE, (double) 0.0f);
+        assertFunction("CAST(FLOAT'-0.0' AS DOUBLE)", DOUBLE, (double) -0.0f);
+        assertFunction("CAST(CAST(FLOAT'754.1985' AS DOUBLE) AS FLOAT)", FLOAT, 754.1985f);
+    }
+
+    @Test
+    public void testCastToBoolean()
+            throws Exception
+    {
+        assertFunction("CAST(FLOAT'754.1985' AS BOOLEAN)", BOOLEAN, true);
+        assertFunction("CAST(FLOAT'0.0' AS BOOLEAN)", BOOLEAN, false);
+        assertFunction("CAST(FLOAT'-0.0' AS BOOLEAN)", BOOLEAN, false);
     }
 }

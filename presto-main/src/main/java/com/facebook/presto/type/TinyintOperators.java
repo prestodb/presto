@@ -203,6 +203,13 @@ public final class TinyintOperators
     }
 
     @ScalarOperator(CAST)
+    @SqlType(StandardTypes.FLOAT)
+    public static long castToFloat(@SqlType(StandardTypes.TINYINT) long value)
+    {
+        return (long) Float.floatToRawIntBits((float) value);
+    }
+
+    @ScalarOperator(CAST)
     @SqlType(StandardTypes.VARCHAR)
     public static Slice castToVarchar(@SqlType(StandardTypes.TINYINT) long value)
     {

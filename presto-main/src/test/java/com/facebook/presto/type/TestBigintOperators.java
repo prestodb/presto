@@ -20,6 +20,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RAN
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.FloatType.FLOAT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 
@@ -216,6 +217,15 @@ public class TestBigintOperators
     {
         assertFunction("cast(37 as double)", DOUBLE, 37.0);
         assertFunction("cast(100000000017 as double)", DOUBLE, 100000000017.0);
+    }
+
+    @Test
+    public void testCastToFloat()
+            throws Exception
+    {
+        assertFunction("cast(37 as float)", FLOAT, 37.0f);
+        assertFunction("cast(-100000000017 as float)", FLOAT, -100000000017.0f);
+        assertFunction("cast(0 as float)", FLOAT, 0.0f);
     }
 
     @Test
