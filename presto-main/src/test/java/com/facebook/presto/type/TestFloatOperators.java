@@ -16,6 +16,7 @@ package com.facebook.presto.type;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.FloatType.FLOAT;
 
 public class TestFloatOperators
@@ -92,5 +93,79 @@ public class TestFloatOperators
         assertFunction("-FLOAT'12.34'", FLOAT, -12.34f);
         assertFunction("-FLOAT'-17.34'", FLOAT, 17.34f);
         assertFunction("-FLOAT'-0.0'", FLOAT, -(-0.0f));
+    }
+
+    @Test
+    public void testEqual()
+            throws Exception
+    {
+        assertFunction("FLOAT'12.34' = FLOAT'12.34'", BOOLEAN, true);
+        assertFunction("FLOAT'12.340' = FLOAT'12.34'", BOOLEAN, true);
+        assertFunction("FLOAT'-17.34' = FLOAT'-17.34'", BOOLEAN, true);
+        assertFunction("FLOAT'71.17' = FLOAT'23.45'", BOOLEAN, false);
+        assertFunction("FLOAT'-0.0' = FLOAT'0.0'", BOOLEAN, true);
+    }
+
+    @Test
+    public void testNotEqual()
+            throws Exception
+    {
+        assertFunction("FLOAT'12.34' <> FLOAT'12.34'", BOOLEAN, false);
+        assertFunction("FLOAT'12.34' <> FLOAT'12.340'", BOOLEAN, false);
+        assertFunction("FLOAT'-17.34' <> FLOAT'-17.34'", BOOLEAN, false);
+        assertFunction("FLOAT'71.17' <> FLOAT'23.45'", BOOLEAN, true);
+        assertFunction("FLOAT'-0.0' <> FLOAT'0.0'", BOOLEAN, false);
+    }
+
+    @Test
+    public void testLessThan()
+            throws Exception
+    {
+        assertFunction("FLOAT'12.34' < FLOAT'754.123'", BOOLEAN, true);
+        assertFunction("FLOAT'-17.34' < FLOAT'-16.34'", BOOLEAN, true);
+        assertFunction("FLOAT'71.17' < FLOAT'23.45'", BOOLEAN, false);
+        assertFunction("FLOAT'-0.0' < FLOAT'0.0'", BOOLEAN, false);
+    }
+
+    @Test
+    public void testLessThanOrEqual()
+            throws Exception
+    {
+        assertFunction("FLOAT'12.34' <= FLOAT'754.123'", BOOLEAN, true);
+        assertFunction("FLOAT'-17.34' <= FLOAT'-17.34'", BOOLEAN, true);
+        assertFunction("FLOAT'71.17' <= FLOAT'23.45'", BOOLEAN, false);
+        assertFunction("FLOAT'-0.0' <= FLOAT'0.0'", BOOLEAN, true);
+    }
+
+    @Test
+    public void testGreaterThan()
+            throws Exception
+    {
+        assertFunction("FLOAT'12.34' > FLOAT'754.123'", BOOLEAN, false);
+        assertFunction("FLOAT'-17.34' > FLOAT'-17.34'", BOOLEAN, false);
+        assertFunction("FLOAT'71.17' > FLOAT'23.45'", BOOLEAN, true);
+        assertFunction("FLOAT'-0.0' > FLOAT'0.0'", BOOLEAN, false);
+    }
+
+    @Test
+    public void testGreaterThanOrEqual()
+            throws Exception
+    {
+        assertFunction("FLOAT'12.34' >= FLOAT'754.123'", BOOLEAN, false);
+        assertFunction("FLOAT'-17.34' >= FLOAT'-17.34'", BOOLEAN, true);
+        assertFunction("FLOAT'71.17' >= FLOAT'23.45'", BOOLEAN, true);
+        assertFunction("FLOAT'-0.0' >= FLOAT'0.0'", BOOLEAN, true);
+    }
+
+    @Test
+    public void testBetween()
+            throws Exception
+    {
+        assertFunction("FLOAT'12.34' BETWEEN FLOAT'9.12' AND FLOAT'25.89'", BOOLEAN, true);
+        assertFunction("FLOAT'-17.34' BETWEEN FLOAT'-17.34' AND FLOAT'-16.57'", BOOLEAN, true);
+        assertFunction("FLOAT'-17.34' BETWEEN FLOAT'-18.98' AND FLOAT'-17.34'", BOOLEAN, true);
+        assertFunction("FLOAT'0.0' BETWEEN FLOAT'-1.2' AND FLOAT'2.3'", BOOLEAN, true);
+        assertFunction("FLOAT'56.78' BETWEEN FLOAT'12.34' AND FLOAT'34.56'", BOOLEAN, false);
+        assertFunction("FLOAT'56.78' BETWEEN FLOAT'78.89' AND FLOAT'98.765'", BOOLEAN, false);
     }
 }
