@@ -18,6 +18,7 @@ import com.facebook.presto.operator.scalar.CustomFunctions;
 import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.SqlType;
 import com.facebook.presto.type.TypeRegistry;
@@ -46,7 +47,7 @@ public class TestFunctionRegistry
     public void testIdentityCast()
     {
         TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), true);
+        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig().setExperimentalSyntaxEnabled(true));
         Signature exactOperator = registry.getCoercion(HYPER_LOG_LOG, HYPER_LOG_LOG);
         assertEquals(exactOperator.getName(), mangleOperatorName(OperatorType.CAST.name()));
         assertEquals(transform(exactOperator.getArgumentTypes(), Functions.toStringFunction()), ImmutableList.of(StandardTypes.HYPER_LOG_LOG));
@@ -57,7 +58,7 @@ public class TestFunctionRegistry
     public void testExactMatchBeforeCoercion()
     {
         TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), true);
+        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig().setExperimentalSyntaxEnabled(true));
         boolean foundOperator = false;
         for (SqlFunction function : registry.listOperators()) {
             OperatorType operatorType = unmangleOperator(function.getSignature().getName());
@@ -86,7 +87,7 @@ public class TestFunctionRegistry
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
 
         TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), true);
+        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig().setExperimentalSyntaxEnabled(true));
         Signature function = registry.resolveFunction(QualifiedName.of(signature.getName()), signature.getArgumentTypes(), false);
         assertEquals(function.getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
@@ -103,7 +104,7 @@ public class TestFunctionRegistry
                 .collect(toImmutableList());
 
         TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), true);
+        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig().setExperimentalSyntaxEnabled(true));
         registry.addFunctions(functions);
         registry.addFunctions(functions);
     }
@@ -117,7 +118,7 @@ public class TestFunctionRegistry
                 .getFunctions();
 
         TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), true);
+        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig().setExperimentalSyntaxEnabled(true));
         registry.addFunctions(functions);
     }
 
@@ -126,7 +127,7 @@ public class TestFunctionRegistry
             throws Exception
     {
         TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), true);
+        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig().setExperimentalSyntaxEnabled(true));
         List<SqlFunction> functions = registry.list();
         List<String> names = transform(functions, input -> input.getSignature().getName());
 

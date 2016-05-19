@@ -167,6 +167,12 @@
             </dependency>
 
             <dependency>
+                <groupId>com.teradata</groupId>
+                <artifactId>re2j-td</artifactId>
+                <version>1.4</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-tpch</artifactId>
                 <version>${project.version}</version>

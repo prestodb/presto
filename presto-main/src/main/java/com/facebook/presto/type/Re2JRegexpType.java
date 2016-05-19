@@ -19,20 +19,19 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.AbstractType;
-import io.airlift.joni.Regex;
 
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 
-public class RegexpType
+public class Re2JRegexpType
         extends AbstractType
 {
-    public static final RegexpType REGEXP = new RegexpType();
-    public static final String NAME = "RegExp";
+    public static final Re2JRegexpType RE2J_REGEXP = new Re2JRegexpType();
+    public static final String NAME = "Re2JRegExp";
 
-    public RegexpType()
+    public Re2JRegexpType()
     {
-        super(parameterizedTypeName(NAME), Regex.class);
+        super(parameterizedTypeName(NAME), Re2JRegexp.class);
     }
 
     @Override
