@@ -8,6 +8,11 @@ General Changes
   completed query.
 * Fix detection of colocated joins.
 * Fix planning bug involving partitioning with constants.
+* Fix window functions to correctly handle empty frames between unbounded and
+  bounded in the same direction. For example, a frame such as
+  ``ROWS BETWEEN UNBOUNDED PRECEDING AND 2 PRECEDING``
+  would incorrectly use the first row as the window frame for the first two
+  rows rather than using an empty frame.
 * Change default ``task.max-worker-threads`` to ``2`` times the number of cores.
 * Add ``colocated-joins-enabled`` to enable colocated joins by default for
   connectors that expose node-partitioned data.
