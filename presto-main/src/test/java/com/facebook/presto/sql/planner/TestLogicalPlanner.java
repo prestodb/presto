@@ -120,8 +120,8 @@ public class TestLogicalPlanner
     @Test
     public void testSameScalarSubqueryIsAppliedOnlyOnce()
     {
-        // four subqueries, two pairs of duplicates, only two scalar joins should be in plan
-        Plan plan = plan("SELECT * FROM orders WHERE orderkey = (SELECT 1) AND custkey = (SELECT 2) AND (SELECT 2) != (SELECT 1)");
+        // three subqueries with two duplicates, only two scalar joins should be in plan
+        Plan plan = plan("SELECT * FROM orders WHERE orderkey = (SELECT 1) AND custkey = (SELECT 2) AND custkey != (SELECT 1)");
         PlanNodeExtractor planNodeExtractor = new PlanNodeExtractor(planNode -> planNode instanceof EnforceSingleRowNode);
         plan.getRoot().accept(planNodeExtractor, null);
         assertTrue(planNodeExtractor.getNodes().size() == 2);
