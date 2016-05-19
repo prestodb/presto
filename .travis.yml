@@ -4,9 +4,10 @@ env:
   global:
     - MAVEN_OPTS="-Xmx256M"
   matrix:
-    - TEST_MODULES=!presto-tests,!presto-kafka,!presto-redis,!presto-cassandra,!presto-raptor,!presto-postgresql,!presto-mysql
+    - TEST_MODULES=!presto-tests,!presto-kafka,!presto-redis,!presto-cassandra,!presto-raptor,!presto-postgresql,!presto-mysql,!presto-mongodb
     - TEST_MODULES=presto-tests
-    - TEST_MODULES=presto-raptor,presto-redis,presto-cassandra,presto-kafka,presto-postgresql,presto-mysql
+    - TEST_MODULES=presto-raptor,presto-postgresql,presto-mysql
+    - TEST_MODULES=presto-mongodb,presto-redis,presto-cassandra,presto-kafka
     - RUN_PRODUCT_TESTS="singlenode -x quarantine,big_query,storage_formats,mysql_connector,postgresql_connector,profile_specific_tests"
     - RUN_PRODUCT_TESTS="singlenode-kerberos-hdfs-impersonation -g storage_formats,cli,hdfs_impersonation"
     - INTEGRATION_TESTS=true
