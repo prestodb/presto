@@ -17,12 +17,14 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
@@ -35,6 +37,7 @@ public class GroupIdNode
     private final PlanNode source;
     private final List<Symbol> inputSymbols;
     private final List<List<Symbol>> groupingSets;
+    private final Map<Symbol, Symbol> passthroughSymbolMap;
     private final Symbol groupIdSymbol;
 
     @JsonCreator
@@ -42,12 +45,14 @@ public class GroupIdNode
             @JsonProperty("source") PlanNode source,
             @JsonProperty("inputSymbols") List<Symbol> inputSymbols,
             @JsonProperty("groupingSets") List<List<Symbol>> groupingSets,
+            @JsonProperty("passthroughSymbolMap") Map<Symbol, Symbol> passthroughSymbolMap,
             @JsonProperty("groupIdSymbol") Symbol groupIdSymbol)
     {
         super(id);
         this.source = requireNonNull(source);
         this.inputSymbols = ImmutableList.copyOf(requireNonNull(inputSymbols));
         this.groupingSets = ImmutableList.copyOf(requireNonNull(groupingSets));
+        this.passthroughSymbolMap = ImmutableMap.copyOf(requireNonNull(passthroughSymbolMap));
         this.groupIdSymbol = requireNonNull(groupIdSymbol);
     }
 
@@ -56,6 +61,7 @@ public class GroupIdNode
     {
         return ImmutableList.<Symbol>builder()
                 .addAll(source.getOutputSymbols())
+                .addAll(passthroughSymbolMap.values())
                 .add(groupIdSymbol)
                 .build();
     }
@@ -82,6 +88,12 @@ public class GroupIdNode
     public List<List<Symbol>> getGroupingSets()
     {
         return groupingSets;
+    }
+
+    @JsonProperty
+    public Map<Symbol, Symbol> getPassthroughSymbolMap()
+    {
+        return passthroughSymbolMap;
     }
 
     public List<Symbol> getDistinctGroupingColumns()

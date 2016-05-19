@@ -60,12 +60,14 @@ import com.google.common.collect.Iterables;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -369,11 +371,63 @@ class QueryPlanner
         }
 
         // 2. Aggregate
+
+        // 2.a. Rewrite group by expressions in terms of pre-projected inputs
+        TranslationMap translations = new TranslationMap(subPlan.getRelationPlan(), analysis);
+        ImmutableList.Builder<List<Symbol>> groupingSetsSymbolsBuilder = ImmutableList.builder();
+        ImmutableSet.Builder<Symbol> distinctGroupingSymbolsBuilder = ImmutableSet.builder();
+        for (List<Expression> groupingSet : groupingSets) {
+            ImmutableList.Builder<Symbol> groupingColumns = ImmutableList.builder();
+            for (Expression expression : groupingSet) {
+                Symbol symbol = subPlan.translate(expression);
+                groupingColumns.add(symbol);
+                distinctGroupingSymbolsBuilder.add(symbol);
+                translations.put(expression, symbol);
+            }
+            groupingSetsSymbolsBuilder.add(groupingColumns.build());
+        }
+
+        // 2.b. Find aggregation arguments are grouping columns, because they need to be passed through
+        Set<Expression> passthroughAggregationArguments = new HashSet<>();
+        Set<Expression> rewrittenGroupingColumns = distinctGroupingColumns.stream()
+                .map(subPlan::rewrite)
+                .collect(Collectors.toSet());
+
+        ImmutableList.Builder<Symbol> groupIdInputSymbols = ImmutableList.<Symbol>builder()
+                .addAll(distinctGroupingColumns.stream()
+                        .map(subPlan::translate)
+                        .collect(Collectors.toList()));
+
+        for (Expression aggregationArgument : arguments) {
+            if (rewrittenGroupingColumns.contains(subPlan.rewrite(aggregationArgument))) {
+                passthroughAggregationArguments.add(aggregationArgument);
+            }
+            else {
+                groupIdInputSymbols.add(subPlan.translate(aggregationArgument));
+            }
+        }
+
+        // 2.c. Add a groupIdNode and groupIdSymbol if there are multiple grouping sets
+        List<List<Symbol>> groupingSetsSymbols = groupingSetsSymbolsBuilder.build();
+        if (groupingSets.size() > 1) {
+            ImmutableMap.Builder<Symbol, Symbol> passthroughSymbolMap = ImmutableMap.builder();
+            for (Expression passthroughAggregationArgument : passthroughAggregationArguments) {
+                Symbol passthroughSymbol = symbolAllocator.newSymbol(passthroughAggregationArgument, analysis.getTypeWithCoercions(passthroughAggregationArgument), "passthrough");
+                passthroughSymbolMap.put(subPlan.translate(passthroughAggregationArgument), passthroughSymbol);
+
+                // relies on the fact that group by expressions have already been re-written, and will not be affected by this mapping change
+                subPlan.getTranslations().put(passthroughAggregationArgument, passthroughSymbol);
+            }
+
+            Symbol groupIdSymbol = symbolAllocator.newSymbol("groupId", BIGINT);
+            GroupIdNode groupId = new GroupIdNode(idAllocator.getNextId(), subPlan.getRoot(), groupIdInputSymbols.build(), groupingSetsSymbols, passthroughSymbolMap.build(), groupIdSymbol);
+            subPlan = subPlan.withNewRoot(groupId);
+            distinctGroupingSymbolsBuilder.add(groupIdSymbol);
+        }
+
+        // 2.d. Rewrite aggregates in terms of pre-projected inputs
         ImmutableMap.Builder<Symbol, FunctionCall> aggregationAssignments = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, Signature> functions = ImmutableMap.builder();
-
-        // 2.a. Rewrite aggregates in terms of pre-projected inputs
-        TranslationMap translations = new TranslationMap(subPlan.getRelationPlan(), analysis);
         boolean needPostProjectionCoercion = false;
         for (FunctionCall aggregate : analysis.getAggregates(node)) {
             Expression rewritten = subPlan.rewrite(aggregate);
@@ -391,31 +445,7 @@ class QueryPlanner
             functions.put(newSymbol, analysis.getFunctionSignature(aggregate));
         }
 
-        // 2.b. Rewrite group by expressions in terms of pre-projected inputs
-        ImmutableList.Builder<List<Symbol>> groupingSetsSymbolsBuilder = ImmutableList.builder();
-        ImmutableSet.Builder<Symbol> distinctGroupingSymbolsBuilder = ImmutableSet.builder();
-        for (List<Expression> groupingSet : groupingSets) {
-            ImmutableList.Builder<Symbol> groupingColumns = ImmutableList.builder();
-            for (Expression expression : groupingSet) {
-                Symbol symbol = subPlan.translate(expression);
-                groupingColumns.add(symbol);
-                distinctGroupingSymbolsBuilder.add(symbol);
-                translations.put(expression, symbol);
-            }
-            groupingSetsSymbolsBuilder.add(groupingColumns.build());
-        }
-
-        List<List<Symbol>> groupingSetsSymbols = groupingSetsSymbolsBuilder.build();
-        // 2.c. Add a groupIdNode and groupIdSymbol if there are multiple grouping sets
-        if (groupingSets.size() > 1) {
-            Symbol groupIdSymbol = symbolAllocator.newSymbol("groupId", BIGINT);
-            GroupIdNode groupId = new GroupIdNode(idAllocator.getNextId(), subPlan.getRoot(), subPlan.getRoot().getOutputSymbols(), groupingSetsSymbols, groupIdSymbol);
-            subPlan = subPlan.withNewRoot(groupId);
-            distinctGroupingSymbolsBuilder.add(groupIdSymbol);
-        }
-        List<Symbol> distinctGroupingSymbols = distinctGroupingSymbolsBuilder.build().asList();
-
-        // 2.d. Mark distinct rows for each aggregate that has DISTINCT
+        // 2.e. Mark distinct rows for each aggregate that has DISTINCT
         // Map from aggregate function arguments to marker symbols, so that we can reuse the markers, if two aggregates have the same argument
         Map<Set<Expression>, Symbol> argumentMarkers = new HashMap<>();
         // Map from aggregate functions to marker symbols
@@ -437,6 +467,7 @@ class QueryPlanner
             masks.put(aggregateSymbol, marker);
         }
 
+        List<Symbol> distinctGroupingSymbols = distinctGroupingSymbolsBuilder.build().asList();
         for (Map.Entry<Set<Expression>, Symbol> entry : argumentMarkers.entrySet()) {
             ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
             builder.addAll(distinctGroupingSymbols);
