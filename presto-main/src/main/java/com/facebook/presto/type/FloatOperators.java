@@ -16,12 +16,52 @@ package com.facebook.presto.type;
 import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.spi.type.StandardTypes;
 
+import static com.facebook.presto.metadata.OperatorType.ADD;
+import static com.facebook.presto.metadata.OperatorType.DIVIDE;
+import static com.facebook.presto.metadata.OperatorType.MODULUS;
+import static com.facebook.presto.metadata.OperatorType.MULTIPLY;
 import static com.facebook.presto.metadata.OperatorType.NEGATION;
+import static com.facebook.presto.metadata.OperatorType.SUBTRACT;
 
 public final class FloatOperators
 {
     private FloatOperators()
     {
+    }
+
+    @ScalarOperator(ADD)
+    @SqlType(StandardTypes.FLOAT)
+    public static long add(@SqlType(StandardTypes.FLOAT) long left, @SqlType(StandardTypes.FLOAT) long right)
+    {
+        return Float.floatToRawIntBits(Float.intBitsToFloat((int) left) + Float.intBitsToFloat((int) right));
+    }
+
+    @ScalarOperator(SUBTRACT)
+    @SqlType(StandardTypes.FLOAT)
+    public static long subtract(@SqlType(StandardTypes.FLOAT) long left, @SqlType(StandardTypes.FLOAT) long right)
+    {
+        return Float.floatToRawIntBits(Float.intBitsToFloat((int) left) - Float.intBitsToFloat((int) right));
+    }
+
+    @ScalarOperator(MULTIPLY)
+    @SqlType(StandardTypes.FLOAT)
+    public static long multiply(@SqlType(StandardTypes.FLOAT) long left, @SqlType(StandardTypes.FLOAT) long right)
+    {
+        return Float.floatToRawIntBits(Float.intBitsToFloat((int) left) * Float.intBitsToFloat((int) right));
+    }
+
+    @ScalarOperator(DIVIDE)
+    @SqlType(StandardTypes.FLOAT)
+    public static long divide(@SqlType(StandardTypes.FLOAT) long left, @SqlType(StandardTypes.FLOAT) long right)
+    {
+        return Float.floatToRawIntBits(Float.intBitsToFloat((int) left) / Float.intBitsToFloat((int) right));
+    }
+
+    @ScalarOperator(MODULUS)
+    @SqlType(StandardTypes.FLOAT)
+    public static long modulus(@SqlType(StandardTypes.FLOAT) long left, @SqlType(StandardTypes.FLOAT) long right)
+    {
+        return Float.floatToRawIntBits(Float.intBitsToFloat((int) left) % Float.intBitsToFloat((int) right));
     }
 
     @ScalarOperator(NEGATION)
