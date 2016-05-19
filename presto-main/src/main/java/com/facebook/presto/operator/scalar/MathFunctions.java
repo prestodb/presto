@@ -573,12 +573,28 @@ public final class MathFunctions
         return Double.NaN;
     }
 
+    @Description("constant representing NaN float")
+    @ScalarFunction("fnan")
+    @SqlType(StandardTypes.FLOAT)
+    public static long floatNaN()
+    {
+        return Float.floatToRawIntBits(Float.NaN);
+    }
+
     @Description("Infinity")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
     public static double infinity()
     {
         return Double.POSITIVE_INFINITY;
+    }
+
+    @Description("constant representing infinity float")
+    @ScalarFunction("finfinity")
+    @SqlType(StandardTypes.FLOAT)
+    public static long floatInfinity()
+    {
+        return Float.floatToIntBits(Float.POSITIVE_INFINITY);
     }
 
     @Description("convert a number to a string in the given base")
