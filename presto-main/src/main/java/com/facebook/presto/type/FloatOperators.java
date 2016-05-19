@@ -13,11 +13,18 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.ScalarOperator;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.google.common.primitives.Ints;
+import com.google.common.primitives.Shorts;
+import com.google.common.primitives.SignedBytes;
+import io.airlift.slice.Slice;
 
 import static com.facebook.presto.metadata.OperatorType.ADD;
 import static com.facebook.presto.metadata.OperatorType.BETWEEN;
+import static com.facebook.presto.metadata.OperatorType.CAST;
 import static com.facebook.presto.metadata.OperatorType.DIVIDE;
 import static com.facebook.presto.metadata.OperatorType.EQUAL;
 import static com.facebook.presto.metadata.OperatorType.GREATER_THAN;
@@ -30,8 +37,11 @@ import static com.facebook.presto.metadata.OperatorType.MULTIPLY;
 import static com.facebook.presto.metadata.OperatorType.NEGATION;
 import static com.facebook.presto.metadata.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.metadata.OperatorType.SUBTRACT;
+import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.String.valueOf;
 
 public final class FloatOperators
 {
@@ -136,5 +146,69 @@ public final class FloatOperators
     public static long hashCode(@SqlType(StandardTypes.FLOAT) long value)
     {
         return value;
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice castToVarchar(@SqlType(StandardTypes.FLOAT) long value)
+    {
+        return utf8Slice(valueOf(intBitsToFloat((int) value)));
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.BIGINT)
+    public static long castToLong(@SqlType(StandardTypes.FLOAT) long value)
+    {
+        return (long) MathFunctions.round((double) intBitsToFloat((int) value));
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.INTEGER)
+    public static long castToInteger(@SqlType(StandardTypes.FLOAT) long value)
+    {
+        try {
+            return Ints.checkedCast((long) MathFunctions.round((double) intBitsToFloat((int) value)));
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+        }
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.SMALLINT)
+    public static long castToSmallint(@SqlType(StandardTypes.FLOAT) long value)
+    {
+        try {
+            return Shorts.checkedCast((long) MathFunctions.round((double) intBitsToFloat((int) value)));
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+        }
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.TINYINT)
+    public static long castToTinyint(@SqlType(StandardTypes.FLOAT) long value)
+    {
+        try {
+            return SignedBytes.checkedCast((long) MathFunctions.round((double) intBitsToFloat((int) value)));
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+        }
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.DOUBLE)
+    public static double castToDouble(@SqlType(StandardTypes.FLOAT) long value)
+    {
+        return (double) intBitsToFloat((int) value);
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean castToBoolean(@SqlType(StandardTypes.FLOAT) long value)
+    {
+        return intBitsToFloat((int) value) != 0.0f;
     }
 }
