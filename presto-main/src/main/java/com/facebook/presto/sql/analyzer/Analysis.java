@@ -34,7 +34,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 
 import javax.annotation.concurrent.Immutable;
@@ -42,7 +41,6 @@ import javax.annotation.concurrent.Immutable;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -72,8 +70,6 @@ public class Analysis
     private final IdentityHashMap<Join, Expression> joins = new IdentityHashMap<>();
     private final ListMultimap<Node, InPredicate> inPredicatesSubqueries = ArrayListMultimap.create();
     private final ListMultimap<Node, SubqueryExpression> scalarSubqueries = ArrayListMultimap.create();
-    private final IdentityHashMap<Join, JoinSideExpressions> joinSideExpressions = new IdentityHashMap<>();
-    private final IdentityHashMap<Join, Expression> postJoinConjunct = new IdentityHashMap<>();
 
     private final IdentityHashMap<Table, TableHandle> tables = new IdentityHashMap<>();
 
@@ -277,26 +273,6 @@ public class Analysis
         return ImmutableList.of();
     }
 
-    public void addJoinSideExpressions(Join node, JoinSideExpressions joinSideExpressions)
-    {
-        this.joinSideExpressions.put(node, joinSideExpressions);
-    }
-
-    public JoinSideExpressions getJoinSideExpressions(Join node)
-    {
-        return joinSideExpressions.get(node);
-    }
-
-    public void setPostJoinConjunct(Join node, Expression postJoinConjunct)
-    {
-        this.postJoinConjunct.put(node, postJoinConjunct);
-    }
-
-    public Optional<Expression> getPostJoinConjunct(Join node)
-    {
-        return Optional.ofNullable(postJoinConjunct.get(node));
-    }
-
     public void setWindowFunctions(QuerySpecification node, List<FunctionCall> functions)
     {
         windowFunctions.put(node, functions);
@@ -444,48 +420,6 @@ public class Analysis
     {
         Preconditions.checkState(sampleRatios.containsKey(relation), "Sample ratio missing for %s. Broken analysis?", relation);
         return sampleRatios.get(relation);
-    }
-
-    public static class JoinSideExpressions
-    {
-        private final Set<Expression> left;
-        private final Set<Expression> right;
-
-        public JoinSideExpressions(Set<Expression> left, Set<Expression> right)
-        {
-            this.left = ImmutableSet.copyOf(requireNonNull(left, "left is null"));
-            this.right = ImmutableSet.copyOf(requireNonNull(right, "right is null"));
-        }
-
-        public Set<Expression> getLeft()
-        {
-            return left;
-        }
-
-        public Set<Expression> getRight()
-        {
-            return right;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(left, right);
-        }
-
-        @Override
-        public boolean equals(Object obj)
-        {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null || getClass() != obj.getClass()) {
-                return false;
-            }
-            final JoinSideExpressions other = (JoinSideExpressions) obj;
-            return Objects.equals(this.left, other.left) &&
-                    Objects.equals(this.right, other.right);
-        }
     }
 
     @Immutable

@@ -1978,6 +1978,9 @@ public abstract class AbstractTestQueries
                 queryPrefix + "(x in (VALUES 1,2)) = (y in (VALUES 1,2)) AND (x in (VALUES 1)) = (y in (VALUES 3))",
                 "VALUES (2,2), (2,1)");
         assertQuery(
+                queryPrefix + "(x in (VALUES 1,2)) = (y in (VALUES 1,2)) AND (x in (VALUES 1)) != (y in (VALUES 3))",
+                "VALUES (1,2), (1,1), (3, 3)");
+        assertQuery(
                 queryPrefix + "(x in (VALUES 1)) = (y in (VALUES 1)) AND (x in (SELECT 2)) != (y in (SELECT 2))",
                 "VALUES (2,3), (3, 2)");
     }

@@ -268,13 +268,8 @@ class RelationPlanner
                 }
             }
 
-            Analysis.JoinSideExpressions joinSideExpressions = analysis.getJoinSideExpressions(node);
-
-            // Add semi joins if necessary
-            if (joinSideExpressions != null) {
-                leftPlanBuilder = subqueryPlanner.handleSubqueries(leftPlanBuilder, joinSideExpressions.getLeft(), node);
-                rightPlanBuilder = subqueryPlanner.handleSubqueries(rightPlanBuilder, joinSideExpressions.getRight(), node);
-            }
+            leftPlanBuilder = subqueryPlanner.handleSubqueries(leftPlanBuilder, leftComparisonExpressions, node);
+            rightPlanBuilder = subqueryPlanner.handleSubqueries(rightPlanBuilder, rightComparisonExpressions, node);
 
             // Add projections for join criteria
             leftPlanBuilder = leftPlanBuilder.appendProjections(leftComparisonExpressions, symbolAllocator, idAllocator);
@@ -324,7 +319,7 @@ class RelationPlanner
         translationMap.putExpressionMappingsFrom(leftPlanBuilder.getTranslations());
         translationMap.putExpressionMappingsFrom(rightPlanBuilder.getTranslations());
         PlanBuilder rootPlanBuilder = new PlanBuilder(translationMap, root, sampleWeight);
-        rootPlanBuilder = subqueryPlanner.handleSubqueries(rootPlanBuilder, analysis.getPostJoinConjunct(node), node);
+        rootPlanBuilder = subqueryPlanner.handleSubqueries(rootPlanBuilder, complexJoinExpressions, node);
         for (Expression expression : complexJoinExpressions) {
             postInnerJoinConditions.add(rootPlanBuilder.rewrite(expression));
         }

@@ -1286,6 +1286,8 @@ class StatementAnalyzer
                 ExpressionAnalysis rightExpressionAnalysis = analyzeExpression(rightExpression, right, context);
                 checkState(leftExpressionAnalysis.getSubqueryInPredicates().isEmpty(), "INVARIANT");
                 checkState(rightExpressionAnalysis.getSubqueryInPredicates().isEmpty(), "INVARIANT");
+                checkState(leftExpressionAnalysis.getScalarSubqueries().isEmpty(), "INVARIANT");
+                checkState(rightExpressionAnalysis.getScalarSubqueries().isEmpty(), "INVARIANT");
 
                 addCoercionForJoinCriteria(node, leftExpression, rightExpression);
                 expressions.add(new ComparisonExpression(EQUAL, leftExpression, rightExpression));
@@ -1375,11 +1377,8 @@ class StatementAnalyzer
                     postJoinConjuncts.add(conjunct);
                 }
             }
-            Expression postJoinConjuct = ExpressionUtils.combineConjuncts(postJoinConjuncts);
-            ExpressionAnalysis postJoinPredicatesConjunctsAnalysis = analyzeExpression(postJoinConjuct, output, context);
-            analysis.recordSubqueries(node, postJoinPredicatesConjunctsAnalysis);
-            analysis.setPostJoinConjunct(node, postJoinConjuct);
-            analysis.addJoinSideExpressions(node, new Analysis.JoinSideExpressions(leftExpressions, rightExpressions));
+            Expression postJoinPredicate = ExpressionUtils.combineConjuncts(postJoinConjuncts);
+            analysis.recordSubqueries(node, analyzeExpression(postJoinPredicate, output, context));
             analysis.setJoinCriteria(node, (Expression) optimizedExpression);
         }
         else {
