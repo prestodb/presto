@@ -303,6 +303,134 @@ public class TestAggregateWindowFunction
     }
 
     @Test
+    public void testSumRollingUnboundedPrecedingNPreceding()
+    {
+        assertWindowQuery("sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+                        "ROWS BETWEEN UNBOUNDED PRECEDING AND 0 PRECEDING)",
+                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
+                        .row(3, "F", 3L)
+                        .row(5, "F", 8L)
+                        .row(6, "F", 14L)
+                        .row(33, "F", 47L)
+                        .row(1, "O", 1L)
+                        .row(2, "O", 3L)
+                        .row(4, "O", 7L)
+                        .row(7, "O", 14L)
+                        .row(32, "O", 46L)
+                        .row(34, "O", 80L)
+                        .build());
+
+        assertWindowQuery("sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+                        "ROWS BETWEEN UNBOUNDED PRECEDING AND 2 PRECEDING)",
+                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
+                        .row(3, "F", null)
+                        .row(5, "F", null)
+                        .row(6, "F", 3L)
+                        .row(33, "F", 8L)
+                        .row(1, "O", null)
+                        .row(2, "O", null)
+                        .row(4, "O", 1L)
+                        .row(7, "O", 3L)
+                        .row(32, "O", 7L)
+                        .row(34, "O", 14L)
+                        .build());
+
+        assertWindowQuery("sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+                        "ROWS BETWEEN UNBOUNDED PRECEDING AND 4 PRECEDING)",
+                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
+                        .row(3, "F", null)
+                        .row(5, "F", null)
+                        .row(6, "F", null)
+                        .row(33, "F", null)
+                        .row(1, "O", null)
+                        .row(2, "O", null)
+                        .row(4, "O", null)
+                        .row(7, "O", null)
+                        .row(32, "O", 1L)
+                        .row(34, "O", 3L)
+                        .build());
+
+        assertWindowQuery("sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+                        "ROWS BETWEEN UNBOUNDED PRECEDING AND 171 PRECEDING)",
+                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
+                        .row(3, "F", null)
+                        .row(5, "F", null)
+                        .row(6, "F", null)
+                        .row(33, "F", null)
+                        .row(1, "O", null)
+                        .row(2, "O", null)
+                        .row(4, "O", null)
+                        .row(7, "O", null)
+                        .row(32, "O", null)
+                        .row(34, "O", null)
+                        .build());
+    }
+
+    @Test
+    public void testSumRollingNFollowingUnboundedFollowing()
+    {
+        assertWindowQuery("sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+                        "ROWS BETWEEN 0 FOLLOWING AND UNBOUNDED FOLLOWING)",
+                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
+                        .row(3, "F", 47L)
+                        .row(5, "F", 44L)
+                        .row(6, "F", 39L)
+                        .row(33, "F", 33L)
+                        .row(1, "O", 80L)
+                        .row(2, "O", 79L)
+                        .row(4, "O", 77L)
+                        .row(7, "O", 73L)
+                        .row(32, "O", 66L)
+                        .row(34, "O", 34L)
+                        .build());
+
+        assertWindowQuery("sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+                        "ROWS BETWEEN 3 FOLLOWING AND UNBOUNDED FOLLOWING)",
+                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
+                        .row(3, "F", 33L)
+                        .row(5, "F", null)
+                        .row(6, "F", null)
+                        .row(33, "F", null)
+                        .row(1, "O", 73L)
+                        .row(2, "O", 66L)
+                        .row(4, "O", 34L)
+                        .row(7, "O", null)
+                        .row(32, "O", null)
+                        .row(34, "O", null)
+                        .build());
+
+        assertWindowQuery("sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+                        "ROWS BETWEEN 4 FOLLOWING AND UNBOUNDED FOLLOWING)",
+                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
+                        .row(3, "F", null)
+                        .row(5, "F", null)
+                        .row(6, "F", null)
+                        .row(33, "F", null)
+                        .row(1, "O", 66L)
+                        .row(2, "O", 34L)
+                        .row(4, "O", null)
+                        .row(7, "O", null)
+                        .row(32, "O", null)
+                        .row(34, "O", null)
+                        .build());
+
+        assertWindowQuery("sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+                        "ROWS BETWEEN 2179 FOLLOWING AND UNBOUNDED FOLLOWING)",
+                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
+                        .row(3, "F", null)
+                        .row(5, "F", null)
+                        .row(6, "F", null)
+                        .row(33, "F", null)
+                        .row(1, "O", null)
+                        .row(2, "O", null)
+                        .row(4, "O", null)
+                        .row(7, "O", null)
+                        .row(32, "O", null)
+                        .row(34, "O", null)
+                        .build());
+    }
+
+    @Test
     public void testSumCurrentRow()
             throws Exception
     {
