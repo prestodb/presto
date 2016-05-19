@@ -31,6 +31,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.Constraint;
+import com.facebook.presto.type.LiteralParameter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -133,13 +134,13 @@ public class ScalarImplementation
         }
         MethodHandle methodHandle = this.methodHandle;
         for (ImplementationDependency dependency : dependencies) {
-            methodHandle = methodHandle.bindTo(dependency.resolve(boundVariables.getTypeVariables(), typeManager, functionRegistry));
+            methodHandle = methodHandle.bindTo(dependency.resolve(boundVariables, typeManager, functionRegistry));
         }
         MethodHandle constructor = null;
         if (this.constructor.isPresent()) {
             constructor = this.constructor.get();
             for (ImplementationDependency dependency : constructorDependencies) {
-                constructor = constructor.bindTo(dependency.resolve(boundVariables.getTypeVariables(), typeManager, functionRegistry));
+                constructor = constructor.bindTo(dependency.resolve(boundVariables, typeManager, functionRegistry));
             }
         }
         return Optional.of(new MethodHandleAndConstructor(methodHandle, Optional.ofNullable(constructor)));
@@ -207,7 +208,7 @@ public class ScalarImplementation
 
     private interface ImplementationDependency
     {
-        Object resolve(Map<String, Type> types, TypeManager typeManager, FunctionRegistry functionRegistry);
+        Object resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionRegistry functionRegistry);
     }
 
     private static final class OperatorImplementationDependency
@@ -235,9 +236,9 @@ public class ScalarImplementation
         }
 
         @Override
-        public MethodHandle resolve(Map<String, Type> types, TypeManager typeManager, FunctionRegistry functionRegistry)
+        public MethodHandle resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionRegistry functionRegistry)
         {
-            Signature signature = SignatureBinder.bindVariables(this.signature, new BoundVariables(types, ImmutableMap.of()), this.signature.getArgumentTypes().size());
+            Signature signature = SignatureBinder.bindVariables(this.signature, boundVariables, this.signature.getArgumentTypes().size());
             return functionRegistry.getScalarFunctionImplementation(signature).getMethodHandle();
         }
     }
@@ -253,9 +254,26 @@ public class ScalarImplementation
         }
 
         @Override
-        public Type resolve(Map<String, Type> types, TypeManager typeManager, FunctionRegistry functionRegistry)
+        public Type resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionRegistry functionRegistry)
         {
-            return typeManager.getType(SignatureBinder.bindVariables(signature, new BoundVariables(types, ImmutableMap.of())));
+            return typeManager.getType(SignatureBinder.bindVariables(signature, boundVariables));
+        }
+    }
+
+    private static final class LiteralImplementationDependency
+            implements ImplementationDependency
+    {
+        private final String literalName;
+
+        private LiteralImplementationDependency(String literalName)
+        {
+            this.literalName = requireNonNull(literalName, "literalName is null");
+        }
+
+        @Override
+        public Long resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionRegistry functionRegistry)
+        {
+            return boundVariables.getLongVariable(literalName);
         }
     }
 
@@ -335,6 +353,9 @@ public class ScalarImplementation
                     Annotation annotation = annotations[0];
                     if (annotation instanceof TypeParameter) {
                         checkArgument(typeParameters.contains(annotation), "Injected type parameters must be declared with @TypeParameter annotation on the method [%s]", method);
+                    }
+                    if (annotation instanceof LiteralParameter) {
+                        checkArgument(literalParameters.contains(((LiteralParameter) annotation).value()), "Parameter injected by @LiteralParameter must be declared in @LiteralParameter.");
                     }
                     dependencies.add(parseDependency(annotation));
                 }
@@ -488,6 +509,9 @@ public class ScalarImplementation
                         parseTypeSignature(operator.returnType()),
                         asList(operator.argumentTypes()).stream().map(TypeSignature::parseTypeSignature).collect(toImmutableList()));
             }
+            if (annotation instanceof LiteralParameter) {
+                return new LiteralImplementationDependency(((LiteralParameter) annotation).value());
+            }
             throw new IllegalArgumentException("Unsupported annotation " + annotation.getClass().getSimpleName());
         }
 
@@ -498,6 +522,9 @@ public class ScalarImplementation
                     return true;
                 }
                 if (annotation instanceof OperatorDependency) {
+                    return true;
+                }
+                if (annotation instanceof LiteralParameter) {
                     return true;
                 }
             }

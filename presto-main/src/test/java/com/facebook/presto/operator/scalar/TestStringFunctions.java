@@ -13,11 +13,14 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.type.LiteralParameter;
 import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -36,6 +39,15 @@ public class TestStringFunctions
     private TestStringFunctions()
     {
         registerScalar(getClass());
+    }
+
+    @Description("varchar length")
+    @ScalarFunction(value = "vl", deterministic = true)
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.BIGINT)
+    public static long varcharLength(@LiteralParameter("x") Long param, @SqlType("varchar(x)") Slice slice)
+    {
+        return param;
     }
 
     @ScalarFunction(value = "utf8", deterministic = false)
@@ -583,6 +595,14 @@ public class TestStringFunctions
         assertFunction("normalize('sch\u00f6n', NFKC)", VARCHAR, "sch\u00f6n");
         assertFunction("normalize('\u3231\u3327\u3326\u2162', NFKC)", VARCHAR, "(\u682a)\u30c8\u30f3\u30c9\u30ebIII");
         assertFunction("normalize('\uff8a\uff9d\uff76\uff78\uff76\uff85', NFKC)", VARCHAR, "\u30cf\u30f3\u30ab\u30af\u30ab\u30ca");
+    }
+
+    @Test
+    public void testFromLiteralParameter()
+    {
+        assertFunction("vl(cast('aaa' as varchar(3)))", BIGINT, 3L);
+        assertFunction("vl(cast('aaa' as varchar(7)))", BIGINT, 7L);
+        assertFunction("vl('aaaa')", BIGINT, 4L);
     }
 
     // We do not use String toLowerCase or toUpperCase here because they can do multi character transforms
