@@ -138,7 +138,7 @@ public class BenchmarkGroupByHash
 
         long groupIds = 0;
         for (Page page : data.getPages()) {
-            Block block = page.getBlocks()[0];
+            Block block = page.getBlock(0);
             int positionCount = block.getPositionCount();
             for (int position = 0; position < positionCount; position++) {
                 long value = block.getLong(position, 0);
@@ -167,7 +167,7 @@ public class BenchmarkGroupByHash
 
         long groupIds = 0;
         for (Page page : data.getPages()) {
-            Block block = page.getBlocks()[0];
+            Block block = page.getBlock(0);
             int positionCount = block.getPositionCount();
             for (int position = 0; position < positionCount; position++) {
                 long value = BIGINT.getLong(block, position);
