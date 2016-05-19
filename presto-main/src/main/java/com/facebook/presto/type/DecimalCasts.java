@@ -52,6 +52,7 @@ import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
 import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.spi.type.StandardTypes.DECIMAL;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
+import static com.facebook.presto.spi.type.StandardTypes.FLOAT;
 import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
 import static com.facebook.presto.spi.type.StandardTypes.JSON;
 import static com.facebook.presto.spi.type.StandardTypes.SMALLINT;
@@ -60,6 +61,8 @@ import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Types.checkType;
+import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
 import static java.math.BigDecimal.ROUND_HALF_UP;
@@ -80,6 +83,8 @@ public final class DecimalCasts
     public static final SqlScalarFunction DECIMAL_TO_TINYINT_CAST = castFunctionFromDecimalTo(TINYINT, "shortDecimalToTinyint", "longDecimalToTinyint");
     public static final SqlScalarFunction DECIMAL_TO_DOUBLE_CAST = castFunctionFromDecimalTo(DOUBLE, "shortDecimalToDouble", "longDecimalToDouble");
     public static final SqlScalarFunction DOUBLE_TO_DECIMAL_CAST = castFunctionToDecimalFrom(DOUBLE, "doubleToShortDecimal", "doubleToLongDecimal");
+    public static final SqlScalarFunction DECIMAL_TO_FLOAT_CAST = castFunctionFromDecimalTo(FLOAT, "shortDecimalToFloat", "longDecimalToFloat");
+    public static final SqlScalarFunction FLOAT_TO_DECIMAL_CAST = castFunctionToDecimalFrom(FLOAT, "floatToShortDecimal", "floatToLongDecimal");
     public static final SqlScalarFunction DECIMAL_TO_VARCHAR_CAST = castFunctionFromDecimalTo(VARCHAR, "shortDecimalToVarchar", "longDecimalToVarchar");
     public static final SqlScalarFunction VARCHAR_TO_DECIMAL_CAST = castFunctionToDecimalFrom(VARCHAR, "varcharToShortDecimal", "varcharToLongDecimal");
     public static final SqlScalarFunction DECIMAL_TO_JSON_CAST = castFunctionFromDecimalTo(JSON, "shortDecimalToJson", "longDecimalToJson");
@@ -389,6 +394,20 @@ public final class DecimalCasts
     }
 
     @UsedByGeneratedCode
+    public static long shortDecimalToFloat(long decimal, long precision, long scale, long tenToScale)
+    {
+        return floatToRawIntBits(((float) decimal) / tenToScale);
+    }
+
+    @UsedByGeneratedCode
+    public static long longDecimalToFloat(Slice decimal, long precision, long scale, long tenToScale)
+    {
+        BigInteger decimalBigInteger = decodeUnscaledValue(decimal);
+        BigDecimal bigDecimal = new BigDecimal(decimalBigInteger, (int) scale);
+        return floatToRawIntBits(bigDecimal.floatValue());
+    }
+
+    @UsedByGeneratedCode
     public static long doubleToShortDecimal(double value, long precision, long scale, long tenToScale)
     {
         BigDecimal decimal = new BigDecimal(value);
@@ -406,6 +425,29 @@ public final class DecimalCasts
         decimal = decimal.setScale((int) scale, ROUND_HALF_UP);
         if (overflows(decimal, precision)) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", value, precision, scale));
+        }
+        BigInteger decimalBigInteger = decimal.unscaledValue();
+        return encodeUnscaledValue(decimalBigInteger);
+    }
+
+    @UsedByGeneratedCode
+    public static long floatToShortDecimal(long value, long precision, long scale, long tenToScale)
+    {
+        BigDecimal decimal = new BigDecimal(intBitsToFloat((int) value));
+        decimal = decimal.setScale((int) scale, ROUND_HALF_UP);
+        if (overflows(decimal, precision)) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast FLOAT '%s' to DECIMAL(%s, %s)", intBitsToFloat((int) value), precision, scale));
+        }
+        return decimal.unscaledValue().longValue();
+    }
+
+    @UsedByGeneratedCode
+    public static Slice floatToLongDecimal(long value, long precision, long scale, long tenToScale)
+    {
+        BigDecimal decimal = new BigDecimal(intBitsToFloat((int) value));
+        decimal = decimal.setScale((int) scale, ROUND_HALF_UP);
+        if (overflows(decimal, precision)) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast FLOAT '%s' to DECIMAL(%s, %s)", intBitsToFloat((int) value), precision, scale));
         }
         BigInteger decimalBigInteger = decimal.unscaledValue();
         return encodeUnscaledValue(decimalBigInteger);

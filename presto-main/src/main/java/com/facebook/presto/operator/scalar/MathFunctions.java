@@ -30,7 +30,6 @@ import static com.facebook.presto.util.Failures.checkCondition;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Character.MAX_RADIX;
 import static java.lang.Character.MIN_RADIX;
-import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
 
 public final class MathFunctions
@@ -582,28 +581,12 @@ public final class MathFunctions
         return Double.NaN;
     }
 
-    @Description("constant representing NaN float")
-    @ScalarFunction("fnan")
-    @SqlType(StandardTypes.FLOAT)
-    public static long floatNaN()
-    {
-        return floatToRawIntBits(Float.NaN);
-    }
-
     @Description("Infinity")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
     public static double infinity()
     {
         return Double.POSITIVE_INFINITY;
-    }
-
-    @Description("constant representing infinity float")
-    @ScalarFunction("finfinity")
-    @SqlType(StandardTypes.FLOAT)
-    public static long floatInfinity()
-    {
-        return Float.floatToIntBits(Float.POSITIVE_INFINITY);
     }
 
     @Description("convert a number to a string in the given base")

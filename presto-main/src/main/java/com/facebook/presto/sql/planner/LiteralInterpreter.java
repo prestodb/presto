@@ -22,6 +22,7 @@ import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Decimals;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -154,13 +155,13 @@ public final class LiteralInterpreter
             Float value = intBitsToFloat(((Long) object).intValue());
             // WARNING for ORC predicate code as above (for double)
             if (value.isNaN()) {
-                return new FunctionCall(new QualifiedName("fnan"), ImmutableList.of());
+                return new Cast(new FunctionCall(new QualifiedName("nan"), ImmutableList.of()), StandardTypes.FLOAT);
             }
             else if (value.equals(Float.NEGATIVE_INFINITY)) {
-                return ArithmeticUnaryExpression.negative(new FunctionCall(new QualifiedName("finfinity"), ImmutableList.of()));
+                return ArithmeticUnaryExpression.negative(new Cast(new FunctionCall(new QualifiedName("infinity"), ImmutableList.of()), StandardTypes.FLOAT));
             }
             else if (value.equals(Float.POSITIVE_INFINITY)) {
-                return new FunctionCall(new QualifiedName("finfinity"), ImmutableList.of());
+                return new Cast(new FunctionCall(new QualifiedName("infinity"), ImmutableList.of()), StandardTypes.FLOAT);
             }
             else {
                 return new GenericLiteral("FLOAT", value.toString());
