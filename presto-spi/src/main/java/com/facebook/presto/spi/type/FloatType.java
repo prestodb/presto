@@ -35,13 +35,13 @@ public final class FloatType
     @Override
     public boolean isComparable()
     {
-        return false;
+        return true;
     }
 
     @Override
     public boolean isOrderable()
     {
-        return false;
+        return true;
     }
 
     @Override
