@@ -136,6 +136,17 @@ class TranslationMap
         analysis.getFieldIndex(expression).ifPresent(index -> fieldSymbols[index] = symbol);
     }
 
+    public boolean containsSymbol(Expression expression)
+    {
+        if (expression instanceof FieldReference) {
+            int field = ((FieldReference) expression).getFieldIndex();
+            return fieldSymbols[field] != null;
+        }
+
+        Expression translated = translateNamesToSymbols(expression);
+        return expressionToSymbols.containsKey(translated);
+    }
+
     public Symbol get(Expression expression)
     {
         if (expression instanceof FieldReference) {

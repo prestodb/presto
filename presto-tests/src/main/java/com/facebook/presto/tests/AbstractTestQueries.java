@@ -1979,34 +1979,96 @@ public abstract class AbstractTestQueries
                 "VALUES (2,2), (2,1)");
         assertQuery(
                 queryPrefix + "(x in (VALUES 1,2)) = (y in (VALUES 1,2)) AND (x in (VALUES 1)) != (y in (VALUES 3))",
-                "VALUES (1,2), (1,1), (3,3)");
+                "VALUES (1,2), (1,1), (3, 3)");
+        assertQuery(
+                queryPrefix + "(x in (VALUES 1)) = (y in (VALUES 1)) AND (x in (SELECT 2)) != (y in (SELECT 2))",
+                "VALUES (2,3), (3, 2)");
     }
 
     @Test
     public void testJoinWithInSubqueryToBeExecutedAsPostJoinFilter()
             throws Exception
     {
+        String queryPrefix = "SELECT * " +
+                "FROM " +
+                "    (VALUES 1,2,3) t(x) " +
+                "  JOIN " +
+                "    (VALUES 1,2,3) t2(y) " +
+                "  ON ";
+
         assertQuery(
-                "SELECT * FROM (VALUES 1, 2, 3) t(x) JOIN (VALUES 1, 2, 3) t2(y) ON (x+y in (VALUES 4, 5))",
+                queryPrefix + " (x+y in (VALUES 4, 5))",
                 "VALUES (1,3), (2,2), (2,3), (3,1), (3,2)");
         assertQuery(
-                "SELECT * FROM (VALUES 1, 2, 3) t(x) JOIN (VALUES 1, 2, 3) t2(y) ON (x+y in (VALUES 4, 5)) AND (x*y in (VALUES 4))",
+                queryPrefix + " (x+y in (VALUES 4, 5)) AND (x*y in (VALUES 4))",
                 "VALUES (2,2)");
         assertQuery(
-                "SELECT * FROM (VALUES 1, 2, 3) t(x) JOIN (VALUES 1, 2, 3) t2(y) ON (x+y in (VALUES 4, 5)) = (x*y IN (VALUES 4,5))",
+                queryPrefix + " (x+y in (VALUES 4, 5)) = (x*y IN (VALUES 4,5))",
                 "VALUES (1,1), (1,2), (2,1), (2,2), (3,3)");
         assertQuery(
-                "SELECT * FROM (VALUES 1,2,3) t(x) JOIN (VALUES 1, 2, 3) t2(y) ON " +
-                        "(x+y in (VALUES (4),(5))) " +
+                queryPrefix + "(x+y in (VALUES (4),(5))) " +
                         "AND " +
                         "(x in (VALUES 1)) != (y in (VALUES 3))",
                 "VALUES (2,3)");
         assertQuery(
-                "SELECT * FROM (VALUES 1,2,3) t(x) JOIN (VALUES 1, 2, 3) t2(y) ON " +
-                        "(x+y in (VALUES (4),(5))) " +
+                queryPrefix + "(x+y in (VALUES (4),(5))) " +
                         "AND " +
                         "(x in (VALUES 1)) = (y in (VALUES 3))",
                 "VALUES (1,3), (2,2), (3,2), (3,1)");
+    }
+
+    @Test
+    public void testJoinWithMultipleScalarSubqueryClauses()
+            throws Exception
+    {
+        String queryPrefix = "SELECT * " +
+                "FROM " +
+                "    (VALUES 1,2,3) t(x) " +
+                "  JOIN " +
+                "    (VALUES 1,2,3) t2(y) " +
+                "  ON ";
+
+        assertQuery(
+                queryPrefix + "(x = (VALUES 1)) = (y = (VALUES 2)) AND (x in (VALUES 2)) = (y in (VALUES 1))",
+                "VALUES (1,2), (2,1), (3, 3)");
+        assertQuery(
+                queryPrefix + "(x = (VALUES 2)) = (y > (VALUES 0)) AND (x > (VALUES 1)) = (y < (VALUES 3))",
+                "VALUES (2,2), (2,1)");
+        assertQuery(
+                queryPrefix + "(x = (VALUES 1)) = (y = (VALUES 1)) AND (x = (SELECT 2)) != (y = (SELECT 3))",
+                "VALUES (2,2), (3,3)");
+    }
+
+    @Test
+    public void testJoinWithScalarSubqueryToBeExecutedAsPostJoinFilter()
+            throws Exception
+    {
+        String queryPrefix = "SELECT * " +
+                "FROM " +
+                "    (VALUES 1,2,3) t(x) " +
+                "  JOIN " +
+                "    (VALUES 1,2,3) t2(y) " +
+                "  ON ";
+
+        assertQuery(
+                queryPrefix + " (x+y = (SELECT 4))",
+                "VALUES (1,3), (2,2), (3,1)");
+        assertQuery(
+                queryPrefix + "(x+y = (VALUES 4)) AND (x*y = (VALUES 4))",
+                "VALUES (2,2)");
+        assertQuery(
+                queryPrefix + "(x+y > (VALUES 2)) = (x*y  > (VALUES 8))",
+                "VALUES (1,1), (3,3)");
+        assertQuery(
+                queryPrefix + "x+y >= (VALUES 4) " +
+                        "AND " +
+                        "(x = (VALUES 2)) != (y = (VALUES 2))",
+                "VALUES (3,2), (2,3)");
+        assertQuery(
+                queryPrefix + "(x+y >= (VALUES 4)) " +
+                        "AND " +
+                        "(x = (VALUES 3)) = (y = (VALUES 3))",
+                "VALUES (2, 2), (3, 3)");
     }
 
     @Test
