@@ -56,7 +56,6 @@ import static com.facebook.presto.execution.QueryState.STARTING;
 import static com.facebook.presto.execution.QueryState.TERMINAL_QUERY_STATES;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
-import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.Failures.toFailure;
@@ -417,10 +416,7 @@ public class QueryStateMachine
         requireNonNull(key, "key is null");
         requireNonNull(value, "value is null");
 
-        if (session.getPreparedStatements().containsKey(key) ||
-                (addedPreparedStatements.putIfAbsent(key, value) != null)) {
-            throw new PrestoException(ALREADY_EXISTS, "Prepared statement already exists: " + key);
-        }
+        addedPreparedStatements.put(key, value);
     }
 
     public void removePreparedStatement(String key)
