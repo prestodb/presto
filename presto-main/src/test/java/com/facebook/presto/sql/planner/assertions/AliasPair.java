@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner.assertions;
 
+import com.google.common.base.MoreObjects;
+
 import static java.util.Objects.requireNonNull;
 
 final class AliasPair
@@ -24,5 +26,14 @@ final class AliasPair
     {
         this.left = requireNonNull(left, "left is null");
         this.right = requireNonNull(right, "right is null");
+    }
+
+    @Override
+    public String toString()
+    {
+        return MoreObjects.toStringHelper(this)
+                .add("left", left)
+                .add("right", right)
+                .toString();
     }
 }
