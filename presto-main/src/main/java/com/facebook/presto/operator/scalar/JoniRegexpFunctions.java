@@ -20,7 +20,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.type.RegexpType;
+import com.facebook.presto.type.JoniRegexpType;
 import com.facebook.presto.type.SqlType;
 import com.google.common.primitives.Ints;
 import io.airlift.jcodings.specific.NonStrictUTF8Encoding;
@@ -43,14 +43,14 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMEN
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 
-public final class RegexpFunctions
+public final class JoniRegexpFunctions
 {
-    private RegexpFunctions()
+    private JoniRegexpFunctions()
     {
     }
 
     @ScalarOperator(OperatorType.CAST)
-    @SqlType(RegexpType.NAME)
+    @SqlType(JoniRegexpType.NAME)
     public static Regex castToRegexp(@SqlType(StandardTypes.VARCHAR) Slice pattern)
     {
         Regex regex;
@@ -67,7 +67,7 @@ public final class RegexpFunctions
     @Description("returns whether the pattern is contained within the string")
     @ScalarFunction
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean regexpLike(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Regex pattern)
+    public static boolean regexpLike(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(JoniRegexpType.NAME) Regex pattern)
     {
         Matcher m = pattern.matcher(source.getBytes());
         int offset = m.search(0, source.length(), Option.DEFAULT);
@@ -77,7 +77,7 @@ public final class RegexpFunctions
     @Description("removes substrings matching a regular expression")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice regexpReplace(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Regex pattern)
+    public static Slice regexpReplace(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(JoniRegexpType.NAME) Regex pattern)
     {
         return regexpReplace(source, pattern, Slices.EMPTY_SLICE);
     }
@@ -85,7 +85,7 @@ public final class RegexpFunctions
     @Description("replaces substrings matching a regular expression by given string")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice regexpReplace(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Regex pattern, @SqlType(StandardTypes.VARCHAR) Slice replacement)
+    public static Slice regexpReplace(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(JoniRegexpType.NAME) Regex pattern, @SqlType(StandardTypes.VARCHAR) Slice replacement)
     {
         Matcher matcher = pattern.matcher(source.getBytes());
         SliceOutput sliceOutput = new DynamicSliceOutput(source.length() + replacement.length() * 5);
@@ -196,7 +196,7 @@ public final class RegexpFunctions
     @Description("string(s) extracted using the given pattern")
     @ScalarFunction
     @SqlType("array(varchar)")
-    public static Block regexpExtractAll(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Regex pattern)
+    public static Block regexpExtractAll(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(JoniRegexpType.NAME) Regex pattern)
     {
         return regexpExtractAll(source, pattern, 0);
     }
@@ -204,7 +204,7 @@ public final class RegexpFunctions
     @Description("group(s) extracted using the given pattern")
     @ScalarFunction
     @SqlType("array(varchar)")
-    public static Block regexpExtractAll(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Regex pattern, @SqlType(StandardTypes.BIGINT) long groupIndex)
+    public static Block regexpExtractAll(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(JoniRegexpType.NAME) Regex pattern, @SqlType(StandardTypes.BIGINT) long groupIndex)
     {
         Matcher matcher = pattern.matcher(source.getBytes());
         validateGroup(groupIndex, matcher.getEagerRegion());
@@ -241,7 +241,7 @@ public final class RegexpFunctions
     @Description("string extracted using the given pattern")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice regexpExtract(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Regex pattern)
+    public static Slice regexpExtract(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(JoniRegexpType.NAME) Regex pattern)
     {
         return regexpExtract(source, pattern, 0);
     }
@@ -250,7 +250,7 @@ public final class RegexpFunctions
     @Description("returns regex group of extracted string with a pattern")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice regexpExtract(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Regex pattern, @SqlType(StandardTypes.BIGINT) long groupIndex)
+    public static Slice regexpExtract(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(JoniRegexpType.NAME) Regex pattern, @SqlType(StandardTypes.BIGINT) long groupIndex)
     {
         Matcher matcher = pattern.matcher(source.getBytes());
         validateGroup(groupIndex, matcher.getEagerRegion());
@@ -275,7 +275,7 @@ public final class RegexpFunctions
     @ScalarFunction
     @Description("returns array of strings split by pattern")
     @SqlType("array(varchar)")
-    public static Block regexpSplit(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Regex pattern)
+    public static Block regexpSplit(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(JoniRegexpType.NAME) Regex pattern)
     {
         Matcher matcher = pattern.matcher(source.getBytes());
         BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 32);

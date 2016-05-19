@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -34,7 +35,7 @@ import static org.testng.Assert.assertTrue;
 public class TestFieldSetFilteringRecordSet
 {
     private static final TypeManager TYPE_MANAGER = new TypeRegistry();
-    private static final FunctionRegistry FUNCTION_REGISTRY = new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), false);
+    private static final FunctionRegistry FUNCTION_REGISTRY = new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
 
     @Test
     public void test()

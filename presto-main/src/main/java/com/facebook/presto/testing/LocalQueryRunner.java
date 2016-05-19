@@ -195,10 +195,15 @@ public class LocalQueryRunner
 
     public LocalQueryRunner(Session defaultSession)
     {
-        this(defaultSession, false);
+        this(defaultSession, new FeaturesConfig().setExperimentalSyntaxEnabled(true), false);
     }
 
-    private LocalQueryRunner(Session defaultSession, boolean withInitialTransaction)
+    public LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig)
+    {
+        this(defaultSession, featuresConfig, false);
+    }
+
+    private LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig, boolean withInitialTransaction)
     {
         requireNonNull(defaultSession, "defaultSession is null");
         checkArgument(!defaultSession.getTransactionId().isPresent() || !withInitialTransaction, "Already in transaction");
@@ -227,7 +232,7 @@ public class LocalQueryRunner
         this.splitManager = new SplitManager();
         this.blockEncodingSerde = new BlockEncodingManager(typeRegistry);
         this.metadata = new MetadataManager(
-                new FeaturesConfig().setExperimentalSyntaxEnabled(true),
+                featuresConfig,
                 typeRegistry,
                 blockEncodingSerde,
                 new SessionPropertyManager(),
@@ -299,7 +304,7 @@ public class LocalQueryRunner
     public static LocalQueryRunner queryRunnerWithInitialTransaction(Session defaultSession)
     {
         checkArgument(!defaultSession.getTransactionId().isPresent(), "Already in transaction!");
-        return new LocalQueryRunner(defaultSession, true);
+        return new LocalQueryRunner(defaultSession, new FeaturesConfig().setExperimentalSyntaxEnabled(true), true);
     }
 
     @Override

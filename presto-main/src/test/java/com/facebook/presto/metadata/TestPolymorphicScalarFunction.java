@@ -17,6 +17,7 @@ import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -38,7 +39,7 @@ import static org.testng.Assert.assertEquals;
 public class TestPolymorphicScalarFunction
 {
     private static final TypeRegistry TYPE_REGISTRY = new TypeRegistry();
-    private static final FunctionRegistry REGISTRY = new FunctionRegistry(TYPE_REGISTRY, new BlockEncodingManager(TYPE_REGISTRY), true);
+    private static final FunctionRegistry REGISTRY = new FunctionRegistry(TYPE_REGISTRY, new BlockEncodingManager(TYPE_REGISTRY), new FeaturesConfig().setExperimentalSyntaxEnabled(true));
     private static final Signature SIGNATURE = Signature.builder()
             .name("foo")
             .kind(SCALAR)

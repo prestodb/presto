@@ -136,7 +136,7 @@ public class MetadataManager
             TablePropertyManager tablePropertyManager,
             TransactionManager transactionManager)
     {
-        functions = new FunctionRegistry(typeManager, blockEncodingSerde, featuresConfig.isExperimentalSyntaxEnabled());
+        functions = new FunctionRegistry(typeManager, blockEncodingSerde, featuresConfig);
         procedures = new ProcedureRegistry();
         this.typeManager = requireNonNull(typeManager, "types is null");
         this.viewCodec = requireNonNull(viewCodec, "viewCodec is null");

@@ -56,11 +56,12 @@ import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
 import static com.facebook.presto.type.ColorType.COLOR;
 import static com.facebook.presto.type.FunctionParametricType.FUNCTION;
+import static com.facebook.presto.type.JoniRegexpType.JONI_REGEXP;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.MapParametricType.MAP;
-import static com.facebook.presto.type.RegexpType.REGEXP;
+import static com.facebook.presto.type.Re2JRegexpType.RE2J_REGEXP;
 import static com.facebook.presto.type.RowParametricType.ROW;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.Types.checkType;
@@ -105,7 +106,8 @@ public final class TypeRegistry
         addType(INTERVAL_DAY_TIME);
         addType(HYPER_LOG_LOG);
         addType(P4_HYPER_LOG_LOG);
-        addType(REGEXP);
+        addType(JONI_REGEXP);
+        addType(RE2J_REGEXP);
         addType(LIKE_PATTERN);
         addType(JSON_PATH);
         addType(COLOR);
@@ -337,7 +339,7 @@ public final class TypeRegistry
                     case StandardTypes.JSON:
                     case StandardTypes.INTERVAL_YEAR_TO_MONTH:
                     case StandardTypes.INTERVAL_DAY_TO_SECOND:
-                    case RegexpType.NAME:
+                    case JoniRegexpType.NAME:
                     case LikePatternType.NAME:
                     case JsonPathType.NAME:
                     case ColorType.NAME:
@@ -422,8 +424,10 @@ public final class TypeRegistry
             }
             case StandardTypes.VARCHAR: {
                 switch (resultTypeBase) {
-                    case RegexpType.NAME:
-                        return Optional.of(REGEXP);
+                    case JoniRegexpType.NAME:
+                        return Optional.of(JONI_REGEXP);
+                    case Re2JRegexpType.NAME:
+                        return Optional.of(RE2J_REGEXP);
                     case LikePatternType.NAME:
                         return Optional.of(LIKE_PATTERN);
                     case JsonPathType.NAME:

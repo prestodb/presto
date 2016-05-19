@@ -17,7 +17,10 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.LegacyConfig;
 
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
+
+import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 
 public class FeaturesConfig
 {
@@ -38,6 +41,10 @@ public class FeaturesConfig
     private boolean resourceGroups;
 
     private String resourceGroupManager = FILE_BASED_RESOURCE_GROUP_MANAGER;
+
+    private int re2JDfaStatesLimit = Integer.MAX_VALUE;
+    private int re2JDfaRetries = 5;
+    private RegexLibrary regexLibrary = JONI;
 
     @NotNull
     public String getResourceGroupManager()
@@ -207,6 +214,44 @@ public class FeaturesConfig
     public FeaturesConfig setDictionaryAggregation(boolean dictionaryAggregation)
     {
         this.dictionaryAggregation = dictionaryAggregation;
+        return this;
+    }
+
+    @Min(2)
+    public int getRe2JDfaStatesLimit()
+    {
+        return re2JDfaStatesLimit;
+    }
+
+    @Config("re2j.dfa-states-limit")
+    public FeaturesConfig setRe2JDfaStatesLimit(int re2JDfaStatesLimit)
+    {
+        this.re2JDfaStatesLimit = re2JDfaStatesLimit;
+        return this;
+    }
+
+    @Min(0)
+    public int getRe2JDfaRetries()
+    {
+        return re2JDfaRetries;
+    }
+
+    @Config("re2j.dfa-retries")
+    public FeaturesConfig setRe2JDfaRetries(int re2JDfaRetries)
+    {
+        this.re2JDfaRetries = re2JDfaRetries;
+        return this;
+    }
+
+    public RegexLibrary getRegexLibrary()
+    {
+        return regexLibrary;
+    }
+
+    @Config("regex-library")
+    public FeaturesConfig setRegexLibrary(RegexLibrary regexLibrary)
+    {
+        this.regexLibrary = regexLibrary;
         return this;
     }
 }

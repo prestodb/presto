@@ -15,10 +15,10 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.operator.scalar.DateTimeFunctions;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
+import com.facebook.presto.operator.scalar.JoniRegexpFunctions;
 import com.facebook.presto.operator.scalar.JsonFunctions;
 import com.facebook.presto.operator.scalar.JsonPath;
 import com.facebook.presto.operator.scalar.MathFunctions;
-import com.facebook.presto.operator.scalar.RegexpFunctions;
 import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.SqlTimestamp;
@@ -1015,13 +1015,13 @@ public class TestExpressionCompiler
             for (String pattern : stringRights) {
                 assertExecute(generateExpression("regexp_like(%s, %s)", value, pattern),
                         BOOLEAN,
-                        value == null || pattern == null ? null : RegexpFunctions.regexpLike(utf8Slice(value), RegexpFunctions.castToRegexp(utf8Slice(pattern))));
+                        value == null || pattern == null ? null : JoniRegexpFunctions.regexpLike(utf8Slice(value), JoniRegexpFunctions.castToRegexp(utf8Slice(pattern))));
                 assertExecute(generateExpression("regexp_replace(%s, %s)", value, pattern),
                         VARCHAR,
-                        value == null || pattern == null ? null : RegexpFunctions.regexpReplace(utf8Slice(value), RegexpFunctions.castToRegexp(utf8Slice(pattern))));
+                        value == null || pattern == null ? null : JoniRegexpFunctions.regexpReplace(utf8Slice(value), JoniRegexpFunctions.castToRegexp(utf8Slice(pattern))));
                 assertExecute(generateExpression("regexp_extract(%s, %s)", value, pattern),
                         VARCHAR,
-                        value == null || pattern == null ? null : RegexpFunctions.regexpExtract(utf8Slice(value), RegexpFunctions.castToRegexp(utf8Slice(pattern))));
+                        value == null || pattern == null ? null : JoniRegexpFunctions.regexpExtract(utf8Slice(value), JoniRegexpFunctions.castToRegexp(utf8Slice(pattern))));
             }
         }
 

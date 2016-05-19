@@ -33,9 +33,10 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.type.JoniRegexpType.JONI_REGEXP;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
-import static com.facebook.presto.type.RegexpType.REGEXP;
+import static com.facebook.presto.type.Re2JRegexpType.RE2J_REGEXP;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -87,7 +88,8 @@ public class TestTypeRegistry
         assertTrue(typeRegistry.canCoerce(DATE, TIMESTAMP_WITH_TIME_ZONE));
         assertTrue(typeRegistry.canCoerce(TIME, TIME_WITH_TIME_ZONE));
         assertTrue(typeRegistry.canCoerce(TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE));
-        assertTrue(typeRegistry.canCoerce(VARCHAR, REGEXP));
+        assertTrue(typeRegistry.canCoerce(VARCHAR, JONI_REGEXP));
+        assertTrue(typeRegistry.canCoerce(VARCHAR, RE2J_REGEXP));
         assertTrue(typeRegistry.canCoerce(VARCHAR, LIKE_PATTERN));
         assertTrue(typeRegistry.canCoerce(VARCHAR, JSON_PATH));
 
@@ -121,7 +123,8 @@ public class TestTypeRegistry
         assertCommonSuperType(DATE, TIMESTAMP_WITH_TIME_ZONE, TIMESTAMP_WITH_TIME_ZONE);
         assertCommonSuperType(TIME, TIME_WITH_TIME_ZONE, TIME_WITH_TIME_ZONE);
         assertCommonSuperType(TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE, TIMESTAMP_WITH_TIME_ZONE);
-        assertCommonSuperType(VARCHAR, REGEXP, REGEXP);
+        assertCommonSuperType(VARCHAR, JONI_REGEXP, JONI_REGEXP);
+        assertCommonSuperType(VARCHAR, RE2J_REGEXP, RE2J_REGEXP);
         assertCommonSuperType(VARCHAR, LIKE_PATTERN, LIKE_PATTERN);
         assertCommonSuperType(VARCHAR, JSON_PATH, JSON_PATH);
 

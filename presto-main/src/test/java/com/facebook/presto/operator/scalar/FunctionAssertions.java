@@ -44,6 +44,7 @@ import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.analyzer.ExpressionAnalysis;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.InterpretedFilterFunction;
@@ -190,8 +191,13 @@ public final class FunctionAssertions
 
     public FunctionAssertions(Session session)
     {
+        this(session, new FeaturesConfig());
+    }
+
+    public FunctionAssertions(Session session, FeaturesConfig featuresConfig)
+    {
         this.session = requireNonNull(session, "session is null");
-        runner = new LocalQueryRunner(session);
+        runner = new LocalQueryRunner(session, featuresConfig);
         metadata = runner.getMetadata();
         compiler = new ExpressionCompiler(metadata);
     }

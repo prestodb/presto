@@ -147,6 +147,11 @@
         </dependency>
 
         <dependency>
+            <groupId>com.teradata</groupId>
+            <artifactId>re2j-td</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>io.airlift.discovery</groupId>
             <artifactId>discovery-server</artifactId>
         </dependency>
