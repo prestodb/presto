@@ -58,6 +58,7 @@ import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.FloatType.FLOAT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -71,6 +72,7 @@ import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
 import static com.facebook.presto.util.DateTimeUtils.parseYearMonthInterval;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Float.intBitsToFloat;
 import static java.util.Objects.requireNonNull;
 
 public final class LiteralInterpreter
@@ -133,6 +135,7 @@ public final class LiteralInterpreter
             Double value = (Double) object;
             // WARNING: the ORC predicate code depends on NaN and infinity not appearing in a tuple domain, so
             // if you remove this, you will need to update the TupleDomainOrcPredicate
+            // When changing this, don't forget about similar code for FLOAT below
             if (value.isNaN()) {
                 return new FunctionCall(new QualifiedName("nan"), ImmutableList.<Expression>of());
             }
@@ -144,6 +147,23 @@ public final class LiteralInterpreter
             }
             else {
                 return new DoubleLiteral(object.toString());
+            }
+        }
+
+        if (type.equals(FLOAT)) {
+            Float value = intBitsToFloat(((Long) object).intValue());
+            // WARNING for ORC predicate code as above (for double)
+            if (value.isNaN()) {
+                return new FunctionCall(new QualifiedName("fnan"), ImmutableList.of());
+            }
+            else if (value.equals(Float.NEGATIVE_INFINITY)) {
+                return ArithmeticUnaryExpression.negative(new FunctionCall(new QualifiedName("finfinity"), ImmutableList.of()));
+            }
+            else if (value.equals(Float.POSITIVE_INFINITY)) {
+                return new FunctionCall(new QualifiedName("finfinity"), ImmutableList.of());
+            }
+            else {
+                return new GenericLiteral("FLOAT", value.toString());
             }
         }
 
