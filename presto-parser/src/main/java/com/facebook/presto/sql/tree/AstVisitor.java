@@ -87,6 +87,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitDeallocate(Deallocate node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitQuery(Query node, C context)
     {
         return visitStatement(node, context);
