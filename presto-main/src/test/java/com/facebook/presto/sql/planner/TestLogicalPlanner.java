@@ -19,12 +19,16 @@ import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
+
+import java.util.List;
+import java.util.function.Predicate;
 
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aliasPair;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
@@ -36,6 +40,8 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.projec
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static java.util.Objects.requireNonNull;
+import static org.testng.Assert.assertEquals;
 
 public class TestLogicalPlanner
 {
@@ -111,12 +117,53 @@ public class TestLogicalPlanner
                                                         tableScan("lineitem").withSymbol("orderkey", "Y")))))));
     }
 
+    @Test
+    public void testSameScalarSubqueryIsAppliedOnlyOnce()
+    {
+        // three subqueries with two duplicates, only two scalar joins should be in plan
+        Plan plan = plan("SELECT * FROM orders WHERE orderkey = (SELECT 1) AND custkey = (SELECT 2) AND custkey != (SELECT 1)");
+        PlanNodeExtractor planNodeExtractor = new PlanNodeExtractor(planNode -> planNode instanceof EnforceSingleRowNode);
+        plan.getRoot().accept(planNodeExtractor, null);
+        assertEquals(planNodeExtractor.getNodes().size(), 2);
+    }
+
     private void assertPlan(String sql, PlanMatchPattern pattern)
     {
-        Plan actualPlan = queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql));
+        Plan actualPlan = plan(sql);
         queryRunner.inTransaction(transactionSession -> {
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), actualPlan, pattern);
             return null;
         });
+    }
+
+    private Plan plan(String sql)
+    {
+        return queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql));
+    }
+
+    private static final class PlanNodeExtractor
+            extends SimplePlanVisitor<Void>
+    {
+        private final Predicate<PlanNode> predicate;
+        private ImmutableList.Builder<PlanNode> nodes = ImmutableList.builder();
+
+        public PlanNodeExtractor(Predicate<PlanNode> predicate)
+        {
+            this.predicate = requireNonNull(predicate, "predicate is null");
+        }
+
+        @Override
+        protected Void visitPlan(PlanNode node, Void context)
+        {
+            if (predicate.test(node)) {
+                nodes.add(node);
+            }
+            return super.visitPlan(node, null);
+        }
+
+        public List<PlanNode> getNodes()
+        {
+            return nodes.build();
+        }
     }
 }
