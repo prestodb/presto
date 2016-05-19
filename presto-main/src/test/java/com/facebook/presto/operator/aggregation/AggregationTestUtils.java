@@ -439,7 +439,7 @@ public final class AggregationTestUtils
                 newBlocks[channel] = createNullRLEBlock(page.getPositionCount());
             }
             for (int channel = 0; channel < page.getBlocks().length; channel++) {
-                newBlocks[channel + offset] = page.getBlocks()[channel];
+                newBlocks[channel + offset] = page.getBlock(channel);
             }
             newPages[i] = new Page(page.getPositionCount(), newBlocks);
         }

@@ -344,7 +344,7 @@ public class WindowOperator
 
         // TODO: Fix pagesHashStrategy to allow specifying channels for comparison, it currently requires us to rearrange the right side blocks in consecutive channel order
         Page preGroupedPage = rearrangePage(page, preGroupedChannels);
-        if (pagesIndex.getPositionCount() == 0 || pagesIndex.positionEqualsRow(preGroupedPartitionHashStrategy, 0, 0, preGroupedPage.getBlocks())) {
+        if (pagesIndex.getPositionCount() == 0 || pagesIndex.positionEqualsRow(preGroupedPartitionHashStrategy, 0, 0, preGroupedPage)) {
             // Find the position where the pre-grouped columns change
             int groupEnd = findGroupEnd(preGroupedPage, preGroupedPartitionHashStrategy, 0);
 
@@ -452,14 +452,14 @@ public class WindowOperator
         checkPositionIndex(startPosition, page.getPositionCount(), "startPosition out of bounds");
 
         // Short circuit if the whole page has the same value
-        if (pagesHashStrategy.rowEqualsRow(startPosition, page.getBlocks(), page.getPositionCount() - 1, page.getBlocks())) {
+        if (pagesHashStrategy.rowEqualsRow(startPosition, page, page.getPositionCount() - 1, page)) {
             return page.getPositionCount();
         }
 
         // TODO: do position binary search
         int endPosition = startPosition + 1;
         while (endPosition < page.getPositionCount() &&
-                pagesHashStrategy.rowEqualsRow(endPosition - 1, page.getBlocks(), endPosition, page.getBlocks())) {
+                pagesHashStrategy.rowEqualsRow(endPosition - 1, page, endPosition, page)) {
             endPosition++;
         }
         return endPosition;

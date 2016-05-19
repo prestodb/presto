@@ -92,26 +92,26 @@ public class SimplePagesHashStrategy
     }
 
     @Override
-    public long hashRow(int position, Block... blocks)
+    public long hashRow(int position, Page page)
     {
         long result = 0;
         for (int i = 0; i < hashChannels.size(); i++) {
             int hashChannel = hashChannels.get(i);
             Type type = types.get(hashChannel);
-            Block block = blocks[i];
+            Block block = page.getBlock(i);
             result = result * 31 + TypeUtils.hashPosition(type, block, position);
         }
         return result;
     }
 
     @Override
-    public boolean rowEqualsRow(int leftPosition, Block[] leftBlocks, int rightPosition, Block[] rightBlocks)
+    public boolean rowEqualsRow(int leftPosition, Page leftPage, int rightPosition, Page rightPage)
     {
         for (int i = 0; i < hashChannels.size(); i++) {
             int hashChannel = hashChannels.get(i);
             Type type = types.get(hashChannel);
-            Block leftBlock = leftBlocks[i];
-            Block rightBlock = rightBlocks[i];
+            Block leftBlock = leftPage.getBlock(i);
+            Block rightBlock = rightPage.getBlock(i);
             if (!TypeUtils.positionEqualsPosition(type, leftBlock, leftPosition, rightBlock, rightPosition)) {
                 return false;
             }
@@ -120,13 +120,13 @@ public class SimplePagesHashStrategy
     }
 
     @Override
-    public boolean positionEqualsRow(int leftBlockIndex, int leftPosition, int rightPosition, Block... rightBlocks)
+    public boolean positionEqualsRow(int leftBlockIndex, int leftPosition, int rightPosition, Page rightPage)
     {
         for (int i = 0; i < hashChannels.size(); i++) {
             int hashChannel = hashChannels.get(i);
             Type type = types.get(hashChannel);
             Block leftBlock = channels.get(hashChannel).get(leftBlockIndex);
-            Block rightBlock = rightBlocks[i];
+            Block rightBlock = rightPage.getBlock(i);
             if (!TypeUtils.positionEqualsPosition(type, leftBlock, leftPosition, rightBlock, rightPosition)) {
                 return false;
             }

@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.XxHash64;
 import it.unimi.dsi.fastutil.HashCommon;
@@ -105,7 +104,7 @@ public final class InMemoryJoinHash
     @Override
     public long getJoinPosition(int position, Page page)
     {
-        return getJoinPosition(position, page, pagesHashStrategy.hashRow(position, page.getBlocks()));
+        return getJoinPosition(position, page, pagesHashStrategy.hashRow(position, page));
     }
 
     @Override
@@ -114,7 +113,7 @@ public final class InMemoryJoinHash
         int pos = (int) getHashPosition(rawHash, mask);
 
         while (key[pos] != -1) {
-            if (positionEqualsCurrentRow(key[pos], position, page.getBlocks())) {
+            if (positionEqualsCurrentRow(key[pos], position, page)) {
                 return key[pos];
             }
             // increment position and mask to handler wrap around
@@ -153,13 +152,13 @@ public final class InMemoryJoinHash
         return pagesHashStrategy.hashPosition(blockIndex, blockPosition);
     }
 
-    private boolean positionEqualsCurrentRow(int leftPosition, int rightPosition, Block... rightBlocks)
+    private boolean positionEqualsCurrentRow(int leftPosition, int rightPosition, Page rightPage)
     {
         long pageAddress = addresses.getLong(leftPosition);
         int blockIndex = decodeSliceIndex(pageAddress);
         int blockPosition = decodePosition(pageAddress);
 
-        return pagesHashStrategy.positionEqualsRow(blockIndex, blockPosition, rightPosition, rightBlocks);
+        return pagesHashStrategy.positionEqualsRow(blockIndex, blockPosition, rightPosition, rightPage);
     }
 
     private boolean positionEqualsPosition(int leftPosition, int rightPosition)

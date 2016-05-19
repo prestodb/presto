@@ -69,7 +69,7 @@ public class GenericPageProcessor
         Block[] inputBlocks = page.getBlocks();
 
         for (; position < end && !pageBuilder.isFull(); position++) {
-            if (filterFunction.filter(position, page.getBlocks())) {
+            if (filterFunction.filter(position, inputBlocks)) {
                 pageBuilder.declarePosition();
                 for (int i = 0; i < projections.size(); i++) {
                     // todo: if the projection function increases the size of the data significantly, this could cause the servers to OOM
@@ -291,8 +291,9 @@ public class GenericPageProcessor
             }
         }
 
+        Block[] blocks = page.getBlocks();
         for (int position = 0; position < page.getPositionCount(); position++) {
-            if (filterFunction.filter(position, page.getBlocks())) {
+            if (filterFunction.filter(position, blocks)) {
                 selected[index] = position;
                 index++;
             }

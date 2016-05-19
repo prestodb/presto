@@ -200,7 +200,6 @@ public class GroupIdOperator
     private Page generateNextPage()
     {
         // generate 'n' pages for every input page, where n is the number of grouping sets
-        Block[] inputBlocks = currentPage.getBlocks();
         Block[] outputBlocks = new Block[currentPage.getChannelCount() + 1];
 
         for (int channel = 0; channel < currentPage.getChannelCount(); channel++) {
@@ -208,7 +207,7 @@ public class GroupIdOperator
                 outputBlocks[channel] = new RunLengthEncodedBlock(nullBlocks[channel], currentPage.getPositionCount());
             }
             else {
-                outputBlocks[channel] = inputBlocks[channel];
+                outputBlocks[channel] = currentPage.getBlock(channel);
             }
         }
 

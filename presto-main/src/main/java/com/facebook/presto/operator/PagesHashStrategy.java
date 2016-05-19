@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
 
 public interface PagesHashStrategy
 {
@@ -41,17 +40,17 @@ public interface PagesHashStrategy
     long hashPosition(int blockIndex, int position);
 
     /**
-     * Calculates the hash code at {@code position} in {@code blocks}. Blocks must have the same number of
-     * entries as the hashed columns and each entry is expected to be the same type.
+     * Calculates the hash code at {@code position} in {@code page}. Page must have the same number of
+     * Blocks as the hashed columns and each entry is expected to be the same type.
      */
-    long hashRow(int position, Block... blocks);
+    long hashRow(int position, Page page);
 
     /**
      * Compares the values in the specified blocks.  The values are compared positionally, so {@code leftBlocks}
      * and {@code rightBlocks} must have the same number of entries as the hashed columns and each entry
      * is expected to be the same type.
      */
-    boolean rowEqualsRow(int leftPosition, Block[] leftBlocks, int rightPosition, Block[] rightBlocks);
+    boolean rowEqualsRow(int leftPosition, Page leftPage, int rightPosition, Page rightPage);
 
     /**
      * Compares the hashed columns in this PagesHashStrategy to the values in the specified blocks.  The
@@ -59,7 +58,7 @@ public interface PagesHashStrategy
      * the hashed columns and each entry is expected to be the same type.
      */
     @Deprecated
-    boolean positionEqualsRow(int leftBlockIndex, int leftPosition, int rightPosition, Block... rightBlocks);
+    boolean positionEqualsRow(int leftBlockIndex, int leftPosition, int rightPosition, Page rightPage);
 
     /**
      * Compares the hashed columns in this PagesHashStrategy to the hashed columns in the Page. The
