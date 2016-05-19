@@ -16,7 +16,6 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AllowAllAccessControl;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Prepare;
@@ -33,7 +32,6 @@ import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
-import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.sql.QueryUtil.table;
@@ -41,7 +39,6 @@ import static com.facebook.presto.transaction.TransactionManager.createTestTrans
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
 
 public class TestPrepareTask
 {
@@ -67,21 +64,12 @@ public class TestPrepareTask
     @Test
     public void testPrepareNameExists()
     {
-        String statementName = "existing_query";
-        String query1 = "SELECT bar, baz from foo";
-        Session session = TEST_SESSION.withPreparedStatement(statementName, query1);
+        Session session = TEST_SESSION.withPreparedStatement("my_query", "SELECT bar, baz from foo");
 
-        Query query2 = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("foo")));
-        String sqlString = "PREPARE existing_query FROM SELECT * FROM foo";
-
-        try {
-            executePrepare(statementName, query2, sqlString, session);
-            fail("expected exception");
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), ALREADY_EXISTS.toErrorCode());
-            assertEquals(e.getMessage(), "Prepared statement already exists: existing_query");
-        }
+        Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("foo")));
+        String sqlString = "PREPARE my_query FROM SELECT * FROM foo";
+        Map<String, String> statements = executePrepare("my_query", query, sqlString, session);
+        assertEquals(statements, ImmutableMap.of("my_query", "SELECT *\nFROM\n  foo\n"));
     }
 
     private Map<String, String> executePrepare(String statementName, Query query, String sqlString, Session session)
