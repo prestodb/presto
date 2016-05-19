@@ -33,6 +33,59 @@ public class TestFloatOperators
     }
 
     @Test
+    public void testAdd()
+            throws Exception
+    {
+        assertFunction("FLOAT'12.34' + FLOAT'56.78'", FLOAT, 12.34f + 56.78f);
+        assertFunction("FLOAT'-17.34' + FLOAT'-22.891'", FLOAT, -17.34f + -22.891f);
+        assertFunction("FLOAT'-89.123' + FLOAT'754.0'", FLOAT, -89.123f + 754.0f);
+        assertFunction("FLOAT'-0.0' + FLOAT'0.0'", FLOAT, -0.0f + 0.0f);
+    }
+
+    @Test
+    public void testSubtract()
+            throws Exception
+    {
+        assertFunction("FLOAT'12.34' - FLOAT'56.78'", FLOAT, 12.34f - 56.78f);
+        assertFunction("FLOAT'-17.34' - FLOAT'-22.891'", FLOAT, -17.34f - -22.891f);
+        assertFunction("FLOAT'-89.123' - FLOAT'754.0'", FLOAT, -89.123f - 754.0f);
+        assertFunction("FLOAT'-0.0' - FLOAT'0.0'", FLOAT, -0.0f - 0.0f);
+    }
+
+    @Test
+    public void testMultiply()
+            throws Exception
+    {
+        assertFunction("FLOAT'12.34' * FLOAT'56.78'", FLOAT, 12.34f * 56.78f);
+        assertFunction("FLOAT'-17.34' * FLOAT'-22.891'", FLOAT, -17.34f * -22.891f);
+        assertFunction("FLOAT'-89.123' * FLOAT'754.0'", FLOAT, -89.123f * 754.0f);
+        assertFunction("FLOAT'-0.0' * FLOAT'0.0'", FLOAT, -0.0f * 0.0f);
+        assertFunction("FLOAT'-17.71' * FLOAT'-1.0'", FLOAT, -17.71f * -1.0f);
+    }
+
+    @Test
+    public void testDivide()
+            throws Exception
+    {
+        assertFunction("FLOAT'12.34' / FLOAT'56.78'", FLOAT, 12.34f / 56.78f);
+        assertFunction("FLOAT'-17.34' / FLOAT'-22.891'", FLOAT, -17.34f / -22.891f);
+        assertFunction("FLOAT'-89.123' / FLOAT'754.0'", FLOAT, -89.123f / 754.0f);
+        assertFunction("FLOAT'-0.0' / FLOAT'0.0'", FLOAT, -0.0f / 0.0f);
+        assertFunction("FLOAT'-17.71' / FLOAT'-1.0'", FLOAT, -17.71f / -1.0f);
+    }
+
+    @Test
+    public void testModulus()
+            throws Exception
+    {
+        assertFunction("FLOAT'12.34' % FLOAT'56.78'", FLOAT, 12.34f % 56.78f);
+        assertFunction("FLOAT'-17.34' % FLOAT'-22.891'", FLOAT, -17.34f % -22.891f);
+        assertFunction("FLOAT'-89.123' % FLOAT'754.0'", FLOAT, -89.123f % 754.0f);
+        assertFunction("FLOAT'-0.0' % FLOAT'0.0'", FLOAT, -0.0f % 0.0f);
+        assertFunction("FLOAT'-17.71' % FLOAT'-1.0'", FLOAT, -17.71f % -1.0f);
+    }
+
+    @Test
     public void testNegation()
             throws Exception
     {
