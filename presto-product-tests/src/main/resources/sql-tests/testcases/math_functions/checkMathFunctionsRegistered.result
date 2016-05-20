@@ -75,19 +75,19 @@
  row_number | bigint | | window | true | |
  sin | double | double | scalar | true | sine |
  sqrt | double | double | scalar | true | square root |
- stddev | double | bigint | aggregate | true | |
- stddev | double | double | aggregate | true | |
- stddev_pop | double | bigint | aggregate | true | |
- stddev_pop | double | double | aggregate | true | |
- stddev_samp | double | bigint | aggregate | true | |
- stddev_samp | double | double | aggregate | true | |
+ stddev | double | bigint | aggregate | true | Returns the variance of the argument |
+ stddev | double | double | aggregate | true | Returns the variance of the argument |
+ stddev_pop | double | bigint | aggregate | true | Returns the variance of the argument |
+ stddev_pop | double | double | aggregate | true | Returns the variance of the argument |
+ stddev_samp | double | bigint | aggregate | true | Returns the variance of the argument |
+ stddev_samp | double | double | aggregate | true | Returns the variance of the argument |
  sum | bigint | bigint | aggregate | true | |
  sum | double | double | aggregate | true | |
  tan | double | double | scalar | true | tangent |
  tanh | double | double | scalar | true | hyperbolic tangent |
- var_pop | double | bigint | aggregate | true | |
- var_pop | double | double | aggregate | true | |
- var_samp | double | bigint | aggregate | true | |
- var_samp | double | double | aggregate | true | |
- variance | double | bigint | aggregate | true | |
- variance | double | double | aggregate | true | |
+ var_pop | double | bigint | aggregate | true | Returns the population variance of the argument |
+ var_pop | double | double | aggregate | true | Returns the population variance of the argument |
+ var_samp | double | bigint | aggregate | true | Returns the sample variance of the argument |
+ var_samp | double | double | aggregate | true | Returns the sample variance of the argument |
+ variance | double | bigint | aggregate | true | Returns the sample variance of the argument |
+ variance | double | double | aggregate | true | Returns the sample variance of the argument |
