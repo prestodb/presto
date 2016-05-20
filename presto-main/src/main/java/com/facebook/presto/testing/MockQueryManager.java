@@ -18,6 +18,7 @@ import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.execution.SqlQueryManagerStats;
 import com.facebook.presto.execution.StageId;
 import io.airlift.units.Duration;
 
@@ -72,6 +73,12 @@ public class MockQueryManager
 
     @Override
     public void cancelStage(StageId stageId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public SqlQueryManagerStats getStats()
     {
         throw new UnsupportedOperationException();
     }
