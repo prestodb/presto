@@ -51,7 +51,7 @@ public class SqlQueryQueueManager
     }
 
     @Override
-    public boolean submit(Statement statement, QueryExecution queryExecution, Executor executor, SqlQueryManagerStats stats)
+    public boolean submit(Statement statement, QueryExecution queryExecution, Executor executor)
     {
         List<QueryQueue> queues = selectQueues(statement, queryExecution.getSession(), executor);
 
@@ -63,7 +63,7 @@ public class SqlQueryQueueManager
             }
         }
 
-        queues.get(0).enqueue(createQueuedExecution(queryExecution, queues.subList(1, queues.size()), executor, stats));
+        queues.get(0).enqueue(createQueuedExecution(queryExecution, queues.subList(1, queues.size()), executor));
         return true;
     }
 

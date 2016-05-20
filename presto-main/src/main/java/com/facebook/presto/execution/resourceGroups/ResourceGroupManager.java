@@ -16,7 +16,6 @@ package com.facebook.presto.execution.resourceGroups;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryQueueManager;
-import com.facebook.presto.execution.SqlQueryManagerStats;
 import com.facebook.presto.execution.resourceGroups.ResourceGroup.RootResourceGroup;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.tree.Statement;
@@ -76,7 +75,7 @@ public class ResourceGroupManager
     }
 
     @Override
-    public boolean submit(Statement statement, QueryExecution queryExecution, Executor executor, SqlQueryManagerStats stats)
+    public boolean submit(Statement statement, QueryExecution queryExecution, Executor executor)
     {
         ResourceGroupId group = selectGroup(statement, queryExecution.getSession());
         createGroupIfNecessary(group, queryExecution.getSession(), executor);
