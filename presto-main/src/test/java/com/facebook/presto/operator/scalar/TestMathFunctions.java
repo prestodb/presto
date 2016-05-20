@@ -59,6 +59,7 @@ public class TestMathFunctions
         assertFunction("abs(CAST(NULL AS DOUBLE))", DOUBLE, null);
         assertInvalidFunction("abs(TINYINT'" + Byte.MIN_VALUE + "')", NUMERIC_VALUE_OUT_OF_RANGE);
         assertInvalidFunction("abs(SMALLINT'" + Short.MIN_VALUE + "')", NUMERIC_VALUE_OUT_OF_RANGE);
+        assertInvalidFunction("abs(INTEGER'" + Integer.MIN_VALUE + "')", NUMERIC_VALUE_OUT_OF_RANGE);
         assertInvalidFunction("abs(-9223372036854775807 - if(rand() < 10, 1, 1))", NUMERIC_VALUE_OUT_OF_RANGE);
     }
 
