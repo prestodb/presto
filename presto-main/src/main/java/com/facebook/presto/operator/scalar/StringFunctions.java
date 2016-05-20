@@ -470,9 +470,9 @@ public final class StringFunctions
     private static Slice pad(Slice text, long targetLength, Slice padString, int paddingOffset)
     {
         checkCondition(
-            0 <= targetLength && targetLength <= Integer.MAX_VALUE,
-            INVALID_FUNCTION_ARGUMENT,
-            "Target length must be in the range [0.." + Integer.MAX_VALUE + "]"
+                0 <= targetLength && targetLength <= Integer.MAX_VALUE,
+                INVALID_FUNCTION_ARGUMENT,
+                "Target length must be in the range [0.." + Integer.MAX_VALUE + "]"
         );
         checkCondition(padString.length() > 0, INVALID_FUNCTION_ARGUMENT, "Padding string must not be empty");
 
