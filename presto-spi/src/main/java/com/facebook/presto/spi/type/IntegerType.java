@@ -18,7 +18,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 
-import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 
@@ -99,10 +99,10 @@ public final class IntegerType
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
         if (value > Integer.MAX_VALUE) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, String.format("Value %d exceeds MAX_INT", value));
+            throw new PrestoException(INTERNAL_ERROR, String.format("Value %d exceeds MAX_INT", value));
         }
         else if (value < Integer.MIN_VALUE) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, String.format("Value %d is less than MIN_INT", value));
+            throw new PrestoException(INTERNAL_ERROR, String.format("Value %d is less than MIN_INT", value));
         }
 
         blockBuilder.writeInt((int) value).closeEntry();
