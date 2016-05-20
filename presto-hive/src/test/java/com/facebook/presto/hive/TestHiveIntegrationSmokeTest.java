@@ -238,8 +238,8 @@ public class TestHiveIntegrationSmokeTest
                 ", 'bar' _partition_varchar" +
                 ", CAST(1 AS TINYINT) _partition_tinyint" +
                 ", CAST(1 AS SMALLINT) _partition_smallint" +
-                ", CAST(1 AS INTEGER) _partition_integer" +
-                ", 1 _partition_bigint" +
+                ", 1 _partition_integer" +
+                ", CAST (1 AS BIGINT) _partition_bigint" +
                 ", CAST('3.14' AS DECIMAL(3,2)) _partition_decimal_short" +
                 ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _partition_decimal_long";
 
@@ -267,7 +267,7 @@ public class TestHiveIntegrationSmokeTest
     {
         @Language("SQL") String select = "SELECT" +
                 " 'foo' _varchar" +
-                ", 1 _bigint" +
+                ", CAST (1 AS BIGINT) _bigint" +
                 ", 2 _integer" +
                 ", CAST (3 AS SMALLINT) _smallint" +
                 ", CAST (4 AS TINYINT) _tinyint" +
