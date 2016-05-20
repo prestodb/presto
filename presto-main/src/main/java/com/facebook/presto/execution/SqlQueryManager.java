@@ -369,6 +369,7 @@ public class SqlQueryManager
         }
     }
 
+    @Override
     @Managed
     @Flatten
     public SqlQueryManagerStats getStats()

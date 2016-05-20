@@ -28,6 +28,7 @@ import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.testng.Assert.assertEquals;
 
 public class TestQueues
 {
@@ -61,11 +62,15 @@ public class TestQueues
         Map<String, String> properties = builder.build();
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(properties)) {
+            QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
+
             // submit first "dashboard" query
             QueryId firstDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
 
             // wait for the first "dashboard" query to start
             waitForQueryState(queryRunner, firstDashboardQuery, RUNNING);
+
+            assertEquals(queryManager.getStats().getRunningQueries(), 1);
 
             // submit second "dashboard" query
             QueryId secondDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
@@ -73,11 +78,15 @@ public class TestQueues
             // wait for the second "dashboard" query to be queued ("dashboard.${USER}" queue strategy only allows one "dashboard" query to be accepted for execution)
             waitForQueryState(queryRunner, secondDashboardQuery, QUEUED);
 
+            assertEquals(queryManager.getStats().getRunningQueries(), 1);
+
             // submit first non "dashboard" query
             QueryId firstNonDashboardQuery = createQuery(queryRunner, newSession(), LONG_LASTING_QUERY);
 
             // wait for the first non "dashboard" query to start
             waitForQueryState(queryRunner, firstNonDashboardQuery, RUNNING);
+
+            assertEquals(queryManager.getStats().getRunningQueries(), 2);
 
             // submit second non "dashboard" query
             QueryId secondNonDashboardQuery = createQuery(queryRunner, newSession(), LONG_LASTING_QUERY);
@@ -85,10 +94,15 @@ public class TestQueues
             // wait for the second non "dashboard" query to start
             waitForQueryState(queryRunner, secondNonDashboardQuery, RUNNING);
 
+            assertEquals(queryManager.getStats().getRunningQueries(), 3);
+
             // cancel first "dashboard" query, second "dashboard" query and second non "dashboard" query should start running
             cancelQuery(queryRunner, firstDashboardQuery);
             waitForQueryState(queryRunner, firstDashboardQuery, FAILED);
             waitForQueryState(queryRunner, secondDashboardQuery, RUNNING);
+
+            assertEquals(queryManager.getStats().getRunningQueries(), 3);
+            assertEquals(queryManager.getStats().getCompletedQueries().getTotalCount(), 1);
         }
     }
 
