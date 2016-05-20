@@ -35,6 +35,7 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -89,6 +90,7 @@ public class TestJdbcQueryBuilder
             LocalDateTime dateTime = LocalDateTime.of(2016, 3, 23, 12, 23, 37);
             for (int i = 0; i < len; i++) {
                 stringBuilder.append(format(
+                        Locale.ENGLISH,
                         "(%d, %f, %b, 'test_str_%d', '%s', '%s', '%s')",
                         i,
                         200000.0 + i / 2.0,
