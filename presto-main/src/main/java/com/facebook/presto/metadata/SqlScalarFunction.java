@@ -16,10 +16,6 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.type.TypeManager;
 
-import java.lang.invoke.MethodHandle;
-import java.util.List;
-import java.util.Optional;
-
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -28,27 +24,6 @@ public abstract class SqlScalarFunction
         implements SqlFunction
 {
     private final Signature signature;
-
-    public static SqlScalarFunction create(
-            Signature signature,
-            String description,
-            boolean hidden,
-            MethodHandle methodHandle,
-            Optional<MethodHandle> instanceFactory,
-            boolean deterministic,
-            boolean nullable,
-            List<Boolean> nullableArguments)
-    {
-        return new SimpleSqlScalarFunction(
-                signature,
-                description,
-                hidden,
-                methodHandle,
-                instanceFactory,
-                deterministic,
-                nullable,
-                nullableArguments);
-    }
 
     protected SqlScalarFunction(Signature signature)
     {
@@ -67,62 +42,5 @@ public abstract class SqlScalarFunction
     public static SqlScalarFunctionBuilder builder(Class<?> clazz)
     {
         return new SqlScalarFunctionBuilder(clazz);
-    }
-
-    private static class SimpleSqlScalarFunction
-            extends SqlScalarFunction
-    {
-        private final MethodHandle methodHandle;
-        private final Optional<MethodHandle> instanceFactory;
-        private final String description;
-        private final boolean hidden;
-        private final boolean nullable;
-        private final List<Boolean> nullableArguments;
-        private final boolean deterministic;
-
-        public SimpleSqlScalarFunction(
-                Signature signature,
-                String description,
-                boolean hidden,
-                MethodHandle methodHandle,
-                Optional<MethodHandle> instanceFactory,
-                boolean deterministic,
-                boolean nullable,
-                List<Boolean> nullableArguments)
-        {
-            super(signature);
-            checkArgument(signature.getTypeVariableConstraints().isEmpty(), "%s is parametric", signature);
-            this.description = description;
-            this.hidden = hidden;
-            this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
-            this.instanceFactory = requireNonNull(instanceFactory, "instanceFactory is null");
-            this.deterministic = deterministic;
-            this.nullable = nullable;
-            this.nullableArguments = requireNonNull(nullableArguments, "nullableArguments is null");
-        }
-
-        @Override
-        public boolean isHidden()
-        {
-            return hidden;
-        }
-
-        @Override
-        public boolean isDeterministic()
-        {
-            return deterministic;
-        }
-
-        @Override
-        public String getDescription()
-        {
-            return description;
-        }
-
-        @Override
-        public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
-        {
-            return new ScalarFunctionImplementation(nullable, nullableArguments, methodHandle, instanceFactory, isDeterministic());
-        }
     }
 }
