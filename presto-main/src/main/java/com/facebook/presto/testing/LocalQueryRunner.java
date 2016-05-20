@@ -195,17 +195,12 @@ public class LocalQueryRunner
 
     public LocalQueryRunner(Session defaultSession)
     {
-        this(defaultSession, false);
+        this(defaultSession, new FeaturesConfig().setExperimentalSyntaxEnabled(true), false);
     }
 
     public LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig)
     {
         this(defaultSession, featuresConfig, false);
-    }
-
-    private LocalQueryRunner(Session defaultSession, boolean withInitialTransaction)
-    {
-        this(defaultSession, new FeaturesConfig().setExperimentalSyntaxEnabled(true), withInitialTransaction);
     }
 
     private LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig, boolean withInitialTransaction)
@@ -309,7 +304,7 @@ public class LocalQueryRunner
     public static LocalQueryRunner queryRunnerWithInitialTransaction(Session defaultSession)
     {
         checkArgument(!defaultSession.getTransactionId().isPresent(), "Already in transaction!");
-        return new LocalQueryRunner(defaultSession, true);
+        return new LocalQueryRunner(defaultSession, new FeaturesConfig().setExperimentalSyntaxEnabled(true), true);
     }
 
     @Override

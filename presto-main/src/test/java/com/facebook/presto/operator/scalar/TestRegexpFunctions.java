@@ -72,7 +72,8 @@ public class TestRegexpFunctions
     @Test
     public void testRegexpLike()
     {
-        functionAssertions.tryEvaluate("REGEXP_LIKE(invalid_utf8(), invalid_utf8())", BOOLEAN); // can potentially cause infinite loop
+        // Tests that REGEXP_LIKE doesn't loop infinitely on invalid UTF-8 input. Return value is irrelevant.
+        functionAssertions.tryEvaluate("REGEXP_LIKE(invalid_utf8(), invalid_utf8())", BOOLEAN);
 
         assertFunction("REGEXP_LIKE('Stephen', 'Ste(v|ph)en')", BOOLEAN, true);
         assertFunction("REGEXP_LIKE('Stevens', 'Ste(v|ph)en')", BOOLEAN, true);
@@ -80,6 +81,7 @@ public class TestRegexpFunctions
         assertFunction("REGEXP_LIKE('Stevens', '^Ste(v|ph)en$')", BOOLEAN, false);
 
         assertFunction("REGEXP_LIKE('hello world', '[a-z]')", BOOLEAN, true);
+        assertFunction("REGEXP_LIKE('hello\nworld', '.*hello\nworld.*')", BOOLEAN, true);
         assertFunction("REGEXP_LIKE('Hello', '^[a-z]+$')", BOOLEAN, false);
         assertFunction("REGEXP_LIKE('Hello', '^(?i)[a-z]+$')", BOOLEAN, true);
         assertFunction("REGEXP_LIKE('Hello', '^[a-zA-Z]+$')", BOOLEAN, true);

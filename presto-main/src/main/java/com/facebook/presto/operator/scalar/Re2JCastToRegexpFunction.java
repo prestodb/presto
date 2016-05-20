@@ -38,8 +38,8 @@ public class Re2JCastToRegexpFunction
 {
     private static final MethodHandle METHOD_HANDLE = methodHandle(Re2JCastToRegexpFunction.class, "castToRegexp", int.class, int.class, Slice.class);
 
-    public final int dfaStatesLimit;
-    public final int dfaRetries;
+    private final int dfaStatesLimit;
+    private final int dfaRetries;
 
     public Re2JCastToRegexpFunction(int dfaStatesLimit, int dfaRetries)
     {

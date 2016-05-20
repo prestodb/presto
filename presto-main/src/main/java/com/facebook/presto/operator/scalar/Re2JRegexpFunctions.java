@@ -41,58 +41,58 @@ public final class Re2JRegexpFunctions
     @Description("removes substrings matching a regular expression")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice regexpReplace(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp regexpGenericPattern)
+    public static Slice regexpReplace(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern)
     {
-        return regexpReplace(source, regexpGenericPattern, Slices.EMPTY_SLICE);
+        return regexpReplace(source, pattern, Slices.EMPTY_SLICE);
     }
 
     @Description("replaces substrings matching a regular expression by given string")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice regexpReplace(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp regexpGenericPattern, @SqlType(StandardTypes.VARCHAR) Slice replacement)
+    public static Slice regexpReplace(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern, @SqlType(StandardTypes.VARCHAR) Slice replacement)
     {
-        return regexpGenericPattern.replace(source, replacement);
+        return pattern.replace(source, replacement);
     }
 
     @Description("string(s) extracted using the given pattern")
     @ScalarFunction
     @SqlType("array<varchar>")
-    public static Block regexpExtractAll(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp regexpGenericPattern)
+    public static Block regexpExtractAll(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern)
     {
-        return regexpExtractAll(source, regexpGenericPattern, 0);
+        return regexpExtractAll(source, pattern, 0);
     }
 
     @Description("group(s) extracted using the given pattern")
     @ScalarFunction
     @SqlType("array<varchar>")
-    public static Block regexpExtractAll(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp regexpGenericPattern, @SqlType(StandardTypes.BIGINT) long groupIndex)
+    public static Block regexpExtractAll(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern, @SqlType(StandardTypes.BIGINT) long groupIndex)
     {
-        return regexpGenericPattern.extractAll(source, groupIndex);
+        return pattern.extractAll(source, groupIndex);
     }
 
     @Nullable
     @Description("string extracted using the given pattern")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice regexpExtract(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp regexpGenericPattern)
+    public static Slice regexpExtract(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern)
     {
-        return regexpExtract(source, regexpGenericPattern, 0);
+        return regexpExtract(source, pattern, 0);
     }
 
     @Nullable
     @Description("returns regex group of extracted string with a pattern")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice regexpExtract(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp regexpGenericPattern, @SqlType(StandardTypes.BIGINT) long groupIndex)
+    public static Slice regexpExtract(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern, @SqlType(StandardTypes.BIGINT) long groupIndex)
     {
-        return regexpGenericPattern.extract(source, groupIndex);
+        return pattern.extract(source, groupIndex);
     }
 
     @ScalarFunction
     @Description("returns array of strings split by pattern")
     @SqlType("array<varchar>")
-    public static Block regexpSplit(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp regexpGenericPattern)
+    public static Block regexpSplit(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern)
     {
-        return regexpGenericPattern.split(source);
+        return pattern.split(source);
     }
 }

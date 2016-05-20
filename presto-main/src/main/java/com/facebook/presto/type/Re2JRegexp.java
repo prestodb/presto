@@ -34,14 +34,14 @@ public final class Re2JRegexp
 {
     private static final Logger log = Logger.get(Re2JRegexp.class);
 
-    private static final java.util.regex.Pattern DOT_STAR_PREFIX_SUFFIX_PATTERN = java.util.regex.Pattern.compile("^(\\.\\*\\??)?(.*?)(\\.\\*\\??)?$");
+    private static final java.util.regex.Pattern DOT_STAR_PREFIX_PATTERN = java.util.regex.Pattern.compile("(?s)^(\\.\\*\\??)?(.*)");
     private static final int CORE_PATTERN_INDEX = 2;
 
     public final int dfaStatesLimit;
     public final int dfaRetries;
 
     public final Pattern re2jPattern;
-    public final Pattern re2jPatternWithoutDotStartPrefixSuffix;
+    public final Pattern re2jPatternWithoutDotStartPrefix;
 
     public Re2JRegexp(int dfaStatesLimit, int dfaRetries, Slice pattern)
     {
@@ -58,22 +58,23 @@ public final class Re2JRegexp
         String patternString = pattern.toStringUtf8();
         re2jPattern = Pattern.compile(patternString, options);
 
-        // Remove .* prefix and suffix. This will give performance boost when using RE2J Pattern.find() function.
-        java.util.regex.Matcher dotStarPrefixSuffixMatcher = DOT_STAR_PREFIX_SUFFIX_PATTERN.matcher(patternString);
-        checkState(dotStarPrefixSuffixMatcher.matches());
-        String patternStringWithoutDotStartPrefixSuffix = dotStarPrefixSuffixMatcher.group(CORE_PATTERN_INDEX);
+        // Remove .*? prefix. DFA has optimization which does fast lookup for first byte of a potential match.
+        // When pattern is prefixed with .*? this optimization doesn't work in Pattern.find() function.
+        java.util.regex.Matcher dotStarPrefixMatcher = DOT_STAR_PREFIX_PATTERN.matcher(patternString);
+        checkState(dotStarPrefixMatcher.matches());
+        String patternStringWithoutDotStartPrefix = dotStarPrefixMatcher.group(CORE_PATTERN_INDEX);
 
-        if (!patternStringWithoutDotStartPrefixSuffix.equals(patternString)) {
-            re2jPatternWithoutDotStartPrefixSuffix = Pattern.compile(patternStringWithoutDotStartPrefixSuffix, options);
+        if (!patternStringWithoutDotStartPrefix.equals(patternString)) {
+            re2jPatternWithoutDotStartPrefix = Pattern.compile(patternStringWithoutDotStartPrefix, options);
         }
         else {
-            re2jPatternWithoutDotStartPrefixSuffix = re2jPattern;
+            re2jPatternWithoutDotStartPrefix = re2jPattern;
         }
     }
 
     public boolean matches(Slice source)
     {
-        return re2jPatternWithoutDotStartPrefixSuffix.find(source);
+        return re2jPatternWithoutDotStartPrefix.find(source);
     }
 
     public Slice replace(Slice source, Slice replacement)
@@ -148,13 +149,13 @@ public final class Re2JRegexp
         }
     }
 
-    private static class RE2JEventsListener
+    private class RE2JEventsListener
             implements Options.EventsListener
     {
         @Override
         public void fallbackToNFA()
         {
-            log.info("Fallback to NFA");
+            log.debug("Fallback to NFA, pattern: %s, DFA states limit: %d, DFA retries: %d", re2jPattern.pattern(), dfaStatesLimit, dfaRetries);
         }
     }
 }

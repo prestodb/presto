@@ -224,9 +224,10 @@ public class FeaturesConfig
     }
 
     @Config("re2j.dfa-states-limit")
-    public void setRe2JDfaStatesLimit(int re2JDfaStatesLimit)
+    public FeaturesConfig setRe2JDfaStatesLimit(int re2JDfaStatesLimit)
     {
         this.re2JDfaStatesLimit = re2JDfaStatesLimit;
+        return this;
     }
 
     @Min(0)
@@ -236,9 +237,10 @@ public class FeaturesConfig
     }
 
     @Config("re2j.dfa-retries")
-    public void setRe2JDfaRetries(int re2JDfaRetries)
+    public FeaturesConfig setRe2JDfaRetries(int re2JDfaRetries)
     {
         this.re2JDfaRetries = re2JDfaRetries;
+        return this;
     }
 
     public RegexLibrary getRegexLibrary()
