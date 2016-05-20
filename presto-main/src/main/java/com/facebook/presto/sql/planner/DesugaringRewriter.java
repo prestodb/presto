@@ -45,7 +45,7 @@ public class DesugaringRewriter
     public Expression rewriteAtTimeZone(AtTimeZone node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
     {
         Expression value = treeRewriter.rewrite(node.getValue(), context);
-        Type type = expressionTypes.get(value);
+        Type type = expressionTypes.get(node.getValue());
         if (type.equals(TIME)) {
             value = new Cast(value, TIME_WITH_TIME_ZONE.getDisplayName());
         }
