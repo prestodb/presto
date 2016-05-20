@@ -40,11 +40,13 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMEN
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
+import static io.airlift.slice.SliceUtf8.getCodePointAt;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePointSafe;
 import static io.airlift.slice.SliceUtf8.offsetOfCodePoint;
 import static io.airlift.slice.SliceUtf8.toLowerCase;
 import static io.airlift.slice.SliceUtf8.toUpperCase;
+import static io.airlift.slice.SliceUtf8.tryGetCodePointAt;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.SURROGATE;
@@ -449,6 +451,61 @@ public final class StringFunctions
         return SliceUtf8.trim(slice);
     }
 
+    @Description("remove the longest string containing only given characters from the beginning of a string")
+    @ScalarFunction("ltrim")
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Slice leftTrim(@SqlType("varchar(x)") Slice slice, @SqlType(StandardTypes.VARCHAR) Slice charactersToTrim)
+    {
+        int[] codePointsToTrim = toCodePoints(charactersToTrim);
+        return SliceUtf8.leftTrim(slice, codePointsToTrim);
+    }
+
+    @Description("remove the longest string containing only given characters from the end of a string")
+    @ScalarFunction("rtrim")
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Slice rightTrim(@SqlType("varchar(x)") Slice slice, @SqlType(StandardTypes.VARCHAR) Slice charactersToTrim)
+    {
+        int[] codePointsToTrim = toCodePoints(charactersToTrim);
+        return SliceUtf8.rightTrim(slice, codePointsToTrim);
+    }
+
+    @Description("remove the longest string containing only given characters from the beginning and end of a string")
+    @ScalarFunction("trim")
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Slice trim(@SqlType("varchar(x)") Slice slice, @SqlType(StandardTypes.VARCHAR) Slice charactersToTrim)
+    {
+        int[] codePointsToTrim = toCodePoints(charactersToTrim);
+        return SliceUtf8.trim(slice, codePointsToTrim);
+    }
+
+    private static int[] toCodePoints(Slice slice)
+    {
+        int[] codePointsToTrim = new int[safeCountCodePoints(slice)];
+        int position = 0;
+        for (int index = 0; index < codePointsToTrim.length; index++) {
+            codePointsToTrim[index] = getCodePointAt(slice, position);
+            position += lengthOfCodePoint(slice, position);
+        }
+        return codePointsToTrim;
+    }
+
+    private static int safeCountCodePoints(Slice slice)
+    {
+        int codePoints = 0;
+        for (int position = 0; position < slice.length(); ) {
+            int codePoint = tryGetCodePointAt(slice, position);
+            if (codePoint < 0) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid UTF-8 encoding in characters to trim: " + slice.toStringUtf8());
+            }
+            position += lengthOfCodePoint(codePoint);
+            codePoints++;
+        }
+        return codePoints;
+    }
+
     @Description("converts the string to lower case")
     @ScalarFunction
     @LiteralParameters("x")
@@ -576,7 +633,7 @@ public final class StringFunctions
         OptionalInt replacementCodePoint;
         if (count == 1) {
             try {
-                replacementCodePoint = OptionalInt.of(SliceUtf8.getCodePointAt(replacementCharacter, 0));
+                replacementCodePoint = OptionalInt.of(getCodePointAt(replacementCharacter, 0));
             }
             catch (InvalidUtf8Exception e) {
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid replacement character");
