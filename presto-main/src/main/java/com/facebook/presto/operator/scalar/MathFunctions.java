@@ -57,7 +57,7 @@ public final class MathFunctions
     @Description("absolute value")
     @ScalarFunction("abs")
     @SqlType(StandardTypes.INTEGER)
-    public static long absInt(@SqlType(StandardTypes.INTEGER) long num)
+    public static long absInteger(@SqlType(StandardTypes.INTEGER) long num)
     {
         checkCondition(num != Integer.MIN_VALUE, NUMERIC_VALUE_OUT_OF_RANGE, "Value -2147483648 is out of range for abs(integer)");
         return Math.abs(num);
@@ -139,7 +139,7 @@ public final class MathFunctions
     @Description("round up to nearest integer")
     @ScalarFunction(value = "ceiling", alias = "ceil")
     @SqlType(StandardTypes.INTEGER)
-    public static long ceilingInt(@SqlType(StandardTypes.INTEGER) long num)
+    public static long ceilingInteger(@SqlType(StandardTypes.INTEGER) long num)
     {
         return num;
     }
@@ -227,7 +227,7 @@ public final class MathFunctions
     @Description("round down to nearest integer")
     @ScalarFunction("floor")
     @SqlType(StandardTypes.INTEGER)
-    public static long floorInt(@SqlType(StandardTypes.INTEGER) long num)
+    public static long floorInteger(@SqlType(StandardTypes.INTEGER) long num)
     {
         return num;
     }
@@ -299,7 +299,7 @@ public final class MathFunctions
     @Description("remainder of given quotient")
     @ScalarFunction("mod")
     @SqlType(StandardTypes.INTEGER)
-    public static long modInt(@SqlType(StandardTypes.INTEGER) long num1, @SqlType(StandardTypes.INTEGER) long num2)
+    public static long modInteger(@SqlType(StandardTypes.INTEGER) long num1, @SqlType(StandardTypes.INTEGER) long num2)
     {
         return num1 % num2;
     }
@@ -373,7 +373,7 @@ public final class MathFunctions
     @Description("a pseudo-random number between 0 and value (exclusive)")
     @ScalarFunction(value = "random", alias = "rand", deterministic = false)
     @SqlType(StandardTypes.INTEGER)
-    public static long randomInt(@SqlType(StandardTypes.INTEGER) long value)
+    public static long randomInteger(@SqlType(StandardTypes.INTEGER) long value)
     {
         checkCondition(value > 0, INVALID_FUNCTION_ARGUMENT, "bound must be positive");
         return ThreadLocalRandom.current().nextInt((int) value);
@@ -407,7 +407,7 @@ public final class MathFunctions
     @Description("round to nearest integer")
     @ScalarFunction("round")
     @SqlType(StandardTypes.INTEGER)
-    public static long roundInt(@SqlType(StandardTypes.INTEGER) long num)
+    public static long roundInteger(@SqlType(StandardTypes.INTEGER) long num)
     {
         return num;
     }
@@ -439,7 +439,7 @@ public final class MathFunctions
     @Description("round to nearest integer")
     @ScalarFunction("round")
     @SqlType(StandardTypes.INTEGER)
-    public static long roundInt(@SqlType(StandardTypes.INTEGER) long num, @SqlType(StandardTypes.INTEGER) long decimals)
+    public static long roundInteger(@SqlType(StandardTypes.INTEGER) long num, @SqlType(StandardTypes.INTEGER) long decimals)
     {
         return num;
     }
@@ -487,7 +487,7 @@ public final class MathFunctions
     @Description("signum")
     @ScalarFunction("sign")
     @SqlType(StandardTypes.INTEGER)
-    public static long signInt(@SqlType(StandardTypes.INTEGER) long num)
+    public static long signInteger(@SqlType(StandardTypes.INTEGER) long num)
     {
         return (long) Math.signum(num);
     }
