@@ -17,6 +17,7 @@ import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -52,6 +53,7 @@ public class TestIntegerOperators
     {
         assertFunction("INTEGER'-37'", INTEGER, -37);
         assertFunction("INTEGER'-17'", INTEGER, -17);
+        assertInvalidFunction("INTEGER'-" + Integer.MIN_VALUE + "'", INVALID_CAST_ARGUMENT);
     }
 
     @Test
