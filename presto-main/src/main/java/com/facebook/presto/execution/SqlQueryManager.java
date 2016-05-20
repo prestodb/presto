@@ -331,10 +331,12 @@ public class SqlQueryManager
             }
         });
 
+        addStatsListener(queryExecution);
+
         queries.put(queryId, queryExecution);
 
         // start the query in the background
-        if (!queueManager.submit(statement, queryExecution, queryExecutor, stats)) {
+        if (!queueManager.submit(statement, queryExecution, queryExecutor)) {
             queryExecution.fail(new PrestoException(QUERY_QUEUE_FULL, "Too many queued queries!"));
         }
 
@@ -483,6 +485,30 @@ public class SqlQueryManager
         DateTime lastHeartbeat = query.getQueryInfo().getQueryStats().getLastHeartbeat();
 
         return lastHeartbeat != null && lastHeartbeat.isBefore(oldestAllowedHeartbeat);
+    }
+
+    private void addStatsListener(QueryExecution queryExecution)
+    {
+        AtomicBoolean started = new AtomicBoolean();
+        queryExecution.addStateChangeListener(newValue -> {
+            if (newValue == RUNNING && started.compareAndSet(false, true)) {
+                stats.queryStarted();
+            }
+        });
+        // Need to do this check in case the state changed before we added the previous state change listener
+        if (queryExecution.getState() == RUNNING && started.compareAndSet(false, true)) {
+            stats.queryStarted();
+        }
+        AtomicBoolean stopped = new AtomicBoolean();
+        queryExecution.addStateChangeListener(newValue -> {
+            if (newValue.isDone() && stopped.compareAndSet(false, true) && started.get()) {
+                stats.queryStopped();
+            }
+        });
+        // Need to do this check in case the state changed before we added the previous state change listener
+        if (queryExecution.getState().isDone() && stopped.compareAndSet(false, true) && started.get()) {
+            stats.queryStopped();
+        }
     }
 
     /**
