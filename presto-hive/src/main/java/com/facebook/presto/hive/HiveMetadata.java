@@ -773,7 +773,7 @@ public class HiveMetadata
                     // move data to final location
                     if (!partitionUpdate.getWritePath().equals(partitionUpdate.getTargetPath())) {
                         Path writeDir = partitionUpdate.getWritePath();
-                        Path targetDir =partitionUpdate.getTargetPath();
+                        Path targetDir = partitionUpdate.getTargetPath();
 
                         FileSystem fileSystem;
                         try {
@@ -802,6 +802,29 @@ public class HiveMetadata
             for (CompletableFuture<?> fileRenameFuture : fileRenameFutures) {
                 MoreFutures.getFutureValue(fileRenameFuture, PrestoException.class);
             }
+
+            // clean remaining partition directories
+            Optional<Path> writePathRoot = locationService.writePath(handle.getLocationHandle(), Optional.empty());
+            if (writePathRoot.isPresent() && !writePathRoot.get().equals(locationService.targetPathRoot(handle.getLocationHandle()))) {
+                for (PartitionUpdate partitionUpdate : partitionUpdates) {
+                    verify(!partitionUpdate.getTargetPath().equals(partitionUpdate.getWritePath()));
+                    Path writePath = partitionUpdate.getWritePath();
+                    verify(
+                            isSameOrParent(writePath, writePathRoot.get()),
+                            "Partition update write path '%s' stored outside insert write path '%s'",
+                            writePath,
+                            writePathRoot.get());
+                    while (!writePath.equals(writePathRoot.get())) {
+                        if (!deleteIfExists(session.getUser(), writePath)) {
+                            break;
+                        }
+                        writePath = writePath.getParent();
+                    }
+                }
+                if (!deleteIfExists(session.getUser(), writePathRoot.get())) {
+                    log.debug("Unable to delete temporary directory for insert: '%s'", writePathRoot.get());
+                }
+            }
         }
         catch (Throwable t) {
             partitionCommitter.abort();
@@ -810,6 +833,20 @@ public class HiveMetadata
         }
 
         clearRollback();
+    }
+
+    private boolean isSameOrParent(Path parent, Path child)
+    {
+        if (child.equals(parent)) {
+            return true;
+        }
+        while (!child.isRoot()) {
+            if (child.equals(parent)) {
+                return true;
+            }
+            child = child.getParent();
+        }
+        return false;
     }
 
     private Partition buildPartitionObject(Table table, PartitionUpdate partitionUpdate)

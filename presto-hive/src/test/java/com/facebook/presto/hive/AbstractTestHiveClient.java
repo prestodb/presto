@@ -2005,6 +2005,7 @@ public abstract class AbstractTestHiveClient
     }
 
     private void insertData(ConnectorTableHandle tableHandle, MaterializedResult data, ConnectorSession session)
+            throws Exception
     {
         ConnectorMetadata metadata = newMetadata();
         ConnectorTransactionHandle transaction = newTransaction();
@@ -2018,6 +2019,12 @@ public abstract class AbstractTestHiveClient
 
         // commit the insert
         metadata.finishInsert(session, insertTableHandle, fragments);
+
+        // check that temporary files are removed
+        HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) insertTableHandle;
+        Path writePath = new Path(getLocationService(hiveInsertTableHandle.getSchemaName()).writePathRoot(hiveInsertTableHandle.getLocationHandle()).get().toString());
+        FileSystem fileSystem = hdfsEnvironment.getFileSystem("user", writePath);
+        assertFalse(fileSystem.exists(writePath));
     }
 
     private void doMetadataDelete(HiveStorageFormat storageFormat, SchemaTableName tableName)
