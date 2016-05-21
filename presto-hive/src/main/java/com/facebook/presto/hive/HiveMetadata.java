@@ -802,6 +802,36 @@ public class HiveMetadata
             for (CompletableFuture<?> fileRenameFuture : fileRenameFutures) {
                 MoreFutures.getFutureValue(fileRenameFuture, PrestoException.class);
             }
+
+            // clean remaining partition directories
+            Optional<Path> writePathRoot = locationService.writePath(handle.getLocationHandle(), Optional.empty());
+            if (writePathRoot.isPresent() && !writePathRoot.get().equals(locationService.targetPathRoot(handle.getLocationHandle()))) {
+                FileSystem fileSystem;
+                try {
+                    fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), writePathRoot.get());
+                }
+                catch (IOException e) {
+                    throw new PrestoException(HIVE_FILESYSTEM_ERROR, e);
+                }
+                for (PartitionUpdate partitionUpdate : partitionUpdates) {
+                    verify(!partitionUpdate.getTargetPath().equals(partitionUpdate.getWritePath()));
+                    Path writePath = partitionUpdate.getWritePath();
+                    verify(
+                            isSameOrParent(writePathRoot.get(), writePath),
+                            "Partition update write path '%s' stored outside insert write path '%s'",
+                            writePath,
+                            writePathRoot.get());
+                    while (!writePath.equals(writePathRoot.get())) {
+                        if (!deleteIfExists(fileSystem, writePath)) {
+                            break;
+                        }
+                        writePath = writePath.getParent();
+                    }
+                }
+                if (!deleteIfExists(fileSystem, writePathRoot.get())) {
+                    log.debug("Unable to delete temporary directory for insert: '%s'", writePathRoot.get());
+                }
+            }
         }
         catch (Throwable t) {
             partitionCommitter.abort();
@@ -810,6 +840,19 @@ public class HiveMetadata
         }
 
         clearRollback();
+    }
+
+    private static boolean isSameOrParent(Path parent, Path child)
+    {
+        int parentDepth = parent.depth();
+        int childDepth = child.depth();
+        if (parentDepth > childDepth) {
+            return false;
+        }
+        for (int i = childDepth; i > parentDepth; i--) {
+            child = child.getParent();
+        }
+        return parent.equals(child);
     }
 
     private Partition buildPartitionObject(Table table, PartitionUpdate partitionUpdate)

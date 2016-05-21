@@ -1787,6 +1787,12 @@ public abstract class AbstractTestHiveClient
         return getLocationService(hiveOutputTableHandle.getSchemaName()).writePathRoot(hiveOutputTableHandle.getLocationHandle()).get();
     }
 
+    protected Path getTargetPathRoot(ConnectorInsertTableHandle insertTableHandle)
+    {
+        HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) insertTableHandle;
+        return getLocationService(hiveInsertTableHandle.getSchemaName()).targetPathRoot(hiveInsertTableHandle.getLocationHandle());
+    }
+
     protected Set<String> listAllDataFiles(String schemaName, String tableName)
             throws IOException
     {
@@ -2001,6 +2007,7 @@ public abstract class AbstractTestHiveClient
     }
 
     private void insertData(ConnectorTableHandle tableHandle, MaterializedResult data, ConnectorSession session)
+            throws Exception
     {
         ConnectorMetadata metadata = newMetadata();
         ConnectorTransactionHandle transaction = newTransaction();
@@ -2014,6 +2021,14 @@ public abstract class AbstractTestHiveClient
 
         // commit the insert
         metadata.finishInsert(session, insertTableHandle, fragments);
+
+        // check that temporary files are removed
+        Path writePath = getStagingPathRoot(insertTableHandle);
+        Path targetPath = getTargetPathRoot(insertTableHandle);
+        if (!writePath.equals(targetPath)) {
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem("user", writePath);
+            assertFalse(fileSystem.exists(writePath));
+        }
     }
 
     private void doMetadataDelete(HiveStorageFormat storageFormat, SchemaTableName tableName)
