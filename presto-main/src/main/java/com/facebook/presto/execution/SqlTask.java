@@ -179,7 +179,14 @@ public class SqlTask
         }
     }
 
-    private TaskInfo createTaskInfo(TaskHolder taskHolder)
+    public TaskStatus getTaskStatus()
+    {
+        try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
+            return createTaskStatus(taskHolderReference.get());
+        }
+    }
+
+    private TaskStatus createTaskStatus(TaskHolder taskHolder)
     {
         // Always return a new TaskInfo with a larger version number;
         // otherwise a client will not accept the update
@@ -191,38 +198,53 @@ public class SqlTask
             failures = toFailures(taskStateMachine.getFailureCauses());
         }
 
-        TaskStats taskStats;
-        Set<PlanNodeId> noMoreSplits;
+        TaskStats taskStats = getTaskStats(taskHolder);
+        return new TaskStatus(taskStateMachine.getTaskId(),
+                taskInstanceId,
+                versionNumber,
+                state,
+                location,
+                failures,
+                taskStats.getQueuedPartitionedDrivers(),
+                taskStats.getRunningPartitionedDrivers(),
+                taskStats.getMemoryReservation());
+    }
 
+    private TaskStats getTaskStats(TaskHolder taskHolder)
+    {
         TaskInfo finalTaskInfo = taskHolder.getFinalTaskInfo();
         if (finalTaskInfo != null) {
-            taskStats = finalTaskInfo.getStats();
-            noMoreSplits = finalTaskInfo.getNoMoreSplits();
+            return finalTaskInfo.getStats();
         }
-        else {
-            SqlTaskExecution taskExecution = taskHolder.getTaskExecution();
-            if (taskExecution != null) {
-                taskStats = taskExecution.getTaskContext().getTaskStats();
-                noMoreSplits = taskExecution.getNoMoreSplits();
-            }
-            else {
-                // if the task completed without creation, set end time
-                DateTime endTime = state.isDone() ? DateTime.now() : null;
-                taskStats = new TaskStats(taskStateMachine.getCreatedTime(), endTime);
-                noMoreSplits = ImmutableSet.of();
-            }
+        SqlTaskExecution taskExecution = taskHolder.getTaskExecution();
+        if (taskExecution != null) {
+            return taskExecution.getTaskContext().getTaskStats();
         }
+        // if the task completed without creation, set end time
+        DateTime endTime = taskStateMachine.getState().isDone() ? DateTime.now() : null;
+        return new TaskStats(taskStateMachine.getCreatedTime(), endTime);
+    }
+
+    private static Set<PlanNodeId> getNoMoreSplits(TaskHolder taskHolder)
+    {
+        TaskInfo finalTaskInfo = taskHolder.getFinalTaskInfo();
+        if (finalTaskInfo != null) {
+            return finalTaskInfo.getNoMoreSplits();
+        }
+        SqlTaskExecution taskExecution = taskHolder.getTaskExecution();
+        if (taskExecution != null) {
+            return taskExecution.getNoMoreSplits();
+        }
+        return ImmutableSet.of();
+    }
+
+    private TaskInfo createTaskInfo(TaskHolder taskHolder)
+    {
+        TaskStats taskStats = getTaskStats(taskHolder);
+        Set<PlanNodeId> noMoreSplits = getNoMoreSplits(taskHolder);
 
         return new TaskInfo(
-                new TaskStatus(taskStateMachine.getTaskId(),
-                        taskInstanceId,
-                        versionNumber,
-                        state,
-                        location,
-                        failures,
-                        taskStats.getQueuedPartitionedDrivers(),
-                        taskStats.getRunningPartitionedDrivers(),
-                        taskStats.getMemoryReservation()),
+                createTaskStatus(taskHolder),
                 lastHeartbeat.get(),
                 sharedBuffer.getInfo(),
                 noMoreSplits,
