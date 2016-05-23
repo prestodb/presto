@@ -1,0 +1,23 @@
+version: '2'
+services:
+
+  postgres-common:
+    hostname: postgres
+    image: 'postgres'
+    ports:
+      - '15432:5432'
+    environment:
+      POSTGRES_PASSWORD: swarm
+      POSTGRES_USER: swarm
+      POSTGRES_DB: test
+
+  mysql-common:
+    hostname: mysql
+    image: 'mysql'
+    ports:
+      - '13306:3306'
+    environment:
+      MYSQL_USER: swarm
+      MYSQL_PASSWORD: swarm
+      MYSQL_ROOT_PASSWORD: swarm
+      MYSQL_DATABASE: test
