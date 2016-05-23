@@ -263,7 +263,11 @@ public class SqlTaskManager
     @Override
     public TaskStatus getTaskStatus(TaskId taskId)
     {
-        return getTaskInfo(taskId).getTaskStatus();
+        requireNonNull(taskId, "taskId is null");
+
+        SqlTask sqlTask = tasks.getUnchecked(taskId);
+        sqlTask.recordHeartbeat();
+        return sqlTask.getTaskStatus();
     }
 
     @Override
