@@ -315,10 +315,10 @@ public class StatementClient
             if (keyValue.size() != 2) {
                 continue;
             }
-            this.addedPreparedStatements.put(keyValue.get(0), keyValue.get(1));
+            addedPreparedStatements.put(keyValue.get(0), keyValue.get(1));
         }
         for (String entry : response.getHeaders(PRESTO_DEALLOCATED_PREPARE)) {
-            this.deallocatedPreparedStatements.add(entry);
+            deallocatedPreparedStatements.add(entry);
         }
 
         String startedTransactionId = response.getHeader(PRESTO_STARTED_TRANSACTION_ID);

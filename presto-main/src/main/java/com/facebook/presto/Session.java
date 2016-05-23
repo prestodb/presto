@@ -352,7 +352,7 @@ public final class Session
         }
         ImmutableMap.Builder<String, String> encodedStatements = ImmutableMap.builder();
         for (Entry<String, String> entry : preparedStatements.entrySet()) {
-           encodedStatements.put(utf8Encode(entry.getKey()), utf8Encode(entry.getValue()));
+           encodedStatements.put(urlEncode(entry.getKey()), urlEncode(entry.getValue()));
         }
 
         return new ClientSession(
@@ -370,7 +370,7 @@ public final class Session
                 clientRequestTimeout);
     }
 
-    private static String utf8Encode(String string)
+    private static String urlEncode(String string)
     {
         try {
             return URLEncoder.encode(string, "UTF-8");
