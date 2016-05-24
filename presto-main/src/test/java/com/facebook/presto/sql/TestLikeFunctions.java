@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.type.LikeFunctions.castCharToLikePattern;
 import static com.facebook.presto.type.LikeFunctions.like;
 import static com.facebook.presto.type.LikeFunctions.likePattern;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -31,6 +32,18 @@ public class TestLikeFunctions
     {
         Regex regex = likePattern(utf8Slice("f%b__"));
         assertTrue(like(utf8Slice("foobar"), regex));
+    }
+
+    @Test
+    public void testLikeSpacesInPattern()
+    {
+        Regex regex = likePattern(utf8Slice("ala  "));
+        assertTrue(like(utf8Slice("ala  "), regex));
+        assertFalse(like(utf8Slice("ala"), regex));
+
+        regex = castCharToLikePattern(5L, utf8Slice("ala"));
+        assertTrue(like(utf8Slice("ala  "), regex));
+        assertFalse(like(utf8Slice("ala"), regex));
     }
 
     @Test

@@ -89,6 +89,13 @@ public class TestRegexpFunctions
     }
 
     @Test
+    public void testRegexCharLike()
+    {
+        assertFunction("REGEXP_LIKE('ala', CHAR 'ala  ')", BOOLEAN, false);
+        assertFunction("REGEXP_LIKE('ala  ', CHAR 'ala  ')", BOOLEAN, true);
+    }
+
+    @Test
     public void testRegexpReplace()
     {
         assertFunction("REGEXP_REPLACE('fun stuff.', '[a-z]')", VARCHAR, " .");

@@ -65,6 +65,8 @@ public class TestTypeRegistry
         assertTrue(isTypeOnlyCoercion("varchar(42)", "varchar(44)"));
         assertFalse(isTypeOnlyCoercion("varchar(44)", "varchar(42)"));
 
+        assertFalse(isTypeOnlyCoercion("char(42)", "varchar(42)"));
+
         assertTrue(isTypeOnlyCoercion("array(varchar(42))", "array(varchar(44))"));
         assertFalse(isTypeOnlyCoercion("array(varchar(44))", "array(varchar(42))"));
 
@@ -129,6 +131,17 @@ public class TestTypeRegistry
         assertTrue(canCoerce("varchar(42)", "varchar(42)"));
         assertTrue(canCoerce("varchar(42)", "varchar(44)"));
         assertFalse(canCoerce("varchar(44)", "varchar(42)"));
+
+        assertTrue(canCoerce("char(42)", "varchar(42)"));
+        assertTrue(canCoerce("char(42)", "varchar(44)"));
+        assertFalse(canCoerce("char(42)", "char(44)"));
+        assertFalse(canCoerce("char(42)", "char(40)"));
+        assertFalse(canCoerce("char(42)", "varchar(40)"));
+
+        assertTrue(typeRegistry.canCoerce(createType("char(42)"), JONI_REGEXP));
+        assertTrue(typeRegistry.canCoerce(createType("char(42)"), RE2J_REGEXP));
+        assertTrue(typeRegistry.canCoerce(createType("char(42)"), LIKE_PATTERN));
+        assertTrue(typeRegistry.canCoerce(createType("char(42)"), JSON_PATH));
 
         assertTrue(canCoerce("decimal(22,1)", "decimal(23,1)"));
         assertFalse(canCoerce("decimal(23,1)", "decimal(22,1)"));
