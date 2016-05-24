@@ -49,6 +49,7 @@ public class PagesIndexOrdering
      * @param to the index of the last element (exclusive) to be sorted.
      */
     // note this code was forked from Fastutils
+    @SuppressWarnings("InnerAssignment")
     private void quickSort(PagesIndex pagesIndex, int from, int to)
     {
         int len = to - from;
