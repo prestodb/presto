@@ -439,7 +439,7 @@ public class TestMathFunctions
         assertFunction("round( 3.499)", DOUBLE, 3.0);
         assertFunction("round(-3.499)", DOUBLE, -3.0);
         assertFunction("round( 3.5)", DOUBLE, 4.0);
-        assertFunction("round(-3.5)", DOUBLE, -4.0);
+        assertFunction("round(-3.5)", DOUBLE, -3.0);
         assertFunction("round(-3.5001)", DOUBLE, -4.0);
         assertFunction("round(-3.99)", DOUBLE, -4.0);
         assertFunction("round(CAST(NULL as DOUBLE))", DOUBLE, null);
@@ -458,7 +458,7 @@ public class TestMathFunctions
         assertFunction("round( 3.499, 0)", DOUBLE, 3.0);
         assertFunction("round(-3.499, 0)", DOUBLE, -3.0);
         assertFunction("round( 3.5, 0)", DOUBLE, 4.0);
-        assertFunction("round(-3.5, 0)", DOUBLE, -4.0);
+        assertFunction("round(-3.5, 0)", DOUBLE, -3.0);
         assertFunction("round(-3.5001, 0)", DOUBLE, -4.0);
         assertFunction("round(-3.99, 0)", DOUBLE, -4.0);
         assertFunction("round(" + GREATEST_DOUBLE_LESS_THAN_HALF + ", 0)", DOUBLE, 0.0);
