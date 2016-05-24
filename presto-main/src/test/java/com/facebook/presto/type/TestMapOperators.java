@@ -14,7 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import com.facebook.presto.operator.scalar.ScalarFunction;
+import com.facebook.presto.operator.scalar.annotations.ScalarFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlockBuilder;

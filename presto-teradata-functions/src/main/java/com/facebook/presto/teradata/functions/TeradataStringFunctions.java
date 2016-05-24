@@ -14,8 +14,8 @@
 package com.facebook.presto.teradata.functions;
 
 import com.facebook.presto.operator.Description;
-import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.operator.scalar.StringFunctions;
+import com.facebook.presto.operator.scalar.annotations.ScalarFunction;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.LiteralParameters;
 import com.facebook.presto.type.SqlType;

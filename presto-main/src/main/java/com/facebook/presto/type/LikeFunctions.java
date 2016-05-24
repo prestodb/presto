@@ -14,8 +14,8 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.metadata.OperatorType;
-import com.facebook.presto.operator.scalar.ScalarFunction;
-import com.facebook.presto.operator.scalar.ScalarOperator;
+import com.facebook.presto.operator.scalar.annotations.ScalarFunction;
+import com.facebook.presto.operator.scalar.annotations.ScalarOperator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.jcodings.specific.NonStrictUTF8Encoding;

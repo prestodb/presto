@@ -16,7 +16,6 @@ package com.facebook.presto.operator.scalar.annotations;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.scalar.ParametricScalar;
-import com.facebook.presto.operator.scalar.TypeParameter;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.SqlType;
 import com.google.common.collect.ImmutableList;
