@@ -55,7 +55,6 @@ import static com.facebook.presto.client.ClientSession.stripTransactionId;
 import static com.facebook.presto.client.ClientSession.withCatalogAndSchema;
 import static com.facebook.presto.client.ClientSession.withPreparedStatements;
 import static com.facebook.presto.client.ClientSession.withProperties;
-import static com.facebook.presto.client.ClientSession.withSessionProperties;
 import static com.facebook.presto.client.ClientSession.withTransactionId;
 import static com.facebook.presto.sql.parser.StatementSplitter.Statement;
 import static com.facebook.presto.sql.parser.StatementSplitter.isEmptyStatement;
@@ -265,7 +264,7 @@ public class Console
         if (parsedStatement instanceof Use) {
             Use use = (Use) parsedStatement;
             session = withCatalogAndSchema(session, use.getCatalog().orElse(session.getCatalog()), use.getSchema());
-            session = withSessionProperties(session, existingProperties);
+            session = withProperties(session, existingProperties);
             session = withPreparedStatements(session, existingPreparedStatements);
         }
         return session;
