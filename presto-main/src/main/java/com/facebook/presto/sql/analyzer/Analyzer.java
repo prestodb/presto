@@ -57,7 +57,7 @@ public class Analyzer
     public Analysis analyze(Statement statement)
     {
         Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement);
-        Analysis analysis = new Analysis();
+        Analysis analysis = new Analysis(rewrittenStatement);
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, experimentalSyntaxEnabled);
         RelationType outputDescriptor = analyzer.process(rewrittenStatement, new AnalysisContext());
         analysis.setOutputDescriptor(outputDescriptor);

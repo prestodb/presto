@@ -50,7 +50,7 @@ import static java.util.Objects.requireNonNull;
 
 public class Analysis
 {
-    private Statement statement;
+    private final Statement statement;
     private String updateType;
 
     private final IdentityHashMap<Table, Query> namedQueries = new IdentityHashMap<>();
@@ -91,14 +91,14 @@ public class Analysis
 
     private Optional<Insert> insert = Optional.empty();
 
+    public Analysis(Statement statement)
+    {
+        this.statement = statement;
+    }
+
     public Statement getStatement()
     {
         return statement;
-    }
-
-    public void setStatement(Statement statement)
-    {
-        this.statement = statement;
     }
 
     public String getUpdateType()
