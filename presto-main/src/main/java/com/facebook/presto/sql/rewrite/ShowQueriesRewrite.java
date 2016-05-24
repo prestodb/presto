@@ -30,6 +30,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.session.PropertyMetadata;
+import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -125,7 +126,7 @@ final class ShowQueriesRewrite
         implements StatementRewrite.Rewrite
 {
     @Override
-    public Statement rewrite(Session session, Metadata metadata, SqlParser parser, Statement node)
+    public Statement rewrite(Session session, Metadata metadata, SqlParser parser, Optional<QueryExplainer> queryExplainer, Statement node)
     {
         return (Statement) new Visitor(metadata, parser, session).process(node, null);
     }

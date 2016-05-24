@@ -47,8 +47,6 @@ import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Explain;
-import com.facebook.presto.sql.tree.ExplainFormat;
-import com.facebook.presto.sql.tree.ExplainOption;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FieldReference;
@@ -116,7 +114,6 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMEN
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.QueryUtil.singleValueQuery;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
@@ -145,9 +142,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_PARSE_ERRO
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.EQUAL;
-import static com.facebook.presto.sql.tree.ExplainFormat.Type.TEXT;
 import static com.facebook.presto.sql.tree.ExplainType.Type.DISTRIBUTED;
-import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.facebook.presto.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static com.facebook.presto.sql.tree.FrameBound.Type.FOLLOWING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.PRECEDING;
@@ -169,7 +164,6 @@ class StatementAnalyzer
     private final Analysis analysis;
     private final Metadata metadata;
     private final Session session;
-    private final Optional<QueryExplainer> queryExplainer;
     private final boolean experimentalSyntaxEnabled;
     private final SqlParser sqlParser;
     private final AccessControl accessControl;
@@ -179,8 +173,7 @@ class StatementAnalyzer
             Metadata metadata,
             SqlParser sqlParser,
             AccessControl accessControl, Session session,
-            boolean experimentalSyntaxEnabled,
-            Optional<QueryExplainer> queryExplainer)
+            boolean experimentalSyntaxEnabled)
     {
         this.analysis = requireNonNull(analysis, "analysis is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -188,7 +181,6 @@ class StatementAnalyzer
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.session = requireNonNull(session, "session is null");
         this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
-        this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
     }
 
     @Override
@@ -299,8 +291,8 @@ class StatementAnalyzer
                 sqlParser,
                 new AllowAllAccessControl(),
                 session,
-                experimentalSyntaxEnabled,
-                queryExplainer);
+                experimentalSyntaxEnabled
+        );
 
         RelationType descriptor = analyzer.process(table, context);
         node.getWhere().ifPresent(where -> analyzer.analyzeWhere(node, descriptor, context, where));
@@ -366,8 +358,8 @@ class StatementAnalyzer
                 sqlParser,
                 new ViewAccessControl(accessControl),
                 session,
-                experimentalSyntaxEnabled,
-                queryExplainer);
+                experimentalSyntaxEnabled
+        );
         RelationType descriptor = analyzer.process(node.getQuery(), new AnalysisContext());
 
         QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
@@ -401,52 +393,16 @@ class StatementAnalyzer
     protected RelationType visitExplain(Explain node, AnalysisContext context)
             throws SemanticException
     {
-        if (node.isAnalyze()) {
-            if (node.getOptions().stream().anyMatch(option -> !option.equals(new ExplainType(DISTRIBUTED)))) {
-                throw new SemanticException(NOT_SUPPORTED, node, "EXPLAIN ANALYZE only supports TYPE DISTRIBUTED option");
-            }
-            process(node.getStatement(), context);
-            analysis.setStatement(node);
-            analysis.setUpdateType(null);
-            RelationType type = new RelationType(Field.newUnqualified("Query Plan", VARCHAR));
-            analysis.setOutputDescriptor(node, type);
-            return type;
+        checkState(node.isAnalyze(), "Non analyze explain should be rewritten to Query");
+        if (node.getOptions().stream().anyMatch(option -> !option.equals(new ExplainType(DISTRIBUTED)))) {
+            throw new SemanticException(NOT_SUPPORTED, node, "EXPLAIN ANALYZE only supports TYPE DISTRIBUTED option");
         }
-        checkState(queryExplainer.isPresent(), "query explainer not available");
-        ExplainType.Type planType = LOGICAL;
-        ExplainFormat.Type planFormat = TEXT;
-        List<ExplainOption> options = node.getOptions();
-
-        for (ExplainOption option : options) {
-            if (option instanceof ExplainType) {
-                planType = ((ExplainType) option).getType();
-                break;
-            }
-        }
-
-        for (ExplainOption option : options) {
-            if (option instanceof ExplainFormat) {
-                planFormat = ((ExplainFormat) option).getType();
-                break;
-            }
-        }
-
-        String plan = getQueryPlan(node, planType, planFormat);
-
-        return process(singleValueQuery("Query Plan", plan), context);
-    }
-
-    private String getQueryPlan(Explain node, ExplainType.Type planType, ExplainFormat.Type planFormat)
-            throws IllegalArgumentException
-    {
-        Statement statement = unwrapExecuteStatement(node.getStatement(), sqlParser, session);
-        switch (planFormat) {
-            case GRAPHVIZ:
-                return queryExplainer.get().getGraphvizPlan(session, statement, planType);
-            case TEXT:
-                return queryExplainer.get().getPlan(session, statement, planType);
-        }
-        throw new IllegalArgumentException("Invalid Explain Format: " + planFormat.toString());
+        process(node.getStatement(), context);
+        analysis.setStatement(node);
+        analysis.setUpdateType(null);
+        RelationType type = new RelationType(Field.newUnqualified("Query Plan", VARCHAR));
+        analysis.setOutputDescriptor(node, type);
+        return type;
     }
 
     @Override
@@ -681,7 +637,7 @@ class StatementAnalyzer
     @Override
     protected RelationType visitTableSubquery(TableSubquery node, AnalysisContext context)
     {
-        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, experimentalSyntaxEnabled, Optional.empty());
+        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, experimentalSyntaxEnabled);
         RelationType descriptor = analyzer.process(node.getQuery(), context);
 
         analysis.setOutputDescriptor(node, descriptor);
@@ -1511,7 +1467,7 @@ class StatementAnalyzer
                     .setStartTime(session.getStartTime())
                     .build();
 
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession, experimentalSyntaxEnabled, Optional.empty());
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession, experimentalSyntaxEnabled);
             RelationType descriptor = analyzer.process(query, new AnalysisContext());
             return descriptor.withAlias(name.getObjectName(), null);
         }
