@@ -30,6 +30,7 @@ import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
@@ -125,6 +126,10 @@ public class TestTypeRegistry
         assertFalse(canCoerce("integer", "decimal(9,0)"));
         assertTrue(canCoerce("integer", "decimal(10,0)"));
         assertTrue(canCoerce("integer", "decimal(37,1)"));
+
+        assertFalse(canCoerce("tinyint", "decimal(2,0)"));
+        assertTrue(canCoerce("tinyint", "decimal(3,0)"));
+        assertTrue(canCoerce("tinyint", "decimal(37,1)"));
     }
 
     @Test
@@ -169,6 +174,10 @@ public class TestTypeRegistry
         assertCommonSuperType("integer", "decimal(9,0)", "decimal(10,0)");
         assertCommonSuperType("integer", "decimal(10,0)", "decimal(10,0)");
         assertCommonSuperType("integer", "decimal(37,1)", "decimal(37,1)");
+
+        assertCommonSuperType("tinyint", "decimal(2,0)", "decimal(3,0)");
+        assertCommonSuperType("tinyint", "decimal(9,0)", "decimal(9,0)");
+        assertCommonSuperType("tinyint", "decimal(2,1)", "decimal(4,1)");
     }
 
     @Test
@@ -178,6 +187,7 @@ public class TestTypeRegistry
         assertEquals(typeRegistry.coerceTypeBase(createDecimalType(21, 1), "decimal"), Optional.of(createDecimalType(21, 1)));
         assertEquals(typeRegistry.coerceTypeBase(BIGINT, "decimal"), Optional.of(createDecimalType(19, 0)));
         assertEquals(typeRegistry.coerceTypeBase(INTEGER, "decimal"), Optional.of(createDecimalType(10, 0)));
+        assertEquals(typeRegistry.coerceTypeBase(TINYINT, "decimal"), Optional.of(createDecimalType(3, 0)));
     }
 
     @Test
