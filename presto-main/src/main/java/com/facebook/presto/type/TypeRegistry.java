@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -469,6 +470,25 @@ public final class TypeRegistry
             }
             case StandardTypes.VARCHAR: {
                 switch (resultTypeBase) {
+                    case JoniRegexpType.NAME:
+                        return Optional.of(JONI_REGEXP);
+                    case Re2JRegexpType.NAME:
+                        return Optional.of(RE2J_REGEXP);
+                    case LikePatternType.NAME:
+                        return Optional.of(LIKE_PATTERN);
+                    case JsonPathType.NAME:
+                        return Optional.of(JSON_PATH);
+                    case CodePointsType.NAME:
+                        return Optional.of(CODE_POINTS);
+                    default:
+                        return Optional.empty();
+                }
+            }
+            case StandardTypes.CHAR: {
+                switch (resultTypeBase) {
+                    case StandardTypes.VARCHAR:
+                        CharType charType = (CharType) sourceType;
+                        return Optional.of(createVarcharType(charType.getLength()));
                     case JoniRegexpType.NAME:
                         return Optional.of(JONI_REGEXP);
                     case Re2JRegexpType.NAME:

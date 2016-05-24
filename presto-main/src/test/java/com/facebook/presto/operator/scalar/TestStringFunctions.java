@@ -398,6 +398,7 @@ public class TestStringFunctions
         assertFunction("LTRIM('   ', '')", createVarcharType(3), "   ");
         assertFunction("LTRIM('  hello  ', '')", createVarcharType(9), "  hello  ");
         assertFunction("LTRIM('  hello  ', ' ')", createVarcharType(9), "hello  ");
+        assertFunction("LTRIM('  hello  ', CHAR ' ')", createVarcharType(9), "hello  ");
         assertFunction("LTRIM('  hello  ', 'he ')", createVarcharType(9), "llo  ");
         assertFunction("LTRIM('  hello', ' ')", createVarcharType(7), "hello");
         assertFunction("LTRIM('  hello', 'e h')", createVarcharType(7), "llo");

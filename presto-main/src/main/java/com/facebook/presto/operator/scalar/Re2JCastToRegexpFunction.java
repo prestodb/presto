@@ -28,6 +28,7 @@ import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.function.OperatorType.CAST;
+import static com.facebook.presto.spi.type.Chars.padSpaces;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static java.lang.invoke.MethodHandles.insertArguments;
@@ -36,27 +37,44 @@ import static java.util.Collections.emptyList;
 public class Re2JCastToRegexpFunction
         extends SqlOperator
 {
-    private static final MethodHandle METHOD_HANDLE = methodHandle(Re2JCastToRegexpFunction.class, "castToRegexp", int.class, int.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(Re2JCastToRegexpFunction.class, "castToRegexp", int.class, int.class, boolean.class, long.class, Slice.class);
 
     private final int dfaStatesLimit;
     private final int dfaRetries;
+    private final boolean padSpaces;
 
-    public Re2JCastToRegexpFunction(int dfaStatesLimit, int dfaRetries)
+    public static SqlOperator castVarcharToRe2JRegexp(int dfaStatesLimit, int dfaRetries)
     {
-        super(CAST, emptyList(), emptyList(), parseTypeSignature(Re2JRegexpType.NAME), ImmutableList.of(parseTypeSignature("varchar(x)", ImmutableSet.of("x"))));
+        return new Re2JCastToRegexpFunction("varchar(x)", dfaStatesLimit, dfaRetries, false);
+    }
+
+    public static SqlOperator castCharToRe2JRegexp(int dfaStatesLimit, int dfaRetries)
+    {
+        return new Re2JCastToRegexpFunction("char(x)", dfaStatesLimit, dfaRetries, true);
+    }
+
+    private Re2JCastToRegexpFunction(String sourceType, int dfaStatesLimit, int dfaRetries, boolean padSpaces)
+    {
+        super(CAST, emptyList(), emptyList(), parseTypeSignature(Re2JRegexpType.NAME), ImmutableList.of(parseTypeSignature(sourceType, ImmutableSet.of("x"))));
         this.dfaStatesLimit = dfaStatesLimit;
         this.dfaRetries = dfaRetries;
+        this.padSpaces = padSpaces;
     }
 
     @Override
     public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        return new ScalarFunctionImplementation(false, ImmutableList.of(false), insertArguments(METHOD_HANDLE, 0, dfaStatesLimit, dfaRetries), true);
+        return new ScalarFunctionImplementation(
+                false, ImmutableList.of(false),
+                insertArguments(METHOD_HANDLE, 0, dfaStatesLimit, dfaRetries, padSpaces, boundVariables.getLongVariable("x")), true);
     }
 
-    public static Re2JRegexp castToRegexp(int dfaStatesLimit, int dfaRetries, Slice pattern)
+    public static Re2JRegexp castToRegexp(int dfaStatesLimit, int dfaRetries, boolean padSpaces, long typeLength, Slice pattern)
     {
         try {
+            if (padSpaces) {
+                pattern = padSpaces(pattern, (int) typeLength);
+            }
             return new Re2JRegexp(dfaStatesLimit, dfaRetries, pattern);
         }
         catch (Exception e) {
