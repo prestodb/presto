@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
@@ -35,6 +36,19 @@ public final class JoniRegexpCasts
 
     @ScalarOperator(OperatorType.CAST)
     @SqlType(JoniRegexpType.NAME)
+    public static Regex castVarcharToJoniRegexp(@SqlType(StandardTypes.VARCHAR) Slice pattern)
+    {
+        return joniRegexp(pattern);
+    }
+
+    @ScalarOperator(OperatorType.CAST)
+    @LiteralParameters("x")
+    @SqlType(JoniRegexpType.NAME)
+    public static Regex castCharToJoniRegexp(@SqlType("char(x)") Slice pattern)
+    {
+        return joniRegexp(pattern);
+    }
+
     public static Regex joniRegexp(@SqlType(StandardTypes.VARCHAR) Slice pattern)
     {
         Regex regex;

@@ -109,7 +109,7 @@ public class RegexpFunctionsBenchmark
             }
 
             joniPattern = joniRegexp(pattern);
-            re2JPattern = castToRe2JRegexp(pattern);
+            re2JPattern = re2JRegexp(pattern);
             source = sliceOutput.slice();
             checkState(source.length() == sourceLength, "source.length=%s, sourceLength=%s", source.length(), sourceLength);
         }
@@ -130,7 +130,7 @@ public class RegexpFunctionsBenchmark
         }
     }
 
-    private static Re2JRegexp castToRe2JRegexp(Slice pattern)
+    private static Re2JRegexp re2JRegexp(Slice pattern)
     {
         return new Re2JRegexp(Integer.MAX_VALUE, 5, pattern);
     }

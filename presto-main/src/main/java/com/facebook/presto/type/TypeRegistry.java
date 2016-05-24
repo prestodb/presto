@@ -55,6 +55,7 @@ import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_W
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
 import static com.facebook.presto.type.CodePointsType.CODE_POINTS;
 import static com.facebook.presto.type.ColorType.COLOR;
@@ -252,13 +253,9 @@ public final class TypeRegistry
                 return Optional.of(getCommonSuperTypeForDecimal(
                         checkType(firstType, DecimalType.class, "firstType"), checkType(secondType, DecimalType.class, "secondType")));
             }
-            if (firstTypeBaseName.equals(StandardTypes.VARCHAR)) {
-                return Optional.of(getCommonSuperTypeForVarchar(
-                        checkType(firstType, VarcharType.class, "firstType"), checkType(secondType, VarcharType.class, "secondType")));
-            }
-            if (firstTypeBaseName.equals(StandardTypes.CHAR)) {
-                return Optional.of(getCommonSuperTypeForChar(
-                        checkType(firstType, CharType.class, "firstType"), checkType(secondType, CharType.class, "secondType")));
+            if ((firstTypeBaseName.equals(StandardTypes.VARCHAR) || firstTypeBaseName.equals(StandardTypes.CHAR)) &&
+                    (secondTypeBaseName.equals(StandardTypes.VARCHAR) || secondTypeBaseName.equals(StandardTypes.CHAR))) {
+                return Optional.of(getCommonSuperTypeForCharacterStrings(firstType, secondType));
             }
 
             if (isCovariantParametrizedType(firstType)) {
@@ -289,14 +286,21 @@ public final class TypeRegistry
         return createDecimalType(targetPrecision, targetScale);
     }
 
-    private Type getCommonSuperTypeForVarchar(VarcharType firstType, VarcharType secondType)
+    private Type getCommonSuperTypeForCharacterStrings(Type firstType, Type secondType)
     {
-        return createVarcharType(Math.max(firstType.getLength(), secondType.getLength()));
+        int returnTypeLength = Math.max(getCharacterStringTypeLength(firstType), getCharacterStringTypeLength(secondType));
+        if (firstType instanceof VarcharType || secondType instanceof VarcharType) {
+            return createVarcharType(returnTypeLength);
+        }
+        return createCharType(returnTypeLength);
     }
 
-    private Type getCommonSuperTypeForChar(CharType firstType, CharType secondType)
+    private int getCharacterStringTypeLength(Type type)
     {
-        return createCharType(Math.max(firstType.getLength(), secondType.getLength()));
+        if (isVarcharType(type)) {
+            return ((VarcharType) type).getLength();
+        }
+        return checkType(type, CharType.class, "type").getLength();
     }
 
     private Optional<Type> getCommonSupperTypeForCovariantParametrizedType(Type firstType, Type secondType)
@@ -483,6 +487,25 @@ public final class TypeRegistry
             }
             case StandardTypes.VARCHAR: {
                 switch (resultTypeBase) {
+                    case JoniRegexpType.NAME:
+                        return Optional.of(JONI_REGEXP);
+                    case Re2JRegexpType.NAME:
+                        return Optional.of(RE2J_REGEXP);
+                    case LikePatternType.NAME:
+                        return Optional.of(LIKE_PATTERN);
+                    case JsonPathType.NAME:
+                        return Optional.of(JSON_PATH);
+                    case CodePointsType.NAME:
+                        return Optional.of(CODE_POINTS);
+                    default:
+                        return Optional.empty();
+                }
+            }
+            case StandardTypes.CHAR: {
+                switch (resultTypeBase) {
+                    case StandardTypes.VARCHAR:
+                        CharType charType = (CharType) sourceType;
+                        return Optional.of(createVarcharType(charType.getLength()));
                     case JoniRegexpType.NAME:
                         return Optional.of(JONI_REGEXP);
                     case Re2JRegexpType.NAME:
