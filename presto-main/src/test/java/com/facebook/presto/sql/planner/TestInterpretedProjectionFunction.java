@@ -87,13 +87,13 @@ public class TestInterpretedProjectionFunction
     public void testArithmeticExpressionWithNulls()
     {
         for (ArithmeticBinaryExpression.Type type : ArithmeticBinaryExpression.Type.values()) {
-            assertProjection("NULL " + type.getValue() + " NULL", null);
+            assertProjection("CAST(NULL AS INTEGER) " + type.getValue() + " CAST(NULL AS INTEGER)", null);
 
             assertProjection("42 " + type.getValue() + " NULL", null);
             assertProjection("NULL " + type.getValue() + " 42", null);
 
-            assertProjection("11.1 " + type.getValue() + " NULL", null);
-            assertProjection("NULL " + type.getValue() + " 11.1", null);
+            assertProjection("11.1 " + type.getValue() + " CAST(NULL AS INTEGER)", null);
+            assertProjection("CAST(NULL AS INTEGER) " + type.getValue() + " 11.1", null);
         }
     }
 
