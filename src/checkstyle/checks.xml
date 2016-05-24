@@ -48,7 +48,9 @@
         <property name="message" value="Use javax.annotation.Nullable instead of org.jetbrains.annotations.Nullable"/>
     </module>
 
+    <module name="SuppressWarningsFilter"/>
     <module name="TreeWalker">
+        <module name="SuppressWarningsHolder"/>
         <module name="EmptyBlock">
             <property name="option" value="text"/>
             <property name="tokens" value="
