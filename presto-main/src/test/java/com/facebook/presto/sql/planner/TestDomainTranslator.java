@@ -57,6 +57,7 @@ import static com.facebook.presto.metadata.FunctionRegistry.getMagicLiteralFunct
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -101,6 +102,7 @@ public class TestDomainTranslator
     private static final Symbol M = new Symbol("m");
     private static final Symbol N = new Symbol("n");
     private static final Symbol O = new Symbol("o");
+    private static final Symbol P = new Symbol("p");
 
     private static final Map<Symbol, Type> TYPES = ImmutableMap.<Symbol, Type>builder()
             .put(A, BIGINT)
@@ -118,6 +120,7 @@ public class TestDomainTranslator
             .put(M, createDecimalType(10, 5))
             .put(N, createDecimalType(4, 2))
             .put(O, INTEGER)
+            .put(P, createCharType(10))
             .build();
 
     private static final long TIMESTAMP_VALUE = new DateTime(2013, 3, 30, 1, 5, 0, 0, DateTimeZone.UTC).getMillis();
@@ -1318,6 +1321,48 @@ public class TestDomainTranslator
         testSimpleComparison(isDistinctFrom(N, decimalLiteral("-44.555678")), N, Domain.all(createDecimalType(4, 2)));
         testSimpleComparison(isDistinctFrom(N, decimalLiteral("99.99")), N, Domain.create(ValueSet.ofRanges(
                 Range.lessThan(createDecimalType(4, 2), shortDecimal("99.99")), Range.greaterThan(createDecimalType(4, 2), shortDecimal("99.99"))), true));
+    }
+
+    @Test
+    public void testVarcharComparedToCharExpression()
+            throws Exception
+    {
+        // greater than or equal
+        testSimpleComparison(greaterThanOrEqual(P, stringLiteral("123456789")), P, Range.greaterThan(createCharType(10), Slices.utf8Slice("12345678")));
+        testSimpleComparison(greaterThanOrEqual(P, stringLiteral("1234567890")), P, Range.greaterThanOrEqual(createCharType(10), Slices.utf8Slice("1234567890")));
+        testSimpleComparison(greaterThanOrEqual(P, stringLiteral("12345678901")), P, Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890")));
+
+        // greater than
+        testSimpleComparison(greaterThan(P, stringLiteral("123456789")), P, Range.greaterThan(createCharType(10), Slices.utf8Slice("12345678")));
+        testSimpleComparison(greaterThan(P, stringLiteral("1234567890")), P, Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890")));
+        testSimpleComparison(greaterThan(P, stringLiteral("12345678901")), P, Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890")));
+
+        // less than or equal
+        testSimpleComparison(lessThanOrEqual(P, stringLiteral("123456789")), P, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("12345678")));
+        testSimpleComparison(lessThanOrEqual(P, stringLiteral("1234567890")), P, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("1234567890")));
+        testSimpleComparison(lessThanOrEqual(P, stringLiteral("12345678901")), P, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("1234567890")));
+
+        // less than
+        testSimpleComparison(lessThan(P, stringLiteral("123456789")), P, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("12345678")));
+        testSimpleComparison(lessThan(P, stringLiteral("1234567890")), P, Range.lessThan(createCharType(10), Slices.utf8Slice("1234567890")));
+        testSimpleComparison(lessThan(P, stringLiteral("12345678901")), P, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("1234567890")));
+
+        // equal
+        testSimpleComparison(equal(P, stringLiteral("123456789")), P, Domain.none(createCharType(10)));
+        testSimpleComparison(equal(P, stringLiteral("1234567890")), P, Range.equal(createCharType(10), Slices.utf8Slice("1234567890")));
+        testSimpleComparison(equal(P, stringLiteral("12345678901")), P, Domain.none(createCharType(10)));
+
+        // not equal
+        testSimpleComparison(notEqual(P, stringLiteral("123456789")), P, Domain.notNull(createCharType(10)));
+        testSimpleComparison(notEqual(P, stringLiteral("1234567890")), P, Domain.create(ValueSet.ofRanges(
+                Range.lessThan(createCharType(10), Slices.utf8Slice("1234567890")), Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890"))), false));
+        testSimpleComparison(notEqual(P, stringLiteral("12345678901")), P, Domain.notNull(createCharType(10)));
+
+        // is distinct from
+        testSimpleComparison(isDistinctFrom(P, stringLiteral("123456789")), P, Domain.all(createCharType(10)));
+        testSimpleComparison(isDistinctFrom(P, stringLiteral("1234567890")), P, Domain.create(ValueSet.ofRanges(
+                Range.lessThan(createCharType(10), Slices.utf8Slice("1234567890")), Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890"))), true));
+        testSimpleComparison(isDistinctFrom(P, stringLiteral("12345678901")), P, Domain.all(createCharType(10)));
     }
 
     private static ExtractionResult fromPredicate(Expression originalPredicate)

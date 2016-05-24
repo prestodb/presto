@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -38,6 +39,7 @@ import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -118,6 +120,7 @@ public final class TypeRegistry
         addType(JSON);
         addType(CODE_POINTS);
         addParametricType(VarcharParametricType.VARCHAR);
+        addParametricType(CharParametricType.CHAR);
         addParametricType(DecimalParametricType.DECIMAL);
         addParametricType(ROW);
         addParametricType(ARRAY);
@@ -196,6 +199,10 @@ public final class TypeRegistry
             return true;
         }
 
+        if (source instanceof CharType && result instanceof CharType) {
+            return true;
+        }
+
         if (source instanceof DecimalType && result instanceof DecimalType) {
             DecimalType sourceDecimal = (DecimalType) source;
             DecimalType resultDecimal = (DecimalType) result;
@@ -249,6 +256,10 @@ public final class TypeRegistry
                 return Optional.of(getCommonSuperTypeForVarchar(
                         checkType(firstType, VarcharType.class, "firstType"), checkType(secondType, VarcharType.class, "secondType")));
             }
+            if (firstTypeBaseName.equals(StandardTypes.CHAR)) {
+                return Optional.of(getCommonSuperTypeForChar(
+                        checkType(firstType, CharType.class, "firstType"), checkType(secondType, CharType.class, "secondType")));
+            }
 
             if (isCovariantParametrizedType(firstType)) {
                 return getCommonSupperTypeForCovariantParametrizedType(firstType, secondType);
@@ -281,6 +292,11 @@ public final class TypeRegistry
     private Type getCommonSuperTypeForVarchar(VarcharType firstType, VarcharType secondType)
     {
         return createVarcharType(Math.max(firstType.getLength(), secondType.getLength()));
+    }
+
+    private Type getCommonSuperTypeForChar(CharType firstType, CharType secondType)
+    {
+        return createCharType(Math.max(firstType.getLength(), secondType.getLength()));
     }
 
     private Optional<Type> getCommonSupperTypeForCovariantParametrizedType(Type firstType, Type secondType)
@@ -353,6 +369,8 @@ public final class TypeRegistry
                         return Optional.of(getType(new TypeSignature(resultTypeBase)));
                     case StandardTypes.VARCHAR:
                         return Optional.of(createVarcharType(0));
+                    case StandardTypes.CHAR:
+                        return Optional.of(createCharType(1));
                     case StandardTypes.DECIMAL:
                         return Optional.of(createDecimalType(1, 0));
                     default:
