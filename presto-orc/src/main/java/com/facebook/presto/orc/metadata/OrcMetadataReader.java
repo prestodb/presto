@@ -43,6 +43,8 @@ public class OrcMetadataReader
 {
     private static final Slice MAX_BYTE = Slices.wrappedBuffer(new byte[] { (byte) 0xFF });
 
+    private static final int PROTOBUF_MESSAGE_MAX_LIMIT = 1024 << 20; // 1GB
+
     @Override
     public PostScript readPostScript(byte[] data, int offset, int length)
             throws IOException
@@ -63,6 +65,7 @@ public class OrcMetadataReader
             throws IOException
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
+        input.setSizeLimit(PROTOBUF_MESSAGE_MAX_LIMIT);
         OrcProto.Metadata metadata = OrcProto.Metadata.parseFrom(input);
         return new Metadata(toStripeStatistics(metadata.getStripeStatsList()));
     }
@@ -82,6 +85,7 @@ public class OrcMetadataReader
             throws IOException
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
+        input.setSizeLimit(PROTOBUF_MESSAGE_MAX_LIMIT);
         OrcProto.Footer footer = OrcProto.Footer.parseFrom(input);
         return new Footer(
                 footer.getNumberOfRows(),
