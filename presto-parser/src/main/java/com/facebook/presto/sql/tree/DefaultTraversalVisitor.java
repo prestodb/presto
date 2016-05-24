@@ -462,18 +462,6 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitSimpleGroupBy(SimpleGroupBy node, C context)
-    {
-        visitGroupingElement(node, context);
-
-        for (Expression expression : node.getColumnExpressions()) {
-           process(expression, context);
-        }
-
-        return null;
-    }
-
-    @Override
     protected R visitInsert(Insert node, C context)
     {
         process(node.getQuery(), context);
