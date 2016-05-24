@@ -262,7 +262,7 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("-(unbound_long+1)", "-(unbound_long+1)");
         assertOptimizedEquals("-(1+1)", "-2");
         assertOptimizedEquals("-(1+ BIGINT '1')", "BIGINT '-2'");
-        assertOptimizedEquals("-(null)", "null");
+        assertOptimizedEquals("-(CAST(NULL AS BIGINT))", "null");
         assertOptimizedEquals("-(unbound_long+(1+1))", "-(unbound_long+2)");
     }
 
