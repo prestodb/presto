@@ -854,6 +854,22 @@ class AstBuilder
     }
 
     @Override
+    public Node visitAny(SqlBaseParser.AnyContext context)
+    {
+        Expression expression = new ComparisonExpression(
+                getLocation(context),
+                ComparisonExpression.Type.ANY,
+                (Expression) visit(context.value),
+                (Expression) visit(context.right));
+
+        if (context.NOT() != null) {
+            expression = new NotExpression(getLocation(context), expression);
+        }
+
+        return expression;
+    }
+
+    @Override
     public Node visitBetween(SqlBaseParser.BetweenContext context)
     {
         Expression expression = new BetweenPredicate(

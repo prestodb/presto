@@ -245,6 +245,7 @@ predicate[ParserRuleContext value]
     | NOT? LIKE pattern=valueExpression (ESCAPE escape=valueExpression)?  #like
     | IS NOT? NULL                                                        #nullPredicate
     | IS NOT? DISTINCT FROM right=valueExpression                         #distinctFrom
+    | NOT? (ANY|SOME) right=valueExpression                               #any
     ;
 
 valueExpression

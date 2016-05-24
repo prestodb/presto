@@ -135,6 +135,12 @@ public final class SortedRangeSet
     }
 
     @Override
+    public boolean isAny()
+    {
+        return false;
+    }
+
+    @Override
     public boolean isAll()
     {
         return lowIndexedRanges.size() == 1 && lowIndexedRanges.values().iterator().next().isAll();

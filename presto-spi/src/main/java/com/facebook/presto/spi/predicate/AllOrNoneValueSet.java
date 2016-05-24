@@ -64,6 +64,12 @@ public class AllOrNoneValueSet
     }
 
     @Override
+    public boolean isAny()
+    {
+        return false;
+    }
+
+    @Override
     @JsonProperty
     public boolean isAll()
     {

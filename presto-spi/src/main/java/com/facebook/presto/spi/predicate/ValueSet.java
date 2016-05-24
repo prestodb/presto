@@ -30,6 +30,7 @@ import static java.util.stream.Collectors.toList;
         @JsonSubTypes.Type(value = EquatableValueSet.class, name = "equatable"),
         @JsonSubTypes.Type(value = SortedRangeSet.class, name = "sortable"),
         @JsonSubTypes.Type(value = AllOrNoneValueSet.class, name = "allOrNone"),
+        @JsonSubTypes.Type(value = AnyValueSet.class, name = "any"),
 })
 public interface ValueSet
 {
@@ -53,6 +54,14 @@ public interface ValueSet
             return EquatableValueSet.all(type);
         }
         return AllOrNoneValueSet.all(type);
+    }
+
+    static ValueSet any(Type type, Object first, Object... rest)
+    {
+        if (type.isComparable()) {
+            return AnyValueSet.of(type, first, rest);
+        }
+        throw new IllegalArgumentException("Cannot create discrete ValueSet with non-comparable type: " + type);
     }
 
     static ValueSet of(Type type, Object first, Object... rest)
@@ -92,6 +101,8 @@ public interface ValueSet
     Type getType();
 
     boolean isNone();
+
+    boolean isAny();
 
     boolean isAll();
 

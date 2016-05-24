@@ -126,6 +126,12 @@ public class EquatableValueSet
     }
 
     @Override
+    public boolean isAny()
+    {
+        return false;
+    }
+
+    @Override
     public boolean isAll()
     {
         return !whiteList && entries.isEmpty();
