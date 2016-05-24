@@ -20,25 +20,33 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class SimplePagesHashStrategy
         implements PagesHashStrategy
 {
+    private static final Block[] EMPTY_BLOCK_ARRAY = new Block[0];
     private final List<Type> types;
     private final List<List<Block>> channels;
+    private final List<Block[]> channelArrays;
     private final List<Integer> hashChannels;
     private final List<Block> precomputedHashChannel;
+    private final Optional<JoinFilterFunction> filterFunction;
 
-    public SimplePagesHashStrategy(List<Type> types, List<List<Block>> channels, List<Integer> hashChannels, Optional<Integer> precomputedHashChannel)
+    public SimplePagesHashStrategy(List<Type> types, List<List<Block>> channels, List<Integer> hashChannels, Optional<Integer> precomputedHashChannel, Optional<JoinFilterFunction> filterFunction)
     {
+        this.filterFunction = filterFunction;
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.channels = ImmutableList.copyOf(requireNonNull(channels, "channels is null"));
+        channelArrays = buildChannelArrays(channels);
+
         checkArgument(types.size() == channels.size(), "Expected types and channels to be the same length");
         this.hashChannels = ImmutableList.copyOf(requireNonNull(hashChannels, "hashChannels is null"));
         if (precomputedHashChannel.isPresent()) {
@@ -47,6 +55,24 @@ public class SimplePagesHashStrategy
         else {
             this.precomputedHashChannel = null;
         }
+    }
+
+    private List<Block[]> buildChannelArrays(List<List<Block>> channels)
+    {
+        if (channels.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        int pagesCount = channels.get(0).size();
+        List<Block[]> channelArrays = new ArrayList<>();
+        for (int i = 0; i < pagesCount; ++i) {
+            Block[] blocks = new Block[channels.size()];
+            for (int j = 0; j < channels.size(); ++j) {
+                blocks[j] = channels.get(j).get(i);
+            }
+            channelArrays.add(blocks);
+        }
+        return channelArrays;
     }
 
     @Override
@@ -107,6 +133,7 @@ public class SimplePagesHashStrategy
     @Override
     public boolean rowEqualsRow(int leftPosition, Page leftPage, int rightPosition, Page rightPage)
     {
+        checkState(!filterFunction.isPresent(), "filterFunction not supported for rowEqualsRow");
         for (int i = 0; i < hashChannels.size(); i++) {
             int hashChannel = hashChannels.get(i);
             Type type = types.get(hashChannel);
@@ -135,13 +162,13 @@ public class SimplePagesHashStrategy
     }
 
     @Override
-    public boolean positionEqualsRow(int leftBlockIndex, int leftPosition, int rightPosition, Page page, int[] rightChannels)
+    public boolean positionEqualsRow(int leftBlockIndex, int leftPosition, int rightPosition, Page page, int[] rightHashChannels)
     {
         for (int i = 0; i < hashChannels.size(); i++) {
             int hashChannel = hashChannels.get(i);
             Type type = types.get(hashChannel);
             Block leftBlock = channels.get(hashChannel).get(leftBlockIndex);
-            Block rightBlock = page.getBlock(rightChannels[i]);
+            Block rightBlock = page.getBlock(rightHashChannels[i]);
             if (!TypeUtils.positionEqualsPosition(type, leftBlock, leftPosition, rightBlock, rightPosition)) {
                 return false;
             }
@@ -161,7 +188,18 @@ public class SimplePagesHashStrategy
                 return false;
             }
         }
-
         return true;
+    }
+
+    @Override
+    public Optional<JoinFilterFunction> getFilterFunction()
+    {
+        return filterFunction;
+    }
+
+    @Override
+    public boolean applyFilterFunction(int leftBlockIndex, int leftPosition, int rightPosition, Block[] allRightBlocks)
+    {
+        return filterFunction.get().filter(leftPosition, channelArrays.get(leftBlockIndex), rightPosition, allRightBlocks);
     }
 }

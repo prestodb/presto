@@ -1337,7 +1337,26 @@ class StatementAnalyzer
 
             for (Expression conjunct : ExpressionUtils.extractConjuncts((Expression) optimizedExpression)) {
                 conjunct = ExpressionUtils.normalize(conjunct);
-                if (conjunct instanceof ComparisonExpression) {
+
+                // in case of outer join we look for case when conjunct can be resolved using only inner side symbols.
+                // In such case it will be pushed to filter node on inner side of join by RelationPlanner
+                if (node.getType() == Join.Type.RIGHT) {
+                    Set<QualifiedName> names = DependencyExtractor.extractNames(conjunct, analyzer.getColumnReferences());
+                    if (names.stream().allMatch(left.canResolvePredicate())) {
+                        analyzeExpression(conjunct, left, context);
+                        continue;
+                    }
+                }
+                if (node.getType() == Join.Type.LEFT) {
+                    Set<QualifiedName> names = DependencyExtractor.extractNames(conjunct, analyzer.getColumnReferences());
+                    if (names.stream().allMatch(right.canResolvePredicate())) {
+                        analyzeExpression(conjunct, right, context);
+                        continue;
+                    }
+                }
+
+                if (conjunct instanceof ComparisonExpression
+                        && (((ComparisonExpression) conjunct).getType() == EQUAL || node.getType() == Join.Type.INNER)) {
                     Expression conjunctFirst = ((ComparisonExpression) conjunct).getLeft();
                     Expression conjunctSecond = ((ComparisonExpression) conjunct).getRight();
                     Set<QualifiedName> firstDependencies = DependencyExtractor.extractNames(conjunctFirst, analyzer.getColumnReferences());

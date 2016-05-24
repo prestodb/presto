@@ -436,6 +436,7 @@ public class TestSourcePartitionedScheduler
                                 null),
                         new RemoteSourceNode(new PlanNodeId("remote_id"), new PlanFragmentId("plan_fragment_id"), ImmutableList.of()),
                         ImmutableList.of(),
+                        Optional.empty(),
                         Optional.<Symbol>empty(),
                         Optional.<Symbol>empty()),
                 ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),

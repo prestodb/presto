@@ -14,13 +14,16 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -36,6 +39,7 @@ public final class SettableLookupSourceSupplier
     private final List<Type> types;
     private final boolean outer;
     private final SettableFuture<LookupSource> lookupSourceFuture = SettableFuture.create();
+    private final Map<Symbol, Integer> layout;
 
     @GuardedBy("this")
     private State state = State.NOT_SET;
@@ -43,9 +47,10 @@ public final class SettableLookupSourceSupplier
     @GuardedBy("this")
     private Runnable onDestroy;
 
-    public SettableLookupSourceSupplier(List<Type> types, boolean outer)
+    public SettableLookupSourceSupplier(List<Type> types, Map<Symbol, Integer> layout, boolean outer)
     {
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.layout = ImmutableMap.copyOf(requireNonNull(layout, "layout is null"));
         this.outer = outer;
     }
 
@@ -53,6 +58,12 @@ public final class SettableLookupSourceSupplier
     public List<Type> getTypes()
     {
         return types;
+    }
+
+    @Override
+    public Map<Symbol, Integer> getLayout()
+    {
+        return layout;
     }
 
     @Override
