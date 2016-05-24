@@ -11,9 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.scalar;
-
-import com.facebook.presto.metadata.OperatorType;
+package com.facebook.presto.operator.scalar.annotations;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -21,12 +19,14 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.PARAMETER})
-public @interface OperatorDependency
+@Target({ElementType.METHOD, ElementType.TYPE})
+public @interface ScalarFunction
 {
-    OperatorType operator();
+    String value() default "";
 
-    String returnType();
+    String[] alias() default {};
 
-    String[] argumentTypes();
+    boolean hidden() default false;
+
+    boolean deterministic() default true;
 }
