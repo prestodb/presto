@@ -14,6 +14,8 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.OperatorType;
+import com.facebook.presto.operator.scalar.annotations.ScalarFunction;
+import com.facebook.presto.operator.scalar.annotations.ScalarOperator;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
