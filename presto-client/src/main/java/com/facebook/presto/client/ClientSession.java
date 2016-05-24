@@ -100,9 +100,6 @@ public class ClientSession
 
     public static ClientSession withPreparedStatements(ClientSession session, Map<String, String> preparedStatements)
     {
-        Map<String, String> sessionStatements = new HashMap<>(session.getPreparedStatements());
-        sessionStatements.putAll(preparedStatements);
-
         return new ClientSession(
                 session.getServer(),
                 session.getUser(),

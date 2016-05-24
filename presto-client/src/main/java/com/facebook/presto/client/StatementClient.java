@@ -29,7 +29,10 @@ import io.airlift.units.Duration;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.Closeable;
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -142,7 +145,7 @@ public class StatementClient
 
         Map<String, String> statements = session.getPreparedStatements();
         for (Entry<String, String> entry : statements.entrySet()) {
-            builder.addHeader(PrestoHeaders.PRESTO_PREPARED_STATEMENT, entry.getKey() + "=" + entry.getValue());
+            builder.addHeader(PrestoHeaders.PRESTO_PREPARED_STATEMENT, urlEncode(entry.getKey()) + "=" + urlEncode(entry.getValue()));
         }
 
         builder.setHeader(PrestoHeaders.PRESTO_TRANSACTION_ID, session.getTransactionId() == null ? "NONE" : session.getTransactionId());
@@ -315,10 +318,10 @@ public class StatementClient
             if (keyValue.size() != 2) {
                 continue;
             }
-            addedPreparedStatements.put(keyValue.get(0), keyValue.get(1));
+            addedPreparedStatements.put(urlDecode(keyValue.get(0)), urlDecode(keyValue.get(1)));
         }
         for (String entry : response.getHeaders(PRESTO_DEALLOCATED_PREPARE)) {
-            deallocatedPreparedStatements.add(entry);
+            deallocatedPreparedStatements.add(urlDecode(entry));
         }
 
         String startedTransactionId = response.getHeader(PRESTO_STARTED_TRANSACTION_ID);
@@ -380,6 +383,26 @@ public class StatementClient
                 Request request = prepareRequest(prepareDelete(), uri).build();
                 httpClient.executeAsync(request, createStatusResponseHandler());
             }
+        }
+    }
+
+    public static String urlEncode(String string)
+    {
+        try {
+            return URLEncoder.encode(string, "UTF-8");
+        }
+        catch (UnsupportedEncodingException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    public static String urlDecode(String string)
+    {
+        try {
+            return URLDecoder.decode(string, "UTF-8");
+        }
+        catch (UnsupportedEncodingException e) {
+            throw new AssertionError(e);
         }
     }
 }
