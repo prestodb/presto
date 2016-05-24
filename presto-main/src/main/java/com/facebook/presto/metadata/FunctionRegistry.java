@@ -187,6 +187,11 @@ import static com.facebook.presto.operator.scalar.ArrayToArrayCast.ARRAY_TO_ARRA
 import static com.facebook.presto.operator.scalar.ArrayToElementConcatFunction.ARRAY_TO_ELEMENT_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArrayToJsonCast.ARRAY_TO_JSON;
 import static com.facebook.presto.operator.scalar.CastFromUnknownOperator.CAST_FROM_UNKNOWN;
+import static com.facebook.presto.operator.scalar.CharacterStringCasts.CHAR_TO_CHAR_CAST;
+import static com.facebook.presto.operator.scalar.CharacterStringCasts.CHAR_TO_VARCHAR_CAST;
+import static com.facebook.presto.operator.scalar.CharacterStringCasts.VARCHAR_TO_CHAR_CAST;
+import static com.facebook.presto.operator.scalar.CharacterStringCasts.VARCHAR_TO_CHAR_SATURATED_FLOOR_CAST;
+import static com.facebook.presto.operator.scalar.CharacterStringCasts.VARCHAR_TO_VARCHAR_CAST;
 import static com.facebook.presto.operator.scalar.ConcatFunction.CONCAT;
 import static com.facebook.presto.operator.scalar.ElementToArrayConcatFunction.ELEMENT_TO_ARRAY_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.Greatest.GREATEST;
@@ -205,7 +210,6 @@ import static com.facebook.presto.operator.scalar.RowNotEqualOperator.ROW_NOT_EQ
 import static com.facebook.presto.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static com.facebook.presto.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
 import static com.facebook.presto.operator.scalar.TryCastFunction.TRY_CAST;
-import static com.facebook.presto.operator.scalar.VarcharToVarcharCast.VARCHAR_TO_VARCHAR_CAST;
 import static com.facebook.presto.operator.scalar.ZipFunction.ZIP_FUNCTIONS;
 import static com.facebook.presto.operator.window.AggregateWindowFunction.supplier;
 import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
@@ -444,7 +448,7 @@ public class FunctionRegistry
                 .function(DECIMAL_BETWEEN_OPERATOR)
                 .function(HISTOGRAM)
                 .function(CHECKSUM_AGGREGATION)
-                .function(VARCHAR_TO_VARCHAR_CAST)
+                .functions(VARCHAR_TO_VARCHAR_CAST, CHAR_TO_CHAR_CAST, CHAR_TO_VARCHAR_CAST, VARCHAR_TO_CHAR_CAST, VARCHAR_TO_CHAR_SATURATED_FLOOR_CAST)
                 .function(IDENTITY_CAST)
                 .function(ARBITRARY_AGGREGATION)
                 .function(ARRAY_AGGREGATION)

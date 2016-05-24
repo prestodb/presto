@@ -19,6 +19,7 @@ import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
@@ -37,6 +38,7 @@ import java.util.Set;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
 import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
+import static com.facebook.presto.spi.type.StandardTypes.CHAR;
 import static com.facebook.presto.spi.type.StandardTypes.DATE;
 import static com.facebook.presto.spi.type.StandardTypes.DECIMAL;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
@@ -306,6 +308,8 @@ public class QueryResults
             case INTERVAL_DAY_TO_SECOND:
             case DECIMAL:
                 return String.class.cast(value);
+            case CHAR:
+                return Strings.padEnd(String.class.cast(value), getCharTypeLength(signature), ' ');
             default:
                 // for now we assume that only the explicit types above are passed
                 // as a plain text and everything else is base64 encoded binary
@@ -314,5 +318,10 @@ public class QueryResults
                 }
                 return value;
         }
+    }
+
+    private static int getCharTypeLength(TypeSignature signature)
+    {
+        return signature.getParameters().get(0).getLongLiteral().intValue();
     }
 }

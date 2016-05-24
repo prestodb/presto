@@ -27,6 +27,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -65,6 +66,12 @@ public class TestTypeRegistry
 
         assertTrue(isTypeOnlyCoercion("array(varchar(42))", "array(varchar(44))"));
         assertFalse(isTypeOnlyCoercion("array(varchar(44))", "array(varchar(42))"));
+
+        assertTrue(isTypeOnlyCoercion("char(42)", "char(44)"));
+        assertFalse(isTypeOnlyCoercion("char(44)", "char(42)"));
+
+        assertTrue(isTypeOnlyCoercion("array(char(42))", "array(char(44))"));
+        assertFalse(isTypeOnlyCoercion("array(char(44))", "array(char(42))"));
 
         assertTrue(isTypeOnlyCoercion("decimal(22,1)", "decimal(23,1)"));
         assertTrue(isTypeOnlyCoercion("decimal(2,1)", "decimal(3,1)"));
@@ -255,6 +262,8 @@ public class TestTypeRegistry
         builder.add(createDecimalType(38, 38));
         builder.add(createVarcharType(0));
         builder.add(createUnboundedVarcharType());
+        builder.add(createCharType(1));
+        builder.add(createCharType(42));
         return builder.build();
     }
 

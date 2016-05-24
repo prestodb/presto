@@ -43,6 +43,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -182,6 +183,9 @@ public class TestingPrestoClient
             return ((Number) value).doubleValue();
         }
         else if (type instanceof VarcharType) {
+            return value;
+        }
+        else if (isCharType(type)) {
             return value;
         }
         else if (VARBINARY.equals(type)) {
