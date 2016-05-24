@@ -202,8 +202,6 @@ class StatementAnalyzer
 
         analysis.setUpdateType("INSERT");
 
-        analysis.setStatement(insert);
-
         // verify the insert destination columns match the query
         Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
         if (!targetTableHandle.isPresent()) {
@@ -299,8 +297,6 @@ class StatementAnalyzer
 
         analysis.setUpdateType("DELETE");
 
-        analysis.setStatement(node);
-
         accessControl.checkCanDeleteFromTable(session.getRequiredTransactionId(), session.getIdentity(), tableName);
 
         return new RelationType(Field.newUnqualified("rows", BIGINT));
@@ -319,7 +315,6 @@ class StatementAnalyzer
         if (targetTableHandle.isPresent()) {
             if (node.isNotExists()) {
                 analysis.setCreateTableAsSelectNoOp(true);
-                analysis.setStatement(node);
                 return new RelationType(Field.newUnqualified("rows", BIGINT));
             }
             throw new SemanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
@@ -338,8 +333,6 @@ class StatementAnalyzer
 
         // analyze the query that creates the table
         RelationType descriptor = process(node.getQuery(), context);
-
-        analysis.setStatement(node);
 
         validateColumns(node, descriptor);
 
@@ -398,7 +391,6 @@ class StatementAnalyzer
             throw new SemanticException(NOT_SUPPORTED, node, "EXPLAIN ANALYZE only supports TYPE DISTRIBUTED option");
         }
         process(node.getStatement(), context);
-        analysis.setStatement(node);
         analysis.setUpdateType(null);
         RelationType type = new RelationType(Field.newUnqualified("Query Plan", VARCHAR));
         analysis.setOutputDescriptor(node, type);
@@ -425,7 +417,6 @@ class StatementAnalyzer
         // Input fields == Output fields
         analysis.setOutputDescriptor(node, descriptor);
         analysis.setOutputExpressions(node, descriptorToFields(descriptor, context));
-        analysis.setStatement(node);
 
         return descriptor;
     }
