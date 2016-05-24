@@ -18,7 +18,6 @@ import io.airlift.units.Duration;
 
 import java.net.URI;
 import java.nio.charset.CharsetEncoder;
-import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -55,26 +54,6 @@ public class ClientSession
                 session.getTimeZoneId(),
                 session.getLocale(),
                 session.getProperties(),
-                session.getPreparedStatements(),
-                session.getTransactionId(),
-                session.isDebug(),
-                session.getClientRequestTimeout());
-    }
-
-    public static ClientSession withSessionProperties(ClientSession session, Map<String, String> sessionProperties)
-    {
-        Map<String, String> properties = new HashMap<>(session.getProperties());
-        properties.putAll(sessionProperties);
-
-        return new ClientSession(
-                session.getServer(),
-                session.getUser(),
-                session.getSource(),
-                session.getCatalog(),
-                session.getSchema(),
-                session.getTimeZoneId(),
-                session.getLocale(),
-                properties,
                 session.getPreparedStatements(),
                 session.getTransactionId(),
                 session.isDebug(),
