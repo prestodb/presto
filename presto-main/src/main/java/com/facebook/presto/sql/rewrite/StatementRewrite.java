@@ -16,31 +16,34 @@ package com.facebook.presto.sql.rewrite;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public final class StatementRewrite
 {
     private static final List<Rewrite> REWRITES = ImmutableList.of(
-            new ShowQueriesRewrite());
+            new ShowQueriesRewrite(),
+            new ExplainRewrite());
 
     private StatementRewrite() {}
 
-    public static Statement rewrite(Session session, Metadata metadata, SqlParser parser, Statement node)
+    public static Statement rewrite(Session session, Metadata metadata, SqlParser parser, Optional<QueryExplainer> queryExplainer, Statement node)
     {
         for (Rewrite rewrite : REWRITES) {
-            node = requireNonNull(rewrite.rewrite(session, metadata, parser, node), "Statement rewrite returned null");
+            node = requireNonNull(rewrite.rewrite(session, metadata, parser, queryExplainer, node), "Statement rewrite returned null");
         }
         return node;
     }
 
     interface Rewrite
     {
-        Statement rewrite(Session session, Metadata metadata, SqlParser parser, Statement node);
+        Statement rewrite(Session session, Metadata metadata, SqlParser parser, Optional<QueryExplainer> queryExplainer, Statement node);
     }
 }
