@@ -957,6 +957,7 @@
                             <includeTestSourceDirectory>true</includeTestSourceDirectory>
                             <configLocation>${air.main.basedir}/src/checkstyle/checks.xml</configLocation>
                             <excludes>**/com/facebook/presto/operator/PagesIndexOrdering.java</excludes>
+                            <suppressionsLocation>${air.main.basedir}/src/checkstyle/suppressions.xml</suppressionsLocation>
                         </configuration>
                     </execution>
                 </executions>
