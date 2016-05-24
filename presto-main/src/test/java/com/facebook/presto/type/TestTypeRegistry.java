@@ -13,8 +13,13 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
@@ -225,15 +230,33 @@ public class TestTypeRegistry
             throws Exception
     {
         Set<Type> types = getStandardPrimitiveTypes();
-        for (Type sourceType : types) {
+        for (Type transitiveType : types) {
             for (Type resultType : types) {
-                if (typeRegistry.canCoerce(sourceType, resultType)) {
-                    for (Type transitiveType : types) {
-                        if (typeRegistry.canCoerce(transitiveType, sourceType) && !typeRegistry.canCoerce(transitiveType, resultType)) {
-                            fail(format("'%s' -> '%s' coercion is missing when transitive coercion is possible: '%s' -> '%s' -> '%s'",
-                                    transitiveType, resultType, transitiveType, sourceType, resultType));
+                if (typeRegistry.canCoerce(transitiveType, resultType)) {
+                    for (Type sourceType : types) {
+                        if (typeRegistry.canCoerce(sourceType, transitiveType)) {
+                            if (!typeRegistry.canCoerce(sourceType, resultType)) {
+                                fail(format("'%s' -> '%s' coercion is missing when transitive coercion is possible: '%s' -> '%s' -> '%s'",
+                                        sourceType, resultType, sourceType, transitiveType, resultType));
+                            }
                         }
                     }
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testCastOperatorsExistForCoercions()
+    {
+        FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig().setExperimentalSyntaxEnabled(true));
+
+        Set<Type> types = getStandardPrimitiveTypes();
+        for (Type sourceType : types) {
+            for (Type resultType : types) {
+                if (typeRegistry.canCoerce(sourceType, resultType) && sourceType != UNKNOWN && resultType != UNKNOWN) {
+                    assertTrue(functionRegistry.canResolveOperator(OperatorType.CAST, resultType, ImmutableList.of(sourceType)),
+                            format("'%s' -> '%s' coercion exists but there is no cast operator", sourceType, resultType));
                 }
             }
         }
