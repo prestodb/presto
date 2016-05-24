@@ -21,6 +21,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.JoniRegexpType;
+import com.facebook.presto.type.LiteralParameters;
 import com.facebook.presto.type.SqlType;
 import com.google.common.primitives.Ints;
 import io.airlift.jcodings.specific.NonStrictUTF8Encoding;
@@ -51,7 +52,20 @@ public final class JoniRegexpFunctions
 
     @ScalarOperator(OperatorType.CAST)
     @SqlType(JoniRegexpType.NAME)
-    public static Regex castToRegexp(@SqlType(StandardTypes.VARCHAR) Slice pattern)
+    public static Regex castVarcharToJoniRegexp(@SqlType(StandardTypes.VARCHAR) Slice pattern)
+    {
+        return joniRegexp(pattern);
+    }
+
+    @ScalarOperator(OperatorType.CAST)
+    @LiteralParameters("x")
+    @SqlType(JoniRegexpType.NAME)
+    public static Regex castCharToJoniRegexp(@SqlType("char(x)") Slice pattern)
+    {
+        return joniRegexp(pattern);
+    }
+
+    public static Regex joniRegexp(Slice pattern)
     {
         Regex regex;
         try {

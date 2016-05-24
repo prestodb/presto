@@ -21,6 +21,7 @@ import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.JsonPathType;
+import com.facebook.presto.type.LiteralParameters;
 import com.facebook.presto.type.SqlType;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
@@ -68,7 +69,15 @@ public final class JsonFunctions
 
     @ScalarOperator(OperatorType.CAST)
     @SqlType(JsonPathType.NAME)
-    public static JsonPath castToJsonPath(@SqlType(StandardTypes.VARCHAR) Slice pattern)
+    public static JsonPath castVarcharToJsonPath(@SqlType(StandardTypes.VARCHAR) Slice pattern)
+    {
+        return new JsonPath(pattern.toStringUtf8());
+    }
+
+    @ScalarOperator(OperatorType.CAST)
+    @LiteralParameters("x")
+    @SqlType(JsonPathType.NAME)
+    public static JsonPath castCharToJsonPath(@SqlType("char(x)") Slice pattern)
     {
         return new JsonPath(pattern.toStringUtf8());
     }
