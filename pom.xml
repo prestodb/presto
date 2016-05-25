@@ -970,6 +970,12 @@
                             <consoleOutput>true</consoleOutput>
                             <includeTestSourceDirectory>true</includeTestSourceDirectory>
                             <configLocation>${air.main.basedir}/src/checkstyle/checks.xml</configLocation>
+                            <sourceDirectories>
+                                <directory>${project.build.sourceDirectory}</directory>
+                            </sourceDirectories>
+                            <testSourceDirectories>
+                                <directory>${project.build.testSourceDirectory}</directory>
+                            </testSourceDirectories>
                         </configuration>
                     </execution>
                 </executions>
