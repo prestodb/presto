@@ -18,7 +18,6 @@ import io.airlift.units.Duration;
 
 import java.net.URI;
 import java.nio.charset.CharsetEncoder;
-import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -26,6 +25,7 @@ import java.util.Map.Entry;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.US_ASCII;
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public class ClientSession
@@ -38,6 +38,7 @@ public class ClientSession
     private final String timeZoneId;
     private final Locale locale;
     private final Map<String, String> properties;
+    private final Map<String, String> preparedStatements;
     private final String transactionId;
     private final boolean debug;
     private final Duration clientRequestTimeout;
@@ -53,25 +54,7 @@ public class ClientSession
                 session.getTimeZoneId(),
                 session.getLocale(),
                 session.getProperties(),
-                session.getTransactionId(),
-                session.isDebug(),
-                session.getClientRequestTimeout());
-    }
-
-    public static ClientSession withSessionProperties(ClientSession session, Map<String, String> sessionProperties)
-    {
-        Map<String, String> properties = new HashMap<>(session.getProperties());
-        properties.putAll(sessionProperties);
-
-        return new ClientSession(
-                session.getServer(),
-                session.getUser(),
-                session.getSource(),
-                session.getCatalog(),
-                session.getSchema(),
-                session.getTimeZoneId(),
-                session.getLocale(),
-                properties,
+                session.getPreparedStatements(),
                 session.getTransactionId(),
                 session.isDebug(),
                 session.getClientRequestTimeout());
@@ -88,6 +71,24 @@ public class ClientSession
                 session.getTimeZoneId(),
                 session.getLocale(),
                 properties,
+                session.getPreparedStatements(),
+                session.getTransactionId(),
+                session.isDebug(),
+                session.getClientRequestTimeout());
+    }
+
+    public static ClientSession withPreparedStatements(ClientSession session, Map<String, String> preparedStatements)
+    {
+        return new ClientSession(
+                session.getServer(),
+                session.getUser(),
+                session.getSource(),
+                session.getCatalog(),
+                session.getSchema(),
+                session.getTimeZoneId(),
+                session.getLocale(),
+                session.getProperties(),
+                preparedStatements,
                 session.getTransactionId(),
                 session.isDebug(),
                 session.getClientRequestTimeout());
@@ -104,6 +105,7 @@ public class ClientSession
                 session.getTimeZoneId(),
                 session.getLocale(),
                 session.getProperties(),
+                session.getPreparedStatements(),
                 transactionId,
                 session.isDebug(),
                 session.getClientRequestTimeout());
@@ -120,12 +122,18 @@ public class ClientSession
                 session.getTimeZoneId(),
                 session.getLocale(),
                 session.getProperties(),
+                session.getPreparedStatements(),
                 null,
                 session.isDebug(),
                 session.getClientRequestTimeout());
     }
 
     public ClientSession(URI server, String user, String source, String catalog, String schema, String timeZoneId, Locale locale, Map<String, String> properties, String transactionId, boolean debug, Duration clientRequestTimeout)
+    {
+        this(server, user, source, catalog, schema, timeZoneId, locale, properties, emptyMap(), transactionId, debug, clientRequestTimeout);
+    }
+
+    public ClientSession(URI server, String user, String source, String catalog, String schema, String timeZoneId, Locale locale, Map<String, String> properties, Map<String, String> preparedStatements, String transactionId, boolean debug, Duration clientRequestTimeout)
     {
         this.server = requireNonNull(server, "server is null");
         this.user = user;
@@ -137,6 +145,7 @@ public class ClientSession
         this.transactionId = transactionId;
         this.debug = debug;
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
+        this.preparedStatements = ImmutableMap.copyOf(requireNonNull(preparedStatements, "preparedStatements is null"));
         this.clientRequestTimeout = clientRequestTimeout;
 
         // verify the properties are valid
@@ -187,6 +196,11 @@ public class ClientSession
     public Map<String, String> getProperties()
     {
         return properties;
+    }
+
+    public Map<String, String> getPreparedStatements()
+    {
+        return preparedStatements;
     }
 
     public String getTransactionId()

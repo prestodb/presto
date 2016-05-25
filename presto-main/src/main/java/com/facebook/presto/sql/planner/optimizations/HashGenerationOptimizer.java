@@ -289,6 +289,7 @@ public class HashGenerationOptimizer
                                 left.getNode(),
                                 right.getNode(),
                                 node.getCriteria(),
+                                node.getFilter(),
                                 Optional.empty(),
                                 Optional.empty()),
                         allHashSymbols);
@@ -322,6 +323,7 @@ public class HashGenerationOptimizer
                             left.getNode(),
                             right.getNode(),
                             node.getCriteria(),
+                            node.getFilter(),
                             Optional.of(leftHashSymbol),
                             Optional.of(rightHashSymbol)),
                     allHashSymbols);

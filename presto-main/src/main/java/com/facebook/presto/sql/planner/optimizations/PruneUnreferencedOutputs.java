@@ -64,6 +64,7 @@ import com.google.common.collect.Sets;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -172,11 +173,20 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitJoin(JoinNode node, RewriteContext<Set<Symbol>> context)
         {
+            Set<Symbol> expectedFilterInputs = new HashSet<>();
+            if (node.getFilter().isPresent()) {
+                expectedFilterInputs = ImmutableSet.<Symbol>builder()
+                        .addAll(DependencyExtractor.extractUnique(node.getFilter().get()))
+                        .addAll(context.get())
+                        .build();
+            }
+
             ImmutableSet.Builder<Symbol> leftInputsBuilder = ImmutableSet.builder();
             leftInputsBuilder.addAll(context.get()).addAll(Iterables.transform(node.getCriteria(), JoinNode.EquiJoinClause::getLeft));
             if (node.getLeftHashSymbol().isPresent()) {
                 leftInputsBuilder.add(node.getLeftHashSymbol().get());
             }
+            leftInputsBuilder.addAll(expectedFilterInputs);
             Set<Symbol> leftInputs = leftInputsBuilder.build();
 
             ImmutableSet.Builder<Symbol> rightInputsBuilder = ImmutableSet.builder();
@@ -184,13 +194,13 @@ public class PruneUnreferencedOutputs
             if (node.getRightHashSymbol().isPresent()) {
                 rightInputsBuilder.add(node.getRightHashSymbol().get());
             }
-
+            rightInputsBuilder.addAll(expectedFilterInputs);
             Set<Symbol> rightInputs = rightInputsBuilder.build();
 
             PlanNode left = context.rewrite(node.getLeft(), leftInputs);
             PlanNode right = context.rewrite(node.getRight(), rightInputs);
 
-            return new JoinNode(node.getId(), node.getType(), left, right, node.getCriteria(), node.getLeftHashSymbol(), node.getRightHashSymbol());
+            return new JoinNode(node.getId(), node.getType(), left, right, node.getCriteria(), node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol());
         }
 
         @Override

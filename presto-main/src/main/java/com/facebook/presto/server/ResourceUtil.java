@@ -40,6 +40,7 @@ import javax.ws.rs.core.Response.Status;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.security.Principal;
 import java.util.Collection;
 import java.util.Collections;
@@ -222,11 +223,8 @@ final class ResourceUtil
         String statementName;
         String sqlString;
         try {
-            statementName = URLDecoder.decode(nameValue.get(0), "UTF-8");
-            sqlString = URLDecoder.decode(nameValue.get(1), "UTF-8");
-        }
-        catch (UnsupportedEncodingException e) {
-            throw new AssertionError(e);
+            statementName = urlDecode(nameValue.get(0));
+            sqlString = urlDecode(nameValue.get(1));
         }
         catch (IllegalArgumentException e) {
             throw badRequest(format("Invalid %s header: %s", PRESTO_PREPARED_STATEMENT, e.getMessage()));
@@ -279,5 +277,25 @@ final class ResourceUtil
     private static String trimEmptyToNull(String value)
     {
         return emptyToNull(nullToEmpty(value).trim());
+    }
+
+    public static String urlEncode(String value)
+    {
+        try {
+            return URLEncoder.encode(value, "UTF-8");
+        }
+        catch (UnsupportedEncodingException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    public static String urlDecode(String value)
+    {
+        try {
+            return URLDecoder.decode(value, "UTF-8");
+        }
+        catch (UnsupportedEncodingException e) {
+            throw new AssertionError(e);
+        }
     }
 }

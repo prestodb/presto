@@ -76,9 +76,7 @@ import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
-import java.io.UnsupportedEncodingException;
 import java.net.URI;
-import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -101,6 +99,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
 import static com.facebook.presto.server.ResourceUtil.assertRequest;
 import static com.facebook.presto.server.ResourceUtil.createSessionForRequest;
+import static com.facebook.presto.server.ResourceUtil.urlEncode;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.toErrorType;
 import static com.facebook.presto.util.Failures.toFailure;
@@ -217,25 +216,14 @@ public class StatementResource
 
         // add added prepare statements
         for (Entry<String, String> entry : query.getAddedPreparedStatements().entrySet()) {
-            try {
-                String encodedKey = URLEncoder.encode(entry.getKey(), "UTF-8");
-                String encodedValue = URLEncoder.encode(entry.getValue(), "UTF-8");
-                response.header(PRESTO_ADDED_PREPARE, encodedKey + '=' + encodedValue);
-            }
-            catch (UnsupportedEncodingException e) {
-                throw new AssertionError(e);
-            }
+            String encodedKey = urlEncode(entry.getKey());
+            String encodedValue = urlEncode(entry.getValue());
+            response.header(PRESTO_ADDED_PREPARE, encodedKey + '=' + encodedValue);
         }
 
         // add deallocated prepare statements
         for (String name : query.getDeallocatedPreparedStatements()) {
-            try {
-                String encodedName = URLEncoder.encode(name, "UTF-8");
-                response.header(PRESTO_DEALLOCATED_PREPARE, encodedName);
-            }
-            catch (UnsupportedEncodingException e) {
-                throw new AssertionError(e);
-            }
+            response.header(PRESTO_DEALLOCATED_PREPARE, urlEncode(name));
         }
 
         // add new transaction ID

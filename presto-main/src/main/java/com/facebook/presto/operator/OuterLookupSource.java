@@ -55,21 +55,21 @@ public final class OuterLookupSource
     }
 
     @Override
-    public long getJoinPosition(int position, Page page, long rawHash)
+    public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage, long rawHash)
     {
-        return lookupSource.getJoinPosition(position, page, rawHash);
+        return lookupSource.getJoinPosition(position, hashChannelsPage, allChannelsPage, rawHash);
     }
 
     @Override
-    public long getJoinPosition(int position, Page page)
+    public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage)
     {
-        return lookupSource.getJoinPosition(position, page);
+        return lookupSource.getJoinPosition(position, hashChannelsPage, allChannelsPage);
     }
 
     @Override
-    public long getNextJoinPosition(long currentPosition)
+    public long getNextJoinPosition(long currentJoinPosition, int probePosition, Page allProbeChannelsPage)
     {
-        return lookupSource.getNextJoinPosition(currentPosition);
+        return lookupSource.getNextJoinPosition(currentJoinPosition, probePosition, allProbeChannelsPage);
     }
 
     @Override

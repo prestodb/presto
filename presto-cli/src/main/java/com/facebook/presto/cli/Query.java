@@ -72,6 +72,16 @@ public class Query
         return client.getResetSessionProperties();
     }
 
+    public Map<String, String> getAddedPreparedStatements()
+    {
+        return client.getAddedPreparedStatements();
+    }
+
+    public Set<String> getDeallocatedPreparedStatements()
+    {
+        return client.getDeallocatedPreparedStatements();
+    }
+
     public String getStartedTransactionId()
     {
         return client.getStartedtransactionId();

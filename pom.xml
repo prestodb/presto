@@ -167,6 +167,12 @@
             </dependency>
 
             <dependency>
+                <groupId>com.teradata</groupId>
+                <artifactId>re2j-td</artifactId>
+                <version>1.4</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-tpch</artifactId>
                 <version>${project.version}</version>
@@ -956,7 +962,6 @@
                             <consoleOutput>true</consoleOutput>
                             <includeTestSourceDirectory>true</includeTestSourceDirectory>
                             <configLocation>${air.main.basedir}/src/checkstyle/checks.xml</configLocation>
-                            <excludes>**/com/facebook/presto/operator/PagesIndexOrdering.java</excludes>
                             <suppressionsLocation>${air.main.basedir}/src/checkstyle/suppressions.xml</suppressionsLocation>
                         </configuration>
                     </execution>
