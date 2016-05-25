@@ -196,6 +196,8 @@ Specifier Description
 ``%x``    ``x``, for any ``x`` not listed above
 ========= ===========
 
+.. warning:: Two-digit year format assumes range 1970 .. 2069, so "70" will result in year 1970 but "69" will produce 2069.
+
 .. warning:: The following specifiers are not currently supported: ``%D %U %u %V %X``
 
 .. function:: date_format(timestamp, format) -> varchar

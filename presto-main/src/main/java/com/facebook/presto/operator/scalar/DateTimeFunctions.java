@@ -76,6 +76,7 @@ public final class DateTimeFunctions
     private static final int MILLISECONDS_IN_MINUTE = 60 * MILLISECONDS_IN_SECOND;
     private static final int MILLISECONDS_IN_HOUR = 60 * MILLISECONDS_IN_MINUTE;
     private static final int MILLISECONDS_IN_DAY = 24 * MILLISECONDS_IN_HOUR;
+    private static final int PIVOT_YEAR = 2020; // yy = 70 will correspond to 1970 but 69 to 2069
 
     private DateTimeFunctions() {}
 
@@ -1006,7 +1007,7 @@ public final class DateTimeFunctions
                         builder.appendYear(4, 4);
                         break;
                     case 'y': // %y Year, numeric (two digits)
-                        builder.appendYearOfCentury(2, 2);
+                        builder.appendTwoDigitYear(PIVOT_YEAR);
                         break;
                     case 'U': // %U Week (00..53), where Sunday is the first day of the week
                     case 'u': // %u Week (00..53), where Monday is the first day of the week
