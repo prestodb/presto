@@ -465,6 +465,10 @@ public final class MathFunctions
     @SqlType(StandardTypes.DOUBLE)
     public static double round(@SqlType(StandardTypes.DOUBLE) double num, @SqlType(StandardTypes.BIGINT) long decimals)
     {
+        if (num == 0x1.fffffffffffffp-2 && decimals == 0) {
+            return 0.0;
+        }
+
         if (num == 0.0) {
             return 0;
         }

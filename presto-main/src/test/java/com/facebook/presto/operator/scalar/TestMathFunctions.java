@@ -34,6 +34,7 @@ public class TestMathFunctions
     private static final int[] intRights = {3, -3};
     private static final double[] doubleLefts = {9, 10, 11, -9, -10, -11, 9.1, 10.1, 11.1, -9.1, -10.1, -11.1};
     private static final double[] doubleRights = {3, -3, 3.1, -3.1};
+    private static final double GREATEST_DOUBLE_LESS_THAN_HALF = 0x1.fffffffffffffp-2;
 
     @Test
     public void testAbs()
@@ -442,6 +443,9 @@ public class TestMathFunctions
         assertFunction("round(-3.5001)", DOUBLE, -4.0);
         assertFunction("round(-3.99)", DOUBLE, -4.0);
         assertFunction("round(CAST(NULL as DOUBLE))", DOUBLE, null);
+        assertFunction("round(" + GREATEST_DOUBLE_LESS_THAN_HALF + ")", DOUBLE, 0.0);
+        assertFunction("round(-" + 0x1p-1 + ")", DOUBLE, 0.0); // -0.5
+        assertFunction("round(-" + GREATEST_DOUBLE_LESS_THAN_HALF + ")", DOUBLE, 0.0);
 
         assertFunction("round(3, 0)", INTEGER, 3);
         assertFunction("round(-3, 0)", INTEGER, -3);
@@ -457,6 +461,9 @@ public class TestMathFunctions
         assertFunction("round(-3.5, 0)", DOUBLE, -4.0);
         assertFunction("round(-3.5001, 0)", DOUBLE, -4.0);
         assertFunction("round(-3.99, 0)", DOUBLE, -4.0);
+        assertFunction("round(" + GREATEST_DOUBLE_LESS_THAN_HALF + ", 0)", DOUBLE, 0.0);
+        assertFunction("round(-" + 0x1p-1 + ")", DOUBLE, 0.0); // -0.5
+        assertFunction("round(-" + GREATEST_DOUBLE_LESS_THAN_HALF + ", 0)", DOUBLE, 0.0);
 
         assertFunction("round(3, 1)", INTEGER, 3);
         assertFunction("round(-3, 1)", INTEGER, -3);
