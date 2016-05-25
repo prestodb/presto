@@ -966,6 +966,12 @@ public class ExpressionAnalyzer
             throw new SemanticException(NOT_SUPPORTED, node, "not yet implemented: " + node.getClass().getName());
         }
 
+        @Override
+        protected Type visitNode(Node node, StackableAstVisitorContext<AnalysisContext> context)
+        {
+            throw new SemanticException(NOT_SUPPORTED, node, "not yet implemented: " + node.getClass().getName());
+        }
+
         private Type getOperator(StackableAstVisitorContext<AnalysisContext> context, Expression node, OperatorType operatorType, Expression... arguments)
         {
             ImmutableList.Builder<Type> argumentTypes = ImmutableList.builder();
