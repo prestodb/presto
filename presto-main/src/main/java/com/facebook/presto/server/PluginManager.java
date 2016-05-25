@@ -63,12 +63,14 @@ import static java.util.Objects.requireNonNull;
 public class PluginManager
 {
     private static final List<String> HIDDEN_CLASSES = ImmutableList.<String>builder()
+            .add("com.fasterxml.jackson.databind")
+            .add("com.fasterxml.jackson.core")
             .add("org.slf4j")
             .build();
 
     private static final ImmutableList<String> PARENT_FIRST_CLASSES = ImmutableList.<String>builder()
             .add("com.facebook.presto")
-            .add("com.fasterxml.jackson")
+            .add("com.fasterxml.jackson.annotation")
             .add("io.airlift.slice")
             .add("javax.inject")
             .add("javax.annotation")
