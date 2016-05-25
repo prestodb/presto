@@ -60,7 +60,6 @@ import com.google.common.collect.Iterables;
 
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -390,7 +389,7 @@ class QueryPlanner
         List<List<Symbol>> groupingSetsSymbols = groupingSetsSymbolsBuilder.build();
         if (groupingSets.size() > 1) {
             ImmutableMap.Builder<Symbol, Symbol> identityMapping = ImmutableMap.builder();
-            for (Expression argument : arguments) {
+            for (Expression argument : ImmutableSet.copyOf(arguments)) {
                 Symbol output = symbolAllocator.newSymbol(argument, analysis.getTypeWithCoercions(argument), "id");
                 identityMapping.put(subPlan.translate(argument), output);
 
