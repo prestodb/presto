@@ -120,6 +120,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
+import com.facebook.presto.type.CharOperators;
 import com.facebook.presto.type.ColorOperators;
 import com.facebook.presto.type.DateOperators;
 import com.facebook.presto.type.DateTimeOperators;
@@ -231,6 +232,20 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.type.CharOperators.CHAR_BETWEEN_NO_PAD;
+import static com.facebook.presto.type.CharOperators.CHAR_BETWEEN_PAD_SPACES;
+import static com.facebook.presto.type.CharOperators.CHAR_EQUAL_NO_PAD;
+import static com.facebook.presto.type.CharOperators.CHAR_EQUAL_PAD_SPACES;
+import static com.facebook.presto.type.CharOperators.CHAR_GREATER_THAN_NO_PAD;
+import static com.facebook.presto.type.CharOperators.CHAR_GREATER_THAN_OR_EQUAL_NO_PAD;
+import static com.facebook.presto.type.CharOperators.CHAR_GREATER_THAN_OR_EQUAL_PAD_SPACES;
+import static com.facebook.presto.type.CharOperators.CHAR_GREATER_THAN_PAD_SPACES;
+import static com.facebook.presto.type.CharOperators.CHAR_LESS_THAN_NO_PAD;
+import static com.facebook.presto.type.CharOperators.CHAR_LESS_THAN_OR_EQUAL_NO_PAD;
+import static com.facebook.presto.type.CharOperators.CHAR_LESS_THAN_OR_EQUAL_PAD_SPACES;
+import static com.facebook.presto.type.CharOperators.CHAR_LESS_THAN_PAD_SPACES;
+import static com.facebook.presto.type.CharOperators.CHAR_NOT_EQUAL_NO_PAD;
+import static com.facebook.presto.type.CharOperators.CHAR_NOT_EQUAL_PAD_SPACES;
 import static com.facebook.presto.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.BOOLEAN_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_BIGINT_CAST;
@@ -423,6 +438,7 @@ public class FunctionRegistry
                 .scalars(FailureFunction.class)
                 .scalars(JoniRegexpCasts.class)
                 .scalars(CharacterStringCasts.class)
+                .scalars(CharOperators.class)
                 .scalar(DecimalOperators.Negation.class)
                 .scalar(DecimalOperators.HashCode.class)
                 .functions(IDENTITY_CAST, CAST_FROM_UNKNOWN)
@@ -493,6 +509,25 @@ public class FunctionRegistry
             case RE2J:
                 builder.scalars(Re2JRegexpFunctions.class);
                 break;
+        }
+
+        if (featuresConfig.isCharPadSpaces()) {
+            builder.function(CHAR_EQUAL_PAD_SPACES)
+                    .function(CHAR_NOT_EQUAL_PAD_SPACES)
+                    .function(CHAR_LESS_THAN_PAD_SPACES)
+                    .function(CHAR_LESS_THAN_OR_EQUAL_PAD_SPACES)
+                    .function(CHAR_GREATER_THAN_PAD_SPACES)
+                    .function(CHAR_GREATER_THAN_OR_EQUAL_PAD_SPACES)
+                    .function(CHAR_BETWEEN_PAD_SPACES);
+        }
+        else {
+            builder.function(CHAR_EQUAL_NO_PAD)
+                    .function(CHAR_NOT_EQUAL_NO_PAD)
+                    .function(CHAR_LESS_THAN_NO_PAD)
+                    .function(CHAR_LESS_THAN_OR_EQUAL_NO_PAD)
+                    .function(CHAR_GREATER_THAN_NO_PAD)
+                    .function(CHAR_GREATER_THAN_OR_EQUAL_NO_PAD)
+                    .function(CHAR_BETWEEN_NO_PAD);
         }
 
         if (featuresConfig.isExperimentalSyntaxEnabled()) {
