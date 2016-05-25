@@ -962,7 +962,6 @@
                             <consoleOutput>true</consoleOutput>
                             <includeTestSourceDirectory>true</includeTestSourceDirectory>
                             <configLocation>${air.main.basedir}/src/checkstyle/checks.xml</configLocation>
-                            <suppressionsLocation>${air.main.basedir}/src/checkstyle/suppressions.xml</suppressionsLocation>
                         </configuration>
                     </execution>
                 </executions>
