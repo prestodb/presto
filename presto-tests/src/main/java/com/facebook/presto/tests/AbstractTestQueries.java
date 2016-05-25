@@ -5377,6 +5377,21 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testSameInPredicateInProjectionAndFilter()
+            throws Exception
+    {
+        assertQuery("SELECT x IN (SELECT * FROM (VALUES 1))\n" +
+                        "FROM (VALUES 1) t(x)\n" +
+                        "WHERE x IN (SELECT * FROM (VALUES 1))",
+                "SELECT 1");
+
+        assertQuery("SELECT x IN (SELECT * FROM (VALUES 1))\n" +
+                "FROM (VALUES 2) t(x)\n" +
+                "WHERE x IN (SELECT * FROM (VALUES 1))",
+                "SELECT 1 WHERE false");
+    }
+
+    @Test
     public void testScalarSubquery()
             throws Exception
     {
