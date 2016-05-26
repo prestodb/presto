@@ -4423,8 +4423,7 @@ public abstract class AbstractTestQueries
     public void testExplainExecute()
     {
         Session session = getSession().withPreparedStatement("my_query", "SELECT * FROM orders");
-        String query = "EXECUTE my_query";
-        MaterializedResult result = computeActual(session, "EXPLAIN (TYPE LOGICAL) " + query);
+        MaterializedResult result = computeActual(session, "EXPLAIN (TYPE LOGICAL) EXECUTE my_query");
         assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("SELECT * FROM orders", LOGICAL));
     }
 
@@ -6457,19 +6456,22 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testExecute()
+    public void testExecute() throws Exception
     {
-        Session session = getSession().withPreparedStatement("my_query", "select 123, 'abc'");
-        MaterializedResult actual = computeActual(session, "EXECUTE my_query");
-        MaterializedResult expected = resultBuilder(session, BIGINT, VARCHAR)
-                .row(123, "abc")
-                .build();
-        assertEqualsIgnoreOrder(actual, expected);
+        Session session = getSession().withPreparedStatement("my_query", "SELECT 123, 'abc'");
+        assertQuery(session, "EXECUTE my_query", "SELECT 123, 'abc'");
     }
 
     @Test
     public void testExecuteNoSuchQuery()
     {
         assertQueryFails("EXECUTE my_query", "Prepared statement not found: my_query");
+    }
+
+    @Test
+    public void testExecuteExecute()
+    {
+        Session session = getSession().withPreparedStatement("my_query", "EXECUTE my_query");
+        assertQueryFails(session, "Execute my_query", "EXECUTE of EXECUTE statements is not supported");
     }
 }

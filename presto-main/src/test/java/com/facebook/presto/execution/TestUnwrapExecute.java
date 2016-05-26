@@ -16,27 +16,31 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.Statement;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.execution.SqlQueryManager.unwrapExecuteStatement;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.sql.QueryUtil.table;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
-public class TestStatementCreator
+public class TestUnwrapExecute
 {
-    StatementCreator statementCreator = new StatementCreator(new SqlParser());
+    SqlParser sqlParser = new SqlParser();
 
     @Test
     public void testSelectStatement() throws Exception
     {
-        assertEquals(statementCreator.createStatement("select * from foo", TEST_SESSION),
+        Statement statement = sqlParser.createStatement("select * from foo");
+        assertEquals(unwrapExecuteStatement(statement, sqlParser, TEST_SESSION),
                      simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("foo"))));
     }
 
@@ -44,19 +48,35 @@ public class TestStatementCreator
     public void testExecuteStatement() throws Exception
     {
         Session session = TEST_SESSION.withPreparedStatement("my_query", "select * from foo");
-        assertEquals(statementCreator.createStatement("execute my_query", session),
+        Statement statement = sqlParser.createStatement("execute my_query");
+        assertEquals(unwrapExecuteStatement(statement, sqlParser, session),
                      simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("foo"))));
+    }
+
+    @Test
+    public void testExecuteExecute() throws Exception
+    {
+        Session session = TEST_SESSION.withPreparedStatement("my_query", "EXECUTE my_query");
+        Statement statement = sqlParser.createStatement("execute my_query");
+        try {
+            unwrapExecuteStatement(statement, sqlParser, session);
+            fail();
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
+        }
     }
 
     @Test
     public void testExecuteStatementDoesNotExist() throws Exception
     {
         try {
-            statementCreator.createStatement("execute my_query", TEST_SESSION);
+            Statement statement = sqlParser.createStatement("execute my_query");
+            unwrapExecuteStatement(statement, sqlParser, TEST_SESSION);
             fail();
         }
         catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), StandardErrorCode.NOT_FOUND.toErrorCode());
+            assertEquals(e.getErrorCode(), NOT_FOUND.toErrorCode());
         }
     }
 }

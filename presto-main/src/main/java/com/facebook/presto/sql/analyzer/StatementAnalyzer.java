@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.StatementCreator;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
@@ -60,7 +59,6 @@ import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Except;
-import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainOption;
@@ -141,6 +139,7 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
+import static com.facebook.presto.execution.SqlQueryManager.unwrapExecuteStatement;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.metadata.FunctionKind.APPROXIMATE_AGGREGATE;
 import static com.facebook.presto.metadata.FunctionKind.WINDOW;
@@ -906,21 +905,11 @@ class StatementAnalyzer
     {
         switch (planFormat) {
             case GRAPHVIZ:
-                return queryExplainer.get().getGraphvizPlan(session, unwrapStatementToExplain(node), planType);
+                return queryExplainer.get().getGraphvizPlan(session, unwrapExecuteStatement(node.getStatement(), sqlParser, session), planType);
             case TEXT:
-                return queryExplainer.get().getPlan(session, unwrapStatementToExplain(node), planType);
+                return queryExplainer.get().getPlan(session, unwrapExecuteStatement(node.getStatement(), sqlParser, session), planType);
         }
         throw new IllegalArgumentException("Invalid Explain Format: " + planFormat.toString());
-    }
-
-    private Statement unwrapStatementToExplain(Explain node)
-    {
-        Statement statement = node.getStatement();
-        if (!(statement instanceof Execute)) {
-            return statement;
-        }
-
-        return new StatementCreator(sqlParser).createStatement(formatSql(statement), session);
     }
 
     @Override

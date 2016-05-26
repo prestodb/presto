@@ -44,7 +44,6 @@ import com.facebook.presto.execution.SetSessionTask;
 import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.SqlQueryQueueManager;
 import com.facebook.presto.execution.StartTransactionTask;
-import com.facebook.presto.execution.StatementCreator;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupConfig;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.AllAtOnceExecutionPolicy;
@@ -157,9 +156,6 @@ public class CoordinatorModule
         }
         newExporter(binder).export(QueryManager.class).withGeneratedName();
         configBinder(binder).bindConfig(QueryManagerConfig.class);
-
-        //Statement creator
-        binder.bind(StatementCreator.class).in(Scopes.SINGLETON);
 
         // analyzer
         configBinder(binder).bindConfig(FeaturesConfig.class);

@@ -21,6 +21,8 @@ import com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.parser.ParsingException;
+import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
@@ -72,7 +74,7 @@ public class SqlQueryManager
 {
     private static final Logger log = Logger.get(SqlQueryManager.class);
 
-    private final StatementCreator statementCreator;
+    private final SqlParser sqlParser;
 
     private final ExecutorService queryExecutor;
     private final ThreadPoolExecutorMBean queryExecutorMBean;
@@ -101,7 +103,7 @@ public class SqlQueryManager
 
     @Inject
     public SqlQueryManager(
-            StatementCreator statementCreator,
+            SqlParser sqlParser,
             QueryManagerConfig config,
             QueryMonitor queryMonitor,
             QueryQueueManager queueManager,
@@ -110,7 +112,7 @@ public class SqlQueryManager
             TransactionManager transactionManager,
             Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories)
     {
-        this.statementCreator = requireNonNull(statementCreator, "statementCreator is null");
+        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
 
         this.executionFactories = requireNonNull(executionFactories, "executionFactories is null");
 
@@ -277,7 +279,7 @@ public class SqlQueryManager
         QueryExecution queryExecution;
         Statement statement;
         try {
-            statement = statementCreator.createStatement(query, session);
+            statement = unwrapExecuteStatement(sqlParser.createStatement(query), sqlParser, session);
             QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(statement.getClass());
             if (queryExecutionFactory == null) {
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type: " + statement.getClass().getSimpleName());
@@ -340,6 +342,21 @@ public class SqlQueryManager
         }
 
         return queryInfo;
+    }
+
+    public static Statement unwrapExecuteStatement(Statement statement, SqlParser sqlParser, Session session)
+    {
+        if (!(statement instanceof Execute)) {
+            return statement;
+        }
+
+        String sqlString = session.getPreparedStatementFromExecute((Execute) statement);
+        Statement unwrappedStatement = sqlParser.createStatement(sqlString);
+        if (unwrappedStatement instanceof Execute) {
+            throw new PrestoException(NOT_SUPPORTED, "EXECUTE of EXECUTE statements is not supported");
+        }
+
+        return unwrappedStatement;
     }
 
     @Override
