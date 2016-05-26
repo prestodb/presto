@@ -60,7 +60,8 @@ public class RowConstructorCodeGenerator
             }
             else {
                 Variable field = scope.createTempVariable(javaType);
-                block.comment("Generate + " + i + "-th field of row");
+                block.comment("Clean wasNull and Generate + " + i + "-th field of row");
+                block.append(context.wasNull().set(constantFalse()));
                 block.append(context.generate(arguments.get(i)));
                 block.putVariable(field);
                 block.append(new IfStatement()
