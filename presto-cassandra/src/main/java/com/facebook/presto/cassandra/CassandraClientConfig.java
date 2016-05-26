@@ -62,6 +62,15 @@ public class CassandraClientConfig
     private Duration clientConnectTimeout = new Duration(SocketOptions.DEFAULT_CONNECT_TIMEOUT_MILLIS, MILLISECONDS);
     private Integer clientSoLinger;
     private RetryPolicyType retryPolicy = RetryPolicyType.DEFAULT;
+    private boolean useDCAware;
+    private String dcAwareLocalDC;
+    private int dcAwareUsedHostsPerRemoteDc;
+    private boolean dcAwareAllowRemoteDCsForLocalConsistencyLevel;
+    private boolean useTokenAware;
+    private boolean tokenAwareShuffleReplicas;
+    private boolean useWhiteList;
+    private List<String> whiteListAddresses = ImmutableList.of();
+    private int noHostAvailableRetryCount = 1;
 
     @Min(0)
     public int getLimitForPartitionKeySelect()
@@ -350,6 +359,122 @@ public class CassandraClientConfig
     public CassandraClientConfig setRetryPolicy(RetryPolicyType retryPolicy)
     {
         this.retryPolicy = retryPolicy;
+        return this;
+    }
+
+    public boolean getUseDCAware()
+    {
+        return this.useDCAware;
+    }
+
+    @Config("cassandra.load-policy.use-dc-aware")
+    public CassandraClientConfig setUseDCAware(boolean useDCAware)
+    {
+        this.useDCAware = useDCAware;
+        return this;
+    }
+
+    public String getDcAwareLocalDC()
+    {
+        return dcAwareLocalDC;
+    }
+
+    @Config("cassandra.load-policy.dc-aware.local-dc")
+    public CassandraClientConfig setDcAwareLocalDC(String dcAwareLocalDC)
+    {
+        this.dcAwareLocalDC = dcAwareLocalDC;
+        return this;
+    }
+
+    @Min(0)
+    public Integer getDcAwareUsedHostsPerRemoteDc()
+    {
+        return dcAwareUsedHostsPerRemoteDc;
+    }
+
+    @Config("cassandra.load-policy.dc-aware.used-hosts-per-remote-dc")
+    public CassandraClientConfig setDcAwareUsedHostsPerRemoteDc(Integer dcAwareUsedHostsPerRemoteDc)
+    {
+        this.dcAwareUsedHostsPerRemoteDc = dcAwareUsedHostsPerRemoteDc;
+        return this;
+    }
+
+    public boolean getDcAwareAllowRemoteDCsForLocalConsistencyLevel()
+    {
+        return this.dcAwareAllowRemoteDCsForLocalConsistencyLevel;
+    }
+
+    @Config("cassandra.load-policy.dc-aware.allow-remote-dc-for-local-consistency-level")
+    public CassandraClientConfig setDcAwareAllowRemoteDCsForLocalConsistencyLevel(boolean dcAwareAllowRemoteDCsForLocalConsistencyLevel)
+    {
+        this.dcAwareAllowRemoteDCsForLocalConsistencyLevel = dcAwareAllowRemoteDCsForLocalConsistencyLevel;
+        return this;
+    }
+
+    public boolean getUseTokenAware()
+    {
+        return this.useTokenAware;
+    }
+
+    @Config("cassandra.load-policy.use-token-aware")
+    public CassandraClientConfig setUseTokenAware(boolean useTokenAware)
+    {
+        this.useTokenAware = useTokenAware;
+        return this;
+    }
+
+    public boolean getTokenAwareShuffleReplicas()
+    {
+        return this.tokenAwareShuffleReplicas;
+    }
+
+    @Config("cassandra.load-policy.token-aware.shuffle-replicas")
+    public CassandraClientConfig setTokenAwareShuffleReplicas(boolean tokenAwareShuffleReplicas)
+    {
+        this.tokenAwareShuffleReplicas = tokenAwareShuffleReplicas;
+        return this;
+    }
+
+    public boolean getUseWhiteList()
+    {
+        return this.useWhiteList;
+    }
+
+    @Config("cassandra.load-policy.use-white-list")
+    public CassandraClientConfig setUseWhiteList(boolean useWhiteList)
+    {
+        this.useWhiteList = useWhiteList;
+        return this;
+    }
+
+    public List<String> getWhiteListAddresses()
+    {
+        return whiteListAddresses;
+    }
+
+    @Config("cassandra.load-policy.white-list.addresses")
+    public CassandraClientConfig setWhiteListAddresses(String commaSeparatedList)
+    {
+        this.whiteListAddresses = SPLITTER.splitToList(commaSeparatedList);
+        return this;
+    }
+
+    public CassandraClientConfig setWhiteListAddresses(String... whiteListAddresses)
+    {
+        this.whiteListAddresses = Arrays.asList(whiteListAddresses);
+        return this;
+    }
+
+    @Min(1)
+    public int getNoHostAvailableRetryCount()
+    {
+        return noHostAvailableRetryCount;
+    }
+
+    @Config("cassandra.no-host-available-retry-count")
+    public CassandraClientConfig setNoHostAvailableRetryCount(int noHostAvailableRetryCount)
+    {
+        this.noHostAvailableRetryCount = noHostAvailableRetryCount;
         return this;
     }
 }
