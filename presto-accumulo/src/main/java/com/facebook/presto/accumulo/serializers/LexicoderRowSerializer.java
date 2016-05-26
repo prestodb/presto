@@ -20,7 +20,6 @@ import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import org.apache.accumulo.core.client.lexicoder.BytesLexicoder;
 import org.apache.accumulo.core.client.lexicoder.DoubleLexicoder;
-import org.apache.accumulo.core.client.lexicoder.IntegerLexicoder;
 import org.apache.accumulo.core.client.lexicoder.Lexicoder;
 import org.apache.accumulo.core.client.lexicoder.ListLexicoder;
 import org.apache.accumulo.core.client.lexicoder.LongLexicoder;
@@ -59,9 +58,6 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 public class LexicoderRowSerializer
         implements AccumuloRowSerializer
 {
-    public static final byte[] TRUE = new byte[] {1};
-    public static final byte[] FALSE = new byte[] {0};
-
     private static Map<Type, Lexicoder> lexicoderMap = null;
     private static Map<String, ListLexicoder<?>> listLexicoders = new HashMap<>();
     private static Map<String, MapLexicoder<?, ?>> mapLexicoders = new HashMap<>();
@@ -78,10 +74,10 @@ public class LexicoderRowSerializer
         if (lexicoderMap == null) {
             lexicoderMap = new HashMap<>();
             lexicoderMap.put(BIGINT, new LongLexicoder());
-            lexicoderMap.put(BOOLEAN, new BytesLexicoder());
+            lexicoderMap.put(BOOLEAN, new BooleanLexicoder());
             lexicoderMap.put(DATE, new LongLexicoder());
             lexicoderMap.put(DOUBLE, new DoubleLexicoder());
-            lexicoderMap.put(INTEGER, new IntegerLexicoder());
+            lexicoderMap.put(INTEGER, new LongLexicoder());
             lexicoderMap.put(TIME, new LongLexicoder());
             lexicoderMap.put(TIMESTAMP, new LongLexicoder());
             lexicoderMap.put(VARBINARY, new BytesLexicoder());
@@ -162,7 +158,7 @@ public class LexicoderRowSerializer
     @Override
     public boolean getBoolean(String name)
     {
-        return getFieldValue(name)[0] == TRUE[0];
+        return decode(BOOLEAN, getFieldValue(name));
     }
 
     @Override
@@ -198,7 +194,7 @@ public class LexicoderRowSerializer
     @Override
     public int getInt(String name)
     {
-        return decode(INTEGER, getFieldValue(name));
+        return ((Long) decode(INTEGER, getFieldValue(name))).intValue();
     }
 
     @Override
@@ -295,15 +291,11 @@ public class LexicoderRowSerializer
         else if (Types.isMapType(type)) {
             toEncode = AccumuloRowSerializer.getMapFromBlock(type, (Block) v);
         }
-        else if (type.equals(BOOLEAN)) {
-            toEncode = v.equals(Boolean.TRUE) ? LexicoderRowSerializer.TRUE
-                    : LexicoderRowSerializer.FALSE;
-        }
         else if (type.equals(DATE) && v instanceof Date) {
             toEncode = ((Date) v).getTime();
         }
-        else if (type.equals(INTEGER) && v instanceof Long) {
-            toEncode = ((Long) v).intValue();
+        else if (type.equals(INTEGER) && v instanceof Integer) {
+            toEncode = ((Integer) v).longValue();
         }
         else if (type.equals(TIME) && v instanceof Time) {
             toEncode = ((Time) v).getTime();
