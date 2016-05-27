@@ -158,7 +158,7 @@ public final class ValidateDependenciesChecker
 
             Set<Symbol> inputs = ImmutableSet.copyOf(source.getOutputSymbols());
 
-            checkDependencies(inputs, node.getPartitionBy(), "Invalid node. Partition by symbols (%s) not in source plan output (%s)", node.getPartitionBy(), node.getSource().getOutputSymbols());
+            checkDependencies(inputs, node.getSpecification().getPartitionBy(), "Invalid node. Partition by symbols (%s) not in source plan output (%s)", node.getSpecification().getPartitionBy(), node.getSource().getOutputSymbols());
             checkDependencies(inputs, node.getSpecification().getOrderBy(), "Invalid node. Order by symbols (%s) not in source plan output (%s)", node.getSpecification().getOrderBy(), node.getSource().getOutputSymbols());
 
             ImmutableList.Builder<Symbol> bounds = ImmutableList.builder();

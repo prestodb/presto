@@ -400,11 +400,11 @@ public class HashGenerationOptimizer
         @Override
         public PlanWithProperties visitWindow(WindowNode node, HashComputationSet parentPreference)
         {
-            if (node.getPartitionBy().isEmpty()) {
+            if (node.getSpecification().getPartitionBy().isEmpty()) {
                 return planSimpleNodeWithProperties(node, parentPreference, true);
             }
 
-            Optional<HashComputation> hashComputation = computeHash(node.getPartitionBy());
+            Optional<HashComputation> hashComputation = computeHash(node.getSpecification().getPartitionBy());
             PlanWithProperties child = planAndEnforce(
                     node.getSource(),
                     new HashComputationSet(hashComputation),
@@ -418,7 +418,7 @@ public class HashGenerationOptimizer
                             idAllocator.getNextId(),
                             child.getNode(),
                             new WindowNode.Specification(
-                                    node.getPartitionBy(),
+                                    node.getSpecification().getPartitionBy(),
                                     node.getSpecification().getOrderBy(),
                                     node.getSpecification().getOrderings(),
                                     node.getSpecification().getFrame()),

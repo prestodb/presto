@@ -339,7 +339,7 @@ public class IndexJoinOptimizer
 
             // Lookup symbols can only be passed through if they are part of the partitioning
             Set<Symbol> partitionByLookupSymbols = context.get().getLookupSymbols().stream()
-                    .filter(node.getPartitionBy()::contains)
+                    .filter(node.getSpecification().getPartitionBy()::contains)
                     .collect(toImmutableSet());
 
             if (partitionByLookupSymbols.isEmpty()) {
@@ -478,7 +478,7 @@ public class IndexJoinOptimizer
             public Map<Symbol, Symbol> visitWindow(WindowNode node, Set<Symbol> lookupSymbols)
             {
                 Set<Symbol> partitionByLookupSymbols = lookupSymbols.stream()
-                        .filter(node.getPartitionBy()::contains)
+                        .filter(node.getSpecification().getPartitionBy()::contains)
                         .collect(toImmutableSet());
                 checkState(!partitionByLookupSymbols.isEmpty(), "No lookup symbols were able to pass through the aggregation group by");
                 return node.getSource().accept(this, partitionByLookupSymbols);

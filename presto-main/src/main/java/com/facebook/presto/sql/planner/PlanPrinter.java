@@ -530,17 +530,17 @@ public class PlanPrinter
         @Override
         public Void visitWindow(WindowNode node, Integer indent)
         {
-            List<String> partitionBy = Lists.transform(node.getPartitionBy(), Functions.toStringFunction());
+            List<String> partitionBy = Lists.transform(node.getSpecification().getPartitionBy(), Functions.toStringFunction());
 
             List<String> orderBy = Lists.transform(node.getSpecification().getOrderBy(), input -> input + " " + node.getSpecification().getOrderings().get(input));
 
             List<String> args = new ArrayList<>();
             if (!partitionBy.isEmpty()) {
-                List<Symbol> prePartitioned = node.getPartitionBy().stream()
+                List<Symbol> prePartitioned = node.getSpecification().getPartitionBy().stream()
                         .filter(node.getPrePartitionedInputs()::contains)
                         .collect(toImmutableList());
 
-                List<Symbol> notPrePartitioned = node.getPartitionBy().stream()
+                List<Symbol> notPrePartitioned = node.getSpecification().getPartitionBy().stream()
                         .filter(column -> !node.getPrePartitionedInputs().contains(column))
                         .collect(toImmutableList());
 

@@ -104,7 +104,7 @@ public class WindowFilterPushDown
             if (canReplaceWithRowNumber(node)) {
                 return new RowNumberNode(idAllocator.getNextId(),
                         rewrittenSource,
-                        node.getPartitionBy(),
+                        node.getSpecification().getPartitionBy(),
                         getOnlyElement(node.getWindowFunctions().keySet()),
                         Optional.empty(),
                         Optional.empty());
@@ -134,7 +134,7 @@ public class WindowFilterPushDown
                 // verify that unordered row_number window functions are replaced by RowNumberNode
                 verify(!windowNode.getSpecification().getOrderBy().isEmpty());
                 TopNRowNumberNode topNRowNumberNode = convertToTopNRowNumber(windowNode, limit);
-                if (windowNode.getPartitionBy().isEmpty()) {
+                if (windowNode.getSpecification().getPartitionBy().isEmpty()) {
                     return topNRowNumberNode;
                 }
                 source = topNRowNumberNode;
@@ -251,7 +251,7 @@ public class WindowFilterPushDown
         {
             return new TopNRowNumberNode(idAllocator.getNextId(),
                     windowNode.getSource(),
-                    windowNode.getPartitionBy(),
+                    windowNode.getSpecification().getPartitionBy(),
                     windowNode.getSpecification().getOrderBy(),
                     windowNode.getSpecification().getOrderings(),
                     getOnlyElement(windowNode.getWindowFunctions().keySet()),

@@ -190,7 +190,7 @@ public class ChildReplacer
                 node.getId(),
                 Iterables.getOnlyElement(newChildren),
                 new WindowNode.Specification(
-                        node.getPartitionBy(),
+                        node.getSpecification().getPartitionBy(),
                         node.getSpecification().getOrderBy(),
                         node.getSpecification().getOrderings(),
                         node.getSpecification().getFrame()),

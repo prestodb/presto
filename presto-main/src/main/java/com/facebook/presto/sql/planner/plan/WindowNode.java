@@ -104,11 +104,6 @@ public class WindowNode
         return specification;
     }
 
-    public List<Symbol> getPartitionBy()
-    {
-        return specification.getPartitionBy();
-    }
-
     @JsonProperty
     public Map<Symbol, FunctionCall> getWindowFunctions()
     {

@@ -341,13 +341,13 @@ public class AddLocalExchanges
             StreamPreferredProperties childRequirements = parentPreferences
                     .constrainTo(node.getSource().getOutputSymbols())
                     .withDefaultParallelism(session)
-                    .withPartitioning(node.getPartitionBy());
+                    .withPartitioning(node.getSpecification().getPartitionBy());
 
             PlanWithProperties child = planAndEnforce(node.getSource(), childRequirements, childRequirements);
 
             List<LocalProperty<Symbol>> desiredProperties = new ArrayList<>();
-            if (!node.getPartitionBy().isEmpty()) {
-                desiredProperties.add(new GroupingProperty<>(node.getPartitionBy()));
+            if (!node.getSpecification().getPartitionBy().isEmpty()) {
+                desiredProperties.add(new GroupingProperty<>(node.getSpecification().getPartitionBy()));
             }
             for (Symbol symbol : node.getSpecification().getOrderBy()) {
                 desiredProperties.add(new SortingProperty<>(symbol, node.getSpecification().getOrderings().get(symbol)));
@@ -355,16 +355,16 @@ public class AddLocalExchanges
             Iterator<Optional<LocalProperty<Symbol>>> matchIterator = LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).iterator();
 
             Set<Symbol> prePartitionedInputs = ImmutableSet.of();
-            if (!node.getPartitionBy().isEmpty()) {
+            if (!node.getSpecification().getPartitionBy().isEmpty()) {
                 Optional<LocalProperty<Symbol>> groupingRequirement = matchIterator.next();
                 Set<Symbol> unPartitionedInputs = groupingRequirement.map(LocalProperty::getColumns).orElse(ImmutableSet.of());
-                prePartitionedInputs = node.getPartitionBy().stream()
+                prePartitionedInputs = node.getSpecification().getPartitionBy().stream()
                         .filter(symbol -> !unPartitionedInputs.contains(symbol))
                         .collect(toImmutableSet());
             }
 
             int preSortedOrderPrefix = 0;
-            if (prePartitionedInputs.equals(ImmutableSet.copyOf(node.getPartitionBy()))) {
+            if (prePartitionedInputs.equals(ImmutableSet.copyOf(node.getSpecification().getPartitionBy()))) {
                 while (matchIterator.hasNext() && !matchIterator.next().isPresent()) {
                     preSortedOrderPrefix++;
                 }
@@ -374,7 +374,7 @@ public class AddLocalExchanges
                     node.getId(),
                     child.getNode(),
                     new WindowNode.Specification(
-                            node.getPartitionBy(),
+                            node.getSpecification().getPartitionBy(),
                             node.getSpecification().getOrderBy(),
                             node.getSpecification().getOrderings(),
                             node.getSpecification().getFrame()),
