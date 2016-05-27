@@ -363,10 +363,7 @@ public class PruneUnreferencedOutputs
             return new WindowNode(
                     node.getId(),
                     source,
-                    node.getPartitionBy(),
-                    node.getOrderBy(),
-                    node.getOrderings(),
-                    node.getFrame(),
+                    node.getSpecification(),
                     functionCalls.build(),
                     functions.build(),
                     node.getHashSymbol(),

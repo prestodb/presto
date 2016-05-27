@@ -587,10 +587,11 @@ class QueryPlanner
                     new WindowNode(
                             idAllocator.getNextId(),
                             subPlan.getRoot(),
-                            partitionBySymbols.build(),
-                            orderBySymbols.build(),
-                            orderings,
-                            frame,
+                            new WindowNode.Specification(
+                                    partitionBySymbols.build(),
+                                    orderBySymbols.build(),
+                                    orderings,
+                                    frame),
                             assignments.build(),
                             signatures,
                             Optional.empty(),

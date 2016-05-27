@@ -53,10 +53,7 @@ public class WindowNode
     public WindowNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("partitionBy") List<Symbol> partitionBy,
-            @JsonProperty("orderBy") List<Symbol> orderBy,
-            @JsonProperty("orderings") Map<Symbol, SortOrder> orderings,
-            @JsonProperty("frame") Frame frame,
+            @JsonProperty("specification") Specification specification,
             @JsonProperty("windowFunctions") Map<Symbol, FunctionCall> windowFunctions,
             @JsonProperty("signatures") Map<Symbol, Signature> signatures,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
@@ -66,22 +63,18 @@ public class WindowNode
         super(id);
 
         requireNonNull(source, "source is null");
-        requireNonNull(partitionBy, "partitionBy is null");
-        requireNonNull(orderBy, "orderBy is null");
-        checkArgument(orderings.size() == orderBy.size(), "orderBy and orderings sizes don't match");
-        checkArgument(orderings.keySet().containsAll(orderBy), "Every orderBy symbol must have an ordering direction");
-        requireNonNull(frame, "frame is null");
+        requireNonNull(specification, "specification is null");
         requireNonNull(windowFunctions, "windowFunctions is null");
         requireNonNull(signatures, "signatures is null");
         checkArgument(windowFunctions.keySet().equals(signatures.keySet()), "windowFunctions does not match signatures");
         requireNonNull(hashSymbol, "hashSymbol is null");
-        checkArgument(partitionBy.containsAll(prePartitionedInputs), "prePartitionedInputs must be contained in partitionBy");
-        checkArgument(preSortedOrderPrefix <= orderBy.size(), "Cannot have sorted more symbols than those requested");
-        checkArgument(preSortedOrderPrefix == 0 || ImmutableSet.copyOf(prePartitionedInputs).equals(ImmutableSet.copyOf(partitionBy)), "preSortedOrderPrefix can only be greater than zero if all partition symbols are pre-partitioned");
+        checkArgument(specification.getPartitionBy().containsAll(prePartitionedInputs), "prePartitionedInputs must be contained in partitionBy");
+        checkArgument(preSortedOrderPrefix <= specification.getOrderBy().size(), "Cannot have sorted more symbols than those requested");
+        checkArgument(preSortedOrderPrefix == 0 || ImmutableSet.copyOf(prePartitionedInputs).equals(ImmutableSet.copyOf(specification.getPartitionBy())), "preSortedOrderPrefix can only be greater than zero if all partition symbols are pre-partitioned");
 
         this.source = source;
         this.prePartitionedInputs = ImmutableSet.copyOf(prePartitionedInputs);
-        this.specification = new Specification(partitionBy, orderBy, orderings, frame);
+        this.specification = specification;
         this.windowFunctions = ImmutableMap.copyOf(windowFunctions);
         this.functionHandles = ImmutableMap.copyOf(signatures);
         this.hashSymbol = hashSymbol;
@@ -107,24 +100,26 @@ public class WindowNode
     }
 
     @JsonProperty
+    public Specification getSpecification()
+    {
+        return specification;
+    }
+
     public List<Symbol> getPartitionBy()
     {
         return specification.getPartitionBy();
     }
 
-    @JsonProperty
     public List<Symbol> getOrderBy()
     {
         return specification.getOrderBy();
     }
 
-    @JsonProperty
     public Map<Symbol, SortOrder> getOrderings()
     {
         return specification.getOrderings();
     }
 
-    @JsonProperty
     public Frame getFrame()
     {
         return specification.getFrame();
