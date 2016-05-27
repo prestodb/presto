@@ -162,11 +162,11 @@ public final class ValidateDependenciesChecker
             checkDependencies(inputs, node.getOrderBy(), "Invalid node. Order by symbols (%s) not in source plan output (%s)", node.getOrderBy(), node.getSource().getOutputSymbols());
 
             ImmutableList.Builder<Symbol> bounds = ImmutableList.builder();
-            if (node.getFrame().getStartValue().isPresent()) {
-                bounds.add(node.getFrame().getStartValue().get());
+            if (node.getSpecification().getFrame().getStartValue().isPresent()) {
+                bounds.add(node.getSpecification().getFrame().getStartValue().get());
             }
-            if (node.getFrame().getEndValue().isPresent()) {
-                bounds.add(node.getFrame().getEndValue().get());
+            if (node.getSpecification().getFrame().getEndValue().isPresent()) {
+                bounds.add(node.getSpecification().getFrame().getEndValue().get());
             }
             checkDependencies(inputs, bounds.build(), "Invalid node. Frame bounds (%s) not in source plan output (%s)", bounds.build(), node.getSource().getOutputSymbols());
 

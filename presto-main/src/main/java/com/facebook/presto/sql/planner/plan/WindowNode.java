@@ -119,11 +119,6 @@ public class WindowNode
         return specification.getOrderings();
     }
 
-    public Frame getFrame()
-    {
-        return specification.getFrame();
-    }
-
     @JsonProperty
     public Map<Symbol, FunctionCall> getWindowFunctions()
     {

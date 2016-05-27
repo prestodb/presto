@@ -377,7 +377,7 @@ public class AddLocalExchanges
                             node.getPartitionBy(),
                             node.getOrderBy(),
                             node.getOrderings(),
-                            node.getFrame()),
+                            node.getSpecification().getFrame()),
                     node.getWindowFunctions(),
                     node.getSignatures(),
                     node.getHashSymbol(),

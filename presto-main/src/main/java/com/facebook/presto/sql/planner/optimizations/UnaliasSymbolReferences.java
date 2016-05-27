@@ -215,7 +215,7 @@ public class UnaliasSymbolReferences
                 orderings.put(canonicalize(entry.getKey()), entry.getValue());
             }
 
-            WindowNode.Frame frame = node.getFrame();
+            WindowNode.Frame frame = node.getSpecification().getFrame();
             frame = new WindowNode.Frame(frame.getType(),
                     frame.getStartType(), canonicalize(frame.getStartValue()),
                     frame.getEndType(), canonicalize(frame.getEndValue()));
