@@ -41,12 +41,9 @@ public class WindowNode
         extends PlanNode
 {
     private final PlanNode source;
-    private final List<Symbol> partitionBy;
     private final Set<Symbol> prePartitionedInputs;
-    private final List<Symbol> orderBy;
-    private final Map<Symbol, SortOrder> orderings;
+    private final Specification specification;
     private final int preSortedOrderPrefix;
-    private final Frame frame;
     private final Map<Symbol, FunctionCall> windowFunctions;
     private final Map<Symbol, Signature> functionHandles;
     private final Optional<Symbol> hashSymbol;
@@ -82,11 +79,8 @@ public class WindowNode
         checkArgument(preSortedOrderPrefix == 0 || ImmutableSet.copyOf(prePartitionedInputs).equals(ImmutableSet.copyOf(partitionBy)), "preSortedOrderPrefix can only be greater than zero if all partition symbols are pre-partitioned");
 
         this.source = source;
-        this.partitionBy = ImmutableList.copyOf(partitionBy);
         this.prePartitionedInputs = ImmutableSet.copyOf(prePartitionedInputs);
-        this.orderBy = ImmutableList.copyOf(orderBy);
-        this.orderings = ImmutableMap.copyOf(orderings);
-        this.frame = frame;
+        this.specification = new Specification(partitionBy, orderBy, orderings, frame);
         this.windowFunctions = ImmutableMap.copyOf(windowFunctions);
         this.functionHandles = ImmutableMap.copyOf(signatures);
         this.hashSymbol = hashSymbol;
@@ -114,25 +108,25 @@ public class WindowNode
     @JsonProperty
     public List<Symbol> getPartitionBy()
     {
-        return partitionBy;
+        return specification.getPartitionBy();
     }
 
     @JsonProperty
     public List<Symbol> getOrderBy()
     {
-        return orderBy;
+        return specification.getOrderBy();
     }
 
     @JsonProperty
     public Map<Symbol, SortOrder> getOrderings()
     {
-        return orderings;
+        return specification.getOrderings();
     }
 
     @JsonProperty
     public Frame getFrame()
     {
-        return frame;
+        return specification.getFrame();
     }
 
     @JsonProperty
@@ -169,6 +163,53 @@ public class WindowNode
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {
         return visitor.visitWindow(this, context);
+    }
+
+    @Immutable
+    public static class Specification
+    {
+        private final List<Symbol> partitionBy;
+        private final List<Symbol> orderBy;
+        private final Map<Symbol, SortOrder> orderings;
+        private final Frame frame;
+
+        public Specification(
+                List<Symbol> partitionBy,
+                List<Symbol> orderBy,
+                Map<Symbol, SortOrder> orderings,
+                Frame frame)
+        {
+            requireNonNull(partitionBy, "partitionBy is null");
+            requireNonNull(orderBy, "orderBy is null");
+            checkArgument(orderings.size() == orderBy.size(), "orderBy and orderings sizes don't match");
+            checkArgument(orderings.keySet().containsAll(orderBy), "Every orderBy symbol must have an ordering direction");
+            requireNonNull(frame, "frame is null");
+
+            this.partitionBy = ImmutableList.copyOf(partitionBy);
+            this.orderBy = ImmutableList.copyOf(orderBy);
+            this.orderings = ImmutableMap.copyOf(orderings);
+            this.frame = frame;
+        }
+
+        public List<Symbol> getPartitionBy()
+        {
+            return partitionBy;
+        }
+
+        public List<Symbol> getOrderBy()
+        {
+            return orderBy;
+        }
+
+        public Map<Symbol, SortOrder> getOrderings()
+        {
+            return orderings;
+        }
+
+        public Frame getFrame()
+        {
+            return frame;
+        }
     }
 
     @Immutable
