@@ -417,11 +417,7 @@ public class HashGenerationOptimizer
                     new WindowNode(
                             idAllocator.getNextId(),
                             child.getNode(),
-                            new WindowNode.Specification(
-                                    node.getSpecification().getPartitionBy(),
-                                    node.getSpecification().getOrderBy(),
-                                    node.getSpecification().getOrderings(),
-                                    node.getSpecification().getFrame()),
+                            node.getSpecification(),
                             node.getWindowFunctions(),
                             node.getSignatures(),
                             Optional.of(hashSymbol),
