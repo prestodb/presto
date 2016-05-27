@@ -416,7 +416,7 @@ public class AddExchanges
             if (!node.getPartitionBy().isEmpty()) {
                 desiredProperties.add(new GroupingProperty<>(node.getPartitionBy()));
             }
-            for (Symbol symbol : node.getOrderBy()) {
+            for (Symbol symbol : node.getSpecification().getOrderBy()) {
                 desiredProperties.add(new SortingProperty<>(symbol, node.getSpecification().getOrderings().get(symbol)));
             }
 

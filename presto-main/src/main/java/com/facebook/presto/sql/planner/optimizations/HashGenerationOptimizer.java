@@ -419,7 +419,7 @@ public class HashGenerationOptimizer
                             child.getNode(),
                             new WindowNode.Specification(
                                     node.getPartitionBy(),
-                                    node.getOrderBy(),
+                                    node.getSpecification().getOrderBy(),
                                     node.getSpecification().getOrderings(),
                                     node.getSpecification().getFrame()),
                             node.getWindowFunctions(),

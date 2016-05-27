@@ -532,7 +532,7 @@ public class PlanPrinter
         {
             List<String> partitionBy = Lists.transform(node.getPartitionBy(), Functions.toStringFunction());
 
-            List<String> orderBy = Lists.transform(node.getOrderBy(), input -> input + " " + node.getSpecification().getOrderings().get(input));
+            List<String> orderBy = Lists.transform(node.getSpecification().getOrderBy(), input -> input + " " + node.getSpecification().getOrderings().get(input));
 
             List<String> args = new ArrayList<>();
             if (!partitionBy.isEmpty()) {
@@ -560,10 +560,10 @@ public class PlanPrinter
             }
             if (!orderBy.isEmpty()) {
                 args.add(format("order by (%s)", Stream.concat(
-                        node.getOrderBy().stream()
+                        node.getSpecification().getOrderBy().stream()
                                 .limit(node.getPreSortedOrderPrefix())
                                 .map(symbol -> "<" + symbol + ">"),
-                        node.getOrderBy().stream()
+                        node.getSpecification().getOrderBy().stream()
                                 .skip(node.getPreSortedOrderPrefix())
                                 .map(Symbol::toString))
                         .collect(Collectors.joining(", "))));

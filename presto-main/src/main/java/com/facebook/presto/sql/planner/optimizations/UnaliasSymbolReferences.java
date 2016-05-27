@@ -225,7 +225,7 @@ public class UnaliasSymbolReferences
                     source,
                     new WindowNode.Specification(
                             canonicalizeAndDistinct(node.getPartitionBy()),
-                            canonicalizeAndDistinct(node.getOrderBy()),
+                            canonicalizeAndDistinct(node.getSpecification().getOrderBy()),
                             orderings.build(),
                             frame),
                     functionCalls.build(),
