@@ -223,10 +223,11 @@ public class UnaliasSymbolReferences
             return new WindowNode(
                     node.getId(),
                     source,
-                    canonicalizeAndDistinct(node.getPartitionBy()),
-                    canonicalizeAndDistinct(node.getOrderBy()),
-                    orderings.build(),
-                    frame,
+                    new WindowNode.Specification(
+                            canonicalizeAndDistinct(node.getPartitionBy()),
+                            canonicalizeAndDistinct(node.getOrderBy()),
+                            orderings.build(),
+                            frame),
                     functionCalls.build(),
                     functionInfos.build(),
                     canonicalize(node.getHashSymbol()),
