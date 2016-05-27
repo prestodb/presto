@@ -192,7 +192,7 @@ public class ChildReplacer
                 new WindowNode.Specification(
                         node.getPartitionBy(),
                         node.getOrderBy(),
-                        node.getOrderings(),
+                        node.getSpecification().getOrderings(),
                         node.getSpecification().getFrame()),
                 node.getWindowFunctions(),
                 node.getSignatures(),

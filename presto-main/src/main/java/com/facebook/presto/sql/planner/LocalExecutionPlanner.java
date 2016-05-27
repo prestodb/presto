@@ -664,7 +664,7 @@ public class LocalExecutionPlanner
 
             List<Integer> sortChannels = getChannelsForSymbols(orderBySymbols, source.getLayout());
             List<SortOrder> sortOrder = orderBySymbols.stream()
-                    .map(symbol -> node.getOrderings().get(symbol))
+                    .map(symbol -> node.getSpecification().getOrderings().get(symbol))
                     .collect(toImmutableList());
 
             Optional<Integer> frameStartChannel = Optional.empty();

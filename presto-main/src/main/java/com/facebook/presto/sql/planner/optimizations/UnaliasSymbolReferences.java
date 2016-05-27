@@ -211,7 +211,7 @@ public class UnaliasSymbolReferences
             }
 
             ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
-            for (Map.Entry<Symbol, SortOrder> entry : node.getOrderings().entrySet()) {
+            for (Map.Entry<Symbol, SortOrder> entry : node.getSpecification().getOrderings().entrySet()) {
                 orderings.put(canonicalize(entry.getKey()), entry.getValue());
             }
 

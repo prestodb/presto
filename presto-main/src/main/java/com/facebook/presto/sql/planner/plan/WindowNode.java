@@ -114,11 +114,6 @@ public class WindowNode
         return specification.getOrderBy();
     }
 
-    public Map<Symbol, SortOrder> getOrderings()
-    {
-        return specification.getOrderings();
-    }
-
     @JsonProperty
     public Map<Symbol, FunctionCall> getWindowFunctions()
     {

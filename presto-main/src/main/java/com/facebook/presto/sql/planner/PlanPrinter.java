@@ -532,7 +532,7 @@ public class PlanPrinter
         {
             List<String> partitionBy = Lists.transform(node.getPartitionBy(), Functions.toStringFunction());
 
-            List<String> orderBy = Lists.transform(node.getOrderBy(), input -> input + " " + node.getOrderings().get(input));
+            List<String> orderBy = Lists.transform(node.getOrderBy(), input -> input + " " + node.getSpecification().getOrderings().get(input));
 
             List<String> args = new ArrayList<>();
             if (!partitionBy.isEmpty()) {

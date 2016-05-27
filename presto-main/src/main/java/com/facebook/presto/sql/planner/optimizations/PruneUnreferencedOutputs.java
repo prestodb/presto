@@ -366,7 +366,7 @@ public class PruneUnreferencedOutputs
                     new WindowNode.Specification(
                             node.getPartitionBy(),
                             node.getOrderBy(),
-                            node.getOrderings(),
+                            node.getSpecification().getOrderings(),
                             node.getSpecification().getFrame()),
                     functionCalls.build(),
                     functions.build(),

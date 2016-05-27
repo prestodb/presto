@@ -253,7 +253,7 @@ public class WindowFilterPushDown
                     windowNode.getSource(),
                     windowNode.getPartitionBy(),
                     windowNode.getOrderBy(),
-                    windowNode.getOrderings(),
+                    windowNode.getSpecification().getOrderings(),
                     getOnlyElement(windowNode.getWindowFunctions().keySet()),
                     limit,
                     false,

@@ -417,7 +417,7 @@ public class AddExchanges
                 desiredProperties.add(new GroupingProperty<>(node.getPartitionBy()));
             }
             for (Symbol symbol : node.getOrderBy()) {
-                desiredProperties.add(new SortingProperty<>(symbol, node.getOrderings().get(symbol)));
+                desiredProperties.add(new SortingProperty<>(symbol, node.getSpecification().getOrderings().get(symbol)));
             }
 
             PlanWithProperties child = planChild(

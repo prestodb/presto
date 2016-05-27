@@ -350,7 +350,7 @@ public class AddLocalExchanges
                 desiredProperties.add(new GroupingProperty<>(node.getPartitionBy()));
             }
             for (Symbol symbol : node.getOrderBy()) {
-                desiredProperties.add(new SortingProperty<>(symbol, node.getOrderings().get(symbol)));
+                desiredProperties.add(new SortingProperty<>(symbol, node.getSpecification().getOrderings().get(symbol)));
             }
             Iterator<Optional<LocalProperty<Symbol>>> matchIterator = LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).iterator();
 
@@ -376,7 +376,7 @@ public class AddLocalExchanges
                     new WindowNode.Specification(
                             node.getPartitionBy(),
                             node.getOrderBy(),
-                            node.getOrderings(),
+                            node.getSpecification().getOrderings(),
                             node.getSpecification().getFrame()),
                     node.getWindowFunctions(),
                     node.getSignatures(),

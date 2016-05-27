@@ -202,7 +202,7 @@ class PropertyDerivations
                 localProperties.add(new GroupingProperty<>(node.getPartitionBy()));
             }
             for (Symbol column : node.getOrderBy()) {
-                localProperties.add(new SortingProperty<>(column, node.getOrderings().get(column)));
+                localProperties.add(new SortingProperty<>(column, node.getSpecification().getOrderings().get(column)));
             }
 
             return ActualProperties.builderFrom(properties)
