@@ -373,10 +373,11 @@ public class AddLocalExchanges
             WindowNode result = new WindowNode(
                     node.getId(),
                     child.getNode(),
-                    node.getPartitionBy(),
-                    node.getOrderBy(),
-                    node.getOrderings(),
-                    node.getFrame(),
+                    new WindowNode.Specification(
+                            node.getPartitionBy(),
+                            node.getOrderBy(),
+                            node.getOrderings(),
+                            node.getFrame()),
                     node.getWindowFunctions(),
                     node.getSignatures(),
                     node.getHashSymbol(),
