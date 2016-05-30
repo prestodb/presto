@@ -31,6 +31,7 @@ import io.airlift.http.client.spnego.KerberosConfig;
 import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
 import io.airlift.units.Duration;
+import jline.console.ConsoleReader;
 import jline.console.history.FileHistory;
 import jline.console.history.History;
 import jline.console.history.MemoryHistory;
@@ -59,6 +60,7 @@ import static com.facebook.presto.client.ClientSession.withTransactionId;
 import static com.facebook.presto.sql.parser.StatementSplitter.Statement;
 import static com.facebook.presto.sql.parser.StatementSplitter.isEmptyStatement;
 import static com.facebook.presto.sql.parser.StatementSplitter.squeezeStatement;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.ByteStreams.nullOutputStream;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
@@ -130,6 +132,7 @@ public class Console
                 Optional.ofNullable(clientOptions.keystorePassword),
                 Optional.ofNullable(clientOptions.truststorePath),
                 Optional.ofNullable(clientOptions.truststorePassword),
+                Optional.ofNullable(promptFor(clientOptions.password)),
                 Optional.ofNullable(clientOptions.krb5Principal),
                 Optional.ofNullable(clientOptions.krb5RemoteServiceName),
                 clientOptions.authenticationEnabled,
@@ -141,6 +144,28 @@ public class Console
                 runConsole(queryRunner, session, exiting);
             }
         }
+    }
+
+    private String promptFor(boolean password)
+    {
+        if (password) {
+            checkState(clientOptions.user != null, "Username must be specified along with password");
+            ConsoleReader consoleReader = null;
+            try {
+                consoleReader = new ConsoleReader();
+                consoleReader.setExpandEvents(false);
+                return consoleReader.readLine("Password: ", '*');
+            }
+            catch (IOException e) {
+                System.err.println("Console read error: " + e.getMessage());
+            }
+            finally {
+                if (consoleReader != null) {
+                    consoleReader.shutdown();
+                }
+            }
+        }
+        return null;
     }
 
     private static void runConsole(QueryRunner queryRunner, ClientSession session, AtomicBoolean exiting)
