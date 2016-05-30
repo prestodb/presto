@@ -72,6 +72,12 @@ public class ClientOptions
     @Option(name = "--keystore-password", title = "keystore password", description = "Keystore password")
     public String keystorePassword;
 
+    @Option(name = "--truststore-path", title = "truststore path", description = "Truststore path")
+    public String truststorePath;
+
+    @Option(name = "--truststore-password", title = "truststore password", description = "Truststore password")
+    public String truststorePassword;
+
     @Option(name = "--user", title = "user", description = "Username")
     public String user = System.getProperty("user.name");
 

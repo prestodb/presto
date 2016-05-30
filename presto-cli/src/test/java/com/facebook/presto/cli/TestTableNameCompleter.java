@@ -34,6 +34,8 @@ public class TestTableNameCompleter
                 Optional.<String>empty(),
                 Optional.<String>empty(),
                 Optional.<String>empty(),
+                Optional.<String>empty(),
+                Optional.<String>empty(),
                 false,
                 null);
         TableNameCompleter completer = new TableNameCompleter(runner);
