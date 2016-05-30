@@ -59,6 +59,7 @@ import static com.facebook.presto.client.ClientSession.withTransactionId;
 import static com.facebook.presto.sql.parser.StatementSplitter.Statement;
 import static com.facebook.presto.sql.parser.StatementSplitter.isEmptyStatement;
 import static com.facebook.presto.sql.parser.StatementSplitter.squeezeStatement;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.ByteStreams.nullOutputStream;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
@@ -130,6 +131,7 @@ public class Console
                 Optional.ofNullable(clientOptions.keystorePassword),
                 Optional.ofNullable(clientOptions.truststorePath),
                 Optional.ofNullable(clientOptions.truststorePassword),
+                clientOptions.password ? Optional.of(getPassword()) : Optional.empty(),
                 Optional.ofNullable(clientOptions.krb5Principal),
                 Optional.ofNullable(clientOptions.krb5RemoteServiceName),
                 clientOptions.authenticationEnabled,
@@ -141,6 +143,25 @@ public class Console
                 runConsole(queryRunner, session, exiting);
             }
         }
+    }
+
+    private String getPassword()
+    {
+        checkState(clientOptions.user != null, "Username must be specified along with password");
+        String defaultPassword = System.getenv("PRESTO_PASSWORD");
+        if (defaultPassword != null) {
+            return defaultPassword;
+        }
+
+        java.io.Console console = System.console();
+        if (console == null) {
+            throw new RuntimeException("No console from which to read password");
+        }
+        char[] password = console.readPassword("Password: ");
+        if (password != null) {
+            return new String(password);
+        }
+        return  "";
     }
 
     private static void runConsole(QueryRunner queryRunner, ClientSession session, AtomicBoolean exiting)
