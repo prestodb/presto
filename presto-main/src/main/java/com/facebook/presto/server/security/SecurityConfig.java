@@ -14,61 +14,33 @@
 package com.facebook.presto.server.security;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 
-import java.io.File;
-
+@DefunctConfig({
+        "http.server.authentication.enabled"
+})
 public class SecurityConfig
 {
-    private boolean authenticationEnabled;
-    private File kerberosConfig;
-    private String serviceName;
-    private File keytab;
+    private AuthenticationType authenticationType =  AuthenticationType.NONE;
 
-    public File getKerberosConfig()
+    public enum AuthenticationType
     {
-        return kerberosConfig;
+        NONE,
+        KERBEROS,
+        LDAP
     }
 
-    @Config("http.authentication.krb5.config")
-    public SecurityConfig setKerberosConfig(File kerberosConfig)
+    public AuthenticationType getAuthenticationType()
     {
-        this.kerberosConfig = kerberosConfig;
-        return this;
+        return authenticationType;
     }
 
-    public boolean getAuthenticationEnabled()
+    @Config("http-server.authentication.type")
+    @ConfigDescription("Authentication type (supported types: NONE, KERBEROS, LDAP)")
+    public SecurityConfig setAuthenticationType(AuthenticationType authenticationType)
     {
-        return authenticationEnabled;
-    }
-
-    @Config("http.server.authentication.enabled")
-    public SecurityConfig setAuthenticationEnabled(boolean enabled)
-    {
-        this.authenticationEnabled = enabled;
-        return this;
-    }
-
-    public String getServiceName()
-    {
-        return serviceName;
-    }
-
-    @Config("http.server.authentication.krb5.service-name")
-    public SecurityConfig setServiceName(String serviceName)
-    {
-        this.serviceName = serviceName;
-        return this;
-    }
-
-    public File getKeytab()
-    {
-        return keytab;
-    }
-
-    @Config("http.server.authentication.krb5.keytab")
-    public SecurityConfig setKeytab(File keytab)
-    {
-        this.keytab = keytab;
+        this.authenticationType = authenticationType;
         return this;
     }
 }
