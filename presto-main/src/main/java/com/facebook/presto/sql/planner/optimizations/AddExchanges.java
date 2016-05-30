@@ -145,11 +145,7 @@ public class AddExchanges
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        boolean distributedJoinEnabled = SystemSessionProperties.isDistributedJoinEnabled(session);
-        boolean distributedIndexJoinEnabled = SystemSessionProperties.isDistributedIndexJoinEnabled(session);
-        boolean redistributeWrites = SystemSessionProperties.isRedistributeWrites(session);
-        boolean preferStreamingOperators = SystemSessionProperties.preferStreamingOperators(session);
-        PlanWithProperties result = plan.accept(new Rewriter(symbolAllocator, idAllocator, symbolAllocator, session, distributedIndexJoinEnabled, distributedJoinEnabled, preferStreamingOperators, redistributeWrites), new Context(PreferredProperties.any(), false));
+        PlanWithProperties result = plan.accept(new Rewriter(symbolAllocator, idAllocator, symbolAllocator, session), new Context(PreferredProperties.any(), false));
         return result.getNode();
     }
 
@@ -199,16 +195,16 @@ public class AddExchanges
         private final boolean preferStreamingOperators;
         private final boolean redistributeWrites;
 
-        public Rewriter(SymbolAllocator allocator, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session, boolean distributedIndexJoins, boolean distributedJoins, boolean preferStreamingOperators, boolean redistributeWrites)
+        public Rewriter(SymbolAllocator allocator, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
         {
             this.allocator = allocator;
             this.idAllocator = idAllocator;
             this.symbolAllocator = symbolAllocator;
             this.session = session;
-            this.distributedIndexJoins = distributedIndexJoins;
-            this.distributedJoins = distributedJoins;
-            this.preferStreamingOperators = preferStreamingOperators;
-            this.redistributeWrites = redistributeWrites;
+            this.distributedJoins = SystemSessionProperties.isDistributedJoinEnabled(session);
+            this.distributedIndexJoins = SystemSessionProperties.isDistributedIndexJoinEnabled(session);
+            this.redistributeWrites = SystemSessionProperties.isRedistributeWrites(session);
+            this.preferStreamingOperators = SystemSessionProperties.preferStreamingOperators(session);
         }
 
         @Override
@@ -841,10 +837,10 @@ public class AddExchanges
                     }
                     else {
                         left = withDerivedProperties(
-                                partitionedExchange(idAllocator.getNextId(), REMOTE, left.getNode(), leftSymbols, Optional.<Symbol>empty()),
+                                partitionedExchange(idAllocator.getNextId(), REMOTE, left.getNode(), leftSymbols, Optional.empty()),
                                 left.getProperties());
                         right = withDerivedProperties(
-                                partitionedExchange(idAllocator.getNextId(), REMOTE, right.getNode(), rightSymbols, Optional.<Symbol>empty()),
+                                partitionedExchange(idAllocator.getNextId(), REMOTE, right.getNode(), rightSymbols, Optional.empty()),
                                 right.getProperties());
                     }
                 }
@@ -923,9 +919,9 @@ public class AddExchanges
                                 partitionedExchange(idAllocator.getNextId(), REMOTE, filteringSource.getNode(), new PartitioningScheme(
                                         filteringPartitioning,
                                         filteringSource.getNode().getOutputSymbols(),
-                                        Optional.<Symbol>empty(),
+                                        Optional.empty(),
                                         true,
-                                        Optional.<int[]>empty())),
+                                        Optional.empty())),
                                 filteringSource.getProperties());
                     }
                 }
@@ -940,10 +936,10 @@ public class AddExchanges
                     }
                     else {
                         source = withDerivedProperties(
-                                partitionedExchange(idAllocator.getNextId(), REMOTE, source.getNode(), sourceSymbols, Optional.<Symbol>empty()),
+                                partitionedExchange(idAllocator.getNextId(), REMOTE, source.getNode(), sourceSymbols, Optional.empty()),
                                 source.getProperties());
                         filteringSource = withDerivedProperties(
-                                partitionedExchange(idAllocator.getNextId(), REMOTE, filteringSource.getNode(), filteringSourceSymbols, Optional.<Symbol>empty(), true),
+                                partitionedExchange(idAllocator.getNextId(), REMOTE, filteringSource.getNode(), filteringSourceSymbols, Optional.empty(), true),
                                 filteringSource.getProperties());
                     }
                 }
@@ -1121,9 +1117,9 @@ public class AddExchanges
                                         new PartitioningScheme(
                                                 childPartitioning,
                                                 source.getNode().getOutputSymbols(),
-                                                Optional.<Symbol>empty(),
+                                                Optional.empty(),
                                                 nullsReplicated,
-                                                Optional.<int[]>empty())),
+                                                Optional.empty())),
                                 source.getProperties());
                     }
                     partitionedSources.add(source.getNode());
