@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpClientConfig;
+import io.airlift.http.client.HttpRequestFilter;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.http.client.spnego.KerberosConfig;
 import io.airlift.json.JsonCodec;
@@ -30,6 +31,7 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.util.Objects.requireNonNull;
 
@@ -48,6 +50,7 @@ public class QueryRunner
             Optional<String> keystorePassword,
             Optional<String> truststorePath,
             Optional<String> truststorePassword,
+            Optional<String> user,
             Optional<String> password,
             Optional<String> kerberosPrincipal,
             Optional<String> kerberosRemoteServiceName,
@@ -68,7 +71,7 @@ public class QueryRunner
                         authenticationEnabled),
                 kerberosConfig,
                 Optional.empty(),
-                ImmutableList.of());
+                getRequestFilters(session, user, password));
     }
 
     public ClientSession getSession()
@@ -104,6 +107,7 @@ public class QueryRunner
             Optional<String> keystorePassword,
             Optional<String> truststorePath,
             Optional<String> truststorePassword,
+            Optional<String> user,
             Optional<String> password,
             Optional<String> kerberosPrincipal,
             Optional<String> kerberosRemoteServiceName,
@@ -118,6 +122,7 @@ public class QueryRunner
                 keystorePassword,
                 truststorePath,
                 truststorePassword,
+                user,
                 password,
                 kerberosPrincipal,
                 kerberosRemoteServiceName,
@@ -151,5 +156,14 @@ public class QueryRunner
         kerberosRemoteServiceName.ifPresent(httpClientConfig::setKerberosRemoteServiceName);
 
         return httpClientConfig;
+    }
+
+    private static Iterable<HttpRequestFilter> getRequestFilters(ClientSession session, Optional<String> user, Optional<String> password)
+    {
+        if (user.isPresent() && password.isPresent()) {
+            checkArgument(session.getServer().getScheme().equalsIgnoreCase("https"), "Authentication using username/password requires HTTPS to be enabled");
+            return ImmutableList.of(new LdapRequestFilter(user.get(), password.get()));
+        }
+        return ImmutableList.of();
     }
 }
