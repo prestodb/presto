@@ -29,6 +29,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -189,6 +190,31 @@ public class WindowNode
         public Frame getFrame()
         {
             return frame;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(partitionBy, orderBy, orderings, frame);
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+
+            Specification other = (Specification) obj;
+
+            return Objects.equals(this.partitionBy, other.partitionBy) &&
+                    Objects.equals(this.orderBy, other.orderBy) &&
+                    Objects.equals(this.orderings, other.orderings) &&
+                    Objects.equals(this.frame, other.frame);
         }
     }
 
