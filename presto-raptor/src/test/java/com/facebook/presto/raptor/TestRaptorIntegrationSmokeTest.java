@@ -24,18 +24,22 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.raptor.RaptorColumnHandle.SHARD_UUID_COLUMN_TYPE;
 import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunner;
 import static com.facebook.presto.raptor.RaptorQueryRunner.createSampledSession;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
+import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
@@ -108,6 +112,24 @@ public class TestRaptorIntegrationSmokeTest
     }
 
     @Test
+    public void testBucketNumberHiddenColumn()
+            throws Exception
+    {
+        assertUpdate("" +
+                        "CREATE TABLE test_bucket_number " +
+                        "WITH (bucket_count = 50, bucketed_on = ARRAY ['orderkey']) " +
+                        "AS SELECT * FROM orders",
+                "SELECT count(*) FROM orders");
+
+        MaterializedResult actualResults = computeActual("SELECT DISTINCT \"$bucket_number\" FROM test_bucket_number");
+        assertEquals(actualResults.getTypes(), ImmutableList.of(INTEGER));
+        Set<Object> actual = actualResults.getMaterializedRows().stream()
+                .map(row -> row.getField(0))
+                .collect(toSet());
+        assertEquals(actual, IntStream.range(0, 50).boxed().collect(toSet()));
+    }
+
+    @Test
     public void testTableProperties()
             throws Exception
     {
@@ -144,18 +166,21 @@ public class TestRaptorIntegrationSmokeTest
         assertQuery("SELECT * FROM orders_bucketed", "SELECT * FROM orders");
         assertQuery("SELECT count(*) FROM orders_bucketed", "SELECT count(*) FROM orders");
         assertQuery("SELECT count(DISTINCT \"$shard_uuid\") FROM orders_bucketed", "SELECT 50");
+        assertQuery("SELECT count(DISTINCT \"$bucket_number\") FROM orders_bucketed", "SELECT 50");
 
         assertUpdate("INSERT INTO orders_bucketed SELECT * FROM orders", "SELECT count(*) FROM orders");
 
         assertQuery("SELECT * FROM orders_bucketed", "SELECT * FROM orders UNION ALL SELECT * FROM orders");
         assertQuery("SELECT count(*) FROM orders_bucketed", "SELECT count(*) * 2 FROM orders");
         assertQuery("SELECT count(DISTINCT \"$shard_uuid\") FROM orders_bucketed", "SELECT 50 * 2");
+        assertQuery("SELECT count(DISTINCT \"$bucket_number\") FROM orders_bucketed", "SELECT 50");
 
         assertQuery("SELECT count(*) FROM orders_bucketed a JOIN orders_bucketed b USING (orderkey)", "SELECT count(*) * 4 FROM orders");
 
         assertUpdate("DELETE FROM orders_bucketed WHERE orderkey = 37", 2);
         assertQuery("SELECT count(*) FROM orders_bucketed", "SELECT (count(*) * 2) - 2 FROM orders");
         assertQuery("SELECT count(DISTINCT \"$shard_uuid\") FROM orders_bucketed", "SELECT 50 * 2");
+        assertQuery("SELECT count(DISTINCT \"$bucket_number\") FROM orders_bucketed", "SELECT 50");
 
         assertUpdate("DROP TABLE orders_bucketed");
     }

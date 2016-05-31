@@ -63,7 +63,7 @@ final class ShardIterator
     {
         this.bucketed = bucketed;
         this.merged = merged;
-        ShardPredicate predicate = ShardPredicate.create(effectivePredicate);
+        ShardPredicate predicate = ShardPredicate.create(effectivePredicate, bucketed);
 
         String sql;
         if (bucketed) {

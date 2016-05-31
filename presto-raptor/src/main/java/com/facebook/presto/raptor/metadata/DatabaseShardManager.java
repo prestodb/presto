@@ -719,11 +719,13 @@ public class DatabaseShardManager
 
     public static String minColumn(long columnId)
     {
+        checkArgument(columnId >= 0, "invalid columnId %s", columnId);
         return format("c%s_min", columnId);
     }
 
     public static String maxColumn(long columnId)
     {
+        checkArgument(columnId >= 0, "invalid columnId %s", columnId);
         return format("c%s_max", columnId);
     }
 
