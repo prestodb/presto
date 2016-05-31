@@ -210,6 +210,7 @@ public class TestHiveIntegrationSmokeTest
                 ", _decimal_long DECIMAL(30,10)" +
                 ", _partition_string VARCHAR" +
                 ", _partition_varchar VARCHAR(65535)" +
+                ", _partition_char CHAR(10)" +
                 ", _partition_tinyint TINYINT" +
                 ", _partition_smallint SMALLINT" +
                 ", _partition_integer INTEGER" +
@@ -219,7 +220,7 @@ public class TestHiveIntegrationSmokeTest
                 ") " +
                 "WITH (" +
                 "format = '" + storageFormat + "', " +
-                "partitioned_by = ARRAY[ '_partition_string', '_partition_varchar', '_partition_tinyint', '_partition_smallint', '_partition_integer', '_partition_bigint', '_partition_decimal_short', '_partition_decimal_long' ]" +
+                "partitioned_by = ARRAY[ '_partition_string', '_partition_varchar', '_partition_char', '_partition_tinyint', '_partition_smallint', '_partition_integer', '_partition_bigint', '_partition_decimal_short', '_partition_decimal_long' ]" +
                 ") ";
 
         assertUpdate(createTable);
@@ -227,7 +228,7 @@ public class TestHiveIntegrationSmokeTest
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_partitioned_table");
         assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
 
-        List<String> partitionedBy = ImmutableList.of("_partition_string", "_partition_varchar", "_partition_tinyint", "_partition_smallint", "_partition_integer", "_partition_bigint", "_partition_decimal_short", "_partition_decimal_long");
+        List<String> partitionedBy = ImmutableList.of("_partition_string", "_partition_varchar", "_partition_char", "_partition_tinyint", "_partition_smallint", "_partition_integer", "_partition_bigint", "_partition_decimal_short", "_partition_decimal_long");
         assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), partitionedBy);
         for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
             boolean partitionKey = partitionedBy.contains(columnMetadata.getName());
@@ -259,6 +260,7 @@ public class TestHiveIntegrationSmokeTest
                 ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _decimal_long" +
                 ", 'foo' _partition_string" +
                 ", 'bar' _partition_varchar" +
+                ", CAST('boo' AS CHAR(10)) _partition_char" +
                 ", CAST(1 AS TINYINT) _partition_tinyint" +
                 ", CAST(1 AS SMALLINT) _partition_smallint" +
                 ", 1 _partition_integer" +
