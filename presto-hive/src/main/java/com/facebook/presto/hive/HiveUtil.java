@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -88,6 +89,8 @@ import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.Chars.isCharType;
+import static com.facebook.presto.spi.type.Chars.trimSpaces;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -463,6 +466,13 @@ public final class HiveUtil
             return NullableValue.of(type, varcharPartitionKey(value, partitionName, type));
         }
 
+        if (isCharType(type)) {
+            if (isNull) {
+                return NullableValue.asNull(type);
+            }
+            return NullableValue.of(type, charPartitionKey(value, partitionName, type));
+        }
+
         throw new PrestoException(NOT_SUPPORTED, format("Unsupported Type [%s] for partition: %s", type, partitionName));
     }
 
@@ -644,6 +654,16 @@ public final class HiveUtil
         Slice partitionKey = Slices.utf8Slice(value);
         VarcharType varcharType = checkType(columnType, VarcharType.class, "columnType");
         if (SliceUtf8.countCodePoints(partitionKey) > varcharType.getLength()) {
+            throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, columnType.toString(), name));
+        }
+        return partitionKey;
+    }
+
+    public static Slice charPartitionKey(String value, String name, Type columnType)
+    {
+        Slice partitionKey = trimSpaces(Slices.utf8Slice(value));
+        CharType charType = checkType(columnType, CharType.class, "columnType");
+        if (SliceUtf8.countCodePoints(partitionKey) > charType.getLength()) {
             throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, columnType.toString(), name));
         }
         return partitionKey;

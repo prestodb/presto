@@ -46,6 +46,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.charPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
@@ -60,6 +61,7 @@ import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
@@ -185,6 +187,12 @@ public class OrcPageSource
                 }
                 else if (isVarcharType(type)) {
                     Slice value = varcharPartitionKey(columnValue, name, type);
+                    for (int i = 0; i < MAX_BATCH_SIZE; i++) {
+                        type.writeSlice(blockBuilder, value);
+                    }
+                }
+                else if (isCharType(type)) {
+                    Slice value = charPartitionKey(partitionKey.getValue(), name, type);
                     for (int i = 0; i < MAX_BATCH_SIZE; i++) {
                         type.writeSlice(blockBuilder, value);
                     }

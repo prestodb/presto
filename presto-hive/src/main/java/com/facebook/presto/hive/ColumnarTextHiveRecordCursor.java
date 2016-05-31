@@ -46,6 +46,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveUtil.base64Decode;
 import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.charPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
@@ -66,6 +67,8 @@ import static com.facebook.presto.hive.util.SerDeUtils.getBlockObject;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.Chars.isCharType;
+import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
@@ -216,6 +219,9 @@ class ColumnarTextHiveRecordCursor<K>
                 }
                 else if (isVarcharType(type)) {
                     slices[columnIndex] = varcharPartitionKey(columnValue, name, type);
+                }
+                else if (isCharType(type)) {
+                    slices[columnIndex] = charPartitionKey(partitionKey.getValue(), name, type);
                 }
                 else if (DATE.equals(type)) {
                     longs[columnIndex] = datePartitionKey(columnValue, name);
@@ -532,6 +538,9 @@ class ColumnarTextHiveRecordCursor<K>
             if (isVarcharType(type)) {
                 slices[column] = truncateToLength(value, type);
             }
+            else if (isCharType(type)) {
+                slices[column] = trimSpacesAndTruncateToLength(value, type);
+            }
             // this is unbelievably stupid but Hive base64 encodes binary data in a binary file format
             else if (type.equals(VARBINARY)) {
                 // and yes we end up with an extra copy here because the Base64 only handles whole arrays
@@ -655,6 +664,7 @@ class ColumnarTextHiveRecordCursor<K>
         }
         nulls[column] = wasNull;
     }
+
     @Override
     public boolean isNull(int fieldId)
     {
@@ -687,7 +697,7 @@ class ColumnarTextHiveRecordCursor<K>
         else if (type.equals(DOUBLE)) {
             parseDoubleColumn(column);
         }
-        else if (isVarcharType(type) || VARBINARY.equals(type)) {
+        else if (isVarcharType(type) || VARBINARY.equals(type) || isCharType(type)) {
             parseStringColumn(column);
         }
         else if (isStructuralType(hiveTypes[column])) {

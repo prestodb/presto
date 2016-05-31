@@ -21,6 +21,8 @@ import io.airlift.slice.Slices;
 import parquet.column.ColumnDescriptor;
 import parquet.io.api.Binary;
 
+import static com.facebook.presto.spi.type.Chars.isCharType;
+import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 
@@ -52,6 +54,9 @@ public class ParquetBinaryColumnReader
                 }
                 if (isVarcharType(type)) {
                     value = truncateToLength(value, type);
+                }
+                if (isCharType(type)) {
+                    value = trimSpacesAndTruncateToLength(value, type);
                 }
                 type.writeSlice(blockBuilder, value);
             }
