@@ -280,7 +280,7 @@ public final class SqlQueryExecution
         Plan plan = logicalPlanner.plan(analysis);
 
         // extract inputs
-        List<Input> inputs = new InputExtractor(metadata, stateMachine.getSession()).extract(plan.getRoot());
+        List<Input> inputs = new InputExtractor(metadata, stateMachine.getSession()).extractInputs(plan.getRoot());
         stateMachine.setInputs(inputs);
 
         // fragment the plan
