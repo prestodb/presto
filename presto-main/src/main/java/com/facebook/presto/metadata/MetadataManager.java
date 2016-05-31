@@ -621,10 +621,10 @@ public class MetadataManager
             if (tables == null) {
                 return;
             }
-            for (TableHandle th : tables) {
-                ConnectorEntry entry = lookupConnectorFor(th);
+            for (TableHandle table : tables) {
+                ConnectorEntry entry = lookupConnectorFor(table);
                 ConnectorMetadata metadata = entry.getMetadata(session);
-                metadata.finishSelect(session.toConnectorSession(entry.getCatalog()), th.getConnectorHandle());
+                metadata.finishSelect(session.toConnectorSession(entry.getCatalog()), table.getConnectorHandle());
             }
         }
         finally {

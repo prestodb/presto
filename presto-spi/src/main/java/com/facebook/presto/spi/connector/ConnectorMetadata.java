@@ -277,9 +277,7 @@ public interface ConnectorMetadata
      *
      * @param tableHandle returned by {@link #beginSelect(ConnectorSession, ConnectorTableHandle, Optional, Collection)} method
      */
-    default void finishSelect(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-    }
+    default void finishSelect(ConnectorSession session, ConnectorTableHandle tableHandle) {}
 
     /**
      * Create the specified view. The data for the view is opaque to the connector.
