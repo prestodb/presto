@@ -23,13 +23,3 @@ services:
       - 'presto-master'
     volumes_from:
       - presto-master
-
-  postgres:
-    extends:
-      file: ../common/jdbc_db.yml
-      service: postgres-common
-
-  mysql:
-    extends:
-      file: ../common/jdbc_db.yml
-      service: mysql-common
