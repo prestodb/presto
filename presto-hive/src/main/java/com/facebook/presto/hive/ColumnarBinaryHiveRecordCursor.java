@@ -55,6 +55,7 @@ import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
 import static com.facebook.presto.hive.HiveType.HIVE_TIMESTAMP;
 import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.charParitionKey;
 import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
@@ -72,6 +73,8 @@ import static com.facebook.presto.hive.util.SerDeUtils.getBlockObject;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.Chars.isCharType;
+import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
@@ -227,6 +230,9 @@ class ColumnarBinaryHiveRecordCursor<K>
                 }
                 else if (isVarcharType(type)) {
                     slices[columnIndex] = varcharPartitionKey(partitionKey.getValue(), name, type);
+                }
+                else if (isCharType(type)) {
+                    slices[columnIndex] = charParitionKey(partitionKey.getValue(), name, type);
                 }
                 else if (DATE.equals(type)) {
                     longs[columnIndex] = datePartitionKey(partitionKey.getValue(), name);
@@ -537,7 +543,7 @@ class ColumnarBinaryHiveRecordCursor<K>
         checkState(!closed, "Cursor is closed");
 
         Type type = types[fieldId];
-        if (!isVarcharType(type) && !type.equals(VARBINARY) && !isStructuralType(hiveTypes[fieldId]) && !isLongDecimal(type)) {
+        if (!isVarcharType(type) && !isCharType(type) && !type.equals(VARBINARY) && !isStructuralType(hiveTypes[fieldId]) && !isLongDecimal(type)) {
             // we don't use Preconditions.checkArgument because it requires boxing fieldId, which affects inner loop performance
             throw new IllegalArgumentException(format("Expected field to be VARCHAR, VARBINARY or DECIMAL, actual %s (field %s)", type, fieldId));
         }
@@ -600,6 +606,49 @@ class ColumnarBinaryHiveRecordCursor<K>
                     slices[column] = value;
                 }
             }
+        }
+    }
+
+    private void parseCharColumn(int column)
+    {
+        // don't include column number in message because it causes boxing which is expensive here
+        checkArgument(!isPartitionColumn[column], "Column is a partition key");
+
+        loaded[column] = true;
+
+        if (hiveColumnIndexes[column] >= value.size()) {
+            // this partition may contain fewer fields than what's declared in the schema
+            // this happens when additional columns are added to the hive table after a partition has been created
+            nulls[column] = true;
+        }
+        else {
+            BytesRefWritable fieldData = value.unCheckedGet(hiveColumnIndexes[column]);
+
+            byte[] bytes;
+            try {
+                bytes = fieldData.getData();
+            }
+            catch (IOException e) {
+                throw Throwables.propagate(e);
+            }
+
+            int start = fieldData.getStart();
+            int length = fieldData.getLength();
+
+            parseCharColumn(column, bytes, start, length);
+        }
+    }
+
+    private void parseCharColumn(int column, byte[] bytes, int start, int length)
+    {
+        if (length == 0) {
+            nulls[column] = true;
+        }
+        else {
+            nulls[column] = false;
+            Slice value = Slices.wrappedBuffer(Arrays.copyOfRange(bytes, start, start + length));
+            Type type = types[column];
+            slices[column] = trimSpacesAndTruncateToLength(value, type);
         }
     }
 
@@ -754,6 +803,9 @@ class ColumnarBinaryHiveRecordCursor<K>
         }
         else if (isVarcharType(type) || VARBINARY.equals(type)) {
             parseStringColumn(column);
+        }
+        else if (isCharType(type)) {
+            parseCharColumn(column);
         }
         else if (isStructuralType(hiveTypes[column])) {
             parseObjectColumn(column);
