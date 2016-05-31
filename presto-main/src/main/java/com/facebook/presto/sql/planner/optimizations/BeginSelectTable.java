@@ -60,7 +60,9 @@ public class BeginSelectTable
         public PlanNode visitOutput(OutputNode node, RewriteContext<Context> context)
         {
             node.getSource().accept(this, context);
-            context.get().getNodes().stream().forEach((n) -> metadata.beginSelect(session, n.getTable(), n.getLayout(), n.getAssignments().values()));
+            for (TableScanNode scanNode : context.get().getNodes()) {
+                metadata.beginSelect(session, scanNode.getTable(), scanNode.getLayout(), scanNode.getAssignments().values());
+            }
             return node;
         }
 
@@ -68,7 +70,9 @@ public class BeginSelectTable
         public PlanNode visitTableScan(TableScanNode node, RewriteContext<Context> context)
         {
             context.get().registerTableScan(node);
-            node.getSources().stream().forEach((n) -> n.accept(this, context));
+            for (PlanNode sourceNode : node.getSources()) {
+                sourceNode.accept(this, context);
+            }
             return node;
         }
     }
