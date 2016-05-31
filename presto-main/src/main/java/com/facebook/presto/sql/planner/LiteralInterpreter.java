@@ -134,13 +134,13 @@ public final class LiteralInterpreter
             // WARNING: the ORC predicate code depends on NaN and infinity not appearing in a tuple domain, so
             // if you remove this, you will need to update the TupleDomainOrcPredicate
             if (value.isNaN()) {
-                return new FunctionCall(new QualifiedName("nan"), ImmutableList.<Expression>of());
+                return new FunctionCall(QualifiedName.of("nan"), ImmutableList.<Expression>of());
             }
             else if (value.equals(Double.NEGATIVE_INFINITY)) {
-                return ArithmeticUnaryExpression.negative(new FunctionCall(new QualifiedName("infinity"), ImmutableList.<Expression>of()));
+                return ArithmeticUnaryExpression.negative(new FunctionCall(QualifiedName.of("infinity"), ImmutableList.<Expression>of()));
             }
             else if (value.equals(Double.POSITIVE_INFINITY)) {
-                return new FunctionCall(new QualifiedName("infinity"), ImmutableList.<Expression>of());
+                return new FunctionCall(QualifiedName.of("infinity"), ImmutableList.<Expression>of());
             }
             else {
                 return new DoubleLiteral(object.toString());
@@ -181,15 +181,15 @@ public final class LiteralInterpreter
             // HACK: we need to serialize VARBINARY in a format that can be embedded in an expression to be
             // able to encode it in the plan that gets sent to workers.
             // We do this by transforming the in-memory varbinary into a call to from_base64(<base64-encoded value>)
-            FunctionCall fromBase64 = new FunctionCall(new QualifiedName("from_base64"), ImmutableList.of(new StringLiteral(VarbinaryFunctions.toBase64((Slice) object).toStringUtf8())));
+            FunctionCall fromBase64 = new FunctionCall(QualifiedName.of("from_base64"), ImmutableList.of(new StringLiteral(VarbinaryFunctions.toBase64((Slice) object).toStringUtf8())));
             Signature signature = FunctionRegistry.getMagicLiteralFunctionSignature(type);
-            return new FunctionCall(new QualifiedName(signature.getName()), ImmutableList.of(fromBase64));
+            return new FunctionCall(QualifiedName.of(signature.getName()), ImmutableList.of(fromBase64));
         }
 
         Signature signature = FunctionRegistry.getMagicLiteralFunctionSignature(type);
         Expression rawLiteral = toExpression(object, FunctionRegistry.typeForMagicLiteral(type));
 
-        return new FunctionCall(new QualifiedName(signature.getName()), ImmutableList.of(rawLiteral));
+        return new FunctionCall(QualifiedName.of(signature.getName()), ImmutableList.of(rawLiteral));
     }
 
     private static class LiteralVisitor

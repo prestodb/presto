@@ -974,7 +974,7 @@ class AstBuilder
     {
         return new FunctionCall(
                 getLocation(context.CONCAT()),
-                new QualifiedName("concat"), ImmutableList.of(
+                QualifiedName.of("concat"), ImmutableList.of(
                 (Expression) visit(context.left),
                 (Expression) visit(context.right)));
     }
@@ -1056,14 +1056,14 @@ class AstBuilder
     @Override
     public Node visitSubstring(SqlBaseParser.SubstringContext context)
     {
-        return new FunctionCall(getLocation(context), new QualifiedName("substr"), visit(context.valueExpression(), Expression.class));
+        return new FunctionCall(getLocation(context), QualifiedName.of("substr"), visit(context.valueExpression(), Expression.class));
     }
 
     @Override
     public Node visitPosition(SqlBaseParser.PositionContext context)
     {
         List<Expression> arguments = Lists.reverse(visit(context.valueExpression(), Expression.class));
-        return new FunctionCall(getLocation(context), new QualifiedName("strpos"), arguments);
+        return new FunctionCall(getLocation(context), QualifiedName.of("strpos"), arguments);
     }
 
     @Override
@@ -1071,7 +1071,7 @@ class AstBuilder
     {
         Expression str = (Expression) visit(context.valueExpression());
         String normalForm = Optional.ofNullable(context.normalForm()).map(ParserRuleContext::getText).orElse("NFC");
-        return new FunctionCall(getLocation(context), new QualifiedName("normalize"), ImmutableList.of(str, new StringLiteral(getLocation(context), normalForm)));
+        return new FunctionCall(getLocation(context), QualifiedName.of("normalize"), ImmutableList.of(str, new StringLiteral(getLocation(context), normalForm)));
     }
 
     @Override
@@ -1095,7 +1095,7 @@ class AstBuilder
     @Override
     public Node visitColumnReference(SqlBaseParser.ColumnReferenceContext context)
     {
-        return new QualifiedNameReference(getLocation(context), new QualifiedName(context.getText()));
+        return new QualifiedNameReference(getLocation(context), QualifiedName.of(context.getText()));
     }
 
     @Override
@@ -1387,7 +1387,7 @@ class AstBuilder
                 .map(ParseTree::getText)
                 .collect(toList());
 
-        return new QualifiedName(parts);
+        return QualifiedName.of(parts);
     }
 
     private static boolean isDistinct(SqlBaseParser.SetQuantifierContext setQuantifier)
