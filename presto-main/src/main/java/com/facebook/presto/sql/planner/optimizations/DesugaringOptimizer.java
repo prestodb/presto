@@ -28,6 +28,7 @@ import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 
@@ -110,6 +111,9 @@ public class DesugaringOptimizer
 
         private Expression desugar(Expression expression)
         {
+            if (expression instanceof SymbolReference) {
+                return expression;
+            }
             IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, types, expression);
             return ExpressionTreeRewriter.rewriteWith(new DesugaringRewriter(expressionTypes), expression);
         }
