@@ -290,6 +290,10 @@ public abstract class AbstractTestHiveFileFormats
                     getStandardMapObjectInspector(javaHiveVarcharObjectInspector, javaHiveVarcharObjectInspector),
                     ImmutableMap.of(new HiveVarchar("test", HiveVarchar.MAX_VARCHAR_LENGTH), new HiveVarchar("test", HiveVarchar.MAX_VARCHAR_LENGTH)),
                     mapBlockOf(createUnboundedVarcharType(), createUnboundedVarcharType(), "test", "test")))
+            .add(new TestColumn("t_map_char",
+                    getStandardMapObjectInspector(CHAR_INSPECTOR_LENGTH_10, CHAR_INSPECTOR_LENGTH_10),
+                    ImmutableMap.of(new HiveChar("test", 10), new HiveChar("test", 10)),
+                    mapBlockOf(createCharType(10), createCharType(10), "test", "test")))
             .add(new TestColumn("t_map_smallint",
                     getStandardMapObjectInspector(javaShortObjectInspector, javaShortObjectInspector),
                     ImmutableMap.of((short) 2, (short) 2),
