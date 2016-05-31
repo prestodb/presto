@@ -69,7 +69,7 @@ public class DereferenceExpression
     public static QualifiedName getQualifiedName(DereferenceExpression expression)
     {
         List<String> parts = tryParseParts(expression.base, expression.fieldName);
-        return parts == null ? null : new QualifiedName(parts);
+        return parts == null ? null : QualifiedName.of(parts);
     }
 
     private static List<String> tryParseParts(Expression base, String fieldName)

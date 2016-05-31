@@ -113,7 +113,7 @@ public final class QueryUtil
 
     public static Expression functionCall(String name, Expression... arguments)
     {
-        return new FunctionCall(new QualifiedName(name), ImmutableList.copyOf(arguments));
+        return new FunctionCall(QualifiedName.of(name), ImmutableList.copyOf(arguments));
     }
 
     public static Values values(Row... row)

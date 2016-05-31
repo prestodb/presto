@@ -121,6 +121,8 @@ import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.positive;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestSqlParser
@@ -147,6 +149,18 @@ public class TestSqlParser
             throws Exception
     {
         SQL_PARSER.createExpression("(((((((((((((((((((((((((((true)))))))))))))))))))))))))))");
+    }
+
+    @Test
+    public void testQualifiedName()
+    {
+        assertEquals(QualifiedName.of("a", "b", "c", "d").toString(), "a.b.c.d");
+        assertEquals(QualifiedName.of("A", "b", "C", "d").toString(), "a.b.c.d");
+        assertTrue(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("b", "c", "d")));
+        assertTrue(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("a", "b", "c", "d")));
+        assertFalse(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("a", "c", "d")));
+        assertFalse(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("z", "a", "b", "c", "d")));
+        assertEquals(QualifiedName.of("a", "b", "c", "d"), QualifiedName.of("a", "b", "c", "d"));
     }
 
     @Test

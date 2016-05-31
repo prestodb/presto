@@ -39,7 +39,7 @@ public class TestDeterminismEvaluator
 
     private static FunctionCall function(String name, Expression... inputs)
     {
-        return new FunctionCall(new QualifiedName(name), Arrays.asList(inputs));
+        return new FunctionCall(QualifiedName.of(name), Arrays.asList(inputs));
     }
 
     private static QualifiedNameReference input(String symbol)
