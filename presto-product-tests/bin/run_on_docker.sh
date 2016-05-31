@@ -93,8 +93,12 @@ function stop_docker_compose_containers() {
 }
 
 function environment_docker_compose() {
-  ENVIRONMENT_DOCKER_COMPOSE_LOCATION="${ENVIRONMENT_LOCATION}/${ENVIRONMENT}/docker-compose.yml"
-  docker-compose -f "${ENVIRONMENT_DOCKER_COMPOSE_LOCATION}" "$@"
+  local ENVIRONMENT_DOCKER_COMPOSE_LOCATION="${DOCKER_CONF_LOCATION}/${ENVIRONMENT}/docker-compose.yml"
+  local COMPOSE_FILES=( \
+    -f "${DOCKER_CONF_LOCATION}/common/jdbc_db.yml" \
+    -f "${ENVIRONMENT_DOCKER_COMPOSE_LOCATION}" \
+  )
+  docker-compose "${COMPOSE_FILES[@]}" "$@"
 }
 
 function cleanup() {
@@ -128,7 +132,7 @@ function terminate() {
 }
 
 function getAvailableEnvironments() {
-  for i in $(ls -d $ENVIRONMENT_LOCATION/*/); do echo ${i%%/}; done\
+  for i in $(ls -d $DOCKER_CONF_LOCATION/*/); do echo ${i%%/}; done\
      | grep -v files | grep -v common | xargs -n1 basename
 }
 
@@ -136,10 +140,10 @@ ENVIRONMENT=$1
 SCRIPT_DIR=$(dirname $(absolutepath "$0"))
 PRODUCT_TESTS_ROOT="${SCRIPT_DIR}/.."
 PROJECT_ROOT="${PRODUCT_TESTS_ROOT}/.."
-ENVIRONMENT_LOCATION="${PRODUCT_TESTS_ROOT}/conf/docker"
+DOCKER_CONF_LOCATION="${PRODUCT_TESTS_ROOT}/conf/docker"
 
 # Get the list of valid environments
-if [[ ! -d "$ENVIRONMENT_LOCATION/$ENVIRONMENT" ]]; then
+if [[ ! -d "$DOCKER_CONF_LOCATION/$ENVIRONMENT" ]]; then
    echo "Usage: run_on_docker.sh <`getAvailableEnvironments | tr '\n' '|'`> <product test args>"
    exit 1
 fi

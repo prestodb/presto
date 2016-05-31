@@ -1,7 +1,7 @@
 version: '2'
 services:
 
-  postgres-common:
+  postgres:
     hostname: postgres
     image: 'postgres'
     ports:
@@ -11,7 +11,7 @@ services:
       POSTGRES_USER: swarm
       POSTGRES_DB: test
 
-  mysql-common:
+  mysql:
     hostname: mysql
     image: 'mysql'
     ports:
