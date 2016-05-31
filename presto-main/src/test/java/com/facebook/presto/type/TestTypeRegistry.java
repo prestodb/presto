@@ -25,6 +25,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.FloatType.FLOAT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimeType.TIME;
@@ -96,10 +97,20 @@ public class TestTypeRegistry
         assertTrue(typeRegistry.canCoerce(VARCHAR, LIKE_PATTERN));
         assertTrue(typeRegistry.canCoerce(VARCHAR, JSON_PATH));
 
+        assertTrue(typeRegistry.canCoerce(FLOAT, DOUBLE));
+        assertTrue(typeRegistry.canCoerce(TINYINT, FLOAT));
+        assertTrue(typeRegistry.canCoerce(SMALLINT, FLOAT));
+        assertTrue(typeRegistry.canCoerce(INTEGER, FLOAT));
+        assertTrue(typeRegistry.canCoerce(BIGINT, FLOAT));
+
         assertFalse(typeRegistry.canCoerce(DOUBLE, BIGINT));
         assertFalse(typeRegistry.canCoerce(TIMESTAMP, TIME_WITH_TIME_ZONE));
         assertFalse(typeRegistry.canCoerce(TIMESTAMP_WITH_TIME_ZONE, TIMESTAMP));
         assertFalse(typeRegistry.canCoerce(VARBINARY, VARCHAR));
+        assertFalse(canCoerce("float", "decimal(37,1)"));
+        assertFalse(canCoerce("float", "decimal(37,37)"));
+        assertFalse(canCoerce("double", "decimal(37,1)"));
+        assertFalse(canCoerce("double", "decimal(37,37)"));
 
         assertTrue(canCoerce("unknown", "array(bigint)"));
         assertFalse(canCoerce("array(bigint)", "unknown"));
@@ -123,6 +134,8 @@ public class TestTypeRegistry
 
         assertTrue(canCoerce("decimal(3,2)", "double"));
         assertTrue(canCoerce("decimal(22,1)", "double"));
+        assertTrue(canCoerce("decimal(3,2)", "float"));
+        assertTrue(canCoerce("decimal(22,1)", "float"));
 
         assertFalse(canCoerce("integer", "decimal(9,0)"));
         assertTrue(canCoerce("integer", "decimal(10,0)"));
@@ -154,6 +167,12 @@ public class TestTypeRegistry
         assertCommonSuperType(VARCHAR, LIKE_PATTERN, LIKE_PATTERN);
         assertCommonSuperType(VARCHAR, JSON_PATH, JSON_PATH);
 
+        assertCommonSuperType(FLOAT, DOUBLE, DOUBLE);
+        assertCommonSuperType(FLOAT, TINYINT, FLOAT);
+        assertCommonSuperType(FLOAT, SMALLINT, FLOAT);
+        assertCommonSuperType(FLOAT, INTEGER, FLOAT);
+        assertCommonSuperType(FLOAT, BIGINT, FLOAT);
+
         assertCommonSuperType(TIMESTAMP, TIME_WITH_TIME_ZONE, null);
         assertCommonSuperType(VARBINARY, VARCHAR, null);
 
@@ -169,6 +188,7 @@ public class TestTypeRegistry
         assertCommonSuperType("bigint", "decimal(18,0)", "decimal(19,0)");
         assertCommonSuperType("bigint", "decimal(19,0)", "decimal(19,0)");
         assertCommonSuperType("bigint", "decimal(37,1)", "decimal(37,1)");
+        assertCommonSuperType("float", "decimal(37,1)", "float");
         assertCommonSuperType("array(decimal(23,1))", "array(decimal(22,1))", "array(decimal(23,1))");
         assertCommonSuperType("array(bigint)", "array(decimal(2,1))", "array(decimal(20,1))");
 
