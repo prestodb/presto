@@ -24,7 +24,6 @@ import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
@@ -592,17 +591,19 @@ public class MetadataManager
     }
 
     @Override
-    public TableHandle beginSelect(Session session, TableHandle tableHandle, Optional<TableLayoutHandle> layoutHandle, Collection<ColumnHandle> columnHandles)
+    public void beginSelect(Session session, TableHandle tableHandle, Optional<TableLayoutHandle> layoutHandle, Collection<ColumnHandle> columnHandles)
     {
         ConnectorEntry entry = lookupConnectorFor(tableHandle);
         ConnectorMetadata metadata = entry.getMetadata(session);
-        ConnectorTableHandle connectorHandle = metadata.beginSelect(session.toConnectorSession(entry.getCatalog()), tableHandle.getConnectorHandle(), convertToConnectorTableLayoutHandle(layoutHandle), columnHandles);
+        ConnectorTableHandle connectorHandle = metadata.beginSelect(session.toConnectorSession(entry.getCatalog()),
+                tableHandle.getConnectorHandle(),
+                layoutHandle.map(handle -> handle.getConnectorHandle()),
+                columnHandles);
         if (connectorHandle == null) {
-            return null;
+            return;
         }
-        TableHandle th = new TableHandle(tableHandle.getConnectorId(), connectorHandle);
-        registerTableForQueryId(session.getQueryId(), th);
-        return th;
+        TableHandle newHandle = new TableHandle(tableHandle.getConnectorId(), connectorHandle);
+        registerTableForQueryId(session.getQueryId(), newHandle);
     }
 
     private void registerTableForQueryId(QueryId queryId, TableHandle tableHandle)
@@ -630,16 +631,6 @@ public class MetadataManager
         finally {
             tablesToNotifyByQueryId.remove(queryId);
         }
-    }
-
-    private static Optional<ConnectorTableLayoutHandle> convertToConnectorTableLayoutHandle(
-            Optional<TableLayoutHandle> tableLayoutHandle)
-    {
-        if (!tableLayoutHandle.isPresent()) {
-            return Optional.empty();
-        }
-
-        return Optional.of(tableLayoutHandle.get().getConnectorHandle());
     }
 
     @Override

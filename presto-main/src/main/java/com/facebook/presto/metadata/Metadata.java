@@ -194,9 +194,8 @@ public interface Metadata
 
     /**
      * Notify connector about starting select query execution
-     * @return {@link TableHandle} of affected table. If null, no {@link #finishSelect(Session)} will be called.
      */
-    TableHandle beginSelect(Session session, TableHandle tableHandle, Optional<TableLayoutHandle> layoutHandle, Collection<ColumnHandle> columnHandles);
+    void beginSelect(Session session, TableHandle tableHandle, Optional<TableLayoutHandle> layoutHandle, Collection<ColumnHandle> columnHandles);
 
     /**
      * Notify connector about finishing execution of select query.
