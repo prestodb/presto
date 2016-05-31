@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.raptor.RaptorColumnHandle.bucketNumberColumnHandle;
 import static com.facebook.presto.raptor.RaptorColumnHandle.shardUuidColumnHandle;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidStringToBytes;
 import static com.facebook.presto.spi.predicate.Domain.create;
@@ -29,6 +30,7 @@ import static com.facebook.presto.spi.predicate.Domain.singleValue;
 import static com.facebook.presto.spi.predicate.Range.equal;
 import static com.facebook.presto.spi.predicate.Range.greaterThanOrEqual;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.sql.JDBCType.VARBINARY;
@@ -37,6 +39,8 @@ import static org.testng.Assert.assertEquals;
 
 public class TestShardPredicate
 {
+    private static final boolean bucketed = false;
+
     @Test
     public void testSimpleShardUuidPredicate()
             throws Exception
@@ -46,7 +50,7 @@ public class TestShardPredicate
                 shardUuidColumnHandle("test"), singleValue(VARCHAR, utf8Slice(uuid))
         ));
 
-        ShardPredicate shardPredicate = ShardPredicate.create(tupleDomain);
+        ShardPredicate shardPredicate = ShardPredicate.create(tupleDomain, bucketed);
 
         assertEquals(shardPredicate.getPredicate(), "shard_uuid = ?");
         assertEquals(shardPredicate.getTypes(), ImmutableList.of(VARBINARY));
@@ -63,7 +67,7 @@ public class TestShardPredicate
                 shardUuidColumnHandle("test"),
                 create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(equal(VARCHAR, uuid0), equal(VARCHAR, uuid1))), false)));
 
-        ShardPredicate shardPredicate = ShardPredicate.create(tupleDomain);
+        ShardPredicate shardPredicate = ShardPredicate.create(tupleDomain, bucketed);
 
         assertEquals(shardPredicate.getPredicate(), "shard_uuid = ? OR shard_uuid = ?");
         assertEquals(shardPredicate.getTypes(), ImmutableList.of(VARBINARY, VARBINARY));
@@ -80,7 +84,7 @@ public class TestShardPredicate
                 shardUuidColumnHandle("test"),
                 create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(equal(VARCHAR, uuid0), equal(VARCHAR, uuid1))), false)));
 
-        ShardPredicate shardPredicate = ShardPredicate.create(tupleDomain);
+        ShardPredicate shardPredicate = ShardPredicate.create(tupleDomain, bucketed);
 
         assertEquals(shardPredicate.getPredicate(), "true");
     }
@@ -94,7 +98,31 @@ public class TestShardPredicate
                 shardUuidColumnHandle("test"),
                 create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(greaterThanOrEqual(VARCHAR, uuid0))), false)));
 
-        ShardPredicate shardPredicate = ShardPredicate.create(tupleDomain);
+        ShardPredicate shardPredicate = ShardPredicate.create(tupleDomain, bucketed);
         assertEquals(shardPredicate.getPredicate(), "true");
+    }
+
+    @Test
+    public void testBucketNumber()
+            throws Exception
+    {
+        TupleDomain<RaptorColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(
+                bucketNumberColumnHandle("test"),
+                create(SortedRangeSet.copyOf(INTEGER, ImmutableList.of(equal(INTEGER, 1L))), false)));
+
+        ShardPredicate shardPredicate = ShardPredicate.create(tupleDomain, true);
+        assertEquals(shardPredicate.getPredicate(), "(bucket_number >= ? OR bucket_number IS NULL) AND (bucket_number <= ? OR bucket_number IS NULL)");
+    }
+
+    @Test
+    public void testBucketNumberForNonBucketed()
+            throws Exception
+    {
+        TupleDomain<RaptorColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(
+                bucketNumberColumnHandle("test"),
+                create(SortedRangeSet.copyOf(INTEGER, ImmutableList.of(equal(INTEGER, 1L))), false)));
+
+        ShardPredicate shardPredicate = ShardPredicate.create(tupleDomain, false);
+        assertEquals(shardPredicate.getPredicate(), "false");
     }
 }

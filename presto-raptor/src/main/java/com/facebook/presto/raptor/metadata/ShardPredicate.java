@@ -87,7 +87,7 @@ class ShardPredicate
                 .toString();
     }
 
-    public static ShardPredicate create(TupleDomain<RaptorColumnHandle> tupleDomain)
+    public static ShardPredicate create(TupleDomain<RaptorColumnHandle> tupleDomain, boolean bucketed)
     {
         StringJoiner predicate = new StringJoiner(" AND ").setEmptyValue("true");
         ImmutableList.Builder<JDBCType> types = ImmutableList.builder();
@@ -138,8 +138,20 @@ class ShardPredicate
                 }
             }
 
-            String min = minColumn(handle.getColumnId());
-            String max = maxColumn(handle.getColumnId());
+            String min;
+            String max;
+            if (handle.isBucketNumber()) {
+                if (!bucketed) {
+                    predicate.add("false");
+                    continue;
+                }
+                min = "bucket_number";
+                max = "bucket_number";
+            }
+            else {
+                min = minColumn(handle.getColumnId());
+                max = maxColumn(handle.getColumnId());
+            }
 
             if (minValue != null) {
                 predicate.add(format("(%s >= ? OR %s IS NULL)", max, max));
