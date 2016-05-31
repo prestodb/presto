@@ -44,7 +44,7 @@ import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_CORRUPT_METADATA
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterators.peekingIterator;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -173,15 +173,15 @@ public class TableMetadataPageSource
             pageBuilder.declarePosition();
 
             // schema_name, table_name
-            VARCHAR.writeSlice(pageBuilder.getBlockBuilder(0), utf8Slice(tableRow.getSchemaName()));
-            VARCHAR.writeSlice(pageBuilder.getBlockBuilder(1), utf8Slice(tableRow.getTableName()));
+            createUnboundedVarcharType().writeSlice(pageBuilder.getBlockBuilder(0), utf8Slice(tableRow.getSchemaName()));
+            createUnboundedVarcharType().writeSlice(pageBuilder.getBlockBuilder(1), utf8Slice(tableRow.getTableName()));
 
             // temporal_column
             if (temporalColumnId.isPresent()) {
                 if (temporalColumnName == null) {
                     throw new PrestoException(RAPTOR_CORRUPT_METADATA, format("Table ID %s has corrupt metadata (invalid temporal column ID)", tableRow.getTableId()));
                 }
-                VARCHAR.writeSlice(pageBuilder.getBlockBuilder(2), utf8Slice(temporalColumnName));
+                createUnboundedVarcharType().writeSlice(pageBuilder.getBlockBuilder(2), utf8Slice(temporalColumnName));
             }
             else {
                 pageBuilder.getBlockBuilder(2).appendNull();
@@ -191,7 +191,7 @@ public class TableMetadataPageSource
             if (!sortColumnNames.isEmpty()) {
                 BlockBuilder orderingColumnsBlockBuilder = pageBuilder.getBlockBuilder(3).beginBlockEntry();
                 for (String sortColumnName : sortColumnNames.values()) {
-                    VARCHAR.writeSlice(orderingColumnsBlockBuilder, utf8Slice(sortColumnName));
+                    createUnboundedVarcharType().writeSlice(orderingColumnsBlockBuilder, utf8Slice(sortColumnName));
                 }
                 pageBuilder.getBlockBuilder(3).closeEntry();
             }
@@ -202,7 +202,7 @@ public class TableMetadataPageSource
             // distribution_name
             Optional<String> distributionName = tableRow.getDistributionName();
             if (distributionName.isPresent()) {
-                VARCHAR.writeSlice(pageBuilder.getBlockBuilder(4), utf8Slice(distributionName.get()));
+                createUnboundedVarcharType().writeSlice(pageBuilder.getBlockBuilder(4), utf8Slice(distributionName.get()));
             }
             else {
                 pageBuilder.getBlockBuilder(4).appendNull();
@@ -221,7 +221,7 @@ public class TableMetadataPageSource
             if (!bucketColumnNames.isEmpty()) {
                 BlockBuilder bucketColumnsBlockBuilder = pageBuilder.getBlockBuilder(6).beginBlockEntry();
                 for (String bucketColumnName : bucketColumnNames.values()) {
-                    VARCHAR.writeSlice(bucketColumnsBlockBuilder, utf8Slice(bucketColumnName));
+                    createUnboundedVarcharType().writeSlice(bucketColumnsBlockBuilder, utf8Slice(bucketColumnName));
                 }
                 pageBuilder.getBlockBuilder(6).closeEntry();
             }

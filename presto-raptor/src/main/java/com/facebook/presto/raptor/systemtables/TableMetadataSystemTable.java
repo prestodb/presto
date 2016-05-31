@@ -34,7 +34,7 @@ import static com.facebook.presto.raptor.systemtables.TableMetadataPageSource.TA
 import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
 public class TableMetadataSystemTable
@@ -53,11 +53,11 @@ public class TableMetadataSystemTable
         this.tableMetadata = new ConnectorTableMetadata(
                 new SchemaTableName("system", "tables"),
                 ImmutableList.of(
-                        new ColumnMetadata(SCHEMA_NAME, VARCHAR),
-                        new ColumnMetadata(TABLE_NAME, VARCHAR),
-                        new ColumnMetadata("temporal_column", VARCHAR),
+                        new ColumnMetadata(SCHEMA_NAME, createUnboundedVarcharType()),
+                        new ColumnMetadata(TABLE_NAME, createUnboundedVarcharType()),
+                        new ColumnMetadata("temporal_column", createUnboundedVarcharType()),
                         new ColumnMetadata("ordering_columns", arrayOfVarchar),
-                        new ColumnMetadata("distribution_name", VARCHAR),
+                        new ColumnMetadata("distribution_name", createUnboundedVarcharType()),
                         new ColumnMetadata("bucket_count", BIGINT),
                         new ColumnMetadata("bucketing_columns", arrayOfVarchar)));
     }

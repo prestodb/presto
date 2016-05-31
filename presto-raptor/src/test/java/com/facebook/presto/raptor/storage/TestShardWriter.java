@@ -19,9 +19,12 @@ import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.airlift.json.JsonCodec;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -37,12 +40,13 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.tests.StructuralTestUtil.arrayBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.arrayBlocksEqual;
 import static com.facebook.presto.tests.StructuralTestUtil.mapBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.mapBlocksEqual;
 import static com.google.common.io.Files.createTempDir;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.airlift.testing.FileUtils.deleteRecursively;
@@ -53,6 +57,8 @@ import static org.testng.Assert.assertTrue;
 public class TestShardWriter
 {
     private File directory;
+
+    private static final JsonCodec<OrcFileMetadata> METADATA_CODEC = jsonCodec(OrcFileMetadata.class);
 
     @BeforeClass
     public void setup()
@@ -74,17 +80,17 @@ public class TestShardWriter
         List<Long> columnIds = ImmutableList.of(1L, 2L, 4L, 6L, 7L, 8L, 9L, 10L);
         ArrayType arrayType = new ArrayType(BIGINT);
         ArrayType arrayOfArrayType = new ArrayType(arrayType);
-        MapType mapType = new MapType(VARCHAR, BOOLEAN);
-        List<Type> columnTypes = ImmutableList.of(BIGINT, VARCHAR, VARBINARY, DOUBLE, BOOLEAN, arrayType, mapType, arrayOfArrayType);
+        MapType mapType = new MapType(createVarcharType(10), BOOLEAN);
+        List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(10), VARBINARY, DOUBLE, BOOLEAN, arrayType, mapType, arrayOfArrayType);
         File file = new File(directory, System.nanoTime() + ".orc");
 
         byte[] bytes1 = octets(0x00, 0xFE, 0xFF);
         byte[] bytes3 = octets(0x01, 0x02, 0x19, 0x80);
 
         RowPagesBuilder rowPagesBuilder = RowPagesBuilder.rowPagesBuilder(columnTypes)
-                .row(123L, "hello", wrappedBuffer(bytes1), 123.456, true, arrayBlockOf(BIGINT, 1, 2), mapBlockOf(VARCHAR, BOOLEAN, "k1", true),  arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5)))
-                .row(null, "world", null, Double.POSITIVE_INFINITY, null, arrayBlockOf(BIGINT, 3, null), mapBlockOf(VARCHAR, BOOLEAN, "k2", null), arrayBlockOf(arrayType, null, arrayBlockOf(BIGINT, 6, 7)))
-                .row(456L, "bye \u2603", wrappedBuffer(bytes3), Double.NaN, false, arrayBlockOf(BIGINT), mapBlockOf(VARCHAR, BOOLEAN, "k3", false), arrayBlockOf(arrayType, arrayBlockOf(BIGINT)));
+                .row(123L, "hello", wrappedBuffer(bytes1), 123.456, true, arrayBlockOf(BIGINT, 1, 2), mapBlockOf(createVarcharType(5), BOOLEAN, "k1", true),  arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5)))
+                .row(null, "world", null, Double.POSITIVE_INFINITY, null, arrayBlockOf(BIGINT, 3, null), mapBlockOf(createVarcharType(5), BOOLEAN, "k2", null), arrayBlockOf(arrayType, null, arrayBlockOf(BIGINT, 6, 7)))
+                .row(456L, "bye \u2603", wrappedBuffer(bytes3), Double.NaN, false, arrayBlockOf(BIGINT), mapBlockOf(createVarcharType(5), BOOLEAN, "k3", false), arrayBlockOf(arrayType, arrayBlockOf(BIGINT)));
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(new EmptyClassLoader());
              OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file)) {
@@ -109,10 +115,10 @@ public class TestShardWriter
             assertEquals(BIGINT.getLong(column0, 0), 123L);
             assertEquals(BIGINT.getLong(column0, 2), 456L);
 
-            Block column1 = reader.readBlock(VARCHAR, 1);
-            assertEquals(VARCHAR.getSlice(column1, 0), utf8Slice("hello"));
-            assertEquals(VARCHAR.getSlice(column1, 1), utf8Slice("world"));
-            assertEquals(VARCHAR.getSlice(column1, 2), utf8Slice("bye \u2603"));
+            Block column1 = reader.readBlock(createVarcharType(10), 1);
+            assertEquals(createVarcharType(10).getSlice(column1, 0), utf8Slice("hello"));
+            assertEquals(createVarcharType(10).getSlice(column1, 1), utf8Slice("world"));
+            assertEquals(createVarcharType(10).getSlice(column1, 2), utf8Slice("bye \u2603"));
 
             Block column2 = reader.readBlock(VARBINARY, 2);
             assertEquals(VARBINARY.getSlice(column2, 0), wrappedBuffer(bytes1));
@@ -144,9 +150,9 @@ public class TestShardWriter
             Block column6 = reader.readBlock(mapType, 6);
             assertEquals(column6.getPositionCount(), 3);
 
-            assertTrue(mapBlocksEqual(VARCHAR, BOOLEAN, arrayType.getObject(column6, 0), mapBlockOf(VARCHAR, BOOLEAN, "k1", true)));
-            assertTrue(mapBlocksEqual(VARCHAR, BOOLEAN, arrayType.getObject(column6, 1), mapBlockOf(VARCHAR, BOOLEAN, "k2", null)));
-            assertTrue(mapBlocksEqual(VARCHAR, BOOLEAN, arrayType.getObject(column6, 2), mapBlockOf(VARCHAR, BOOLEAN, "k3", false)));
+            assertTrue(mapBlocksEqual(createVarcharType(5), BOOLEAN, arrayType.getObject(column6, 0), mapBlockOf(createVarcharType(5), BOOLEAN, "k1", true)));
+            assertTrue(mapBlocksEqual(createVarcharType(5), BOOLEAN, arrayType.getObject(column6, 1), mapBlockOf(createVarcharType(5), BOOLEAN, "k2", null)));
+            assertTrue(mapBlocksEqual(createVarcharType(5), BOOLEAN, arrayType.getObject(column6, 2), mapBlockOf(createVarcharType(5), BOOLEAN, "k3", false)));
 
             Block column7 = reader.readBlock(arrayOfArrayType, 7);
             assertEquals(column7.getPositionCount(), 3);
@@ -158,6 +164,18 @@ public class TestShardWriter
             assertEquals(reader.nextBatch(), -1);
             assertEquals(reader.getReaderPosition(), 3);
             assertEquals(reader.getFilePosition(), reader.getFilePosition());
+
+            OrcFileMetadata orcFileMetadata = METADATA_CODEC.fromJson(reader.getUserMetadata().get(OrcFileMetadata.KEY).getBytes());
+            assertEquals(orcFileMetadata, new OrcFileMetadata(ImmutableMap.<Long, TypeSignature>builder()
+                    .put(1L, BIGINT.getTypeSignature())
+                    .put(2L, createVarcharType(10).getTypeSignature())
+                    .put(4L, VARBINARY.getTypeSignature())
+                    .put(6L, DOUBLE.getTypeSignature())
+                    .put(7L, BOOLEAN.getTypeSignature())
+                    .put(8L, arrayType.getTypeSignature())
+                    .put(9L, mapType.getTypeSignature())
+                    .put(10L, arrayOfArrayType.getTypeSignature())
+                    .build()));
         }
 
         File crcFile = new File(file.getParentFile(), "." + file.getName() + ".crc");

@@ -19,7 +19,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 
@@ -32,6 +31,7 @@ import java.util.Map;
 import static com.facebook.presto.raptor.util.Types.isArrayType;
 import static com.facebook.presto.raptor.util.Types.isMapType;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
@@ -152,7 +152,7 @@ public class Row
         }
         if (type.getJavaType() == Slice.class) {
             Slice slice = (Slice) nativeValue;
-            return type instanceof VarcharType ? slice.toStringUtf8() : slice.getBytes();
+            return isVarcharType(type) ? slice.toStringUtf8() : slice.getBytes();
         }
         if (isArrayType(type)) {
             Block arrayBlock = (Block) nativeValue;

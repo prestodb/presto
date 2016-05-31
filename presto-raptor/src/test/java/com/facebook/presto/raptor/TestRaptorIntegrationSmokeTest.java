@@ -26,11 +26,12 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.UUID;
 
+import static com.facebook.presto.raptor.RaptorColumnHandle.SHARD_UUID_COLUMN_TYPE;
 import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunner;
 import static com.facebook.presto.raptor.RaptorQueryRunner.createSampledSession;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.lang.String.format;
@@ -91,7 +92,7 @@ public class TestRaptorIntegrationSmokeTest
         assertUpdate("CREATE TABLE test_shard_uuid AS SELECT orderdate, orderkey FROM orders", "SELECT count(*) FROM orders");
 
         MaterializedResult actualResults = computeActual("SELECT *, \"$shard_uuid\" FROM test_shard_uuid");
-        assertEquals(actualResults.getTypes(), ImmutableList.of(DATE, BIGINT, VARCHAR));
+        assertEquals(actualResults.getTypes(), ImmutableList.of(DATE, BIGINT, SHARD_UUID_COLUMN_TYPE));
         UUID arbitraryUuid = null;
         for (MaterializedRow row : actualResults.getMaterializedRows()) {
             Object uuid = row.getField(2);
@@ -220,13 +221,13 @@ public class TestRaptorIntegrationSmokeTest
         assertEquals(
                 actualResults.getTypes(),
                 ImmutableList.builder()
-                        .add(VARCHAR) // table_schema
-                        .add(VARCHAR) // table_name
-                        .add(VARCHAR) // temporal_column
-                        .add(new ArrayType(VARCHAR)) // ordering_columns
-                        .add(VARCHAR) // distribution_name
+                        .add(createUnboundedVarcharType()) // table_schema
+                        .add(createUnboundedVarcharType()) // table_name
+                        .add(createUnboundedVarcharType()) // temporal_column
+                        .add(new ArrayType(createUnboundedVarcharType())) // ordering_columns
+                        .add(createUnboundedVarcharType()) // distribution_name
                         .add(BIGINT) // bucket_count
-                        .add(new ArrayType(VARCHAR)) // bucket_columns
+                        .add(new ArrayType(createUnboundedVarcharType())) // bucket_columns
                         .build());
         Map<String, MaterializedRow> map = actualResults.getMaterializedRows().stream()
                 .filter(row -> ((String) row.getField(1)).startsWith("system_tables_test"))
@@ -264,7 +265,12 @@ public class TestRaptorIntegrationSmokeTest
                 "SELECT distribution_name, bucket_count, bucketing_columns, ordering_columns, temporal_column " +
                 "FROM system.tables " +
                 "WHERE table_schema = 'tpch' and table_name = 'system_tables_test3'");
-        assertEquals(actualResults.getTypes(), ImmutableList.of(VARCHAR, BIGINT, new ArrayType(VARCHAR), new ArrayType(VARCHAR), VARCHAR));
+        assertEquals(actualResults.getTypes(),
+                ImmutableList.of(createUnboundedVarcharType(),
+                        BIGINT,
+                        new ArrayType(createUnboundedVarcharType()),
+                        new ArrayType(createUnboundedVarcharType()),
+                        createUnboundedVarcharType()));
         assertEquals(actualResults.getMaterializedRows().size(), 1);
 
         assertUpdate("DROP TABLE system_tables_test0");

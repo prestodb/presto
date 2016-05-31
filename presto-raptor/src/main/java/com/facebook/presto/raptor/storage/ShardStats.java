@@ -27,6 +27,7 @@ import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.spi.type.Varchars;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 
@@ -35,6 +36,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
 import static org.joda.time.DateTimeZone.UTC;
@@ -79,7 +81,7 @@ public final class ShardStats
         if (type.equals(DoubleType.DOUBLE)) {
             return indexDouble(type, reader, columnIndex, columnId);
         }
-        if (type instanceof VarcharType) {
+        if (isVarcharType(type)) {
             return indexString(type, reader, columnIndex, columnId);
         }
         return null;
