@@ -51,6 +51,8 @@ import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.HIVE_TIMESTAMP;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
 import static com.facebook.presto.hive.util.SerDeUtils.serializeObject;
+import static com.facebook.presto.spi.type.Chars.isCharType;
+import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -661,6 +663,9 @@ public class RcBinaryBlockLoader
                         }
                         if (isVarcharType(type)) {
                             value = truncateToLength(value, type);
+                        }
+                        if (isCharType(type)) {
+                            value = trimSpacesAndTruncateToLength(value, type);
                         }
                         vector[i] = value;
                     }

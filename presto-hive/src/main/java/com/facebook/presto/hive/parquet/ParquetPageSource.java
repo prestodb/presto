@@ -59,6 +59,7 @@ import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getParquetType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
@@ -198,6 +199,12 @@ class ParquetPageSource
                 }
                 else if (isVarcharType(type)) {
                     Slice value = varcharPartitionKey(partitionKey.getValue(), name, type);
+                    for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
+                        type.writeSlice(blockBuilder, value);
+                    }
+                }
+                else if (isCharType(type)) {
+                    Slice value = HiveUtil.charParitionKey(partitionKey.getValue(), name, type);
                     for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
                         type.writeSlice(blockBuilder, value);
                     }
