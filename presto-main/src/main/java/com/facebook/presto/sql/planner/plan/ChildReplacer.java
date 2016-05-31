@@ -189,10 +189,7 @@ public class ChildReplacer
         return new WindowNode(
                 node.getId(),
                 Iterables.getOnlyElement(newChildren),
-                node.getPartitionBy(),
-                node.getOrderBy(),
-                node.getOrderings(),
-                node.getFrame(),
+                node.getSpecification(),
                 node.getWindowFunctions(),
                 node.getSignatures(),
                 node.getHashSymbol(),

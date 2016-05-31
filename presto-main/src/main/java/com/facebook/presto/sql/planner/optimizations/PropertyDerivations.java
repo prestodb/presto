@@ -179,7 +179,7 @@ class PropertyDerivations
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
             // If the input is completely pre-partitioned and sorted, then the original input properties will be respected
-            if (ImmutableSet.copyOf(node.getPartitionBy()).equals(node.getPrePartitionedInputs()) && node.getPreSortedOrderPrefix() == node.getOrderBy().size()) {
+            if (ImmutableSet.copyOf(node.getSpecification().getPartitionBy()).equals(node.getPrePartitionedInputs()) && node.getPreSortedOrderPrefix() == node.getSpecification().getOrderBy().size()) {
                 return properties;
             }
 
@@ -198,11 +198,11 @@ class PropertyDerivations
                 }
             }
 
-            if (!node.getPartitionBy().isEmpty()) {
-                localProperties.add(new GroupingProperty<>(node.getPartitionBy()));
+            if (!node.getSpecification().getPartitionBy().isEmpty()) {
+                localProperties.add(new GroupingProperty<>(node.getSpecification().getPartitionBy()));
             }
-            for (Symbol column : node.getOrderBy()) {
-                localProperties.add(new SortingProperty<>(column, node.getOrderings().get(column)));
+            for (Symbol column : node.getSpecification().getOrderBy()) {
+                localProperties.add(new SortingProperty<>(column, node.getSpecification().getOrderings().get(column)));
             }
 
             return ActualProperties.builderFrom(properties)

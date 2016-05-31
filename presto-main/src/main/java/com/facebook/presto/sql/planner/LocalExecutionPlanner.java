@@ -657,19 +657,19 @@ public class LocalExecutionPlanner
         {
             PhysicalOperation source = node.getSource().accept(this, context);
 
-            List<Symbol> partitionBySymbols = node.getPartitionBy();
-            List<Symbol> orderBySymbols = node.getOrderBy();
+            List<Symbol> partitionBySymbols = node.getSpecification().getPartitionBy();
+            List<Symbol> orderBySymbols = node.getSpecification().getOrderBy();
             List<Integer> partitionChannels = ImmutableList.copyOf(getChannelsForSymbols(partitionBySymbols, source.getLayout()));
             List<Integer> preGroupedChannels = ImmutableList.copyOf(getChannelsForSymbols(ImmutableList.copyOf(node.getPrePartitionedInputs()), source.getLayout()));
 
             List<Integer> sortChannels = getChannelsForSymbols(orderBySymbols, source.getLayout());
             List<SortOrder> sortOrder = orderBySymbols.stream()
-                    .map(symbol -> node.getOrderings().get(symbol))
+                    .map(symbol -> node.getSpecification().getOrderings().get(symbol))
                     .collect(toImmutableList());
 
             Optional<Integer> frameStartChannel = Optional.empty();
             Optional<Integer> frameEndChannel = Optional.empty();
-            Frame frame = node.getFrame();
+            Frame frame = node.getSpecification().getFrame();
             if (frame.getStartValue().isPresent()) {
                 frameStartChannel = Optional.of(source.getLayout().get(frame.getStartValue().get()));
             }

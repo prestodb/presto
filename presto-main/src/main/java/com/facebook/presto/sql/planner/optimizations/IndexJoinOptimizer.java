@@ -326,20 +326,20 @@ public class IndexJoinOptimizer
             }
 
             // Don't need this restriction if we can prove that all order by symbols are deterministically produced
-            if (!node.getOrderBy().isEmpty()) {
+            if (!node.getSpecification().getOrderBy().isEmpty()) {
                 return node;
             }
 
             // Only RANGE frame type currently supported for aggregation functions because it guarantees the
             // same value for each peer group.
             // ROWS frame type requires the ordering to be fully deterministic (e.g. deterministically sorted on all columns)
-            if (node.getFrame().getType() != WindowFrame.Type.RANGE) {
+            if (node.getSpecification().getFrame().getType() != WindowFrame.Type.RANGE) {
                 return node;
             }
 
             // Lookup symbols can only be passed through if they are part of the partitioning
             Set<Symbol> partitionByLookupSymbols = context.get().getLookupSymbols().stream()
-                    .filter(node.getPartitionBy()::contains)
+                    .filter(node.getSpecification().getPartitionBy()::contains)
                     .collect(toImmutableSet());
 
             if (partitionByLookupSymbols.isEmpty()) {
@@ -478,7 +478,7 @@ public class IndexJoinOptimizer
             public Map<Symbol, Symbol> visitWindow(WindowNode node, Set<Symbol> lookupSymbols)
             {
                 Set<Symbol> partitionByLookupSymbols = lookupSymbols.stream()
-                        .filter(node.getPartitionBy()::contains)
+                        .filter(node.getSpecification().getPartitionBy()::contains)
                         .collect(toImmutableSet());
                 checkState(!partitionByLookupSymbols.isEmpty(), "No lookup symbols were able to pass through the aggregation group by");
                 return node.getSource().accept(this, partitionByLookupSymbols);

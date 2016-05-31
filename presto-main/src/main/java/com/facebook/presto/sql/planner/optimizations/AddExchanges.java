@@ -413,28 +413,28 @@ public class AddExchanges
         public PlanWithProperties visitWindow(WindowNode node, Context context)
         {
             List<LocalProperty<Symbol>> desiredProperties = new ArrayList<>();
-            if (!node.getPartitionBy().isEmpty()) {
-                desiredProperties.add(new GroupingProperty<>(node.getPartitionBy()));
+            if (!node.getSpecification().getPartitionBy().isEmpty()) {
+                desiredProperties.add(new GroupingProperty<>(node.getSpecification().getPartitionBy()));
             }
-            for (Symbol symbol : node.getOrderBy()) {
-                desiredProperties.add(new SortingProperty<>(symbol, node.getOrderings().get(symbol)));
+            for (Symbol symbol : node.getSpecification().getOrderBy()) {
+                desiredProperties.add(new SortingProperty<>(symbol, node.getSpecification().getOrderings().get(symbol)));
             }
 
             PlanWithProperties child = planChild(
                     node,
                     context.withPreferredProperties(
-                            PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(node.getPartitionBy()), desiredProperties)
+                            PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(node.getSpecification().getPartitionBy()), desiredProperties)
                                     .mergeWithParent(context.getPreferredProperties())));
 
-            if (!child.getProperties().isStreamPartitionedOn(node.getPartitionBy())) {
-                if (node.getPartitionBy().isEmpty()) {
+            if (!child.getProperties().isStreamPartitionedOn(node.getSpecification().getPartitionBy())) {
+                if (node.getSpecification().getPartitionBy().isEmpty()) {
                     child = withDerivedProperties(
                             gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
                             child.getProperties());
                 }
                 else {
                     child = withDerivedProperties(
-                            partitionedExchange(idAllocator.getNextId(), REMOTE, child.getNode(), node.getPartitionBy(), node.getHashSymbol()),
+                            partitionedExchange(idAllocator.getNextId(), REMOTE, child.getNode(), node.getSpecification().getPartitionBy(), node.getHashSymbol()),
                             child.getProperties());
                 }
             }

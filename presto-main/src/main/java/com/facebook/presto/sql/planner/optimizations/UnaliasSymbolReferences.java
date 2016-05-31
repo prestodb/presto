@@ -211,11 +211,11 @@ public class UnaliasSymbolReferences
             }
 
             ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
-            for (Map.Entry<Symbol, SortOrder> entry : node.getOrderings().entrySet()) {
+            for (Map.Entry<Symbol, SortOrder> entry : node.getSpecification().getOrderings().entrySet()) {
                 orderings.put(canonicalize(entry.getKey()), entry.getValue());
             }
 
-            WindowNode.Frame frame = node.getFrame();
+            WindowNode.Frame frame = node.getSpecification().getFrame();
             frame = new WindowNode.Frame(frame.getType(),
                     frame.getStartType(), canonicalize(frame.getStartValue()),
                     frame.getEndType(), canonicalize(frame.getEndValue()));
@@ -223,10 +223,11 @@ public class UnaliasSymbolReferences
             return new WindowNode(
                     node.getId(),
                     source,
-                    canonicalizeAndDistinct(node.getPartitionBy()),
-                    canonicalizeAndDistinct(node.getOrderBy()),
-                    orderings.build(),
-                    frame,
+                    new WindowNode.Specification(
+                            canonicalizeAndDistinct(node.getSpecification().getPartitionBy()),
+                            canonicalizeAndDistinct(node.getSpecification().getOrderBy()),
+                            orderings.build(),
+                            frame),
                     functionCalls.build(),
                     functionInfos.build(),
                     canonicalize(node.getHashSymbol()),
