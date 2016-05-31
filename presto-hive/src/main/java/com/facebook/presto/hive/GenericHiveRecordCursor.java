@@ -23,6 +23,7 @@ import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.common.type.HiveChar;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.serde2.Deserializer;
@@ -47,6 +48,7 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.charPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
@@ -64,6 +66,8 @@ import static com.facebook.presto.hive.util.SerDeUtils.getBlockObject;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.Chars.isCharType;
+import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
@@ -216,6 +220,9 @@ class GenericHiveRecordCursor<K, V extends Writable>
                 }
                 else if (isVarcharType(type)) {
                     slices[columnIndex] = varcharPartitionKey(columnValue, name, type);
+                }
+                else if (isCharType(type)) {
+                    slices[columnIndex] = charPartitionKey(partitionKey.getValue(), name, type);
                 }
                 else if (DATE.equals(type)) {
                     longs[columnIndex] = datePartitionKey(columnValue, name);
@@ -452,12 +459,18 @@ class GenericHiveRecordCursor<K, V extends Writable>
             else if (fieldValue instanceof HiveVarchar) {
                 value = Slices.utf8Slice(((HiveVarchar) fieldValue).getValue());
             }
+            else if (fieldValue instanceof HiveChar) {
+                value = Slices.utf8Slice(((HiveChar) fieldValue).getValue());
+            }
             else {
                 throw new IllegalStateException("unsupported string field type: " + fieldValue.getClass().getName());
             }
             Type type = types[column];
             if (isVarcharType(type)) {
                 value = truncateToLength(value, type);
+            }
+            if (isCharType(type)) {
+                value = trimSpacesAndTruncateToLength(value, type);
             }
             slices[column] = value;
             nulls[column] = false;
@@ -557,6 +570,9 @@ class GenericHiveRecordCursor<K, V extends Writable>
             parseDoubleColumn(column);
         }
         else if (isVarcharType(type) || VARBINARY.equals(type)) {
+            parseStringColumn(column);
+        }
+        else if (isCharType(type)) {
             parseStringColumn(column);
         }
         else if (isStructuralType(hiveTypes[column])) {

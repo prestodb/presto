@@ -145,6 +145,7 @@ import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
@@ -2289,19 +2290,17 @@ public abstract class AbstractTestHiveClient
                     }
                 }
 
-                /* TODO: enable this test when the CHAR type is supported
-                // CHAR(25)
+                //CHAR(25)
                 index = columnIndex.get("t_char");
                 if (index != null) {
+                    value = row.getField(index);
                     if ((rowNumber % 41) == 0) {
-                        assertTrue(cursor.isNull(index));
+                        assertNull(value);
                     }
                     else {
-                        String stringValue = cursor.getSlice(index).toStringUtf8();
-                        assertEquals(stringValue, ((rowNumber % 41) == 1) ? "" : "test char");
+                        assertEquals(value, (rowNumber % 41) == 1 ? "                         " : "test char                ");
                     }
                 }
-                */
 
                 // MAP<STRING, STRING>
                 index = columnIndex.get("t_map");
@@ -2542,6 +2541,9 @@ public abstract class AbstractTestHiveClient
                     assertInstanceOf(value, Double.class);
                 }
                 else if (isVarcharType(column.getType())) {
+                    assertInstanceOf(value, String.class);
+                }
+                else if (isCharType(column.getType())) {
                     assertInstanceOf(value, String.class);
                 }
                 else if (VARBINARY.equals(column.getType())) {

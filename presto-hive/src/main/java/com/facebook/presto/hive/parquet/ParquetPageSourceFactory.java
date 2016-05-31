@@ -59,6 +59,7 @@ import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.b
 import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.predicateMatches;
 import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
 import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
+import static com.facebook.presto.spi.type.StandardTypes.CHAR;
 import static com.facebook.presto.spi.type.StandardTypes.DATE;
 import static com.facebook.presto.spi.type.StandardTypes.DECIMAL;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
@@ -79,8 +80,8 @@ public class ParquetPageSourceFactory
             .add("org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe")
             .add("parquet.hive.serde.ParquetHiveSerDe")
             .build();
-    private static final Set<String> SUPPORTED_COLUMN_TYPES = ImmutableSet.of(INTEGER, BIGINT, BOOLEAN, DOUBLE, TIMESTAMP, VARCHAR, VARBINARY, DATE, DECIMAL);
-    private static final Set<String> SUPPORTED_PARTITION_TYPES = ImmutableSet.of(TINYINT, SMALLINT, INTEGER, BIGINT, BOOLEAN, DOUBLE, TIMESTAMP, VARCHAR, DATE, DECIMAL);
+    private static final Set<String> SUPPORTED_COLUMN_TYPES = ImmutableSet.of(INTEGER, BIGINT, BOOLEAN, DOUBLE, TIMESTAMP, VARCHAR, CHAR, VARBINARY, DATE, DECIMAL);
+    private static final Set<String> SUPPORTED_PARTITION_TYPES = ImmutableSet.of(TINYINT, SMALLINT, INTEGER, BIGINT, BOOLEAN, DOUBLE, TIMESTAMP, VARCHAR, CHAR, DATE, DECIMAL);
 
     private final TypeManager typeManager;
     private final boolean useParquetColumnNames;
