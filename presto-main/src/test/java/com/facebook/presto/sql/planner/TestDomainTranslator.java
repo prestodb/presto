@@ -1342,7 +1342,7 @@ public class TestDomainTranslator
 
     private static Expression randPredicate(Symbol symbol)
     {
-        return comparison(GREATER_THAN, symbol.toSymbolReference(), new FunctionCall(new QualifiedName("rand"), ImmutableList.<Expression>of()));
+        return comparison(GREATER_THAN, symbol.toSymbolReference(), new FunctionCall(QualifiedName.of("rand"), ImmutableList.<Expression>of()));
     }
 
     private static NotExpression not(Expression expression)

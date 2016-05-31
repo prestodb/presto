@@ -45,7 +45,7 @@ public final class DeterminismEvaluator
         protected Void visitFunctionCall(FunctionCall node, AtomicBoolean deterministic)
         {
             // TODO: total hack to figure out if a function is deterministic. martint should fix this when he refactors the planning code
-            if (node.getName().equals(new QualifiedName("rand")) || node.getName().equals(new QualifiedName("random"))) {
+            if (node.getName().equals(QualifiedName.of("rand")) || node.getName().equals(QualifiedName.of("random"))) {
                 deterministic.set(false);
             }
             return super.visitFunctionCall(node, deterministic);
