@@ -227,7 +227,7 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public ConnectorTableHandle beginSelect(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<ConnectorTableLayoutHandle> layoutHandle, Collection<ColumnHandle> columnHandles)
+    public ConnectorTableHandle beginSelect(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle layoutHandle, Collection<ColumnHandle> columnHandles)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.beginSelect(session, tableHandle, layoutHandle, columnHandles);

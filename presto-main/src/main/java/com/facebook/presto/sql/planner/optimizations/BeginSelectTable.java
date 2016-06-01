@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableSet;
 import java.util.Map;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class BeginSelectTable
@@ -61,7 +62,8 @@ public class BeginSelectTable
         {
             node.getSource().accept(this, context);
             for (TableScanNode scanNode : context.get().getNodes()) {
-                metadata.beginSelect(session, scanNode.getTable(), scanNode.getLayout(), scanNode.getAssignments().values());
+                checkState(scanNode.getLayout().isPresent(), "Layout is not present"); // since BeginSelectTable has to be last rewriter, a layout should exist here already
+                metadata.beginSelect(session, scanNode.getTable(), scanNode.getLayout().get(), scanNode.getAssignments().values());
             }
             return node;
         }

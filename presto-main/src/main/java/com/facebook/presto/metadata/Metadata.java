@@ -195,7 +195,7 @@ public interface Metadata
     /**
      * Notify connector about starting select query execution
      */
-    void beginSelect(Session session, TableHandle tableHandle, Optional<TableLayoutHandle> layoutHandle, Collection<ColumnHandle> columnHandles);
+    void beginSelect(Session session, TableHandle tableHandle, TableLayoutHandle layoutHandle, Collection<ColumnHandle> columnHandles);
 
     /**
      * Notify connector about finishing execution of select query.

@@ -591,13 +591,13 @@ public class MetadataManager
     }
 
     @Override
-    public void beginSelect(Session session, TableHandle tableHandle, Optional<TableLayoutHandle> layoutHandle, Collection<ColumnHandle> columnHandles)
+    public void beginSelect(Session session, TableHandle tableHandle, TableLayoutHandle layoutHandle, Collection<ColumnHandle> columnHandles)
     {
         ConnectorEntry entry = lookupConnectorFor(tableHandle);
         ConnectorMetadata metadata = entry.getMetadata(session);
         ConnectorTableHandle connectorHandle = metadata.beginSelect(session.toConnectorSession(entry.getCatalog()),
                 tableHandle.getConnectorHandle(),
-                layoutHandle.map(handle -> handle.getConnectorHandle()),
+                layoutHandle.getConnectorHandle(),
                 columnHandles);
         if (connectorHandle == null) {
             return;
