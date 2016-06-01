@@ -38,6 +38,7 @@ import static com.facebook.presto.metadata.OperatorType.SUBTRACT;
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.valueOf;
 
 public final class SmallintOperators
@@ -211,7 +212,7 @@ public final class SmallintOperators
     @SqlType(StandardTypes.FLOAT)
     public static long castToFloat(@SqlType(StandardTypes.SMALLINT) long value)
     {
-        return (long) Float.floatToRawIntBits((float) value);
+        return (long) floatToRawIntBits((float) value);
     }
 
     @ScalarOperator(CAST)

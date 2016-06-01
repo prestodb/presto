@@ -61,6 +61,8 @@ import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Types.checkType;
+import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
 import static java.math.BigDecimal.ROUND_HALF_UP;
@@ -394,7 +396,7 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static long shortDecimalToFloat(long decimal, long precision, long scale, long tenToScale)
     {
-        return Float.floatToRawIntBits(((float) decimal) / tenToScale);
+        return floatToRawIntBits(((float) decimal) / tenToScale);
     }
 
     @UsedByGeneratedCode
@@ -402,7 +404,7 @@ public final class DecimalCasts
     {
         BigInteger decimalBigInteger = decodeUnscaledValue(decimal);
         BigDecimal bigDecimal = new BigDecimal(decimalBigInteger, (int) scale);
-        return Float.floatToRawIntBits(bigDecimal.floatValue());
+        return floatToRawIntBits(bigDecimal.floatValue());
     }
 
     @UsedByGeneratedCode
@@ -431,10 +433,10 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static long floatToShortDecimal(long value, long precision, long scale, long tenToScale)
     {
-        BigDecimal decimal = new BigDecimal(Float.intBitsToFloat((int) value));
+        BigDecimal decimal = new BigDecimal(intBitsToFloat((int) value));
         decimal = decimal.setScale((int) scale, ROUND_HALF_UP);
         if (overflows(decimal, precision)) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast FLOAT '%s' to DECIMAL(%s, %s)", Float.intBitsToFloat((int) value), precision, scale));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast FLOAT '%s' to DECIMAL(%s, %s)", intBitsToFloat((int) value), precision, scale));
         }
         return decimal.unscaledValue().longValue();
     }
@@ -442,10 +444,10 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static Slice floatToLongDecimal(long value, long precision, long scale, long tenToScale)
     {
-        BigDecimal decimal = new BigDecimal(Float.intBitsToFloat((int) value));
+        BigDecimal decimal = new BigDecimal(intBitsToFloat((int) value));
         decimal = decimal.setScale((int) scale, ROUND_HALF_UP);
         if (overflows(decimal, precision)) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast FLOAT '%s' to DECIMAL(%s, %s)", Float.intBitsToFloat((int) value), precision, scale));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast FLOAT '%s' to DECIMAL(%s, %s)", intBitsToFloat((int) value), precision, scale));
         }
         BigInteger decimalBigInteger = decimal.unscaledValue();
         return encodeUnscaledValue(decimalBigInteger);

@@ -152,14 +152,14 @@ public final class FloatOperators
     @SqlType(StandardTypes.VARCHAR)
     public static Slice castToVarchar(@SqlType(StandardTypes.FLOAT) long value)
     {
-        return utf8Slice(valueOf(Float.intBitsToFloat((int) value)));
+        return utf8Slice(valueOf(intBitsToFloat((int) value)));
     }
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.BIGINT)
     public static long castToLong(@SqlType(StandardTypes.FLOAT) long value)
     {
-        return (long) MathFunctions.round((double) Float.intBitsToFloat((int) value));
+        return (long) MathFunctions.round((double) intBitsToFloat((int) value));
     }
 
     @ScalarOperator(CAST)
@@ -167,7 +167,7 @@ public final class FloatOperators
     public static long castToInteger(@SqlType(StandardTypes.FLOAT) long value)
     {
         try {
-            return Ints.checkedCast((long) MathFunctions.round((double) Float.intBitsToFloat((int) value)));
+            return Ints.checkedCast((long) MathFunctions.round((double) intBitsToFloat((int) value)));
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
@@ -179,7 +179,7 @@ public final class FloatOperators
     public static long castToSmallint(@SqlType(StandardTypes.FLOAT) long value)
     {
         try {
-            return Shorts.checkedCast((long) MathFunctions.round((double) Float.intBitsToFloat((int) value)));
+            return Shorts.checkedCast((long) MathFunctions.round((double) intBitsToFloat((int) value)));
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
@@ -191,7 +191,7 @@ public final class FloatOperators
     public static long castToTinyint(@SqlType(StandardTypes.FLOAT) long value)
     {
         try {
-            return SignedBytes.checkedCast((long) MathFunctions.round((double) Float.intBitsToFloat((int) value)));
+            return SignedBytes.checkedCast((long) MathFunctions.round((double) intBitsToFloat((int) value)));
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
@@ -202,13 +202,13 @@ public final class FloatOperators
     @SqlType(StandardTypes.DOUBLE)
     public static double castToDouble(@SqlType(StandardTypes.FLOAT) long value)
     {
-        return (double) Float.intBitsToFloat((int) value);
+        return (double) intBitsToFloat((int) value);
     }
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean castToBoolean(@SqlType(StandardTypes.FLOAT) long value)
     {
-        return Float.intBitsToFloat((int) value) != 0.0f;
+        return intBitsToFloat((int) value) != 0.0f;
     }
 }
