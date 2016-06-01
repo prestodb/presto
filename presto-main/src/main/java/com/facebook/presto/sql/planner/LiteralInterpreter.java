@@ -72,6 +72,7 @@ import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
 import static com.facebook.presto.util.DateTimeUtils.parseYearMonthInterval;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Float.intBitsToFloat;
 import static java.util.Objects.requireNonNull;
 
 public final class LiteralInterpreter
@@ -150,7 +151,7 @@ public final class LiteralInterpreter
         }
 
         if (type.equals(FLOAT)) {
-            Float value = Float.intBitsToFloat(((Long) object).intValue());
+            Float value = intBitsToFloat(((Long) object).intValue());
             // WARNING for ORC predicate code as above (for double)
             if (value.isNaN()) {
                 return new FunctionCall(new QualifiedName("fnan"), ImmutableList.of());

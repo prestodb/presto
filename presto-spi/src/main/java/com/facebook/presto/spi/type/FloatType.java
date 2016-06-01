@@ -21,6 +21,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static io.airlift.slice.SizeOf.SIZE_OF_FLOAT;
+import static java.lang.Float.floatToRawIntBits;
 
 public final class FloatType
         extends AbstractFixedWidthType
@@ -64,7 +65,7 @@ public final class FloatType
     @Override
     public long hash(Block block, int position)
     {
-        return (long) Float.floatToRawIntBits(block.getFloat(position, 0));
+        return (long) floatToRawIntBits(block.getFloat(position, 0));
     }
 
     @Override

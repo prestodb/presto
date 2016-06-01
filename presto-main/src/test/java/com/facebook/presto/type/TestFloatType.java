@@ -18,6 +18,8 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 
 import static com.facebook.presto.spi.type.FloatType.FLOAT;
+import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Float.intBitsToFloat;
 
 public class TestFloatType
         extends AbstractTestType
@@ -30,17 +32,17 @@ public class TestFloatType
     public static Block createTestBlock()
     {
         BlockBuilder blockBuilder = FLOAT.createBlockBuilder(new BlockBuilderStatus(), 30);
-        FLOAT.writeLong(blockBuilder, Float.floatToRawIntBits(11.11F));
-        FLOAT.writeLong(blockBuilder, Float.floatToRawIntBits(11.11F));
-        FLOAT.writeLong(blockBuilder, Float.floatToRawIntBits(11.11F));
-        FLOAT.writeLong(blockBuilder, Float.floatToRawIntBits(22.22F));
-        FLOAT.writeLong(blockBuilder, Float.floatToRawIntBits(22.22F));
-        FLOAT.writeLong(blockBuilder, Float.floatToRawIntBits(22.22F));
-        FLOAT.writeLong(blockBuilder, Float.floatToRawIntBits(22.22F));
-        FLOAT.writeLong(blockBuilder, Float.floatToRawIntBits(22.22F));
-        FLOAT.writeLong(blockBuilder, Float.floatToRawIntBits(33.33F));
-        FLOAT.writeLong(blockBuilder, Float.floatToRawIntBits(33.33F));
-        FLOAT.writeLong(blockBuilder, Float.floatToRawIntBits(44.44F));
+        FLOAT.writeLong(blockBuilder, floatToRawIntBits(11.11F));
+        FLOAT.writeLong(blockBuilder, floatToRawIntBits(11.11F));
+        FLOAT.writeLong(blockBuilder, floatToRawIntBits(11.11F));
+        FLOAT.writeLong(blockBuilder, floatToRawIntBits(22.22F));
+        FLOAT.writeLong(blockBuilder, floatToRawIntBits(22.22F));
+        FLOAT.writeLong(blockBuilder, floatToRawIntBits(22.22F));
+        FLOAT.writeLong(blockBuilder, floatToRawIntBits(22.22F));
+        FLOAT.writeLong(blockBuilder, floatToRawIntBits(22.22F));
+        FLOAT.writeLong(blockBuilder, floatToRawIntBits(33.33F));
+        FLOAT.writeLong(blockBuilder, floatToRawIntBits(33.33F));
+        FLOAT.writeLong(blockBuilder, floatToRawIntBits(44.44F));
         return blockBuilder.build();
     }
 
@@ -48,7 +50,7 @@ public class TestFloatType
     protected Object getGreaterValue(Object value)
     {
         int bits = ((Long) value).intValue();
-        float greaterValue = Float.intBitsToFloat(bits) + 0.1f;
-        return new Long(Float.floatToRawIntBits(greaterValue));
+        float greaterValue = intBitsToFloat(bits) + 0.1f;
+        return new Long(floatToRawIntBits(greaterValue));
     }
 }

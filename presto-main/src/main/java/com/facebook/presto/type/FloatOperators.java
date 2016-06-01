@@ -39,6 +39,8 @@ import static com.facebook.presto.metadata.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.metadata.OperatorType.SUBTRACT;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.valueOf;
 
 public final class FloatOperators
@@ -86,7 +88,7 @@ public final class FloatOperators
     @SqlType(StandardTypes.FLOAT)
     public static long negate(@SqlType(StandardTypes.FLOAT) long value)
     {
-        return Float.floatToRawIntBits(-Float.intBitsToFloat((int) value));
+        return floatToRawIntBits(-intBitsToFloat((int) value));
     }
 
     @ScalarOperator(EQUAL)
