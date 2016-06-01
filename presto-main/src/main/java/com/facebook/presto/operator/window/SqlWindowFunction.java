@@ -14,8 +14,10 @@
 package com.facebook.presto.operator.window;
 
 import com.facebook.presto.metadata.BoundVariables;
+import com.facebook.presto.metadata.DefaultSignatureBinder;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.SignatureBinder;
 import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.spi.type.TypeManager;
 
@@ -53,6 +55,12 @@ public class SqlWindowFunction
     public String getDescription()
     {
         return supplier.getDescription();
+    }
+
+    @Override
+    public SignatureBinder getSignatureBinder(TypeManager typeManager, boolean allowCoercion)
+    {
+        return new DefaultSignatureBinder(typeManager, getSignature(), allowCoercion);
     }
 
     public WindowFunctionSupplier specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)

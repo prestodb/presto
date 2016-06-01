@@ -14,11 +14,11 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.BoundVariables;
+import com.facebook.presto.metadata.DefaultSignatureBinder;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.LongVariableConstraint;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.metadata.SignatureBinder;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.metadata.TypeVariableConstraint;
 import com.facebook.presto.operator.Description;
@@ -141,7 +141,7 @@ public class ReflectionParametricScalar
     @Override
     public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Signature boundSignature = SignatureBinder.bindVariables(getSignature(), boundVariables, arity);
+        Signature boundSignature = DefaultSignatureBinder.bindVariables(getSignature(), boundVariables, arity);
         if (exactImplementations.containsKey(boundSignature)) {
             Implementation implementation = exactImplementations.get(boundSignature);
             return new ScalarFunctionImplementation(implementation.isNullable(), implementation.getNullableArguments(), implementation.getMethodHandle(), isDeterministic());
@@ -686,7 +686,7 @@ public class ReflectionParametricScalar
         @Override
         public MethodHandle resolve(Map<String, Type> types, TypeManager typeManager, FunctionRegistry functionRegistry)
         {
-            Signature signature = SignatureBinder.bindVariables(this.signature, new BoundVariables(types, ImmutableMap.of()), this.signature.getArgumentTypes().size());
+            Signature signature = DefaultSignatureBinder.bindVariables(this.signature, new BoundVariables(types, ImmutableMap.of()), this.signature.getArgumentTypes().size());
             return functionRegistry.getScalarFunctionImplementation(signature).getMethodHandle();
         }
     }
@@ -704,7 +704,7 @@ public class ReflectionParametricScalar
         @Override
         public Type resolve(Map<String, Type> types, TypeManager typeManager, FunctionRegistry functionRegistry)
         {
-            return typeManager.getType(SignatureBinder.bindVariables(signature, new BoundVariables(types, ImmutableMap.of())));
+            return typeManager.getType(DefaultSignatureBinder.bindVariables(signature, new BoundVariables(types, ImmutableMap.of())));
         }
     }
 }

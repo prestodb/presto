@@ -62,6 +62,12 @@ public abstract class SqlScalarFunction
         return signature;
     }
 
+    @Override
+    public SignatureBinder getSignatureBinder(TypeManager typeManager, boolean allowCoercion)
+    {
+        return new DefaultSignatureBinder(typeManager, getSignature(), allowCoercion);
+    }
+
     public abstract ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry);
 
     public static SqlScalarFunctionBuilder builder(Class<?> clazz)

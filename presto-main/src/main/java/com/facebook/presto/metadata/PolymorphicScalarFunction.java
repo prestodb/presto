@@ -28,7 +28,7 @@ import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.SignatureBinder.bindVariables;
+import static com.facebook.presto.metadata.DefaultSignatureBinder.bindVariables;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;

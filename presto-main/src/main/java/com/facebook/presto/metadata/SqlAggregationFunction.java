@@ -78,6 +78,12 @@ public abstract class SqlAggregationFunction
     }
 
     @Override
+    public SignatureBinder getSignatureBinder(TypeManager typeManager, boolean allowCoercion)
+    {
+        return new DefaultSignatureBinder(typeManager, getSignature(), allowCoercion);
+    }
+
+    @Override
     public boolean isHidden()
     {
         return false;
