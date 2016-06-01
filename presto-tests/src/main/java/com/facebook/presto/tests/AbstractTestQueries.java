@@ -5953,12 +5953,9 @@ public abstract class AbstractTestQueries
         computeActual("SELECT CAST(null AS array(foo))");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:21: '+' cannot be applied to varchar, integer\\E")
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:21: '+' cannot be applied to varchar(2), integer\\E")
     public void testInvalidTypeInfixOperator()
     {
-        // Comment on why error message references varchar(214783647) instead of varchar(2) which seems expected result type for concatenation in expression.
-        // Currently variable argument functions do not play well with arguments using parametrized types.
-        // The variable argument functions mechanism requires that all the arguments are of exactly same type. We cannot enforce that base must match but parameters may differ.
         computeActual("SELECT ('a' || 'z') + (3 * 4) / 5");
     }
 
