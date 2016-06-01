@@ -302,8 +302,8 @@ public class SqlQueryManager
                 queries.put(queryId, execution);
 
                 queryInfo = execution.getQueryInfo();
-                queryMonitor.createdEvent(queryInfo);
-                queryMonitor.completionEvent(queryInfo);
+                queryMonitor.queryCreatedEvent(queryInfo);
+                queryMonitor.queryCompletedEvent(queryInfo);
                 stats.queryFinished(queryInfo);
             }
             finally {
@@ -315,14 +315,14 @@ public class SqlQueryManager
         }
 
         QueryInfo queryInfo = queryExecution.getQueryInfo();
-        queryMonitor.createdEvent(queryInfo);
+        queryMonitor.queryCreatedEvent(queryInfo);
 
         queryExecution.addStateChangeListener(newValue -> {
             if (newValue.isDone()) {
                 try {
                     QueryInfo info = queryExecution.getQueryInfo();
                     stats.queryFinished(info);
-                    queryMonitor.completionEvent(info);
+                    queryMonitor.queryCompletedEvent(info);
                 }
                 finally {
                     // execution MUST be added to the expiration queue or there will be a leak

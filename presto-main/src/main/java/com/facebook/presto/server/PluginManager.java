@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.EventListenerManager;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.metadata.Metadata;
@@ -22,6 +23,7 @@ import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorFactoryContext;
+import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.Type;
@@ -82,6 +84,7 @@ public class PluginManager
     private final ConnectorManager connectorManager;
     private final Metadata metadata;
     private final AccessControlManager accessControlManager;
+    private final EventListenerManager eventListenerManager;
     private final BlockEncodingManager blockEncodingManager;
     private final TypeRegistry typeRegistry;
     private final ConnectorFactoryContext connectorFactoryContext;
@@ -101,6 +104,7 @@ public class PluginManager
             ConfigurationFactory configurationFactory,
             Metadata metadata,
             AccessControlManager accessControlManager,
+            EventListenerManager eventListenerManager,
             BlockEncodingManager blockEncodingManager,
             TypeRegistry typeRegistry,
             ConnectorFactoryContext connectorFactoryContext)
@@ -128,6 +132,7 @@ public class PluginManager
         this.connectorManager = requireNonNull(connectorManager, "connectorManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControlManager = requireNonNull(accessControlManager, "accessControlManager is null");
+        this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
         this.connectorFactoryContext = requireNonNull(connectorFactoryContext, "connectorFactoryContext is null");
@@ -224,6 +229,11 @@ public class PluginManager
         for (SystemAccessControlFactory accessControlFactory : plugin.getSystemAccessControlFactories()) {
             log.info("Registering system access control %s", accessControlFactory.getName());
             accessControlManager.addSystemAccessControlFactory(accessControlFactory);
+        }
+
+        for (EventListenerFactory eventListenerFactory : plugin.getEventListenerFactories()) {
+            log.info("Registering event listener %s", eventListenerFactory.getName());
+            eventListenerManager.addEventListenerFactory(eventListenerFactory);
         }
     }
 

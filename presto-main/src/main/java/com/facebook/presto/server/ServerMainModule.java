@@ -22,11 +22,8 @@ import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
-import com.facebook.presto.event.query.QueryCompletionEvent;
-import com.facebook.presto.event.query.QueryCreatedEvent;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.event.query.QueryMonitorConfig;
-import com.facebook.presto.event.query.SplitCompletionEvent;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManager;
@@ -141,7 +138,6 @@ import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
-import static io.airlift.event.client.EventBinder.eventBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
@@ -344,9 +340,6 @@ public class ServerMainModule
         // query monitor
         configBinder(binder).bindConfig(QueryMonitorConfig.class);
         binder.bind(QueryMonitor.class).in(Scopes.SINGLETON);
-        eventBinder(binder).bindEventClient(QueryCreatedEvent.class);
-        eventBinder(binder).bindEventClient(QueryCompletionEvent.class);
-        eventBinder(binder).bindEventClient(SplitCompletionEvent.class);
 
         // Determine the NodeVersion
         String prestoVersion = serverConfig.getPrestoVersion();

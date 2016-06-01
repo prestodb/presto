@@ -17,6 +17,7 @@ import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorFactoryContext;
+import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.Type;
@@ -62,6 +63,11 @@ public interface Plugin
     }
 
     default Iterable<SystemAccessControlFactory> getSystemAccessControlFactories()
+    {
+        return emptyList();
+    }
+
+    default Iterable<EventListenerFactory> getEventListenerFactories()
     {
         return emptyList();
     }
