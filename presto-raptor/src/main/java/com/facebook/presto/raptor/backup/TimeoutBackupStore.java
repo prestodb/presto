@@ -62,7 +62,7 @@ public class TimeoutBackupStore
             store.backupShard(uuid, source);
         }
         catch (UncheckedTimeoutException e) {
-            throw new PrestoException(RAPTOR_BACKUP_TIMEOUT, "Shard backup timed out");
+            timeoutException(uuid, "Shard backup timed out");
         }
     }
 
@@ -73,7 +73,7 @@ public class TimeoutBackupStore
             store.restoreShard(uuid, target);
         }
         catch (UncheckedTimeoutException e) {
-            throw new PrestoException(RAPTOR_BACKUP_TIMEOUT, "Shard restore timed out");
+            timeoutException(uuid, "Shard restore timed out");
         }
     }
 
@@ -84,7 +84,7 @@ public class TimeoutBackupStore
             return store.deleteShard(uuid);
         }
         catch (UncheckedTimeoutException e) {
-            throw new PrestoException(RAPTOR_BACKUP_TIMEOUT, "Shard delete timed out");
+            throw timeoutException(uuid, "Shard delete timed out");
         }
     }
 
@@ -95,7 +95,7 @@ public class TimeoutBackupStore
             return store.shardExists(uuid);
         }
         catch (UncheckedTimeoutException e) {
-            throw new PrestoException(RAPTOR_BACKUP_TIMEOUT, "Shard existence check timed out");
+            throw timeoutException(uuid, "Shard existence check timed out");
         }
     }
 
@@ -104,5 +104,10 @@ public class TimeoutBackupStore
         executor = new ExecutorServiceAdapter(new BoundedExecutor(executor, maxThreads));
         TimeLimiter limiter = new SimpleTimeLimiter(executor);
         return limiter.newProxy(target, clazz, timeout.toMillis(), MILLISECONDS);
+    }
+
+    private static PrestoException timeoutException(UUID uuid, String message)
+    {
+        throw new PrestoException(RAPTOR_BACKUP_TIMEOUT, message + ": " + uuid);
     }
 }
