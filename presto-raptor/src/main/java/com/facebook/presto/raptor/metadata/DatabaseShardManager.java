@@ -90,6 +90,7 @@ import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 
 public class DatabaseShardManager
@@ -495,24 +496,8 @@ public class DatabaseShardManager
     @Override
     public Map<String, Long> getNodeBytes()
     {
-        String sql = "" +
-                "SELECT n.node_identifier, x.size\n" +
-                "FROM (\n" +
-                "  SELECT node_id, sum(compressed_size) size\n" +
-                "  FROM shards s\n" +
-                "  JOIN shard_nodes sn ON (s.shard_id = sn.shard_id)\n" +
-                "  GROUP BY node_id\n" +
-                ") x\n" +
-                "JOIN nodes n ON (x.node_id = n.node_id)";
-
-        try (Handle handle = dbi.open()) {
-            return handle.createQuery(sql)
-                    .fold(ImmutableMap.<String, Long>builder(), (map, rs, ctx) -> {
-                        map.put(rs.getString("node_identifier"), rs.getLong("size"));
-                        return map;
-                    })
-                    .build();
-        }
+        return dao.getNodeSizes().stream()
+                .collect(toMap(NodeSize::getNodeIdentifier, NodeSize::getSizeInBytes));
     }
 
     @Override
