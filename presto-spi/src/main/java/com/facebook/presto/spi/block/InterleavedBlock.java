@@ -38,26 +38,28 @@ public class InterleavedBlock
         int sizeInBytes = 0;
         int retainedSizeInBytes = INSTANCE_SIZE;
         int positionCount = 0;
-        int firstSubBlockPositionCount = blocks[0].getPositionCount();
-        boolean subBlockHasDifferentSize = false;
-        for (int i = 0; i < getBlockCount(); i++) {
-            sizeInBytes += blocks[i].getSizeInBytes();
-            retainedSizeInBytes += blocks[i].getRetainedSizeInBytes();
-            positionCount += blocks[i].getPositionCount();
+        if (blocks.length != 0) {
+            int firstSubBlockPositionCount = blocks[0].getPositionCount();
+            boolean subBlockHasDifferentSize = false;
+            for (int i = 0; i < getBlockCount(); i++) {
+                sizeInBytes += blocks[i].getSizeInBytes();
+                retainedSizeInBytes += blocks[i].getRetainedSizeInBytes();
+                positionCount += blocks[i].getPositionCount();
 
-            if (subBlockHasDifferentSize) {
-                if (firstSubBlockPositionCount - 1 != blocks[i].getPositionCount()) {
-                    throw new IllegalArgumentException(
-                            "length of sub blocks differ by at least 2 or is not non-ascending: block 0: " + firstSubBlockPositionCount + ", block " + i + ": " + blocks[i].getPositionCount());
-                }
-            }
-            else {
-                if (firstSubBlockPositionCount != blocks[i].getPositionCount()) {
-                    if (firstSubBlockPositionCount - 1 == blocks[i].getPositionCount()) {
-                        subBlockHasDifferentSize = true;
+                if (subBlockHasDifferentSize) {
+                    if (firstSubBlockPositionCount - 1 != blocks[i].getPositionCount()) {
+                        throw new IllegalArgumentException(
+                                "length of sub blocks differ by at least 2 or is not non-ascending: block 0: " + firstSubBlockPositionCount + ", block " + i + ": " + blocks[i].getPositionCount());
                     }
-                    else {
-                        throw new IllegalArgumentException("length of sub blocks differ by at least 2: block 0: " + firstSubBlockPositionCount + ", block " + i + ": " + blocks[i].getPositionCount());
+                }
+                else {
+                    if (firstSubBlockPositionCount != blocks[i].getPositionCount()) {
+                        if (firstSubBlockPositionCount - 1 == blocks[i].getPositionCount()) {
+                            subBlockHasDifferentSize = true;
+                        }
+                        else {
+                            throw new IllegalArgumentException("length of sub blocks differ by at least 2: block 0: " + firstSubBlockPositionCount + ", block " + i + ": " + blocks[i].getPositionCount());
+                        }
                     }
                 }
             }

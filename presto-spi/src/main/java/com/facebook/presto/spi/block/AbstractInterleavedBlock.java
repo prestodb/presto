@@ -254,7 +254,6 @@ public abstract class AbstractInterleavedBlock
             throw new IndexOutOfBoundsException("Invalid position (" + position + "), length (" + length + ") in block with " + positionCount + " positions");
         }
         if (length <= 1) {
-            // This is not only an optimization. It is required for correctness in the case of length == 0
             int positionInBlock = position / columns;
             if (compact) {
                 return getBlock(position % columns).copyRegion(positionInBlock, length);

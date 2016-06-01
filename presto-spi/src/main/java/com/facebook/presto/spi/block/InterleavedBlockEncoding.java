@@ -39,6 +39,14 @@ public class InterleavedBlockEncoding
     @Override
     public void writeBlock(SliceOutput sliceOutput, Block block)
     {
+        if (block.getPositionCount() == 0) {
+            sliceOutput.appendByte(1);
+            return;
+        }
+        else {
+            sliceOutput.appendByte(0);
+        }
+
         AbstractInterleavedBlock interleavedBlock = (AbstractInterleavedBlock) block;
         if (interleavedBlock.getBlockCount() != individualBlockEncodings.length) {
             throw new IllegalArgumentException(
@@ -60,6 +68,11 @@ public class InterleavedBlockEncoding
     @Override
     public Block readBlock(SliceInput sliceInput)
     {
+        byte isEmpty = sliceInput.readByte();
+        if (isEmpty == 1) {
+            return new InterleavedBlock(new Block[0]);
+        }
+
         Block[] individualBlocks = new Block[individualBlockEncodings.length];
         for (int i = 0; i < individualBlockEncodings.length; i++) {
             individualBlocks[i] = individualBlockEncodings[i].readBlock(sliceInput);
