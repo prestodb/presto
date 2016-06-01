@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.EventListenerManager;
 import com.facebook.presto.discovery.EmbeddedDiscoveryModule;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.metadata.CatalogManager;
@@ -122,6 +123,7 @@ public class PrestoServer
                     injector.getInstance(NodeSchedulerConfig.class));
 
             injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
+            injector.getInstance(EventListenerManager.class).loadConfiguredEventListener();
 
             injector.getInstance(Announcer.class).start();
 

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.EventListenerManager;
 import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
@@ -29,7 +30,6 @@ import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.spi.Node;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.event.client.NullEventClient;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
@@ -272,7 +272,7 @@ public class TestSqlTaskManager
                 createTestingPlanner(),
                 new MockLocationFactory(),
                 taskExecutor,
-                new QueryMonitor(new ObjectMapperProvider().get(), new NullEventClient(), new NodeInfo("test"), new NodeVersion("testVersion"), new QueryMonitorConfig()),
+                new QueryMonitor(new ObjectMapperProvider().get(), new EventListenerManager(), new NodeInfo("test"), new NodeVersion("testVersion"), new QueryMonitorConfig()),
                 new NodeInfo("test"),
                 localMemoryManager,
                 config,
