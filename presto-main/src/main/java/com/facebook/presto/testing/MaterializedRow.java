@@ -178,7 +178,7 @@ public class MaterializedRow
     private static class ApproximateDouble
             extends ApproximateNumeric
     {
-        private final Number value;
+        private final Double value;
         private final int precision;
 
         private ApproximateDouble(Double value, int precision)
@@ -196,8 +196,7 @@ public class MaterializedRow
         @Override
         protected Number getNormalizedValue()
         {
-            Double val = (Double) value;
-            if (val.isNaN() || val.isInfinite()) {
+            if (value.isNaN() || value.isInfinite()) {
                 return value;
             }
             return new BigDecimal(getValue().doubleValue()).round(new MathContext(precision)).doubleValue();
@@ -207,7 +206,7 @@ public class MaterializedRow
     private static class ApproximateFloat
             extends ApproximateNumeric
     {
-        private final Number value;
+        private final Float value;
         private final int precision;
 
         private ApproximateFloat(Float value, int precision)
@@ -225,8 +224,7 @@ public class MaterializedRow
         @Override
         protected Number getNormalizedValue()
         {
-            Float val = (Float) value;
-            if (val.isNaN() || val.isInfinite()) {
+            if (value.isNaN() || value.isInfinite()) {
                 return value;
             }
             return new BigDecimal(getValue().floatValue()).round(new MathContext(precision)).floatValue();
