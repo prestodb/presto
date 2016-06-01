@@ -14,15 +14,18 @@
 package com.facebook.presto.plugin.mysql;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import io.airlift.testing.mysql.TestingMySqlServer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.airlift.tpch.TpchTable.ORDERS;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -43,6 +46,28 @@ public class TestMySqlIntegrationSmokeTest
     {
         super(createMySqlQueryRunner(mysqlServer, ORDERS));
         this.mysqlServer = mysqlServer;
+    }
+
+    @Override
+    public void testDescribeTable()
+            throws Exception
+    {
+        // we need specific implementation of this tests due to specific Presto<->Mysql varchar length mapping.
+        MaterializedResult actualColumns = computeActual("DESC ORDERS").toJdbcTypes();
+
+        // some connectors don't support dates, and some do not support parametrized varchars, so we check multiple options
+        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "bigint", "")
+                .row("custkey", "bigint", "")
+                .row("orderstatus", "varchar(255)", "")
+                .row("totalprice", "double", "")
+                .row("orderdate", "date", "")
+                .row("orderpriority", "varchar(255)", "")
+                .row("clerk", "varchar(255)", "")
+                .row("shippriority", "integer", "")
+                .row("comment", "varchar(255)", "")
+                .build();
+        assertEquals(actualColumns, expectedColumns);
     }
 
     @Override
