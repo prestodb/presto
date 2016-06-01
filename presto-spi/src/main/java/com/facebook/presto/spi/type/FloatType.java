@@ -18,7 +18,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 
-import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static io.airlift.slice.SizeOf.SIZE_OF_FLOAT;
 import static java.lang.Float.floatToRawIntBits;
@@ -102,7 +102,7 @@ public final class FloatType
             Math.toIntExact(value);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE,
+            throw new PrestoException(INTERNAL_ERROR,
                     String.format("Value (%sb) is not a valid single-precision float", value, Long.toBinaryString(value).replace(' ', '0')));
         }
         blockBuilder.writeInt((int) value).closeEntry();
