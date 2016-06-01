@@ -115,6 +115,7 @@ public class QueryStateMachine
     private final AtomicReference<List<String>> outputFieldNames = new AtomicReference<>(ImmutableList.of());
 
     private final AtomicReference<Set<Input>> inputs = new AtomicReference<>(ImmutableSet.of());
+    private final AtomicReference<Optional<Output>> output = new AtomicReference<>(Optional.empty());
 
     private QueryStateMachine(QueryId queryId, String query, Session session, URI self, boolean autoCommit, TransactionManager transactionManager, Executor executor)
     {
@@ -355,7 +356,8 @@ public class QueryStateMachine
                 rootStage,
                 failureInfo,
                 errorCode,
-                inputs.get());
+                inputs.get(),
+                output.get());
     }
 
     public VersionedMemoryPoolId getMemoryPool()
@@ -378,6 +380,12 @@ public class QueryStateMachine
     {
         requireNonNull(inputs, "inputs is null");
         this.inputs.set(ImmutableSet.copyOf(inputs));
+    }
+
+    public void setOutput(Optional<Output> output)
+    {
+        requireNonNull(output, "output is null");
+        this.output.set(output);
     }
 
     public Map<String, String> getSetSessionProperties()
