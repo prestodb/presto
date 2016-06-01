@@ -48,6 +48,9 @@ public class InterleavedBlockEncoding
         }
 
         AbstractInterleavedBlock interleavedBlock = (AbstractInterleavedBlock) block;
+
+        interleavedBlock = interleavedBlock.semiCompact();
+
         if (interleavedBlock.getBlockCount() != individualBlockEncodings.length) {
             throw new IllegalArgumentException(
                     "argument block differs in length (" + interleavedBlock.getBlockCount() + ") with this encoding (" + individualBlockEncodings.length + ")");
