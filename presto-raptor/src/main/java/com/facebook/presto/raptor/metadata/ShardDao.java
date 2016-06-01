@@ -66,6 +66,17 @@ public interface ShardDao
     @Mapper(ShardMetadata.Mapper.class)
     Set<ShardMetadata> getNodeShards(@Bind("nodeIdentifier") String nodeIdentifier);
 
+    @SqlQuery("SELECT n.node_identifier, x.bytes\n" +
+            "FROM (\n" +
+            "  SELECT node_id, sum(compressed_size) bytes\n" +
+            "  FROM shards s\n" +
+            "  JOIN shard_nodes sn ON (s.shard_id = sn.shard_id)\n" +
+            "  GROUP BY node_id\n" +
+            ") x\n" +
+            "JOIN nodes n ON (x.node_id = n.node_id)")
+    @Mapper(NodeSize.Mapper.class)
+    Set<NodeSize> getNodeSizes();
+
     @SqlUpdate("DELETE FROM shard_nodes WHERE shard_id IN (\n" +
             "  SELECT shard_id\n" +
             "  FROM shards\n" +
