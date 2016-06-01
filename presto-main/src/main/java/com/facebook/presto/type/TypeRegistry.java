@@ -473,6 +473,16 @@ public final class TypeRegistry
                         return Optional.of(LIKE_PATTERN);
                     case JsonPathType.NAME:
                         return Optional.of(JSON_PATH);
+                    case StandardTypes.DATE:
+                        return Optional.of(DATE);
+                    case StandardTypes.TIME:
+                        return Optional.of(TIME);
+                    case StandardTypes.TIME_WITH_TIME_ZONE:
+                        return Optional.of(TIME_WITH_TIME_ZONE);
+                    case StandardTypes.TIMESTAMP:
+                        return Optional.of(TIMESTAMP);
+                    case StandardTypes.TIMESTAMP_WITH_TIME_ZONE:
+                        return Optional.of(TIMESTAMP_WITH_TIME_ZONE);
                     case CodePointsType.NAME:
                         return Optional.of(CODE_POINTS);
                     default:

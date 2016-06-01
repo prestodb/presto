@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SqlFunction;
@@ -31,6 +32,7 @@ import java.math.BigInteger;
 import java.util.List;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
@@ -42,11 +44,16 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestFunctions
 {
-    protected final FunctionAssertions functionAssertions;
+    protected FunctionAssertions functionAssertions;
 
     protected AbstractTestFunctions()
     {
         functionAssertions = new FunctionAssertions();
+    }
+
+    protected AbstractTestFunctions(Session session)
+    {
+        functionAssertions = new FunctionAssertions(session);
     }
 
     protected AbstractTestFunctions(FeaturesConfig featuresConfig)
@@ -135,6 +142,18 @@ public abstract class AbstractTestFunctions
         }
     }
 
+    protected void assertAmbiguousCall(String projection, String message)
+    {
+        try {
+            evaluateInvalid(projection);
+            fail("Expected to throw an AMBIGUOUS_FUNCTION_CALL exception");
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), AMBIGUOUS_FUNCTION_CALL.toErrorCode());
+            assertEquals(e.getMessage(), message);
+        }
+    }
+
     protected void registerScalar(Class<?> clazz)
     {
         Metadata metadata = functionAssertions.getMetadata();
@@ -151,6 +170,11 @@ public abstract class AbstractTestFunctions
                 .scalar(clazz)
                 .getFunctions();
         metadata.getFunctionRegistry().addFunctions(functions);
+    }
+
+    protected void assertEvaluates(String projection, Type expectedType)
+    {
+        functionAssertions.tryEvaluate(projection, expectedType);
     }
 
     protected SqlDecimal decimal(String decimalString)

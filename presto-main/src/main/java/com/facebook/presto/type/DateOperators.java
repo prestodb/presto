@@ -35,8 +35,9 @@ import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static com.facebook.presto.util.DateTimeUtils.parseDate;
+import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.printDate;
+import static com.facebook.presto.util.DateTimeUtils.timestampWithTimeZoneToDate;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static io.airlift.slice.SliceUtf8.trim;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -131,10 +132,11 @@ public final class DateOperators
     @ScalarFunction("date")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.DATE)
-    public static long castFromSlice(@SqlType(StandardTypes.VARCHAR) Slice value)
+    public static long castFromSlice(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice value)
     {
         try {
-            return parseDate(trim(value).toStringUtf8());
+            final long timestampValue = parseTimestampWithTimeZone(session.getTimeZoneKey(), trim(value).toStringUtf8());
+            return timestampWithTimeZoneToDate(timestampValue);
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to date: " + value.toStringUtf8(), e);
