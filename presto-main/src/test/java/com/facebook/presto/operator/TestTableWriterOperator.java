@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -142,7 +143,8 @@ public class TestTableWriterOperator
                 new TableWriterNode.CreateHandle(new OutputTableHandle(
                         CONNECTOR_ID,
                         new ConnectorTransactionHandle() {},
-                        new ConnectorOutputTableHandle() {})),
+                        new ConnectorOutputTableHandle() {}),
+                        new SchemaTableName("testSchema", "testTable")),
                 ImmutableList.of(0),
                 Optional.empty(),
                 TEST_SESSION);

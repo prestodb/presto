@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.NewTableLayout;
 import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -181,17 +182,27 @@ public class TableWriterNode
             extends WriterTarget
     {
         private final OutputTableHandle handle;
+        private final SchemaTableName schemaTableName;
 
         @JsonCreator
-        public CreateHandle(@JsonProperty("handle") OutputTableHandle handle)
+        public CreateHandle(
+                @JsonProperty("handle") OutputTableHandle handle,
+                @JsonProperty("schemaTableName") SchemaTableName schemaTableName)
         {
             this.handle = requireNonNull(handle, "handle is null");
+            this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         }
 
         @JsonProperty
         public OutputTableHandle getHandle()
         {
             return handle;
+        }
+
+        @JsonProperty
+        public SchemaTableName getSchemaTableName()
+        {
+            return schemaTableName;
         }
 
         @Override
@@ -228,17 +239,27 @@ public class TableWriterNode
             extends WriterTarget
     {
         private final InsertTableHandle handle;
+        private final SchemaTableName schemaTableName;
 
         @JsonCreator
-        public InsertHandle(@JsonProperty("handle") InsertTableHandle handle)
+        public InsertHandle(
+                @JsonProperty("handle") InsertTableHandle handle,
+                @JsonProperty("schemaTableName") SchemaTableName schemaTableName)
         {
             this.handle = requireNonNull(handle, "handle is null");
+            this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         }
 
         @JsonProperty
         public InsertTableHandle getHandle()
         {
             return handle;
+        }
+
+        @JsonProperty
+        public SchemaTableName getSchemaTableName()
+        {
+            return schemaTableName;
         }
 
         @Override
@@ -252,17 +273,27 @@ public class TableWriterNode
             extends WriterTarget
     {
         private final TableHandle handle;
+        private final SchemaTableName schemaTableName;
 
         @JsonCreator
-        public DeleteHandle(@JsonProperty("handle") TableHandle handle)
+        public DeleteHandle(
+                @JsonProperty("handle") TableHandle handle,
+                @JsonProperty("schemaTableName") SchemaTableName schemaTableName)
         {
             this.handle = requireNonNull(handle, "handle is null");
+            this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         }
 
         @JsonProperty
         public TableHandle getHandle()
         {
             return handle;
+        }
+
+        @JsonProperty
+        public SchemaTableName getSchemaTableName()
+        {
+            return schemaTableName;
         }
 
         @Override

@@ -62,6 +62,7 @@ public class QueryInfo
     private final ErrorType errorType;
     private final ErrorCode errorCode;
     private final Set<Input> inputs;
+    private final Optional<Output> output;
 
     @JsonCreator
     public QueryInfo(
@@ -84,7 +85,8 @@ public class QueryInfo
             @JsonProperty("outputStage") Optional<StageInfo> outputStage,
             @JsonProperty("failureInfo") FailureInfo failureInfo,
             @JsonProperty("errorCode") ErrorCode errorCode,
-            @JsonProperty("inputs") Set<Input> inputs)
+            @JsonProperty("inputs") Set<Input> inputs,
+            @JsonProperty("output") Optional<Output> output)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(session, "session is null");
@@ -100,6 +102,7 @@ public class QueryInfo
         requireNonNull(query, "query is null");
         requireNonNull(outputStage, "outputStage is null");
         requireNonNull(inputs, "inputs is null");
+        requireNonNull(output, "output is null");
 
         this.queryId = queryId;
         this.session = session;
@@ -122,6 +125,7 @@ public class QueryInfo
         this.errorType = errorCode == null ? null : errorCode.getType();
         this.errorCode = errorCode;
         this.inputs = ImmutableSet.copyOf(inputs);
+        this.output = output;
     }
 
     @JsonProperty
@@ -258,6 +262,12 @@ public class QueryInfo
     public Set<Input> getInputs()
     {
         return inputs;
+    }
+
+    @JsonProperty
+    public Optional<Output> getOutput()
+    {
+        return output;
     }
 
     @Override

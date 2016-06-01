@@ -99,7 +99,8 @@ public class MockQueryExecution
                 Optional.empty(),
                 null,
                 null,
-                ImmutableSet.of());
+                ImmutableSet.of(),
+                Optional.empty());
     }
 
     @Override
