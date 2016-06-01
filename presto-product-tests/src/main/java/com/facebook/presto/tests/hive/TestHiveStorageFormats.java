@@ -117,8 +117,7 @@ public class TestHiveStorageFormats
         String createTableAsSelect = format(
                 "CREATE TABLE %s WITH (format='%s') AS " +
                         "SELECT " +
-                        "orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, " +
-                        "linestatus, shipinstruct, shipmode, comment, returnflag " +
+                        "partkey, suppkey, extendedprice " +
                         "FROM tpch.%s.lineitem",
                 tableName,
                 storageFormat.getName(),
@@ -192,8 +191,7 @@ public class TestHiveStorageFormats
         String createTableAsSelect = format(
                 "CREATE TABLE %s WITH (format='%s', partitioned_by = ARRAY['returnflag']) AS " +
                         "SELECT " +
-                        "orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, " +
-                        "linestatus, shipinstruct, shipmode, comment, returnflag " +
+                        "tax, discount, returnflag " +
                         "FROM tpch.%s.lineitem",
                 tableName,
                 storageFormat.getName(),
