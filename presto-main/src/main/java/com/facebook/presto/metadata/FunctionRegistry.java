@@ -111,6 +111,7 @@ import com.facebook.presto.type.DateOperators;
 import com.facebook.presto.type.DateTimeOperators;
 import com.facebook.presto.type.DecimalOperators;
 import com.facebook.presto.type.DoubleOperators;
+import com.facebook.presto.type.FloatOperators;
 import com.facebook.presto.type.HyperLogLogOperators;
 import com.facebook.presto.type.IntegerOperators;
 import com.facebook.presto.type.IntervalDayTimeOperators;
@@ -221,12 +222,14 @@ import static com.facebook.presto.type.DecimalCasts.BOOLEAN_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_BIGINT_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_BOOLEAN_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_DOUBLE_CAST;
+import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_FLOAT_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_INTEGER_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_JSON_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_SMALLINT_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_TINYINT_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_VARCHAR_CAST;
 import static com.facebook.presto.type.DecimalCasts.DOUBLE_TO_DECIMAL_CAST;
+import static com.facebook.presto.type.DecimalCasts.FLOAT_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.INTEGER_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.JSON_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.SMALLINT_TO_DECIMAL_CAST;
@@ -379,6 +382,7 @@ public class FunctionRegistry
                 .scalar(SmallintOperators.class)
                 .scalar(TinyintOperators.class)
                 .scalar(DoubleOperators.class)
+                .scalar(FloatOperators.class)
                 .scalar(VarcharOperators.class)
                 .scalar(VarbinaryOperators.class)
                 .scalar(DateOperators.class)
@@ -433,8 +437,8 @@ public class FunctionRegistry
                 .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_TO_JSON, JSON_TO_ARRAY)
                 .functions(MAP_CONSTRUCTOR, MAP_SUBSCRIPT, MAP_TO_JSON, JSON_TO_MAP)
                 .functions(MAP_AGG, MULTIMAP_AGG, MAP_UNION)
-                .functions(DECIMAL_TO_VARCHAR_CAST, DECIMAL_TO_INTEGER_CAST, DECIMAL_TO_BIGINT_CAST, DECIMAL_TO_DOUBLE_CAST, DECIMAL_TO_BOOLEAN_CAST, DECIMAL_TO_TINYINT_CAST, DECIMAL_TO_SMALLINT_CAST)
-                .functions(VARCHAR_TO_DECIMAL_CAST, INTEGER_TO_DECIMAL_CAST, BIGINT_TO_DECIMAL_CAST, DOUBLE_TO_DECIMAL_CAST, BOOLEAN_TO_DECIMAL_CAST, TINYINT_TO_DECIMAL_CAST, SMALLINT_TO_DECIMAL_CAST)
+                .functions(DECIMAL_TO_VARCHAR_CAST, DECIMAL_TO_INTEGER_CAST, DECIMAL_TO_BIGINT_CAST, DECIMAL_TO_DOUBLE_CAST, DECIMAL_TO_FLOAT_CAST, DECIMAL_TO_BOOLEAN_CAST, DECIMAL_TO_TINYINT_CAST, DECIMAL_TO_SMALLINT_CAST)
+                .functions(VARCHAR_TO_DECIMAL_CAST, INTEGER_TO_DECIMAL_CAST, BIGINT_TO_DECIMAL_CAST, DOUBLE_TO_DECIMAL_CAST, FLOAT_TO_DECIMAL_CAST, BOOLEAN_TO_DECIMAL_CAST, TINYINT_TO_DECIMAL_CAST, SMALLINT_TO_DECIMAL_CAST)
                 .functions(JSON_TO_DECIMAL_CAST, DECIMAL_TO_JSON_CAST)
                 .functions(DECIMAL_ADD_OPERATOR, DECIMAL_SUBTRACT_OPERATOR, DECIMAL_MULTIPLY_OPERATOR, DECIMAL_DIVIDE_OPERATOR, DECIMAL_MODULUS_OPERATOR)
                 .functions(DECIMAL_EQUAL_OPERATOR, DECIMAL_NOT_EQUAL_OPERATOR)

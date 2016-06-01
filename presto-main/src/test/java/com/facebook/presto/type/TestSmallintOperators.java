@@ -22,6 +22,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RAN
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.FloatType.FLOAT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
@@ -235,6 +236,15 @@ public class TestSmallintOperators
     {
         assertFunction("cast(SMALLINT'37' as double)", DOUBLE, 37.0);
         assertFunction("cast(SMALLINT'17' as double)", DOUBLE, 17.0);
+    }
+
+    @Test
+    public void testCastToFloat()
+            throws Exception
+    {
+        assertFunction("cast(SMALLINT'37' as float)", FLOAT, 37.0f);
+        assertFunction("cast(SMALLINT'-32768' as float)", FLOAT, -32768.0f);
+        assertFunction("cast(SMALLINT'0' as float)", FLOAT, 0.0f);
     }
 
     @Test
