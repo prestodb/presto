@@ -15,6 +15,8 @@ package com.facebook.presto.spi.block;
 
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 public class InterleavedBlock
         extends AbstractInterleavedBlock
 {
@@ -22,9 +24,11 @@ public class InterleavedBlock
 
     private final Block[] blocks;
     private final InterleavedBlockEncoding blockEncoding;
+    private final int start;
     private final int positionCount;
-    private final int sizeInBytes;
     private final int retainedSizeInBytes;
+
+    private final AtomicInteger sizeInBytes;
 
     public InterleavedBlock(Block[] blocks)
     {
@@ -66,9 +70,30 @@ public class InterleavedBlock
         }
 
         this.blockEncoding = computeBlockEncoding();
+        this.start = 0;
         this.positionCount = positionCount;
-        this.sizeInBytes = sizeInBytes;
+        this.sizeInBytes = new AtomicInteger(sizeInBytes);
         this.retainedSizeInBytes = retainedSizeInBytes;
+    }
+
+    private InterleavedBlock(Block[] blocks, int start, int positionCount, int retainedSizeInBytes, InterleavedBlockEncoding blockEncoding)
+    {
+        super(blocks.length);
+        this.blocks = blocks;
+        this.start = start;
+        this.positionCount = positionCount;
+        this.retainedSizeInBytes = retainedSizeInBytes;
+        this.blockEncoding = blockEncoding;
+        this.sizeInBytes = new AtomicInteger(-1);
+    }
+
+    @Override
+    public Block getRegion(int position, int length)
+    {
+        if (position < 0 || length < 0 || position + length > positionCount) {
+            throw new IndexOutOfBoundsException("Invalid position (" + position + "), length (" + length + ") in block with " + positionCount + " positions");
+        }
+        return new InterleavedBlock(blocks, computePosition(position), length, retainedSizeInBytes, blockEncoding);
     }
 
     @Override
@@ -79,6 +104,12 @@ public class InterleavedBlock
         }
 
         return blocks[blockIndex];
+    }
+
+    @Override
+    protected int computePosition(int position)
+    {
+        return position + start;
     }
 
     @Override
@@ -96,6 +127,14 @@ public class InterleavedBlock
     @Override
     public int getSizeInBytes()
     {
+        int sizeInBytes = this.sizeInBytes.get();
+        if (sizeInBytes < 0) {
+            sizeInBytes = 0;
+            for (int i = 0; i < getBlockCount(); i++) {
+                sizeInBytes += blocks[i].getSizeInBytes();
+            }
+            this.sizeInBytes.set(sizeInBytes);
+        }
         return sizeInBytes;
     }
 

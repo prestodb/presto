@@ -91,6 +91,12 @@ public class InterleavedBlockBuilder
     }
 
     @Override
+    protected int computePosition(int position)
+    {
+        return position;
+    }
+
+    @Override
     public InterleavedBlockEncoding getEncoding()
     {
         return blockEncoding;
@@ -245,6 +251,12 @@ public class InterleavedBlockBuilder
         }
 
         // All bytes added have been reported to blockBuilderStatus by child block builders. No report to blockBuilderStatus necessary here.
+    }
+
+    @Override
+    public Block getRegion(int position, int length)
+    {
+        return getRegion(position, length, false);
     }
 
     @Override
