@@ -57,9 +57,14 @@ public interface ShardManager
     Set<ShardMetadata> getNodeShards(String nodeIdentifier);
 
     /**
-     * Return the shard nodes a given table.
+     * Return the shard nodes for a non-bucketed table.
      */
-    ResultIterator<BucketShards> getShardNodes(long tableId, boolean bucketed, boolean merged, TupleDomain<RaptorColumnHandle> effectivePredicate);
+    ResultIterator<BucketShards> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate);
+
+    /**
+     * Return the shard nodes for a bucketed table.
+     */
+    ResultIterator<BucketShards> getShardNodesBucketed(long tableId, boolean merged, Map<Integer, String> bucketToNode, TupleDomain<RaptorColumnHandle> effectivePredicate);
 
     /**
      * Assign a shard to a node.
