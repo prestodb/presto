@@ -106,6 +106,11 @@ Map Aggregate Functions
 
     Returns a map created from the input ``key`` / ``value`` pairs.
 
+.. function:: map_union(x<K,V>) -> map<K,V>
+
+   Returns the union of all the input maps. If a key is found in multiple
+   input maps, that key's value in the resulting map comes from an arbitrary input map.
+
 .. function:: multimap_agg(key, value) -> map<K,array<V>>
 
     Returns a multimap created from the input ``key`` / ``value`` pairs.
