@@ -95,50 +95,50 @@ public final class FloatOperators
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean equal(@SqlType(StandardTypes.FLOAT) long left, @SqlType(StandardTypes.FLOAT) long right)
     {
-        return Float.intBitsToFloat((int) left) == Float.intBitsToFloat((int) right);
+        return intBitsToFloat((int) left) == intBitsToFloat((int) right);
     }
 
     @ScalarOperator(NOT_EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean notEqual(@SqlType(StandardTypes.FLOAT) long left, @SqlType(StandardTypes.FLOAT) long right)
     {
-        return Float.intBitsToFloat((int) left) != Float.intBitsToFloat((int) right);
+        return intBitsToFloat((int) left) != intBitsToFloat((int) right);
     }
 
     @ScalarOperator(LESS_THAN)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean lessThan(@SqlType(StandardTypes.FLOAT) long left, @SqlType(StandardTypes.FLOAT) long right)
     {
-        return Float.intBitsToFloat((int) left) < Float.intBitsToFloat((int) right);
+        return intBitsToFloat((int) left) < intBitsToFloat((int) right);
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean lessThanOrEqual(@SqlType(StandardTypes.FLOAT) long left, @SqlType(StandardTypes.FLOAT) long right)
     {
-        return Float.intBitsToFloat((int) left) <= Float.intBitsToFloat((int) right);
+        return intBitsToFloat((int) left) <= intBitsToFloat((int) right);
     }
 
     @ScalarOperator(GREATER_THAN)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean greaterThan(@SqlType(StandardTypes.FLOAT) long left, @SqlType(StandardTypes.FLOAT) long right)
     {
-        return Float.intBitsToFloat((int) left) > Float.intBitsToFloat((int) right);
+        return intBitsToFloat((int) left) > intBitsToFloat((int) right);
     }
 
     @ScalarOperator(GREATER_THAN_OR_EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean greaterThanOrEqual(@SqlType(StandardTypes.FLOAT) long left, @SqlType(StandardTypes.FLOAT) long right)
     {
-        return Float.intBitsToFloat((int) left) >= Float.intBitsToFloat((int) right);
+        return intBitsToFloat((int) left) >= intBitsToFloat((int) right);
     }
 
     @ScalarOperator(BETWEEN)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean between(@SqlType(StandardTypes.FLOAT) long value, @SqlType(StandardTypes.FLOAT) long min, @SqlType(StandardTypes.FLOAT) long max)
     {
-        return Float.intBitsToFloat((int) min) <= Float.intBitsToFloat((int) value) &&
-                Float.intBitsToFloat((int) value) <= Float.intBitsToFloat((int) max);
+        return intBitsToFloat((int) min) <= intBitsToFloat((int) value) &&
+                intBitsToFloat((int) value) <= intBitsToFloat((int) max);
     }
 
     @ScalarOperator(HASH_CODE)
