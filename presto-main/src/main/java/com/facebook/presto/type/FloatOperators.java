@@ -53,35 +53,35 @@ public final class FloatOperators
     @SqlType(StandardTypes.FLOAT)
     public static long add(@SqlType(StandardTypes.FLOAT) long left, @SqlType(StandardTypes.FLOAT) long right)
     {
-        return Float.floatToRawIntBits(Float.intBitsToFloat((int) left) + Float.intBitsToFloat((int) right));
+        return floatToRawIntBits(intBitsToFloat((int) left) + intBitsToFloat((int) right));
     }
 
     @ScalarOperator(SUBTRACT)
     @SqlType(StandardTypes.FLOAT)
     public static long subtract(@SqlType(StandardTypes.FLOAT) long left, @SqlType(StandardTypes.FLOAT) long right)
     {
-        return Float.floatToRawIntBits(Float.intBitsToFloat((int) left) - Float.intBitsToFloat((int) right));
+        return floatToRawIntBits(intBitsToFloat((int) left) - intBitsToFloat((int) right));
     }
 
     @ScalarOperator(MULTIPLY)
     @SqlType(StandardTypes.FLOAT)
     public static long multiply(@SqlType(StandardTypes.FLOAT) long left, @SqlType(StandardTypes.FLOAT) long right)
     {
-        return Float.floatToRawIntBits(Float.intBitsToFloat((int) left) * Float.intBitsToFloat((int) right));
+        return floatToRawIntBits(intBitsToFloat((int) left) * intBitsToFloat((int) right));
     }
 
     @ScalarOperator(DIVIDE)
     @SqlType(StandardTypes.FLOAT)
     public static long divide(@SqlType(StandardTypes.FLOAT) long left, @SqlType(StandardTypes.FLOAT) long right)
     {
-        return Float.floatToRawIntBits(Float.intBitsToFloat((int) left) / Float.intBitsToFloat((int) right));
+        return floatToRawIntBits(intBitsToFloat((int) left) / intBitsToFloat((int) right));
     }
 
     @ScalarOperator(MODULUS)
     @SqlType(StandardTypes.FLOAT)
     public static long modulus(@SqlType(StandardTypes.FLOAT) long left, @SqlType(StandardTypes.FLOAT) long right)
     {
-        return Float.floatToRawIntBits(Float.intBitsToFloat((int) left) % Float.intBitsToFloat((int) right));
+        return floatToRawIntBits(intBitsToFloat((int) left) % intBitsToFloat((int) right));
     }
 
     @ScalarOperator(NEGATION)
