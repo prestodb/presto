@@ -183,7 +183,6 @@ public class DatabaseShardManager
                     "  shard_id BIGINT NOT NULL,\n" +
                     "  shard_uuid BINARY(16) NOT NULL,\n" +
                     "  bucket_number INT NOT NULL\n," +
-                    "  node_ids VARBINARY(128) NOT NULL,\n" +
                     tableColumns +
                     "  PRIMARY KEY (bucket_number, shard_uuid),\n" +
                     "  UNIQUE (shard_id),\n" +
@@ -402,11 +401,19 @@ public class DatabaseShardManager
     private static void insertShardsAndIndex(long tableId, List<ColumnInfo> columns, Collection<ShardInfo> shards, Map<String, Integer> nodeIds, Handle handle)
             throws SQLException
     {
+        if (shards.isEmpty()) {
+            return;
+        }
+        boolean bucketed = shards.iterator().next().getBucketNumber().isPresent();
+
         Connection connection = handle.getConnection();
         try (IndexInserter indexInserter = new IndexInserter(connection, tableId, columns)) {
             for (List<ShardInfo> batch : partition(shards, batchSize(connection))) {
                 List<Long> shardIds = insertShards(connection, tableId, batch);
-                insertShardNodes(connection, nodeIds, shardIds, batch);
+
+                if (!bucketed) {
+                    insertShardNodes(connection, nodeIds, shardIds, batch);
+                }
 
                 for (int i = 0; i < batch.size(); i++) {
                     ShardInfo shard = batch.get(i);
@@ -448,9 +455,15 @@ public class DatabaseShardManager
     }
 
     @Override
-    public ResultIterator<BucketShards> getShardNodes(long tableId, boolean bucketed, boolean merged, TupleDomain<RaptorColumnHandle> effectivePredicate)
+    public ResultIterator<BucketShards> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate)
     {
-        return new ShardIterator(tableId, bucketed, merged, effectivePredicate, dbi);
+        return new ShardIterator(tableId, false, Optional.empty(), effectivePredicate, dbi);
+    }
+
+    @Override
+    public ResultIterator<BucketShards> getShardNodesBucketed(long tableId, boolean merged, Map<Integer, String> bucketToNode, TupleDomain<RaptorColumnHandle> effectivePredicate)
+    {
+        return new ShardIterator(tableId, merged, Optional.of(bucketToNode), effectivePredicate, dbi);
     }
 
     @Override
