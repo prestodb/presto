@@ -69,7 +69,9 @@ public abstract class AbstractFixedWidthBlock
     @Override
     public long getLong(int position, int offset)
     {
-        checkReadablePosition(position);
+        //checkReadablePosition(position);
+
+        //This should also be changed to getLongUnchecked (requires a change to airlift)
         return getRawSlice().getLong(valueOffset(position) + offset);
     }
 

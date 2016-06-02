@@ -601,6 +601,7 @@ public class JoinCompiler
             BytecodeExpression rightBlock,
             BytecodeExpression rightBlockPosition)
     {
+        /*
         IfStatement ifStatement = new IfStatement();
         ifStatement.condition()
                 .append(leftBlock.invoke("isNull", boolean.class, leftBlockPosition))
@@ -612,9 +613,10 @@ public class JoinCompiler
                 .append(rightBlock.invoke("isNull", boolean.class, rightBlockPosition))
                 .append(OpCode.IAND);
 
-        ifStatement.ifFalse().append(type.invoke("equalTo", boolean.class, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition));
+        //ifStatement.ifFalse().append(type.invoke("equalTo", boolean.class, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition));
 
-        return ifStatement;
+        return ifStatement;*/
+        return type.invoke("equalTo", boolean.class, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
     }
 
     public static class LookupSourceFactory
