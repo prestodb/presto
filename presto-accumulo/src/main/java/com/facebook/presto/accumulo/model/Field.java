@@ -102,16 +102,16 @@ public class Field
 
         switch (type.getDisplayName()) {
             case StandardTypes.BIGINT:
-                this.value = Long.valueOf(f.getBigInt());
+                this.value = f.getBigInt();
                 break;
             case StandardTypes.BOOLEAN:
-                this.value = new Boolean(f.getBoolean());
+                this.value = f.getBoolean();
                 break;
             case StandardTypes.DATE:
                 this.value = new Date(f.getDate().getTime());
                 break;
             case StandardTypes.DOUBLE:
-                this.value = Double.valueOf(f.getDouble());
+                this.value = f.getDouble();
                 break;
             case StandardTypes.TIME:
                 this.value = new Time(f.getTime().getTime());
@@ -123,7 +123,7 @@ public class Field
                 this.value = Arrays.copyOf(f.getVarbinary(), f.getVarbinary().length);
                 break;
             case StandardTypes.VARCHAR:
-                this.value = new String(f.getVarchar());
+                this.value = f.getVarchar();
                 break;
             default:
                 throw new PrestoException(NOT_SUPPORTED,
@@ -203,28 +203,6 @@ public class Field
     }
 
     /**
-     * Throws an exciting exception
-     *
-     * @return Maybe the interval date to second, someday
-     * @throws UnsupportedOperationException Just because
-     */
-    public Object getIntervalDateToSecond()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    /**
-     * Throws an exciting exception
-     *
-     * @return Maybe the interval year to month, someday
-     * @throws UnsupportedOperationException Just because
-     */
-    public Object getIntervalYearToMonth()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    /**
      * Gets the value of the field as a Block. For map types.
      *
      * @return Value as Block
@@ -256,17 +234,6 @@ public class Field
     }
 
     /**
-     * Throws an exciting exception
-     *
-     * @return Maybe the time stamp with time zone, someday
-     * @throws UnsupportedOperationException Just because
-     */
-    public Object getTimestampWithTimeZone()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    /**
      * Gets the value of the field as a Time. For TIME types
      *
      * @return Value as Time
@@ -274,17 +241,6 @@ public class Field
     public Time getTime()
     {
         return (Time) value;
-    }
-
-    /**
-     * Throws an exciting exception
-     *
-     * @return Maybe the time with time zone, someday
-     * @throws UnsupportedOperationException Just because
-     */
-    public Object getTimeWithTimeZone()
-    {
-        throw new UnsupportedOperationException();
     }
 
     /**
@@ -457,13 +413,13 @@ public class Field
             return value.toString();
         }
         else if (type instanceof DateType) {
-            return "DATE '" + ((Date) value).toString() + "'";
+            return "DATE '" + value.toString() + "'";
         }
         else if (type instanceof TimeType) {
-            return "TIME '" + ((Time) value).toString() + "'";
+            return "TIME '" + value.toString() + "'";
         }
         else if (type instanceof TimestampType) {
-            return "TIMESTAMP '" + ((Timestamp) value).toString() + "'";
+            return "TIMESTAMP '" + value.toString() + "'";
         }
         else if (type instanceof VarbinaryType) {
             return "CAST('" + new String((byte[]) value) + "' AS VARBINARY)";
@@ -489,7 +445,7 @@ public class Field
     private Object cleanObject(Object v, Type t)
     {
         if (v == null) {
-            return v;
+            return null;
         }
 
         // Array? Better be a block!
@@ -532,7 +488,7 @@ public class Field
                 throw new PrestoException(INTERNAL_ERROR,
                         "Object is not a Boolean, but " + v.getClass());
             }
-            return new Boolean((boolean) v);
+            return v;
         }
         else if (t instanceof DateType) {
             if (v instanceof Long) {
