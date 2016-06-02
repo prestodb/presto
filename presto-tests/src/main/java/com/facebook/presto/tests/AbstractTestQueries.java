@@ -2043,6 +2043,29 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testJoinUsingSymbolsFromJustOneSideOfJoin() throws Exception
+    {
+        assertQuery(
+                "SELECT b FROM (VALUES 1, 2) t1(a) RIGHT OUTER JOIN (VALUES 10, 11) t2(b) ON b > 10",
+                "VALUES (10), (11), (11)");
+        assertQuery(
+                "SELECT a FROM (VALUES 1, 2) t1(a) RIGHT OUTER JOIN (VALUES 10, 11) t2(b) ON a > 1",
+                "VALUES (2), (2)");
+        assertQuery(
+                "SELECT b FROM (VALUES 1, 2) t1(a) LEFT OUTER JOIN (VALUES 10, 11) t2(b) ON b > 10",
+                "VALUES (11), (11)");
+        assertQuery(
+                "SELECT a FROM (VALUES 1, 2) t1(a) LEFT OUTER JOIN (VALUES 10, 11) t2(b) ON a > 1",
+                "VALUES (1), (2), (2)");
+        assertQuery(
+                "SELECT a FROM (VALUES 1, 2) t1(a) JOIN (VALUES 10, 11) t2(b) ON a > 1",
+                "VALUES (2), (2)");
+        assertQuery(
+                "SELECT b FROM (VALUES 1, 2) t1(a) JOIN (VALUES 10, 11) t2(b) ON b > 10",
+                "VALUES (11), (11)");
+    }
+
+    @Test
     public void testNonEqualityFullJoin()
             throws Exception
     {

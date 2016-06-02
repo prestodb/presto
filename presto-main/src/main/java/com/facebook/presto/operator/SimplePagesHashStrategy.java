@@ -45,7 +45,7 @@ public class SimplePagesHashStrategy
         this.filterFunction = filterFunction;
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.channels = ImmutableList.copyOf(requireNonNull(channels, "channels is null"));
-        channelArrays = buildChannelArrays(channels);
+        this.channelArrays = buildChannelArrays(channels);
 
         checkArgument(types.size() == channels.size(), "Expected types and channels to be the same length");
         this.hashChannels = ImmutableList.copyOf(requireNonNull(hashChannels, "hashChannels is null"));
@@ -200,6 +200,16 @@ public class SimplePagesHashStrategy
     @Override
     public boolean applyFilterFunction(int leftBlockIndex, int leftPosition, int rightPosition, Block[] allRightBlocks)
     {
-        return filterFunction.get().filter(leftPosition, channelArrays.get(leftBlockIndex), rightPosition, allRightBlocks);
+        return filterFunction.get().filter(leftPosition, getLeftBlocks(leftBlockIndex), rightPosition, allRightBlocks);
+    }
+
+    private Block[] getLeftBlocks(int leftBlockIndex)
+    {
+        if (channelArrays.isEmpty()) {
+            return EMPTY_BLOCK_ARRAY;
+        }
+        else {
+            return channelArrays.get(leftBlockIndex);
+        }
     }
 }
