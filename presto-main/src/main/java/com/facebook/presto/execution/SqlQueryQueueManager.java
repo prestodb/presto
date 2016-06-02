@@ -53,7 +53,14 @@ public class SqlQueryQueueManager
     @Override
     public boolean submit(Statement statement, QueryExecution queryExecution, Executor executor)
     {
-        List<QueryQueue> queues = selectQueues(statement, queryExecution.getSession(), executor);
+        List<QueryQueue> queues;
+        try {
+            queues = selectQueues(statement, queryExecution.getSession(), executor);
+        }
+        catch (PrestoException e) {
+            queryExecution.fail(e);
+            return false;
+        }
 
         for (QueryQueue queue : queues) {
             if (!queue.reserve(queryExecution)) {

@@ -35,6 +35,7 @@
       "group": "global.user-${USER}.dashboard-${USER}"
     },
     {
+      "source": "(?i).*adhoc.*",
       "group": "global.user-${USER}.adhoc-${USER}"
     }
   ]
