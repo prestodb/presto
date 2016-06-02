@@ -13,10 +13,16 @@
  */
 package com.facebook.presto.sql.planner.sanity;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * It is going to be executed at the end of logical planner, to verify its correctness
@@ -25,18 +31,19 @@ public final class PlanSanityChecker
 {
     private static final List<Checker> CHECKERS = ImmutableList.of(
             new ValidateDependenciesChecker(),
+            new TypeValidator(),
             new NoSubqueryExpressionLeftChecker(),
             new NoApplyNodeLeftChecker());
 
     private PlanSanityChecker() {}
 
-    public static void validate(PlanNode planNode)
+    public static void validate(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, Map<Symbol, Type> types)
     {
-        CHECKERS.forEach(checker -> checker.validate(planNode));
+        CHECKERS.forEach(checker -> checker.validate(planNode, session, metadata, sqlParser, types));
     }
 
     public interface Checker
     {
-        void validate(PlanNode plan);
+        void validate(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, Map<Symbol, Type> types);
     }
 }

@@ -606,7 +606,7 @@ public class LocalQueryRunner
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), featuresConfig.isExperimentalSyntaxEnabled());
 
         Analysis analysis = analyzer.analyze(statement);
-        return new LogicalPlanner(session, planOptimizersFactory.get(), idAllocator, metadata).plan(analysis);
+        return new LogicalPlanner(session, planOptimizersFactory.get(), idAllocator, metadata, sqlParser).plan(analysis);
     }
 
     public OperatorFactory createTableScanOperator(int operatorId, PlanNodeId planNodeId, String tableName, String... columnNames)
