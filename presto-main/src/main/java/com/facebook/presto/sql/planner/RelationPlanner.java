@@ -47,7 +47,6 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Join;
-import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
@@ -80,8 +79,6 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static com.facebook.presto.sql.tree.Join.Type.INNER;
-import static com.facebook.presto.sql.tree.Join.Type.LEFT;
-import static com.facebook.presto.sql.tree.Join.Type.RIGHT;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -227,8 +224,6 @@ class RelationPlanner
         ImmutableList.Builder<JoinNode.EquiJoinClause> equiClauses = ImmutableList.builder();
         List<Expression> complexJoinExpressions = new ArrayList<>();
         List<Expression> postInnerJoinConditions = new ArrayList<>();
-        List<Expression> preLeftConditions = new ArrayList<>();
-        List<Expression> preRightConditions = new ArrayList<>();
 
         if (node.getType() != Join.Type.CROSS && node.getType() != Join.Type.IMPLICIT) {
             Expression criteria = analysis.getJoinCriteria(node);
@@ -242,24 +237,6 @@ class RelationPlanner
 
             for (Expression conjunct : ExpressionUtils.extractConjuncts(criteria)) {
                 conjunct = ExpressionUtils.normalize(conjunct);
-
-                // We skip this section for joins using "USING" clause as generated criteria uses non qualified column names.
-                // Criteria expression looks like "a = a" which then seem to be resolvable by any side of join.
-                if ((node.getType() == LEFT || node.getType() == RIGHT) && (!(node.getCriteria().get() instanceof JoinUsing))) {
-                    Set<QualifiedName> dependencies = DependencyExtractor.extractNames(conjunct, analysis.getColumnReferences());
-                    if (node.getType() == LEFT) {
-                        if (dependencies.stream().allMatch(right.canResolvePredicate())) {
-                            preRightConditions.add(rightPlanBuilder.rewrite(conjunct));
-                            continue;
-                        }
-                    }
-                    else if (node.getType() == RIGHT) {
-                        if (dependencies.stream().allMatch(left.canResolvePredicate())) {
-                            preLeftConditions.add(leftPlanBuilder.rewrite(conjunct));
-                            continue;
-                        }
-                    }
-                }
 
                 if (!isEqualComparisonExpression(conjunct) && node.getType() != INNER) {
                     complexJoinExpressions.add(conjunct);
@@ -317,8 +294,8 @@ class RelationPlanner
 
         PlanNode root = new JoinNode(idAllocator.getNextId(),
                 JoinNode.Type.typeConvert(node.getType()),
-                wrapWithFilterIfNeeded(leftPlanBuilder.getRoot(), preLeftConditions),
-                wrapWithFilterIfNeeded(rightPlanBuilder.getRoot(), preRightConditions),
+                leftPlanBuilder.getRoot(),
+                rightPlanBuilder.getRoot(),
                 equiClauses.build(),
                 Optional.empty(),
                 Optional.empty(),
@@ -336,8 +313,8 @@ class RelationPlanner
             Expression rewritenFilterCondition = translationMap.rewrite(joinedFilterCondition);
             root = new JoinNode(idAllocator.getNextId(),
                     JoinNode.Type.typeConvert(node.getType()),
-                    wrapWithFilterIfNeeded(leftPlanBuilder.getRoot(), preLeftConditions),
-                    wrapWithFilterIfNeeded(rightPlanBuilder.getRoot(), preRightConditions),
+                    leftPlanBuilder.getRoot(),
+                    rightPlanBuilder.getRoot(),
                     equiClauses.build(),
                     Optional.of(rewritenFilterCondition),
                     Optional.empty(),
@@ -375,16 +352,6 @@ class RelationPlanner
         }
 
         return new RelationPlan(root, outputDescriptor, outputSymbols, sampleWeight);
-    }
-
-    private PlanNode wrapWithFilterIfNeeded(PlanNode planNode, List<Expression> filterConditions)
-    {
-        if (!filterConditions.isEmpty()) {
-            return new FilterNode(idAllocator.getNextId(), planNode, ExpressionUtils.and(filterConditions));
-        }
-        else {
-            return planNode;
-        }
     }
 
     private boolean isEqualComparisonExpression(Expression conjunct)

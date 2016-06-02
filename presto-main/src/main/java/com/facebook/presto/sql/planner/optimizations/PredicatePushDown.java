@@ -70,7 +70,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.expressionOrNullSymbols;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
@@ -374,28 +373,37 @@ public class PredicatePushDown
                             .collect(Collectors.toMap(key -> key, Symbol::toQualifiedNameReference)));
 
                     // Create new projections for the new join clauses
-                    ImmutableList.Builder<JoinNode.EquiJoinClause> builder = ImmutableList.builder();
+                    ImmutableList.Builder<JoinNode.EquiJoinClause> joinConditionBuilder = ImmutableList.builder();
+                    ImmutableList.Builder<Expression> joinFilterBuilder = ImmutableList.builder();
                     for (Expression conjunct : extractConjuncts(newJoinPredicate)) {
-                        checkState(joinEqualityExpression(node.getLeft().getOutputSymbols()).apply(conjunct), "Expected join predicate to be a valid join equality");
+                        if (joinEqualityExpression(node.getLeft().getOutputSymbols()).apply(conjunct)) {
+                            ComparisonExpression equality = (ComparisonExpression) conjunct;
 
-                        ComparisonExpression equality = (ComparisonExpression) conjunct;
+                            boolean alignedComparison = Iterables.all(DependencyExtractor.extractUnique(equality.getLeft()), in(node.getLeft().getOutputSymbols()));
+                            Expression leftExpression = (alignedComparison) ? equality.getLeft() : equality.getRight();
+                            Expression rightExpression = (alignedComparison) ? equality.getRight() : equality.getLeft();
 
-                        boolean alignedComparison = Iterables.all(DependencyExtractor.extractUnique(equality.getLeft()), in(node.getLeft().getOutputSymbols()));
-                        Expression leftExpression = (alignedComparison) ? equality.getLeft() : equality.getRight();
-                        Expression rightExpression = (alignedComparison) ? equality.getRight() : equality.getLeft();
+                            Symbol leftSymbol = symbolAllocator.newSymbol(leftExpression, extractType(leftExpression));
+                            leftProjections.put(leftSymbol, leftExpression);
+                            Symbol rightSymbol = symbolAllocator.newSymbol(rightExpression, extractType(rightExpression));
+                            rightProjections.put(rightSymbol, rightExpression);
 
-                        Symbol leftSymbol = symbolAllocator.newSymbol(leftExpression, extractType(leftExpression));
-                        leftProjections.put(leftSymbol, leftExpression);
-                        Symbol rightSymbol = symbolAllocator.newSymbol(rightExpression, extractType(rightExpression));
-                        rightProjections.put(rightSymbol, rightExpression);
+                            joinConditionBuilder.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
+                        }
+                        else {
+                            joinFilterBuilder.add(conjunct);
+                        }
+                    }
 
-                        builder.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
+                    Optional<Expression> newJoinFilter = Optional.of(combineConjuncts(joinFilterBuilder.build()));
+                    if (newJoinFilter.get() == BooleanLiteral.TRUE_LITERAL) {
+                        newJoinFilter = Optional.empty();
                     }
 
                     leftSource = new ProjectNode(idAllocator.getNextId(), leftSource, leftProjections.build());
                     rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build());
 
-                    output = new JoinNode(node.getId(), node.getType(), leftSource, rightSource, builder.build(), node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol());
+                    output = new JoinNode(node.getId(), node.getType(), leftSource, rightSource, joinConditionBuilder.build(), newJoinFilter, node.getLeftHashSymbol(), node.getRightHashSymbol());
                 }
             }
             if (!postJoinPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
@@ -627,6 +635,7 @@ public class PredicatePushDown
             for (JoinNode.EquiJoinClause equiJoinClause : joinNode.getCriteria()) {
                 builder.add(equalsExpression(equiJoinClause.getLeft(), equiJoinClause.getRight()));
             }
+            joinNode.getFilter().ifPresent(builder::add);
             return combineConjuncts(builder.build());
         }
 
