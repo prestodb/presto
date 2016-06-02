@@ -217,6 +217,6 @@ public class TestIndexer
         assertEquals(row, e.getKey().getRow().copyBytes());
         assertEquals(cf, e.getKey().getColumnFamily().toString());
         assertEquals(cq, e.getKey().getColumnQualifier().toString());
-        assertEquals(value, new String(e.getValue().get()));
+        assertEquals(value, e.getValue().toString());
     }
 }

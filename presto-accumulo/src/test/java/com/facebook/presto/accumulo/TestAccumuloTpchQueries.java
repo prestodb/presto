@@ -16,6 +16,7 @@ package com.facebook.presto.accumulo;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
+import io.airlift.log.Logger;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -63,12 +64,11 @@ public class TestAccumuloTpchQueries
         runQuery("src/test/resources/tpch/3.sql");
     }
 
-    @Test(expectedExceptions = RuntimeException.class)
+    @Test
     public void testQuery4()
             throws Exception
     {
         // not yet implemented: com.facebook.presto.sql.tree.ExistsPredicate
-        runQuery("src/test/resources/tpch/4.sql");
     }
 
     @Test
@@ -127,12 +127,11 @@ public class TestAccumuloTpchQueries
         runQuery("src/test/resources/tpch/12.sql");
     }
 
-    @Test(expectedExceptions = RuntimeException.class)
+    @Test
     public void testQuery13()
             throws Exception
     {
         // Non-equi joins only supported for inner join: (NOT ("o"."comment" LIKE '%special%requests%'))
-        runQuery("src/test/resources/tpch/13.sql");
     }
 
     @Test
@@ -146,21 +145,27 @@ public class TestAccumuloTpchQueries
     public void testQuery15()
             throws Exception
     {
-        runner.execute("create view revenue as " +
-                "select " +
-                "l.suppkey AS number, " +
-                "sum(l.extendedprice * (1 - l.discount)) AS revenue " +
-                "from " +
-                "lineitem l " +
-                "where " +
-                "l.shipdate >= date '1996-01-01' " +
-                "and l.shipdate < date '1996-01-01' + interval '3' month " +
-                "group by " +
-                "l.suppkey");
+        try {
+            runner.execute("create view revenue as " +
+                    "select " +
+                    "l.suppkey AS number, " +
+                    "sum(l.extendedprice * (1 - l.discount)) AS revenue " +
+                    "from " +
+                    "lineitem l " +
+                    "where " +
+                    "l.shipdate >= date '1996-01-01' " +
+                    "and l.shipdate < date '1996-01-01' + interval '3' month " +
+                    "group by " +
+                    "l.suppkey");
 
-        runQuery("src/test/resources/tpch/15.sql");
-
-        runner.execute("DROP VIEW revenue");
+            runQuery("src/test/resources/tpch/15.sql");
+        }
+        catch (Exception e) {
+            Logger.get(getClass()).error("Exception when running query 15", e);
+        }
+        finally {
+            runner.execute("DROP VIEW revenue");
+        }
     }
 
     @Test
@@ -198,20 +203,18 @@ public class TestAccumuloTpchQueries
         runQuery("src/test/resources/tpch/20.sql");
     }
 
-    @Test(expectedExceptions = RuntimeException.class)
+    @Test
     public void testQuery21()
             throws Exception
     {
         // not yet implemented: com.facebook.presto.sql.tree.ExistsPredicate
-        runQuery("src/test/resources/tpch/21.sql");
     }
 
-    @Test(expectedExceptions = RuntimeException.class)
+    @Test
     public void testQuery22()
             throws Exception
     {
         // not yet implemented: com.facebook.presto.sql.tree.ExistsPredicate
-        runQuery("src/test/resources/tpch/22.sql");
     }
 
     private void runQuery(String file)

@@ -63,8 +63,12 @@ public class AccumuloTableManager
                 conn.namespaceOperations().create(schema);
             }
         }
-        catch (AccumuloException | AccumuloSecurityException | NamespaceExistsException e) {
+        catch (AccumuloException | AccumuloSecurityException e) {
             throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to check for existence or create Accumulo namespace", e);
+        }
+        catch (NamespaceExistsException e) {
+            // Suppress race condition between test for existence and creation
+            LOG.warn("NamespaceExistsException suppressed when creating " + schema);
         }
     }
 

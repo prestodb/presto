@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.accumulo;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableList;
@@ -29,6 +28,15 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+/**
+ * Accumulo requires a unique identifier for the rows.  Any row that has a duplicate
+ * row ID is effectively an update, overwriting existing values of the row with
+ * whatever the new values are. For the lineitem and partsupp tables, there is no
+ * unique identifier, so a generated UUID is used in order to prevent overwriting
+ * rows of data. This is the same for any test cases that were creating tables
+ * with duplicate rows, so some test cases are overriden from the base class
+ * and slightly modified to add an additional UUID column.
+ */
 public class TestAccumuloDistributedQueries
         extends AbstractTestDistributedQueries
 {
@@ -48,13 +56,7 @@ public class TestAccumuloDistributedQueries
     public void testAddColumn()
             throws Exception
     {
-        try {
-            // TODO Adding columns via SQL are not supported until adding columns with comments are supported
-            super.testAddColumn();
-        }
-        catch (Exception e) {
-            assertEquals("Must have at least one non-row ID column", e.getMessage());
-        }
+        // Adding columns via SQL are not supported until adding columns with comments are supported
     }
 
     @Override
@@ -195,14 +197,7 @@ public class TestAccumuloDistributedQueries
     public void testDelete()
             throws Exception
     {
-        try {
-            // TODO Deletes are not supported by the connector
-            super.testDelete();
-        }
-        catch (Exception e) {
-            assertUpdate("DROP TABLE test_delete");
-            assertEquals("This connector does not support updates or deletes", e.getMessage());
-        }
+        // Deletes are not supported by the connector
     }
 
     @Override
@@ -242,13 +237,31 @@ public class TestAccumuloDistributedQueries
         assertUpdate("DROP TABLE test_insert");
     }
 
+    @Test
+    public void testInsertDuplicateRows()
+            throws Exception
+    {
+        // This test case tests the Accumulo connectors override capabilities
+        // When a row is inserted into a table where a row with the same row ID already exists,
+        // the cells of the existing row are overwritten with the new values
+        try {
+            assertUpdate("CREATE TABLE test_insert_duplicate AS SELECT 1 a, 2 b, '3' c", 1);
+            assertQuery("SELECT a, b, c FROM test_insert_duplicate", "SELECT 1, 2, '3'");
+            assertUpdate("INSERT INTO test_insert_duplicate (a, c) VALUES (1, '4')", 1);
+            assertUpdate("INSERT INTO test_insert_duplicate (a, b) VALUES (1, 3)", 1);
+            assertQuery("SELECT a, b, c FROM test_insert_duplicate", "SELECT 1, 3, '4'");
+        }
+        finally {
+            assertUpdate("DROP TABLE test_insert_duplicate");
+        }
+    }
+
     @Override
     public void testRenameColumn()
             throws Exception
     {
         // Override because base class error: Must have at least one non-row ID column
-        // Casting to BIGINT -- mvn test: integers... intellij: longs?  weird
-        assertUpdate("CREATE TABLE test_rename_column AS SELECT CAST(123 AS BIGINT) x, 456 a", 1);
+        assertUpdate("CREATE TABLE test_rename_column AS SELECT BIGINT '123' x, 456 a", 1);
 
         assertUpdate("ALTER TABLE test_rename_column RENAME COLUMN x TO y");
         MaterializedResult materializedRows = computeActual("SELECT y FROM test_rename_column");
@@ -286,35 +299,6 @@ public class TestAccumuloDistributedQueries
     }
 
     @Override
-    public void testSymbolAliasing()
-            throws Exception
-    {
-        // Override because base class error: Must specify column mapping property
-        assertUpdate("CREATE TABLE test_symbol_aliasing AS SELECT 1 foo_1, 2 foo_2_4", 1);
-        assertQuery("SELECT foo_1, foo_2_4 FROM test_symbol_aliasing", "SELECT 1, 2");
-        assertUpdate("DROP TABLE test_symbol_aliasing");
-    }
-
-    @Override
-    public void testTableSampleSystem()
-            throws Exception
-    {
-        // Override because base class error: ???
-        // TODO table sample system is not supported (I think?)
-        int total = computeActual("SELECT orderkey FROM orders").getMaterializedRows().size();
-
-        boolean sampleSizeFound = false;
-        for (int i = 0; i < 100; i++) {
-            int sampleSize = computeActual("SELECT orderkey FROM ORDERS TABLESAMPLE SYSTEM (50)").getMaterializedRows().size();
-            if (sampleSize > 0 && sampleSize < total) {
-                sampleSizeFound = true;
-                break;
-            }
-        }
-        //  assertTrue(sampleSizeFound, "Table sample returned unexpected number of rows");
-    }
-
-    @Override
     public void testBuildFilteredLeftJoin()
             throws Exception
     {
@@ -327,13 +311,12 @@ public class TestAccumuloDistributedQueries
     }
 
     @Override
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test
     public void testJoinWithAlias()
             throws Exception
     {
         // Override because of extra UUID column in lineitem table, cannot SELECT *
         // Cannot munge test to pass due to aliased data set 'x' containing duplicate orderkey and comment columns
-        super.testJoinWithAlias();
     }
 
     @Override
@@ -349,13 +332,12 @@ public class TestAccumuloDistributedQueries
     }
 
     @Override
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test
     public void testJoinWithDuplicateRelations()
             throws Exception
     {
         // Override because of extra UUID column in lineitem table, cannot SELECT *
         // Cannot munge test to pass due to aliased data sets 'x' containing duplicate orderkey and comment columns
-        super.testJoinWithDuplicateRelations();
     }
 
     @Override
@@ -474,30 +456,5 @@ public class TestAccumuloDistributedQueries
         assertEquals("integer", actual.getMaterializedRows().get(7).getField(1));
         assertEquals("comment", actual.getMaterializedRows().get(8).getField(0));
         assertEquals("varchar", actual.getMaterializedRows().get(8).getField(1));
-    }
-
-    // Copied from abstract base class
-    private void assertCreateTableAsSelect(String table, @Language("SQL") String query, @Language("SQL") String rowCountQuery)
-            throws Exception
-    {
-        assertCreateTableAsSelect(getSession(), table, query, query, rowCountQuery);
-    }
-
-    // Copied from abstract base class
-    private void assertCreateTableAsSelect(String table, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
-            throws Exception
-    {
-        assertCreateTableAsSelect(getSession(), table, query, expectedQuery, rowCountQuery);
-    }
-
-    // Copied from abstract base class
-    private void assertCreateTableAsSelect(Session session, String table, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
-            throws Exception
-    {
-        assertUpdate(session, "CREATE TABLE " + table + " AS " + query, rowCountQuery);
-        assertQuery(session, "SELECT * FROM " + table, expectedQuery);
-        assertUpdate(session, "DROP TABLE " + table);
-
-        assertFalse(queryRunner.tableExists(session, table));
     }
 }
