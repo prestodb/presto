@@ -71,101 +71,54 @@ public final class AccumuloColumnHandle
         this.indexed = requireNonNull(indexed, "indexed is null");
     }
 
-    /**
-     * Gets the Presto column name.
-     *
-     * @return Presto column name
-     */
     @JsonProperty
     public String getName()
     {
         return name;
     }
 
-    /**
-     * Setter function for the column name
-     * <p>
-     * Added to this class for column rename support
-     *
-     * @param name New column name
-     */
     @JsonSetter
     public void setName(String name)
     {
         this.name = name;
     }
 
-    /**
-     * Gets the Accumulo column family.
-     *
-     * @return Column family
-     */
     @JsonProperty
     public Optional<String> getFamily()
     {
         return family;
     }
 
-    /**
-     * Gets the Accumulo column qualifier.
-     *
-     * @return Column qualifier
-     */
     @JsonProperty
     public Optional<String> getQualifier()
     {
         return qualifier;
     }
 
-    /**
-     * Gets the Presto column type.
-     *
-     * @return Presto type
-     */
     @JsonProperty
     public Type getType()
     {
         return type;
     }
 
-    /**
-     * Gets the column ordinal within the row.
-     *
-     * @return Column ordinal
-     */
     @JsonProperty
     public int getOrdinal()
     {
         return ordinal;
     }
 
-    /**
-     * Setter method for the ordinal (for support of adding new columns)
-     *
-     * @param ordinal New ordinal
-     */
     @JsonSetter
     public void setOrdinal(int ordinal)
     {
         this.ordinal = ordinal;
     }
 
-    /**
-     * Gets the column comment.
-     *
-     * @return Comment
-     */
     @JsonProperty
     public String getComment()
     {
         return comment;
     }
 
-    /**
-     * Gets a new {@link ColumnMetadata} regarding this column. This is ignored by Jackson.
-     *
-     * @return Column metadata
-     */
     @JsonIgnore
     public ColumnMetadata getColumnMetadata()
     {
@@ -174,12 +127,6 @@ public final class AccumuloColumnHandle
         return new ColumnMetadata(name, type, comment, false);
     }
 
-    /**
-     * Gets a Boolean value indicating whether or not this column contains entries in the index
-     * table.
-     *
-     * @return True if indexed, false otherwise
-     */
     @JsonProperty
     public boolean isIndexed()
     {
@@ -220,11 +167,6 @@ public final class AccumuloColumnHandle
                 .add("ordinal", ordinal).add("comment", comment).add("indexed", indexed).toString();
     }
 
-    /**
-     * Compares this column's ordinal against the given column's ordinal
-     *
-     * @return Comparison value of the column ordinals
-     */
     @Override
     public int compareTo(AccumuloColumnHandle o)
     {

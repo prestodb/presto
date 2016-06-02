@@ -43,12 +43,6 @@ public class AccumuloFunctionFactory
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
-    /**
-     * Lists all SqlFunctions provided by this connector
-     *
-     * @return A list of SQL functions
-     * @see AccumuloStringFunctions
-     */
     @Override
     public List<SqlFunction> listFunctions()
     {

@@ -151,22 +151,12 @@ public class AccumuloRecordSet
         }
     }
 
-    /**
-     * Gets the types of all the columns in field order
-     *
-     * @return List of Presto types
-     */
     @Override
     public List<Type> getColumnTypes()
     {
         return columnTypes;
     }
 
-    /**
-     * Gets a new RecordCursor to iterate over rows of data as defined by the RecordSet's split
-     *
-     * @return RecordCursor
-     */
     @Override
     public RecordCursor cursor()
     {

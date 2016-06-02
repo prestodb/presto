@@ -44,23 +44,12 @@ public class AccumuloConnectorFactory
                 ImmutableMap.copyOf(requireNonNull(optionalConfig, "optionalConfig is null"));
     }
 
-    /**
-     * Gets the name of the connector, "accumulo"
-     *
-     * @return Connector name
-     */
     @Override
     public String getName()
     {
         return CONNECTOR_NAME;
     }
 
-    /**
-     * Creates an instance of the connector with the given ID and required configuration values
-     *
-     * @param connectorId Connector ID
-     * @param requiredConfig Required configuration parameters
-     */
     @Override
     public Connector create(String connectorId, Map<String, String> requiredConfig)
     {

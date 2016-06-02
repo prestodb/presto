@@ -53,15 +53,6 @@ public class AccumuloRecordSetProvider
         this.config = requireNonNull(config, "config is null");
     }
 
-    /**
-     * Gets a record set to read data from the given split and columns.
-     *
-     * @param transactionHandle Transaction handle
-     * @param session Current client session
-     * @param split Split to read
-     * @param columns Column handles of the table
-     */
-
     @Override
     public RecordSet getRecordSet(ConnectorTransactionHandle transactionHandle,
             ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)

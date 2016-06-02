@@ -57,67 +57,36 @@ public class AccumuloColumnConstraint
         this.domain = requireNonNull(domain, "domain is null");
     }
 
-    /**
-     * Gets a Boolean value indicating whether or not this column contains entries in the index
-     * table.
-     *
-     * @return True if indexed, false otherwise
-     */
     @JsonProperty
     public boolean isIndexed()
     {
         return indexed;
     }
 
-    /**
-     * Gets the Presto column name.
-     *
-     * @return Presto column name
-     */
     @JsonProperty
     public String getName()
     {
         return name;
     }
 
-    /**
-     * Gets the Accumulo column family.
-     *
-     * @return Column family
-     */
     @JsonProperty
     public String getFamily()
     {
         return family;
     }
 
-    /**
-     * Gets the Accumulo column qualifier.
-     *
-     * @return Column qualifier
-     */
     @JsonProperty
     public String getQualifier()
     {
         return qualifier;
     }
 
-    /**
-     * Gets the Presto predicate Domain for this column.
-     *
-     * @return Column qualifier
-     */
     @JsonProperty
     public Optional<Domain> getDomain()
     {
         return domain;
     }
 
-    /**
-     * Sets the Presto predicate Domain for this column.
-     *
-     * @param domain Column domain
-     */
     @JsonSetter
     public void setDomain(Optional<Domain> domain)
     {

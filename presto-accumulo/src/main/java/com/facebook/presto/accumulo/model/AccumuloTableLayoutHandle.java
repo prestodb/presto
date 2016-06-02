@@ -48,22 +48,12 @@ public class AccumuloTableLayoutHandle
         this.constraint = requireNonNull(constraint, "constraint is null");
     }
 
-    /**
-     * Gets the {@link AccumuloTableHandle}
-     *
-     * @return Accumulo table
-     */
     @JsonProperty
     public AccumuloTableHandle getTable()
     {
         return table;
     }
 
-    /**
-     * Gets the constraints for this query
-     *
-     * @return the constraints
-     */
     @JsonProperty
     public TupleDomain<ColumnHandle> getConstraint()
     {

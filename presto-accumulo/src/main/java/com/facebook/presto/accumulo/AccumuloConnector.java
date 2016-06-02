@@ -92,12 +92,6 @@ public class AccumuloConnector
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
     }
 
-    /**
-     * Gets the metadata from the given transaction, an instance of {@link AccumuloMetadata}
-     *
-     * @param transactionHandle Transaction handle to retrieve metadata
-     * @return Metadata
-     */
     @Override
     public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
     {
@@ -106,13 +100,6 @@ public class AccumuloConnector
         return metadata;
     }
 
-    /**
-     * Begins a new transaction
-     *
-     * @param isolationLevel Requested isolation level
-     * @param readOnly If the transaction is read only
-     * @return Transaction handle
-     */
     @Override
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
     {
@@ -122,22 +109,12 @@ public class AccumuloConnector
         return transaction;
     }
 
-    /**
-     * Commits the transaction
-     *
-     * @param transactionHandle Transaction to commit
-     */
     @Override
     public void commit(ConnectorTransactionHandle transactionHandle)
     {
         checkArgument(transactions.remove(transactionHandle) != null, "no such transaction: %s", transactionHandle);
     }
 
-    /**
-     * Rollsback the transaction
-     *
-     * @param transactionHandle Transaction to rollback
-     */
     @Override
     public void rollback(ConnectorTransactionHandle transactionHandle)
     {
@@ -146,66 +123,36 @@ public class AccumuloConnector
         metadata.rollback();
     }
 
-    /**
-     * Gets the split manager, an instance of {@link AccumuloSplitManager}
-     *
-     * @return Split manager
-     */
     @Override
     public ConnectorSplitManager getSplitManager()
     {
         return splitManager;
     }
 
-    /**
-     * Gets the record set provider, an instance of {@link AccumuloRecordSetProvider}
-     *
-     * @return Record set provider
-     */
     @Override
     public ConnectorRecordSetProvider getRecordSetProvider()
     {
         return recordSetProvider;
     }
 
-    /**
-     * Gets the page sink provider, an instance of {@link AccumuloPageSinkProvider}
-     *
-     * @return Page sink provider
-     */
     @Override
     public ConnectorPageSinkProvider getPageSinkProvider()
     {
         return pageSinkProvider;
     }
 
-    /**
-     * Gets the valid table properties
-     *
-     * @return List of table properties
-     * @see AccumuloTableProperties
-     */
     @Override
     public List<PropertyMetadata<?>> getTableProperties()
     {
         return tableProperties.getTableProperties();
     }
 
-    /**
-     * Gets the valid session properties
-     *
-     * @return List of session properties
-     * @see AccumuloSessionProperties
-     */
     @Override
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties.getSessionProperties();
     }
 
-    /**
-     * Shuts down the connector
-     */
     @Override
     public final void shutdown()
     {

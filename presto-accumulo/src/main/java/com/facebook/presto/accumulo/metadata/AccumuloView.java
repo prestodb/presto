@@ -50,44 +50,24 @@ public class AccumuloView
         this.schemaTableName = new SchemaTableName(schema, table);
     }
 
-    /**
-     * Gets the schema name of the view
-     *
-     * @return Schema name
-     */
     @JsonProperty
     public String getSchema()
     {
         return schema;
     }
 
-    /**
-     * Gets the table name of the view
-     *
-     * @return Table name
-     */
     @JsonProperty
     public String getTable()
     {
         return table;
     }
 
-    /**
-     * Gets the view data
-     *
-     * @return View data
-     */
     @JsonProperty
     public String getData()
     {
         return data;
     }
 
-    /**
-     * Gets the table name as a {@link SchemaTableName}
-     *
-     * @return Schema table name
-     */
     @JsonIgnore
     public SchemaTableName getSchemaTableName()
     {

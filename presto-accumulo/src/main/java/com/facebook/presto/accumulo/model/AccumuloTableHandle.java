@@ -74,67 +74,36 @@ public final class AccumuloTableHandle
         this.table = requireNonNull(table, "table is null");
     }
 
-    /**
-     * Gets the Presto connector ID.
-     *
-     * @return Connector ID
-     */
     @JsonProperty
     public String getConnectorId()
     {
         return connectorId;
     }
 
-    /**
-     * Gets the row ID.
-     *
-     * @return Row ID
-     */
     @JsonProperty
     public String getRowId()
     {
         return rowId;
     }
 
-    /**
-     * Gets the configured scan authorizations, or null if not set
-     *
-     * @return Scan authorizations
-     */
     @JsonProperty
     public Optional<String> getScanAuthorizations()
     {
         return scanAuthorizations;
     }
 
-    /**
-     * Gets the schema name.
-     *
-     * @return Schema name
-     */
     @JsonProperty
     public String getSchema()
     {
         return schema;
     }
 
-    /**
-     * Gets the configured serializer class name.
-     *
-     * @return The list of {@link AccumuloColumnHandle}
-     */
     @JsonProperty
     public String getSerializerClassName()
     {
         return serializerClassName;
     }
 
-    /**
-     * Gets a new instance of the configured {@link AccumuloRowSerializer}
-     *
-     * @return Class object
-     * @throws PrestoException If the class is not found on the classpath
-     */
     @JsonIgnore
     public AccumuloRowSerializer getSerializerInstance()
     {
@@ -147,34 +116,18 @@ public final class AccumuloTableHandle
         }
     }
 
-    /**
-     * Gets the table name.
-     *
-     * @return Table name
-     */
     @JsonProperty
     public String getTable()
     {
         return table;
     }
 
-    /**
-     * Gets a Boolean value indicating if the Accumulo tables are external, i.e. Presto only manages
-     * metadata.
-     *
-     * @return True if external, false otherwise
-     */
     @JsonProperty
     public boolean isExternal()
     {
         return external;
     }
 
-    /**
-     * Gets a new SchemaTableName for this object's schema and table.
-     *
-     * @return new SchemaTableName
-     */
     public SchemaTableName toSchemaTableName()
     {
         return new SchemaTableName(schema, table);

@@ -66,14 +66,6 @@ public class AccumuloSplitManager
         this.client = requireNonNull(client, "client is null");
     }
 
-    /**
-     * Gets the source of splits from the given Presto table layout
-     *
-     * @param transactionHandle Transaction handle
-     * @param session Current client session
-     * @param layout Table layout
-     * @return Split source to pass splits to Presto for scan
-     */
     @Override
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle,
             ConnectorSession session, ConnectorTableLayoutHandle layout)

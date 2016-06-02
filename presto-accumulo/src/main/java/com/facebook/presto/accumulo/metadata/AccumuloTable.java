@@ -99,102 +99,54 @@ public class AccumuloTable
         this.schemaTableName = new SchemaTableName(this.schema, this.table);
     }
 
-    /**
-     * Gets the row ID.
-     *
-     * @return Row ID
-     */
     @JsonProperty
     public String getRowId()
     {
         return rowId;
     }
 
-    /**
-     * Sets the row ID column name.
-     *
-     * @@param rowId Row ID
-     */
     @JsonSetter
     public void setRowId(String rowId)
     {
         this.rowId = rowId;
     }
 
-    /**
-     * Gets the schema name.
-     *
-     * @return Schema name
-     */
     @JsonProperty
     public String getSchema()
     {
         return schema;
     }
 
-    /**
-     * Gets the table name.
-     *
-     * @return Table name
-     */
     @JsonProperty
     public String getTable()
     {
         return table;
     }
 
-    /**
-     * Sets the table name.
-     *
-     * @param table
-     */
     public void setTable(String table)
     {
         this.table = table;
         this.schemaTableName = new SchemaTableName(getSchema(), getTable());
     }
 
-    /**
-     * Gets the full name of the index table.
-     *
-     * @return Index table name
-     * @see Indexer#getIndexTableName
-     */
     @JsonIgnore
     public String getIndexTableName()
     {
         return Indexer.getIndexTableName(schema, table);
     }
 
-    /**
-     * Gets the full name of the metrics table.
-     *
-     * @return Metrics table name
-     * @see Indexer#getMetricsTableName
-     */
     @JsonIgnore
     public String getMetricsTableName()
     {
         return Indexer.getMetricsTableName(schema, table);
     }
 
-    /**
-     * Gets the full table name of the Accumulo table, i.e. schemaName.tableName.
-     *
-     * @return Full table name
-     * @see AccumuloTable#getFullTableName
-     */
     @JsonIgnore
     public String getFullTableName()
     {
         return getFullTableName(schema, table);
     }
 
-    /**
-     * Gets all configured columns of the Accumulo table.
-     *
-     * @return The list of {@link AccumuloColumnHandle}
-     */
     @JsonProperty
     public List<AccumuloColumnHandle> getColumns()
     {
@@ -262,79 +214,42 @@ public class AccumuloTable
         indexed |= newColumn.isIndexed();
     }
 
-    /**
-     * Gets the configured scan authorizations, or null if not set
-     *
-     * @return Scan authorizations
-     */
     @JsonProperty
     public Optional<String> getScanAuthorizations()
     {
         return scanAuthorizations;
     }
 
-    /**
-     * Gets the configured serializer class name.
-     *
-     * @return The list of {@link AccumuloColumnHandle}
-     */
     @JsonProperty
     public String getSerializerClassName()
     {
         return serializerClassName;
     }
 
-    /**
-     * Gets the list of ColumnMetadata from each AccumuloColumnHandle.
-     *
-     * @return The list of {@link ColumnMetadata}
-     */
     @JsonIgnore
     public List<ColumnMetadata> getColumnsMetadata()
     {
         return columnsMetadata;
     }
 
-    /**
-     * Gets a Boolean value indicating if the Accumulo tables are external, i.e. Presto only manages
-     * metadata.
-     *
-     * @return True if external, false otherwise
-     */
     @JsonProperty
     public boolean isExternal()
     {
         return external;
     }
 
-    /**
-     * Gets a Boolean value indicating if the Accumulo tables are indexed
-     *
-     * @return True if indexed, false otherwise
-     */
     @JsonIgnore
     public boolean isIndexed()
     {
         return indexed;
     }
 
-    /**
-     * Gets the ordinal of the row ID column
-     *
-     * @return Row ID ordinal
-     */
     @JsonIgnore
     public int getRowIdOrdinal()
     {
         return this.rowIdOrdinal;
     }
 
-    /**
-     * Gets a new instance of the configured {@link AccumuloRowSerializer}
-     *
-     * @return Class object
-     * @throws PrestoException If the class is not found on the classpath
-     */
     @JsonIgnore
     public AccumuloRowSerializer getSerializerInstance()
     {
@@ -374,22 +289,12 @@ public class AccumuloTable
         return getFullTableName(stn.getSchemaName(), stn.getTableName());
     }
 
-    /**
-     * Clones this AccumuloTable into a new AccumuloTable
-     *
-     * @return A new AccumuloTable
-     */
     @JsonIgnore
     public AccumuloTable clone()
     {
         return new AccumuloTable(getSchema(), getTable(), getColumns(), getRowId(), isExternal(), getSerializerClassName(), getScanAuthorizations());
     }
 
-    /**
-     * Gets the table name as a {@link SchemaTableName}
-     *
-     * @return Schema table name
-     */
     @JsonIgnore
     public SchemaTableName getSchemaTableName()
     {

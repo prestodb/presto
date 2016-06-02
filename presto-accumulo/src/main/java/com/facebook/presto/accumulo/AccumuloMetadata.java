@@ -76,15 +76,6 @@ public class AccumuloMetadata
         this.client = requireNonNull(client, "client is null");
     }
 
-    /**
-     * Begins the process of creating a table with the given metadata. This process of
-     * begin/commit/rollback is used for CTAS statements.
-     *
-     * @param session Current client session
-     * @param tableMetadata Table metadata to create
-     * @param layout Table layout containing partition information
-     * @return Output table handle
-     */
     @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session,
             ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
@@ -116,24 +107,12 @@ public class AccumuloMetadata
         client.dropTable(table);
     }
 
-    /**
-     * Create the table metadata
-     *
-     * @param session Current client session
-     * @param tableMetadata Table metadata to create
-     */
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         client.createTable(tableMetadata);
     }
 
-    /**
-     * Create the table metadata
-     *
-     * @param session Current client session
-     * @param tableHandle Table metadata to drop
-     */
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
@@ -141,13 +120,6 @@ public class AccumuloMetadata
         client.dropTable(client.getTable(th.toSchemaTableName()));
     }
 
-    /**
-     * Renames the given table to the new table name
-     *
-     * @param session Current client session
-     * @param tableHandle Table metadata to rename
-     * @param newTableName New table name!
-     */
     @Override
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle,
             SchemaTableName newTableName)
@@ -161,14 +133,6 @@ public class AccumuloMetadata
         client.renameTable(th.toSchemaTableName(), newTableName);
     }
 
-    /**
-     * Create the view metadata
-     *
-     * @param session Current client session
-     * @param viewName Name of the view to create
-     * @param viewData Data of the view
-     * @param replace True to replace any existing view, false otherwise
-     */
     @Override
     public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
     {
@@ -180,25 +144,12 @@ public class AccumuloMetadata
         }
     }
 
-    /**
-     * Drop the view metadata
-     *
-     * @param session Current client session
-     * @param viewName Name of the view to create
-     */
     @Override
     public void dropView(ConnectorSession session, SchemaTableName viewName)
     {
         client.dropView(viewName);
     }
 
-    /**
-     * Gets all views that match the given prefix
-     *
-     * @param session Current client session
-     * @param prefix View prefix
-     * @return Map of view names to the definition
-     */
     @Override
     public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
     {
@@ -209,13 +160,6 @@ public class AccumuloMetadata
         return bldr.build();
     }
 
-    /**
-     * Gets all views in the given schema, or all schemas if null
-     *
-     * @param session Current client session
-     * @param schemaNameOrNull Schema to list for the views, or null to list all schemas
-     * @return List of views
-     */
     @Override
     public List<SchemaTableName> listViews(ConnectorSession session, String schemaNameOrNull)
     {
@@ -248,13 +192,6 @@ public class AccumuloMetadata
         return bldr.build();
     }
 
-    /**
-     * Begin an insert of data into an Accumulo table. This is for new inserts, not for a CTAS.
-     *
-     * @param session Current client session
-     * @param tableHandle Table handle for the insert
-     * @return Insert handle for the table
-     */
     @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session,
             ConnectorTableHandle tableHandle)
@@ -282,13 +219,6 @@ public class AccumuloMetadata
         throw new PrestoException(NOT_SUPPORTED, format("Unable to rollback insert for table %s.%s. Some rows may have been written. Please run your insert again.", handle.getSchema(), handle.getTable()));
     }
 
-    /**
-     * Gets an instance of a TableHandle based on the given name
-     *
-     * @param session Current client session
-     * @param stName Table name
-     * @return Table handle or null if the table does not exist
-     */
     @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName stName)
     {
@@ -311,15 +241,6 @@ public class AccumuloMetadata
         return null;
     }
 
-    /**
-     * Gets all table layouts of the given table with the given constraints
-     *
-     * @param session Current client session
-     * @param table Table handle
-     * @param constraint Column constraints of the query
-     * @param desiredColumns Column handles requested in the query
-     * @return List of table layouts
-     */
     @Override
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session,
             ConnectorTableHandle table, Constraint<ColumnHandle> constraint,
@@ -331,13 +252,6 @@ public class AccumuloMetadata
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
     }
 
-    /**
-     * Gets a table layout from the given handle
-     *
-     * @param session Current client session
-     * @param handle Table handle
-     * @return Table layout
-     */
     @Override
     public ConnectorTableLayout getTableLayout(ConnectorSession session,
             ConnectorTableLayoutHandle handle)
@@ -346,13 +260,6 @@ public class AccumuloMetadata
                 checkType(handle, AccumuloTableLayoutHandle.class, "layout"));
     }
 
-    /**
-     * Gets table metadata for the given handle
-     *
-     * @param session Current client session
-     * @param table Table handle
-     * @return Metadata for the given table handle
-     */
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session,
             ConnectorTableHandle table)
@@ -363,13 +270,6 @@ public class AccumuloMetadata
         return getTableMetadata(new SchemaTableName(tHandle.getSchema(), tHandle.getTable()));
     }
 
-    /**
-     * Gets all available column handles for the requested table
-     *
-     * @param session client session
-     * @param tableHandle Table handle
-     * @return Mapping of Presto column name to column handle
-     */
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session,
             ConnectorTableHandle tableHandle)
@@ -400,18 +300,6 @@ public class AccumuloMetadata
                 .getColumnMetadata();
     }
 
-    /**
-     * Renames the given column of the given table to a new column name.
-     * <p>
-     * Note that this operation is an alias-only change. The Presto column mapping is unchanged,
-     * i.e. the Accumulo column family and qualifier are not updated, so the queried data will
-     * remain the same.
-     *
-     * @param session client session
-     * @param tableHandle Table handle
-     * @param source Column handle to rename
-     * @param target New column name
-     */
     @Override
     public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle,
             ColumnHandle source, String target)
@@ -424,24 +312,12 @@ public class AccumuloMetadata
         client.renameColumn(table, cHandle.getName(), target);
     }
 
-    /**
-     * List all existing schemas
-     *
-     * @param session Current client session
-     * @see AccumuloClient#getSchemaNames
-     */
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
         return ImmutableList.copyOf(client.getSchemaNames());
     }
 
-    /**
-     * List all tables for a given schema, or null for all schemas
-     *
-     * @param session Current client session
-     * @param schemaNameOrNull Schema name to list tables for, or null if all tables
-     */
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
     {
@@ -462,13 +338,6 @@ public class AccumuloMetadata
         return builder.build();
     }
 
-    /**
-     * Lists all of the columns for each provided schema table
-     *
-     * @param session Current client session
-     * @param prefix Table prefix
-     * @return Mapping of table names with the given prefix to columns
-     */
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session,
             SchemaTablePrefix prefix)

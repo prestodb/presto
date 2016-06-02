@@ -46,33 +46,18 @@ public class TabletSplitMetadata
         this.ranges = ranges;
     }
 
-    /**
-     * Gets the host:port string
-     *
-     * @return Host and port
-     */
     @JsonProperty
     public String getHostPort()
     {
         return hostPort;
     }
 
-    /**
-     * Gets the list of Range objects
-     *
-     * @return List of ranges
-     */
     @JsonProperty
     public List<Range> getRanges()
     {
         return ranges;
     }
 
-    /**
-     * Sets the list of ra nge handles
-     *
-     * @param ranges List of range handles
-     */
     @JsonSetter
     public void setRanges(List<Range> ranges)
     {

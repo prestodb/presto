@@ -53,14 +53,6 @@ public class AccumuloPageSinkProvider
         this.config = requireNonNull(config, "config is null");
     }
 
-    /**
-     * Creates a page sink for the given output table handle
-     *
-     * @param transactionHandle Transaction handle
-     * @param session Current client session
-     * @param outputTableHandle Output table handle
-     * @return A new page sink
-     */
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle,
             ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
@@ -70,14 +62,6 @@ public class AccumuloPageSinkProvider
         return new AccumuloPageSink(config, client.getTable(tHandle.toSchemaTableName()));
     }
 
-    /**
-     * Creates a page sink for the given insert table handle
-     *
-     * @param transactionHandle Transaction handle
-     * @param session Current client session
-     * @param insertTableHandle Insert table handle
-     * @return A new page sink
-     */
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle,
             ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)

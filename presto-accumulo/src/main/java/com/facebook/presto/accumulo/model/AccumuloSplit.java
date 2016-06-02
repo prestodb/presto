@@ -108,99 +108,54 @@ public class AccumuloSplit
         addresses = newArrayList(HostAddress.fromString(hostPort));
     }
 
-    /**
-     * Gets the Presto connector ID.
-     *
-     * @return Connector ID
-     */
     @JsonProperty
     public String getConnectorId()
     {
         return connectorId;
     }
 
-    /**
-     * Gets the host:port string.
-     *
-     * @return Host and port
-     */
     @JsonProperty
     public String getHostPort()
     {
         return hostPort;
     }
 
-    /**
-     * Gets the Presto column name that is the Accumulo row ID.
-     *
-     * @return Row ID column
-     */
     @JsonProperty
     public String getRowId()
     {
         return rowId;
     }
 
-    /**
-     * Gets the schema name of the Accumulo table.
-     *
-     * @return Schema name
-     */
     @JsonProperty
     public String getSchema()
     {
         return schema;
     }
 
-    /**
-     * Gets the table name.
-     *
-     * @return Table name
-     */
     @JsonProperty
     public String getTable()
     {
         return table;
     }
 
-    /**
-     * Gets the full Accumulo table name, including namespace and table name.
-     *
-     * @return Full table name
-     */
     @JsonIgnore
     public String getFullTableName()
     {
         return (this.getSchema().equals("default") ? "" : this.getSchema() + ".") + this.getTable();
     }
 
-    /**
-     * Gets the {@link AccumuloRowSerializer} class name.
-     *
-     * @return Class name
-     */
     @JsonProperty
     public String getSerializerClassName()
     {
         return this.serializerClassName;
     }
 
-    /**
-     * Gets the list of Ranges
-     *
-     * @return List of ranges
-     */
     @JsonProperty
     public List<Range> getRanges()
     {
         return ranges;
     }
 
-    /**
-     * JSON setter function for the list of ranges
-     *
-     * @param ranges List of ranges
-     */
     @JsonSetter
     public void setRanges(List<Range> ranges)
     {
@@ -208,23 +163,12 @@ public class AccumuloSplit
         this.ranges = ranges;
     }
 
-    /**
-     * Gets the list of {@link AccumuloColumnConstraint} objects.
-     *
-     * @return List of column constraints
-     */
     @JsonProperty
     public List<AccumuloColumnConstraint> getConstraints()
     {
         return constraints;
     }
 
-    /**
-     * Gets the Class object from the serializer class name
-     *
-     * @return Class object
-     * @throws PrestoException If the class is not found on the classpath
-     */
     @SuppressWarnings("unchecked")
     @JsonIgnore
     public Class<? extends AccumuloRowSerializer> getSerializerClass()
@@ -238,44 +182,24 @@ public class AccumuloSplit
         }
     }
 
-    /**
-     * Gets the configured scan authorizations, or null if not set
-     *
-     * @return Scan authorizations
-     */
     @JsonProperty
     public Optional<String> getScanAuthorizations()
     {
         return scanAuthorizations;
     }
 
-    /**
-     * Gets a Boolean value indicating whether or not this split can be accessed remotely.
-     *
-     * @return If it is remotely accessible (which it is)
-     */
     @Override
     public boolean isRemotelyAccessible()
     {
         return true;
     }
 
-    /**
-     * Gets a list of host addresses where this split should be placed for processing.
-     *
-     * @return List of host address
-     */
     @Override
     public List<HostAddress> getAddresses()
     {
         return addresses;
     }
 
-    /**
-     * Gets this
-     *
-     * @return this
-     */
     @Override
     public Object getInfo()
     {

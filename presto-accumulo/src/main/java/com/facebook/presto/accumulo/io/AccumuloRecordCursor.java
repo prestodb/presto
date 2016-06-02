@@ -149,45 +149,24 @@ public class AccumuloRecordCursor
         iterator = this.scan.iterator();
     }
 
-    /**
-     * Gets the total bytes that need to be scanned
-     *
-     * @return Total bytes
-     */
     @Override
     public long getTotalBytes()
     {
         return 0L; // unknown value
     }
 
-    /**
-     * Gets the bytes that have been processed so far
-     *
-     * @return Completed bytes
-     */
     @Override
     public long getCompletedBytes()
     {
         return bytesRead;
     }
 
-    /**
-     * Get the amount of time spent reading data, in nanoseconds
-     *
-     * @return Read time nanos
-     */
     @Override
     public long getReadTimeNanos()
     {
         return nanoStart > 0L ? (nanoEnd == 0 ? System.nanoTime() : nanoEnd) - nanoStart : 0L;
     }
 
-    /**
-     * Gets the Presto type for the given field ordinal
-     *
-     * @param field Ordinal of the field aka column
-     * @return Presto type for this field
-     */
     @Override
     public Type getType(int field)
     {
@@ -195,11 +174,6 @@ public class AccumuloRecordCursor
         return cHandles.get(field).getType();
     }
 
-    /**
-     * Advances the iterator to the next Presto row
-     *
-     * @return True if a row was read, false otherwise
-     */
     @Override
     public boolean advanceNextPosition()
     {
@@ -279,12 +253,6 @@ public class AccumuloRecordCursor
         }
     }
 
-    /**
-     * Gets a Boolean value indicating if the field is null
-     *
-     * @param field Ordinal of the field
-     * @return True if null, false otherwise
-     */
     @Override
     public boolean isNull(int field)
     {
@@ -292,12 +260,6 @@ public class AccumuloRecordCursor
         return serializer.isNull(fieldToColumnName[field]);
     }
 
-    /**
-     * Gets a Boolean value from the given field ordinal
-     *
-     * @param field Ordinal of the field
-     * @return The value of the field
-     */
     @Override
     public boolean getBoolean(int field)
     {
@@ -305,12 +267,6 @@ public class AccumuloRecordCursor
         return serializer.getBoolean(fieldToColumnName[field]);
     }
 
-    /**
-     * Gets a Double value from the given field ordinal
-     *
-     * @param field Ordinal of the field
-     * @return The value of the field
-     */
     @Override
     public double getDouble(int field)
     {
@@ -318,12 +274,6 @@ public class AccumuloRecordCursor
         return serializer.getDouble(fieldToColumnName[field]);
     }
 
-    /**
-     * Gets a Long value from the given field ordinal
-     *
-     * @param field Ordinal of the field
-     * @return The value of the field
-     */
     @Override
     public long getLong(int field)
     {
@@ -345,12 +295,6 @@ public class AccumuloRecordCursor
         }
     }
 
-    /**
-     * Gets an Object value from the given field ordinal. This is called for array and map types.
-     *
-     * @param field Ordinal of the field
-     * @return The value of the field
-     */
     @Override
     public Object getObject(int field)
     {
@@ -365,12 +309,6 @@ public class AccumuloRecordCursor
         return serializer.getMap(fieldToColumnName[field], type);
     }
 
-    /**
-     * Gets a Slice value from the given field ordinal, which is a VARCHAR or VARBINARY type.
-     *
-     * @param field Ordinal of the field
-     * @return The value of the field
-     */
     @Override
     public Slice getSlice(int field)
     {
@@ -388,9 +326,6 @@ public class AccumuloRecordCursor
         }
     }
 
-    /**
-     * Closes the RecordCursor
-     */
     @Override
     public void close()
     {
