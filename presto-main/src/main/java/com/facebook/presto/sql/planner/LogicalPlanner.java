@@ -26,6 +26,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationType;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -74,21 +75,25 @@ public class LogicalPlanner
     private final List<PlanOptimizer> planOptimizers;
     private final SymbolAllocator symbolAllocator = new SymbolAllocator();
     private final Metadata metadata;
+    private final SqlParser sqlParser;
 
     public LogicalPlanner(Session session,
             List<PlanOptimizer> planOptimizers,
             PlanNodeIdAllocator idAllocator,
-            Metadata metadata)
+            Metadata metadata,
+            SqlParser sqlParser)
     {
         requireNonNull(session, "session is null");
         requireNonNull(planOptimizers, "planOptimizers is null");
         requireNonNull(idAllocator, "idAllocator is null");
         requireNonNull(metadata, "metadata is null");
+        requireNonNull(sqlParser, "sqlParser is null");
 
         this.session = session;
         this.planOptimizers = planOptimizers;
         this.idAllocator = idAllocator;
         this.metadata = metadata;
+        this.sqlParser = sqlParser;
     }
 
     public Plan plan(Analysis analysis)
@@ -101,7 +106,7 @@ public class LogicalPlanner
         }
 
         // make sure we produce a valid plan after optimizations run. This is mainly to catch programming errors
-        PlanSanityChecker.validate(root);
+        PlanSanityChecker.validate(root, session, metadata, sqlParser, symbolAllocator.getTypes());
 
         return new Plan(root, symbolAllocator);
     }
