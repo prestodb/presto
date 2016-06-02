@@ -23,8 +23,10 @@ import org.apache.accumulo.core.client.IteratorSetting;
 import org.apache.accumulo.core.client.NamespaceExistsException;
 import org.apache.accumulo.core.client.TableExistsException;
 import org.apache.accumulo.core.client.TableNotFoundException;
+import org.apache.accumulo.core.iterators.IteratorUtil.IteratorScope;
 import org.apache.hadoop.io.Text;
 
+import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -126,7 +128,7 @@ public class AccumuloTableManager
     }
 
     /**
-     * Sets the settings to the given table
+     * Sets the settings to the given table, first removing any existing iterator of the same name
      *
      * @param table Accumulo table
      * @param setting Settings to set
@@ -134,6 +136,12 @@ public class AccumuloTableManager
     public void setIterator(String table, IteratorSetting setting)
     {
         try {
+            // Remove any existing iterator settings of the same name, if applicable
+            Map<String, EnumSet<IteratorScope>> iterators = conn.tableOperations().listIterators(table);
+            if (iterators.containsKey(setting.getName())) {
+                conn.tableOperations().removeIterator(table, setting.getName(), iterators.get(setting.getName()));
+            }
+
             conn.tableOperations().attachIterator(table, setting);
         }
         catch (AccumuloSecurityException | AccumuloException e) {

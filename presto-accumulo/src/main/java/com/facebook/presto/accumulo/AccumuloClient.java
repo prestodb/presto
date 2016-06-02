@@ -210,11 +210,37 @@ public class AccumuloClient
         // Validate the DDL is something we can handle
         validateCreateTable(meta);
 
-        if (AccumuloTableProperties.isExternal(meta.getProperties())) {
-            return createExternalTable(meta);
+        Map<String, Object> tableProperties = meta.getProperties();
+        String rowIdColumn = getRowIdColumn(meta);
+
+        // Get the list of column handles
+        List<AccumuloColumnHandle> columns = getColumnHandles(meta, rowIdColumn);
+
+        // Create the AccumuloTable object
+        AccumuloTable table = new AccumuloTable(meta.getTable().getSchemaName(),
+                meta.getTable().getTableName(), columns, rowIdColumn,
+                AccumuloTableProperties.isExternal(tableProperties),
+                AccumuloTableProperties.getSerializerClass(tableProperties),
+                AccumuloTableProperties.getScanAuthorizations(tableProperties));
+
+        // First, create the metadata
+        metaManager.createTableMetadata(table);
+
+        // Make sure the namespace exists
+        tableManager.ensureNamespace(table.getSchema());
+
+        // Create the Accumulo table if it does not exist (for 'external' table)
+        if (!tableManager.exists(table.getFullTableName())) {
+            tableManager.createAccumuloTable(table.getFullTableName());
         }
 
-        return createInternalTable(meta);
+        // Set any locality groups on the data table
+        setLocalityGroups(tableProperties, table);
+
+        // Create index tables, if appropriate
+        createIndexTables(table);
+
+        return table;
     }
 
     /**
@@ -226,10 +252,7 @@ public class AccumuloClient
     {
         validateColumns(meta);
         validateLocalityGroups(meta);
-        if (AccumuloTableProperties.isExternal(meta.getProperties())) {
-            validateExternalTable(meta);
-        }
-        else {
+        if (!AccumuloTableProperties.isExternal(meta.getProperties())) {
             validateInternalTable(meta);
         }
     }
@@ -317,32 +340,6 @@ public class AccumuloClient
     }
 
     /**
-     * Validates the Accumulo table (and index tables, if applicable) exist if the table is external
-     *
-     * @param meta Table metadata
-     */
-    private void validateExternalTable(ConnectorTableMetadata meta)
-    {
-        String table = AccumuloTable.getFullTableName(meta.getTable());
-        String indexTable = Indexer.getIndexTableName(meta.getTable());
-        String metricsTable = Indexer.getMetricsTableName(meta.getTable());
-        if (!conn.tableOperations().exists(table)) {
-            throw new PrestoException(ACCUMULO_TABLE_DNE,
-                    "Cannot create external table w/o an Accumulo table. Create the "
-                            + "Accumulo table first.");
-        }
-
-        if (AccumuloTableProperties.getIndexColumns(meta.getProperties()).size() > 0) {
-            if (!conn.tableOperations().exists(indexTable) || !conn.tableOperations().exists(metricsTable)) {
-                throw new PrestoException(ACCUMULO_TABLE_DNE,
-                        "External table is indexed but the index table and/or index metrics table "
-                                + "do not exist.  Create these tables as well and configure the "
-                                + "correct iterators and locality groups. See the README");
-            }
-        }
-    }
-
-    /**
      * Validates the Accumulo table (and index tables, if applicable) do not already exist, if internal
      *
      * @param meta Table metadata
@@ -352,6 +349,7 @@ public class AccumuloClient
         String table = AccumuloTable.getFullTableName(meta.getTable());
         String indexTable = Indexer.getIndexTableName(meta.getTable());
         String metricsTable = Indexer.getMetricsTableName(meta.getTable());
+
         if (conn.tableOperations().exists(table)) {
             throw new PrestoException(ACCUMULO_TABLE_EXISTS,
                     "Cannot create internal table when an Accumulo table already exists");
@@ -363,44 +361,6 @@ public class AccumuloClient
                         "Internal table is indexed, but the index table and/or index metrics table(s) already exist");
             }
         }
-    }
-
-    /**
-     * Creates an internal Presto table for Accumulo using the given metadata
-     *
-     * @param meta Table metadata
-     * @return New Accumulo table
-     */
-    private AccumuloTable createInternalTable(ConnectorTableMetadata meta)
-    {
-        Map<String, Object> tableProperties = meta.getProperties();
-        String rowIdColumn = getRowIdColumn(meta);
-
-        // Get the list of column handles
-        List<AccumuloColumnHandle> columns = getColumnHandles(meta, rowIdColumn);
-
-        // Create the AccumuloTable object
-        AccumuloTable table = new AccumuloTable(meta.getTable().getSchemaName(),
-                meta.getTable().getTableName(), columns, rowIdColumn, false,
-                AccumuloTableProperties.getSerializerClass(tableProperties),
-                AccumuloTableProperties.getScanAuthorizations(tableProperties));
-
-        // First, create the metadata
-        metaManager.createTableMetadata(table);
-
-        // Make sure the namespace exists
-        tableManager.ensureNamespace(table.getSchema());
-
-        // Create the Accumulo table
-        tableManager.createAccumuloTable(table.getFullTableName());
-
-        // Set any locality groups on the data table
-        setLocalityGroups(tableProperties, table);
-
-        // Create index tables, if appropriate
-        createIndexTables(table);
-
-        return table;
     }
 
     /**
@@ -491,7 +451,9 @@ public class AccumuloClient
             localityGroupsBldr.put(g.getKey(), famBldr.build());
         }
 
-        tableManager.setLocalityGroups(table.getFullTableName(), localityGroupsBldr.build());
+        Map<String, Set<Text>> localityGroups = localityGroupsBldr.build();
+        LOG.info("Setting locality groups: {}", localityGroups);
+        tableManager.setLocalityGroups(table.getFullTableName(), localityGroups);
     }
 
     /**
@@ -507,44 +469,25 @@ public class AccumuloClient
             return;
         }
 
-        // Create index table and set the locality groups
+        // Create index table if it does not exist (for 'external' table)
+        if (!tableManager.exists(table.getIndexTableName())) {
+            tableManager.createAccumuloTable(table.getIndexTableName());
+        }
+
+        // Create index metrics table if it does not exist
+        if (!tableManager.exists(table.getMetricsTableName())) {
+            tableManager.createAccumuloTable(table.getMetricsTableName());
+        }
+
+        // Set locality groups on index and metrics table
         Map<String, Set<Text>> indexGroups = Indexer.getLocalityGroups(table);
-        tableManager.createAccumuloTable(table.getIndexTableName());
-
         tableManager.setLocalityGroups(table.getIndexTableName(), indexGroups);
-
-        // Create index metrics table, attach iterators, and set locality groups
-        tableManager.createAccumuloTable(table.getMetricsTableName());
         tableManager.setLocalityGroups(table.getMetricsTableName(), indexGroups);
+
+        // Attach iterators to metrics table
         for (IteratorSetting s : Indexer.getMetricIterators(table)) {
             tableManager.setIterator(table.getMetricsTableName(), s);
         }
-    }
-
-    /**
-     * Creates an external Presto table for Accumulo using the given metadata
-     *
-     * @param meta Table metadata
-     * @return New Accumulo table
-     */
-    private AccumuloTable createExternalTable(ConnectorTableMetadata meta)
-    {
-        Map<String, Object> tableProperties = meta.getProperties();
-        String rowIdColumn = getRowIdColumn(meta);
-
-        // Get the list of column handles
-        List<AccumuloColumnHandle> columns = getColumnHandles(meta, rowIdColumn);
-
-        // Create the AccumuloTable object
-        AccumuloTable table = new AccumuloTable(meta.getTable().getSchemaName(),
-                meta.getTable().getTableName(), columns, rowIdColumn, true,
-                AccumuloTableProperties.getSerializerClass(tableProperties),
-                AccumuloTableProperties.getScanAuthorizations(tableProperties));
-
-        // Create the metadata
-        metaManager.createTableMetadata(table);
-
-        return table;
     }
 
     /**

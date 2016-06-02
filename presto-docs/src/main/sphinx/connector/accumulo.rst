@@ -332,8 +332,14 @@ well.
 To change this behavior, set the ``external`` property to ``true`` when
 issuing the ``CREATE`` statement. This will make the table an *external*
 table, and a ``DROP TABLE`` command will **only** delete the metadata
-associated with the table -- the Accumulo tables and data remain
-untouched.
+associated with the table.  If the Accumulo tables do not already exist,
+they will be created by the connector.
+
+Creating an external table *will* set any configured locality groups as well
+as the iterators on the index and metrics tables (if the table is indexed).
+In short, the only difference between an external table and an internal table
+is the connector will delete the Accumulo tables when a ``DROP TABLE`` command
+is issued.
 
 External tables can be a bit more difficult to work with, as the data is stored
 in an expected format. If the data is not stored correctly, then you're
@@ -346,14 +352,6 @@ If you are storing values as strings, you can specify a different serializer
 using the ``serializer`` property of the table. See the section on
 `Table Properties <#table-properties>`__ for more information.
 
-Note that the Accumulo table and any index tables (if applicable) must
-exist prior to creating the external table. First, we create an Accumulo
-table called ``external_table``.
-
-.. code:: sql
-
-    root@default> createtable external_table
-
 Next, we create the Presto external table.
 
 .. code:: sql
@@ -361,7 +359,9 @@ Next, we create the Presto external table.
     presto:default> CREATE TABLE external_table (a VARCHAR, b BIGINT, c DATE) 
     WITH (
         column_mapping = 'a:md:a,b:md:b,c:md:c',
-        external = true
+        external = true,
+        index_columns = 'b,c',
+        locality_groups = 'foo:b,c'
     );
 
 After creating the table, usage of the table continues as usual:
@@ -381,8 +381,7 @@ After creating the table, usage of the table continues as usual:
     presto:default> DROP TABLE external_table;
     DROP TABLE
 
-After dropping the table, the table will still exist in Accumulo because
-it is *external*.
+After dropping the table, the table will still exist in Accumulo because it is *external*.
 
 .. code:: sql
 
@@ -390,7 +389,30 @@ it is *external*.
     accumulo.metadata
     accumulo.root
     external_table
+    external_table_idx
+    external_table_idx_metrics
     trace
+
+If we wanted to add a new column to the table, we can create the table again and specify a new column.
+Any existing rows in the table will have a value of NULL. This command will re-configure the Accumulo
+tables, setting the locality groups and iterator configuration.
+
+.. code:: sql
+
+    presto:default> CREATE TABLE external_table (a VARCHAR, b BIGINT, c DATE, d INTEGER)
+    WITH (
+        column_mapping = 'a:md:a,b:md:b,c:md:c,d:md:d',
+        external = true,
+        index_columns = 'b,c,d',
+        locality_groups = 'foo:b,c,d'
+    );
+
+    presto:default> SELECT * FROM external_table;
+     a | b |     c      |  d
+    ---+---+------------+------
+     1 | 1 | 2015-03-06 | NULL
+     2 | 2 | 2015-03-07 | NULL
+    (2 rows)
 
 Table Properties
 ~~~~~~~~~~~~~~~~
