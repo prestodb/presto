@@ -320,7 +320,7 @@ public class PredicatePushDown
                     leftPredicate = leftOuterJoinPushDownResult.getOuterJoinPredicate();
                     rightPredicate = leftOuterJoinPushDownResult.getInnerJoinPredicate();
                     postJoinPredicate = leftOuterJoinPushDownResult.getPostJoinPredicate();
-                    newJoinPredicate = joinPredicate; // Use the same as the original
+                    newJoinPredicate = leftOuterJoinPushDownResult.getJoinPredicate();
                     break;
                 case RIGHT:
                     OuterJoinPushDownResult rightOuterJoinPushDownResult = processLimitedOuterJoin(inheritedPredicate,
@@ -331,7 +331,7 @@ public class PredicatePushDown
                     leftPredicate = rightOuterJoinPushDownResult.getInnerJoinPredicate();
                     rightPredicate = rightOuterJoinPushDownResult.getOuterJoinPredicate();
                     postJoinPredicate = rightOuterJoinPushDownResult.getPostJoinPredicate();
-                    newJoinPredicate = joinPredicate; // Use the same as the original
+                    newJoinPredicate = rightOuterJoinPushDownResult.getJoinPredicate();
                     break;
                 case FULL:
                     leftPredicate = BooleanLiteral.TRUE_LITERAL;
@@ -414,6 +414,7 @@ public class PredicatePushDown
 
             ImmutableList.Builder<Expression> outerPushdownConjuncts = ImmutableList.builder();
             ImmutableList.Builder<Expression> innerPushdownConjuncts = ImmutableList.builder();
+            ImmutableList.Builder<Expression> joinConjuncts = ImmutableList.builder();
             ImmutableList.Builder<Expression> postJoinConjuncts = ImmutableList.builder();
 
             // Strip out non-deterministic conjuncts
@@ -427,6 +428,7 @@ public class PredicatePushDown
             // Generate equality inferences
             EqualityInference inheritedInference = createEqualityInference(inheritedPredicate);
             EqualityInference outerInference = createEqualityInference(inheritedPredicate, outerEffectivePredicate);
+            EqualityInference innerInference = createEqualityInference(inheritedPredicate, innerEffectivePredicate);
 
             EqualityInference.EqualityPartition equalityPartition = inheritedInference.generateEqualitiesPartitionedBy(in(outerSymbols));
             Expression outerOnlyInheritedEqualities = combineConjuncts(equalityPartition.getScopeEqualities());
@@ -450,15 +452,24 @@ public class PredicatePushDown
                 }
             }
 
-            // See if we can push down any outer or join predicates to the inner side
-            for (Expression conjunct : EqualityInference.nonInferrableConjuncts(and(outerEffectivePredicate, joinPredicate))) {
+            // See if we can push down any outer predicates to the inner side
+            for (Expression conjunct : EqualityInference.nonInferrableConjuncts(outerEffectivePredicate)) {
                 Expression rewritten = potentialNullSymbolInference.rewriteExpression(conjunct, not(in(outerSymbols)));
                 if (rewritten != null) {
                     innerPushdownConjuncts.add(rewritten);
                 }
             }
 
-            // TODO: consider adding join predicate optimizations to outer joins
+            // See if we can push down any join predicates to the inner side
+            for (Expression conjunct : extractConjuncts(joinPredicate)) {
+                Expression rewritten = innerInference.rewriteExpression(conjunct, not(in(outerSymbols)));
+                if (rewritten != null) {
+                    innerPushdownConjuncts.add(rewritten);
+                }
+                else {
+                    joinConjuncts.add(conjunct);
+                }
+            }
 
             // Add the equalities from the inferences back in
             outerPushdownConjuncts.addAll(equalityPartition.getScopeEqualities());
@@ -468,6 +479,7 @@ public class PredicatePushDown
 
             return new OuterJoinPushDownResult(combineConjuncts(outerPushdownConjuncts.build()),
                     combineConjuncts(innerPushdownConjuncts.build()),
+                    combineConjuncts(joinConjuncts.build()),
                     combineConjuncts(postJoinConjuncts.build()));
         }
 
@@ -475,12 +487,14 @@ public class PredicatePushDown
         {
             private final Expression outerJoinPredicate;
             private final Expression innerJoinPredicate;
+            private final Expression joinPredicate;
             private final Expression postJoinPredicate;
 
-            private OuterJoinPushDownResult(Expression outerJoinPredicate, Expression innerJoinPredicate, Expression postJoinPredicate)
+            private OuterJoinPushDownResult(Expression outerJoinPredicate, Expression innerJoinPredicate, Expression joinPredicate, Expression postJoinPredicate)
             {
                 this.outerJoinPredicate = outerJoinPredicate;
                 this.innerJoinPredicate = innerJoinPredicate;
+                this.joinPredicate = joinPredicate;
                 this.postJoinPredicate = postJoinPredicate;
             }
 
@@ -492,6 +506,11 @@ public class PredicatePushDown
             private Expression getInnerJoinPredicate()
             {
                 return innerJoinPredicate;
+            }
+
+            public Expression getJoinPredicate()
+            {
+                return joinPredicate;
             }
 
             private Expression getPostJoinPredicate()
