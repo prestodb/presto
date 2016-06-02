@@ -51,6 +51,6 @@ public class TestFloatType
     {
         int bits = ((Long) value).intValue();
         float greaterValue = intBitsToFloat(bits) + 0.1f;
-        return new Long(floatToRawIntBits(greaterValue));
+        return Long.valueOf(floatToRawIntBits(greaterValue));
     }
 }
