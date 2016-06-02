@@ -65,12 +65,16 @@ public final class InMemoryJoinHash
 
         // index pages
         for (int position = 0; position < addresses.size(); position++) {
+            if (isPositionNull(position)) {
+                continue;
+            }
+
             int pos = (int) getHashPosition(hashPosition(position), mask);
 
             // look for an empty slot or a slot containing this key
             while (key[pos] != -1) {
                 int currentKey = key[pos];
-                if (positionEqualsPosition(currentKey, position)) {
+                if (positionEqualsPositionIgnoreNulls(currentKey, position)) {
                     // found a slot for this key
                     // link the new key position to the current key position
                     positionLinks[position] = currentKey;
@@ -116,7 +120,7 @@ public final class InMemoryJoinHash
         int pos = (int) getHashPosition(rawHash, mask);
 
         while (key[pos] != -1) {
-            if (positionEqualsCurrentRow(key[pos], rightPosition, hashChannelsPage)) {
+            if (positionEqualsCurrentRowIgnoreNulls(key[pos], rightPosition, hashChannelsPage)) {
                 return getNextJoinPositionFrom(key[pos], rightPosition, allChannelsPage);
             }
             // increment position and mask to handler wrap around
@@ -155,6 +159,15 @@ public final class InMemoryJoinHash
     {
     }
 
+    private boolean isPositionNull(int position)
+    {
+        long pageAddress = addresses.getLong(position);
+        int blockIndex = decodeSliceIndex(pageAddress);
+        int blockPosition = decodePosition(pageAddress);
+
+        return pagesHashStrategy.isPositionNull(blockIndex, blockPosition);
+    }
+
     private long hashPosition(int position)
     {
         long pageAddress = addresses.getLong(position);
@@ -164,13 +177,13 @@ public final class InMemoryJoinHash
         return pagesHashStrategy.hashPosition(blockIndex, blockPosition);
     }
 
-    private boolean positionEqualsCurrentRow(int leftPosition, int rightPosition, Page rightPage)
+    private boolean positionEqualsCurrentRowIgnoreNulls(int leftPosition, int rightPosition, Page rightPage)
     {
         long pageAddress = addresses.getLong(leftPosition);
         int blockIndex = decodeSliceIndex(pageAddress);
         int blockPosition = decodePosition(pageAddress);
 
-        return pagesHashStrategy.positionEqualsRow(blockIndex, blockPosition, rightPosition, rightPage);
+        return pagesHashStrategy.positionEqualsRowIgnoreNulls(blockIndex, blockPosition, rightPosition, rightPage);
     }
 
     private boolean applyFilterFilterFunction(int leftPosition, int rightPosition, Block[] rightBlocks)
@@ -186,7 +199,7 @@ public final class InMemoryJoinHash
         return pagesHashStrategy.applyFilterFunction(blockIndex, blockPosition, rightPosition, rightBlocks);
     }
 
-    private boolean positionEqualsPosition(int leftPosition, int rightPosition)
+    private boolean positionEqualsPositionIgnoreNulls(int leftPosition, int rightPosition)
     {
         long leftPageAddress = addresses.getLong(leftPosition);
         int leftBlockIndex = decodeSliceIndex(leftPageAddress);
@@ -196,7 +209,7 @@ public final class InMemoryJoinHash
         int rightBlockIndex = decodeSliceIndex(rightPageAddress);
         int rightBlockPosition = decodePosition(rightPageAddress);
 
-        return pagesHashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition);
+        return pagesHashStrategy.positionEqualsPositionIgnoreNulls(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition);
     }
 
     private static long getHashPosition(long rawHash, long mask)

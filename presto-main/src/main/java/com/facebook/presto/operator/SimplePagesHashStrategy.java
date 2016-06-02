@@ -162,6 +162,21 @@ public class SimplePagesHashStrategy
     }
 
     @Override
+    public boolean positionEqualsRowIgnoreNulls(int leftBlockIndex, int leftPosition, int rightPosition, Page rightPage)
+    {
+        for (int i = 0; i < hashChannels.size(); i++) {
+            int hashChannel = hashChannels.get(i);
+            Type type = types.get(hashChannel);
+            Block leftBlock = channels.get(hashChannel).get(leftBlockIndex);
+            Block rightBlock = rightPage.getBlock(i);
+            if (!type.equalTo(leftBlock, leftPosition, rightBlock, rightPosition)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
     public boolean positionEqualsRow(int leftBlockIndex, int leftPosition, int rightPosition, Page page, int[] rightHashChannels)
     {
         for (int i = 0; i < hashChannels.size(); i++) {
@@ -192,6 +207,21 @@ public class SimplePagesHashStrategy
     }
 
     @Override
+    public boolean positionEqualsPositionIgnoreNulls(int leftBlockIndex, int leftPosition, int rightBlockIndex, int rightPosition)
+    {
+        for (int hashChannel : hashChannels) {
+            Type type = types.get(hashChannel);
+            List<Block> channel = channels.get(hashChannel);
+            Block leftBlock = channel.get(leftBlockIndex);
+            Block rightBlock = channel.get(rightBlockIndex);
+            if (!type.equalTo(leftBlock, leftPosition, rightBlock, rightPosition)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
     public Optional<JoinFilterFunction> getFilterFunction()
     {
         return filterFunction;
@@ -211,5 +241,18 @@ public class SimplePagesHashStrategy
         else {
             return channelArrays.get(leftBlockIndex);
         }
+    }
+
+    @Override
+    public boolean isPositionNull(int blockIndex, int blockPosition)
+    {
+        for (int hashChannel : hashChannels) {
+            List<Block> channel = channels.get(hashChannel);
+            Block block = channel.get(blockIndex);
+            if (block.isNull(blockPosition)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

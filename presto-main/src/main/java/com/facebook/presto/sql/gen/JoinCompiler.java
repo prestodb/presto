@@ -161,10 +161,13 @@ public class JoinCompiler
         generateHashPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, hashChannelField);
         generateHashRowMethod(classDefinition, callSiteBinder, joinChannelTypes);
         generateRowEqualsRowMethod(classDefinition, callSiteBinder, joinChannelTypes);
-        generatePositionEqualsRowMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
+        generatePositionEqualsRowMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, true);
+        generatePositionEqualsRowMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, false);
         generatePositionEqualsRowWithPageMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
-        generatePositionEqualsPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
+        generatePositionEqualsPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, true);
+        generatePositionEqualsPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, false);
         generateGetFilterFunctionMethod(classDefinition);
+        generateIsPositionNull(classDefinition, joinChannelFields);
 
         return defineClass(classDefinition, PagesHashStrategy.class, callSiteBinder.getBindings(), getClass().getClassLoader());
     }
@@ -298,6 +301,39 @@ public class JoinCompiler
                     .invokeInterface(Type.class, "appendTo", void.class, Block.class, int.class, BlockBuilder.class);
         }
         appendToBody.ret();
+    }
+
+    private void generateIsPositionNull(ClassDefinition classDefinition, List<FieldDefinition> joinChannelFields)
+    {
+        Parameter blockIndex = arg("blockIndex", int.class);
+        Parameter blockPosition = arg("blockPosition", int.class);
+        MethodDefinition isPositionNullMethod = classDefinition.declareMethod(
+                a(PUBLIC),
+                "isPositionNull",
+                type(boolean.class),
+                blockIndex,
+                blockPosition);
+
+        for (FieldDefinition joinChannelField : joinChannelFields) {
+            BytecodeExpression block = isPositionNullMethod
+                    .getThis()
+                    .getField(joinChannelField)
+                    .invoke("get", Object.class, blockIndex)
+                    .cast(Block.class);
+
+            IfStatement ifStatement = new IfStatement();
+            ifStatement.condition(block.invoke(
+                    "isNull",
+                    boolean.class,
+                    blockPosition
+            ));
+            ifStatement.ifTrue(constantTrue().ret());
+            isPositionNullMethod.getBody().append(ifStatement);
+        }
+
+        isPositionNullMethod
+                .getBody()
+                .append(constantFalse().ret());
     }
 
     private static void generateHashPositionMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> joinChannelTypes, List<FieldDefinition> joinChannelFields, FieldDefinition hashChannelField)
@@ -447,7 +483,8 @@ public class JoinCompiler
             ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
             List<Type> joinChannelTypes,
-            List<FieldDefinition> joinChannelFields)
+            List<FieldDefinition> joinChannelFields,
+            boolean ignoreNulls)
     {
         Parameter leftBlockIndex = arg("leftBlockIndex", int.class);
         Parameter leftBlockPosition = arg("leftBlockPosition", int.class);
@@ -455,7 +492,7 @@ public class JoinCompiler
         Parameter rightPage = arg("rightPage", Page.class);
         MethodDefinition positionEqualsRowMethod = classDefinition.declareMethod(
                 a(PUBLIC),
-                "positionEqualsRow",
+                ignoreNulls ? "positionEqualsRowIgnoreNulls" : "positionEqualsRow",
                 type(boolean.class),
                 leftBlockIndex,
                 leftBlockPosition,
@@ -473,11 +510,18 @@ public class JoinCompiler
                     .cast(Block.class);
 
             BytecodeExpression rightBlock = rightPage.invoke("getBlock", Block.class, constantInt(index));
+            BytecodeNode equalityCondition;
+            if (ignoreNulls) {
+                equalityCondition = typeEqualsIgnoreNulls(type, leftBlock, leftBlockPosition, rightBlock, rightPosition);
+            }
+            else {
+                equalityCondition = typeEquals(type, leftBlock, leftBlockPosition, rightBlock, rightPosition);
+            }
 
             LabelNode checkNextField = new LabelNode("checkNextField");
             positionEqualsRowMethod
                     .getBody()
-                    .append(typeEquals(type, leftBlock, leftBlockPosition, rightBlock, rightPosition))
+                    .append(equalityCondition)
                     .ifTrueGoto(checkNextField)
                     .push(false)
                     .retBoolean()
@@ -537,7 +581,8 @@ public class JoinCompiler
             ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
             List<Type> joinChannelTypes,
-            List<FieldDefinition> joinChannelFields)
+            List<FieldDefinition> joinChannelFields,
+            boolean ignoreNulls)
     {
         Parameter leftBlockIndex = arg("leftBlockIndex", int.class);
         Parameter leftBlockPosition = arg("leftBlockPosition", int.class);
@@ -545,7 +590,7 @@ public class JoinCompiler
         Parameter rightBlockPosition = arg("rightBlockPosition", int.class);
         MethodDefinition positionEqualsPositionMethod = classDefinition.declareMethod(
                 a(PUBLIC),
-                "positionEqualsPosition",
+                ignoreNulls ? "positionEqualsPositionIgnoreNulls" : "positionEqualsPosition",
                 type(boolean.class),
                 leftBlockIndex,
                 leftBlockPosition,
@@ -566,10 +611,18 @@ public class JoinCompiler
                     .invoke("get", Object.class, rightBlockIndex)
                     .cast(Block.class);
 
+            BytecodeNode equalityCondition;
+            if (ignoreNulls) {
+                equalityCondition = typeEqualsIgnoreNulls(type, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
+            }
+            else {
+                equalityCondition = typeEquals(type, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
+            }
+
             LabelNode checkNextField = new LabelNode("checkNextField");
             positionEqualsPositionMethod
                     .getBody()
-                    .append(typeEquals(type, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition))
+                    .append(equalityCondition)
                     .ifTrueGoto(checkNextField)
                     .push(false)
                     .retBoolean()
@@ -612,9 +665,19 @@ public class JoinCompiler
                 .append(rightBlock.invoke("isNull", boolean.class, rightBlockPosition))
                 .append(OpCode.IAND);
 
-        ifStatement.ifFalse().append(type.invoke("equalTo", boolean.class, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition));
+        ifStatement.ifFalse().append(typeEqualsIgnoreNulls(type, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition));
 
         return ifStatement;
+    }
+
+    private static BytecodeNode typeEqualsIgnoreNulls(
+            BytecodeExpression type,
+            BytecodeExpression leftBlock,
+            BytecodeExpression leftBlockPosition,
+            BytecodeExpression rightBlock,
+            BytecodeExpression rightBlockPosition)
+    {
+        return type.invoke("equalTo", boolean.class, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
     }
 
     public static class LookupSourceFactory
