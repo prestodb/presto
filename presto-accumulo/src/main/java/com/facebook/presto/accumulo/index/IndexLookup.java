@@ -100,6 +100,17 @@ public class IndexLookup
     }
 
     /**
+     * Drops the cardinality cache for the given schema and table
+     *
+     * @param schema Presto schema name
+     * @param table Presto table name
+     */
+    public void dropCache(String schema, String table)
+    {
+        ccCache.deleteCache(schema, table);
+    }
+
+    /**
      * Scans the index table, applying the index based on the given column constraints to return a
      * set of tablet splits.<br>
      * <br>
