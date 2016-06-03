@@ -426,7 +426,8 @@ function taskData(d) {
 }
 
 function urlHostname(url) {
-    var s = new URL(url).hostname;
+    var urlObj = new URL(url);
+    var s = urlObj.hostname + ":" + urlObj.port;
     if ((s.charAt(0) == '[') && (s.charAt(s.length - 1) == ']')) {
         s = s.substr(1, s.length - 2);
     }

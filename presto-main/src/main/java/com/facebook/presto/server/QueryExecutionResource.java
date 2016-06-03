@@ -121,7 +121,7 @@ public class QueryExecutionResource
 
                 tasks.add(new Task(taskStatus.getTaskId().toString(),
                         taskStatus.getState().toString(),
-                        taskStatus.getSelf().getHost(),
+                        taskStatus.getSelf().getHost() + ":" + taskStatus.getSelf().getPort(),
                         last - task.getStats().getCreateTime().getMillis(),
                         task.getStats().getTotalCpuTime().roundTo(TimeUnit.MILLISECONDS),
                         task.getStats().getTotalBlockedTime().roundTo(TimeUnit.MILLISECONDS),
