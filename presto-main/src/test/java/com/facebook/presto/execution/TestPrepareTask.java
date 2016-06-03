@@ -16,11 +16,14 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AllowAllAccessControl;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AllColumns;
+import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
@@ -32,6 +35,7 @@ import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.sql.QueryUtil.table;
@@ -39,6 +43,7 @@ import static com.facebook.presto.transaction.TransactionManager.createTestTrans
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.fail;
 
 public class TestPrepareTask
 {
@@ -72,11 +77,26 @@ public class TestPrepareTask
         assertEquals(statements, ImmutableMap.of("my_query", "SELECT *\nFROM\n  foo\n"));
     }
 
-    private Map<String, String> executePrepare(String statementName, Query query, String sqlString, Session session)
+    @Test
+    public void testPrepareInvalidStatement()
+    {
+        Statement statement = new Execute("foo");
+        String sqlString = "PREPARE my_query FROM EXECUTE foo";
+        try {
+            executePrepare("my_query", statement, sqlString, TEST_SESSION);
+            fail("expected exception");
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
+            assertEquals(e.getMessage(), "Invalid statement type for prepared statement: EXECUTE");
+        }
+    }
+
+    private Map<String, String> executePrepare(String statementName, Statement statement, String sqlString, Session session)
     {
         TransactionManager transactionManager = createTestTransactionManager();
         QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), sqlString, session, URI.create("fake://uri"), false, transactionManager, executor);
-        Prepare prepare = new Prepare(statementName, query);
+        Prepare prepare = new Prepare(statementName, statement);
         new PrepareTask(new SqlParser()).execute(prepare, transactionManager, metadata, new AllowAllAccessControl(), stateMachine);
         return stateMachine.getAddedPreparedStatements();
     }
