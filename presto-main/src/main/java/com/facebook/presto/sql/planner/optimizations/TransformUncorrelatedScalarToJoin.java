@@ -58,7 +58,7 @@ public class TransformUncorrelatedScalarToJoin
                 // only scalar subquery wraps expression in EnforceSingleRowNode
                 return new JoinNode(
                         idAllocator.getNextId(),
-                        JoinNode.Type.FULL,
+                        JoinNode.Type.INNER,
                         rewrittenNode.getInput(),
                         rewrittenNode.getSubquery(),
                         ImmutableList.of(),
