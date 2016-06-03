@@ -18,9 +18,9 @@ import java.util.Set;
 
 import static java.util.stream.Collectors.toSet;
 
-final class BlockValidationUtil
+final class BlockUtil
 {
-    private BlockValidationUtil()
+    private BlockUtil()
     {
     }
 
@@ -30,5 +30,13 @@ final class BlockValidationUtil
         if (!invalidPositions.isEmpty()) {
             throw new IllegalArgumentException("Invalid positions " + invalidPositions + " in block with " + positionCount + " positions");
         }
+    }
+
+    static int intSaturatedCast(long value)
+    {
+        if (value > Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        return (int) value;
     }
 }

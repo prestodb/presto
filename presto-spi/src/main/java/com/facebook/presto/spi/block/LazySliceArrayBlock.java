@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.spi.block.BlockValidationUtil.checkValidPositions;
+import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.spi.block.SliceArrayBlock.deepCopyAndCompact;
 import static com.facebook.presto.spi.block.SliceArrayBlock.getSliceArrayRetainedSizeInBytes;
 import static com.facebook.presto.spi.block.SliceArrayBlock.getSliceArraySizeInBytes;

@@ -20,7 +20,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.block.BlockValidationUtil.checkValidPositions;
+import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
