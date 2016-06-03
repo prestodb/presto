@@ -178,11 +178,6 @@ public abstract class AbstractFixedWidthBlock
         return isEntryNull(position);
     }
 
-    @Override
-    public void assureLoaded()
-    {
-    }
-
     private int valueOffset(int position)
     {
         return position * fixedSize;

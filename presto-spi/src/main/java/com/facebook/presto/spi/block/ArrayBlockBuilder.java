@@ -118,53 +118,6 @@ public class ArrayBlockBuilder
     }
 
     @Override
-    public void assureLoaded()
-    {
-    }
-
-    @Override
-    public BlockBuilder writeByte(int value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public BlockBuilder writeShort(int value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public BlockBuilder writeInt(int value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public BlockBuilder writeLong(long value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public BlockBuilder writeFloat(float value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public BlockBuilder writeDouble(double value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public BlockBuilder writeBytes(Slice source, int sourceIndex, int length)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public BlockBuilder writeObject(Object value)
     {
         if (currentEntrySize != 0) {

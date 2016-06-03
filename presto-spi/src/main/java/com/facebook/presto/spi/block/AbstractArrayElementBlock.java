@@ -163,11 +163,6 @@ public abstract class AbstractArrayElementBlock
     }
 
     @Override
-    public void assureLoaded()
-    {
-    }
-
-    @Override
     public BlockEncoding getEncoding()
     {
         // ArrayElementBlockEncoding does not exist

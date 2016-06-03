@@ -271,11 +271,6 @@ public class DictionaryBlock
         return dictionary.isNull(getIndex(position));
     }
 
-    @Override
-    public void assureLoaded()
-    {
-    }
-
     public Block getDictionary()
     {
         return dictionary;
