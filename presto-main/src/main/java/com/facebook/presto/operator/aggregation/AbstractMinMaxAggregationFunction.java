@@ -138,12 +138,11 @@ public abstract class AbstractMinMaxAggregationFunction
         AccumulatorStateFactory<?> stateFactory = compiler.generateStateFactory(stateInterface, classLoader);
 
         Type intermediateType = stateSerializer.getSerializedType();
-        List<ParameterMetadata> inputParameterMetadata = createInputParameterMetadata(type);
         AggregationMetadata metadata = new AggregationMetadata(
                 generateAggregationName(getSignature().getName(), type, inputTypes),
-                inputParameterMetadata,
+                createParameterMetadata(type),
                 inputFunction,
-                inputParameterMetadata,
+                createParameterMetadata(intermediateType),
                 inputFunction,
                 null,
                 outputFunction,
@@ -157,7 +156,7 @@ public abstract class AbstractMinMaxAggregationFunction
         return new InternalAggregationFunction(getSignature().getName(), inputTypes, intermediateType, type, true, false, factory);
     }
 
-    private static List<ParameterMetadata> createInputParameterMetadata(Type type)
+    private static List<ParameterMetadata> createParameterMetadata(Type type)
     {
         return ImmutableList.of(
                 new ParameterMetadata(STATE),
