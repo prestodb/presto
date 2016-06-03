@@ -75,6 +75,7 @@ public enum StandardErrorCode
     EXCEEDED_TIME_LIMIT(0x0002_0003),
     CLUSTER_OUT_OF_MEMORY(0x0002_0004),
     EXCEEDED_CPU_LIMIT(0x0002_0005),
+    INVALID_PREPARED_STATEMENT(0x0002_0006),
 
     // Connectors can use error codes starting at EXTERNAL
     // See https://github.com/prestodb/presto/wiki/Error-Codes
