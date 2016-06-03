@@ -356,7 +356,9 @@ public class PredicatePushDown
             if (leftSource != node.getLeft() ||
                     rightSource != node.getRight() ||
                     !expressionEquivalence.areExpressionsEquivalent(session, newJoinPredicate, joinPredicate, types)) {
-                if (newJoinPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
+                if (node.getType() == JoinNode.Type.INNER && newJoinPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
+                    // this rewrite is not valid for OUTER joins as it would give incorrect results in case when we have empty table on INNER side
+                    // after rewrite query would return no rows, instead rows from OUTER table complemented with NULLs.
                     output = new JoinNode(node.getId(), INNER, leftSource, rightSource, ImmutableList.of(), node.getFilter(), Optional.<Symbol>empty(), Optional.<Symbol>empty());
                 }
                 else {
