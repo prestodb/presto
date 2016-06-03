@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.BatchScanner;
@@ -44,6 +45,7 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -182,11 +184,12 @@ public class IndexLookup
         Multimap<Long, AccumuloColumnConstraint> cardinalities;
         if (AccumuloSessionProperties.isIndexShortCircuitEnabled(session)) {
             cardinalities = cardinalityCache.getCardinalities(schema, table, constraintRanges,
-                    (long) (numRows * AccumuloSessionProperties.getIndexSmallCardThreshold(session)));
+                    (long) (numRows * AccumuloSessionProperties.getIndexSmallCardThreshold(session)),
+                    AccumuloSessionProperties.getIndexCardinalityCachePollingDuration(session));
         }
         else {
             // disable short circuit using 0
-            cardinalities = cardinalityCache.getCardinalities(schema, table, constraintRanges, 0);
+            cardinalities = cardinalityCache.getCardinalities(schema, table, constraintRanges, 0, new Duration(0, TimeUnit.MILLISECONDS));
         }
 
         Optional<Entry<Long, AccumuloColumnConstraint>> entry = cardinalities.entries().stream().findFirst();

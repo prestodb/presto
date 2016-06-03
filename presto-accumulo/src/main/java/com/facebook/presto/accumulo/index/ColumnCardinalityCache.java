@@ -44,10 +44,12 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -117,11 +119,12 @@ public class ColumnCardinalityCache
      * @param table Table name
      * @param idxConstraintRangePairs Mapping of all ranges for a given constraint
      * @param earlyReturnThreshold Smallest acceptable cardinality to return early while other tasks complete
+     * @param pollingDuration Duration for polling the cardinality completion service
      * @return An immutable multimap of cardinality to column constraint, sorted by cardinality from smallest to largest
      * @throws TableNotFoundException If the metrics table does not exist
      * @throws ExecutionException If another error occurs; I really don't even know anymore.
      */
-    public Multimap<Long, AccumuloColumnConstraint> getCardinalities(String schema, String table, Multimap<AccumuloColumnConstraint, Range> idxConstraintRangePairs, long earlyReturnThreshold)
+    public Multimap<Long, AccumuloColumnConstraint> getCardinalities(String schema, String table, Multimap<AccumuloColumnConstraint, Range> idxConstraintRangePairs, long earlyReturnThreshold, Duration pollingDuration)
             throws ExecutionException, TableNotFoundException
     {
         // Submit tasks to the executor to fetch column cardinality, adding it to the Guava cache if necessary
@@ -129,7 +132,7 @@ public class ColumnCardinalityCache
         idxConstraintRangePairs.asMap().entrySet().forEach(e ->
                 executor.submit(() -> {
                             long cardinality = getColumnCardinality(schema, table, e.getKey().getFamily(), e.getKey().getQualifier(), e.getValue());
-                            LOG.info("Cardinality for column %s is %d", e.getKey().getName(), cardinality);
+                            LOG.info("Cardinality for column %s is %s", e.getKey().getName(), cardinality);
                             return Pair.of(cardinality, e.getKey());
                         }
                 ));
@@ -137,16 +140,32 @@ public class ColumnCardinalityCache
         // Create a multi map sorted by cardinality
         ListMultimap<Long, AccumuloColumnConstraint> cardinalityToConstraints = MultimapBuilder.treeKeys().arrayListValues().build();
         try {
+            boolean earlyReturn = false;
             int numTasks = idxConstraintRangePairs.asMap().entrySet().size();
-            for (int i = 0; i < numTasks; ++i) {
-                Pair<Long, AccumuloColumnConstraint> columnCardinality = executor.take().get();
-                cardinalityToConstraints.put(columnCardinality.getLeft(), columnCardinality.getRight());
-                if (columnCardinality.getLeft() <= earlyReturnThreshold) {
-                    LOG.info("Cardinality %d, is below threshold. Returning early while other tasks finish",
-                            columnCardinality);
-                    break;
+            do {
+                // Sleep for the polling duration to allow concurrent tasks to run for this time
+                Thread.sleep(pollingDuration.toMillis());
+
+                // Poll each task, retrieving the result if it is done
+                for (int i = 0; i < numTasks; ++i) {
+                    Future<Pair<Long, AccumuloColumnConstraint>> futureCardinality = executor.poll();
+                    if (futureCardinality != null && futureCardinality.isDone()) {
+                        Pair<Long, AccumuloColumnConstraint> columnCardinality = futureCardinality.get();
+                        cardinalityToConstraints.put(columnCardinality.getLeft(), columnCardinality.getRight());
+                    }
+                }
+
+                // If the smallest cardinality is present and below the threshold, set the earlyReturn flag
+                Optional<Entry<Long, AccumuloColumnConstraint>> smallestCardinality = cardinalityToConstraints.entries().stream().findFirst();
+                if (smallestCardinality.isPresent()) {
+                    if (smallestCardinality.get().getKey() <= earlyReturnThreshold) {
+                        LOG.info("Cardinality %s, is below threshold. Returning early while other tasks finish",
+                                smallestCardinality);
+                        earlyReturn = true;
+                    }
                 }
             }
+            while (!earlyReturn && cardinalityToConstraints.entries().size() < numTasks);
         }
         catch (ExecutionException | InterruptedException e) {
             throw new PrestoException(INTERNAL_ERROR, "Exception when getting cardinality", e);
