@@ -64,15 +64,21 @@ public class VariableWidthBlockEncoding
     {
         int positionCount = block.getPositionCount();
 
-        int size = 4; // positionCount integer bytes
+        // positionCount: integer
+        int size = Integer.BYTES;
+
+        // offsets: one integer per position
+        size += positionCount * Integer.BYTES;
+
+        // one byte null bits per eight elements and possibly last null bits
+        size += positionCount / 8 + 1;
+
+        // data - is sum of length
         int totalLength = 0;
         for (int position = 0; position < positionCount; position++) {
             totalLength += block.getLength(position);
-            size += 4; // length integer bytes
         }
-
-        size += positionCount / 8 + 1; // one byte null bits per eight elements and possibly last null bits
-        size += 4 + totalLength; // totalLength integer bytes and data bytes
+        size += totalLength;
 
         return size;
     }
@@ -82,16 +88,15 @@ public class VariableWidthBlockEncoding
     {
         int positionCount = sliceInput.readInt();
 
-        // offsets
-        Slice offsets = Slices.allocate((positionCount + 1) * SIZE_OF_INT);
-        sliceInput.readBytes(offsets, SIZE_OF_INT, positionCount * SIZE_OF_INT);
+        int[] offsets = new int[positionCount + 1];
+        sliceInput.readBytes(Slices.wrappedIntArray(offsets), SIZE_OF_INT, positionCount * SIZE_OF_INT);
 
         boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount);
 
         int blockSize = sliceInput.readInt();
         Slice slice = sliceInput.readSlice(blockSize);
 
-        return new VariableWidthBlock(positionCount, slice, offsets, Slices.wrappedBooleanArray(valueIsNull));
+        return new VariableWidthBlock(positionCount, slice, offsets, valueIsNull);
     }
 
     @Override
