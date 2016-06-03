@@ -159,11 +159,6 @@ public abstract class AbstractVariableWidthBlock
         return isEntryNull(position);
     }
 
-    @Override
-    public void assureLoaded()
-    {
-    }
-
     private void checkReadablePosition(int position)
     {
         if (position < 0 || position >= getPositionCount()) {

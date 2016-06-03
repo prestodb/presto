@@ -79,11 +79,6 @@ public class ArrayBlock
     }
 
     @Override
-    public void assureLoaded()
-    {
-    }
-
-    @Override
     public String toString()
     {
         StringBuilder sb = new StringBuilder("ArrayBlock{");
