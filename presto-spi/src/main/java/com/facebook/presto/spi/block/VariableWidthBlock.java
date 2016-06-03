@@ -20,7 +20,8 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.block.BlockValidationUtil.checkValidPositions;
+import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
+import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 
 public class VariableWidthBlock
@@ -76,21 +77,13 @@ public class VariableWidthBlock
     @Override
     public int getSizeInBytes()
     {
-        long size = slice.length() + offsets.length() + valueIsNull.length();
-        if (size > Integer.MAX_VALUE) {
-            return Integer.MAX_VALUE;
-        }
-        return (int) size;
+        return intSaturatedCast(slice.length() + offsets.length() + valueIsNull.length());
     }
 
     @Override
     public int getRetainedSizeInBytes()
     {
-        long size = INSTANCE_SIZE + slice.getRetainedSize() + offsets.getRetainedSize() + valueIsNull.getRetainedSize();
-        if (size > Integer.MAX_VALUE) {
-            return Integer.MAX_VALUE;
-        }
-        return (int) size;
+        return intSaturatedCast(INSTANCE_SIZE + slice.getRetainedSize() + offsets.getRetainedSize() + valueIsNull.getRetainedSize());
     }
 
     @Override

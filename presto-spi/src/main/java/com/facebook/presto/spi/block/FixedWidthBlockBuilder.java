@@ -21,7 +21,8 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.block.BlockValidationUtil.checkValidPositions;
+import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
+import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_FLOAT;
@@ -78,21 +79,13 @@ public class FixedWidthBlockBuilder
     @Override
     public int getSizeInBytes()
     {
-        long size = sliceOutput.size() + valueIsNull.size();
-        if (size > Integer.MAX_VALUE) {
-            return Integer.MAX_VALUE;
-        }
-        return (int) size;
+        return intSaturatedCast(sliceOutput.size() + valueIsNull.size());
     }
 
     @Override
     public int getRetainedSizeInBytes()
     {
-        long size = INSTANCE_SIZE + sliceOutput.getRetainedSize() + valueIsNull.getRetainedSize();
-        if (size > Integer.MAX_VALUE) {
-            return Integer.MAX_VALUE;
-        }
-        return (int) size;
+        return intSaturatedCast(INSTANCE_SIZE + sliceOutput.getRetainedSize() + valueIsNull.getRetainedSize());
     }
 
     @Override
