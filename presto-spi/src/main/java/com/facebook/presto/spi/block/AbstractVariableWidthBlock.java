@@ -17,6 +17,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 
+import static io.airlift.slice.Slices.EMPTY_SLICE;
+
 public abstract class AbstractVariableWidthBlock
         implements Block
 {
@@ -127,7 +129,7 @@ public abstract class AbstractVariableWidthBlock
     public Block getSingleValueBlock(int position)
     {
         if (isNull(position)) {
-            return new VariableWidthBlock(1, Slices.wrappedBuffer(new byte[0]), Slices.wrappedIntArray(0, 0), Slices.wrappedBooleanArray(true));
+            return new VariableWidthBlock(1, EMPTY_SLICE, new int[] {0, 0}, new boolean[] {true});
         }
 
         int offset = getPositionOffset(position);
@@ -135,7 +137,7 @@ public abstract class AbstractVariableWidthBlock
 
         Slice copy = Slices.copyOf(getRawSlice(position), offset, entrySize);
 
-        return new VariableWidthBlock(1, copy, Slices.wrappedIntArray(0, copy.length()), Slices.wrappedBooleanArray(false));
+        return new VariableWidthBlock(1, copy, new int[] {0, copy.length()}, new boolean[] {false});
     }
 
     @Override
@@ -145,7 +147,7 @@ public abstract class AbstractVariableWidthBlock
         return isEntryNull(position);
     }
 
-    private void checkReadablePosition(int position)
+    protected void checkReadablePosition(int position)
     {
         if (position < 0 || position >= getPositionCount()) {
             throw new IllegalArgumentException("position is not valid");
