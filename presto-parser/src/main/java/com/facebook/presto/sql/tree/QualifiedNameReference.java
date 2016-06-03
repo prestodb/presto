@@ -16,10 +16,18 @@ package com.facebook.presto.sql.tree;
 import java.util.Objects;
 import java.util.Optional;
 
+import static java.util.Objects.requireNonNull;
+
 public class QualifiedNameReference
         extends Expression
 {
     private final QualifiedName name;
+
+    public static QualifiedNameReference of(QualifiedName name)
+    {
+        requireNonNull(name, "name is null");
+        return new QualifiedNameReference(name);
+    }
 
     public QualifiedNameReference(QualifiedName name)
     {

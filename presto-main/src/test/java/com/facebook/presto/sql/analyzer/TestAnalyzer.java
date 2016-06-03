@@ -105,6 +105,30 @@ public class TestAnalyzer
     private Metadata metadata;
 
     @Test
+    public void testOrderByByOutputColumnName()
+    {
+        analyze("SELECT a AS col1, b AS col2 FROM t1 ORDER BY col1 ASC, col2 DESC");
+    }
+
+    @Test
+    public void testOrderByByOutputColumnOrdinalNumber()
+    {
+        analyze("SELECT a AS col1, b AS col2 FROM t1 ORDER BY 1 ASC, 2 DESC");
+    }
+
+    @Test
+    public void testGroupByOutputColumnName()
+    {
+        analyze("SELECT a AS col1, b AS col2 FROM t1 GROUP BY col1, col2");
+    }
+
+    @Test
+    public void testGroupByOutputColumnOrdinalNumber()
+    {
+        analyze("SELECT a AS col1, b AS col2 FROM t1 GROUP BY 1, 2");
+    }
+
+    @Test
     public void testNonComparableGroupBy()
             throws Exception
     {

@@ -29,26 +29,26 @@ import static java.util.stream.Collectors.toSet;
 public class Rollup
         extends GroupingElement
 {
-    private final List<QualifiedName> columns;
+    private final List<Expression> columns;
 
-    public Rollup(List<QualifiedName> columns)
+    public Rollup(List<Expression> columns)
     {
         this(Optional.empty(), columns);
     }
 
-    public Rollup(NodeLocation location, List<QualifiedName> columns)
+    public Rollup(NodeLocation location, List<Expression> columns)
     {
         this(Optional.of(location), columns);
     }
 
-    private Rollup(Optional<NodeLocation> location, List<QualifiedName> columns)
+    private Rollup(Optional<NodeLocation> location, List<Expression> columns)
     {
         super(location);
         requireNonNull(columns, "columns is null");
         this.columns = columns;
     }
 
-    public List<QualifiedName> getColumns()
+    public List<Expression> getColumns()
     {
         return columns;
     }
@@ -60,8 +60,6 @@ public class Rollup
         List<Set<Expression>> enumeratedGroupingSets = IntStream.range(0, numColumns)
                 .mapToObj(i -> columns.subList(0, numColumns - i)
                         .stream()
-                        .map(QualifiedNameReference::new)
-                        .map(Expression.class::cast)
                         .collect(toSet()))
                 .collect(toList());
         enumeratedGroupingSets.add(ImmutableSet.of());

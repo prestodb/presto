@@ -979,7 +979,7 @@ public class TestSqlParser
                                 selectList(new AllColumns()),
                                 Optional.of(new Table(QualifiedName.of("table1"))),
                                 Optional.empty(),
-                                Optional.of(new GroupBy(false, ImmutableList.of(new GroupingSets(ImmutableList.of(ImmutableList.of(QualifiedName.of("a"))))))),
+                                Optional.of(new GroupBy(false, ImmutableList.of(new GroupingSets(ImmutableList.of(ImmutableList.of(QualifiedNameReference.of(QualifiedName.of("a")))))))),
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),
@@ -996,11 +996,11 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.of(new GroupBy(false, ImmutableList.of(
                                         new GroupingSets(
-                                                ImmutableList.of(ImmutableList.of(QualifiedName.of("a"), QualifiedName.of("b")),
-                                                ImmutableList.of(QualifiedName.of("a")),
+                                                ImmutableList.of(ImmutableList.of(QualifiedNameReference.of(QualifiedName.of("a")), QualifiedNameReference.of(QualifiedName.of("b"))),
+                                                ImmutableList.of(QualifiedNameReference.of(QualifiedName.of("a"))),
                                                 ImmutableList.of())),
-                                        new Cube(ImmutableList.of(QualifiedName.of("c"))),
-                                        new Rollup(ImmutableList.of(QualifiedName.of("d")))))),
+                                        new Cube(ImmutableList.of(QualifiedNameReference.of(QualifiedName.of("c")))),
+                                        new Rollup(ImmutableList.of(QualifiedNameReference.of(QualifiedName.of("d"))))))),
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),
@@ -1016,18 +1016,18 @@ public class TestSqlParser
                                 Optional.of(new Table(QualifiedName.of("table1"))),
                                 Optional.empty(),
                                 Optional.of(new GroupBy(true, ImmutableList.of(
-                                        new GroupingSets(
-                                                ImmutableList.of(ImmutableList.of(QualifiedName.of("a"), QualifiedName.of("b")),
-                                                        ImmutableList.of(QualifiedName.of("a")),
-                                                        ImmutableList.of())),
-                                        new Cube(ImmutableList.of(QualifiedName.of("c"))),
-                                        new Rollup(ImmutableList.of(QualifiedName.of("d")))))),
-                                Optional.empty(),
-                                ImmutableList.of(),
-                                Optional.empty()),
-                        ImmutableList.<SortItem>of(),
-                        Optional.empty(),
-                        Optional.empty()));
+                                                new GroupingSets(
+                                                        ImmutableList.of(ImmutableList.of(QualifiedNameReference.of(QualifiedName.of("a")), QualifiedNameReference.of(QualifiedName.of("b"))),
+                                                                ImmutableList.of(QualifiedNameReference.of(QualifiedName.of("a"))),
+                                                                ImmutableList.of())),
+                                                        new Cube(ImmutableList.of(QualifiedNameReference.of(QualifiedName.of("c")))),
+                                                        new Rollup(ImmutableList.of(QualifiedNameReference.of(QualifiedName.of("d"))))))),
+                                                Optional.empty(),
+                                                ImmutableList.of(),
+                                                Optional.empty()),
+                                        ImmutableList.<SortItem>of(),
+                                        Optional.empty(),
+                                        Optional.empty()));
     }
 
     @Test

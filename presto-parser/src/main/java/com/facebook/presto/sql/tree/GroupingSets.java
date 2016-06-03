@@ -28,19 +28,19 @@ import static java.util.stream.Collectors.collectingAndThen;
 public class GroupingSets
         extends GroupingElement
 {
-    private final List<List<QualifiedName>> sets;
+    private final List<List<Expression>> sets;
 
-    public GroupingSets(List<List<QualifiedName>> groupingSetList)
+    public GroupingSets(List<List<Expression>> groupingSetList)
     {
         this(Optional.empty(), groupingSetList);
     }
 
-    public GroupingSets(NodeLocation location, List<List<QualifiedName>> sets)
+    public GroupingSets(NodeLocation location, List<List<Expression>> sets)
     {
         this(Optional.of(location), sets);
     }
 
-    private GroupingSets(Optional<NodeLocation> location, List<List<QualifiedName>> sets)
+    private GroupingSets(Optional<NodeLocation> location, List<List<Expression>> sets)
     {
         super(location);
         requireNonNull(sets);
@@ -53,9 +53,8 @@ public class GroupingSets
     {
         return sets.stream()
                 .map(groupingSet -> groupingSet.stream()
-                        .map(QualifiedNameReference::new)
                         .collect(Collectors.<Expression>toSet()))
-                .collect(collectingAndThen(Collectors.toList(), Collections::unmodifiableList));
+                        .collect(collectingAndThen(Collectors.toList(), Collections::unmodifiableList));
     }
 
     @Override

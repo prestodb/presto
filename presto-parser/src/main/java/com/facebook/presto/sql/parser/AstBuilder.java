@@ -450,38 +450,37 @@ class AstBuilder
     @Override
     public Node visitGroupBy(SqlBaseParser.GroupByContext context)
     {
-        return new GroupBy(getLocation(context), isDistinct(context.setQuantifier()), visit(context.groupingElement(), GroupingElement.class));
+        return new GroupBy(
+                getLocation(context),
+                isDistinct(context.setQuantifier()),
+                visit(context.groupingElement(), GroupingElement.class));
     }
 
     @Override
     public Node visitSingleGroupingSet(SqlBaseParser.SingleGroupingSetContext context)
     {
-        return new SimpleGroupBy(getLocation(context), visit(context.groupingExpressions().expression(), Expression.class));
+        return new SimpleGroupBy(
+                getLocation(context),
+                visit(context.groupingExpressions().expression(), Expression.class));
     }
 
     @Override
     public Node visitRollup(SqlBaseParser.RollupContext context)
     {
-        return new Rollup(getLocation(context), context.qualifiedName().stream()
-                .map(AstBuilder::getQualifiedName)
-                .collect(toList()));
+        return new Rollup(getLocation(context), visit(context.expression(), Expression.class));
     }
 
     @Override
     public Node visitCube(SqlBaseParser.CubeContext context)
     {
-        return new Cube(getLocation(context), context.qualifiedName().stream()
-                .map(AstBuilder::getQualifiedName)
-                .collect(toList()));
+        return new Cube(getLocation(context), visit(context.expression(), Expression.class));
     }
 
     @Override
     public Node visitMultipleGroupingSets(SqlBaseParser.MultipleGroupingSetsContext context)
     {
         return new GroupingSets(getLocation(context), context.groupingSet().stream()
-                .map(groupingSet -> groupingSet.qualifiedName().stream()
-                        .map(AstBuilder::getQualifiedName)
-                        .collect(toList()))
+                .map(groupingSet -> visit(groupingSet.expression(), Expression.class))
                 .collect(toList()));
     }
 

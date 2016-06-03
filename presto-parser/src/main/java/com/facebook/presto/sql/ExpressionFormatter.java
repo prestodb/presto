@@ -637,9 +637,11 @@ public final class ExpressionFormatter
                 .iterator()));
     }
 
-    private static String formatGroupingSet(List<QualifiedName> groupingSet)
+    private static String formatGroupingSet(List<Expression> groupingSet)
     {
-        return format("(%s)", Joiner.on(", ").join(groupingSet));
+        return format("(%s)", Joiner.on(", ").join(groupingSet.stream()
+                .map(ExpressionFormatter::formatExpression)
+                .iterator()));
     }
 
     private static Function<SortItem, String> sortItemFormatterFunction(boolean unmangleNames)

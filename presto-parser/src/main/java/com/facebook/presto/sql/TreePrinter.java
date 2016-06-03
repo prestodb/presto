@@ -25,6 +25,7 @@ import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.GroupingElement;
 import com.facebook.presto.sql.tree.GroupingSets;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -122,41 +123,7 @@ public class TreePrinter
                 }
 
                 if (node.getGroupBy().isPresent()) {
-                    String distinct = "";
-                    if (node.getGroupBy().get().isDistinct()) {
-                        distinct = "[DISTINCT]";
-                    }
-                    print(indentLevel, "GroupBy" + distinct);
-                    for (GroupingElement groupingElement : node.getGroupBy().get().getGroupingElements()) {
-                        print(indentLevel, "SimpleGroupBy");
-                        if (groupingElement instanceof SimpleGroupBy) {
-                            for (Expression column : ((SimpleGroupBy) groupingElement).getColumnExpressions()) {
-                                process(column, indentLevel + 1);
-                            }
-                        }
-                        else if (groupingElement instanceof GroupingSets) {
-                            print(indentLevel + 1, "GroupingSets");
-                            for (Set<Expression> column : groupingElement.enumerateGroupingSets()) {
-                                print(indentLevel + 2, "GroupingSet[");
-                                for (Expression expression : column) {
-                                    process(expression, indentLevel + 3);
-                                }
-                                print(indentLevel + 2, "]");
-                            }
-                        }
-                        else if (groupingElement instanceof Cube) {
-                            print(indentLevel + 1, "Cube");
-                            for (QualifiedName column : ((Cube) groupingElement).getColumns()) {
-                                print(indentLevel + 1, column.toString());
-                            }
-                        }
-                        else if (groupingElement instanceof Rollup) {
-                            print(indentLevel + 1, "Rollup");
-                            for (QualifiedName column : ((Rollup) groupingElement).getColumns()) {
-                                print(indentLevel + 1, column.toString());
-                            }
-                        }
-                    }
+                    process(node.getGroupBy().get(), indentLevel);
                 }
 
                 if (node.getHaving().isPresent()) {
@@ -175,6 +142,65 @@ public class TreePrinter
                     print(indentLevel, "Limit: " + node.getLimit().get());
                 }
 
+                return null;
+            }
+
+            @Override
+            protected Void visitGroupBy(GroupBy node, Integer indentLevel)
+            {
+                String distinct = "";
+                if (node.isDistinct()) {
+                    distinct = "[DISTINCT]";
+                }
+                print(indentLevel, "GroupBy" + distinct);
+                for (GroupingElement groupingElement : node.getGroupingElements()) {
+                    process(groupingElement, indentLevel + 1);
+                }
+
+                return null;
+            }
+
+            @Override
+            protected Void visitSimpleGroupBy(SimpleGroupBy node, Integer indentLevel)
+            {
+                print(indentLevel, "SimpleGroupBy");
+                for (Expression column : node.getColumnExpressions()) {
+                    process(column, indentLevel + 1);
+                }
+                return null;
+            }
+
+            @Override
+            protected Void visitCube(Cube node, Integer indentLevel)
+            {
+                print(indentLevel, "Cube");
+                for (Expression column : node.getColumns()) {
+                    process(column, indentLevel + 1);
+                }
+                return null;
+            }
+
+            @Override
+            protected Void visitRollup(Rollup node, Integer indentLevel)
+            {
+                print(indentLevel, "Rollup");
+                for (Expression column : node.getColumns()) {
+                    process(column, indentLevel + 1);
+                }
+                return null;
+            }
+
+            @Override
+            protected Void visitGroupingSets(GroupingSets node, Integer indentLevel)
+            {
+                print(indentLevel, "GroupingSets");
+                for (Set<Expression> column : node.enumerateGroupingSets()) {
+                    print(indentLevel + 1, "GroupingSet[");
+                    for (Expression expression : column) {
+                        process(expression, indentLevel + 2);
+                    }
+                    print(indentLevel + 1, "]");
+                }
                 return null;
             }
 

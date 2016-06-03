@@ -1162,19 +1162,19 @@ class StatementAnalyzer
         AnalysisContext context = new AnalysisContext(parentContext, new RelationType());
 
         RelationType sourceType = analyzeFrom(node, context);
+        SelectAnalysis selectAnalysis = analyzeSelect(node, sourceType, context);
 
         node.getWhere().ifPresent(where -> analyzeWhere(node, sourceType, context, where));
 
-        List<Expression> outputExpressions = analyzeSelect(node, sourceType, context);
-        List<List<Expression>> groupByExpressions = analyzeGroupBy(node, sourceType, context, outputExpressions);
+        List<List<Expression>> groupByExpressions = analyzeGroupBy(node, sourceType, context, selectAnalysis.outputExpressions, selectAnalysis.aliasMap);
 
         RelationType outputType = computeOutputDescriptor(node, sourceType);
 
-        List<Expression> orderByExpressions = analyzeOrderBy(node, sourceType, outputType, context, outputExpressions);
+        List<Expression> orderByExpressions = analyzeOrderBy(node, sourceType, outputType, context, selectAnalysis.outputExpressions, selectAnalysis.aliasMap);
         analyzeHaving(node, sourceType, context);
 
-        analyzeAggregations(node, sourceType, groupByExpressions, outputExpressions, orderByExpressions, context, analysis.getColumnReferences());
-        analyzeWindowFunctions(node, outputExpressions, orderByExpressions);
+        analyzeAggregations(node, sourceType, groupByExpressions, selectAnalysis.outputExpressions, orderByExpressions, context, analysis.getColumnReferences());
+        analyzeWindowFunctions(node, selectAnalysis.outputExpressions, orderByExpressions);
 
         analysis.setOutputDescriptor(node, outputType);
 
@@ -1592,25 +1592,13 @@ class StatementAnalyzer
         }
     }
 
-    private List<Expression> analyzeOrderBy(QuerySpecification node, RelationType sourceType, RelationType outputType, AnalysisContext context, List<Expression> outputExpressions)
+    private List<Expression> analyzeOrderBy(QuerySpecification node, RelationType sourceType, RelationType outputType, AnalysisContext context, List<Expression> outputExpressions, Multimap<QualifiedName, Expression> byAlias)
     {
         List<SortItem> items = node.getOrderBy();
 
         ImmutableList.Builder<Expression> orderByExpressionsBuilder = ImmutableList.builder();
 
         if (!items.isEmpty()) {
-            // Compute aliased output terms so we can resolve order by expressions against them first
-            ImmutableMultimap.Builder<QualifiedName, Expression> byAliasBuilder = ImmutableMultimap.builder();
-            for (SelectItem item : node.getSelect().getSelectItems()) {
-                if (item instanceof SingleColumn) {
-                    Optional<String> alias = ((SingleColumn) item).getAlias();
-                    if (alias.isPresent()) {
-                        byAliasBuilder.put(QualifiedName.of(alias.get()), ((SingleColumn) item).getExpression()); // TODO: need to know if alias was quoted
-                    }
-                }
-            }
-            Multimap<QualifiedName, Expression> byAlias = byAliasBuilder.build();
-
             for (SortItem item : items) {
                 Expression expression = item.getSortKey();
 
@@ -1672,7 +1660,7 @@ class StatementAnalyzer
         return orderByExpressions;
     }
 
-    private List<List<Expression>> analyzeGroupBy(QuerySpecification node, RelationType tupleDescriptor, AnalysisContext context, List<Expression> outputExpressions)
+    private List<List<Expression>> analyzeGroupBy(QuerySpecification node, RelationType tupleDescriptor, AnalysisContext context, List<Expression> outputExpressions, Multimap<QualifiedName, Expression> aliasMap)
     {
         List<Set<Expression>> computedGroupingSets = ImmutableList.of(); // empty list = no aggregations
 
@@ -1691,7 +1679,7 @@ class StatementAnalyzer
         }
 
         List<List<Expression>> analyzedGroupingSets = computedGroupingSets.stream()
-                .map(groupingSet -> analyzeGroupingColumns(groupingSet, node, tupleDescriptor, context, outputExpressions))
+                .map(groupingSet -> analyzeGroupingColumns(groupingSet, node, tupleDescriptor, context, outputExpressions, aliasMap))
                 .collect(toImmutableList());
 
         analysis.setGroupingSets(node, analyzedGroupingSets);
@@ -1730,14 +1718,28 @@ class StatementAnalyzer
         return groupingSetsCrossProduct;
     }
 
-    private List<Expression> analyzeGroupingColumns(Set<Expression> groupingColumns, QuerySpecification node, RelationType tupleDescriptor, AnalysisContext context, List<Expression> outputExpressions)
+    private List<Expression> analyzeGroupingColumns(Set<Expression> groupingColumns, QuerySpecification node, RelationType tupleDescriptor, AnalysisContext context, List<Expression> outputExpressions, Multimap<QualifiedName, Expression> byAlias)
     {
         ImmutableList.Builder<Expression> groupingColumnsBuilder = ImmutableList.builder();
         for (Expression groupingColumn : groupingColumns) {
-            // first, see if this is an ordinal
-            Expression groupByExpression;
+            Expression groupByExpression = null;
 
-            if (groupingColumn instanceof LongLiteral) {
+            if (groupingColumn instanceof QualifiedNameReference && !((QualifiedNameReference) groupingColumn).getName().getPrefix().isPresent()) {
+                // if this is a simple name reference, try to resolve against output columns
+
+                QualifiedName name = ((QualifiedNameReference) groupingColumn).getName();
+                Collection<Expression> expressions = byAlias.get(name);
+                if (expressions.size() > 1) {
+                    throw new SemanticException(AMBIGUOUS_ATTRIBUTE, groupingColumn, "'%s' in ORDER BY is ambiguous", name.getSuffix());
+                }
+                if (expressions.size() == 1) {
+                    groupByExpression = Iterables.getOnlyElement(expressions);
+                }
+
+                // otherwise, couldn't resolve name against output aliases, so fall through...
+            }
+            else if (groupingColumn instanceof LongLiteral) {
+                // output column ordinal number
                 long ordinal = ((LongLiteral) groupingColumn).getValue();
                 if (ordinal < 1 || ordinal > outputExpressions.size()) {
                     throw new SemanticException(INVALID_ORDINAL, groupingColumn, "GROUP BY position %s is not in select list", ordinal);
@@ -1745,11 +1747,13 @@ class StatementAnalyzer
 
                 groupByExpression = outputExpressions.get(Ints.checkedCast(ordinal - 1));
             }
-            else {
-                ExpressionAnalysis expressionAnalysis = analyzeExpression(groupingColumn, tupleDescriptor, context);
-                analysis.recordSubqueries(node, expressionAnalysis);
+
+            if (groupByExpression == null) {
                 groupByExpression = groupingColumn;
             }
+
+            ExpressionAnalysis expressionAnalysis = analyzeExpression(groupByExpression, tupleDescriptor, context);
+            analysis.recordSubqueries(node, expressionAnalysis);
 
             Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, groupByExpression, "GROUP BY");
             Type type = analysis.getType(groupByExpression);
@@ -1803,9 +1807,12 @@ class StatementAnalyzer
         return new RelationType(outputFields.build());
     }
 
-    private List<Expression> analyzeSelect(QuerySpecification node, RelationType tupleDescriptor, AnalysisContext context)
+    private SelectAnalysis analyzeSelect(QuerySpecification node, RelationType tupleDescriptor, AnalysisContext context)
     {
         ImmutableList.Builder<Expression> outputExpressionBuilder = ImmutableList.builder();
+
+        // Compute aliased output terms so we can resolve order by expressions against them first
+        ImmutableMultimap.Builder<QualifiedName, Expression> byAliasBuilder = ImmutableMultimap.builder();
 
         for (SelectItem item : node.getSelect().getSelectItems()) {
             if (item instanceof AllColumns) {
@@ -1842,16 +1849,23 @@ class StatementAnalyzer
                 if (node.getSelect().isDistinct() && !type.isComparable()) {
                     throw new SemanticException(TYPE_MISMATCH, node.getSelect(), "DISTINCT can only be applied to comparable types (actual: %s): %s", type, column.getExpression());
                 }
+
+                Optional<String> alias = column.getAlias();
+                if (alias.isPresent()) {
+                    byAliasBuilder.put(QualifiedName.of(alias.get()), ((SingleColumn) item).getExpression()); // TODO: need to know if alias was quoted
+                }
             }
             else {
                 throw new IllegalArgumentException("Unsupported SelectItem type: " + item.getClass().getName());
             }
         }
 
-        ImmutableList<Expression> result = outputExpressionBuilder.build();
-        analysis.setOutputExpressions(node, result);
+        ImmutableList<Expression> outputExpressions = outputExpressionBuilder.build();
+        Multimap<QualifiedName, Expression> aliasMap = byAliasBuilder.build();
 
-        return result;
+        analysis.setOutputExpressions(node, outputExpressions);
+
+        return new SelectAnalysis(outputExpressions, aliasMap);
     }
 
     public void analyzeWhere(Node node, RelationType tupleDescriptor, AnalysisContext context, Expression predicate)
@@ -2121,5 +2135,17 @@ class StatementAnalyzer
     private static Relation from(String catalog, SchemaTableName table)
     {
         return table(QualifiedName.of(catalog, table.getSchemaName(), table.getTableName()));
+    }
+
+    private static class SelectAnalysis
+    {
+        public final List<Expression> outputExpressions;
+        public final Multimap<QualifiedName, Expression> aliasMap;
+
+        public SelectAnalysis(List<Expression> outputExpressions, Multimap<QualifiedName, Expression> aliasMap)
+        {
+            this.outputExpressions = outputExpressions;
+            this.aliasMap = aliasMap;
+        }
     }
 }
