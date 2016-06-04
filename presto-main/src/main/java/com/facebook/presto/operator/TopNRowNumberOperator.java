@@ -315,7 +315,7 @@ public class TopNRowNumberOperator
                 pageBuilder.declarePosition();
                 for (int i = 0; i < outputChannels.length; i++) {
                     int channel = outputChannels[i];
-                    Type type = types.get(channel);
+                    Type type = types.get(i);
                     type.appendTo(next[channel], 0, pageBuilder.getBlockBuilder(i));
                 }
                 if (generateRowNumber) {

@@ -414,6 +414,7 @@ public class PlanPrinter
                         new QualifiedNameReference(clause.getLeft().toQualifiedName()),
                         new QualifiedNameReference(clause.getRight().toQualifiedName())));
             }
+            node.getFilter().ifPresent(expression -> joinExpressions.add(expression));
 
             print(indent, "- %s[%s] => [%s]", node.getType().getJoinLabel(), Joiner.on(" AND ").join(joinExpressions), formatOutputs(node.getOutputSymbols()));
             printStats(indent + 2, node.getId());
