@@ -247,14 +247,19 @@ public final class BlockAssertions
 
     public static Block createLongsBlock(Iterable<Long> values)
     {
-        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 100);
+        return createTypedLongsBlock(BIGINT, values);
+    }
+
+    public static Block createTypedLongsBlock(Type type, Iterable<Long> values)
+    {
+        BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), 100);
 
         for (Long value : values) {
             if (value == null) {
                 builder.appendNull();
             }
             else {
-                BIGINT.writeLong(builder, value);
+                type.writeLong(builder, value);
             }
         }
 

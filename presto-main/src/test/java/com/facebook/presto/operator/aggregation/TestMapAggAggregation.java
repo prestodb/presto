@@ -31,9 +31,9 @@ import java.util.Optional;
 
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
-import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringArraysBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
+import static com.facebook.presto.block.BlockAssertions.createTypedLongsBlock;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.operator.OperatorAssertion.toRow;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
@@ -79,7 +79,7 @@ public class TestMapAggAggregation
                 1.0,
                 ImmutableMap.of(1.0, 99, 2.0, 99, 3.0, 99),
                 createDoublesBlock(1.0, 2.0, 3.0),
-                createLongsBlock(99, 99, 99));
+                createTypedLongsBlock(INTEGER, ImmutableList.of(99L, 99L, 99L)));
     }
 
     @Test
@@ -112,7 +112,7 @@ public class TestMapAggAggregation
                 1.0,
                 ImmutableMap.of(1.0, 3, 2.0, 2, 3.0, 1),
                 createDoublesBlock(1.0, 2.0, 3.0),
-                createLongsBlock(3, 2, 1));
+                createTypedLongsBlock(INTEGER, ImmutableList.of(3L, 2L, 1L)));
 
         mapType = new MapType(DOUBLE, BOOLEAN);
         aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
