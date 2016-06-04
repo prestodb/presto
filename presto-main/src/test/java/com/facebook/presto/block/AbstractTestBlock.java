@@ -30,13 +30,9 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
-import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
-import static io.airlift.slice.SizeOf.SIZE_OF_FLOAT;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
-import static java.lang.Double.doubleToLongBits;
-import static java.lang.Float.floatToIntBits;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -132,14 +128,6 @@ public abstract class AbstractTestBlock
 
             for (int offset = 0; offset <= length - SIZE_OF_LONG; offset++) {
                 assertEquals(block.getLong(position, offset), expectedSliceValue.getLong(offset));
-            }
-
-            for (int offset = 0; offset <= length - SIZE_OF_FLOAT; offset++) {
-                assertEquals(floatToIntBits(block.getFloat(position, offset)), floatToIntBits(expectedSliceValue.getFloat(offset)));
-            }
-
-            for (int offset = 0; offset <= length - SIZE_OF_DOUBLE; offset++) {
-                assertEquals(doubleToLongBits(block.getDouble(position, offset)), doubleToLongBits(expectedSliceValue.getDouble(offset)));
             }
 
             Block expectedBlock = toSingeValuedBlock(expectedSliceValue);

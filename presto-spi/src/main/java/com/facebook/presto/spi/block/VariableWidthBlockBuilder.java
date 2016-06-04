@@ -25,8 +25,6 @@ import java.util.Objects;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
-import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
-import static io.airlift.slice.SizeOf.SIZE_OF_FLOAT;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
@@ -148,22 +146,6 @@ public class VariableWidthBlockBuilder
     {
         sliceOutput.writeLong(value);
         currentEntrySize += SIZE_OF_LONG;
-        return this;
-    }
-
-    @Override
-    public BlockBuilder writeFloat(float value)
-    {
-        sliceOutput.writeFloat(value);
-        currentEntrySize += SIZE_OF_FLOAT;
-        return this;
-    }
-
-    @Override
-    public BlockBuilder writeDouble(double value)
-    {
-        sliceOutput.writeDouble(value);
-        currentEntrySize += SIZE_OF_DOUBLE;
         return this;
     }
 

@@ -167,24 +167,6 @@ public class InterleavedBlockBuilder
     }
 
     @Override
-    public BlockBuilder writeFloat(float value)
-    {
-        BlockBuilder blockBuilder = blockBuilders[currentBlockIndex];
-        recordStartSizesIfNecessary(blockBuilder);
-        blockBuilder.writeFloat(value);
-        return this;
-    }
-
-    @Override
-    public BlockBuilder writeDouble(double value)
-    {
-        BlockBuilder blockBuilder = blockBuilders[currentBlockIndex];
-        recordStartSizesIfNecessary(blockBuilder);
-        blockBuilder.writeDouble(value);
-        return this;
-    }
-
-    @Override
     public BlockBuilder writeBytes(Slice source, int sourceIndex, int length)
     {
         BlockBuilder blockBuilder = blockBuilders[currentBlockIndex];

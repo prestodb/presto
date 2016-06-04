@@ -22,6 +22,8 @@ import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static io.airlift.slice.SizeOf.SIZE_OF_FLOAT;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Float.intBitsToFloat;
+import static java.lang.String.format;
 
 public final class FloatType
         extends AbstractFixedWidthType
@@ -51,21 +53,21 @@ public final class FloatType
         if (block.isNull(position)) {
             return null;
         }
-        return block.getFloat(position, 0);
+        return intBitsToFloat(block.getInt(position, 0));
     }
 
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        float leftValue = leftBlock.getFloat(leftPosition, 0);
-        float rightValue = rightBlock.getFloat(rightPosition, 0);
+        float leftValue = intBitsToFloat(leftBlock.getInt(leftPosition, 0));
+        float rightValue = intBitsToFloat(rightBlock.getInt(rightPosition, 0));
         return leftValue == rightValue;
     }
 
     @Override
     public long hash(Block block, int position)
     {
-        return (long) floatToRawIntBits(block.getFloat(position, 0));
+        return floatToRawIntBits(block.getInt(position, 0));
     }
 
     @Override
@@ -73,8 +75,8 @@ public final class FloatType
     {
         // WARNING: the correctness of InCodeGenerator is dependent on the implementation of this
         // function being the equivalence of internal long representation.
-        float leftValue = leftBlock.getFloat(leftPosition, 0);
-        float rightValue = rightBlock.getFloat(rightPosition, 0);
+        float leftValue = intBitsToFloat(leftBlock.getInt(leftPosition, 0));
+        float rightValue = intBitsToFloat(rightBlock.getInt(rightPosition, 0));
         return Float.compare(leftValue, rightValue);
     }
 
@@ -92,7 +94,7 @@ public final class FloatType
     @Override
     public long getLong(Block block, int position)
     {
-        return (long) block.getInt(position, 0);
+        return block.getInt(position, 0);
     }
 
     @Override
@@ -102,8 +104,7 @@ public final class FloatType
             Math.toIntExact(value);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(INTERNAL_ERROR,
-                    String.format("Value (%sb) is not a valid single-precision float", value, Long.toBinaryString(value).replace(' ', '0')));
+            throw new PrestoException(INTERNAL_ERROR, format("Value (%sb) is not a valid single-precision float", Long.toBinaryString(value).replace(' ', '0')));
         }
         blockBuilder.writeInt((int) value).closeEntry();
     }

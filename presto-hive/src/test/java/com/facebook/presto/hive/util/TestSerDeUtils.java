@@ -56,6 +56,7 @@ import static com.facebook.presto.tests.StructuralTestUtil.arrayBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.mapBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.rowBlockOf;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Double.doubleToLongBits;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.ObjectInspectorOptions;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getReflectionObjectInspector;
@@ -137,12 +138,12 @@ public class TestSerDeUtils
         assertBlockEquals(actualLong, expectedLong);
 
         // float
-        Block expectedFloat = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1).writeDouble(20.0).closeEntry().build();
+        Block expectedFloat = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1).writeLong(doubleToLongBits(20.0)).closeEntry().build();
         Block actualFloat = toBinaryBlock(DOUBLE, 20.0f, getInspector(Float.class));
         assertBlockEquals(actualFloat, expectedFloat);
 
         // double
-        Block expectedDouble = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1).writeDouble(30.12).closeEntry().build();
+        Block expectedDouble = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1).writeLong(doubleToLongBits(30.12)).closeEntry().build();
         Block actualDouble = toBinaryBlock(DOUBLE, 30.12d, getInspector(Double.class));
         assertBlockEquals(actualDouble, expectedDouble);
 

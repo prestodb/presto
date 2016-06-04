@@ -139,18 +139,6 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public float getFloat(int position, int offset)
-    {
-        return value.getFloat(0, offset);
-    }
-
-    @Override
-    public double getDouble(int position, int offset)
-    {
-        return value.getDouble(0, offset);
-    }
-
-    @Override
     public Slice getSlice(int position, int offset, int length)
     {
         return value.getSlice(0, offset, length);

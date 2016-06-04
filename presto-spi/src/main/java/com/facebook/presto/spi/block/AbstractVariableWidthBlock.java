@@ -61,20 +61,6 @@ public abstract class AbstractVariableWidthBlock
     }
 
     @Override
-    public float getFloat(int position, int offset)
-    {
-        checkReadablePosition(position);
-        return getRawSlice(position).getFloat(getPositionOffset(position) + offset);
-    }
-
-    @Override
-    public double getDouble(int position, int offset)
-    {
-        checkReadablePosition(position);
-        return getRawSlice(position).getDouble(getPositionOffset(position) + offset);
-    }
-
-    @Override
     public Slice getSlice(int position, int offset, int length)
     {
         checkReadablePosition(position);

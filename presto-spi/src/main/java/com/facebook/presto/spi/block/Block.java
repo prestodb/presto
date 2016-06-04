@@ -57,22 +57,6 @@ public interface Block
     }
 
     /**
-     * Gets a little endian float at {@code offset} in the value at {@code position}.
-     */
-    default float getFloat(int position, int offset)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    /**
-     * Gets a little endian double at {@code offset} in the value at {@code position}.
-     */
-    default double getDouble(int position, int offset)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    /**
      * Gets a slice at {@code offset} in the value at {@code position}.
      */
     default Slice getSlice(int position, int offset, int length)
