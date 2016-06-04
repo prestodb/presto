@@ -64,8 +64,7 @@ public final class TimestampWithTimeZoneType
     @Override
     public long hash(Block block, int position)
     {
-        long value = unpackMillisUtc(block.getLong(position, 0));
-        return (int) (value ^ (value >>> 32));
+        return unpackMillisUtc(block.getLong(position, 0));
     }
 
     @Override

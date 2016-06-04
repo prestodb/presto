@@ -159,6 +159,6 @@ public final class IntervalDayTimeOperators
     @SqlType(StandardTypes.BIGINT)
     public static long hashCode(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long value)
     {
-        return (int) (value ^ (value >>> 32));
+        return value;
     }
 }

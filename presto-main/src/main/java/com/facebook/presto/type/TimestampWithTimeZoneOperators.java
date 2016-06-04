@@ -160,7 +160,6 @@ public final class TimestampWithTimeZoneOperators
     @SqlType(StandardTypes.BIGINT)
     public static long hashCode(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value)
     {
-        long millis = unpackMillisUtc(value);
-        return (int) (millis ^ (millis >>> 32));
+        return unpackMillisUtc(value);
     }
 }

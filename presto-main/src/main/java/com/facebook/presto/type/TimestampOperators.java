@@ -155,6 +155,6 @@ public final class TimestampOperators
     @SqlType(StandardTypes.BIGINT)
     public static long hashCode(@SqlType(StandardTypes.TIMESTAMP) long value)
     {
-        return (int) (value ^ (value >>> 32));
+        return value;
     }
 }
