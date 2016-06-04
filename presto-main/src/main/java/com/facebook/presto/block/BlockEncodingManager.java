@@ -24,6 +24,7 @@ import com.facebook.presto.spi.block.InterleavedBlockEncoding;
 import com.facebook.presto.spi.block.LazySliceArrayBlockEncoding;
 import com.facebook.presto.spi.block.LongArrayBlockEncoding;
 import com.facebook.presto.spi.block.RunLengthBlockEncoding;
+import com.facebook.presto.spi.block.ShortArrayBlockEncoding;
 import com.facebook.presto.spi.block.SliceArrayBlockEncoding;
 import com.facebook.presto.spi.block.VariableWidthBlockEncoding;
 import com.facebook.presto.spi.type.TypeManager;
@@ -62,6 +63,7 @@ public final class BlockEncodingManager
         // always add the built-in BlockEncodingFactories
         addBlockEncodingFactory(VariableWidthBlockEncoding.FACTORY);
         addBlockEncodingFactory(FixedWidthBlockEncoding.FACTORY);
+        addBlockEncodingFactory(ShortArrayBlockEncoding.FACTORY);
         addBlockEncodingFactory(IntArrayBlockEncoding.FACTORY);
         addBlockEncodingFactory(LongArrayBlockEncoding.FACTORY);
         addBlockEncodingFactory(SliceArrayBlockEncoding.FACTORY);
