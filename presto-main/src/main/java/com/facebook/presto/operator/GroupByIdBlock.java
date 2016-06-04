@@ -93,18 +93,6 @@ public class GroupByIdBlock
     }
 
     @Override
-    public float getFloat(int position, int offset)
-    {
-        return block.getFloat(position, offset);
-    }
-
-    @Override
-    public double getDouble(int position, int offset)
-    {
-        return block.getDouble(position, offset);
-    }
-
-    @Override
     public Slice getSlice(int position, int offset, int length)
     {
         return block.getSlice(position, offset, length);

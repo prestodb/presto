@@ -46,6 +46,7 @@ import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
 import static com.facebook.presto.util.StructuralTestUtil.mapBlockOf;
+import static java.lang.Double.doubleToLongBits;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 
@@ -74,7 +75,7 @@ public class TestMapOperators
         writeBlock(actualSliceOutput, actualBlock);
 
         Block expectedBlock = new InterleavedBlockBuilder(ImmutableList.<Type>of(DOUBLE, new ArrayType(BIGINT)), new BlockBuilderStatus(), 3)
-                .writeDouble(1.0)
+                .writeLong(doubleToLongBits(1.0))
                 .closeEntry()
                 .writeObject(
                         BIGINT

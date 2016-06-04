@@ -130,18 +130,6 @@ public class DictionaryBlock
     }
 
     @Override
-    public float getFloat(int position, int offset)
-    {
-        return dictionary.getFloat(getIndex(position), offset);
-    }
-
-    @Override
-    public double getDouble(int position, int offset)
-    {
-        return dictionary.getDouble(getIndex(position), offset);
-    }
-
-    @Override
     public Slice getSlice(int position, int offset, int length)
     {
         return dictionary.getSlice(getIndex(position), offset, length);
