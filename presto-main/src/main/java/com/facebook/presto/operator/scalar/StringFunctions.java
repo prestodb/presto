@@ -288,26 +288,36 @@ public final class StringFunctions
             VARCHAR.writeSlice(parts, string);
             return parts.build();
         }
-
+        
         int index = 0;
-        while (index < string.length()) {
-            int splitIndex = string.indexOf(delimiter, index);
-            // Found split?
-            if (splitIndex < 0) {
+        
+        if (delimeter.length()==0){ 
+            //When the delimeter is an empty string you dont need the splitIndex fuction.
+            while (index < string.length()) { 
+                 VARCHAR.writeSlice(parts, string, index, index);
+                 index++;
+            }  
+          
+        } else if (delimeter.length()==0) {
+            while (index < string.length()) {
+                int splitIndex = string.indexOf(delimiter, index);
+                // Found split?
+                if (splitIndex < 0) {
                 break;
-            }
-            // Add the part from current index to found split
-            VARCHAR.writeSlice(parts, string, index, splitIndex - index);
-            // Continue searching after delimiter
-            index = splitIndex + delimiter.length();
-            // Reached limit-1 parts so we can stop
-            if (parts.getPositionCount() == limit - 1) {
-                break;
-            }
-        }
+                }
+                // Add the part from current index to found split
+                VARCHAR.writeSlice(parts, string, index, splitIndex - index);
+                // Continue searching after delimiter
+                index = splitIndex + delimiter.length();
+                // Reached limit-1 parts so we can stop
+                if (parts.getPositionCount() == limit - 1) {
+                     break;
+                }
+            }               
         // Rest of string
         VARCHAR.writeSlice(parts, string, index, string.length() - index);
-
+        
+        }
         return parts.build();
     }
 
