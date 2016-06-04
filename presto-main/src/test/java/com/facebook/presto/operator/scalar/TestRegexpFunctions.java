@@ -163,7 +163,7 @@ public class TestRegexpFunctions
         assertFunction("REGEXP_SPLIT('a1b2c3d', '\\d')", new ArrayType(VARCHAR), ImmutableList.of("a", "b", "c", "d"));
         assertFunction("REGEXP_SPLIT('a1b2346c3d', '\\d+')", new ArrayType(VARCHAR), ImmutableList.of("a", "b", "c", "d"));
         assertFunction("REGEXP_SPLIT('abcd', 'x')", new ArrayType(VARCHAR), ImmutableList.of("abcd"));
-        assertFunction("REGEXP_SPLIT('abcd', '')", new ArrayType(VARCHAR), ImmutableList.of("", "a", "b", "c", "d", ""));
+        assertFunction("REGEXP_SPLIT('abcd', '')", new ArrayType(VARCHAR), ImmutableList.of("a", "b", "c", "d"));
         assertFunction("REGEXP_SPLIT('', 'x')", new ArrayType(VARCHAR), ImmutableList.of(""));
 
         // test empty splits, leading & trailing empty splits, consecutive empty splits
