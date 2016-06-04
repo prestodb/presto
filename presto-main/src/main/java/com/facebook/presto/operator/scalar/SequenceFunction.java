@@ -18,7 +18,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.type.AbstractFixedWidthType;
+import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.DateTimeOperators;
 import com.facebook.presto.type.SqlType;
@@ -92,7 +92,7 @@ public final class SequenceFunction
         return blockBuilder.build();
     }
 
-    private static Block fixedWidthSequence(long start, long stop, long step, AbstractFixedWidthType type)
+    private static Block fixedWidthSequence(long start, long stop, long step, FixedWidthType type)
     {
         checkCondition(step != 0, INVALID_FUNCTION_ARGUMENT, "step must not be zero");
         checkCondition(step > 0 ? stop >= start : stop < start, INVALID_FUNCTION_ARGUMENT,

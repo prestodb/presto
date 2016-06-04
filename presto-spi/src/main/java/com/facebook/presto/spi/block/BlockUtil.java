@@ -20,6 +20,10 @@ import static java.util.stream.Collectors.toSet;
 
 final class BlockUtil
 {
+    private static final int DEFAULT_CAPACITY = 64;
+    // See java.util.ArrayList for an explanation
+    private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
+
     private BlockUtil()
     {
     }
@@ -30,6 +34,31 @@ final class BlockUtil
         if (!invalidPositions.isEmpty()) {
             throw new IllegalArgumentException("Invalid positions " + invalidPositions + " in block with " + positionCount + " positions");
         }
+    }
+
+    static void checkValidRegion(int positionCount, int positionOffset, int length)
+    {
+        if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
+            throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
+        }
+    }
+
+    static int calculateNewArraySize(int currentSize)
+    {
+        // grow array by 50%
+        long newSize = currentSize + (currentSize >> 1);
+
+        // verify new size is within reasonable bounds
+        if (newSize < DEFAULT_CAPACITY) {
+            newSize = DEFAULT_CAPACITY;
+        }
+        else if (newSize > MAX_ARRAY_SIZE) {
+            newSize = MAX_ARRAY_SIZE;
+            if (newSize == currentSize) {
+                throw new IllegalArgumentException("Can not grow array beyond " + MAX_ARRAY_SIZE);
+            }
+        }
+        return (int) newSize;
     }
 
     static int intSaturatedCast(long value)
