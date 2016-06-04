@@ -67,8 +67,7 @@ public final class TimestampType
     @Override
     public long hash(Block block, int position)
     {
-        long value = block.getLong(position, 0);
-        return (int) (value ^ (value >>> 32));
+        return block.getLong(position, 0);
     }
 
     @Override
