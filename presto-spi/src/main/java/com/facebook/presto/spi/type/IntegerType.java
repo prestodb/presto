@@ -20,28 +20,15 @@ import com.facebook.presto.spi.block.BlockBuilder;
 
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 
 public final class IntegerType
-        extends AbstractFixedWidthType
+        extends AbstractIntType
 {
     public static final IntegerType INTEGER = new IntegerType();
 
     private IntegerType()
     {
-        super(parseTypeSignature(StandardTypes.INTEGER), long.class, SIZE_OF_INT);
-    }
-
-    @Override
-    public boolean isComparable()
-    {
-        return true;
-    }
-
-    @Override
-    public boolean isOrderable()
-    {
-        return true;
+        super(parseTypeSignature(StandardTypes.INTEGER));
     }
 
     @Override
@@ -55,48 +42,7 @@ public final class IntegerType
     }
 
     @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        int leftValue = leftBlock.getInt(leftPosition, 0);
-        int rightValue = rightBlock.getInt(rightPosition, 0);
-        return leftValue == rightValue;
-    }
-
-    @Override
-    public long hash(Block block, int position)
-    {
-        return block.getInt(position, 0);
-    }
-
-    @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        // WARNING: the correctness of InCodeGenerator is dependent on the implementation of this
-        // function being the equivalence of internal long representation.
-        int leftValue = leftBlock.getInt(leftPosition, 0);
-        int rightValue = rightBlock.getInt(rightPosition, 0);
-        return Integer.compare(leftValue, rightValue);
-    }
-
-    @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            blockBuilder.writeInt(block.getInt(position, 0)).closeEntry();
-        }
-    }
-
-    @Override
-    public long getLong(Block block, int position)
-    {
-        return (long) block.getInt(position, 0);
-    }
-
-    @Override
-    public void writeLong(BlockBuilder blockBuilder, long value)
+    public final void writeLong(BlockBuilder blockBuilder, long value)
     {
         if (value > Integer.MAX_VALUE) {
             throw new PrestoException(INTERNAL_ERROR, String.format("Value %d exceeds MAX_INT", value));
@@ -109,6 +55,7 @@ public final class IntegerType
     }
 
     @Override
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     public boolean equals(Object other)
     {
         return other == INTEGER;

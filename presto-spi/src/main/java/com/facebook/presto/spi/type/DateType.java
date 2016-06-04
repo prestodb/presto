@@ -15,10 +15,8 @@ package com.facebook.presto.spi.type;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 
 //
 // A date is stored as days from 1970-01-01.
@@ -29,25 +27,13 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 // type, the time zone offset must be added or removed to keep the time at midnight in UTC.
 //
 public final class DateType
-        extends AbstractFixedWidthType
+        extends AbstractIntType
 {
     public static final DateType DATE = new DateType();
 
     private DateType()
     {
-        super(parseTypeSignature(StandardTypes.DATE), long.class, SIZE_OF_INT);
-    }
-
-    @Override
-    public boolean isComparable()
-    {
-        return true;
-    }
-
-    @Override
-    public boolean isOrderable()
-    {
-        return true;
+        super(parseTypeSignature(StandardTypes.DATE));
     }
 
     @Override
@@ -62,54 +48,7 @@ public final class DateType
     }
 
     @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        int leftValue = leftBlock.getInt(leftPosition, 0);
-        int rightValue = rightBlock.getInt(rightPosition, 0);
-        return leftValue == rightValue;
-    }
-
-    @Override
-    public long hash(Block block, int position)
-    {
-        return block.getInt(position, 0);
-    }
-
-    @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        // WARNING: the correctness of InCodeGenerator is dependent on the implementation of this
-        // function being the equivalence of internal long representation.
-        int leftValue = leftBlock.getInt(leftPosition, 0);
-        int rightValue = rightBlock.getInt(rightPosition, 0);
-        return Integer.compare(leftValue, rightValue);
-    }
-
-    @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            blockBuilder.writeInt(block.getInt(position, 0)).closeEntry();
-        }
-    }
-
-    @Override
-    public long getLong(Block block, int position)
-    {
-        int value = block.getInt(position, 0);
-        return value;
-    }
-
-    @Override
-    public void writeLong(BlockBuilder blockBuilder, long value)
-    {
-        blockBuilder.writeInt((int) value).closeEntry();
-    }
-
-    @Override
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     public boolean equals(Object other)
     {
         return other == DATE;

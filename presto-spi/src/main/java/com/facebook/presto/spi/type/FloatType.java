@@ -20,31 +20,17 @@ import com.facebook.presto.spi.block.BlockBuilder;
 
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static io.airlift.slice.SizeOf.SIZE_OF_FLOAT;
-import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
 
 public final class FloatType
-        extends AbstractFixedWidthType
+        extends AbstractIntType
 {
     public static final FloatType FLOAT = new FloatType();
 
     private FloatType()
     {
-        super(parseTypeSignature(StandardTypes.FLOAT), long.class, SIZE_OF_FLOAT);
-    }
-
-    @Override
-    public boolean isComparable()
-    {
-        return true;
-    }
-
-    @Override
-    public boolean isOrderable()
-    {
-        return true;
+        super(parseTypeSignature(StandardTypes.FLOAT));
     }
 
     @Override
@@ -61,13 +47,10 @@ public final class FloatType
     {
         float leftValue = intBitsToFloat(leftBlock.getInt(leftPosition, 0));
         float rightValue = intBitsToFloat(rightBlock.getInt(rightPosition, 0));
-        return leftValue == rightValue;
-    }
 
-    @Override
-    public long hash(Block block, int position)
-    {
-        return floatToRawIntBits(block.getInt(position, 0));
+        // direct equality is correct here
+        // noinspection FloatingPointEquality
+        return leftValue == rightValue;
     }
 
     @Override
@@ -78,23 +61,6 @@ public final class FloatType
         float leftValue = intBitsToFloat(leftBlock.getInt(leftPosition, 0));
         float rightValue = intBitsToFloat(rightBlock.getInt(rightPosition, 0));
         return Float.compare(leftValue, rightValue);
-    }
-
-    @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            blockBuilder.writeInt(block.getInt(position, 0)).closeEntry();
-        }
-    }
-
-    @Override
-    public long getLong(Block block, int position)
-    {
-        return block.getInt(position, 0);
     }
 
     @Override
