@@ -18,8 +18,6 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import parquet.column.ColumnDescriptor;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-
 public class ParquetIntColumnReader
         extends ParquetColumnReader
 {
@@ -30,7 +28,7 @@ public class ParquetIntColumnReader
 
     public BlockBuilder createBlockBuilder(Type type)
     {
-        return BIGINT.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
+        return type.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
     }
 
     @Override
@@ -38,7 +36,7 @@ public class ParquetIntColumnReader
     {
         for (int i = 0; i < valueNumber; i++) {
             if (definitionReader.readLevel() == columnDescriptor.getMaxDefinitionLevel()) {
-                BIGINT.writeLong(blockBuilder, valuesReader.readInteger());
+                type.writeLong(blockBuilder, valuesReader.readInteger());
             }
             else {
                 blockBuilder.appendNull();

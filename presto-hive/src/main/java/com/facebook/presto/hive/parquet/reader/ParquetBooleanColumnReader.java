@@ -18,8 +18,6 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import parquet.column.ColumnDescriptor;
 
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-
 public class ParquetBooleanColumnReader
         extends ParquetColumnReader
 {
@@ -30,7 +28,7 @@ public class ParquetBooleanColumnReader
 
     public BlockBuilder createBlockBuilder(Type type)
     {
-        return BOOLEAN.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
+        return type.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
     }
 
     @Override
@@ -38,7 +36,7 @@ public class ParquetBooleanColumnReader
     {
         for (int i = 0; i < valueNumber; i++) {
             if (definitionReader.readLevel() == columnDescriptor.getMaxDefinitionLevel()) {
-                BOOLEAN.writeBoolean(blockBuilder, valuesReader.readBoolean());
+                type.writeBoolean(blockBuilder, valuesReader.readBoolean());
             }
             else {
                 blockBuilder.appendNull();
