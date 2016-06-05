@@ -21,12 +21,14 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
+import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
+import static java.util.Objects.requireNonNull;
 
 public class FixedWidthBlockBuilder
         extends AbstractFixedWidthBlock
@@ -34,9 +36,9 @@ public class FixedWidthBlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(FixedWidthBlockBuilder.class).instanceSize() + BlockBuilderStatus.INSTANCE_SIZE;
 
-    private final BlockBuilderStatus blockBuilderStatus;
-    private final SliceOutput sliceOutput;
-    private final SliceOutput valueIsNull;
+    private BlockBuilderStatus blockBuilderStatus;
+    private SliceOutput sliceOutput;
+    private SliceOutput valueIsNull;
     private int positionCount;
 
     private int currentEntrySize;
@@ -215,6 +217,19 @@ public class FixedWidthBlockBuilder
             throw new IllegalStateException("Current entry must be closed before the block can be built");
         }
         return new FixedWidthBlock(fixedSize, positionCount, sliceOutput.slice(), valueIsNull.slice());
+    }
+
+    @Override
+    public void reset(BlockBuilderStatus blockBuilderStatus)
+    {
+        this.blockBuilderStatus = requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
+
+        int newSize = calculateBlockResetSize(positionCount);
+        valueIsNull = new DynamicSliceOutput(newSize);
+        sliceOutput = new DynamicSliceOutput(newSize * getFixedSize());
+
+        positionCount = 0;
+        currentEntrySize = 0;
     }
 
     @Override

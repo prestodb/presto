@@ -89,4 +89,9 @@ public interface BlockBuilder
      * Builds the block. This method can be called multiple times.
      */
     Block build();
+
+    /**
+     * Resets the block builder, clearing all of the data.
+     */
+    void reset(BlockBuilderStatus blockBuilderStatus);
 }

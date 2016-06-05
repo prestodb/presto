@@ -21,14 +21,15 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 
+import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
 import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.util.Objects.requireNonNull;
 
 public class VariableWidthBlockBuilder
         extends AbstractVariableWidthBlock
@@ -36,8 +37,8 @@ public class VariableWidthBlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(VariableWidthBlockBuilder.class).instanceSize() + BlockBuilderStatus.INSTANCE_SIZE;
 
-    private final BlockBuilderStatus blockBuilderStatus;
-    private final SliceOutput sliceOutput;
+    private BlockBuilderStatus blockBuilderStatus;
+    private SliceOutput sliceOutput;
 
     // it is assumed that the offsets array is one position longer than the valueIsNull array
     private boolean[] valueIsNull;
@@ -50,7 +51,7 @@ public class VariableWidthBlockBuilder
 
     public VariableWidthBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
-        this.blockBuilderStatus = Objects.requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
+        this.blockBuilderStatus = requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
         this.sliceOutput = new DynamicSliceOutput(expectedBytesPerEntry * expectedEntries);
         this.valueIsNull = new boolean[expectedEntries];
         this.offsets = new int[expectedEntries + 1];
@@ -205,7 +206,7 @@ public class VariableWidthBlockBuilder
 
     private void updateArraysDataSize()
     {
-        arraysRetainedSizeInBytes = intSaturatedCast(INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(offsets));
+        arraysRetainedSizeInBytes = intSaturatedCast(sizeOf(valueIsNull) + sizeOf(offsets));
     }
 
     @Override
@@ -245,6 +246,22 @@ public class VariableWidthBlockBuilder
             throw new IllegalStateException("Current entry must be closed before the block can be built");
         }
         return new VariableWidthBlock(positions, sliceOutput.slice(), offsets, valueIsNull);
+    }
+
+    @Override
+    public void reset(BlockBuilderStatus blockBuilderStatus)
+    {
+        this.blockBuilderStatus = requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
+
+        int newSize = calculateBlockResetSize(positions);
+        valueIsNull = new boolean[newSize];
+        offsets = new int[newSize + 1];
+        sliceOutput = new DynamicSliceOutput(calculateBlockResetSize(sliceOutput.size()));
+
+        positions = 0;
+        currentEntrySize = 0;
+
+        updateArraysDataSize();
     }
 
     private int getOffset(int position)
