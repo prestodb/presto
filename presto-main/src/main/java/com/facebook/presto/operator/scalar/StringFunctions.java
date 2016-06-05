@@ -298,7 +298,7 @@ public final class StringFunctions
                  index++;
             }  
           
-        } else if (delimeter.length()==0) {
+        } else if (delimeter.length()>0) {
             while (index < string.length()) {
                 int splitIndex = string.indexOf(delimiter, index);
                 // Found split?
