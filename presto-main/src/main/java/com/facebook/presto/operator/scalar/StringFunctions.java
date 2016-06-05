@@ -56,7 +56,7 @@ import static java.lang.String.format;
 public final class StringFunctions
 {
     private StringFunctions() {}
-
+    
     @Description("convert Unicode code point to a string")
     @ScalarFunction
     @SqlType("varchar(1)")
@@ -69,7 +69,7 @@ public final class StringFunctions
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Not a valid Unicode code point: " + codepoint, e);
         }
     }
-
+    
     @Description("count of code points of the given string")
     @ScalarFunction
     @LiteralParameters("x")
@@ -78,7 +78,7 @@ public final class StringFunctions
     {
         return countCodePoints(slice);
     }
-
+    
     @Description("greedily removes occurrences of a pattern in a string")
     @ScalarFunction
     @LiteralParameters({"x", "y"})
@@ -87,7 +87,7 @@ public final class StringFunctions
     {
         return replace(str, search, Slices.EMPTY_SLICE);
     }
-
+    
     @Description("greedily replaces occurrences of a pattern with a string")
     @ScalarFunction
     @LiteralParameters({"x", "y"})
@@ -114,12 +114,12 @@ public final class StringFunctions
                 // Advance pointer to current code point
                 index += codePointLength;
             }
-
+            
             return buffer;
         }
         // Allocate a reasonable buffer
         Slice buffer = Slices.allocate(str.length());
-
+        
         int index = 0;
         int indexBuffer = 0;
         while (index < str.length()) {
@@ -131,10 +131,10 @@ public final class StringFunctions
                 buffer = Slices.ensureSize(buffer, indexBuffer + bytesToCopy);
                 buffer.setBytes(indexBuffer, str, index, bytesToCopy);
                 indexBuffer += bytesToCopy;
-
+                
                 break;
             }
-
+            
             int bytesToCopy = matchIndex - index;
             buffer = Slices.ensureSize(buffer, indexBuffer + bytesToCopy + replace.length());
             // Non empty match?
@@ -150,10 +150,10 @@ public final class StringFunctions
             // Continue searching after match
             index = matchIndex + search.length();
         }
-
+        
         return buffer.slice(0, indexBuffer);
     }
-
+    
     @Description("reverse all code points in a given string")
     @ScalarFunction
     @LiteralParameters("x")
@@ -162,7 +162,7 @@ public final class StringFunctions
     {
         return SliceUtf8.reverse(slice);
     }
-
+    
     @Description("returns index of first occurrence of a substring (or 0 if not found)")
     @ScalarFunction("strpos")
     @SqlType(StandardTypes.BIGINT)
@@ -171,14 +171,14 @@ public final class StringFunctions
         if (substring.length() == 0) {
             return 1;
         }
-
+        
         int index = string.indexOf(substring);
         if (index < 0) {
             return 0;
         }
         return countCodePoints(string, 0, index) + 1;
     }
-
+    
     @Description("suffix starting at given index")
     @ScalarFunction
     @LiteralParameters("x")
@@ -188,9 +188,9 @@ public final class StringFunctions
         if ((start == 0) || utf8.length() == 0) {
             return Slices.EMPTY_SLICE;
         }
-
+        
         int startCodePoint = Ints.saturatedCast(start);
-
+        
         if (startCodePoint > 0) {
             int indexStart = offsetOfCodePoint(utf8, startCodePoint - 1);
             if (indexStart < 0) {
@@ -198,25 +198,25 @@ public final class StringFunctions
                 return Slices.EMPTY_SLICE;
             }
             int indexEnd = utf8.length();
-
+            
             return utf8.slice(indexStart, indexEnd - indexStart);
         }
-
+        
         // negative start is relative to end of string
         int codePoints = countCodePoints(utf8);
         startCodePoint += codePoints;
-
+        
         // before beginning of string
         if (startCodePoint < 0) {
             return Slices.EMPTY_SLICE;
         }
-
+        
         int indexStart = offsetOfCodePoint(utf8, startCodePoint);
         int indexEnd = utf8.length();
-
+        
         return utf8.slice(indexStart, indexEnd - indexStart);
     }
-
+    
     @Description("substring of given length starting at an index")
     @ScalarFunction
     @LiteralParameters("x")
@@ -226,10 +226,10 @@ public final class StringFunctions
         if (start == 0 || (length <= 0) || (utf8.length() == 0)) {
             return Slices.EMPTY_SLICE;
         }
-
+        
         int startCodePoint = Ints.saturatedCast(start);
         int lengthCodePoints = Ints.saturatedCast(length);
-
+        
         if (startCodePoint > 0) {
             int indexStart = offsetOfCodePoint(utf8, startCodePoint - 1);
             if (indexStart < 0) {
@@ -241,19 +241,19 @@ public final class StringFunctions
                 // after end of string
                 indexEnd = utf8.length();
             }
-
+            
             return utf8.slice(indexStart, indexEnd - indexStart);
         }
-
+        
         // negative start is relative to end of string
         int codePoints = countCodePoints(utf8);
         startCodePoint += codePoints;
-
+        
         // before beginning of string
         if (startCodePoint < 0) {
             return Slices.EMPTY_SLICE;
         }
-
+        
         int indexStart = offsetOfCodePoint(utf8, startCodePoint);
         int indexEnd;
         if (startCodePoint + lengthCodePoints < codePoints) {
@@ -262,10 +262,10 @@ public final class StringFunctions
         else {
             indexEnd = utf8.length();
         }
-
+        
         return utf8.slice(indexStart, indexEnd - indexStart);
     }
-
+    
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType("array(varchar(x))")
@@ -273,7 +273,7 @@ public final class StringFunctions
     {
         return split(string, delimiter, string.length() + 1);
     }
-
+    
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType("array(varchar(x))")
@@ -281,7 +281,7 @@ public final class StringFunctions
     {
         checkCondition(limit > 0, INVALID_FUNCTION_ARGUMENT, "Limit must be positive");
         checkCondition(limit <= Integer.MAX_VALUE, INVALID_FUNCTION_ARGUMENT, "Limit is too large");
-        checkCondition(delimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "The delimiter may not be the empty string");
+        
         BlockBuilder parts = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 1, string.length());
         // If limit is one, the last and only element is the complete string
         if (limit == 1) {
@@ -291,19 +291,19 @@ public final class StringFunctions
         
         int index = 0;
         
-        if (delimeter.length()==0){ 
+        if (delimeter.length()==0){
             //When the delimeter is an empty string you dont need the splitIndex fuction.
-            while (index < string.length()) { 
-                 VARCHAR.writeSlice(parts, string, index, index);
-                 index++;
-            }  
-          
-        } else if (delimeter.length()==0) {
+            while (index < string.length()) {
+                VARCHAR.writeSlice(parts, string, index, index);
+                index++;
+            }
+            
+        } else if (delimeter.length()> 0) {
             while (index < string.length()) {
                 int splitIndex = string.indexOf(delimiter, index);
                 // Found split?
                 if (splitIndex < 0) {
-                break;
+                    break;
                 }
                 // Add the part from current index to found split
                 VARCHAR.writeSlice(parts, string, index, splitIndex - index);
@@ -311,16 +311,16 @@ public final class StringFunctions
                 index = splitIndex + delimiter.length();
                 // Reached limit-1 parts so we can stop
                 if (parts.getPositionCount() == limit - 1) {
-                     break;
+                    break;
                 }
-            }               
-        // Rest of string
-        VARCHAR.writeSlice(parts, string, index, string.length() - index);
-        
+            }
+            // Rest of string
+            VARCHAR.writeSlice(parts, string, index, string.length() - index);
+            
         }
         return parts.build();
     }
-
+    
     @Nullable
     @Description("splits a string by a delimiter and returns the specified field (counting from one)")
     @ScalarFunction
@@ -332,7 +332,7 @@ public final class StringFunctions
         // Empty delimiter? Then every character will be a split
         if (delimiter.length() == 0) {
             int startCodePoint = Ints.checkedCast(index);
-
+            
             int indexStart = offsetOfCodePoint(string, startCodePoint - 1);
             if (indexStart < 0) {
                 // index too big
@@ -344,9 +344,9 @@ public final class StringFunctions
             }
             return string.slice(indexStart, length);
         }
-
+        
         int matchCount = 0;
-
+        
         int previousIndex = 0;
         while (previousIndex < string.length()) {
             int matchIndex = string.indexOf(delimiter, previousIndex);
@@ -361,16 +361,16 @@ public final class StringFunctions
             // Continue searching after the delimiter
             previousIndex = matchIndex + delimiter.length();
         }
-
+        
         if (matchCount == index - 1) {
             // returns last section of the split
             return string.slice(previousIndex, string.length() - previousIndex);
         }
-
+        
         // index is too big, null is returned
         return null;
     }
-
+    
     @Description("creates a map using entryDelimiter and keyValueDelimiter")
     @ScalarFunction
     @SqlType("map<varchar,varchar>")
@@ -379,7 +379,7 @@ public final class StringFunctions
         checkCondition(entryDelimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "entryDelimiter is empty");
         checkCondition(keyValueDelimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "keyValueDelimiter is empty");
         checkCondition(!entryDelimiter.equals(keyValueDelimiter), INVALID_FUNCTION_ARGUMENT, "entryDelimiter and keyValueDelimiter must not be the same");
-
+        
         Map<Slice, Slice> map = new HashMap<>();
         int entryStart = 0;
         while (entryStart < string.length()) {
@@ -394,26 +394,26 @@ public final class StringFunctions
                 // The rest of the string is the last possible pair.
                 keyValuePair = string.slice(entryStart, string.length() - entryStart);
             }
-
+            
             int keyEnd = keyValuePair.indexOf(keyValueDelimiter);
             if (keyEnd >= 0) {
                 int valueStart = keyEnd + keyValueDelimiter.length();
                 Slice key = keyValuePair.slice(0, keyEnd);
                 Slice value = keyValuePair.slice(valueStart, keyValuePair.length() - valueStart);
-
+                
                 if (value.indexOf(keyValueDelimiter) >= 0) {
                     throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key-value delimiter must appear exactly once in each entry. Bad input: '" + keyValuePair.toStringUtf8() + "'");
                 }
                 if (map.containsKey(key)) {
                     throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Duplicate keys (%s) are not allowed", key.toStringUtf8()));
                 }
-
+                
                 map.put(key, value);
             }
             else {
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key-value delimiter must appear exactly once in each entry. Bad input: '" + keyValuePair.toStringUtf8() + "'");
             }
-
+            
             if (entryEnd < 0) {
                 // No more pairs to add
                 break;
@@ -421,16 +421,16 @@ public final class StringFunctions
             // Next possible pair is placed next to the current entryDelimiter
             entryStart = entryEnd + entryDelimiter.length();
         }
-
+        
         BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), map.size());
         for (Map.Entry<Slice, Slice> entry : map.entrySet()) {
             VARCHAR.writeSlice(builder, entry.getKey());
             VARCHAR.writeSlice(builder, entry.getValue());
         }
-
+        
         return builder.build();
     }
-
+    
     @Description("removes whitespace from the beginning of a string")
     @ScalarFunction("ltrim")
     @LiteralParameters("x")
@@ -439,7 +439,7 @@ public final class StringFunctions
     {
         return SliceUtf8.leftTrim(slice);
     }
-
+    
     @Description("removes whitespace from the end of a string")
     @ScalarFunction("rtrim")
     @LiteralParameters("x")
@@ -448,7 +448,7 @@ public final class StringFunctions
     {
         return SliceUtf8.rightTrim(slice);
     }
-
+    
     @Description("removes whitespace from the beginning and end of a string")
     @ScalarFunction
     @LiteralParameters("x")
@@ -457,7 +457,7 @@ public final class StringFunctions
     {
         return SliceUtf8.trim(slice);
     }
-
+    
     @Description("converts the string to lower case")
     @ScalarFunction
     @LiteralParameters("x")
@@ -466,7 +466,7 @@ public final class StringFunctions
     {
         return toLowerCase(slice);
     }
-
+    
     @Description("converts the string to upper case")
     @ScalarFunction
     @LiteralParameters("x")
@@ -475,61 +475,61 @@ public final class StringFunctions
     {
         return toUpperCase(slice);
     }
-
+    
     private static Slice pad(Slice text, long targetLength, Slice padString, int paddingOffset)
     {
         checkCondition(
-            0 <= targetLength && targetLength <= Integer.MAX_VALUE,
-            INVALID_FUNCTION_ARGUMENT,
-            "Target length must be in the range [0.." + Integer.MAX_VALUE + "]"
-        );
+                       0 <= targetLength && targetLength <= Integer.MAX_VALUE,
+                       INVALID_FUNCTION_ARGUMENT,
+                       "Target length must be in the range [0.." + Integer.MAX_VALUE + "]"
+                       );
         checkCondition(padString.length() > 0, INVALID_FUNCTION_ARGUMENT, "Padding string must not be empty");
-
+        
         int textLength = countCodePoints(text);
         int resultLength = (int) targetLength;
-
+        
         // if our target length is the same as our string then return our string
         if (textLength == resultLength) {
             return text;
         }
-
+        
         // if our string is bigger than requested then truncate
         if (textLength > resultLength) {
             return SliceUtf8.substring(text, 0, resultLength);
         }
-
+        
         // number of bytes in each code point
         int padStringLength = countCodePoints(padString);
         int[] padStringCounts = new int[padStringLength];
         for (int i = 0; i < padStringLength; ++i) {
             padStringCounts[i] = lengthOfCodePointSafe(padString, offsetOfCodePoint(padString, i));
         }
-
+        
         // preallocate the result
         int bufferSize = text.length();
         for (int i = 0; i < resultLength - textLength; ++i) {
             bufferSize += padStringCounts[i % padStringLength];
         }
-
+        
         Slice buffer = Slices.allocate(bufferSize);
-
+        
         // fill in the existing string
         int countBytes = bufferSize - text.length();
         int startPointOfExistingText = (paddingOffset + countBytes) % bufferSize;
         buffer.setBytes(startPointOfExistingText, text);
-
+        
         // assign the pad string while there's enough space for it
         int byteIndex = paddingOffset;
         for (int i = 0; i < countBytes / padString.length(); ++i) {
             buffer.setBytes(byteIndex, padString);
             byteIndex += padString.length();
         }
-
+        
         // handle the tail: at most we assign padStringLength - 1 code points
         buffer.setBytes(byteIndex, padString.getBytes(0, paddingOffset + countBytes - byteIndex));
         return buffer;
     }
-
+    
     @Description("pads a string on the left")
     @ScalarFunction("lpad")
     @LiteralParameters({"x", "y"})
@@ -538,7 +538,7 @@ public final class StringFunctions
     {
         return pad(text, targetLength, padString, 0);
     }
-
+    
     @Description("pads a string on the right")
     @ScalarFunction("rpad")
     @LiteralParameters({"x", "y"})
@@ -547,7 +547,7 @@ public final class StringFunctions
     {
         return pad(text, targetLength, padString, text.length());
     }
-
+    
     @Description("transforms the string to normalized form")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
@@ -562,7 +562,7 @@ public final class StringFunctions
         }
         return utf8Slice(Normalizer.normalize(slice.toStringUtf8(), targetForm));
     }
-
+    
     @Description("decodes the UTF-8 encoded string")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
@@ -570,7 +570,7 @@ public final class StringFunctions
     {
         return SliceUtf8.fixInvalidUtf8(slice);
     }
-
+    
     @Description("decodes the UTF-8 encoded string")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
@@ -580,7 +580,7 @@ public final class StringFunctions
         if (count > 1) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Replacement character string must empty or a single character");
         }
-
+        
         OptionalInt replacementCodePoint;
         if (count == 1) {
             try {
@@ -595,7 +595,7 @@ public final class StringFunctions
         }
         return SliceUtf8.fixInvalidUtf8(slice, replacementCodePoint);
     }
-
+    
     @Description("decodes the UTF-8 encoded string")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
@@ -606,7 +606,7 @@ public final class StringFunctions
         }
         return SliceUtf8.fixInvalidUtf8(slice, OptionalInt.of((int) replacementCodePoint));
     }
-
+    
     @Description("encodes the string to UTF-8")
     @ScalarFunction
     @SqlType(StandardTypes.VARBINARY)
