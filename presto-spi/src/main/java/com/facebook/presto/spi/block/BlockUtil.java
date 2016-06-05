@@ -20,6 +20,8 @@ import static java.util.stream.Collectors.toSet;
 
 final class BlockUtil
 {
+    private static final double BLOCK_RESET_SKEW = 1.25;
+
     private static final int DEFAULT_CAPACITY = 64;
     // See java.util.ArrayList for an explanation
     private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
@@ -59,6 +61,11 @@ final class BlockUtil
             }
         }
         return (int) newSize;
+    }
+
+    static int calculateBlockResetSize(int currentSize)
+    {
+        return intSaturatedCast((long) Math.ceil(currentSize * BLOCK_RESET_SKEW));
     }
 
     static int intSaturatedCast(long value)

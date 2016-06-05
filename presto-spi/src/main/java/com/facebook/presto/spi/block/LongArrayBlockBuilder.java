@@ -18,6 +18,7 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.Arrays;
 import java.util.List;
 
+import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -28,7 +29,7 @@ public class LongArrayBlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongArrayBlockBuilder.class).instanceSize();
 
-    private final BlockBuilderStatus blockBuilderStatus;
+    private BlockBuilderStatus blockBuilderStatus;
 
     private int positionCount;
 
@@ -85,6 +86,20 @@ public class LongArrayBlockBuilder
     public Block build()
     {
         return new LongArrayBlock(positionCount, valueIsNull, values);
+    }
+
+    @Override
+    public void reset(BlockBuilderStatus blockBuilderStatus)
+    {
+        this.blockBuilderStatus = requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
+
+        int newSize = calculateBlockResetSize(positionCount);
+        valueIsNull = new boolean[newSize];
+        values = new long[newSize];
+
+        positionCount = 0;
+
+        updateDataSize();
     }
 
     private void growCapacity()
