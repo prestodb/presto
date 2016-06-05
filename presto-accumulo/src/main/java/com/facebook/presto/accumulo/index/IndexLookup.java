@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.apache.accumulo.core.client.AccumuloException;
@@ -39,17 +40,24 @@ import org.apache.accumulo.core.data.Value;
 import org.apache.accumulo.core.security.Authorizations;
 import org.apache.hadoop.io.Text;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
+import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -64,6 +72,7 @@ public class IndexLookup
     private static final Range METRICS_TABLE_ROWID_RANGE = new Range(Indexer.METRICS_TABLE_ROWID_AS_TEXT);
     private final ColumnCardinalityCache cardinalityCache;
     private final Connector connector;
+    private final ExecutorService executor;
 
     public IndexLookup(
             Connector connector,
@@ -72,6 +81,12 @@ public class IndexLookup
     {
         this.connector = requireNonNull(connector, "connector is null");
         this.cardinalityCache = new ColumnCardinalityCache(connector, requireNonNull(config, "config is null"), auths);
+        AtomicLong threadCount = new AtomicLong(0);
+        this.executor = MoreExecutors.getExitingExecutorService(
+                new ThreadPoolExecutor(1, 4 * Runtime.getRuntime().availableProcessors(), 60L,
+                        TimeUnit.SECONDS, new SynchronousQueue<>(), runnable ->
+                        new Thread(runnable, "index-range-scan-thread-" + threadCount.getAndIncrement())
+                ));
     }
 
     /**
@@ -209,7 +224,7 @@ public class IndexLookup
             if (cardinalities.size() == 1) {
                 long numEntries = lowestCardinality.getKey();
                 double ratio = ((double) numEntries / (double) numRows);
-                LOG.debug("Use of index would scan %d of %d rows, ratio %s. Threshold %2f, Using for table? %b", numEntries, numRows, ratio, threshold, ratio < threshold);
+                LOG.debug("Use of index would scan %d of %d rows, ratio %s. Threshold %2f, Using for index table? %b", numEntries, numRows, ratio, threshold, ratio < threshold);
                 if (ratio >= threshold) {
                     return false;
                 }
@@ -284,58 +299,60 @@ public class IndexLookup
     }
 
     private List<Range> getIndexRanges(String indexTable, Multimap<AccumuloColumnConstraint, Range> constraintRanges, Collection<Range> rowIDRanges, Authorizations auths)
-            throws TableNotFoundException
+            throws TableNotFoundException, InterruptedException
     {
-        Set<Range> finalRanges = null;
-        // For each column/constraint pair
-        for (Entry<AccumuloColumnConstraint, Collection<Range>> constraintEntry : constraintRanges.asMap().entrySet()) {
-            // Create a batch scanner against the index table, setting the ranges
-            BatchScanner scanner = connector.createBatchScanner(indexTable, auths, 10);
-            scanner.setRanges(constraintEntry.getValue());
+        Set<Range> finalRanges = new HashSet<>();
+        // For each column/constraint pair we submit a task to scan the index ranges
+        List<Callable<Set<Range>>> tasks = new ArrayList<>();
+        for (Entry<AccumuloColumnConstraint, Collection<Range>> e : constraintRanges.asMap().entrySet()) {
+            Callable<Set<Range>> task = () -> {
+                // Create a batch scanner against the index table, setting the ranges
+                BatchScanner scan = connector.createBatchScanner(indexTable, auths, 10);
+                scan.setRanges(e.getValue());
 
-            // Fetch the column family for this specific column
-            Text family = new Text(
-                    Indexer.getIndexColumnFamily(
-                            constraintEntry.getKey().getFamily().getBytes(UTF_8),
-                            constraintEntry.getKey().getQualifier().getBytes(UTF_8)).array());
-            scanner.fetchColumnFamily(family);
+                // Fetch the column family for this specific column
+                Text cf = new Text(Indexer.getIndexColumnFamily(e.getKey().getFamily().getBytes(),
+                        e.getKey().getQualifier().getBytes()).array());
+                scan.fetchColumnFamily(cf);
 
-            // For each entry in the scanner
-            Text tmpQualifier = new Text();
-            Set<Range> columnRanges = new HashSet<>();
-            for (Entry<Key, Value> entry : scanner) {
-                entry.getKey().getColumnQualifier(tmpQualifier);
+                // For each entry in the scanner
+                Text tmpQualifier = new Text();
+                Set<Range> columnRanges = new HashSet<>();
+                for (Entry<Key, Value> entry : scan) {
+                    entry.getKey().getColumnQualifier(tmpQualifier);
 
-                // Add to our column ranges if it is in one of the row ID ranges
-                if (inRange(tmpQualifier, rowIDRanges)) {
-                    columnRanges.add(new Range(tmpQualifier));
+                    // Add to our column ranges if it is in one of the row ID ranges
+                    if (inRange(tmpQualifier, rowIDRanges)) {
+                        columnRanges.add(new Range(tmpQualifier));
+                    }
+                }
+
+                LOG.info("Retrieved %d ranges for index column %s", columnRanges.size(), e.getKey().getName());
+                // Close the scanner
+                scan.close();
+                return columnRanges;
+            };
+            tasks.add(task);
+        }
+
+        executor.invokeAll(tasks).forEach(future ->
+        {
+            try {
+                // If finalRanges is null, we have not yet added any column ranges
+                if (finalRanges.isEmpty()) {
+                    finalRanges.addAll(future.get());
+                }
+                else {
+                    // Retain only the row IDs for this column that have already been added
+                    // This is your set intersection operation!
+                    finalRanges.retainAll(future.get());
                 }
             }
-
-            LOG.debug("Retrieved %d ranges for column %s", columnRanges.size(), constraintEntry.getKey().getName());
-
-            // If finalRanges is null, we have not yet added any column ranges
-            if (finalRanges == null) {
-                finalRanges = new HashSet<>();
-                finalRanges.addAll(columnRanges);
+            catch (ExecutionException | InterruptedException e) {
+                throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Exception when getting index ranges", e);
             }
-            else {
-                // Retain only the row IDs for this column that have already been added
-                // This is your set intersection operation!
-                finalRanges.retainAll(columnRanges);
-            }
-
-            // Close the scanner
-            scanner.close();
-        }
-
-        // Return the final ranges for all constraint pairs
-        if (finalRanges != null) {
-            return ImmutableList.copyOf(finalRanges);
-        }
-        else {
-            return ImmutableList.of();
-        }
+        });
+        return ImmutableList.copyOf(finalRanges);
     }
 
     private static void binRanges(int numRangesPerBin, List<Range> splitRanges, List<TabletSplitMetadata> prestoSplits)
