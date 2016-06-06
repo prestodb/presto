@@ -22,7 +22,6 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilder;
@@ -34,14 +33,14 @@ final class ConnectionParameters
 {
     private static final String JDBC_URL_START = "jdbc:";
 
-    private final AtomicReference<String> catalog = new AtomicReference<>();
-    private final AtomicReference<String> schema = new AtomicReference<>();
-
     private static final Splitter QUERY_SPLITTER = Splitter.on('&').omitEmptyStrings();
     private static final Splitter ARG_SPLITTER = Splitter.on('=').limit(2);
 
     private final HostAndPort address;
     private final URI uri;
+
+    private String catalog;
+    private String schema;
 
     private final boolean useSSL;
 
@@ -60,9 +59,7 @@ final class ConnectionParameters
         final Map<String, String> params = parseParameters(uri.getQuery());
         this.useSSL = Boolean.parseBoolean(params.get("useSSL"));
 
-        if (!isNullOrEmpty(uri.getPath())) {
-            setCatalogAndSchema();
-        }
+        initCatalogAndSchema();
     }
 
     URI getURI()
@@ -72,22 +69,12 @@ final class ConnectionParameters
 
     String getSchema()
     {
-        return schema.get();
-    }
-
-    void setSchema(final String schema)
-    {
-        this.schema.set(schema);
+        return schema;
     }
 
     String getCatalog()
     {
-        return catalog.get();
-    }
-
-    void setCatalog(final String catalog)
-    {
-        this.catalog.set(catalog);
+        return catalog;
     }
 
     URI getHttpUri()
@@ -143,11 +130,11 @@ final class ConnectionParameters
                 .build();
     }
 
-    private void setCatalogAndSchema()
+    private void initCatalogAndSchema()
             throws SQLException
     {
         String path = uri.getPath();
-        if (path.equals("/")) {
+        if (isNullOrEmpty(uri.getPath()) || path.equals("/")) {
             return;
         }
 
@@ -170,13 +157,13 @@ final class ConnectionParameters
         if (parts.get(0).isEmpty()) {
             throw new SQLException("Catalog name is empty: " + uri);
         }
-        catalog.set(parts.get(0));
+        catalog = parts.get(0);
 
         if (parts.size() > 1) {
             if (parts.get(1).isEmpty()) {
                 throw new SQLException("Schema name is empty: " + uri);
             }
-            schema.set(parts.get(1));
+            schema = parts.get(1);
         }
     }
 }

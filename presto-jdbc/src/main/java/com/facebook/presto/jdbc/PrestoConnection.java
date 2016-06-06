@@ -58,6 +58,8 @@ public class PrestoConnection
         implements Connection
 {
     private final AtomicBoolean closed = new AtomicBoolean();
+    private final AtomicReference<String> catalog = new AtomicReference<>();
+    private final AtomicReference<String> schema = new AtomicReference<>();
     private final AtomicReference<String> timeZoneId = new AtomicReference<>();
     private final AtomicReference<Locale> locale = new AtomicReference<>();
 
@@ -73,6 +75,9 @@ public class PrestoConnection
             throws SQLException
     {
         this.connectionParameters = connectionParameters;
+        this.schema.set(connectionParameters.getSchema());
+        this.catalog.set(connectionParameters.getCatalog());
+
         this.user = requireNonNull(user, "user is null");
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
         timeZoneId.set(TimeZone.getDefault().getID());
@@ -191,7 +196,7 @@ public class PrestoConnection
             throws SQLException
     {
         checkOpen();
-        connectionParameters.setCatalog(catalog);
+        this.catalog.set(catalog);
     }
 
     @Override
@@ -199,7 +204,7 @@ public class PrestoConnection
             throws SQLException
     {
         checkOpen();
-        return connectionParameters.getCatalog();
+        return catalog.get();
     }
 
     @Override
@@ -460,7 +465,7 @@ public class PrestoConnection
             throws SQLException
     {
         checkOpen();
-        connectionParameters.setSchema(schema);
+        this.schema.set(schema);
     }
 
     @Override
@@ -468,7 +473,7 @@ public class PrestoConnection
             throws SQLException
     {
         checkOpen();
-        return connectionParameters.getSchema();
+        return schema.get();
     }
 
     public String getTimeZoneId()
