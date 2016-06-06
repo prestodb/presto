@@ -328,8 +328,15 @@ public class PagesIndex
 
     public LookupSource createLookupSource(List<Integer> joinChannels, Optional<Integer> hashChannel, Optional<JoinFilterFunction> filterFunction)
     {
-        if (!filterFunction.isPresent()) {
-            // temporary hack
+        if (!filterFunction.isPresent() && !joinChannels.isEmpty()) {
+            // todo compiled implementation of lookup join does not support:
+            //  (1) case with join function and the case
+            //  (2) when we are joining with empty join channels.
+
+            // Ad (1) we need to add support for filter function into compiled PagesHashStrategy/JoinProbe
+            // Ad (2) this code path will trigger only for OUTER joins. To fix that we need to add support for
+            //        OUTER joins into NestedLoopsJoin and remove "type == INNER" condition in LocalExecutionPlanner.visitJoin()
+
             try {
                 LookupSourceFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels);
 
