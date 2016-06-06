@@ -18,19 +18,31 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
+import io.airlift.discovery.client.Announcer;
 import io.airlift.log.Logger;
 
+import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardWatchEventKinds;
+import java.nio.file.WatchEvent;
+import java.nio.file.WatchKey;
+import java.nio.file.WatchService;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.server.AnnouncementUtils.updateDatasourcesAnnouncement;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.fromProperties;
@@ -40,24 +52,35 @@ public class CatalogManager
 {
     private static final Logger log = Logger.get(CatalogManager.class);
     private final ConnectorManager connectorManager;
+    private final Announcer announcer;
     private final File catalogConfigurationDir;
     private final Set<String> disabledCatalogs;
     private final AtomicBoolean catalogsLoading = new AtomicBoolean();
     private final AtomicBoolean catalogsLoaded = new AtomicBoolean();
+    private final AtomicBoolean stopCatalogWatcher = new AtomicBoolean(false);
+    private final boolean autoDetectCatalog;
 
     @Inject
-    public CatalogManager(ConnectorManager connectorManager, CatalogManagerConfig config)
+    public CatalogManager(Announcer announcer, ConnectorManager connectorManager, CatalogManagerConfig config)
     {
-        this(connectorManager,
+        this(announcer,
+                connectorManager,
                 config.getCatalogConfigurationDir(),
-                firstNonNull(config.getDisabledCatalogs(), ImmutableList.<String>of()));
+                firstNonNull(config.getDisabledCatalogs(), ImmutableList.<String>of()),
+                config.isAutoDetectCatalog());
     }
 
-    public CatalogManager(ConnectorManager connectorManager, File catalogConfigurationDir, List<String> disabledCatalogs)
+    public CatalogManager(Announcer announcer,
+                          ConnectorManager connectorManager,
+                          File catalogConfigurationDir,
+                          List<String> disabledCatalogs,
+                          boolean autoDetectCatalog)
     {
+        this.announcer = announcer;
         this.connectorManager = connectorManager;
         this.catalogConfigurationDir = catalogConfigurationDir;
         this.disabledCatalogs = ImmutableSet.copyOf(disabledCatalogs);
+        this.autoDetectCatalog = autoDetectCatalog;
     }
 
     public boolean areCatalogsLoaded()
@@ -79,6 +102,19 @@ public class CatalogManager
         }
 
         catalogsLoaded.set(true);
+
+        if (autoDetectCatalog) {
+            // add catalogs automatically
+            new Thread(() -> {
+                try {
+                    log.info("-- Catalog watcher thread start --");
+                    startCatalogWatcher(catalogConfigurationDir);
+                }
+                catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }).start();
+        }
     }
 
     private void loadCatalog(File file)
@@ -121,5 +157,47 @@ public class CatalogManager
             properties.load(in);
         }
         return fromProperties(properties);
+    }
+
+    private void startCatalogWatcher(File catalogConfigurationDir) throws IOException, InterruptedException
+    {
+        WatchService watchService = FileSystems.getDefault().newWatchService();
+        Paths.get(catalogConfigurationDir.getAbsolutePath()).register(
+                watchService, StandardWatchEventKinds.ENTRY_CREATE);
+        while (!stopCatalogWatcher.get()) {
+            WatchKey key = watchService.take();
+            for (WatchEvent<?> event : key.pollEvents()) {
+                if (event.kind() == StandardWatchEventKinds.ENTRY_CREATE) {
+                    log.info("New file in catalog directory : " + event.context());
+                    Path newCatalog = (Path) event.context();
+                    addCatalog(newCatalog);
+                }
+            }
+            boolean valid = key.reset();
+            if (!valid) {
+                break;
+            }
+        }
+    }
+
+    private void addCatalog(Path catalogPath)
+    {
+        File file = new File(catalogConfigurationDir, catalogPath.getFileName().toString());
+        if (file.isFile() && file.getName().endsWith(".properties")) {
+            try {
+                TimeUnit.SECONDS.sleep(2);
+                loadCatalog(file);
+                updateDatasourcesAnnouncement(announcer, Files.getNameWithoutExtension(catalogPath.getFileName().toString()));
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    @PreDestroy
+    public void stop()
+    {
+        stopCatalogWatcher.set(true);
     }
 }

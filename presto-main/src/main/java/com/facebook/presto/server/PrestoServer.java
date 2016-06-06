@@ -26,8 +26,6 @@ import com.facebook.presto.security.AccessControlModule;
 import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParserOptions;
-import com.google.common.base.Joiner;
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Module;
@@ -35,7 +33,6 @@ import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.discovery.client.Announcer;
 import io.airlift.discovery.client.DiscoveryModule;
-import io.airlift.discovery.client.ServiceAnnouncement;
 import io.airlift.event.client.HttpEventModule;
 import io.airlift.event.client.JsonEventModule;
 import io.airlift.http.server.HttpServerModule;
@@ -49,19 +46,12 @@ import io.airlift.node.NodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import org.weakref.jmx.guice.MBeanModule;
 
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.LEGACY_NETWORK_TOPOLOGY;
+import static com.facebook.presto.server.AnnouncementUtils.updateDatasources;
 import static com.facebook.presto.server.ConditionalModule.installModuleIf;
 import static com.facebook.presto.server.PrestoSystemRequirements.verifyJvmRequirements;
 import static com.facebook.presto.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.FILE_BASED_RESOURCE_GROUP_MANAGER;
-import static com.google.common.base.Strings.nullToEmpty;
-import static io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
-import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoServer
@@ -159,53 +149,5 @@ public class PrestoServer
     protected Iterable<? extends Module> getAdditionalModules()
     {
         return ImmutableList.of();
-    }
-
-    private static void updateDatasources(Announcer announcer, Metadata metadata, ServerConfig serverConfig, NodeSchedulerConfig schedulerConfig)
-    {
-        // get existing announcement
-        ServiceAnnouncement announcement = getPrestoAnnouncement(announcer.getServiceAnnouncements());
-
-        // get existing sources
-        String property = nullToEmpty(announcement.getProperties().get("datasources"));
-        List<String> values = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(property);
-        Set<String> datasources = new LinkedHashSet<>(values);
-
-        // automatically build sources if not configured
-        if (datasources.isEmpty()) {
-            Set<String> catalogs = metadata.getCatalogNames().keySet();
-            // if this is a dedicated coordinator, only add jmx
-            if (serverConfig.isCoordinator() && !schedulerConfig.isIncludeCoordinator()) {
-                if (catalogs.contains("jmx")) {
-                    datasources.add("jmx");
-                }
-            }
-            else {
-                datasources.addAll(catalogs);
-            }
-        }
-
-        // build announcement with updated sources
-        ServiceAnnouncementBuilder builder = serviceAnnouncement(announcement.getType());
-        for (Map.Entry<String, String> entry : announcement.getProperties().entrySet()) {
-            if (!entry.getKey().equals("datasources")) {
-                builder.addProperty(entry.getKey(), entry.getValue());
-            }
-        }
-        builder.addProperty("datasources", Joiner.on(',').join(datasources));
-
-        // update announcement
-        announcer.removeServiceAnnouncement(announcement.getId());
-        announcer.addServiceAnnouncement(builder.build());
-    }
-
-    private static ServiceAnnouncement getPrestoAnnouncement(Set<ServiceAnnouncement> announcements)
-    {
-        for (ServiceAnnouncement announcement : announcements) {
-            if (announcement.getType().equals("presto")) {
-                return announcement;
-            }
-        }
-        throw new IllegalArgumentException("Presto announcement not found: " + announcements);
     }
 }
