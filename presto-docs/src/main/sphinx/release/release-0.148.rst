@@ -61,6 +61,7 @@ Hive Changes
 * Support ``DELETE`` from unpartitioned tables.
 * Add support for Kerberos authentication when talking to Hive/HDFS.
 * Push down filters for columns of type ``DECIMAL``.
+* Improve CPU efficiency when reading ORC files.
 
 Cassandra Changes
 -----------------
