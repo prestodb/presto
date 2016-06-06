@@ -27,7 +27,6 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
-import java.net.URI;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.DriverManager;
@@ -1142,18 +1141,6 @@ public class TestDriver
     }
 
     @Test
-    public void testConnectionWithSSL()
-            throws Exception
-    {
-        String url = format("jdbc:presto://some-ssl-server:443/%s", "blackhole");
-        try (PrestoConnection connection = (PrestoConnection) DriverManager.getConnection(url, "test", null)) {
-            URI uri = connection.getHttpUri();
-            assertEquals(uri.getPort(), 443);
-            assertEquals(uri.getScheme(), "https");
-        }
-    }
-
-    @Test
     public void testConnectionResourceHandling()
             throws Exception
     {
@@ -1196,45 +1183,6 @@ public class TestDriver
         }
     }
 
-    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Invalid path segments in URL: .*")
-    public void testBadUrlExtraPathSegments()
-            throws Exception
-    {
-        String url = format("jdbc:presto://%s/hive/default/bad_string", server.getAddress());
-        try (Connection ignored = DriverManager.getConnection(url, "test", null)) {
-            fail("expected exception");
-        }
-    }
-
-    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Catalog name is empty: .*")
-    public void testBadUrlMissingCatalog()
-            throws Exception
-    {
-        String url = format("jdbc:presto://%s//default", server.getAddress());
-        try (Connection ignored = DriverManager.getConnection(url, "test", null)) {
-            fail("expected exception");
-        }
-    }
-
-    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Catalog name is empty: .*")
-    public void testBadUrlEndsInSlashes()
-            throws Exception
-    {
-        String url = format("jdbc:presto://%s//", server.getAddress());
-        try (Connection ignored = DriverManager.getConnection(url, "test", null)) {
-            fail("expected exception");
-        }
-    }
-
-    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Schema name is empty: .*")
-    public void testBadUrlMissingSchema()
-            throws Exception
-    {
-        String url = format("jdbc:presto://%s/a//", server.getAddress());
-        try (Connection ignored = DriverManager.getConnection(url, "test", null)) {
-            fail("expected exception");
-        }
-    }
 
     private Connection createConnection()
             throws SQLException
