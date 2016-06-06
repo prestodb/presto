@@ -216,7 +216,6 @@ import static com.facebook.presto.sql.tree.ShowCreate.Type.VIEW;
 import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -1447,7 +1446,6 @@ class StatementAnalyzer
         List<Type> fieldTypes = new ArrayList<>(rowTypes.iterator().next());
         int rowIndex = -1;
         for (List<Type> rowType : rowTypes) {
-
             // check field count consistency for rows
             rowIndex++;
             if (rowType.size() != fieldTypes.size()) {
