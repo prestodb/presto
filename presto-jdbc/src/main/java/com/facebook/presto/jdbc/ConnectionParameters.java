@@ -30,6 +30,8 @@ final class ConnectionParameters
     private final HostAndPort address;
     private final URI uri;
 
+    private final boolean useSSL;
+
     ConnectionParameters(final String url)
             throws SQLException
     {
@@ -43,6 +45,7 @@ final class ConnectionParameters
         this.address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
 
         final Map<String, String> params = parseParameters(uri.getQuery());
+        this.useSSL = Boolean.parseBoolean(params.get("useSSL"));
 
         if (!isNullOrEmpty(uri.getPath())) {
             setCatalogAndSchema();
@@ -119,7 +122,7 @@ final class ConnectionParameters
 
     private URI buildHttpUri()
     {
-        final String scheme = (address.getPort() == 443) ? "https" : "http";
+        final String scheme = (address.getPort() == 443 || useSSL) ? "https" : "http";
 
         return uriBuilder()
                 .scheme(scheme)

@@ -54,4 +54,37 @@ public class TestConnectionParameters
         assertEquals(uri.getPort(), 443);
         assertEquals(uri.getScheme(), "https");
     }
+
+    @Test
+    public void testURIWithSSLmissing()
+            throws SQLException
+    {
+        final ConnectionParameters parameters = new ConnectionParameters(URI.create("presto://localhost:8080/blackhole"));
+
+        final URI uri = parameters.getHttpUri();
+        assertEquals(uri.getPort(), 8080);
+        assertEquals(uri.getScheme(), "http");
+    }
+
+    @Test
+    public void testURIWithUseSSLTrue()
+            throws SQLException
+    {
+        final ConnectionParameters parameters = new ConnectionParameters(URI.create("presto://localhost:8080/blackhole?useSSL=true"));
+
+        final URI uri = parameters.getHttpUri();
+        assertEquals(uri.getPort(), 8080);
+        assertEquals(uri.getScheme(), "https");
+    }
+
+    @Test
+    public void testURIWithUseSSLFalse()
+            throws SQLException
+    {
+        final ConnectionParameters parameters = new ConnectionParameters(URI.create("presto://localhost:8080/blackhole?useSSL=false"));
+
+        final URI uri = parameters.getHttpUri();
+        assertEquals(uri.getPort(), 8080);
+        assertEquals(uri.getScheme(), "http");
+    }
 }
