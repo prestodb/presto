@@ -126,5 +126,4 @@ public class PrestoDriver
         // TODO: support java.util.Logging
         throw new SQLFeatureNotSupportedException();
     }
-
 }

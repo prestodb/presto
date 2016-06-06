@@ -1183,7 +1183,6 @@ public class TestDriver
         }
     }
 
-
     private Connection createConnection()
             throws SQLException
     {
