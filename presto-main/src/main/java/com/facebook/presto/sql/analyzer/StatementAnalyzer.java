@@ -177,6 +177,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_TYPE_UNKNOWN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INCONSISTENT_FIELD_COUNT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SCHEMA_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_FRAME;
@@ -1432,7 +1433,7 @@ class StatementAnalyzer
         checkState(node.getRows().size() >= 1);
 
         // get unique row types
-        Set<List<Type>> rowTypes = node.getRows().stream()
+        List<List<Type>> rowTypes = node.getRows().stream()
                 .map(row -> analyzeExpression(row, new RelationType(), context).getType(row))
                 .map(type -> {
                     if (type instanceof RowType) {
@@ -1440,11 +1441,21 @@ class StatementAnalyzer
                     }
                     return ImmutableList.of(type);
                 })
-                .collect(toImmutableSet());
+                .collect(toImmutableList());
 
         // determine common super type of the rows
         List<Type> fieldTypes = new ArrayList<>(rowTypes.iterator().next());
+        int rowIndex = -1;
         for (List<Type> rowType : rowTypes) {
+
+            // check field count consistency for rows
+            rowIndex++;
+            if (rowType.size() != fieldTypes.size()) {
+                throw new SemanticException(INCONSISTENT_FIELD_COUNT, node,
+                        "Inconsistent field count between rows: %s vs %s", Iterables.get(node.getRows(), 0),
+                        Iterables.get(node.getRows(), rowIndex));
+            }
+
             for (int i = 0; i < rowType.size(); i++) {
                 Type fieldType = rowType.get(i);
                 Type superType = fieldTypes.get(i);
