@@ -95,11 +95,11 @@ public final class TypeUtils
 
     public static boolean positionEqualsPosition(Type type, Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        boolean leftIsNull = leftBlock.isNull(leftPosition);
+        /*boolean leftIsNull = leftBlock.isNull(leftPosition);
         boolean rightIsNull = rightBlock.isNull(rightPosition);
         if (leftIsNull || rightIsNull) {
             return leftIsNull && rightIsNull;
-        }
+        }*/
         return type.equalTo(leftBlock, leftPosition, rightBlock, rightPosition);
     }
 
