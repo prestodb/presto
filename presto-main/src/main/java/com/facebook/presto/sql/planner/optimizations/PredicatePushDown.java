@@ -226,7 +226,7 @@ public class PredicatePushDown
             Map<Boolean, List<Expression>> conjuncts = extractConjuncts(context.get()).stream().collect(Collectors.partitioningBy(pushdownEligiblePredicate));
 
             // Push down conjuncts from the inherited predicate that apply to the common grouping columns, or don't apply to any grouping columns
-            PlanNode rewrittenSource = context.rewrite(node.getSource(),  combineConjuncts(conjuncts.get(true)));
+            PlanNode rewrittenSource = context.rewrite(node.getSource(), combineConjuncts(conjuncts.get(true)));
 
             PlanNode output = node;
             if (rewrittenSource != node.getSource()) {
@@ -356,57 +356,49 @@ public class PredicatePushDown
             if (leftSource != node.getLeft() ||
                     rightSource != node.getRight() ||
                     !expressionEquivalence.areExpressionsEquivalent(session, newJoinPredicate, joinPredicate, types)) {
-                if (node.getType() == JoinNode.Type.INNER && newJoinPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
-                    // this rewrite is not valid for OUTER joins as it would give incorrect results in case when we have empty table on INNER side
-                    // after rewrite query would return no rows, instead rows from OUTER table complemented with NULLs.
-                    output = new JoinNode(node.getId(), INNER, leftSource, rightSource, ImmutableList.of(), node.getFilter(), Optional.<Symbol>empty(), Optional.<Symbol>empty());
-                }
-                else {
-                    // Create identity projections for all existing symbols
-                    ImmutableMap.Builder<Symbol, Expression> leftProjections = ImmutableMap.builder();
+                // Create identity projections for all existing symbols
+                ImmutableMap.Builder<Symbol, Expression> leftProjections = ImmutableMap.builder();
+                leftProjections.putAll(node.getLeft()
+                        .getOutputSymbols().stream()
+                        .collect(Collectors.toMap(key -> key, Symbol::toQualifiedNameReference)));
 
-                    leftProjections.putAll(node.getLeft()
-                            .getOutputSymbols().stream()
-                            .collect(Collectors.toMap(key -> key, Symbol::toQualifiedNameReference)));
+                ImmutableMap.Builder<Symbol, Expression> rightProjections = ImmutableMap.builder();
+                rightProjections.putAll(node.getRight()
+                        .getOutputSymbols().stream()
+                        .collect(Collectors.toMap(key -> key, Symbol::toQualifiedNameReference)));
 
-                    ImmutableMap.Builder<Symbol, Expression> rightProjections = ImmutableMap.builder();
-                    rightProjections.putAll(node.getRight()
-                            .getOutputSymbols().stream()
-                            .collect(Collectors.toMap(key -> key, Symbol::toQualifiedNameReference)));
+                // Create new projections for the new join clauses
+                ImmutableList.Builder<JoinNode.EquiJoinClause> joinConditionBuilder = ImmutableList.builder();
+                ImmutableList.Builder<Expression> joinFilterBuilder = ImmutableList.builder();
+                for (Expression conjunct : extractConjuncts(newJoinPredicate)) {
+                    if (joinEqualityExpression(node.getLeft().getOutputSymbols()).apply(conjunct)) {
+                        ComparisonExpression equality = (ComparisonExpression) conjunct;
 
-                    // Create new projections for the new join clauses
-                    ImmutableList.Builder<JoinNode.EquiJoinClause> joinConditionBuilder = ImmutableList.builder();
-                    ImmutableList.Builder<Expression> joinFilterBuilder = ImmutableList.builder();
-                    for (Expression conjunct : extractConjuncts(newJoinPredicate)) {
-                        if (joinEqualityExpression(node.getLeft().getOutputSymbols()).apply(conjunct)) {
-                            ComparisonExpression equality = (ComparisonExpression) conjunct;
+                        boolean alignedComparison = Iterables.all(DependencyExtractor.extractUnique(equality.getLeft()), in(node.getLeft().getOutputSymbols()));
+                        Expression leftExpression = (alignedComparison) ? equality.getLeft() : equality.getRight();
+                        Expression rightExpression = (alignedComparison) ? equality.getRight() : equality.getLeft();
 
-                            boolean alignedComparison = Iterables.all(DependencyExtractor.extractUnique(equality.getLeft()), in(node.getLeft().getOutputSymbols()));
-                            Expression leftExpression = (alignedComparison) ? equality.getLeft() : equality.getRight();
-                            Expression rightExpression = (alignedComparison) ? equality.getRight() : equality.getLeft();
+                        Symbol leftSymbol = symbolAllocator.newSymbol(leftExpression, extractType(leftExpression));
+                        leftProjections.put(leftSymbol, leftExpression);
+                        Symbol rightSymbol = symbolAllocator.newSymbol(rightExpression, extractType(rightExpression));
+                        rightProjections.put(rightSymbol, rightExpression);
 
-                            Symbol leftSymbol = symbolAllocator.newSymbol(leftExpression, extractType(leftExpression));
-                            leftProjections.put(leftSymbol, leftExpression);
-                            Symbol rightSymbol = symbolAllocator.newSymbol(rightExpression, extractType(rightExpression));
-                            rightProjections.put(rightSymbol, rightExpression);
-
-                            joinConditionBuilder.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
-                        }
-                        else {
-                            joinFilterBuilder.add(conjunct);
-                        }
+                        joinConditionBuilder.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
                     }
-
-                    Optional<Expression> newJoinFilter = Optional.of(combineConjuncts(joinFilterBuilder.build()));
-                    if (newJoinFilter.get() == BooleanLiteral.TRUE_LITERAL) {
-                        newJoinFilter = Optional.empty();
+                    else {
+                        joinFilterBuilder.add(conjunct);
                     }
-
-                    leftSource = new ProjectNode(idAllocator.getNextId(), leftSource, leftProjections.build());
-                    rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build());
-
-                    output = new JoinNode(node.getId(), node.getType(), leftSource, rightSource, joinConditionBuilder.build(), newJoinFilter, node.getLeftHashSymbol(), node.getRightHashSymbol());
                 }
+
+                Optional<Expression> newJoinFilter = Optional.of(combineConjuncts(joinFilterBuilder.build()));
+                if (newJoinFilter.get() == BooleanLiteral.TRUE_LITERAL) {
+                    newJoinFilter = Optional.empty();
+                }
+
+                leftSource = new ProjectNode(idAllocator.getNextId(), leftSource, leftProjections.build());
+                rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build());
+
+                output = new JoinNode(node.getId(), node.getType(), leftSource, rightSource, joinConditionBuilder.build(), newJoinFilter, node.getLeftHashSymbol(), node.getRightHashSymbol());
             }
             if (!postJoinPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
                 output = new FilterNode(idAllocator.getNextId(), output, postJoinPredicate);
