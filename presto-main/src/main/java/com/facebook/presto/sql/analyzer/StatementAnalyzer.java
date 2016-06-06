@@ -177,7 +177,6 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_TYPE_UNKNOWN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INCONSISTENT_FIELD_COUNT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SCHEMA_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_FRAME;
@@ -1449,9 +1448,11 @@ class StatementAnalyzer
             // check field count consistency for rows
             rowIndex++;
             if (rowType.size() != fieldTypes.size()) {
-                throw new SemanticException(INCONSISTENT_FIELD_COUNT, node,
-                        "Inconsistent field count between rows: %s vs %s", Iterables.get(node.getRows(), 0),
-                        Iterables.get(node.getRows(), rowIndex));
+                throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
+                        node,
+                        "Values rows have mismatched types: %s vs %s",
+                        Iterables.get(rowTypes, 0),
+                        Iterables.get(rowTypes, rowIndex));
             }
 
             for (int i = 0; i < rowType.size(); i++) {
@@ -1464,7 +1465,7 @@ class StatementAnalyzer
                             node,
                             "Values rows have mismatched types: %s vs %s",
                             Iterables.get(rowTypes, 0),
-                            Iterables.get(rowTypes, 1));
+                            Iterables.get(rowTypes, rowIndex));
                 }
                 fieldTypes.set(i, commonSuperType.get());
             }

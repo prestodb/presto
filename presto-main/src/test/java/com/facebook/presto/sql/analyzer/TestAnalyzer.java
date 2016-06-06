@@ -57,7 +57,6 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_TYPE_UNKNOWN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INCONSISTENT_FIELD_COUNT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SCHEMA_NAME;
@@ -605,10 +604,14 @@ public class TestAnalyzer
         assertFails(NOT_SUPPORTED, "INSERT INTO v1 VALUES (1)");
 
         // fail if inconsistent fields count
-        assertFails(INCONSISTENT_FIELD_COUNT, "INSERT INTO t1 (a) VALUES (1), (1, 2)");
-        assertFails(INCONSISTENT_FIELD_COUNT, "INSERT INTO t1 (a, b) VALUES (1), (1, 2)");
-        assertFails(INCONSISTENT_FIELD_COUNT, "INSERT INTO t1 (a, b) VALUES (1, 2), (1, 2), (1, 2, 3)");
-        assertFails(INCONSISTENT_FIELD_COUNT, "INSERT INTO t1 (a, b) VALUES ('a', 'b'), ('a', 'b', 'c')");
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t1 (a) VALUES (1), (1, 2)");
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t1 (a, b) VALUES (1), (1, 2)");
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t1 (a, b) VALUES (1, 2), (1, 2), (1, 2, 3)");
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t1 (a, b) VALUES ('a', 'b'), ('a', 'b', 'c')");
+
+        // fail if mismatched column types
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t1 (a, b) VALUES ('a', 'b'), (1, 'b')");
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t1 (a, b) VALUES ('a', 'b'), ('a', 'b'), (1, 'b')");
     }
 
     @Test
