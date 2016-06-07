@@ -414,8 +414,8 @@ public class PredicatePushDown
 
             ImmutableList.Builder<Expression> outerPushdownConjuncts = ImmutableList.builder();
             ImmutableList.Builder<Expression> innerPushdownConjuncts = ImmutableList.builder();
-            ImmutableList.Builder<Expression> joinConjuncts = ImmutableList.builder();
             ImmutableList.Builder<Expression> postJoinConjuncts = ImmutableList.builder();
+            ImmutableList.Builder<Expression> joinConjuncts = ImmutableList.builder();
 
             // Strip out non-deterministic conjuncts
             postJoinConjuncts.addAll(filter(extractConjuncts(inheritedPredicate), not(DeterminismEvaluator::isDeterministic)));
@@ -423,19 +423,18 @@ public class PredicatePushDown
 
             outerEffectivePredicate = stripNonDeterministicConjuncts(outerEffectivePredicate);
             innerEffectivePredicate = stripNonDeterministicConjuncts(innerEffectivePredicate);
+            joinConjuncts.addAll(filter(extractConjuncts(joinPredicate), not(DeterminismEvaluator::isDeterministic)));
             joinPredicate = stripNonDeterministicConjuncts(joinPredicate);
 
             // Generate equality inferences
             EqualityInference inheritedInference = createEqualityInference(inheritedPredicate);
             EqualityInference outerInference = createEqualityInference(inheritedPredicate, outerEffectivePredicate);
-            EqualityInference innerInference = createEqualityInference(inheritedPredicate, innerEffectivePredicate);
 
             EqualityInference.EqualityPartition equalityPartition = inheritedInference.generateEqualitiesPartitionedBy(in(outerSymbols));
             Expression outerOnlyInheritedEqualities = combineConjuncts(equalityPartition.getScopeEqualities());
             EqualityInference potentialNullSymbolInference = createEqualityInference(outerOnlyInheritedEqualities, outerEffectivePredicate, innerEffectivePredicate, joinPredicate);
-            EqualityInference potentialNullSymbolInferenceWithoutInnerInferred = createEqualityInference(outerOnlyInheritedEqualities, outerEffectivePredicate, joinPredicate);
 
-            // Sort through conjuncts in inheritedPredicate that were not used for inference
+            // See if we can push inherited predicates down
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(inheritedPredicate)) {
                 Expression outerRewritten = outerInference.rewriteExpression(conjunct, in(outerSymbols));
                 if (outerRewritten != null) {
@@ -451,8 +450,12 @@ public class PredicatePushDown
                     postJoinConjuncts.add(conjunct);
                 }
             }
+            // Add the equalities from the inferences back in
+            outerPushdownConjuncts.addAll(equalityPartition.getScopeEqualities());
+            postJoinConjuncts.addAll(equalityPartition.getScopeComplementEqualities());
+            postJoinConjuncts.addAll(equalityPartition.getScopeStraddlingEqualities());
 
-            // See if we can push down any outer predicates to the inner side
+            // See if we can push down any outer effective predicates to the inner side
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(outerEffectivePredicate)) {
                 Expression rewritten = potentialNullSymbolInference.rewriteExpression(conjunct, not(in(outerSymbols)));
                 if (rewritten != null) {
@@ -460,22 +463,21 @@ public class PredicatePushDown
                 }
             }
 
-            // See if we can push down any join predicates to the inner side
-            for (Expression conjunct : extractConjuncts(joinPredicate)) {
-                Expression rewritten = innerInference.rewriteExpression(conjunct, not(in(outerSymbols)));
-                if (rewritten != null) {
-                    innerPushdownConjuncts.add(rewritten);
+            // See if we can push down join predicates to the inner side
+            for (Expression conjunct : EqualityInference.nonInferrableConjuncts(joinPredicate)) {
+                Expression innerRewritten = potentialNullSymbolInference.rewriteExpression(conjunct, not(in(outerSymbols)));
+                if (innerRewritten != null) {
+                    innerPushdownConjuncts.add(innerRewritten);
                 }
                 else {
                     joinConjuncts.add(conjunct);
                 }
             }
-
-            // Add the equalities from the inferences back in
-            outerPushdownConjuncts.addAll(equalityPartition.getScopeEqualities());
-            postJoinConjuncts.addAll(equalityPartition.getScopeComplementEqualities());
-            postJoinConjuncts.addAll(equalityPartition.getScopeStraddlingEqualities());
-            innerPushdownConjuncts.addAll(potentialNullSymbolInferenceWithoutInnerInferred.generateEqualitiesPartitionedBy(not(in(outerSymbols))).getScopeEqualities());
+            // TODO: we can further improve simplifying the equalities by considering other relationships from the outer side
+            EqualityInference.EqualityPartition joinEqualityPartition = createEqualityInference(joinPredicate).generateEqualitiesPartitionedBy(not(in(outerSymbols)));
+            innerPushdownConjuncts.addAll(joinEqualityPartition.getScopeEqualities());
+            joinConjuncts.addAll(joinEqualityPartition.getScopeComplementEqualities())
+                    .addAll(joinEqualityPartition.getScopeStraddlingEqualities());
 
             return new OuterJoinPushDownResult(combineConjuncts(outerPushdownConjuncts.build()),
                     combineConjuncts(innerPushdownConjuncts.build()),
