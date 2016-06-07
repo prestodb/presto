@@ -1187,11 +1187,11 @@ public class HiveMetadata
             throw new TableNotFoundException(handle.getSchemaTableName());
         }
 
+        if (!table.get().getTableType().equals(TableType.MANAGED_TABLE.toString())) {
+            throw new PrestoException(NOT_SUPPORTED, "Cannot delete from non-managed Hive table");
+        }
+
         if (table.get().getPartitionKeysSize() == 0) {
-            // only delete data for managed tables
-            if (!table.get().getTableType().equals(TableType.MANAGED_TABLE.toString())) {
-                throw new PrestoException(NOT_SUPPORTED, "Cannot delete from non-managed Hive table");
-            }
             String location = table.get().getSd().getLocation();
             List<String> notDeletedFiles = recursiveDeleteFilesStartingWith(session.getUser(), location, "");
             if (!notDeletedFiles.isEmpty()) {
