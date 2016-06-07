@@ -17,7 +17,6 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.google.common.primitives.Ints;
-import io.airlift.slice.XxHash64;
 import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.HashCommon;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
@@ -249,6 +248,19 @@ public final class InMemoryJoinHash
 
     private static int getHashPosition(long rawHash, long mask)
     {
-        return (int) ((XxHash64.hash(rawHash)) & mask);
+        // Avalanches the bits of a long integer by applying the finalisation step of MurmurHash3.
+        //
+        // This function implements the finalisation step of Austin Appleby's <a href="http://sites.google.com/site/murmurhash/">MurmurHash3</a>.
+        // Its purpose is to avalanche the bits of the argument to within 0.25% bias. It is used, among other things, to scramble quickly (but deeply) the hash
+        // values returned by {@link Object#hashCode()}.
+        //
+
+        rawHash ^= rawHash >>> 33;
+        rawHash *= 0xff51afd7ed558ccdL;
+        rawHash ^= rawHash >>> 33;
+        rawHash *= 0xc4ceb9fe1a85ec53L;
+        rawHash ^= rawHash >>> 33;
+
+        return (int) (rawHash & mask);
     }
 }
