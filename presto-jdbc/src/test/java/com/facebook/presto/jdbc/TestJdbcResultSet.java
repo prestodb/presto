@@ -135,16 +135,71 @@ public class TestJdbcResultSet
         }
     }
 
+    @Test
+    public void testMaxRowsUnset()
+            throws SQLException
+    {
+        assertNumberOfRows(7);
+    }
+
+    @Test
+    public void testMaxRowsUnlimited()
+            throws SQLException
+    {
+        statement.setMaxRows(0);
+        assertNumberOfRows(7);
+    }
+
+    @Test
+    public void testMaxRowsLimited()
+            throws SQLException
+    {
+        statement.setMaxRows(4);
+        assertNumberOfRows(4);
+    }
+
+    @Test
+    public void testMaxRowsLimitLargerThanResult()
+            throws SQLException
+    {
+        statement.setMaxRows(10);
+        assertNumberOfRows(7);
+    }
+
+    @Test
+    public void testLargeMaxRowsUnlimited()
+            throws SQLException
+    {
+        statement.setLargeMaxRows(0);
+        assertNumberOfRows(7);
+    }
+
+    @Test
+    public void testLargeMaxRowsLimited()
+            throws SQLException
+    {
+        statement.setLargeMaxRows(4);
+        assertNumberOfRows(4);
+    }
+
+    @Test
+    public void testLargeMaxRowsLimitLargerThanResult()
+            throws SQLException
+    {
+        statement.setLargeMaxRows(10);
+        assertNumberOfRows(7);
+    }
+
     @Test(expectedExceptions = SQLFeatureNotSupportedException.class, expectedExceptionsMessageRegExp = "SET/RESET SESSION .*")
     public void testSetSession()
-        throws Exception
+            throws Exception
     {
         statement.execute("SET SESSION hash_partition_count = 16");
     }
 
     @Test(expectedExceptions = SQLFeatureNotSupportedException.class, expectedExceptionsMessageRegExp = "SET/RESET SESSION .*")
     public void testResetSession()
-        throws Exception
+            throws Exception
     {
         statement.execute("RESET SESSION hash_partition_count");
     }
@@ -154,5 +209,24 @@ public class TestJdbcResultSet
     {
         String url = format("jdbc:presto://%s", server.getAddress());
         return DriverManager.getConnection(url, "test", null);
+    }
+
+    private void assertNumberOfRows(final long expectedCount)
+            throws SQLException
+    {
+        try (ResultSet rs = statement.executeQuery("SELECT * FROM (VALUES (1), (2), (3), (4), (5), (6), (7)) AS X(a)")) {
+            assertEquals(countRows(rs), expectedCount);
+        }
+    }
+
+    private static long countRows(ResultSet rs)
+            throws SQLException
+    {
+        long count = 0;
+        while (rs.next()) {
+            count++;
+        }
+
+        return count;
     }
 }

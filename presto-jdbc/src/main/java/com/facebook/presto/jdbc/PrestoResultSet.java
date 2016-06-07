@@ -21,6 +21,7 @@ import com.facebook.presto.jdbc.ColumnInfo.Nullable;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.UnmodifiableIterator;
 import org.joda.time.DateTimeZone;
 import org.joda.time.Period;
 import org.joda.time.format.DateTimeFormat;
@@ -57,6 +58,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -82,7 +84,7 @@ public class PrestoResultSet
                     new DateTimeParser[] {
                             DateTimeFormat.forPattern("HH:mm:ss.SSS Z").getParser(),
                             DateTimeFormat.forPattern("HH:mm:ss.SSS ZZZ").getParser(),
-                    })
+                            })
             .toFormatter()
             .withOffsetParsed();
 
@@ -92,7 +94,7 @@ public class PrestoResultSet
                     new DateTimeParser[] {
                             DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS Z").getParser(),
                             DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ").getParser(),
-                    })
+                            })
             .toFormatter()
             .withOffsetParsed();
 
@@ -130,7 +132,7 @@ public class PrestoResultSet
     private final AtomicReference<List<Object>> row = new AtomicReference<>();
     private final AtomicBoolean wasNull = new AtomicBoolean();
 
-    PrestoResultSet(StatementClient client, Consumer<QueryStats> progressCallback)
+    PrestoResultSet(StatementClient client, long maxRows, Consumer<QueryStats> progressCallback)
             throws SQLException
     {
         this.client = requireNonNull(client, "client is null");
@@ -144,7 +146,7 @@ public class PrestoResultSet
         this.columnInfoList = getColumnInfo(columns);
         this.resultSetMetaData = new PrestoResultSetMetaData(columnInfoList);
 
-        this.results = flatten(new ResultsPageIterator(client, progressCallback));
+        this.results = flatten(new ResultsPageIterator(client, progressCallback), maxRows);
     }
 
     public String getQueryId()
@@ -1773,9 +1775,10 @@ public class PrestoResultSet
         throw resultsException(results);
     }
 
-    private static <T> Iterator<T> flatten(Iterator<Iterable<T>> iterator)
+    private static <T> Iterator<T> flatten(Iterator<Iterable<T>> iterator, long maxRows)
     {
-        return concat(transform(iterator, Iterable::iterator));
+        final Iterator<T> rowsIterator = concat(transform(iterator, Iterable::iterator));
+        return maxRows > 0 ? new LengthLimitedIterator<>(rowsIterator, maxRows) : rowsIterator;
     }
 
     private static class ResultsPageIterator
@@ -1813,6 +1816,37 @@ public class PrestoResultSet
             }
 
             return endOfData();
+        }
+    }
+
+    private static class LengthLimitedIterator<T>
+            extends UnmodifiableIterator<T>
+    {
+        private final Iterator<T> iterator;
+        private final long limit;
+        private long count;
+
+        LengthLimitedIterator(final Iterator<T> iterator, final long limit)
+        {
+            this.limit = limit;
+            this.iterator = iterator;
+        }
+
+        @Override
+        public boolean hasNext()
+        {
+            return count < limit && iterator.hasNext();
+        }
+
+        @Override
+        public T next()
+        {
+            if (count >= limit) {
+                throw new NoSuchElementException();
+            }
+
+            count++;
+            return iterator.next();
         }
     }
 
