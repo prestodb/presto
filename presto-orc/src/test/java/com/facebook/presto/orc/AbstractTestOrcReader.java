@@ -18,13 +18,11 @@ import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
-import com.google.common.base.Function;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
-import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveDecimalObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.joda.time.DateTimeZone;
@@ -432,11 +430,6 @@ public abstract class AbstractTestOrcReader
 //            }
 //        };
 //    }
-
-    private static Function<HiveDecimal, SqlDecimal> toSqlDecimal(int scale)
-    {
-        return hiveDecimal -> new SqlDecimal(hiveDecimal.unscaledValue(), hiveDecimal.precision(), scale);
-    }
 
     private static ContiguousSet<Integer> intsBetween(int lowerInclusive, int upperExclusive)
     {
