@@ -21,7 +21,7 @@ import java.sql.SQLException;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
-public class TestConnectionParameters
+public class TestPrestoDriverUri
 {
     private static final String SERVER = "127.0.0.1:60429";
 
@@ -30,7 +30,7 @@ public class TestConnectionParameters
             throws Exception
     {
         String url = format("jdbc:presto://%s/hive/default/bad_string", SERVER);
-        new ConnectionParameters(url);
+        new PrestoDriverUri(url);
     }
 
     @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Catalog name is empty: .*")
@@ -38,7 +38,7 @@ public class TestConnectionParameters
             throws Exception
     {
         String url = format("jdbc:presto://%s//default", SERVER);
-        new ConnectionParameters(url);
+        new PrestoDriverUri(url);
     }
 
     @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Catalog name is empty: .*")
@@ -46,7 +46,7 @@ public class TestConnectionParameters
             throws Exception
     {
         String url = format("jdbc:presto://%s//", SERVER);
-        new ConnectionParameters(url);
+        new PrestoDriverUri(url);
     }
 
     @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Schema name is empty: .*")
@@ -54,16 +54,16 @@ public class TestConnectionParameters
             throws Exception
     {
         String url = format("jdbc:presto://%s/a//", SERVER);
-        new ConnectionParameters(url);
+        new PrestoDriverUri(url);
     }
 
     @Test
     public void testURIWithSSL()
             throws SQLException
     {
-        final ConnectionParameters parameters = new ConnectionParameters(URI.create("presto://some-ssl-server:443/blackhole"));
+        PrestoDriverUri parameters = new PrestoDriverUri(URI.create("presto://some-ssl-server:443/blackhole"));
 
-        final URI uri = parameters.getHttpUri();
+        URI uri = parameters.getHttpUri();
         assertEquals(uri.getPort(), 443);
         assertEquals(uri.getScheme(), "https");
     }
@@ -72,9 +72,9 @@ public class TestConnectionParameters
     public void testURIWithSSLmissing()
             throws SQLException
     {
-        final ConnectionParameters parameters = new ConnectionParameters(URI.create("presto://localhost:8080/blackhole"));
+        PrestoDriverUri parameters = new PrestoDriverUri(URI.create("presto://localhost:8080/blackhole"));
 
-        final URI uri = parameters.getHttpUri();
+        URI uri = parameters.getHttpUri();
         assertEquals(uri.getPort(), 8080);
         assertEquals(uri.getScheme(), "http");
     }
@@ -83,9 +83,9 @@ public class TestConnectionParameters
     public void testURIWithUseSSLTrue()
             throws SQLException
     {
-        final ConnectionParameters parameters = new ConnectionParameters(URI.create("presto://localhost:8080/blackhole?useSSL=true"));
+        PrestoDriverUri parameters = new PrestoDriverUri(URI.create("presto://localhost:8080/blackhole?useSSL=true"));
 
-        final URI uri = parameters.getHttpUri();
+        URI uri = parameters.getHttpUri();
         assertEquals(uri.getPort(), 8080);
         assertEquals(uri.getScheme(), "https");
     }
@@ -94,9 +94,9 @@ public class TestConnectionParameters
     public void testURIWithUseSSLFalse()
             throws SQLException
     {
-        final ConnectionParameters parameters = new ConnectionParameters(URI.create("presto://localhost:8080/blackhole?useSSL=false"));
+        PrestoDriverUri parameters = new PrestoDriverUri(URI.create("presto://localhost:8080/blackhole?useSSL=false"));
 
-        final URI uri = parameters.getHttpUri();
+        URI uri = parameters.getHttpUri();
         assertEquals(uri.getPort(), 8080);
         assertEquals(uri.getScheme(), "http");
     }

@@ -63,7 +63,7 @@ public class PrestoConnection
     private final AtomicReference<String> timeZoneId = new AtomicReference<>();
     private final AtomicReference<Locale> locale = new AtomicReference<>();
 
-    private final ConnectionParameters connectionParameters;
+    private final PrestoDriverUri prestoDriverUri;
 
     private final String user;
     private final Map<String, String> clientInfo = new ConcurrentHashMap<>();
@@ -71,12 +71,12 @@ public class PrestoConnection
     private final AtomicReference<String> transactionId = new AtomicReference<>();
     private final QueryExecutor queryExecutor;
 
-    PrestoConnection(ConnectionParameters connectionParameters, String user, QueryExecutor queryExecutor)
+    PrestoConnection(PrestoDriverUri prestoDriverUri, String user, QueryExecutor queryExecutor)
             throws SQLException
     {
-        this.connectionParameters = connectionParameters;
-        this.schema.set(connectionParameters.getSchema());
-        this.catalog.set(connectionParameters.getCatalog());
+        this.prestoDriverUri = prestoDriverUri;
+        this.schema.set(prestoDriverUri.getSchema());
+        this.catalog.set(prestoDriverUri.getCatalog());
 
         this.user = requireNonNull(user, "user is null");
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
@@ -555,7 +555,7 @@ public class PrestoConnection
 
     URI getURI()
     {
-        return connectionParameters.getURI();
+        return prestoDriverUri.getURI();
     }
 
     String getUser()
@@ -565,12 +565,12 @@ public class PrestoConnection
 
     ServerInfo getServerInfo()
     {
-        return queryExecutor.getServerInfo(connectionParameters.getHttpUri());
+        return queryExecutor.getServerInfo(prestoDriverUri.getHttpUri());
     }
 
     StatementClient startQuery(String sql)
     {
-        URI uri = connectionParameters.getHttpUri();
+        URI uri = prestoDriverUri.getHttpUri();
 
         String source = firstNonNull(clientInfo.get("ApplicationName"), "presto-jdbc");
 
@@ -578,8 +578,8 @@ public class PrestoConnection
                 uri,
                 user,
                 source,
-                connectionParameters.getCatalog(),
-                connectionParameters.getSchema(),
+                prestoDriverUri.getCatalog(),
+                prestoDriverUri.getSchema(),
                 timeZoneId.get(),
                 locale.get(),
                 ImmutableMap.copyOf(sessionProperties),

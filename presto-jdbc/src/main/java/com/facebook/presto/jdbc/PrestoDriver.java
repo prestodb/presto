@@ -83,7 +83,7 @@ public class PrestoDriver
             throw new SQLException(format("Username property (%s) must be set", USER_PROPERTY));
         }
 
-        return new PrestoConnection(new ConnectionParameters(url), user, queryExecutor);
+        return new PrestoConnection(new PrestoDriverUri(url), user, queryExecutor);
     }
 
     @Override

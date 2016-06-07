@@ -29,7 +29,7 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilder;
 /**
  * Container for parameters of a JDBC connection. The class is also responsible for parsing Presto JDBC URL.
  */
-final class ConnectionParameters
+final class PrestoDriverUri
 {
     private static final String JDBC_URL_START = "jdbc:";
 
@@ -44,52 +44,52 @@ final class ConnectionParameters
 
     private final boolean useSSL;
 
-    ConnectionParameters(final String url)
+    public PrestoDriverUri(String url)
             throws SQLException
     {
         this(parseDriverUrl(url));
     }
 
-    ConnectionParameters(final URI uri)
+    public PrestoDriverUri(URI uri)
             throws SQLException
     {
         this.uri = uri;
         this.address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
 
-        final Map<String, String> params = parseParameters(uri.getQuery());
+        Map<String, String> params = parseParameters(uri.getQuery());
         this.useSSL = Boolean.parseBoolean(params.get("useSSL"));
 
         initCatalogAndSchema();
     }
 
-    URI getURI()
+    public URI getURI()
     {
         return uri;
     }
 
-    String getSchema()
+    public String getSchema()
     {
         return schema;
     }
 
-    String getCatalog()
+    public String getCatalog()
     {
         return catalog;
     }
 
-    URI getHttpUri()
+    public URI getHttpUri()
     {
         return buildHttpUri();
     }
 
     private Map<String, String> parseParameters(String query)
     {
-        final Map<String, String> result = new HashMap<>();
+        Map<String, String> result = new HashMap<>();
 
         if (query != null) {
             Iterable<String> queryArgs = QUERY_SPLITTER.split(query);
             for (String queryArg : queryArgs) {
-                final List<String> parts = ARG_SPLITTER.splitToList(queryArg);
+                List<String> parts = ARG_SPLITTER.splitToList(queryArg);
                 result.put(parts.get(0), parts.get(1));
             }
         }
@@ -122,7 +122,7 @@ final class ConnectionParameters
 
     private URI buildHttpUri()
     {
-        final String scheme = (address.getPort() == 443 || useSSL) ? "https" : "http";
+        String scheme = (address.getPort() == 443 || useSSL) ? "https" : "http";
 
         return uriBuilder()
                 .scheme(scheme)
