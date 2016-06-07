@@ -41,6 +41,7 @@ import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.metastore.ProtectMode;
+import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.Order;
 import org.apache.hadoop.hive.metastore.api.Partition;
@@ -293,6 +294,10 @@ public final class HiveWriteUtils
 
     public static void checkTableIsWritable(Table table)
     {
+        if (!table.getTableType().equals(TableType.MANAGED_TABLE.toString())) {
+            throw new PrestoException(NOT_SUPPORTED, "Cannot write to non-managed Hive table");
+        }
+
         checkWritable(
                 new SchemaTableName(table.getDbName(), table.getTableName()),
                 Optional.empty(),
