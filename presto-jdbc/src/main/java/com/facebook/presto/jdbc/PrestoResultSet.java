@@ -113,7 +113,7 @@ public class PrestoResultSet
     private final AtomicReference<List<Object>> row = new AtomicReference<>();
     private final AtomicBoolean wasNull = new AtomicBoolean();
 
-    PrestoResultSet(StatementClient client, Consumer<QueryStats> progressCallback)
+    PrestoResultSet(StatementClient client, long maxRows, Consumer<QueryStats> progressCallback)
             throws SQLException
     {
         this.client = requireNonNull(client, "client is null");
@@ -127,7 +127,7 @@ public class PrestoResultSet
         this.columnInfoList = getColumnInfo(columns);
         this.resultSetMetaData = new PrestoResultSetMetaData(columnInfoList);
 
-        this.results = flatten(new ResultsPageIterator(client, progressCallback));
+        this.results = flatten(new ResultsPageIterator(client, progressCallback), maxRows);
     }
 
     public String getQueryId()
@@ -1747,9 +1747,10 @@ public class PrestoResultSet
         throw resultsException(results);
     }
 
-    private static <T> Iterator<T> flatten(Iterator<Iterable<T>> iterator)
+    private static <T> Iterator<T> flatten(Iterator<Iterable<T>> iterator, long maxRows)
     {
-        return concat(transform(iterator, Iterable::iterator));
+        Iterator<T> rowsIterator = concat(transform(iterator, Iterable::iterator));
+        return (maxRows > 0) ? new LengthLimitedIterator<>(rowsIterator, maxRows) : rowsIterator;
     }
 
     private static class ResultsPageIterator
