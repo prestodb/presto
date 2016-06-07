@@ -211,10 +211,10 @@ public class TestJdbcResultSet
         return DriverManager.getConnection(url, "test", null);
     }
 
-    private void assertNumberOfRows(final long expectedCount)
+    private void assertNumberOfRows(long expectedCount)
             throws SQLException
     {
-        try (ResultSet rs = statement.executeQuery("SELECT * FROM (VALUES (1), (2), (3), (4), (5), (6), (7)) AS X(a)")) {
+        try (ResultSet rs = statement.executeQuery("SELECT * FROM (VALUES (1), (2), (3), (4), (5), (6), (7)) AS x (a)")) {
             assertEquals(countRows(rs), expectedCount);
         }
     }
@@ -226,7 +226,6 @@ public class TestJdbcResultSet
         while (rs.next()) {
             count++;
         }
-
         return count;
     }
 }

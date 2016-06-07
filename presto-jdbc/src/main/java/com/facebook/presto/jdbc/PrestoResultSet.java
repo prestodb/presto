@@ -21,7 +21,6 @@ import com.facebook.presto.jdbc.ColumnInfo.Nullable;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.UnmodifiableIterator;
 import org.joda.time.DateTimeZone;
 import org.joda.time.Period;
 import org.joda.time.format.DateTimeFormat;
@@ -58,7 +57,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -1777,7 +1775,7 @@ public class PrestoResultSet
 
     private static <T> Iterator<T> flatten(Iterator<Iterable<T>> iterator, long maxRows)
     {
-        final Iterator<T> rowsIterator = concat(transform(iterator, Iterable::iterator));
+        Iterator<T> rowsIterator = concat(transform(iterator, Iterable::iterator));
         return maxRows > 0 ? new LengthLimitedIterator<>(rowsIterator, maxRows) : rowsIterator;
     }
 
@@ -1816,37 +1814,6 @@ public class PrestoResultSet
             }
 
             return endOfData();
-        }
-    }
-
-    private static class LengthLimitedIterator<T>
-            extends UnmodifiableIterator<T>
-    {
-        private final Iterator<T> iterator;
-        private final long limit;
-        private long count;
-
-        LengthLimitedIterator(final Iterator<T> iterator, final long limit)
-        {
-            this.limit = limit;
-            this.iterator = iterator;
-        }
-
-        @Override
-        public boolean hasNext()
-        {
-            return count < limit && iterator.hasNext();
-        }
-
-        @Override
-        public T next()
-        {
-            if (count >= limit) {
-                throw new NoSuchElementException();
-            }
-
-            count++;
-            return iterator.next();
         }
     }
 
