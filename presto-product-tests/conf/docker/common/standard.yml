@@ -1,3 +1,4 @@
+#overrides ./jdbc_db.yml
 version: '2'
 services:
 
@@ -26,8 +27,7 @@ services:
     extends:
       service: java-8-base
     hostname: presto-master
-    volumes:
-      - ../../../../presto-product-tests/conf/tempto/tempto-configuration-for-docker-default.yaml:/docker/volumes/tempto/tempto-configuration-local.yaml
+    command: /docker/volumes/presto/presto-product-tests/conf/docker/files/presto-launcher-wrapper.sh singlenode run
     ports:
       - '8080:8080'
     depends_on:
@@ -39,5 +39,7 @@ services:
     hostname: application-runner
     depends_on:
       - presto-master
+    volumes:
+      - ../../../../presto-product-tests/conf/tempto/tempto-configuration-for-docker-default.yaml:/docker/volumes/tempto/tempto-configuration-local.yaml
     volumes_from:
       - presto-master
