@@ -1,5 +1,1 @@
 version: '2'
-services:
-
-  presto-master:
-    command: /docker/volumes/presto/presto-product-tests/conf/docker/files/presto-launcher-wrapper.sh singlenode run

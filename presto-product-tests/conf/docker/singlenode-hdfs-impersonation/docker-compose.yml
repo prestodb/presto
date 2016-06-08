@@ -2,6 +2,5 @@ version: '2'
 services:
 
   presto-master:
-    command: /docker/volumes/presto/presto-product-tests/conf/docker/files/presto-launcher-wrapper.sh singlenode run
     volumes:
       - ../../../../presto-product-tests/conf/presto/etc/environment-specific-catalogs/singlenode-hdfs-impersonation/hive.properties:/docker/volumes/presto/presto-product-tests/conf/presto/etc/catalog/hive.properties
