@@ -96,6 +96,23 @@ VM will have to be re-downloaded when the product tests are kicked
 off. To avoid this unnecessary re-download, do not create new
 VMs often.
 
+## Use the `docker-compose` wrappers
+
+We're using [multiple compose files](https://docs.docker.com/compose/extends/#multiple-compose-files)
+because of the number of overrides needed for different environments,
+and deficiencies of `extends:` syntax (see the note
+[here](https://docs.docker.com/compose/extends/#extending-services)).
+
+
+To ease the pain of passing multiple `-f` arguments to `docker-compose`,
+each environment has a `compose.sh` wrapper script. Thanks to it, instead of e.g.
+
+`docker-compose -f ./docker-compose.yml -f ../common/standard.yml -f ../common/jdbc_db.yml [compose commands]`
+
+one can simply write
+
+`compose.sh [compose commands]`
+
 ## Running the product tests
 
 The Presto product tests must be run explicitly because they do not run
@@ -208,13 +225,13 @@ setup outlined below:
 2. Start Hadoop in pseudo-distributed mode in a Docker container:
 
     ```
-    docker-compose -f presto-product-tests/conf/docker/singlenode/docker-compose.yml up -d hadoop-master
+    presto-product-tests/conf/docker/singlenode/compose.sh up -d hadoop-master
     ```
     
     Tip: To display container logs run:
 
     ```
-    docker-compose -f presto-product-tests/conf/docker/singlenode/docker-compose.yml logs
+    presto-product-tests/conf/docker/singlenode/compose.sh logs
     ```
     
 3. Add an IP-to-host mapping for the `hadoop-master` host in `/etc/hosts`.
@@ -224,7 +241,7 @@ The format of `/etc/hosts` entries is `<ip> <host>`:
     The container IP can be obtained by running:
 
         ```
-        docker inspect $(docker-compose -f presto-product-tests/conf/docker/singlenode/docker-compose.yml ps -q hadoop-master) | grep -i IPAddress
+        docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q hadoop-master) | grep -i IPAddress
         ```
 
     - On OS X add the following mapping: `<docker machine ip> hadoop-master`.
@@ -252,7 +269,7 @@ or debug the respective test(s).
 following command:
 
     ```
-    docker-compose -f presto-product-tests/conf/docker/singlenode/docker-compose.yml down
+    presto-product-tests/conf/docker/singlenode/compose.sh down
     ```
 
 ### Debugging convention based tests
@@ -298,13 +315,14 @@ running the debugger.
 
 ## Troubleshooting
 
-Use the `docker-compose` and `docker` utilities to control and troubleshoot
-containers. In the following examples ``<profile>`` is [profile](#profile).
+Use the `docker-compose` (probably using a [wrapper](#use-the-docker-compose-wrappers))
+and `docker` utilities to control and troubleshoot containers.
+In the following examples ``<profile>`` is [profile](#profile).
 
 1. Use the following command to view output from running containers:
 
     ```
-    docker-compose -f presto-product-tests/conf/docker/<profile>/docker-compose.yml logs
+    presto-product-tests/conf/docker/<profile>/compose.sh logs
     ```
 
 2. To connect to a running container in an interactive Bash shell to
@@ -324,8 +342,8 @@ been downloaded:
     ```
     # Stop Hadoop container (the down command stops and removes containers,
     # network, images, and volumes). This effectively resets the container.
-    docker-compose -f presto-product-tests/conf/docker/<profile>/docker-compose.yml down
+    presto-product-tests/conf/docker/<profile>/compose.sh down
     # Pull from Docker Hub to ensure the latest version of the image is
     # downloaded.
-    docker-compose -f presto-product-tests/conf/docker/<profile>/docker-compose.yml pull
+    presto-product-tests/conf/docker/<profile>/compose.sh pull
     ```
