@@ -139,7 +139,7 @@ public class TestJdbcResultSet
     public void testMaxRowsUnset()
             throws SQLException
     {
-        assertNumberOfRows(7);
+        assertRowCount(7);
     }
 
     @Test
@@ -147,7 +147,7 @@ public class TestJdbcResultSet
             throws SQLException
     {
         statement.setMaxRows(0);
-        assertNumberOfRows(7);
+        assertRowCount(7);
     }
 
     @Test
@@ -155,7 +155,7 @@ public class TestJdbcResultSet
             throws SQLException
     {
         statement.setMaxRows(4);
-        assertNumberOfRows(4);
+        assertRowCount(4);
     }
 
     @Test
@@ -163,7 +163,7 @@ public class TestJdbcResultSet
             throws SQLException
     {
         statement.setMaxRows(10);
-        assertNumberOfRows(7);
+        assertRowCount(7);
     }
 
     @Test
@@ -171,7 +171,7 @@ public class TestJdbcResultSet
             throws SQLException
     {
         statement.setLargeMaxRows(0);
-        assertNumberOfRows(7);
+        assertRowCount(7);
     }
 
     @Test
@@ -179,7 +179,7 @@ public class TestJdbcResultSet
             throws SQLException
     {
         statement.setLargeMaxRows(4);
-        assertNumberOfRows(4);
+        assertRowCount(4);
     }
 
     @Test
@@ -187,7 +187,16 @@ public class TestJdbcResultSet
             throws SQLException
     {
         statement.setLargeMaxRows(10);
-        assertNumberOfRows(7);
+        assertRowCount(7);
+    }
+
+    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Max rows exceeds limit of 2147483647")
+    public void testMaxRowsExceedsLimit()
+            throws SQLException
+    {
+        // Set a value greater than Integer.MAX_VALUE
+        statement.setLargeMaxRows(1L << 40);
+        statement.getMaxRows();
     }
 
     @Test(expectedExceptions = SQLFeatureNotSupportedException.class, expectedExceptionsMessageRegExp = "SET/RESET SESSION .*")
@@ -211,7 +220,7 @@ public class TestJdbcResultSet
         return DriverManager.getConnection(url, "test", null);
     }
 
-    private void assertNumberOfRows(long expectedCount)
+    private void assertRowCount(long expectedCount)
             throws SQLException
     {
         try (ResultSet rs = statement.executeQuery("SELECT * FROM (VALUES (1), (2), (3), (4), (5), (6), (7)) AS x (a)")) {

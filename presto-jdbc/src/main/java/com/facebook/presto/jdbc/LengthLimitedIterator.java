@@ -20,7 +20,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 /**
- * This {@code Iterator} is like Guava's Iterators.limit() but uses a {@code long} limit instead of {@code int}.
+ * This {@code Iterator} is like Guava's {@code Iterators.limit()} but uses a {@code long} limit instead of {@code int}.
  */
 final class LengthLimitedIterator<T>
         implements Iterator<T>
@@ -29,7 +29,7 @@ final class LengthLimitedIterator<T>
     private final long limit;
     private long count;
 
-    LengthLimitedIterator(Iterator<T> iterator, long limit)
+    public LengthLimitedIterator(Iterator<T> iterator, long limit)
     {
         checkArgument(limit >= 0, "limit is negative");
         this.iterator = requireNonNull(iterator, "iterator is null");

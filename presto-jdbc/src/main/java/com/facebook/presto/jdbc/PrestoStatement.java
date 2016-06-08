@@ -103,7 +103,11 @@ public class PrestoStatement
     public int getMaxRows()
             throws SQLException
     {
-        return Ints.saturatedCast(getLargeMaxRows());
+        long result = getLargeMaxRows();
+        if (result > Integer.MAX_VALUE) {
+            throw new SQLException("Max rows exceeds limit of 2147483647");
+        }
+        return (int) result;
     }
 
     @Override
