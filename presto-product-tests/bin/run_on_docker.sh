@@ -61,6 +61,7 @@ function run_product_tests() {
 
 # docker-compose down is not good enough because it's ignores services created with "run" command
 function stop_application_runner_containers() {
+  local ENVIRONMENT=$1
   APPLICATION_RUNNER_CONTAINERS=$(environment_docker_compose ps -q application-runner)
   for CONTAINER_NAME in ${APPLICATION_RUNNER_CONTAINERS}
   do
@@ -74,22 +75,23 @@ function stop_all_containers() {
   local ENVIRONMENT
   for ENVIRONMENT in $(getAvailableEnvironments)
   do
-     stop_docker_compose_containers
+     stop_docker_compose_containers ${ENVIRONMENT}
   done
 }
 
 function stop_docker_compose_containers() {
+  local ENVIRONMENT=$1
   RUNNING_CONTAINERS=$(environment_docker_compose ps -q)
 
   if [[ ! -z ${RUNNING_CONTAINERS} ]]; then
     # stop application runner containers started with "run"
-    stop_application_runner_containers
+    stop_application_runner_containers ${ENVIRONMENT}
 
     # stop containers started with "up"
     environment_docker_compose down
   fi
 
-  echo "Docker compose containers stopped: [$1]"
+  echo "Docker compose containers stopped: [$ENVIRONMENT]"
 }
 
 function environment_docker_compose() {
@@ -98,10 +100,10 @@ function environment_docker_compose() {
 }
 
 function cleanup() {
-  stop_application_runner_containers
+  stop_application_runner_containers ${ENVIRONMENT}
 
   if [[ "${LEAVE_CONTAINERS_ALIVE_ON_EXIT}" != "true" ]]; then
-    stop_docker_compose_containers
+    stop_docker_compose_containers ${ENVIRONMENT}
   fi
 
   # Ensure that the logs processes are terminated.
