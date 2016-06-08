@@ -93,16 +93,8 @@ function stop_docker_compose_containers() {
 }
 
 function environment_docker_compose() {
-  local ENVIRONMENT_DOCKER_COMPOSE_LOCATION="${DOCKER_CONF_LOCATION}/${ENVIRONMENT}/docker-compose.yml"
-  local COMPOSE_FILES=( -f "${DOCKER_CONF_LOCATION}/common/standard.yml" )
-  if [[ $ENVIRONMENT == *"kerberos"* ]]; then
-    COMPOSE_FILES+=( -f "${DOCKER_CONF_LOCATION}/common/kerberos.yml" )
-  fi
-  COMPOSE_FILES+=( \
-    -f "${DOCKER_CONF_LOCATION}/common/jdbc_db.yml" \
-    -f "${ENVIRONMENT_DOCKER_COMPOSE_LOCATION}" \
-  )
-  docker-compose "${COMPOSE_FILES[@]}" "$@"
+  local ENVIRONMENT_COMPOSE_SCRIPT_LOCATION="${DOCKER_CONF_LOCATION}/${ENVIRONMENT}/compose.sh"
+  ${ENVIRONMENT_COMPOSE_SCRIPT_LOCATION} "$@"
 }
 
 function cleanup() {
