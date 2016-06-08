@@ -26,6 +26,7 @@ General Changes
 * Improve planning of co-partitioned ``JOIN`` and ``UNION``.
 * Improve planning of aggregations over partitioned data.
 * Improve the performance of the :func:`array_sort` function.
+* Improve outer join predicate push down.
 * Increase default value for ``query.initial-hash-partitions`` to ``100``.
 * Change default value of ``query.max-memory-per-node`` to ``10%`` of the Java heap.
 * Change default ``task.max-worker-threads`` to ``2`` times the number of cores.
