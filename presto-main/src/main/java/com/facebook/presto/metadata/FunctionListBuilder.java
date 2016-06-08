@@ -43,7 +43,6 @@ import io.airlift.joni.Regex;
 import javax.annotation.Nullable;
 
 import java.lang.annotation.Annotation;
-
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
