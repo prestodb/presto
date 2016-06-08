@@ -137,14 +137,14 @@ public class TestJdbcResultSet
 
     @Test(expectedExceptions = SQLFeatureNotSupportedException.class, expectedExceptionsMessageRegExp = "SET/RESET SESSION .*")
     public void testSetSession()
-        throws Exception
+            throws Exception
     {
         statement.execute("SET SESSION hash_partition_count = 16");
     }
 
     @Test(expectedExceptions = SQLFeatureNotSupportedException.class, expectedExceptionsMessageRegExp = "SET/RESET SESSION .*")
     public void testResetSession()
-        throws Exception
+            throws Exception
     {
         statement.execute("RESET SESSION hash_partition_count");
     }

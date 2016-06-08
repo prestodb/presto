@@ -55,7 +55,6 @@
             <artifactId>configuration</artifactId>
         </dependency>
 
-
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>

@@ -8,7 +8,6 @@
         <version>0.148-SNAPSHOT</version>
     </parent>
 
-
     <artifactId>presto-testing-server-launcher</artifactId>
     <name>presto-testing-server-launcher</name>
 
