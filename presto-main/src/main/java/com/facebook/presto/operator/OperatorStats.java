@@ -45,7 +45,7 @@ public class OperatorStats
     private final Duration addInputUser;
     private final DataSize inputDataSize;
     private final long inputPositions;
-    private final double inputPositionsSquared;
+    private final double sumSquaredInputPositions;
 
     private final long getOutputCalls;
     private final Duration getOutputWall;
@@ -60,10 +60,6 @@ public class OperatorStats
     private final Duration finishWall;
     private final Duration finishCpu;
     private final Duration finishUser;
-
-    private final double weightedHashCollisions;
-    private final double weightedHashCollisionsSquared;
-    private final double weightedExpectedHashCollisions;
 
     private final DataSize memoryReservation;
     private final DataSize systemMemoryReservation;
@@ -85,7 +81,7 @@ public class OperatorStats
             @JsonProperty("addInputUser") Duration addInputUser,
             @JsonProperty("inputDataSize") DataSize inputDataSize,
             @JsonProperty("inputPositions") long inputPositions,
-            @JsonProperty("inputPositionsSquared") double inputPositionsSquared,
+            @JsonProperty("sumSquaredInputPositions") double sumSquaredInputPositions,
 
             @JsonProperty("getOutputCalls") long getOutputCalls,
             @JsonProperty("getOutputWall") Duration getOutputWall,
@@ -100,10 +96,6 @@ public class OperatorStats
             @JsonProperty("finishWall") Duration finishWall,
             @JsonProperty("finishCpu") Duration finishCpu,
             @JsonProperty("finishUser") Duration finishUser,
-
-            @JsonProperty("weightedHashCollisions") double weightedHashCollisions,
-            @JsonProperty("weightedHashCollisionsSquared") double weightedHashCollisionsSquared,
-            @JsonProperty("weightedExpectedHashCollisions") double weightedExpectedHashCollisions,
 
             @JsonProperty("memoryReservation") DataSize memoryReservation,
             @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
@@ -125,7 +117,7 @@ public class OperatorStats
         this.inputDataSize = requireNonNull(inputDataSize, "inputDataSize is null");
         checkArgument(inputPositions >= 0, "inputPositions is negative");
         this.inputPositions = inputPositions;
-        this.inputPositionsSquared = inputPositionsSquared;
+        this.sumSquaredInputPositions = sumSquaredInputPositions;
 
         this.getOutputCalls = getOutputCalls;
         this.getOutputWall = requireNonNull(getOutputWall, "getOutputWall is null");
@@ -141,10 +133,6 @@ public class OperatorStats
         this.finishWall = requireNonNull(finishWall, "finishWall is null");
         this.finishCpu = requireNonNull(finishCpu, "finishCpu is null");
         this.finishUser = requireNonNull(finishUser, "finishUser is null");
-
-        this.weightedHashCollisions = weightedHashCollisions;
-        this.weightedHashCollisionsSquared = weightedHashCollisionsSquared;
-        this.weightedExpectedHashCollisions = weightedExpectedHashCollisions;
 
         this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
         this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
@@ -214,9 +202,9 @@ public class OperatorStats
     }
 
     @JsonProperty
-    public double getInputPositionsSquared()
+    public double getSumSquaredInputPositions()
     {
-        return inputPositionsSquared;
+        return sumSquaredInputPositions;
     }
 
     @JsonProperty
@@ -286,24 +274,6 @@ public class OperatorStats
     }
 
     @JsonProperty
-    public double getWeightedHashCollisions()
-    {
-        return weightedHashCollisions;
-    }
-
-    @JsonProperty
-    public double getWeightedHashCollisionsSquared()
-    {
-        return weightedHashCollisionsSquared;
-    }
-
-    @JsonProperty
-    public double getWeightedExpectedHashCollisions()
-    {
-        return weightedExpectedHashCollisions;
-    }
-
-    @JsonProperty
     public DataSize getMemoryReservation()
     {
         return memoryReservation;
@@ -343,7 +313,7 @@ public class OperatorStats
         long addInputUser = this.addInputUser.roundTo(NANOSECONDS);
         long inputDataSize = this.inputDataSize.toBytes();
         long inputPositions = this.inputPositions;
-        double inputPositionsSquared = this.inputPositionsSquared;
+        double sumSquaredInputPositions = this.sumSquaredInputPositions;
 
         long getOutputCalls = this.getOutputCalls;
         long getOutputWall = this.getOutputWall.roundTo(NANOSECONDS);
@@ -358,10 +328,6 @@ public class OperatorStats
         long finishWall = this.finishWall.roundTo(NANOSECONDS);
         long finishCpu = this.finishCpu.roundTo(NANOSECONDS);
         long finishUser = this.finishUser.roundTo(NANOSECONDS);
-
-        double weightedHashCollisions = this.weightedHashCollisions;
-        double weightedHashCollisionsSquared = this.weightedHashCollisionsSquared;
-        double weightedExpectedHashCollisions = this.weightedExpectedHashCollisions;
 
         long memoryReservation = this.memoryReservation.toBytes();
         long systemMemoryReservation = this.systemMemoryReservation.toBytes();
@@ -382,7 +348,7 @@ public class OperatorStats
             addInputUser += operator.getAddInputUser().roundTo(NANOSECONDS);
             inputDataSize += operator.getInputDataSize().toBytes();
             inputPositions += operator.getInputPositions();
-            inputPositionsSquared += operator.getInputPositionsSquared();
+            sumSquaredInputPositions += operator.getSumSquaredInputPositions();
 
             getOutputCalls += operator.getGetOutputCalls();
             getOutputWall += operator.getGetOutputWall().roundTo(NANOSECONDS);
@@ -395,10 +361,6 @@ public class OperatorStats
             finishWall += operator.getFinishWall().roundTo(NANOSECONDS);
             finishCpu += operator.getFinishCpu().roundTo(NANOSECONDS);
             finishUser += operator.getFinishUser().roundTo(NANOSECONDS);
-
-            weightedHashCollisions += operator.getWeightedHashCollisions();
-            weightedHashCollisionsSquared += operator.getWeightedHashCollisionsSquared();
-            weightedExpectedHashCollisions += operator.getWeightedExpectedHashCollisions();
 
             blockedWall += operator.getBlockedWall().roundTo(NANOSECONDS);
 
@@ -427,7 +389,7 @@ public class OperatorStats
                 new Duration(addInputUser, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new DataSize(inputDataSize, BYTE).convertToMostSuccinctDataSize(),
                 inputPositions,
-                inputPositionsSquared,
+                sumSquaredInputPositions,
 
                 getOutputCalls,
                 new Duration(getOutputWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
@@ -442,10 +404,6 @@ public class OperatorStats
                 new Duration(finishWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(finishCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(finishUser, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-
-                weightedHashCollisions,
-                weightedHashCollisionsSquared,
-                weightedExpectedHashCollisions,
 
                 new DataSize(memoryReservation, BYTE).convertToMostSuccinctDataSize(),
                 new DataSize(systemMemoryReservation, BYTE).convertToMostSuccinctDataSize(),

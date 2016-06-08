@@ -58,14 +58,10 @@ public class TestOperatorStats
             new Duration(18, NANOSECONDS),
             new Duration(19, NANOSECONDS),
 
-            20d,
-            21d,
-            22d,
-
-            new DataSize(23, BYTE),
-            new DataSize(24, BYTE),
+            new DataSize(20, BYTE),
+            new DataSize(21, BYTE),
             Optional.empty(),
-            "25");
+            "22");
 
     public static final OperatorStats MERGEABLE = new OperatorStats(
             41,
@@ -96,14 +92,10 @@ public class TestOperatorStats
             new Duration(18, NANOSECONDS),
             new Duration(19, NANOSECONDS),
 
-            20d,
-            21d,
-            22d,
-
-            new DataSize(23, BYTE),
-            new DataSize(24, BYTE),
+            new DataSize(20, BYTE),
+            new DataSize(21, BYTE),
             Optional.empty(),
-            new LongMergeable(25));
+            new LongMergeable(22));
 
     @Test
     public void testJson()
@@ -129,7 +121,7 @@ public class TestOperatorStats
         assertEquals(actual.getAddInputUser(), new Duration(5, NANOSECONDS));
         assertEquals(actual.getInputDataSize(), new DataSize(6, BYTE));
         assertEquals(actual.getInputPositions(), 7);
-        assertEquals(actual.getInputPositionsSquared(), 8d);
+        assertEquals(actual.getSumSquaredInputPositions(), 8d);
 
         assertEquals(actual.getGetOutputCalls(), 9);
         assertEquals(actual.getGetOutputWall(), new Duration(10, NANOSECONDS));
@@ -145,13 +137,9 @@ public class TestOperatorStats
         assertEquals(actual.getFinishCpu(), new Duration(18, NANOSECONDS));
         assertEquals(actual.getFinishUser(), new Duration(19, NANOSECONDS));
 
-        assertEquals(actual.getWeightedHashCollisions(), 20d);
-        assertEquals(actual.getWeightedHashCollisionsSquared(), 21d);
-        assertEquals(actual.getWeightedExpectedHashCollisions(), 22d);
-
-        assertEquals(actual.getMemoryReservation(), new DataSize(23, BYTE));
-        assertEquals(actual.getSystemMemoryReservation(), new DataSize(24, BYTE));
-        assertEquals(actual.getInfo(), "25");
+        assertEquals(actual.getMemoryReservation(), new DataSize(20, BYTE));
+        assertEquals(actual.getSystemMemoryReservation(), new DataSize(21, BYTE));
+        assertEquals(actual.getInfo(), "22");
     }
 
     @Test
@@ -170,7 +158,7 @@ public class TestOperatorStats
         assertEquals(actual.getAddInputUser(), new Duration(3 * 5, NANOSECONDS));
         assertEquals(actual.getInputDataSize(), new DataSize(3 * 6, BYTE));
         assertEquals(actual.getInputPositions(), 3 * 7);
-        assertEquals(actual.getInputPositionsSquared(), 3 * 8d);
+        assertEquals(actual.getSumSquaredInputPositions(), 3 * 8d);
 
         assertEquals(actual.getGetOutputCalls(), 3 * 9);
         assertEquals(actual.getGetOutputWall(), new Duration(3 * 10, NANOSECONDS));
@@ -186,12 +174,8 @@ public class TestOperatorStats
         assertEquals(actual.getFinishCpu(), new Duration(3 * 18, NANOSECONDS));
         assertEquals(actual.getFinishUser(), new Duration(3 * 19, NANOSECONDS));
 
-        assertEquals(actual.getWeightedHashCollisions(), 3 * 20d);
-        assertEquals(actual.getWeightedHashCollisionsSquared(), 3 * 21d);
-        assertEquals(actual.getWeightedExpectedHashCollisions(), 3 * 22d);
-
-        assertEquals(actual.getMemoryReservation(), new DataSize(3 * 23, BYTE));
-        assertEquals(actual.getSystemMemoryReservation(), new DataSize(3 * 24, BYTE));
+        assertEquals(actual.getMemoryReservation(), new DataSize(3 * 20, BYTE));
+        assertEquals(actual.getSystemMemoryReservation(), new DataSize(3 * 21, BYTE));
         assertEquals(actual.getInfo(), null);
     }
 
@@ -211,7 +195,7 @@ public class TestOperatorStats
         assertEquals(actual.getAddInputUser(), new Duration(3 * 5, NANOSECONDS));
         assertEquals(actual.getInputDataSize(), new DataSize(3 * 6, BYTE));
         assertEquals(actual.getInputPositions(), 3 * 7);
-        assertEquals(actual.getInputPositionsSquared(), 3 * 8d);
+        assertEquals(actual.getSumSquaredInputPositions(), 3 * 8d);
 
         assertEquals(actual.getGetOutputCalls(), 3 * 9);
         assertEquals(actual.getGetOutputWall(), new Duration(3 * 10, NANOSECONDS));
@@ -227,13 +211,9 @@ public class TestOperatorStats
         assertEquals(actual.getFinishCpu(), new Duration(3 * 18, NANOSECONDS));
         assertEquals(actual.getFinishUser(), new Duration(3 * 19, NANOSECONDS));
 
-        assertEquals(actual.getWeightedHashCollisions(), 3 * 20d);
-        assertEquals(actual.getWeightedHashCollisionsSquared(), 3 * 21d);
-        assertEquals(actual.getWeightedExpectedHashCollisions(), 3 * 22d);
-
-        assertEquals(actual.getMemoryReservation(), new DataSize(3 * 23, BYTE));
-        assertEquals(actual.getSystemMemoryReservation(), new DataSize(3 * 24, BYTE));
-        assertEquals(actual.getInfo(), new LongMergeable(25 * 3));
+        assertEquals(actual.getMemoryReservation(), new DataSize(3 * 20, BYTE));
+        assertEquals(actual.getSystemMemoryReservation(), new DataSize(3 * 21, BYTE));
+        assertEquals(actual.getInfo(), new LongMergeable(22 * 3));
     }
 
     private static class LongMergeable
