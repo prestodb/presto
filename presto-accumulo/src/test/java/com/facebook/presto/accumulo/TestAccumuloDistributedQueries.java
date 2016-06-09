@@ -457,4 +457,13 @@ public class TestAccumuloDistributedQueries
         assertEquals("comment", actual.getMaterializedRows().get(8).getField(0));
         assertEquals("varchar", actual.getMaterializedRows().get(8).getField(1));
     }
+
+    @Test
+    public void testMultiInBelowCardinality()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM partsupp WHERE partkey = 1", "SELECT 4");
+        assertQuery("SELECT COUNT(*) FROM partsupp WHERE partkey = 2", "SELECT 4");
+        assertQuery("SELECT COUNT(*) FROM partsupp WHERE partkey IN (1, 2)", "SELECT 8");
+    }
 }

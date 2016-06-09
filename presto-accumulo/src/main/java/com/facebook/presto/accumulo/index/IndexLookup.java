@@ -265,11 +265,9 @@ public class IndexLookup
             // Else, we don't need to intersect the columns and we can just use the column with the
             // lowest cardinality, so get all those row IDs in a set of ranges.
             LOG.info("Not intersecting columns, using column with lowest cardinality ");
-            idxRanges =
-                    getIndexRanges(indexTable,
-                            ImmutableMultimap.of(lowestCardinality.getValue(),
-                                    constraintRanges.get(lowestCardinality.getValue()).stream().findFirst().get()),
-                            rowIdRanges);
+            ImmutableMultimap.Builder<AccumuloColumnConstraint, Range> lcBldr = ImmutableMultimap.builder();
+            lcBldr.putAll(lowestCardinality.getValue(), constraintRanges.get(lowestCardinality.getValue()));
+            idxRanges = getIndexRanges(indexTable, lcBldr.build(), rowIdRanges);
         }
 
         if (idxRanges.size() == 0) {
