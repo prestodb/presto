@@ -270,7 +270,12 @@ public class AccumuloMetadata
         AccumuloTableHandle tHandle = checkType(table, AccumuloTableHandle.class, "table");
         checkArgument(tHandle.getConnectorId().equals(connectorId),
                 "table is not for this connector");
-        return getTableMetadata(new SchemaTableName(tHandle.getSchema(), tHandle.getTable()));
+        SchemaTableName tableName = new SchemaTableName(tHandle.getSchema(), tHandle.getTable());
+        ConnectorTableMetadata metadata = getTableMetadata(tableName);
+        if (metadata == null) {
+            throw new TableNotFoundException(tableName);
+        }
+        return metadata;
     }
 
     @Override
