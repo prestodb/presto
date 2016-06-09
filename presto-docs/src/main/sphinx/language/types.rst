@@ -69,6 +69,14 @@ VARCHAR
 
     Example type definitions: ``varchar``, ``varchar(20)``
 
+
+CHAR
+----
+
+    Fixed length character data. Char type without length specified has default length of 1.
+
+    Example type definitions: ``char``, ``char(20)``
+
 VARBINARY
 ---------
 
