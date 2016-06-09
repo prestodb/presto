@@ -20,6 +20,7 @@ import org.apache.accumulo.core.data.Range;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -29,7 +30,7 @@ import static java.util.Objects.requireNonNull;
  */
 public class TabletSplitMetadata
 {
-    private final String hostPort;
+    private final Optional<String> hostPort;
     private List<Range> ranges;
 
     /**
@@ -39,7 +40,7 @@ public class TabletSplitMetadata
      * @param ranges List of Range objects for a single split
      */
     @JsonCreator
-    public TabletSplitMetadata(@JsonProperty("hostPort") String hostPort,
+    public TabletSplitMetadata(@JsonProperty("hostPort") Optional<String> hostPort,
             @JsonProperty("ranges") List<Range> ranges)
     {
         this.hostPort = requireNonNull(hostPort, "hostPort is null");
@@ -47,7 +48,7 @@ public class TabletSplitMetadata
     }
 
     @JsonProperty
-    public String getHostPort()
+    public Optional<String> getHostPort()
     {
         return hostPort;
     }

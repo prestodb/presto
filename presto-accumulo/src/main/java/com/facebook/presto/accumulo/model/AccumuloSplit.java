@@ -29,6 +29,7 @@ import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import org.apache.accumulo.core.data.Range;
 import org.apache.hadoop.io.DataInputBuffer;
@@ -41,7 +42,6 @@ import java.util.Optional;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Lists.newArrayList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -52,7 +52,7 @@ public class AccumuloSplit
         implements ConnectorSplit
 {
     private final String connectorId;
-    private final String hostPort;
+    private final Optional<String> hostPort;
     private final String rowId;
     private final String schema;
     private final String table;
@@ -87,7 +87,7 @@ public class AccumuloSplit
             @JsonProperty("ranges") List<Range> ranges,
             @JsonProperty("constraints") List<AccumuloColumnConstraint> constraints,
             @JsonProperty("scanAuthorizations") Optional<String> scanAuthorizations,
-            @JsonProperty("hostPort") String hostPort)
+            @JsonProperty("hostPort") Optional<String> hostPort)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.rowId = requireNonNull(rowId, "rowId is null");
@@ -105,7 +105,12 @@ public class AccumuloSplit
 
         // Parse the host address into a list of addresses, this would be an Accumulo Tablet server,
         // or some localhost thing
-        addresses = newArrayList(HostAddress.fromString(hostPort));
+        if (hostPort.isPresent()) {
+            addresses = ImmutableList.of(HostAddress.fromString(hostPort.get()));
+        }
+        else {
+            addresses = ImmutableList.of();
+        }
     }
 
     @JsonProperty
@@ -115,7 +120,7 @@ public class AccumuloSplit
     }
 
     @JsonProperty
-    public String getHostPort()
+    public Optional<String> getHostPort()
     {
         return hostPort;
     }

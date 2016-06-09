@@ -97,8 +97,6 @@ import static java.util.Objects.requireNonNull;
  */
 public class AccumuloClient
 {
-    public static final String DUMMY_LOCATION = "localhost:9997";
-
     private static final Logger LOG = Logger.get(AccumuloClient.class);
     private static final String MAC_PASSWORD = "secret";
     private static final String MAC_USER = "root";
@@ -859,7 +857,7 @@ public class AccumuloClient
                 }
                 else {
                     // else, just use the default location
-                    tabletSplits.add(new TabletSplitMetadata(DUMMY_LOCATION, ImmutableList.of(r)));
+                    tabletSplits.add(new TabletSplitMetadata(Optional.empty(), ImmutableList.of(r)));
                 }
             }
 
@@ -947,7 +945,7 @@ public class AccumuloClient
      * @param key Key to locate
      * @return The tablet location, or DUMMY_LOCATION if an error occurs
      */
-    private String getTabletLocation(String table, Key key)
+    private Optional<String> getTabletLocation(String table, Key key)
     {
         try {
             // Get the Accumulo table ID so we can scan some fun stuff
@@ -964,11 +962,11 @@ public class AccumuloClient
             Key end = defaultTabletRow.followingKey(PartialKey.ROW);
             scan.setRange(new Range(start, end));
 
-            String location = null;
+            Optional<String> location = Optional.empty();
             if (key == null) {
                 // if the key is null, then it is -inf, so get first tablet location
                 for (Entry<Key, Value> kvp : scan) {
-                    location = kvp.getValue().toString();
+                    location = Optional.of(kvp.getValue().toString());
                     break;
                 }
             }
@@ -987,7 +985,7 @@ public class AccumuloClient
 
                     // If the last byte is <, then we have hit the default tablet, so use this location
                     if (keyBytes[keyBytes.length - 1] == '<') {
-                        location = kvp.getValue().toString();
+                        location = Optional.of(kvp.getValue().toString());
                         break;
                     }
                     else {
@@ -998,7 +996,7 @@ public class AccumuloClient
                         if (scannedCompareKey.getLength() > 0) {
                             int compareTo = splitCompareKey.compareTo(scannedCompareKey);
                             if (compareTo <= 0) {
-                                location = kvp.getValue().toString();
+                                location = Optional.of(kvp.getValue().toString());
                             }
                             else {
                                 // all future tablets will be greater than this key
@@ -1012,7 +1010,7 @@ public class AccumuloClient
 
             // If we were unable to find the location for some reason, return the default tablet
             // location
-            return location != null ? location : getDefaultTabletLocation(table);
+            return location.isPresent() ? location : getDefaultTabletLocation(table);
         }
         catch (Exception e) {
             // Swallow this exception so the query does not fail due to being unable
@@ -1020,7 +1018,7 @@ public class AccumuloClient
             // This is purely an optimization, but we will want to log the error.
             LOG.error("Failed to get tablet location, returning dummy location", e);
             e.printStackTrace();
-            return DUMMY_LOCATION;
+            return Optional.empty();
         }
     }
 
@@ -1030,7 +1028,7 @@ public class AccumuloClient
      * @param fulltable Fully-qualified table name
      * @return TabletServer location of the default tablet
      */
-    private String getDefaultTabletLocation(String fulltable)
+    private Optional<String> getDefaultTabletLocation(String fulltable)
     {
         try {
             // Get the table ID
@@ -1044,18 +1042,18 @@ public class AccumuloClient
             scan.setRange(new Range(tableId + '<'));
 
             // scan the entry
-            String location = null;
+            Optional<String> location = Optional.empty();
             for (Entry<Key, Value> kvp : scan) {
                 if (location != null) {
                     throw new PrestoException(INTERNAL_ERROR,
                             "Scan for default tablet returned more than one entry");
                 }
 
-                location = kvp.getValue().toString();
+                location = Optional.of(kvp.getValue().toString());
             }
 
             scan.close();
-            return location != null ? location : DUMMY_LOCATION;
+            return location;
         }
         catch (Exception e) {
             // Swallow this exception so the query does not fail due to being unable
@@ -1063,7 +1061,7 @@ public class AccumuloClient
             // This is purely an optimization, but we will want to log the error.
             LOG.error("Failed to get tablet location, returning dummy location", e);
             e.printStackTrace();
-            return DUMMY_LOCATION;
+            return Optional.empty();
         }
     }
 

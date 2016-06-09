@@ -429,7 +429,7 @@ public class IndexLookup
         do {
             // Add the sublist of range handles
             // Use dummy location because we are binning multiple Ranges spread across many tablet servers
-            prestoSplits.add(new TabletSplitMetadata(AccumuloClient.DUMMY_LOCATION, splitRanges.subList(fromIndex, toIndex)));
+            prestoSplits.add(new TabletSplitMetadata(Optional.empty(), splitRanges.subList(fromIndex, toIndex)));
             toAdd -= toIndex - fromIndex;
             fromIndex = toIndex;
             toIndex += Math.min(toAdd, numRangesPerBin);
