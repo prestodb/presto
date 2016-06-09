@@ -30,6 +30,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Marker.Bound;
 import com.google.common.base.Splitter;
@@ -44,7 +45,6 @@ import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.client.Instance;
 import org.apache.accumulo.core.client.IteratorSetting;
 import org.apache.accumulo.core.client.Scanner;
-import org.apache.accumulo.core.client.TableNotFoundException;
 import org.apache.accumulo.core.client.ZooKeeperInstance;
 import org.apache.accumulo.core.client.security.tokens.PasswordToken;
 import org.apache.accumulo.core.data.Key;
@@ -602,6 +602,10 @@ public class AccumuloClient
         }
 
         AccumuloTable oldTable = getTable(oldName);
+        if (oldTable == null) {
+            throw new TableNotFoundException(oldName);
+        }
+
         AccumuloTable newTable = oldTable.clone();
         newTable.setTable(newName.getTableName());
 
@@ -897,7 +901,12 @@ public class AccumuloClient
             return scanAuths;
         }
 
-        Optional<String> strAuths = this.getTable(new SchemaTableName(schema, table)).getScanAuthorizations();
+        AccumuloTable accumuloTable = this.getTable(new SchemaTableName(schema, table));
+        if (accumuloTable == null) {
+            throw new TableNotFoundException(new SchemaTableName(schema, table));
+        }
+
+        Optional<String> strAuths = accumuloTable.getScanAuthorizations();
         if (strAuths.isPresent()) {
             Authorizations scanAuths = new Authorizations(Iterables.toArray(COMMA_SPLITTER.split(strAuths.get()), String.class));
             LOG.info("scan_auths table property set, using: %s", scanAuths);
@@ -920,7 +929,7 @@ public class AccumuloClient
      * @throws AccumuloSecurityException
      */
     private Collection<Range> splitByTabletBoundaries(String tableName, Collection<Range> ranges)
-            throws TableNotFoundException, AccumuloException, AccumuloSecurityException
+            throws org.apache.accumulo.core.client.TableNotFoundException, AccumuloException, AccumuloSecurityException
     {
         ImmutableSet.Builder<Range> rangeBuilder = ImmutableSet.builder();
         for (Range r : ranges) {

@@ -117,7 +117,10 @@ public class AccumuloMetadata
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         AccumuloTableHandle th = checkType(tableHandle, AccumuloTableHandle.class, "table");
-        client.dropTable(client.getTable(th.toSchemaTableName()));
+        AccumuloTable table = client.getTable(th.toSchemaTableName());
+        if (table != null) {
+            client.dropTable(table);
+        }
     }
 
     @Override
@@ -309,6 +312,10 @@ public class AccumuloMetadata
         AccumuloColumnHandle cHandle =
                 checkType(source, AccumuloColumnHandle.class, "columnHandle");
         AccumuloTable table = client.getTable(tHandle.toSchemaTableName());
+        if (table == null) {
+            throw new TableNotFoundException(table.getSchemaTableName());
+        }
+
         client.renameColumn(table, cHandle.getName(), target);
     }
 
