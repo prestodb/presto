@@ -23,7 +23,6 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,7 +46,6 @@ class TranslationMap
     // current mappings of sub-expressions -> symbol
     private final Map<Expression, Symbol> expressionToSymbols = new HashMap<>();
     private final Map<Expression, Expression> expressionToExpressions = new HashMap<>();
-    private final List<Expression> translatedExpressions = new ArrayList<>();
 
     public TranslationMap(RelationPlan rewriteBase, Analysis analysis)
     {
@@ -85,7 +83,6 @@ class TranslationMap
 
         expressionToSymbols.putAll(other.expressionToSymbols);
         expressionToExpressions.putAll(other.expressionToExpressions);
-        translatedExpressions.addAll(other.translatedExpressions);
         System.arraycopy(other.fieldSymbols, 0, fieldSymbols, 0, other.fieldSymbols.length);
     }
 
@@ -165,14 +162,6 @@ class TranslationMap
         expressionToExpressions.put(translateNamesToSymbols(expression), rewritten);
     }
 
-    /**
-     * Mark this expression node as already translated. Then during the rewrite of expression such nodes will be left unmodified.
-     */
-    public void setExpressionAsAlreadyTranslated(Expression node)
-    {
-        translatedExpressions.add(node);
-    }
-
     private Expression translateNamesToSymbols(Expression expression)
     {
         return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
@@ -180,9 +169,6 @@ class TranslationMap
             @Override
             public Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                if (translatedExpressions.contains(node)) {
-                    return node;
-                }
                 Expression rewrittenExpression = treeRewriter.defaultRewrite(node, context);
                 return coerceIfNecessary(node, rewrittenExpression);
             }
@@ -198,9 +184,6 @@ class TranslationMap
             @Override
             public Expression rewriteQualifiedNameReference(QualifiedNameReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                if (translatedExpressions.contains(node)) {
-                    return node;
-                }
                 return rewriteExpressionWithResolvedName(node);
             }
 
@@ -219,10 +202,6 @@ class TranslationMap
             @Override
             public Expression rewriteDereferenceExpression(DereferenceExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                if (translatedExpressions.contains(node)) {
-                    return node;
-                }
-
                 if (analysis.getFieldIndex(node).isPresent()) {
                     return rewriteExpressionWithResolvedName(node);
                 }
