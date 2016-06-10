@@ -21,12 +21,16 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
@@ -66,6 +70,11 @@ public final class PlanMatchPattern
     public static PlanMatchPattern tableScan(String expectedTableName, Map<String, Domain> constraint)
     {
         return any().with(new TableScanMatcher(expectedTableName, constraint));
+    }
+
+    public static PlanMatchPattern window(List<FunctionCall> functionCalls, PlanMatchPattern... sources)
+    {
+        return any(sources).with(new WindowMatcher(functionCalls));
     }
 
     public static PlanMatchPattern project(PlanMatchPattern... sources)
@@ -141,6 +150,21 @@ public final class PlanMatchPattern
         return sourcePatterns.isEmpty();
     }
 
+    public static FunctionCall functionCall(String name, String... args)
+    {
+        ImmutableList.Builder<Expression> builder = ImmutableList.builder();
+        for (String arg : args) {
+            if (arg.equals("*")) {
+                builder.add(new PlanMatchPattern.AnyExpression());
+            }
+            else {
+                builder.add(new QualifiedNameReference(new QualifiedName(arg)));
+            }
+        }
+
+        return new FunctionCall(new QualifiedName(name), builder.build());
+    }
+
     @Override
     public String toString()
     {
@@ -171,5 +195,33 @@ public final class PlanMatchPattern
     private String indentString(int indent)
     {
         return Strings.repeat("    ", indent);
+    }
+
+    private static class AnyExpression extends Expression
+    {
+        AnyExpression()
+        {
+            super(Optional.empty());
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+
+            if (o == null || Expression.class.isInstance(o.getClass())) {
+                return false;
+            }
+
+            return true;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            throw new UnsupportedOperationException();
+        }
     }
 }
