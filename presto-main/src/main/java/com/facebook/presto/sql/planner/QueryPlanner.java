@@ -45,7 +45,6 @@ import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.SortItem;
@@ -283,7 +282,7 @@ class QueryPlanner
 
         if (subPlan.getSampleWeight().isPresent()) {
             Symbol symbol = subPlan.getSampleWeight().get();
-            projections.put(symbol, new QualifiedNameReference(symbol.toQualifiedName()));
+            projections.put(symbol, symbol.toSymbolReference());
         }
 
         return new PlanBuilder(outputTranslations, new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), projections.build()), subPlan.getSampleWeight());
@@ -337,7 +336,7 @@ class QueryPlanner
         projections.putAll(coerce(uncoerced, subPlan, translations));
 
         for (Symbol symbol : alreadyCoerced) {
-            projections.put(symbol, new QualifiedNameReference(symbol.toQualifiedName()));
+            projections.put(symbol, symbol.toSymbolReference());
         }
 
         return new PlanBuilder(translations, new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), projections.build()), subPlan.getSampleWeight());

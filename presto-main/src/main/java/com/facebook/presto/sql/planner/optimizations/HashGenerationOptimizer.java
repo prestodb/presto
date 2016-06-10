@@ -46,8 +46,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.BiMap;
@@ -568,7 +567,7 @@ public class HashGenerationOptimizer
                     hashExpression = hashComputation.getHashExpression();
                 }
                 else {
-                    hashExpression = new QualifiedNameReference(hashSymbol.toQualifiedName());
+                    hashExpression = hashSymbol.toSymbolReference();
                 }
                 newAssignments.put(hashSymbol, hashExpression);
                 allHashSymbols.put(hashComputation, hashSymbol);
@@ -658,7 +657,7 @@ public class HashGenerationOptimizer
             for (Symbol symbol : planWithProperties.getNode().getOutputSymbols()) {
                 HashComputation partitionSymbols = resultHashSymbols.get(symbol);
                 if (partitionSymbols == null || requiredHashes.getHashes().contains(partitionSymbols)) {
-                    assignments.put(symbol, new QualifiedNameReference(symbol.toQualifiedName()));
+                    assignments.put(symbol, symbol.toSymbolReference());
 
                     if (partitionSymbols != null) {
                         outputHashSymbols.put(partitionSymbols, symbol);
@@ -821,9 +820,9 @@ public class HashGenerationOptimizer
         {
             FunctionCall functionCall = new FunctionCall(
                     QualifiedName.of(HASH_CODE),
-                    Optional.<Window>empty(),
+                    Optional.empty(),
                     false,
-                    ImmutableList.<Expression>of(new QualifiedNameReference(symbol.toQualifiedName())));
+                    ImmutableList.of(symbol.toSymbolReference()));
             List<Expression> arguments = ImmutableList.of(previousHashValue, orNullHashCode(functionCall));
             return new FunctionCall(QualifiedName.of("combine_hash"), arguments);
         }
@@ -894,8 +893,8 @@ public class HashGenerationOptimizer
     {
         Map<Symbol, Symbol> outputToInput = new HashMap<>();
         for (Map.Entry<Symbol, Expression> assignment : assignments.entrySet()) {
-            if (assignment.getValue() instanceof QualifiedNameReference) {
-                outputToInput.put(assignment.getKey(), Symbol.fromQualifiedName(((QualifiedNameReference) assignment.getValue()).getName()));
+            if (assignment.getValue() instanceof SymbolReference) {
+                outputToInput.put(assignment.getKey(), Symbol.from(assignment.getValue()));
             }
         }
         return outputToInput;

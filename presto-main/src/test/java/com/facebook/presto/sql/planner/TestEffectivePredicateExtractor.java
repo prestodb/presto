@@ -45,7 +45,6 @@ import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.type.UnknownType;
 import com.google.common.base.Preconditions;
@@ -87,12 +86,12 @@ public class TestEffectivePredicateExtractor
     private static final Symbol D = new Symbol("d");
     private static final Symbol E = new Symbol("e");
     private static final Symbol F = new Symbol("f");
-    private static final Expression AE = symbolExpr(A);
-    private static final Expression BE = symbolExpr(B);
-    private static final Expression CE = symbolExpr(C);
-    private static final Expression DE = symbolExpr(D);
-    private static final Expression EE = symbolExpr(E);
-    private static final Expression FE = symbolExpr(F);
+    private static final Expression AE = A.toSymbolReference();
+    private static final Expression BE = B.toSymbolReference();
+    private static final Expression CE = C.toSymbolReference();
+    private static final Expression DE = D.toSymbolReference();
+    private static final Expression EE = E.toSymbolReference();
+    private static final Expression FE = F.toSymbolReference();
 
     private static final Map<Symbol, Type> TYPES = ImmutableMap.<Symbol, Type>builder()
             .put(A, BIGINT)
@@ -689,11 +688,6 @@ public class TestEffectivePredicateExtractor
     private static FilterNode filter(PlanNode source, Expression predicate)
     {
         return new FilterNode(newId(), source, predicate);
-    }
-
-    private static Expression symbolExpr(Symbol symbol)
-    {
-        return new QualifiedNameReference(symbol.toQualifiedName());
     }
 
     private static Expression bigintLiteral(long number)
