@@ -73,6 +73,7 @@ import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
+import static com.facebook.presto.hive.HiveUtil.floatPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.getDecimalType;
 import static com.facebook.presto.hive.HiveUtil.integerPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.longDecimalPartitionKey;
@@ -93,6 +94,7 @@ import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.FloatType.FLOAT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
@@ -106,6 +108,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -236,6 +239,9 @@ public class ParquetHiveRecordCursor
                 }
                 else if (isLongDecimal(type)) {
                     slices[columnIndex] = longDecimalPartitionKey(partitionKey.getValue(), (DecimalType) type, columnName);
+                }
+                else if (type.equals(FLOAT)) {
+                    longs[columnIndex] = floatPartitionKey(partitionKeyValue, columnName);
                 }
                 else {
                     throw new PrestoException(NOT_SUPPORTED, format("Unsupported column type %s for partition key: %s", type.getDisplayName(), columnName));
@@ -691,7 +697,7 @@ public class ParquetHiveRecordCursor
         public void addFloat(float value)
         {
             nulls[fieldIndex] = false;
-            doubles[fieldIndex] = value;
+            longs[fieldIndex] = floatToRawIntBits(value);
         }
 
         @Override
@@ -1380,7 +1386,7 @@ public class ParquetHiveRecordCursor
         public void addFloat(float value)
         {
             addMissingValues();
-            type.writeDouble(builder, value);
+            type.writeLong(builder, floatToRawIntBits(value));
         }
 
         @Override

@@ -92,7 +92,6 @@ public class FloatStreamReader
             }
         }
 
-        // we could add a float vector but Presto currently doesn't support floats
         BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
         if (presentStream == null) {
             if (dataStream == null) {
