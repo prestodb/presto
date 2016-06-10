@@ -203,6 +203,7 @@ public class TestHiveIntegrationSmokeTest
                 ", _integer INTEGER" +
                 ", _smallint SMALLINT" +
                 ", _tinyint TINYINT" +
+                ", _real REAL" +
                 ", _double DOUBLE" +
                 ", _boolean BOOLEAN" +
                 ", _decimal_short DECIMAL(3,2)" +
@@ -251,6 +252,7 @@ public class TestHiveIntegrationSmokeTest
                 ", 2 _integer" +
                 ", CAST (3 AS SMALLINT) _smallint" +
                 ", CAST (4 AS TINYINT) _tinyint" +
+                ", CAST('123.45' AS REAL) _real" +
                 ", CAST('3.14' AS DOUBLE) _double" +
                 ", true _boolean" +
                 ", CAST('3.14' AS DECIMAL(3,2)) _decimal_short" +
@@ -293,6 +295,7 @@ public class TestHiveIntegrationSmokeTest
                 ", 2 _integer" +
                 ", CAST (3 AS SMALLINT) _smallint" +
                 ", CAST (4 AS TINYINT) _tinyint" +
+                ", CAST ('123.45' as REAL) _real" +
                 ", CAST('3.14' AS DOUBLE) _double" +
                 ", true _boolean" +
                 ", CAST('3.14' AS DECIMAL(3,2)) _decimal_short" +
@@ -760,6 +763,7 @@ public class TestHiveIntegrationSmokeTest
                 "  _integer INTEGER," +
                 "  _smallint SMALLINT," +
                 "  _tinyint TINYINT," +
+                "  _real REAL," +
                 "  _double DOUBLE," +
                 "  _boolean BOOLEAN," +
                 "  _decimal_short DECIMAL(3,2)," +
@@ -784,6 +788,7 @@ public class TestHiveIntegrationSmokeTest
                 ", CAST(42 AS INTEGER) _integer" +
                 ", CAST(43 AS SMALLINT) _smallint" +
                 ", CAST(44 AS TINYINT) _tinyint" +
+                ", CAST('123.45' AS REAL) _real" +
                 ", CAST('3.14' AS DOUBLE) _double" +
                 ", true _boolean" +
                 ", CAST('3.14' AS DECIMAL(3,2)) _decimal_short" +
@@ -793,17 +798,19 @@ public class TestHiveIntegrationSmokeTest
 
         assertQuery("SELECT * from test_insert_format_table", select);
 
-        assertUpdate("INSERT INTO test_insert_format_table (_tinyint, _smallint, _integer, _bigint, _double) SELECT CAST(1 AS TINYINT), CAST(2 AS SMALLINT), 3, 4, 14.3", 1);
+        assertUpdate("INSERT INTO test_insert_format_table (_tinyint, _smallint, _integer, _bigint, _real, _double) SELECT CAST(1 AS TINYINT), CAST(2 AS SMALLINT), 3, 4, cast(14.3 as REAL), 14.3", 1);
 
-        assertQuery("SELECT * from test_insert_format_table where _bigint = 4", "SELECT null, null, null, 4, 3, 2, 1, 14.3, null, null, null");
+        assertQuery("SELECT * from test_insert_format_table where _bigint = 4", "SELECT null, null, null, 4, 3, 2, 1, 14.3, 14.3, null, null, null");
+
+        assertQuery("SELECT * from test_insert_format_table where _real = CAST(14.3 as REAL)", "SELECT null, null, null, 4, 3, 2, 1, 14.3, 14.3, null, null, null");
 
         assertUpdate("INSERT INTO test_insert_format_table (_double, _bigint) SELECT 2.72, 3", 1);
 
-        assertQuery("SELECT * from test_insert_format_table where _bigint = 3", "SELECT null, null, null, 3, null, null, null, 2.72, null, null, null");
+        assertQuery("SELECT * from test_insert_format_table where _bigint = 3", "SELECT null, null, null, 3, null, null, null, null, 2.72, null, null, null");
 
         assertUpdate("INSERT INTO test_insert_format_table (_decimal_short, _decimal_long) SELECT DECIMAL '2.72', DECIMAL '98765432101234567890.0123456789'", 1);
 
-        assertQuery("SELECT * from test_insert_format_table where _decimal_long = DECIMAL '98765432101234567890.0123456789'", "SELECT null, null, null, null, null, null, null, null, null, 2.72, 98765432101234567890.0123456789");
+        assertQuery("SELECT * from test_insert_format_table where _decimal_long = DECIMAL '98765432101234567890.0123456789'", "SELECT null, null, null, null, null, null, null, null, null, null, 2.72, 98765432101234567890.0123456789");
 
         assertUpdate("DROP TABLE test_insert_format_table");
 
@@ -1039,6 +1046,9 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate("CREATE TABLE tmp_array10 AS SELECT ARRAY[ARRAY[DECIMAL '3.14']] AS col1, ARRAY[ARRAY[DECIMAL '12345678901234567890.0123456789']] AS col2", 1);
         assertQuery("SELECT col1[1][1] FROM tmp_array10", "SELECT 3.14");
         assertQuery("SELECT col2[1][1] FROM tmp_array10", "SELECT 12345678901234567890.0123456789");
+
+        assertUpdate("CREATE TABLE tmp_array13 AS SELECT ARRAY[ARRAY[REAL'1.234', REAL'2.345'], NULL, ARRAY[REAL'3.456', REAL'4.567']] AS col", 1);
+        assertQuery("SELECT col[1][2] FROM tmp_array13", "SELECT 2.345");
     }
 
     @Test
@@ -1085,6 +1095,9 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate("CREATE TABLE tmp_map10 AS SELECT MAP(ARRAY[DECIMAL '3.14', DECIMAL '12345678901234567890.0123456789'], " +
                 "ARRAY[DECIMAL '12345678901234567890.0123456789', DECIMAL '3.0123456789']) AS col", 1);
         assertQuery("SELECT col[DECIMAL '3.14'], col[DECIMAL '12345678901234567890.0123456789'] FROM tmp_map10", "SELECT 12345678901234567890.0123456789, 3.0123456789");
+
+        assertUpdate("CREATE TABLE tmp_map11 AS SELECT MAP(ARRAY[REAL'1.234'], ARRAY[REAL'2.345']) AS col", 1);
+        assertQuery("SELECT col[REAL'1.234'] FROM tmp_map11", "SELECT 2.345");
     }
 
     @Test
