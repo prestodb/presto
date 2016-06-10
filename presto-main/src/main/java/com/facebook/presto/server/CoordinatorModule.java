@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.execution.AddColumnTask;
 import com.facebook.presto.execution.CallTask;
 import com.facebook.presto.execution.CommitTask;
@@ -25,16 +25,16 @@ import com.facebook.presto.execution.DropTableTask;
 import com.facebook.presto.execution.DropViewTask;
 import com.facebook.presto.execution.ForQueryExecution;
 import com.facebook.presto.execution.GrantTask;
-import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.PrepareTask;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryExecutionMBean;
 import com.facebook.presto.execution.QueryIdGenerator;
+import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
-import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryQueueManager;
 import com.facebook.presto.execution.QueryQueueRule;
 import com.facebook.presto.execution.QueryQueueRuleFactory;
+import com.facebook.presto.execution.RemoteTaskFactory;
 import com.facebook.presto.execution.RenameColumnTask;
 import com.facebook.presto.execution.RenameTableTask;
 import com.facebook.presto.execution.ResetSessionTask;
@@ -44,25 +44,19 @@ import com.facebook.presto.execution.SetSessionTask;
 import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.SqlQueryQueueManager;
 import com.facebook.presto.execution.StartTransactionTask;
-import com.facebook.presto.execution.resourceGroups.ResourceGroupConfig;
+import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.execution.resourceGroups.FileResourceGroupsModule;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.AllAtOnceExecutionPolicy;
 import com.facebook.presto.execution.scheduler.ExecutionPolicy;
-import com.facebook.presto.execution.scheduler.NodeScheduler;
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
-import com.facebook.presto.execution.scheduler.NodeSchedulerExporter;
 import com.facebook.presto.execution.scheduler.PhasedExecutionPolicy;
-import com.facebook.presto.metadata.DiscoveryNodeManager;
-import com.facebook.presto.metadata.ForGracefulShutdown;
-import com.facebook.presto.metadata.InternalNodeManager;
-import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.metadata.TablePropertyManager;
-import com.facebook.presto.metadata.ViewDefinition;
-import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.memory.ClusterMemoryManager;
+import com.facebook.presto.memory.ClusterMemoryPoolManager;
+import com.facebook.presto.memory.ForMemoryManager;
+import com.facebook.presto.operator.ForScheduler;
+import com.facebook.presto.server.remotetask.RemoteTaskStats;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
-import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Commit;
@@ -96,11 +90,10 @@ import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.Use;
 import com.google.inject.Binder;
-import com.google.inject.Key;
-import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.MapBinder;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.units.Duration;
 
 import java.util.List;
@@ -109,6 +102,8 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.presto.execution.DataDefinitionExecution.DataDefinitionExecutionFactory;
 import static com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import static com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
+import static com.facebook.presto.server.ConditionalModule.conditionalModule;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.FILE_BASED_RESOURCE_GROUP_MANAGER;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -123,31 +118,41 @@ import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class CoordinatorModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
-    private final boolean resourceGroups;
-
-    public CoordinatorModule(boolean resourceGroups)
-    {
-        this.resourceGroups = resourceGroups;
-    }
-
     @Override
-    public void configure(Binder binder)
+    protected void setup(Binder binder)
     {
-        // TODO: currently, this module is ALWAYS installed (even for non-coordinators)
         httpServerBinder(binder).bindResource("/", "webapp").withWelcomeFile("index.html");
 
-        discoveryBinder(binder).bindSelector("presto");
+        // presto coordinator announcement
+        discoveryBinder(binder).bindHttpAnnouncement("presto-coordinator");
+
+        // statement resource
+        jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);
+        jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
+        jsonCodecBinder(binder).bindJsonCodec(QueryResults.class);
+        jaxrsBinder(binder).bind(StatementResource.class);
+
+        // execute resource
+        jaxrsBinder(binder).bind(ExecuteResource.class);
+        httpClientBinder(binder).bindHttpClient("execute", ForExecute.class)
+                .withTracing()
+                .withConfigDefaults(config -> {
+                    config.setIdleTimeout(new Duration(30, SECONDS));
+                    config.setRequestTimeout(new Duration(10, SECONDS));
+                });
+
+        // query execution visualizer
+        jaxrsBinder(binder).bind(QueryExecutionResource.class);
 
         // query manager
         jaxrsBinder(binder).bind(QueryResource.class);
         jaxrsBinder(binder).bind(StageResource.class);
         binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
-        if (resourceGroups) {
+        if (buildConfigObject(FeaturesConfig.class).isResourceGroupsEnabled()) {
             binder.bind(ResourceGroupManager.class).in(Scopes.SINGLETON);
-            configBinder(binder).bindConfig(ResourceGroupConfig.class);
             binder.bind(QueryQueueManager.class).to(ResourceGroupManager.class).in(Scopes.SINGLETON);
         }
         else {
@@ -155,42 +160,40 @@ public class CoordinatorModule
             binder.bind(new TypeLiteral<List<QueryQueueRule>>() {}).toProvider(QueryQueueRuleFactory.class).in(Scopes.SINGLETON);
         }
         newExporter(binder).export(QueryManager.class).withGeneratedName();
-        configBinder(binder).bindConfig(QueryManagerConfig.class);
 
-        // analyzer
-        configBinder(binder).bindConfig(FeaturesConfig.class);
-
-        // query explainer
-        binder.bind(QueryExplainer.class).in(Scopes.SINGLETON);
-
-        // split manager
-        binder.bind(SplitManager.class).in(Scopes.SINGLETON);
-
-        // session properties
-        binder.bind(SessionPropertyManager.class).in(Scopes.SINGLETON);
-        binder.bind(SystemSessionProperties.class).in(Scopes.SINGLETON);
-
-        // table properties
-        binder.bind(TablePropertyManager.class).in(Scopes.SINGLETON);
-
-        // node partitioning manager
-        binder.bind(NodePartitioningManager.class).in(Scopes.SINGLETON);
-
-        // node scheduler
-        binder.bind(InternalNodeManager.class).to(DiscoveryNodeManager.class).in(Scopes.SINGLETON);
-        binder.bind(NodeManager.class).to(Key.get(InternalNodeManager.class)).in(Scopes.SINGLETON);
-        configBinder(binder).bindConfig(NodeSchedulerConfig.class);
-        binder.bind(NodeScheduler.class).in(Scopes.SINGLETON);
-        binder.bind(NodeSchedulerExporter.class).in(Scopes.SINGLETON);
-        binder.bind(NodeTaskMap.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(NodeScheduler.class).withGeneratedName();
-
-        // for polling worker states for graceful shutdown
-        httpClientBinder(binder).bindHttpClient("node-manager", ForGracefulShutdown.class)
+        // cluster memory manager
+        binder.bind(ClusterMemoryManager.class).in(Scopes.SINGLETON);
+        binder.bind(ClusterMemoryPoolManager.class).to(ClusterMemoryManager.class).in(Scopes.SINGLETON);
+        httpClientBinder(binder).bindHttpClient("memoryManager", ForMemoryManager.class)
                 .withTracing()
                 .withConfigDefaults(config -> {
                     config.setIdleTimeout(new Duration(30, SECONDS));
                     config.setRequestTimeout(new Duration(10, SECONDS));
+                });
+        newExporter(binder).export(ClusterMemoryManager.class).withGeneratedName();
+
+        // resource group manager
+        install(conditionalModule(
+                FeaturesConfig.class,
+                config -> config.isResourceGroupsEnabled() && FILE_BASED_RESOURCE_GROUP_MANAGER.equalsIgnoreCase(config.getResourceGroupManager()),
+                moduleBinder -> moduleBinder.install(new FileResourceGroupsModule())));
+
+        // query explainer
+        binder.bind(QueryExplainer.class).in(Scopes.SINGLETON);
+
+        // execution scheduler
+        binder.bind(RemoteTaskFactory.class).to(HttpRemoteTaskFactory.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(RemoteTaskFactory.class).withGeneratedName();
+
+        binder.bind(RemoteTaskStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(RemoteTaskStats.class).withGeneratedName();
+
+        httpClientBinder(binder).bindHttpClient("scheduler", ForScheduler.class)
+                .withTracing()
+                .withConfigDefaults(config -> {
+                    config.setIdleTimeout(new Duration(30, SECONDS));
+                    config.setRequestTimeout(new Duration(10, SECONDS));
+                    config.setMaxConnectionsPerServer(250);
                 });
 
         // query execution
@@ -240,8 +243,6 @@ public class CoordinatorModule
         MapBinder<String, ExecutionPolicy> executionPolicyBinder = newMapBinder(binder, String.class, ExecutionPolicy.class);
         executionPolicyBinder.addBinding("all-at-once").to(AllAtOnceExecutionPolicy.class);
         executionPolicyBinder.addBinding("phased").to(PhasedExecutionPolicy.class);
-
-        jsonCodecBinder(binder).bindJsonCodec(ViewDefinition.class);
     }
 
     private static <T extends Statement> void bindDataDefinitionTask(

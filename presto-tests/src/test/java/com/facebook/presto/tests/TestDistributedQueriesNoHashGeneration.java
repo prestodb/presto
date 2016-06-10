@@ -13,12 +13,9 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.tpch.TpchPlugin;
-import com.facebook.presto.tpch.testing.SampledTpchPlugin;
 import com.google.common.collect.ImmutableMap;
 
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
 
 public class TestDistributedQueriesNoHashGeneration
         extends AbstractTestQueries
@@ -26,32 +23,6 @@ public class TestDistributedQueriesNoHashGeneration
     public TestDistributedQueriesNoHashGeneration()
             throws Exception
     {
-        super(createQueryRunner());
-    }
-
-    private static DistributedQueryRunner createQueryRunner()
-            throws Exception
-    {
-        Session session = testSessionBuilder()
-                .setSource("test")
-                .setCatalog("tpch")
-                .setSchema("tiny")
-                .build();
-
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 4, ImmutableMap.of("optimizer.optimize-hash-generation", "false"));
-
-        try {
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
-
-            queryRunner.installPlugin(new SampledTpchPlugin());
-            queryRunner.createCatalog("tpch_sampled", "tpch_sampled");
-
-            return queryRunner;
-        }
-        catch (Exception e) {
-            queryRunner.close();
-            throw e;
-        }
+        super(createQueryRunner(ImmutableMap.of(), ImmutableMap.of("optimizer.optimize-hash-generation", "false")));
     }
 }

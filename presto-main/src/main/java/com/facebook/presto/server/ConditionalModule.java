@@ -23,7 +23,7 @@ import java.util.function.Predicate;
 public class ConditionalModule<T>
         extends AbstractConfigurationAwareModule
 {
-    public static <T> Module installModuleIf(Class<T> config, Predicate<T> predicate, Module module)
+    public static <T> ConfigurationAwareModule conditionalModule(Class<T> config, Predicate<T> predicate, Module module)
     {
         return new ConditionalModule<>(config, predicate, module);
     }
