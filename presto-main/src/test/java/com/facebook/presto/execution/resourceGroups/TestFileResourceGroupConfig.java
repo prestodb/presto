@@ -22,12 +22,12 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 
-public class TestResourceGroupConfig
+public class TestFileResourceGroupConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(ConfigAssertions.recordDefaults(ResourceGroupConfig.class)
+        assertRecordedDefaults(ConfigAssertions.recordDefaults(FileResourceGroupConfig.class)
                 .setConfigFile(null));
     }
 
@@ -38,7 +38,7 @@ public class TestResourceGroupConfig
                 .put("resource-groups.config-file", "/test.json")
                 .build();
 
-        ResourceGroupConfig expected = new ResourceGroupConfig()
+        FileResourceGroupConfig expected = new FileResourceGroupConfig()
                 .setConfigFile("/test.json");
 
         assertFullMapping(properties, expected);
