@@ -105,7 +105,7 @@ public class TestFileResourceGroupConfigurationManager
 
     private FileResourceGroupConfigurationManager parse(String fileName)
     {
-        ResourceGroupConfig config = new ResourceGroupConfig();
+        FileResourceGroupConfig config = new FileResourceGroupConfig();
         config.setConfigFile(getResourceFilePath(fileName));
         return new FileResourceGroupConfigurationManager(
                 (poolId, listener) -> { },

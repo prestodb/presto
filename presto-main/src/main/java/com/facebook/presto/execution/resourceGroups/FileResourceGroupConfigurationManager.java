@@ -57,7 +57,7 @@ public class FileResourceGroupConfigurationManager
     private long generalPoolBytes;
 
     @Inject
-    public FileResourceGroupConfigurationManager(ClusterMemoryPoolManager memoryPoolManager, ResourceGroupConfig config, JsonCodec<ManagerSpec> codec)
+    public FileResourceGroupConfigurationManager(ClusterMemoryPoolManager memoryPoolManager, FileResourceGroupConfig config, JsonCodec<ManagerSpec> codec)
     {
         requireNonNull(config, "config is null");
         requireNonNull(codec, "codec is null");

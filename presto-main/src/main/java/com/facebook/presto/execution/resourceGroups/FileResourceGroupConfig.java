@@ -17,7 +17,7 @@ import io.airlift.configuration.Config;
 
 import javax.validation.constraints.NotNull;
 
-public class ResourceGroupConfig
+public class FileResourceGroupConfig
 {
     private String configFile;
 
@@ -28,7 +28,7 @@ public class ResourceGroupConfig
     }
 
     @Config("resource-groups.config-file")
-    public ResourceGroupConfig setConfigFile(String configFile)
+    public FileResourceGroupConfig setConfigFile(String configFile)
     {
         this.configFile = configFile;
         return this;
