@@ -32,7 +32,7 @@ final class NotPlanNodeMatcher implements Matcher
     @Override
     public boolean matches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
-        return (! node.getClass().equals(excludedNodeClass));
+        return (!node.getClass().equals(excludedNodeClass));
     }
 
     @Override

@@ -20,6 +20,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableList;
 
 import java.util.Collection;
 import java.util.LinkedList;
@@ -34,7 +35,7 @@ final class WindowMatcher
 
     WindowMatcher(List<FunctionCall> functionCalls)
     {
-        this.functionCalls = requireNonNull(functionCalls, "functionCalls is null");
+        this.functionCalls = ImmutableList.copyOf(requireNonNull(functionCalls, "functionCalls is null"));
     }
 
     @Override
@@ -52,22 +53,17 @@ final class WindowMatcher
         }
 
         LinkedList<FunctionCall> expectedCalls = new LinkedList<>(functionCalls);
+        LinkedList<FunctionCall> actualCopy = new LinkedList<>(actualCalls);
 
-        actualCalls:
-        for (FunctionCall actualCall : actualCalls) {
-            for (int i = 0; i < expectedCalls.size(); ++i) {
-                FunctionCall expectedCall = expectedCalls.get(i);
-                if (sameCall(expectedCall, actualCall)) {
-                    expectedCalls.remove(i);
-                    continue actualCalls;
-                }
+        for (FunctionCall expectedCall : expectedCalls) {
+            if (!actualCopy.remove(expectedCall)) {
+                // Found an expectedCall not in expectedCalls.
+                return false;
             }
-            // Found an actualCall not in expectedCalls.
-            return false;
         }
 
-        // actualCalls was missing something in expectedCalls.
-        return expectedCalls.isEmpty();
+        // expectedCalls was missing something in actualCalls.
+        return actualCopy.isEmpty();
     }
 
     private static boolean sameCall(FunctionCall left, FunctionCall right)

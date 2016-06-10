@@ -23,13 +23,15 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.sql.tree.Window;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Collections.nCopies;
@@ -155,19 +157,29 @@ public final class PlanMatchPattern
         return sourcePatterns.isEmpty();
     }
 
-    public static FunctionCall functionCall(String name, String... args)
+    private static List<Expression> toExpressionList(String ... args)
     {
         ImmutableList.Builder<Expression> builder = ImmutableList.builder();
         for (String arg : args) {
             if (arg.equals("*")) {
-                builder.add(new PlanMatchPattern.AnyExpression());
+                builder.add(new PlanMatchPattern.AnySymbolReference());
             }
             else {
-                builder.add(new QualifiedNameReference(new QualifiedName(arg)));
+                builder.add(new SymbolReference(arg));
             }
         }
 
-        return new FunctionCall(new QualifiedName(name), builder.build());
+        return builder.build();
+    }
+
+    public static FunctionCall functionCall(String name, Window window, boolean distinct, String... args)
+    {
+        return new FunctionCall(QualifiedName.of(name), Optional.of(window), distinct, toExpressionList(args));
+    }
+
+    public static FunctionCall functionCall(String name, String ... args)
+    {
+        return new RelaxedEqualityFunctionCall(QualifiedName.of(name), toExpressionList(args));
     }
 
     @Override
@@ -202,11 +214,11 @@ public final class PlanMatchPattern
         return Strings.repeat("    ", indent);
     }
 
-    private static class AnyExpression extends Expression
+    private static class AnySymbolReference extends SymbolReference
     {
-        AnyExpression()
+        AnySymbolReference()
         {
-            super(Optional.empty());
+            super("*");
         }
 
         @Override
@@ -216,7 +228,7 @@ public final class PlanMatchPattern
                 return true;
             }
 
-            if (o == null || Expression.class.isInstance(o.getClass())) {
+            if (o == null || !SymbolReference.class.isInstance(o)) {
                 return false;
             }
 
@@ -227,6 +239,34 @@ public final class PlanMatchPattern
         public int hashCode()
         {
             throw new UnsupportedOperationException();
+        }
+    }
+
+    private static class RelaxedEqualityFunctionCall extends FunctionCall
+    {
+        RelaxedEqualityFunctionCall(QualifiedName name, List<Expression> arguments)
+        {
+            super(name, arguments);
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || obj.getClass() != FunctionCall.class) {
+                return false;
+            }
+            FunctionCall o = (FunctionCall) obj;
+            return Objects.equals(getName(), o.getName()) &&
+                    Objects.equals(getArguments(), o.getArguments());
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(getName(), getArguments());
         }
     }
 }
