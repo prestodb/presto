@@ -24,6 +24,7 @@ import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.IntegerType;
+import com.facebook.presto.spi.type.RealType;
 import com.facebook.presto.spi.type.SmallintType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.TinyintType;
@@ -65,6 +66,7 @@ import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
 
 public final class SerDeUtils
@@ -118,7 +120,7 @@ public final class SerDeUtils
                 BigintType.BIGINT.writeLong(builder, ((LongObjectInspector) inspector).get(object));
                 return;
             case FLOAT:
-                DoubleType.DOUBLE.writeDouble(builder, ((FloatObjectInspector) inspector).get(object));
+                RealType.REAL.writeLong(builder, floatToRawIntBits(((FloatObjectInspector) inspector).get(object)));
                 return;
             case DOUBLE:
                 DoubleType.DOUBLE.writeDouble(builder, ((DoubleObjectInspector) inspector).get(object));

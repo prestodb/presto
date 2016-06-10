@@ -18,6 +18,7 @@ import org.testng.annotations.Test;
 import parquet.column.statistics.BinaryStatistics;
 import parquet.column.statistics.BooleanStatistics;
 import parquet.column.statistics.DoubleStatistics;
+import parquet.column.statistics.FloatStatistics;
 import parquet.column.statistics.LongStatistics;
 import parquet.io.api.Binary;
 
@@ -29,8 +30,10 @@ import static com.facebook.presto.spi.predicate.Range.range;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Float.floatToRawIntBits;
 import static org.testng.Assert.assertEquals;
 
 public class TestTupleDomainParquetPredicate
@@ -107,6 +110,32 @@ public class TestTupleDomainParquetPredicate
     {
         BinaryStatistics statistics = new BinaryStatistics();
         statistics.setMinMax(Binary.fromString(minimum), Binary.fromString(maximum));
+        return statistics;
+    }
+
+    @Test
+    public void testFloat()
+            throws Exception
+    {
+        assertEquals(getDomain(REAL, 0, null), all(REAL));
+
+        float minimum = 4.3f;
+        float maximum = 40.3f;
+
+        assertEquals(getDomain(REAL, 10, floatColumnStats(minimum, minimum)), singleValue(REAL, (long) floatToRawIntBits(minimum)));
+
+        assertEquals(
+                getDomain(REAL, 10, floatColumnStats(minimum, maximum)),
+                create(ValueSet.ofRanges(range(REAL, (long) floatToRawIntBits(minimum), true, (long) floatToRawIntBits(maximum), true)), false)
+        );
+
+        assertEquals(getDomain(REAL, 10, floatColumnStats(maximum, minimum)), create(ValueSet.all(REAL), false));
+    }
+
+    private static FloatStatistics floatColumnStats(float minimum, float maximum)
+    {
+        FloatStatistics statistics = new FloatStatistics();
+        statistics.setMinMax(minimum, maximum);
         return statistics;
     }
 }

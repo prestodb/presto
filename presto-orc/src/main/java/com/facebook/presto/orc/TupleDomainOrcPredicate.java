@@ -38,7 +38,9 @@ import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.Decimals.rescale;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
 
 public class TupleDomainOrcPredicate<C>
@@ -125,6 +127,9 @@ public class TupleDomainOrcPredicate<C>
         }
         else if (type.getJavaType() == Slice.class && columnStatistics.getStringStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getStringStatistics());
+        }
+        else if (REAL.equals(type) && columnStatistics.getDoubleStatistics() != null) {
+            return createDomain(type, hasNullValue, columnStatistics.getDoubleStatistics(), value -> (long) floatToRawIntBits(value.floatValue()));
         }
         return Domain.create(ValueSet.all(type), hasNullValue);
     }
