@@ -49,6 +49,7 @@ import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.charPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
+import static com.facebook.presto.hive.HiveUtil.floatPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
 import static com.facebook.presto.hive.HiveUtil.integerPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.longDecimalPartitionKey;
@@ -67,6 +68,7 @@ import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
@@ -177,6 +179,12 @@ public class OrcPageSource
                     long value = tinyintPartitionKey(columnValue, name);
                     for (int i = 0; i < MAX_BATCH_SIZE; i++) {
                         TINYINT.writeLong(blockBuilder, value);
+                    }
+                }
+                else if (type.equals(REAL)) {
+                    long value = floatPartitionKey(partitionKey.getValue(), name);
+                    for (int i = 0; i < MAX_BATCH_SIZE; i++) {
+                        REAL.writeLong(blockBuilder, value);
                     }
                 }
                 else if (type.equals(DOUBLE)) {
