@@ -485,6 +485,8 @@ public class TestMathFunctions
         assertFunction("round(CAST(NULL as DOUBLE), CAST(NULL as BIGINT))", DOUBLE, null);
         assertFunction("round(-3.0, CAST(NULL as BIGINT))", DOUBLE, null);
         assertFunction("round(CAST(NULL as DOUBLE), 1)", DOUBLE, null);
+
+        assertFunction("round(nan(), 2)", DOUBLE, Double.NaN);
     }
 
     @Test

@@ -465,6 +465,10 @@ public final class MathFunctions
     @SqlType(StandardTypes.DOUBLE)
     public static double round(@SqlType(StandardTypes.DOUBLE) double num, @SqlType(StandardTypes.BIGINT) long decimals)
     {
+        if (Double.isNaN(num)) {
+            return num;
+        }
+
         double factor = Math.pow(10, decimals);
         return Math.round(num * factor) / factor;
     }
