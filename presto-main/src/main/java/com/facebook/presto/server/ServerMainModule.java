@@ -59,7 +59,7 @@ import com.facebook.presto.memory.ReservedSystemMemoryConfig;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.CatalogManagerConfig;
 import com.facebook.presto.metadata.DiscoveryNodeManager;
-import com.facebook.presto.metadata.ForGracefulShutdown;
+import com.facebook.presto.metadata.ForNodeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
@@ -204,7 +204,7 @@ public class ServerMainModule
         discoveryBinder(binder).bindSelector("presto");
         binder.bind(InternalNodeManager.class).to(DiscoveryNodeManager.class).in(Scopes.SINGLETON);
         binder.bind(NodeManager.class).to(Key.get(InternalNodeManager.class)).in(Scopes.SINGLETON);
-        httpClientBinder(binder).bindHttpClient("node-manager", ForGracefulShutdown.class)
+        httpClientBinder(binder).bindHttpClient("node-manager", ForNodeManager.class)
                 .withTracing()
                 .withConfigDefaults(config -> {
                     config.setIdleTimeout(new Duration(30, SECONDS));

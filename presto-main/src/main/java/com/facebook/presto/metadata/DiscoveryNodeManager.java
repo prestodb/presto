@@ -95,7 +95,7 @@ public final class DiscoveryNodeManager
             NodeInfo nodeInfo,
             FailureDetector failureDetector,
             NodeVersion expectedNodeVersion,
-            @ForGracefulShutdown HttpClient httpClient)
+            @ForNodeManager HttpClient httpClient)
     {
         this.serviceSelector = requireNonNull(serviceSelector, "serviceSelector is null");
         this.nodeInfo = requireNonNull(nodeInfo, "nodeInfo is null");
