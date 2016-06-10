@@ -48,7 +48,7 @@ public final class IntervalDayTimeType
         if (block.isNull(position)) {
             return null;
         }
-        return new SqlIntervalDayTime((int) block.getLong(position, 0));
+        return new SqlIntervalDayTime(block.getLong(position, 0));
     }
 
     @Override

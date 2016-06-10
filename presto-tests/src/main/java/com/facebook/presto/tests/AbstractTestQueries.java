@@ -17,6 +17,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.spi.session.PropertyMetadata;
+import com.facebook.presto.spi.type.SqlIntervalDayTime;
+import com.facebook.presto.spi.type.SqlIntervalYearMonth;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -133,6 +135,19 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         computeActual("SELECT foo FROM");
+    }
+
+    @Test
+    public void selectLargeInterval()
+            throws Exception
+    {
+        MaterializedResult result = computeActual("SELECT INTERVAL '30' DAY");
+        assertEquals(result.getRowCount(), 1);
+        assertEquals(result.getMaterializedRows().get(0).getField(0), new SqlIntervalDayTime(30, 0, 0, 0, 0));
+
+        result = computeActual("SELECT INTERVAL '" + Integer.MAX_VALUE + "' YEAR");
+        assertEquals(result.getRowCount(), 1);
+        assertEquals(result.getMaterializedRows().get(0).getField(0), new SqlIntervalYearMonth(Integer.MAX_VALUE, 0));
     }
 
     @Test
