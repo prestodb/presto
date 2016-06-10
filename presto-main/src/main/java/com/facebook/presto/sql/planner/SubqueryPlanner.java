@@ -100,7 +100,6 @@ class SubqueryPlanner
 
         TranslationMap translationMap = subPlan.copyTranslations();
         SymbolReference valueList = getOnlyElement(valueListRelation.getOutputSymbols()).toSymbolReference();
-        translationMap.setExpressionAsAlreadyTranslated(valueList);
         translationMap.put(inPredicate, new InPredicate(inPredicate.getValue(), valueList));
 
         return new PlanBuilder(translationMap,
