@@ -341,6 +341,34 @@ public class TestAccumuloDistributedQueries
     }
 
     @Override
+    public void testLeftJoinWithEmptyInnerTable()
+            throws Exception
+    {
+        // Override because of extra UUID column in lineitem table, cannot SELECT *
+        // Use orderkey = rand() to create an empty relation
+        assertQuery("SELECT a.orderkey, partkey, suppkey, linenumber, quantity, "
+                + "extendedprice, discount, tax, returnflag, linestatus, "
+                + "shipdate, commitdate, receiptdate, shipinstruct, shipmode, a.comment " +
+                "FROM lineitem a LEFT JOIN(SELECT * FROM orders WHERE orderkey = rand())b ON a.orderkey = b.orderkey");
+        assertQuery("SELECT a.orderkey, partkey, suppkey, linenumber, quantity, "
+                + "extendedprice, discount, tax, returnflag, linestatus, "
+                + "shipdate, commitdate, receiptdate, shipinstruct, shipmode, a.comment " +
+                "FROM lineitem a LEFT JOIN (SELECT * FROM orders WHERE orderkey = rand()) b ON a.orderkey > b.orderkey");
+        assertQuery("SELECT a.orderkey, partkey, suppkey, linenumber, quantity, "
+                + "extendedprice, discount, tax, returnflag, linestatus, "
+                + "shipdate, commitdate, receiptdate, shipinstruct, shipmode, a.comment " +
+                " FROM lineitem a LEFT JOIN (SELECT * FROM orders WHERE orderkey = rand()) b ON 1 = 1");
+        assertQuery("SELECT a.orderkey, partkey, suppkey, linenumber, quantity, "
+                + "extendedprice, discount, tax, returnflag, linestatus, "
+                + "shipdate, commitdate, receiptdate, shipinstruct, shipmode, a.comment " +
+                "FROM lineitem a LEFT JOIN (SELECT * FROM orders WHERE orderkey = rand()) b ON b.orderkey > 1");
+        assertQuery("SELECT a.orderkey, partkey, suppkey, linenumber, quantity, "
+                + "extendedprice, discount, tax, returnflag, linestatus, "
+                + "shipdate, commitdate, receiptdate, shipinstruct, shipmode, a.comment " +
+                "FROM lineitem a LEFT JOIN (SELECT * FROM orders WHERE orderkey = rand()) b ON b.orderkey > b.totalprice");
+    }
+
+    @Override
     public void testScalarSubquery()
             throws Exception
     {
