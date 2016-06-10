@@ -126,7 +126,7 @@ final class HiveBucketing
                         long bigintValue = prestoType.getLong(block, position);
                         return (int) ((bigintValue >>> 32) ^ bigintValue);
                     case FLOAT:
-                        return Float.floatToIntBits((float) prestoType.getDouble(block, position));
+                        return (int) prestoType.getLong(block, position);
                     case DOUBLE:
                         long doubleValue = doubleToLongBits(prestoType.getDouble(block, position));
                         return (int) ((doubleValue >>> 32) ^ doubleValue);

@@ -47,6 +47,7 @@ import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
+import static com.facebook.presto.hive.HiveUtil.floatPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
 import static com.facebook.presto.hive.HiveUtil.integerPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
@@ -59,6 +60,7 @@ import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.tinyintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.varcharPartitionKey;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
+import static com.facebook.presto.hive.NumberParser.parseFloat;
 import static com.facebook.presto.hive.NumberParser.parseLong;
 import static com.facebook.presto.hive.util.SerDeUtils.getBlockObject;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -68,6 +70,7 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.FloatType.FLOAT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.StandardTypes.DECIMAL;
@@ -79,6 +82,7 @@ import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -207,6 +211,9 @@ class ColumnarTextHiveRecordCursor<K>
                 }
                 else if (BIGINT.equals(type)) {
                     longs[columnIndex] = bigintPartitionKey(partitionKey.getValue(), name);
+                }
+                else if (FLOAT.equals(type)) {
+                    longs[columnIndex] = floatPartitionKey(partitionKey.getValue(), name);
                 }
                 else if (DOUBLE.equals(type)) {
                     doubles[columnIndex] = doublePartitionKey(partitionKey.getValue(), name);
@@ -355,10 +362,11 @@ class ColumnarTextHiveRecordCursor<K>
                 !types[fieldId].equals(TINYINT) &&
                 !types[fieldId].equals(DATE) &&
                 !types[fieldId].equals(TIMESTAMP) &&
-                !isShortDecimal(types[fieldId])) {
+                !isShortDecimal(types[fieldId]) &&
+                !types[fieldId].equals(FLOAT)) {
             // we don't use Preconditions.checkArgument because it requires boxing fieldId, which affects inner loop performance
             throw new IllegalArgumentException(
-                    format("Expected field to be %s, %s, %s, %s, %s, %s, or %s , actual %s (field %s)", TINYINT, SMALLINT, INTEGER, BIGINT, DECIMAL, DATE, TIMESTAMP, types[fieldId], fieldId));
+                    format("Expected field to be %s, %s, %s, %s, %s, %s, %s or %s , actual %s (field %s)", TINYINT, SMALLINT, INTEGER, BIGINT, DECIMAL, DATE, TIMESTAMP, FLOAT, types[fieldId], fieldId));
         }
 
         if (!loaded[fieldId]) {
@@ -411,6 +419,10 @@ class ColumnarTextHiveRecordCursor<K>
         else if (hiveTypes[column].equals(HiveType.HIVE_TIMESTAMP)) {
             String value = new String(bytes, start, length);
             longs[column] = parseHiveTimestamp(value, hiveStorageTimeZone);
+            wasNull = false;
+        }
+        else if (hiveTypes[column].equals(HiveType.HIVE_FLOAT)) {
+            longs[column] = floatToRawIntBits(parseFloat(bytes, start, length));
             wasNull = false;
         }
         else {
@@ -687,6 +699,9 @@ class ColumnarTextHiveRecordCursor<K>
         }
         else if (type.equals(DOUBLE)) {
             parseDoubleColumn(column);
+        }
+        else if (type.equals(FLOAT)) {
+            parseLongColumn(column);
         }
         else if (isVarcharType(type) || VARBINARY.equals(type)) {
             parseStringColumn(column);
