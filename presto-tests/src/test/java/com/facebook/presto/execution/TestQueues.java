@@ -252,7 +252,7 @@ public class TestQueues
     private static DistributedQueryRunner createQueryRunner(Map<String, String> properties)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(testSessionBuilder().build(), 2, properties);
+        DistributedQueryRunner queryRunner = new DistributedQueryRunner(testSessionBuilder().build(), 2, ImmutableMap.of(), properties);
 
         try {
             queryRunner.installPlugin(new TpchPlugin());
