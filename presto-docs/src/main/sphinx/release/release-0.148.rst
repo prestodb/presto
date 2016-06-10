@@ -19,6 +19,10 @@ General Changes
 * Fix data duplication when ``task.writer-count`` configuration mismatches between coordinator and worker.
 * Fix bug where ``node-scheduler.max-pending-splits-per-node-per-task`` config is not always
   honored by node scheduler. This bug could stop the cluster from making further progress.
+* Fix handling of ``INTERVAL DAY TO SECOND`` type in REST API. Previously, intervals greater than
+  ``2,147,483,647`` milliseconds (about ``24`` days) were returned as the wrong value.
+* Fix handling of ``INTERVAL YEAR TO MONTH`` type in REST API. Previously, intervals greater than
+  ``2,147,483,647`` months were returned as the wrong value.
 * Add ``colocated-joins-enabled`` to enable colocated joins by default for
   connectors that expose node-partitioned data.
 * Add support for colocated unions.
