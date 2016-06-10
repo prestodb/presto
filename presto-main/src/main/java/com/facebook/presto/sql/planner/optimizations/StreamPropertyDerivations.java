@@ -53,7 +53,7 @@ import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
@@ -282,8 +282,8 @@ final class StreamPropertyDerivations
         {
             Map<Symbol, Symbol> inputToOutput = new HashMap<>();
             for (Map.Entry<Symbol, Expression> assignment : assignments.entrySet()) {
-                if (assignment.getValue() instanceof QualifiedNameReference) {
-                    inputToOutput.put(Symbol.fromQualifiedName(((QualifiedNameReference) assignment.getValue()).getName()), assignment.getKey());
+                if (assignment.getValue() instanceof SymbolReference) {
+                    inputToOutput.put(Symbol.from(assignment.getValue()), assignment.getKey());
                 }
             }
             return inputToOutput;

@@ -73,7 +73,7 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.util.GraphvizPrinter;
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Functions;
@@ -283,12 +283,12 @@ public class PlanPrinter
         boolean replicateNulls = partitioningScheme.isReplicateNulls();
         List<String> arguments = partitioningScheme.getPartitioning().getArguments().stream()
                 .map(argument -> {
-                        if (argument.isConstant()) {
-                            NullableValue constant = argument.getConstant();
-                            String printableValue = castToVarchar(constant.getType(), constant.getValue(), metadata, session);
-                            return constant.getType().getDisplayName() + "(" + printableValue + ")";
-                        }
-                        return argument.getColumn().toString();
+                    if (argument.isConstant()) {
+                        NullableValue constant = argument.getConstant();
+                        String printableValue = castToVarchar(constant.getType(), constant.getValue(), metadata, session);
+                        return constant.getType().getDisplayName() + "(" + printableValue + ")";
+                    }
+                    return argument.getColumn().toString();
                 })
                 .collect(toImmutableList());
         builder.append(indentString(1));
@@ -411,8 +411,8 @@ public class PlanPrinter
             List<Expression> joinExpressions = new ArrayList<>();
             for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
                 joinExpressions.add(new ComparisonExpression(ComparisonExpression.Type.EQUAL,
-                        new QualifiedNameReference(clause.getLeft().toQualifiedName()),
-                        new QualifiedNameReference(clause.getRight().toQualifiedName())));
+                        clause.getLeft().toSymbolReference(),
+                        clause.getRight().toSymbolReference()));
             }
             node.getFilter().ifPresent(expression -> joinExpressions.add(expression));
 
@@ -454,8 +454,8 @@ public class PlanPrinter
             List<Expression> joinExpressions = new ArrayList<>();
             for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
                 joinExpressions.add(new ComparisonExpression(ComparisonExpression.Type.EQUAL,
-                        new QualifiedNameReference(clause.getProbe().toQualifiedName()),
-                        new QualifiedNameReference(clause.getIndex().toQualifiedName())));
+                        clause.getProbe().toSymbolReference(),
+                        clause.getIndex().toSymbolReference()));
             }
 
             print(indent, "- %sIndexJoin[%s] => [%s]", node.getType().getJoinLabel(), Joiner.on(" AND ").join(joinExpressions), formatOutputs(node.getOutputSymbols()));
@@ -691,7 +691,7 @@ public class PlanPrinter
             print(indent, "- Project => [%s]", formatOutputs(node.getOutputSymbols()));
             printStats(indent + 2, node.getId());
             for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
-                if (entry.getValue() instanceof QualifiedNameReference && ((QualifiedNameReference) entry.getValue()).getName().equals(entry.getKey().toQualifiedName())) {
+                if (entry.getValue() instanceof SymbolReference && ((SymbolReference) entry.getValue()).getName().equals(entry.getKey().getName())) {
                     // skip identity assignments
                     continue;
                 }

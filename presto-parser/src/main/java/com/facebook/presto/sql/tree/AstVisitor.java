@@ -601,4 +601,9 @@ public abstract class AstVisitor<R, C>
     {
         return visitGroupingElement(node, context);
     }
+
+    protected R visitSymbolReference(SymbolReference node, C context)
+    {
+        return visitExpression(node, context);
+    }
 }

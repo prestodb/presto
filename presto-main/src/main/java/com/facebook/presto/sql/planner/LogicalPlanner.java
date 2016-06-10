@@ -192,10 +192,10 @@ public class LogicalPlanner
                 Type queryType = symbolAllocator.getTypes().get(input);
 
                 if (queryType.equals(tableType) || metadata.getTypeManager().isTypeOnlyCoercion(queryType, tableType)) {
-                    assignments.put(output, input.toQualifiedNameReference());
+                    assignments.put(output, input.toSymbolReference());
                 }
                 else {
-                    Expression cast = new Cast(input.toQualifiedNameReference(), tableType.getTypeSignature().toString());
+                    Expression cast = new Cast(input.toSymbolReference(), tableType.getTypeSignature().toString());
                     assignments.put(output, cast);
                 }
             }

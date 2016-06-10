@@ -43,7 +43,7 @@ import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.PeekingIterator;
@@ -92,13 +92,13 @@ public final class DomainTranslator
         ImmutableList.Builder<Expression> conjunctBuilder = ImmutableList.builder();
         for (Map.Entry<Symbol, Domain> entry : tupleDomain.getDomains().get().entrySet()) {
             Symbol symbol = entry.getKey();
-            QualifiedNameReference reference = new QualifiedNameReference(symbol.toQualifiedName());
+            SymbolReference reference = symbol.toSymbolReference();
             conjunctBuilder.add(toPredicate(entry.getValue(), reference));
         }
         return combineConjuncts(conjunctBuilder.build());
     }
 
-    private static Expression toPredicate(Domain domain, QualifiedNameReference reference)
+    private static Expression toPredicate(Domain domain, SymbolReference reference)
     {
         if (domain.getValues().isNone()) {
             return domain.isNullAllowed() ? new IsNullPredicate(reference) : FALSE_LITERAL;
@@ -125,7 +125,7 @@ public final class DomainTranslator
         return combineDisjunctsWithDefault(disjuncts, TRUE_LITERAL);
     }
 
-    private static Expression processRange(Type type, Range range, QualifiedNameReference reference)
+    private static Expression processRange(Type type, Range range, SymbolReference reference)
     {
         if (range.isAll()) {
             return TRUE_LITERAL;
@@ -171,7 +171,7 @@ public final class DomainTranslator
         return combineConjuncts(rangeConjuncts);
     }
 
-    private static Expression combineRangeWithExcludedPoints(Type type, QualifiedNameReference reference, Range range, List<Expression> excludedPoints)
+    private static Expression combineRangeWithExcludedPoints(Type type, SymbolReference reference, Range range, List<Expression> excludedPoints)
     {
         if (excludedPoints.isEmpty()) {
             return processRange(type, range, reference);
@@ -185,7 +185,7 @@ public final class DomainTranslator
         return combineConjuncts(processRange(type, range, reference), excludedPointsExpression);
     }
 
-    private static List<Expression> extractDisjuncts(Type type, Ranges ranges, QualifiedNameReference reference)
+    private static List<Expression> extractDisjuncts(Type type, Ranges ranges, SymbolReference reference)
     {
         List<Expression> disjuncts = new ArrayList<>();
         List<Expression> singleValues = new ArrayList<>();
@@ -228,7 +228,7 @@ public final class DomainTranslator
         return disjuncts;
     }
 
-    private static List<Expression> extractDisjuncts(Type type, DiscreteValues discreteValues, QualifiedNameReference reference)
+    private static List<Expression> extractDisjuncts(Type type, DiscreteValues discreteValues, SymbolReference reference)
     {
         List<Expression> values = discreteValues.getValues().stream()
                 .map(object -> toExpression(object, type))
@@ -395,7 +395,7 @@ public final class DomainTranslator
             }
             NormalizedSimpleComparison normalized = optionalNormalized.get();
 
-            Symbol symbol = Symbol.fromQualifiedName(normalized.getNameReference().getName());
+            Symbol symbol = Symbol.from(normalized.getNameReference());
             Type fieldType = checkedTypeLookup(symbol);
             NullableValue value = normalized.getValue();
 
@@ -508,7 +508,7 @@ public final class DomainTranslator
 
         private Optional<Expression> coerceComparisonWithRounding(
                 Type fieldType,
-                QualifiedNameReference fieldReference,
+                SymbolReference fieldReference,
                 Type valueType,
                 Object value,
                 ComparisonExpression.Type comparisonType)
@@ -520,7 +520,7 @@ public final class DomainTranslator
 
         private Expression rewriteComparisonExpression(
                 Type fieldType,
-                QualifiedNameReference fieldReference,
+                SymbolReference fieldReference,
                 Type valueType,
                 Object originalValue,
                 Object coercedValue,
@@ -610,7 +610,7 @@ public final class DomainTranslator
         @Override
         protected ExtractionResult visitInPredicate(InPredicate node, Boolean complement)
         {
-            if (!(node.getValue() instanceof QualifiedNameReference) || !(node.getValueList() instanceof InListExpression)) {
+            if (!(node.getValue() instanceof SymbolReference) || !(node.getValueList() instanceof InListExpression)) {
                 return super.visitInPredicate(node, complement);
             }
 
@@ -636,11 +636,11 @@ public final class DomainTranslator
         @Override
         protected ExtractionResult visitIsNullPredicate(IsNullPredicate node, Boolean complement)
         {
-            if (!(node.getValue() instanceof QualifiedNameReference)) {
+            if (!(node.getValue() instanceof SymbolReference)) {
                 return super.visitIsNullPredicate(node, complement);
             }
 
-            Symbol symbol = Symbol.fromQualifiedName(((QualifiedNameReference) node.getValue()).getName());
+            Symbol symbol = Symbol.from(node.getValue());
             Type columnType = checkedTypeLookup(symbol);
             Domain domain = complementIfNecessary(Domain.onlyNull(columnType), complement);
             return new ExtractionResult(
@@ -651,11 +651,11 @@ public final class DomainTranslator
         @Override
         protected ExtractionResult visitIsNotNullPredicate(IsNotNullPredicate node, Boolean complement)
         {
-            if (!(node.getValue() instanceof QualifiedNameReference)) {
+            if (!(node.getValue() instanceof SymbolReference)) {
                 return super.visitIsNotNullPredicate(node, complement);
             }
 
-            Symbol symbol = Symbol.fromQualifiedName(((QualifiedNameReference) node.getValue()).getName());
+            Symbol symbol = Symbol.from(node.getValue());
             Type columnType = checkedTypeLookup(symbol);
 
             Domain domain = complementIfNecessary(Domain.notNull(columnType), complement);
@@ -687,29 +687,29 @@ public final class DomainTranslator
         Object left = ExpressionInterpreter.expressionOptimizer(comparison.getLeft(), metadata, session, expressionTypes).optimize(NoOpSymbolResolver.INSTANCE);
         Object right = ExpressionInterpreter.expressionOptimizer(comparison.getRight(), metadata, session, expressionTypes).optimize(NoOpSymbolResolver.INSTANCE);
 
-        if (left instanceof QualifiedNameReference && !(right instanceof Expression)) {
-            return Optional.of(new NormalizedSimpleComparison((QualifiedNameReference) left, comparison.getType(), new NullableValue(expressionTypes.get(comparison.getRight()), right)));
+        if (left instanceof SymbolReference && !(right instanceof Expression)) {
+            return Optional.of(new NormalizedSimpleComparison((SymbolReference) left, comparison.getType(), new NullableValue(expressionTypes.get(comparison.getRight()), right)));
         }
-        if (right instanceof QualifiedNameReference && !(left instanceof Expression)) {
-            return Optional.of(new NormalizedSimpleComparison((QualifiedNameReference) right, comparison.getType().flip(), new NullableValue(expressionTypes.get(comparison.getLeft()), left)));
+        if (right instanceof SymbolReference && !(left instanceof Expression)) {
+            return Optional.of(new NormalizedSimpleComparison((SymbolReference) right, comparison.getType().flip(), new NullableValue(expressionTypes.get(comparison.getLeft()), left)));
         }
         return Optional.empty();
     }
 
     private static class NormalizedSimpleComparison
     {
-        private final QualifiedNameReference nameReference;
+        private final SymbolReference nameReference;
         private final ComparisonExpression.Type comparisonType;
         private final NullableValue value;
 
-        public NormalizedSimpleComparison(QualifiedNameReference nameReference, ComparisonExpression.Type comparisonType, NullableValue value)
+        public NormalizedSimpleComparison(SymbolReference nameReference, ComparisonExpression.Type comparisonType, NullableValue value)
         {
             this.nameReference = requireNonNull(nameReference, "nameReference is null");
             this.comparisonType = requireNonNull(comparisonType, "comparisonType is null");
             this.value = requireNonNull(value, "value is null");
         }
 
-        public QualifiedNameReference getNameReference()
+        public SymbolReference getNameReference()
         {
             return nameReference;
         }

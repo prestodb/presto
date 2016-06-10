@@ -60,7 +60,7 @@ import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingTransactionHandle;
@@ -101,6 +101,7 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.ExpressionUtils.rewriteQualifiedNamesToSymbolReferences;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.analyzeExpressionsWithSymbols;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
 import static com.facebook.presto.sql.planner.LocalExecutionPlanner.toTypes;
@@ -431,6 +432,8 @@ public final class FunctionAssertions
     {
         Expression parsedExpression = SQL_PARSER.createExpression(expression);
 
+        parsedExpression = rewriteQualifiedNamesToSymbolReferences(parsedExpression);
+
         final ExpressionAnalysis analysis = analyzeExpressionsWithSymbols(TEST_SESSION, metadata, SQL_PARSER, symbolTypes, ImmutableList.of(parsedExpression));
         Expression rewrittenExpression = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
         {
@@ -528,18 +531,18 @@ public final class FunctionAssertions
 
     private static boolean needsBoundValue(Expression projectionExpression)
     {
-        final AtomicBoolean hasQualifiedNameReference = new AtomicBoolean();
+        final AtomicBoolean hasSymbolReferences = new AtomicBoolean();
         new DefaultTraversalVisitor<Void, Void>()
         {
             @Override
-            protected Void visitQualifiedNameReference(QualifiedNameReference node, Void context)
+            protected Void visitSymbolReference(SymbolReference node, Void context)
             {
-                hasQualifiedNameReference.set(true);
+                hasSymbolReferences.set(true);
                 return null;
             }
         }.process(projectionExpression, null);
 
-        return hasQualifiedNameReference.get();
+        return hasSymbolReferences.get();
     }
 
     private Operator interpretedFilterProject(Expression filter, Expression projection, Session session)

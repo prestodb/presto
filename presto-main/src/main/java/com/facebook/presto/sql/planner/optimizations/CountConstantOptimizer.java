@@ -28,8 +28,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.NullLiteral;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 
 import java.util.LinkedHashMap;
@@ -105,10 +104,8 @@ public class CountConstantOptimizer
                 return true;
             }
 
-            if (argument instanceof QualifiedNameReference) {
-                QualifiedNameReference qualifiedNameReference = (QualifiedNameReference) argument;
-                QualifiedName qualifiedName = qualifiedNameReference.getName();
-                Symbol argumentSymbol = Symbol.fromQualifiedName(qualifiedName);
+            if (argument instanceof SymbolReference) {
+                Symbol argumentSymbol = Symbol.from(argument);
                 Expression argumentExpression = projectNode.getAssignments().get(argumentSymbol);
                 return (argumentExpression instanceof Literal) && (!(argumentExpression instanceof NullLiteral));
             }

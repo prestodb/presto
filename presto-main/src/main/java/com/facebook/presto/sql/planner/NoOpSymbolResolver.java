@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.tree.QualifiedNameReference;
-
 public class NoOpSymbolResolver
         implements SymbolResolver
 {
@@ -23,6 +21,6 @@ public class NoOpSymbolResolver
     @Override
     public Object getValue(Symbol symbol)
     {
-        return new QualifiedNameReference(symbol.toQualifiedName());
+        return symbol.toSymbolReference();
     }
 }

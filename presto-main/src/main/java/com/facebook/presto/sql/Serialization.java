@@ -27,6 +27,8 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 
+import static com.facebook.presto.sql.ExpressionUtils.rewriteQualifiedNamesToSymbolReferences;
+
 public final class Serialization
 {
     private Serialization() {}
@@ -57,7 +59,7 @@ public final class Serialization
         public Expression deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
                 throws IOException
         {
-            return sqlParser.createExpression(jsonParser.readValueAs(String.class));
+            return rewriteQualifiedNamesToSymbolReferences(sqlParser.createExpression(jsonParser.readValueAs(String.class)));
         }
     }
 
@@ -76,7 +78,7 @@ public final class Serialization
         public FunctionCall deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
                 throws IOException
         {
-            return (FunctionCall) sqlParser.createExpression(jsonParser.readValueAs(String.class));
+            return (FunctionCall) rewriteQualifiedNamesToSymbolReferences(sqlParser.createExpression(jsonParser.readValueAs(String.class)));
         }
     }
 }

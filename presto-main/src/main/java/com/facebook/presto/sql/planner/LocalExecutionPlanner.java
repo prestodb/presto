@@ -139,7 +139,7 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -688,7 +688,7 @@ public class LocalExecutionPlanner
             for (Map.Entry<Symbol, FunctionCall> entry : node.getWindowFunctions().entrySet()) {
                 ImmutableList.Builder<Integer> arguments = ImmutableList.builder();
                 for (Expression argument : entry.getValue().getArguments()) {
-                    Symbol argumentSymbol = Symbol.fromQualifiedName(((QualifiedNameReference) argument).getName());
+                    Symbol argumentSymbol = Symbol.from(argument);
                     arguments.add(source.getLayout().get(argumentSymbol));
                 }
                 Symbol symbol = entry.getKey();
@@ -908,7 +908,7 @@ public class LocalExecutionPlanner
             List<Symbol> outputSymbols = node.getOutputSymbols();
 
             Map<Symbol, Expression> projectionExpressions = outputSymbols.stream()
-                    .collect(Collectors.toMap(x -> x, Symbol::toQualifiedNameReference));
+                    .collect(Collectors.toMap(x -> x, Symbol::toSymbolReference));
 
             return visitScanFilterAndProject(context, node.getId(), sourceNode, filterExpression, projectionExpressions, outputSymbols);
         }
@@ -1054,9 +1054,9 @@ public class LocalExecutionPlanner
             for (Symbol symbol : outputSymbols) {
                 Expression expression = projectionExpressions.get(symbol);
                 ProjectionFunction function;
-                if (expression instanceof QualifiedNameReference) {
+                if (expression instanceof SymbolReference) {
                     // fast path when we know it's a direct symbol reference
-                    Symbol reference = Symbol.fromQualifiedName(((QualifiedNameReference) expression).getName());
+                    Symbol reference = Symbol.from(expression);
                     function = ProjectionFunctions.singleColumn(context.getTypes().get(reference), sourceLayout.get(reference));
                 }
                 else {
@@ -1785,7 +1785,7 @@ public class LocalExecutionPlanner
         {
             List<Integer> arguments = new ArrayList<>();
             for (Expression argument : call.getArguments()) {
-                Symbol argumentSymbol = Symbol.fromQualifiedName(((QualifiedNameReference) argument).getName());
+                Symbol argumentSymbol = Symbol.from(argument);
                 arguments.add(source.getLayout().get(argumentSymbol));
             }
 

@@ -19,6 +19,7 @@ import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -73,9 +74,9 @@ public final class DependencyExtractor
             extends DefaultExpressionTraversalVisitor<Void, ImmutableList.Builder<Symbol>>
     {
         @Override
-        protected Void visitQualifiedNameReference(QualifiedNameReference node, ImmutableList.Builder<Symbol> builder)
+        protected Void visitSymbolReference(SymbolReference node, ImmutableList.Builder<Symbol> builder)
         {
-            builder.add(Symbol.fromQualifiedName(node.getName()));
+            builder.add(Symbol.from(node));
             return null;
         }
     }

@@ -51,7 +51,7 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
@@ -352,8 +352,8 @@ public final class GraphvizPrinter
         {
             StringBuilder builder = new StringBuilder();
             for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
-                if ((entry.getValue() instanceof QualifiedNameReference) &&
-                        ((QualifiedNameReference) entry.getValue()).getName().equals(entry.getKey().toQualifiedName())) {
+                if ((entry.getValue() instanceof SymbolReference) &&
+                        ((SymbolReference) entry.getValue()).getName().equals(entry.getKey().getName())) {
                     // skip identity assignments
                     continue;
                 }
@@ -433,8 +433,8 @@ public final class GraphvizPrinter
             List<Expression> joinExpressions = new ArrayList<>();
             for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
                 joinExpressions.add(new ComparisonExpression(ComparisonExpression.Type.EQUAL,
-                        new QualifiedNameReference(clause.getLeft().toQualifiedName()),
-                        new QualifiedNameReference(clause.getRight().toQualifiedName())));
+                        clause.getLeft().toSymbolReference(),
+                        clause.getRight().toSymbolReference()));
             }
 
             String criteria = Joiner.on(" AND ").join(joinExpressions);
@@ -482,8 +482,8 @@ public final class GraphvizPrinter
             List<Expression> joinExpressions = new ArrayList<>();
             for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
                 joinExpressions.add(new ComparisonExpression(ComparisonExpression.Type.EQUAL,
-                        new QualifiedNameReference(clause.getProbe().toQualifiedName()),
-                        new QualifiedNameReference(clause.getIndex().toQualifiedName())));
+                        clause.getProbe().toSymbolReference(),
+                        clause.getIndex().toSymbolReference()));
             }
 
             String criteria = Joiner.on(" AND ").join(joinExpressions);

@@ -31,7 +31,6 @@ import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
@@ -75,6 +74,7 @@ import com.facebook.presto.sql.tree.StackableAstVisitor;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TryExpression;
@@ -82,6 +82,7 @@ import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.type.RowType;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.airlift.slice.SliceUtf8;
@@ -132,7 +133,6 @@ import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
 import static com.facebook.presto.util.DateTimeUtils.timeHasTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.timestampHasTimeZone;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Sets.newIdentityHashSet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -142,6 +142,9 @@ public class ExpressionAnalyzer
     private final FunctionRegistry functionRegistry;
     private final TypeManager typeManager;
     private final Function<Node, StatementAnalyzer> statementAnalyzerFactory;
+    private final Session session;
+    private final Map<Symbol, Type> symbolTypes;
+
     private final IdentityHashMap<FunctionCall, Signature> resolvedFunctions = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Integer> resolvedNames = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> expressionTypes = new IdentityHashMap<>();
@@ -149,14 +152,19 @@ public class ExpressionAnalyzer
     private final IdentityHashMap<Expression, Type> expressionCoercions = new IdentityHashMap<>();
     private final Set<Expression> typeOnlyCoercions = newIdentityHashSet();
     private final Set<InPredicate> subqueryInPredicates = newIdentityHashSet();
-    private final Session session;
 
-    public ExpressionAnalyzer(FunctionRegistry functionRegistry, TypeManager typeManager, Function<Node, StatementAnalyzer> statementAnalyzerFactory, Session session)
+    public ExpressionAnalyzer(
+            FunctionRegistry functionRegistry,
+            TypeManager typeManager,
+            Function<Node, StatementAnalyzer> statementAnalyzerFactory,
+            Session session,
+            Map<Symbol, Type> symbolTypes)
     {
         this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.session = requireNonNull(session, "session is null");
+        this.symbolTypes = ImmutableMap.copyOf(requireNonNull(symbolTypes, "symbolTypes is null"));
     }
 
     public Map<Expression, Integer> getResolvedNames()
@@ -272,6 +280,14 @@ public class ExpressionAnalyzer
                     throw new SemanticException(NOT_SUPPORTED, node, "%s not yet supported", node.getType().getName());
             }
 
+            expressionTypes.put(node, type);
+            return type;
+        }
+
+        @Override
+        protected Type visitSymbolReference(SymbolReference node, StackableAstVisitorContext<AnalysisContext> context)
+        {
+            Type type = symbolTypes.get(Symbol.from(node));
             expressionTypes.put(node, type);
             return type;
         }
@@ -1113,15 +1129,7 @@ public class ExpressionAnalyzer
             Map<Symbol, Type> types,
             Iterable<? extends Expression> expressions)
     {
-        List<Field> fields = DependencyExtractor.extractUnique(expressions).stream()
-                .map(symbol -> {
-                    Type type = types.get(symbol);
-                    checkArgument(type != null, "No type for symbol %s", symbol);
-                    return Field.newUnqualified(symbol.getName(), type);
-                })
-                .collect(toImmutableList());
-
-        return analyzeExpressions(session, metadata, sqlParser, new RelationType(fields), expressions);
+        return analyzeExpressions(session, metadata, sqlParser, new RelationType(), types, expressions);
     }
 
     private static ExpressionAnalysis analyzeExpressionsWithInputs(
@@ -1137,7 +1145,7 @@ public class ExpressionAnalyzer
         }
         RelationType tupleDescriptor = new RelationType(fields);
 
-        return analyzeExpressions(session, metadata, sqlParser, tupleDescriptor, expressions);
+        return analyzeExpressions(session, metadata, sqlParser, tupleDescriptor, ImmutableMap.of(), expressions);
     }
 
     private static ExpressionAnalysis analyzeExpressions(
@@ -1145,11 +1153,12 @@ public class ExpressionAnalyzer
             Metadata metadata,
             SqlParser sqlParser,
             RelationType tupleDescriptor,
+            Map<Symbol, Type> types,
             Iterable<? extends Expression> expressions)
     {
         // expressions at this point can not have sub queries so deny all access checks
         // in the future, we will need a full access controller here to verify access to functions
-        ExpressionAnalyzer analyzer = create(new Analysis(), session, metadata, sqlParser, new DenyAllAccessControl(), false);
+        ExpressionAnalyzer analyzer = create(new Analysis(), session, metadata, sqlParser, new DenyAllAccessControl(), types, false);
         for (Expression expression : expressions) {
             analyzer.analyze(expression, tupleDescriptor, new AnalysisContext());
         }
@@ -1174,7 +1183,7 @@ public class ExpressionAnalyzer
             AnalysisContext context,
             Expression expression)
     {
-        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, accessControl, approximateQueriesEnabled);
+        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, accessControl, ImmutableMap.of(), approximateQueriesEnabled);
         analyzer.analyze(expression, tupleDescriptor, context);
 
         IdentityHashMap<Expression, Type> expressionTypes = analyzer.getExpressionTypes();
@@ -1205,11 +1214,24 @@ public class ExpressionAnalyzer
             AccessControl accessControl,
             boolean experimentalSyntaxEnabled)
     {
+        return create(analysis, session, metadata, sqlParser, accessControl, ImmutableMap.of(), experimentalSyntaxEnabled);
+    }
+
+    public static ExpressionAnalyzer create(
+            Analysis analysis,
+            Session session,
+            Metadata metadata,
+            SqlParser sqlParser,
+            AccessControl accessControl,
+            Map<Symbol, Type> types,
+            boolean experimentalSyntaxEnabled)
+    {
         return new ExpressionAnalyzer(
                 metadata.getFunctionRegistry(),
                 metadata.getTypeManager(),
                 node -> new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, experimentalSyntaxEnabled, Optional.empty()),
-                session);
+                session,
+                types);
     }
 
     public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session)
@@ -1226,6 +1248,6 @@ public class ExpressionAnalyzer
     {
         return new ExpressionAnalyzer(functionRegistry, typeManager, node -> {
             throw new SemanticException(errorCode, node, message);
-        }, session);
+        }, session, ImmutableMap.of());
     }
 }
