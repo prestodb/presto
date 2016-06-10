@@ -50,7 +50,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NullLiteral;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
@@ -160,11 +160,11 @@ public class PredicatePushDown
             boolean modified = false;
             ImmutableList.Builder<PlanNode> builder = ImmutableList.builder();
             for (int i = 0; i < node.getSources().size(); i++) {
-                Map<Symbol, QualifiedNameReference> outputsToInputs = new HashMap<>();
+                Map<Symbol, SymbolReference> outputsToInputs = new HashMap<>();
                 for (int index = 0; index < node.getInputs().get(i).size(); index++) {
                     outputsToInputs.put(
                             node.getOutputSymbols().get(index),
-                            node.getInputs().get(i).get(index).toQualifiedNameReference());
+                            node.getInputs().get(i).get(index).toSymbolReference());
                 }
 
                 Expression sourcePredicate = ExpressionTreeRewriter.rewriteWith(new ExpressionSymbolInliner(outputsToInputs), context.get());
@@ -360,12 +360,12 @@ public class PredicatePushDown
                 ImmutableMap.Builder<Symbol, Expression> leftProjections = ImmutableMap.builder();
                 leftProjections.putAll(node.getLeft()
                         .getOutputSymbols().stream()
-                        .collect(Collectors.toMap(key -> key, Symbol::toQualifiedNameReference)));
+                        .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));
 
                 ImmutableMap.Builder<Symbol, Expression> rightProjections = ImmutableMap.builder();
                 rightProjections.putAll(node.getRight()
                         .getOutputSymbols().stream()
-                        .collect(Collectors.toMap(key -> key, Symbol::toQualifiedNameReference)));
+                        .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));
 
                 // Create new projections for the new join clauses
                 ImmutableList.Builder<JoinNode.EquiJoinClause> joinConditionBuilder = ImmutableList.builder();
@@ -657,8 +657,8 @@ public class PredicatePushDown
         private static Expression equalsExpression(Symbol symbol1, Symbol symbol2)
         {
             return new ComparisonExpression(ComparisonExpression.Type.EQUAL,
-                    new QualifiedNameReference(symbol1.toQualifiedName()),
-                    new QualifiedNameReference(symbol2.toQualifiedName()));
+                    symbol1.toSymbolReference(),
+                    symbol2.toSymbolReference());
         }
 
         private Type extractType(Expression expression)
@@ -729,7 +729,7 @@ public class PredicatePushDown
         {
             IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, symbolAllocator.getTypes(), expression);
             return ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes)
-                    .optimize(symbol -> nullSymbols.contains(symbol) ? null : new QualifiedNameReference(symbol.toQualifiedName()));
+                    .optimize(symbol -> nullSymbols.contains(symbol) ? null : symbol.toSymbolReference());
         }
 
         private static Predicate<Expression> joinEqualityExpression(final Collection<Symbol> leftSymbols)
