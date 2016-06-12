@@ -21,6 +21,7 @@ import com.facebook.presto.type.SqlType;
 import com.facebook.presto.util.ThreadLocalCache;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeField;
 import org.joda.time.Days;
@@ -53,12 +54,12 @@ import static org.joda.time.DateTimeZone.UTC;
 
 public final class DateTimeFunctions
 {
-    private static final ThreadLocalCache<Slice, DateTimeFormatter> DATETIME_FORMATTER_CACHE = new ThreadLocalCache<Slice, DateTimeFormatter>(100)
+    private static final ThreadLocalCache<Slice, DateTimeFormatter> MYSQL_DATETIME_FORMATTER_CACHE = new ThreadLocalCache<Slice, DateTimeFormatter>(100)
     {
         @Override
         protected DateTimeFormatter load(Slice format)
         {
-            return createDateTimeFormatter(format);
+            return createMysqlDateTimeFormatter(format);
         }
     };
 
@@ -76,6 +77,7 @@ public final class DateTimeFunctions
     private static final int MILLISECONDS_IN_MINUTE = 60 * MILLISECONDS_IN_SECOND;
     private static final int MILLISECONDS_IN_HOUR = 60 * MILLISECONDS_IN_MINUTE;
     private static final int MILLISECONDS_IN_DAY = 24 * MILLISECONDS_IN_HOUR;
+    private static final Slice DEFAULT_UNIX_TIMESTAMP_DATE_FORMAT = Slices.utf8Slice("yyyy-MM-dd HH:mm:ss");
 
     private DateTimeFunctions() {}
 
@@ -461,11 +463,8 @@ public final class DateTimeFunctions
     public static long parseDatetime(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice datetime, @SqlType(StandardTypes.VARCHAR) Slice formatString)
     {
         try {
-            return packDateTimeWithZone(parseDateTimeHelper(DateTimeFormat.forPattern(formatString.toStringUtf8())
-                                                .withChronology(getChronology(session.getTimeZoneKey()))
-                                                .withOffsetParsed()
-                                                .withLocale(session.getLocale()),
-                                                datetime.toStringUtf8()));
+            DateTimeFormatter formatter = createSimpleDateTimeFormatter(session, formatString.toStringUtf8());
+            return packDateTimeWithZone(parseDateTimeHelper(formatter, datetime.toStringUtf8()));
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
@@ -514,6 +513,48 @@ public final class DateTimeFunctions
         }
     }
 
+    @Description("Returns the current Unix timestamp in seconds (seconds since Unix epoch)")
+    @ScalarFunction
+    @SqlType(StandardTypes.BIGINT)
+    public static long unixTimestamp(ConnectorSession session)
+    {
+        return MILLISECONDS.toSeconds(session.getStartTime());
+    }
+
+    @Description("Parses the given date string to seconds since Unix epoch. Assumes date format of 'yyyy-MM-dd HH:mm:ss'")
+    @ScalarFunction
+    @SqlType(StandardTypes.BIGINT)
+    public static long unixTimestamp(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice dateString)
+    {
+        return unixTimestamp(session, dateString, DEFAULT_UNIX_TIMESTAMP_DATE_FORMAT);
+    }
+
+    @Description("Parses the given date string to seconds since Unix epoch. The date string is parsed using the given format")
+    @ScalarFunction
+    @SqlType(StandardTypes.BIGINT)
+    public static long unixTimestamp(
+            ConnectorSession session,
+            @SqlType(StandardTypes.VARCHAR) Slice dateString,
+            @SqlType(StandardTypes.VARCHAR) Slice format)
+    {
+        DateTimeFormatter formatter = createSimpleDateTimeFormatter(session, format.toStringUtf8());
+        DateTime parsedDateTime = parseDateTimeHelper(formatter, dateString.toStringUtf8());
+        return MILLISECONDS.toSeconds(parsedDateTime.getMillis());
+    }
+
+    private static DateTimeFormatter createSimpleDateTimeFormatter(ConnectorSession session, String dateFormat)
+    {
+        try {
+            return DateTimeFormat.forPattern(dateFormat)
+                    .withChronology(getChronology(session.getTimeZoneKey()))
+                    .withOffsetParsed()
+                    .withLocale(session.getLocale());
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
+    }
+
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
     public static Slice dateFormat(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp, @SqlType(StandardTypes.VARCHAR) Slice formatString)
@@ -533,7 +574,7 @@ public final class DateTimeFunctions
 
     private static Slice dateFormat(ISOChronology chronology, Locale locale, long timestamp, Slice formatString)
     {
-        DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString)
+        DateTimeFormatter formatter = MYSQL_DATETIME_FORMATTER_CACHE.get(formatString)
                 .withChronology(chronology)
                 .withLocale(locale);
 
@@ -544,7 +585,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.TIMESTAMP)
     public static long dateParse(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice dateTime, @SqlType(StandardTypes.VARCHAR) Slice formatString)
     {
-        DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString)
+        DateTimeFormatter formatter = MYSQL_DATETIME_FORMATTER_CACHE.get(formatString)
                 .withChronology(getChronology(session.getTimeZoneKey()))
                 .withLocale(session.getLocale());
 
@@ -913,7 +954,7 @@ public final class DateTimeFunctions
     }
 
     @SuppressWarnings("fallthrough")
-    public static DateTimeFormatter createDateTimeFormatter(Slice format)
+    public static DateTimeFormatter createMysqlDateTimeFormatter(Slice format)
     {
         DateTimeFormatterBuilder builder = new DateTimeFormatterBuilder();
 

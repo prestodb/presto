@@ -222,6 +222,18 @@ JodaTime's `DateTimeFormat`_ pattern format.
 
     Parses ``string`` into a timestamp with time zone using ``format``.
 
+.. function:: unix_timestamp() -> bigint
+
+    Returns a unix timestamp - the number of seconds since Unix Epoch (1970.01.01 00:00:00)
+
+.. function:: unix_timestamp(string) -> bigint
+
+    Parses ``string`` into a unix timestamp using ``'yyyy-MM-dd HH:mm:ss'`` as the date format.
+
+.. function:: unix_timestamp(string, format) -> bigint
+
+    Parses ``string`` into a unix timestamp using ``format`` as the date format.
+
 Extraction Function
 -------------------
 

@@ -18,7 +18,7 @@ import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.teradata.functions.dateformat.DateFormatParser;
+import com.facebook.presto.teradata.functions.dateformat.TeradataDateFormatParser;
 import com.facebook.presto.type.SqlType;
 import com.facebook.presto.util.ThreadLocalCache;
 import io.airlift.slice.Slice;
@@ -34,13 +34,13 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class TeradataDateFunctions
 {
-    private static final ThreadLocalCache<Slice, DateTimeFormatter> DATETIME_FORMATTER_CACHE = new ThreadLocalCache<Slice, DateTimeFormatter>(100)
+    private static final ThreadLocalCache<Slice, DateTimeFormatter> TERADATA_DATETIME_FORMATTER_CACHE = new ThreadLocalCache<Slice, DateTimeFormatter>(100)
     {
         @Override
         protected DateTimeFormatter load(Slice format)
         {
             String formatString = format.toStringUtf8();
-            return DateFormatParser.createDateTimeFormatter(formatString);
+            return TeradataDateFormatParser.createDateTimeFormatter(formatString);
         }
     };
 
@@ -56,7 +56,7 @@ public final class TeradataDateFunctions
             @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone,
             @SqlType(StandardTypes.VARCHAR) Slice formatString)
     {
-        DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString)
+        DateTimeFormatter formatter = TERADATA_DATETIME_FORMATTER_CACHE.get(formatString)
                 .withChronology(unpackChronology(timestampWithTimeZone))
                 .withLocale(session.getLocale());
 
@@ -87,7 +87,7 @@ public final class TeradataDateFunctions
 
     private static long parseMillis(ConnectorSession session, Slice dateTime, Slice formatString)
     {
-        DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString)
+        DateTimeFormatter formatter = TERADATA_DATETIME_FORMATTER_CACHE.get(formatString)
                 .withChronology(getChronology(session.getTimeZoneKey()))
                 .withLocale(session.getLocale());
 
