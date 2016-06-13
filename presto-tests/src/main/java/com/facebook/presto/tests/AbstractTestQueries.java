@@ -1517,6 +1517,24 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testRollupOverUnion()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT orderstatus, sum(orderkey)\n" +
+                "FROM (SELECT orderkey, orderstatus\n" +
+                "      FROM orders\n" +
+                "      UNION ALL\n" +
+                "      SELECT orderkey, orderstatus\n" +
+                "      FROM orders) x\n" +
+                "GROUP BY ROLLUP (orderstatus)",
+                "VALUES ('P', 21470000),\n" +
+                        "('O', 439774330),\n" +
+                        "('F', 438500670),\n" +
+                        "(NULL, 899745000)");
+    }
+
+    @Test
     public void testIntersect()
             throws Exception
     {
