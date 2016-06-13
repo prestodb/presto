@@ -311,7 +311,7 @@ public class AccumuloClient
         }
 
         // Column generation is for internal tables only
-        if (AccumuloTableProperties.getColumnMapping(meta.getProperties()) == null &&
+        if (!AccumuloTableProperties.getColumnMapping(meta.getProperties()).isPresent() &&
                 AccumuloTableProperties.isExternal(meta.getProperties())) {
             throw new PrestoException(VALIDATION,
                     "Column generation for external tables is not supported, must specify " +
@@ -381,7 +381,7 @@ public class AccumuloClient
                     "Cannot create internal table when an Accumulo table already exists");
         }
 
-        if (AccumuloTableProperties.getIndexColumns(meta.getProperties()).size() > 0) {
+        if (AccumuloTableProperties.getIndexColumns(meta.getProperties()).isPresent()) {
             if (conn.tableOperations().exists(indexTable) || conn.tableOperations().exists(metricsTable)) {
                 throw new PrestoException(ACCUMULO_TABLE_EXISTS,
                         "Internal table is indexed, but the index table and/or index metrics table(s) already exist");
@@ -397,25 +397,19 @@ public class AccumuloClient
      */
     private String getRowIdColumn(ConnectorTableMetadata meta)
     {
-        String rowIdColumn = AccumuloTableProperties.getRowId(meta.getProperties());
-        if (rowIdColumn == null) {
-            rowIdColumn = meta.getColumns().get(0).getName();
-        }
-        return rowIdColumn.toLowerCase(Locale.ENGLISH);
+        Optional<String> rowIdColumn = AccumuloTableProperties.getRowId(meta.getProperties());
+        return rowIdColumn.orElse(meta.getColumns().get(0).getName()).toLowerCase(Locale.ENGLISH);
     }
 
     private List<AccumuloColumnHandle> getColumnHandles(ConnectorTableMetadata meta, String rowIdColumn)
     {
-        // Get the column mappings
+        // Get the column mappings from the table property or auto-generate columns if not defined
         Map<String, Pair<String, String>> mapping =
-                AccumuloTableProperties.getColumnMapping(meta.getProperties());
-        if (mapping == null) {
-            mapping = autoGenerateMapping(meta.getColumns(),
-                    AccumuloTableProperties.getLocalityGroups(meta.getProperties()));
-        }
+                AccumuloTableProperties.getColumnMapping(meta.getProperties())
+                        .orElse(autoGenerateMapping(meta.getColumns(), AccumuloTableProperties.getLocalityGroups(meta.getProperties())));
 
         // The list of indexed columns
-        List<String> indexedColumns = AccumuloTableProperties.getIndexColumns(meta.getProperties());
+        Optional<List<String>> indexedColumns = AccumuloTableProperties.getIndexColumns(meta.getProperties());
 
         // And now we parse the configured columns and create handles for the
         // metadata manager
@@ -436,7 +430,7 @@ public class AccumuloClient
 
                 // Get the mapping for this column
                 Pair<String, String> famqual = mapping.get(cm.getName());
-                boolean indexed = indexedColumns.contains(cm.getName().toLowerCase(Locale.ENGLISH));
+                boolean indexed = indexedColumns.isPresent() && indexedColumns.get().contains(cm.getName().toLowerCase(Locale.ENGLISH));
                 String comment = String.format("Accumulo column %s:%s. Indexed: %b",
                         famqual.getLeft(), famqual.getRight(), indexed);
 

@@ -21,14 +21,14 @@ import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.inject.Inject;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -128,50 +128,58 @@ public final class AccumuloTableProperties
     }
 
     /**
-     * Gets the value of the column_mapping property and parses it into a map of Presto column name
-     * to a pair of strings, the Accumulo column family and qualifier.
+     * Gets the value of the column_mapping property, or Optional.empty() if not set.
+     *
+     * Parses the value into a map of Presto column name to a pair of strings,
+     * the Accumulo column family and qualifier.
      *
      * @param tableProperties The map of table properties
      * @return The column mapping, presto name to (accumulo column family, qualifier)
      */
-    public static Map<String, Pair<String, String>> getColumnMapping(
+    public static Optional<Map<String, Pair<String, String>>> getColumnMapping(
             Map<String, Object> tableProperties)
     {
         requireNonNull(tableProperties);
 
+        @SuppressWarnings("unchecked")
         String strMapping = (String) tableProperties.get(COLUMN_MAPPING);
         if (strMapping == null) {
-            return null;
+            return Optional.empty();
         }
 
         // Parse out the column mapping
-        // This is a comma-delimited list of "presto column:accumulo fam:accumulo qualifier"
-        // triplets
-        Map<String, Pair<String, String>> mapping = new HashMap<>();
+        // This is a comma-delimited list of "(presto, column:accumulo, fam:accumulo qualifier)" triplets
+        ImmutableMap.Builder<String, Pair<String, String>> mapping = ImmutableMap.builder();
         for (String m : COMMA_SPLITTER.split(strMapping)) {
             String[] tokens = Iterables.toArray(COLON_SPLITTER.split(m), String.class);
             checkState(tokens.length == 3, format("Mapping of %s contains %d tokens instead of 3", m, tokens.length));
             mapping.put(tokens[0], Pair.of(tokens[1], tokens[2]));
         }
 
-        return mapping;
+        return Optional.of(mapping.build());
     }
 
     /**
-     * Gets the list of all indexed columns set in the table properties
+     * Gets the list of all indexed columns set in the table properties, or Optional.empty() if not set.
      *
      * @param tableProperties The map of table properties
      * @return The list of indexed columns, or an empty list if there are none
      */
-    public static List<String> getIndexColumns(Map<String, Object> tableProperties)
+    public static Optional<List<String>> getIndexColumns(Map<String, Object> tableProperties)
     {
         requireNonNull(tableProperties);
 
-        return Arrays.asList(StringUtils.split((String) tableProperties.get(INDEX_COLUMNS), ','));
+        @SuppressWarnings("unchecked")
+        String indexColumns = (String) tableProperties.get(INDEX_COLUMNS);
+        if (indexColumns == null) {
+            return Optional.empty();
+        }
+
+        return Optional.of(Arrays.asList(StringUtils.split(indexColumns, ',')));
     }
 
     /**
-     * Gets the configured locality groups for the table.
+     * Gets the configured locality groups for the table, or Optional.empty() if not set.
      * <p>
      * All strings are lowercase
      *
@@ -182,12 +190,13 @@ public final class AccumuloTableProperties
     {
         requireNonNull(tableProperties);
 
+        @SuppressWarnings("unchecked")
         String groupStr = (String) tableProperties.get(LOCALITY_GROUPS);
         if (groupStr == null) {
             return Optional.empty();
         }
 
-        Map<String, Set<String>> groups = new HashMap<>();
+        ImmutableMap.Builder<String, Set<String>> groups = ImmutableMap.builder();
 
         // Split all configured locality groups
         for (String group : PIPE_SPLITTER.split(groupStr)) {
@@ -199,32 +208,35 @@ public final class AccumuloTableProperties
             }
 
             String grpName = locGroups[0];
-            Set<String> colSet = new HashSet<>();
-            groups.put(grpName.toLowerCase(Locale.ENGLISH), colSet);
+            ImmutableSet.Builder<String> colSet = ImmutableSet.builder();
 
             for (String f : COMMA_SPLITTER.split(locGroups[1])) {
                 colSet.add(f.toLowerCase(Locale.ENGLISH));
             }
+
+            groups.put(grpName.toLowerCase(Locale.ENGLISH), colSet.build());
         }
 
-        return Optional.of(groups);
+        return Optional.of(groups.build());
     }
 
     /**
-     * Gets the configured row ID for the table
+     * Gets the configured row ID for the table, or Optional.empty() if not set
      *
      * @param tableProperties The map of table properties
      * @return The row ID, or null if none was specifically set (use the first column)
      */
-    public static String getRowId(Map<String, Object> tableProperties)
+    public static Optional<String> getRowId(Map<String, Object> tableProperties)
     {
         requireNonNull(tableProperties);
 
-        return (String) tableProperties.get(ROW_ID);
+        @SuppressWarnings("unchecked")
+        String rowId = (String) tableProperties.get(ROW_ID);
+        return Optional.ofNullable(rowId);
     }
 
     /**
-     * Gets the scan authorizations, or null if all of the user's scan authorizations should be used
+     * Gets the scan authorizations, or Optional.empty() if all of the user's scan authorizations should be used
      *
      * @param tableProperties The map of table properties
      * @return The scan authorizations
@@ -233,7 +245,9 @@ public final class AccumuloTableProperties
     {
         requireNonNull(tableProperties);
 
-        return Optional.ofNullable((String) tableProperties.get(SCAN_AUTHS));
+        @SuppressWarnings("unchecked")
+        String scanAuths = (String) tableProperties.get(SCAN_AUTHS);
+        return Optional.ofNullable(scanAuths);
     }
 
     /**
@@ -246,7 +260,9 @@ public final class AccumuloTableProperties
     {
         requireNonNull(tableProperties);
 
-        return (String) tableProperties.get(SERIALIZER);
+        @SuppressWarnings("unchecked")
+        String serializerClass = (String) tableProperties.get(SERIALIZER);
+        return serializerClass;
     }
 
     /**
@@ -260,6 +276,8 @@ public final class AccumuloTableProperties
     {
         requireNonNull(tableProperties);
 
-        return (Boolean) tableProperties.get(EXTERNAL);
+        @SuppressWarnings("unchecked")
+        Boolean serializerClass = (Boolean) tableProperties.get(EXTERNAL);
+        return serializerClass;
     }
 }
