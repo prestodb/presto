@@ -202,7 +202,7 @@ public class TestHiveFileFormats
                 .filter(column -> column.getObjectInspector().getCategory() == Category.PRIMITIVE)
                 .collect(toList());
         TestingConnectorSession session = new TestingConnectorSession(
-                new HiveSessionProperties(new HiveClientConfig().setParquetOptimizedReaderEnabled(true)).getSessionProperties());
+                new HiveSessionProperties(new HiveClientConfig().setParquetOptimizedReaderEnabled(true).setParquetPredicatePushdownEnabled(true)).getSessionProperties());
         assertThatFileFormat(PARQUET)
                 .withColumns(testColumns)
                 .withSession(session)
