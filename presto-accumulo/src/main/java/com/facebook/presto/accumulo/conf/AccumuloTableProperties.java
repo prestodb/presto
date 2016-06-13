@@ -166,6 +166,8 @@ public final class AccumuloTableProperties
 
     /**
      * Gets the configured locality groups for the table.
+     * <p>
+     * All strings are lowercase
      *
      * @param tableProperties The map of table properties
      * @return Optional map of locality groups
@@ -190,10 +192,10 @@ public final class AccumuloTableProperties
 
             String grpName = locGroups[0];
             Set<String> colSet = new HashSet<>();
-            groups.put(grpName, colSet);
+            groups.put(grpName.toLowerCase(), colSet);
 
             for (String f : COMMA_SPLITTER.split(locGroups[1])) {
-                colSet.add(f);
+                colSet.add(f.toLowerCase());
             }
         }
 

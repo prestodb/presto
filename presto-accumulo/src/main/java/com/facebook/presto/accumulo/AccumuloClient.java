@@ -336,19 +336,30 @@ public class AccumuloClient
 
         // For each locality group
         for (Map.Entry<String, Set<String>> g : groups.get().entrySet()) {
-            // For each column in the group
-            for (String col : g.getValue()) {
-                // If the column was not found, throw exception
-                List<ColumnMetadata> matched = meta.getColumns().stream()
-                        .filter(x -> x.getName().equalsIgnoreCase(col)).collect(Collectors.toList());
+            if (g.getValue().contains(rowIdColumn)) {
+                throw new PrestoException(VALIDATION, "Row ID column cannot be in a locality group");
+            }
 
-                if (matched.size() != 1) {
-                    throw new PrestoException(VALIDATION, "Unknown column in locality group: " + col);
-                }
+            // Validate the specified column names exist in the table definition,
+            // incrementing a counter for each matching column
+            int matchingColumns = 0;
+            for (ColumnMetadata column : meta.getColumns()) {
+                if (g.getValue().contains(column.getName().toLowerCase())) {
+                    ++matchingColumns;
 
-                if (matched.get(0).getName().equalsIgnoreCase(rowIdColumn)) {
-                    throw new PrestoException(VALIDATION, "Row ID column cannot be in a locality group");
+                    // Break out early if all columns are found
+                    if (matchingColumns == g.getValue().size()) {
+                        break;
+                    }
                 }
+            }
+
+            // If the number of matched columns does not equal the defined size,
+            // then a column was specified that does not exist
+            // (or there is a duplicate column in the table DDL, which is also an issue but
+            // has been checked before in validateColumns)
+            if (matchingColumns != g.getValue().size()) {
+                throw new PrestoException(VALIDATION, format("Unknown Presto column defined for locality group %s", g.getKey()));
             }
         }
     }
