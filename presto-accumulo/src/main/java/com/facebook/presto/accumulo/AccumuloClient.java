@@ -67,6 +67,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -299,7 +300,7 @@ public class AccumuloClient
                 }
             }
 
-            columnNameBuilder.add(column.getName().toLowerCase());
+            columnNameBuilder.add(column.getName().toLowerCase(Locale.ENGLISH));
         }
 
         ImmutableSet<String> columnNames = columnNameBuilder.build();
@@ -344,7 +345,7 @@ public class AccumuloClient
             // incrementing a counter for each matching column
             int matchingColumns = 0;
             for (ColumnMetadata column : meta.getColumns()) {
-                if (g.getValue().contains(column.getName().toLowerCase())) {
+                if (g.getValue().contains(column.getName().toLowerCase(Locale.ENGLISH))) {
                     ++matchingColumns;
 
                     // Break out early if all columns are found
@@ -392,7 +393,7 @@ public class AccumuloClient
      * Gets the row ID based on a table properties or the first column name
      *
      * @param meta ConnectorTableMetadata
-     * @return Presto column name mapped to the Accumulo row ID
+     * @return Lowercase Presto column name mapped to the Accumulo row ID
      */
     private String getRowIdColumn(ConnectorTableMetadata meta)
     {
@@ -400,7 +401,7 @@ public class AccumuloClient
         if (rowIdColumn == null) {
             rowIdColumn = meta.getColumns().get(0).getName();
         }
-        return rowIdColumn.toLowerCase();
+        return rowIdColumn.toLowerCase(Locale.ENGLISH);
     }
 
     private List<AccumuloColumnHandle> getColumnHandles(ConnectorTableMetadata meta, String rowIdColumn)
@@ -423,7 +424,7 @@ public class AccumuloClient
             ColumnMetadata cm = meta.getColumns().get(ordinal);
 
             // Special case if this column is the
-            if (cm.getName().toLowerCase().equals(rowIdColumn)) {
+            if (cm.getName().equalsIgnoreCase(rowIdColumn)) {
                 cBuilder.add(new AccumuloColumnHandle(rowIdColumn, Optional.empty(), Optional.empty(),
                         cm.getType(), ordinal, "Accumulo row ID", false));
             }
@@ -435,7 +436,7 @@ public class AccumuloClient
 
                 // Get the mapping for this column
                 Pair<String, String> famqual = mapping.get(cm.getName());
-                boolean indexed = indexedColumns.contains(cm.getName().toLowerCase());
+                boolean indexed = indexedColumns.contains(cm.getName().toLowerCase(Locale.ENGLISH));
                 String comment = String.format("Accumulo column %s:%s. Indexed: %b",
                         famqual.getLeft(), famqual.getRight(), indexed);
 
@@ -557,7 +558,7 @@ public class AccumuloClient
     {
         if (groups.isPresent()) {
             for (Map.Entry<String, Set<String>> g : groups.get().entrySet()) {
-                if (g.getValue().contains(columnName.toLowerCase())) {
+                if (g.getValue().contains(columnName.toLowerCase(Locale.ENGLISH))) {
                     return Optional.of(g.getKey());
                 }
             }

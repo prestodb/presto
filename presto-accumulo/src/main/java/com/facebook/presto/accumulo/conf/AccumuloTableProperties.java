@@ -30,6 +30,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -192,10 +193,10 @@ public final class AccumuloTableProperties
 
             String grpName = locGroups[0];
             Set<String> colSet = new HashSet<>();
-            groups.put(grpName.toLowerCase(), colSet);
+            groups.put(grpName.toLowerCase(Locale.ENGLISH), colSet);
 
             for (String f : COMMA_SPLITTER.split(locGroups[1])) {
-                colSet.add(f.toLowerCase());
+                colSet.add(f.toLowerCase(Locale.ENGLISH));
             }
         }
 

@@ -25,6 +25,7 @@ import org.apache.curator.retry.RetryForever;
 import javax.activity.InvalidActivityException;
 
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -285,7 +286,7 @@ public class ZooKeeperMetadataManager
      */
     private String getSchemaPath(String schema)
     {
-        return "/" + schema.toLowerCase();
+        return "/" + schema.toLowerCase(Locale.ENGLISH);
     }
 
     /**
@@ -307,7 +308,7 @@ public class ZooKeeperMetadataManager
      */
     private String getTablePath(SchemaTableName stn)
     {
-        return getSchemaPath(stn) + '/' + stn.getTableName().toLowerCase();
+        return getSchemaPath(stn) + '/' + stn.getTableName().toLowerCase(Locale.ENGLISH);
     }
 
     /**

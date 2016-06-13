@@ -44,6 +44,7 @@ import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -225,7 +226,7 @@ public class AccumuloMetadata
     @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName stName)
     {
-        if (!listSchemaNames(session).contains(stName.getSchemaName().toLowerCase())) {
+        if (!listSchemaNames(session).contains(stName.getSchemaName().toLowerCase(Locale.ENGLISH))) {
             return null;
         }
 
