@@ -36,6 +36,7 @@ public class DistinctLimitNode
     private final long limit;
     private final boolean partial;
     private final Optional<Symbol> hashSymbol;
+    private final List<Symbol> distinctSymbols;
 
     @JsonCreator
     public DistinctLimitNode(
@@ -43,7 +44,8 @@ public class DistinctLimitNode
             @JsonProperty("source") PlanNode source,
             @JsonProperty("limit") long limit,
             @JsonProperty("partial") boolean partial,
-            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
+            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
+            @JsonProperty("distinctSymbols") List<Symbol> distinctSymbols)
     {
         super(id);
         this.source = requireNonNull(source, "source is null");
@@ -51,6 +53,7 @@ public class DistinctLimitNode
         this.limit = limit;
         this.partial = partial;
         this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
+        this.distinctSymbols = ImmutableList.copyOf(requireNonNull(distinctSymbols, "distinctSymbols is null"));
     }
 
     @Override
@@ -83,12 +86,13 @@ public class DistinctLimitNode
         return hashSymbol;
     }
 
+    @JsonProperty("distinctSymbols")
     public List<Symbol> getDistinctSymbols()
     {
         if (hashSymbol.isPresent()) {
-            return ImmutableList.copyOf(Iterables.filter(getOutputSymbols(), not(hashSymbol.get()::equals)));
+            return ImmutableList.copyOf(Iterables.filter(distinctSymbols, not(hashSymbol.get()::equals)));
         }
-        return getOutputSymbols();
+        return distinctSymbols;
     }
 
     @Override

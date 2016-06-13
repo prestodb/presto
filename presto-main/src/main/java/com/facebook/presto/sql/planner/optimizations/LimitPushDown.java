@@ -20,6 +20,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
+import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -30,16 +31,23 @@ import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.IsNotNullPredicate;
+import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public class LimitPushDown
         implements PlanOptimizer
@@ -134,13 +142,40 @@ public class LimitPushDown
         {
             LimitContext limit = context.get();
 
-            if (limit != null &&
-                    node.getAggregations().isEmpty() &&
+            if (limit != null) {
+                checkArgument(!node.getSampleWeight().isPresent(), "DISTINCT aggregation has sample weight symbol");
+                if (node.getAggregations().isEmpty() &&
                     node.getOutputSymbols().size() == node.getGroupBy().size() &&
                     node.getOutputSymbols().containsAll(node.getGroupBy())) {
-                checkArgument(!node.getSampleWeight().isPresent(), "DISTINCT aggregation has sample weight symbol");
-                PlanNode rewrittenSource = context.rewrite(node.getSource());
-                return new DistinctLimitNode(idAllocator.getNextId(), rewrittenSource, limit.getCount(), false, Optional.empty());
+                    PlanNode rewrittenSource = context.rewrite(node.getSource());
+                    return new DistinctLimitNode(idAllocator.getNextId(), rewrittenSource, limit.getCount(), false, Optional.empty(), node.getGroupBy());
+                }
+                else if (node.getFunctions().values().stream().allMatch(signature -> signature.getName().equals("arbitrary"))) {
+                    PlanNode rewrittenSource = context.rewrite(node.getSource());
+                    ImmutableMap.Builder<Symbol, Expression> aggregationMapBuilder = ImmutableMap.builder();
+                    for (Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
+                        aggregationMapBuilder.put(entry.getKey(), entry.getValue().getArguments().get(0));
+                    }
+                    Map<Symbol, Expression> aggregationSymbolMap = aggregationMapBuilder.build();
+
+                    List<Symbol> nonDistinctSymbols = aggregationSymbolMap.values().stream()
+                        .map(expression -> Symbol.fromQualifiedName(((QualifiedNameReference) expression).getName()))
+                        .collect(toList());
+
+                    PlanNode filterNode = rewrittenSource;
+                    for (Symbol nonDistinctSymbol : nonDistinctSymbols) {
+                        filterNode = new FilterNode(idAllocator.getNextId(), rewrittenSource, new IsNotNullPredicate(nonDistinctSymbol.toQualifiedNameReference()));
+                    }
+                    ImmutableMap.Builder<Symbol, Expression> projectionMapBuilder = ImmutableMap.builder();
+                    projectionMapBuilder.putAll(aggregationSymbolMap);
+                    for (Symbol symbol : node.getGroupBy()) {
+                        projectionMapBuilder.put(symbol, symbol.toQualifiedNameReference());
+                    }
+                    Map<Symbol, Expression> projectionMap = projectionMapBuilder.build();
+
+                    PlanNode projectNode = new ProjectNode(idAllocator.getNextId(), filterNode, projectionMap);
+                    return new DistinctLimitNode(idAllocator.getNextId(), projectNode, limit.getCount(), false, node.getHashSymbol(), node.getGroupBy());
+                }
             }
             PlanNode rewrittenNode = context.defaultRewrite(node);
             if (limit != null) {
