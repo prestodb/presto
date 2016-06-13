@@ -365,9 +365,9 @@ public class ServerMainModule
 
     @Provides
     @Singleton
-    public ServerInfo createServerInfo(NodeVersion nodeVersion, NodeInfo nodeInfo)
+    public ServerInfo createServerInfo(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig)
     {
-        return new ServerInfo(nodeVersion, nodeInfo.getEnvironment());
+        return new ServerInfo(nodeVersion, nodeInfo.getEnvironment(), serverConfig.isCoordinator());
     }
 
     @Provides

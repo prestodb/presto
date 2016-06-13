@@ -38,14 +38,12 @@ import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 public class ServerInfoResource
 {
     private final ServerInfo serverInfo;
-    private final ServerConfig serverConfig;
     private final GracefulShutdownHandler shutdownHandler;
 
     @Inject
-    public ServerInfoResource(ServerInfo serverInfo, ServerConfig serverConfig, GracefulShutdownHandler shutdownHandler)
+    public ServerInfoResource(ServerInfo serverInfo, GracefulShutdownHandler shutdownHandler)
     {
         this.serverInfo = requireNonNull(serverInfo, "serverInfo is null");
-        this.serverConfig = requireNonNull(serverConfig, "serverConfig is null");
         this.shutdownHandler = requireNonNull(shutdownHandler, "shutdownHandler is null");
     }
 
@@ -100,10 +98,11 @@ public class ServerInfoResource
     @Produces(TEXT_PLAIN)
     public Response getServerCoordinator()
     {
-        if (serverConfig.isCoordinator()) {
+        if (this.serverInfo.isCoordinator()) {
             return Response.ok(Boolean.TRUE).build();
         }
         else {
+            // Return SERVICE_UNAVAILABLE to allow load balancers to only send traffic to the coordinator
             return Response.status(Response.Status.SERVICE_UNAVAILABLE).build();
         }
     }
