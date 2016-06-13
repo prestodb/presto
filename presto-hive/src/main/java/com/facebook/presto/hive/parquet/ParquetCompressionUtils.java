@@ -14,7 +14,6 @@
 package com.facebook.presto.hive.parquet;
 
 import io.airlift.compress.Decompressor;
-import io.airlift.compress.lzo.LzoDecompressor;
 import io.airlift.compress.snappy.SnappyDecompressor;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -46,22 +45,23 @@ public final class ParquetCompressionUtils
             case GZIP:
                 return decompressGzip(input, uncompressedSize);
             case SNAPPY:
-                return decompress(new SnappyDecompressor(), input, uncompressedSize);
-            case LZO:
-                return decompress(new LzoDecompressor(), input, uncompressedSize);
+                return decompressSnappy(input, uncompressedSize);
             case UNCOMPRESSED:
                 return input;
             default:
+                // TODO add LZO support using pure java aircompressor
                 throw new ParquetCorruptionException("Codec not supported in Parquet: " + codec);
         }
     }
 
-    private static Slice decompress(Decompressor decompressor, Slice input, int uncompressedSize)
+    private static Slice decompressSnappy(Slice input, int uncompressedSize)
     {
         byte[] inArray = (byte[]) input.getBase();
         int inOffset = (int) (input.getAddress() - ARRAY_BYTE_BASE_OFFSET);
         int inLength = input.length();
+
         byte[] buffer = new byte[uncompressedSize];
+        SnappyDecompressor decompressor = new SnappyDecompressor();
         decompressor.decompress(inArray, inOffset, inLength, buffer, 0, uncompressedSize);
         return wrappedBuffer(buffer);
     }
