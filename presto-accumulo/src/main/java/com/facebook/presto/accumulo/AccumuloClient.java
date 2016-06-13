@@ -128,43 +128,18 @@ public class AccumuloClient
 
         try {
             if (config.isMiniAccumuloCluster()) {
-                // Create MAC directory
-                File macDir = Files.createTempDirectory("mac-").toFile();
-                LOG.info("MAC is enabled, starting MiniAccumuloCluster at %s", macDir);
-
-                // Start MAC and connect to it
-                MiniAccumuloCluster accumulo = new MiniAccumuloCluster(macDir, MAC_PASSWORD);
-                accumulo.start();
-                LOG.info("Connecting to: %s %s %s %s", accumulo.getInstanceName(),
-                        accumulo.getZooKeepers(), MAC_USER, MAC_PASSWORD);
+                MiniAccumuloCluster accumulo = createMiniAccumuloCluster();
                 Instance inst = new ZooKeeperInstance(accumulo.getInstanceName(), accumulo.getZooKeepers());
                 conn = inst.getConnector(MAC_USER, new PasswordToken(MAC_PASSWORD));
-                LOG.info("Connection established: %s %s %s %s", accumulo.getInstanceName(),
-                        accumulo.getZooKeepers(), MAC_USER, MAC_PASSWORD);
-
-                // Add shutdown hook to stop MAC and cleanup temporary files
-                Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                    try {
-                        LOG.info("Shutting down MAC");
-                        accumulo.stop();
-                    }
-                    catch (IOException | InterruptedException e) {
-                        throw new PrestoException(MINI_ACCUMULO, "Failed to shut down MAC instance", e);
-                    }
-
-                    try {
-                        LOG.info("Cleaning up MAC directory");
-                        FileUtils.forceDelete(macDir);
-                    }
-                    catch (IOException e) {
-                        throw new PrestoException(MINI_ACCUMULO, "Failed to clean up MAC directory", e);
-                    }
-                }));
+                LOG.info("Connection to MAC instance %s at %s established, user %s password %s",
+                        accumulo.getInstanceName(), accumulo.getZooKeepers(), MAC_USER, MAC_PASSWORD);
             }
             else {
                 Instance inst = new ZooKeeperInstance(config.getInstance(), config.getZooKeepers());
                 conn = inst.getConnector(config.getUsername(),
                         new PasswordToken(config.getPassword().getBytes()));
+                LOG.info("Connection to instance %s at %s established, user %s", config.getInstance(),
+                        config.getZooKeepers(), config.getUsername());
             }
         }
         catch (AccumuloException | AccumuloSecurityException | InterruptedException | IOException e) {
@@ -172,6 +147,47 @@ public class AccumuloClient
         }
 
         return conn;
+    }
+
+    /**
+     * Creates and starts an instance of MiniAccumuloCluster, returning the new instance
+     *
+     * @return New MiniAccumuloCluster
+     * @throws IOException
+     * @throws InterruptedException
+     */
+    private static MiniAccumuloCluster createMiniAccumuloCluster()
+            throws IOException, InterruptedException
+    {
+        // Create MAC directory
+        File macDir = Files.createTempDirectory("mac-").toFile();
+        LOG.info("MAC is enabled, starting MiniAccumuloCluster at %s", macDir);
+
+        // Start MAC and connect to it
+        MiniAccumuloCluster accumulo = new MiniAccumuloCluster(macDir, MAC_PASSWORD);
+        accumulo.start();
+
+        // Add shutdown hook to stop MAC and cleanup temporary files
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try {
+                LOG.info("Shutting down MAC");
+                accumulo.stop();
+            }
+            catch (IOException | InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new PrestoException(MINI_ACCUMULO, "Failed to shut down MAC instance", e);
+            }
+
+            try {
+                LOG.info("Cleaning up MAC directory");
+                FileUtils.forceDelete(macDir);
+            }
+            catch (IOException e) {
+                throw new PrestoException(MINI_ACCUMULO, "Failed to clean up MAC directory", e);
+            }
+        }));
+
+        return accumulo;
     }
 
     /**
