@@ -131,9 +131,22 @@ public class TaskInfoFetcher
         scheduleUpdate();
     }
 
+    public synchronized void abort(TaskStatus taskStatus)
+    {
+        updateTaskInfo(taskInfo.get().withTaskStatus(taskStatus));
+        // For aborted tasks we do not care about the final task info, so stop the info fetcher
+        stop();
+    }
+
     public synchronized void taskStatusDone(TaskStatus taskStatus)
     {
-        taskStatusDone.set(taskStatus);
+        if (running && !isDone(getTaskInfo())) {
+            // try to get the last task status from the remote task
+            taskStatusDone.set(taskStatus);
+        }
+        else {
+            getTaskInfo().withTaskStatus(taskStatus);
+        }
     }
 
     private synchronized void stop()
@@ -143,7 +156,9 @@ public class TaskInfoFetcher
             future.cancel(true);
             future = null;
         }
-        scheduledFuture.cancel(true);
+        if (scheduledFuture != null) {
+            scheduledFuture.cancel(true);
+        }
     }
 
     private synchronized void scheduleUpdate()

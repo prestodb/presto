@@ -509,8 +509,6 @@ public final class HttpRemoteTask
                 return;
             }
 
-            checkState(taskStatusFetcher.isRunning(), "Cannot cancel task when it is not running");
-
             // send cancel to task and ignore response
             HttpUriBuilder uriBuilder = uriBuilderFrom(taskStatus.getSelf()).addParameter("abort", "false");
             if (summarizeTaskInfo) {
@@ -559,6 +557,7 @@ public final class HttpRemoteTask
 
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             taskStatusFetcher.updateTaskStatus(status);
+            taskInfoFetcher.abort(status);
 
             // send abort to task and ignore response
             HttpUriBuilder uriBuilder = uriBuilderFrom(getTaskStatus().getSelf());
