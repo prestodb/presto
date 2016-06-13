@@ -18,7 +18,6 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -27,6 +26,7 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
 
 public class TestIntegerOperators
         extends AbstractTestFunctions
@@ -65,7 +65,7 @@ public class TestIntegerOperators
         assertFunction("INTEGER'37' + INTEGER'17'", INTEGER, 37 + 17);
         assertFunction("INTEGER'17' + INTEGER'37'", INTEGER, 17 + 37);
         assertFunction("INTEGER'17' + INTEGER'17'", INTEGER, 17 + 17);
-        assertInvalidFunction("INTEGER'" + Integer.MAX_VALUE + "' + INTEGER'1'", NUMERIC_VALUE_OUT_OF_RANGE);
+        assertNumericOverflow(format("INTEGER'%s' + INTEGER'1'", Integer.MAX_VALUE), "integer addition overflow: 2147483647 + 1");
     }
 
     @Test
@@ -76,7 +76,7 @@ public class TestIntegerOperators
         assertFunction("INTEGER'37' - INTEGER'17'", INTEGER, 37 - 17);
         assertFunction("INTEGER'17' - INTEGER'37'", INTEGER, 17 - 37);
         assertFunction("INTEGER'17' - INTEGER'17'", INTEGER, 0);
-        assertInvalidFunction("INTEGER'" + Integer.MIN_VALUE + "' - INTEGER'1'", NUMERIC_VALUE_OUT_OF_RANGE);
+        assertNumericOverflow(format("INTEGER'%s' - INTEGER'1'", Integer.MIN_VALUE), "integer subtraction overflow: -2147483648 - 1");
     }
 
     @Test
@@ -87,7 +87,7 @@ public class TestIntegerOperators
         assertFunction("INTEGER'37' * INTEGER'17'", INTEGER, 37 * 17);
         assertFunction("INTEGER'17' * INTEGER'37'", INTEGER, 17 * 37);
         assertFunction("INTEGER'17' * INTEGER'17'", INTEGER, 17 * 17);
-        assertInvalidFunction("INTEGER'" + Integer.MAX_VALUE + "' * INTEGER'2'", NUMERIC_VALUE_OUT_OF_RANGE);
+        assertNumericOverflow(format("INTEGER'%s' * INTEGER'2'", Integer.MAX_VALUE), "integer multiplication overflow: 2147483647 * 2");
     }
 
     @Test
@@ -119,6 +119,7 @@ public class TestIntegerOperators
         assertFunction("-(INTEGER'37')", INTEGER, -37);
         assertFunction("-(INTEGER'17')", INTEGER, -17);
         assertFunction("-(INTEGER'" + Integer.MAX_VALUE + "')", INTEGER, Integer.MIN_VALUE + 1);
+        assertNumericOverflow(format("-(INTEGER'%s')", Integer.MIN_VALUE), "integer negation overflow: -2147483648");
     }
 
     @Test

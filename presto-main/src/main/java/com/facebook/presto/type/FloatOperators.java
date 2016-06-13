@@ -170,7 +170,7 @@ public final class FloatOperators
             return Ints.checkedCast((long) MathFunctions.round((double) intBitsToFloat((int) value)));
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for integer: " + value, e);
         }
     }
 
@@ -182,7 +182,7 @@ public final class FloatOperators
             return Shorts.checkedCast((long) MathFunctions.round((double) intBitsToFloat((int) value)));
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for smallint: " + value, e);
         }
     }
 
@@ -194,7 +194,7 @@ public final class FloatOperators
             return SignedBytes.checkedCast((long) MathFunctions.round((double) intBitsToFloat((int) value)));
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for tinyint: " + value, e);
         }
     }
 
