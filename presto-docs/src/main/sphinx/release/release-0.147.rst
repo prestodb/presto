@@ -11,6 +11,7 @@ General Changes
 * Fix handling of syntax errors when parsing ``EXTRACT``.
 * Fix potential scheduling deadlock for connectors that expose node-partitioned data.
 * Fix performance regression that increased planning time.
+* Fix incorrect results for grouping sets for some queries with filters.
 * Add :doc:`/sql/show-create-view` and :doc:`/sql/show-create-table`.
 * Add support for column aliases in ``WITH`` clause.
 * Support ``LIKE`` clause for :doc:`/sql/show-catalogs` and :doc:`/sql/show-schemas`.
