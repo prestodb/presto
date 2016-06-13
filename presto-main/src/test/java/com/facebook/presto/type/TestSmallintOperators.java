@@ -18,7 +18,6 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -27,6 +26,7 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
 
 public class TestSmallintOperators
         extends AbstractTestFunctions
@@ -65,7 +65,7 @@ public class TestSmallintOperators
         assertFunction("SMALLINT'37' + SMALLINT'17'", SMALLINT, (short) (37 + 17));
         assertFunction("SMALLINT'17' + SMALLINT'37'", SMALLINT, (short) (17 + 37));
         assertFunction("SMALLINT'17' + SMALLINT'17'", SMALLINT, (short) (17 + 17));
-        assertInvalidFunction("SMALLINT'" + Short.MAX_VALUE + "' + SMALLINT'1'", NUMERIC_VALUE_OUT_OF_RANGE);
+        assertNumericOverflow(format("SMALLINT'%s' + SMALLINT'1'", Short.MAX_VALUE), "smallint addition overflow: 32767 + 1");
     }
 
     @Test
@@ -76,7 +76,7 @@ public class TestSmallintOperators
         assertFunction("SMALLINT'37' - SMALLINT'17'", SMALLINT, (short) (37 - 17));
         assertFunction("SMALLINT'17' - SMALLINT'37'", SMALLINT, (short) (17 - 37));
         assertFunction("SMALLINT'17' - SMALLINT'17'", SMALLINT, (short) 0);
-        assertInvalidFunction("SMALLINT'" + Short.MIN_VALUE + "' - SMALLINT'1'", NUMERIC_VALUE_OUT_OF_RANGE);
+        assertNumericOverflow(format("SMALLINT'%s' - SMALLINT'1'", Short.MIN_VALUE), "smallint subtraction overflow: -32768 - 1");
     }
 
     @Test
@@ -87,7 +87,7 @@ public class TestSmallintOperators
         assertFunction("SMALLINT'37' * SMALLINT'17'", SMALLINT, (short) (37 * 17));
         assertFunction("SMALLINT'17' * SMALLINT'37'", SMALLINT, (short) (17 * 37));
         assertFunction("SMALLINT'17' * SMALLINT'17'", SMALLINT, (short) (17 * 17));
-        assertInvalidFunction("SMALLINT'" + Short.MAX_VALUE + "' * SMALLINT'2'", NUMERIC_VALUE_OUT_OF_RANGE);
+        assertNumericOverflow(format("SMALLINT'%s' * SMALLINT'2'", Short.MAX_VALUE), "smallint multiplication overflow: 32767 * 2");
     }
 
     @Test
@@ -119,6 +119,7 @@ public class TestSmallintOperators
         assertFunction("-(SMALLINT'37')", SMALLINT, (short) -37);
         assertFunction("-(SMALLINT'17')", SMALLINT, (short) -17);
         assertFunction("-(SMALLINT'" + Short.MAX_VALUE + "')", SMALLINT, (short) (Short.MIN_VALUE + 1));
+        assertNumericOverflow(format("-(SMALLINT'%s')", Short.MIN_VALUE), "smallint negation overflow: -32768");
     }
 
     @Test

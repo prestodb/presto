@@ -16,7 +16,6 @@ package com.facebook.presto.type;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -249,7 +248,7 @@ public class TestBigintOperators
     public void testOverflowAdd()
             throws Exception
     {
-        assertInvalidFunction(format("%s + 1", Long.MAX_VALUE), NUMERIC_VALUE_OUT_OF_RANGE);
+        assertNumericOverflow(format("%s + 1", Long.MAX_VALUE), "bigint addition overflow: 9223372036854775807 + 1");
     }
 
     @Test
@@ -257,28 +256,29 @@ public class TestBigintOperators
             throws Exception
     {
         long minValue = Long.MIN_VALUE + 1; // due to https://github.com/facebook/presto/issues/4571 MIN_VALUE solely cannot be used
-        assertInvalidFunction(format("%s - 2", minValue), NUMERIC_VALUE_OUT_OF_RANGE);
+        assertNumericOverflow(format("%s - 2", minValue), "bigint subtraction overflow: -9223372036854775807 - 2");
     }
 
     @Test
     public void testOverflowMultiply()
             throws Exception
     {
-        assertInvalidFunction(format("%s * 2", Long.MAX_VALUE), NUMERIC_VALUE_OUT_OF_RANGE);
-        //assertInvalidFunction(format("%s * -1", Long.MIN_VALUE), NUMERIC_VALUE_OUT_OF_RANGE); TODO: uncomment when https://github.com/facebook/presto/issues/4571 is fixed
+        assertNumericOverflow(format("%s * 2", Long.MAX_VALUE), "bigint multiplication overflow: 9223372036854775807 * 2");
+        // TODO: uncomment when https://github.com/facebook/presto/issues/4571 is fixed
+        //assertNumericOverflow(format("%s * -1", Long.MAX_VALUE), "bigint multiplication overflow: 9223372036854775807 * -1");
     }
 
     @Test(enabled = false) // TODO: enable when https://github.com/facebook/presto/issues/4571 is fixed
     public void testOverflowDivide()
             throws Exception
     {
-        assertInvalidFunction(format("%s / -1", Long.MIN_VALUE), NUMERIC_VALUE_OUT_OF_RANGE);
+        assertNumericOverflow(format("%s / -1", Long.MIN_VALUE), "bigint division overflow: -9223372036854775808 / -1");
     }
 
     @Test(enabled = false) // TODO: enable when https://github.com/facebook/presto/issues/4571 is fixed
     public void testNegateOverflow()
             throws Exception
     {
-        assertInvalidFunction(format("-(%s)", Long.MIN_VALUE), NUMERIC_VALUE_OUT_OF_RANGE);
+        assertNumericOverflow(format("-(%s)", Long.MIN_VALUE), "bigint negation overflow: -9223372036854775808");
     }
 }

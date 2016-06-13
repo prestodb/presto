@@ -39,6 +39,7 @@ import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.String.format;
 import static java.lang.String.valueOf;
 
 public final class TinyintOperators
@@ -55,7 +56,7 @@ public final class TinyintOperators
             return SignedBytes.checkedCast(left + right);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("tinyint addition overflow: %s + %s", left, right), e);
         }
     }
 
@@ -67,7 +68,7 @@ public final class TinyintOperators
             return SignedBytes.checkedCast(left - right);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("tinyint subtraction overflow: %s - %s", left, right), e);
         }
     }
 
@@ -79,7 +80,7 @@ public final class TinyintOperators
             return SignedBytes.checkedCast(left * right);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("tinyint multiplication overflow: %s * %s", left, right), e);
         }
     }
 
@@ -115,7 +116,7 @@ public final class TinyintOperators
             return SignedBytes.checkedCast(-value);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "tinyint negation overflow: " + value, e);
         }
     }
 
