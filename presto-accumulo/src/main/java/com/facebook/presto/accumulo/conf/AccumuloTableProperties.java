@@ -40,6 +40,7 @@ import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionPro
 import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Class contains all table properties for the Accumulo connector. Used when creating a table:
@@ -136,6 +137,8 @@ public final class AccumuloTableProperties
     public static Map<String, Pair<String, String>> getColumnMapping(
             Map<String, Object> tableProperties)
     {
+        requireNonNull(tableProperties);
+
         String strMapping = (String) tableProperties.get(COLUMN_MAPPING);
         if (strMapping == null) {
             return null;
@@ -162,6 +165,8 @@ public final class AccumuloTableProperties
      */
     public static List<String> getIndexColumns(Map<String, Object> tableProperties)
     {
+        requireNonNull(tableProperties);
+
         return Arrays.asList(StringUtils.split((String) tableProperties.get(INDEX_COLUMNS), ','));
     }
 
@@ -175,6 +180,8 @@ public final class AccumuloTableProperties
      */
     public static Optional<Map<String, Set<String>>> getLocalityGroups(Map<String, Object> tableProperties)
     {
+        requireNonNull(tableProperties);
+
         String groupStr = (String) tableProperties.get(LOCALITY_GROUPS);
         if (groupStr == null) {
             return Optional.empty();
@@ -211,6 +218,8 @@ public final class AccumuloTableProperties
      */
     public static String getRowId(Map<String, Object> tableProperties)
     {
+        requireNonNull(tableProperties);
+
         return (String) tableProperties.get(ROW_ID);
     }
 
@@ -222,6 +231,8 @@ public final class AccumuloTableProperties
      */
     public static Optional<String> getScanAuthorizations(Map<String, Object> tableProperties)
     {
+        requireNonNull(tableProperties);
+
         return Optional.ofNullable((String) tableProperties.get(SCAN_AUTHS));
     }
 
@@ -233,6 +244,8 @@ public final class AccumuloTableProperties
      */
     public static String getSerializerClass(Map<String, Object> tableProperties)
     {
+        requireNonNull(tableProperties);
+
         return (String) tableProperties.get(SERIALIZER);
     }
 
@@ -245,6 +258,8 @@ public final class AccumuloTableProperties
      */
     public static boolean isExternal(Map<String, Object> tableProperties)
     {
+        requireNonNull(tableProperties);
+
         return (Boolean) tableProperties.get(EXTERNAL);
     }
 }
