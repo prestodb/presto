@@ -303,16 +303,24 @@ public class AccumuloClient
             columnNameBuilder.add(column.getName().toLowerCase(Locale.ENGLISH));
         }
 
-        ImmutableSet<String> columnNames = columnNameBuilder.build();
-
         // Validate the columns are distinct
-        if (columnNames.size() != meta.getColumns().size()) {
+        if (columnNameBuilder.build().size() != meta.getColumns().size()) {
             throw new PrestoException(VALIDATION, "Duplicate column names are not supported");
         }
 
-        // Column generation is for internal tables only
-        if (!AccumuloTableProperties.getColumnMapping(meta.getProperties()).isPresent() &&
-                AccumuloTableProperties.isExternal(meta.getProperties())) {
+        Optional<Map<String, Pair<String, String>>> columnMapping = AccumuloTableProperties.getColumnMapping(meta.getProperties());
+        if (columnMapping.isPresent()) {
+            // Validate there are no duplicates in the column mapping
+            long distinctMappings = columnMapping.get().values().stream().distinct().count();
+            if (distinctMappings != columnMapping.get().size()) {
+                throw new PrestoException(VALIDATION,
+                        "Duplicate column family/qualifier pair detected in column mapping, check the value of " +
+                                AccumuloTableProperties.COLUMN_MAPPING);
+            }
+        }
+        else if (AccumuloTableProperties.isExternal(meta.getProperties())) {
+            // Column mapping is not defined (i.e. use column generation) and table is external
+            // But column generation is for internal tables only
             throw new PrestoException(VALIDATION,
                     "Column generation for external tables is not supported, must specify " +
                             AccumuloTableProperties.COLUMN_MAPPING);
