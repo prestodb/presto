@@ -26,6 +26,7 @@ General Changes
   and parsed incorrectly when specified as a literal.
 * Fix formatting of negative intervals in REST API. Previously, negative intervals
   had a negative sign before each component and could not be parsed.
+* Fix formatting of negative intervals in JDBC ``PrestoInterval`` classes.
 * Fix incorrect results for grouping sets with partitioned source.
 * Add ``colocated-joins-enabled`` to enable colocated joins by default for
   connectors that expose node-partitioned data.

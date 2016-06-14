@@ -15,6 +15,9 @@ package com.facebook.presto.jdbc;
 
 import java.util.Objects;
 
+import static com.facebook.presto.client.IntervalYearMonth.formatMonths;
+import static com.facebook.presto.client.IntervalYearMonth.toMonths;
+
 public class PrestoIntervalYearMonth
 {
     private final long months;
@@ -26,7 +29,7 @@ public class PrestoIntervalYearMonth
 
     public PrestoIntervalYearMonth(int year, int months)
     {
-        this.months = (12L * year) + months;
+        this.months = toMonths(year, months);
     }
 
     public long getMonths()
@@ -57,10 +60,5 @@ public class PrestoIntervalYearMonth
     public String toString()
     {
         return formatMonths(months);
-    }
-
-    private static String formatMonths(long months)
-    {
-        return (months / 12) + "-" + (months % 12);
     }
 }
