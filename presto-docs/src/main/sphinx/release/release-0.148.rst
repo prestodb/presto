@@ -24,6 +24,8 @@ General Changes
 * Fix handling of ``INTERVAL YEAR TO MONTH`` type. Previously, intervals greater than
   ``2,147,483,647`` months were returned as the wrong value from the REST API
   and parsed incorrectly when specified as a literal.
+* Fix formatting of negative intervals in REST API. Previously, negative intervals
+  had a negative sign before each component and could not be parsed.
 * Fix incorrect results for grouping sets with partitioned source.
 * Add ``colocated-joins-enabled`` to enable colocated joins by default for
   connectors that expose node-partitioned data.
