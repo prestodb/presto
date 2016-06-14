@@ -285,6 +285,7 @@ public class SqlTaskManager
         return sqlTask.getTaskInstanceId();
     }
 
+    @Override
     public CompletableFuture<TaskStatus> getTaskStatus(TaskId taskId, TaskState currentState)
     {
         requireNonNull(taskId, "taskId is null");
