@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.client;
 
+import static java.lang.String.format;
+
 public final class IntervalDayTime
 {
     private static final long MILLIS_IN_SECOND = 1000;
@@ -33,6 +35,15 @@ public final class IntervalDayTime
 
     public static String formatMillis(long millis)
     {
+        if (millis == Long.MIN_VALUE) {
+            return "-106751991167 07:12:55.808";
+        }
+        String sign = "";
+        if (millis < 0) {
+            sign = "-";
+            millis = -millis;
+        }
+
         long day = millis / MILLIS_IN_DAY;
         millis %= MILLIS_IN_DAY;
         long hour = millis / MILLIS_IN_HOUR;
@@ -42,6 +53,6 @@ public final class IntervalDayTime
         long second = millis / MILLIS_IN_SECOND;
         millis %= MILLIS_IN_SECOND;
 
-        return String.format("%d %02d:%02d:%02d.%03d", day, hour, minute, second, millis);
+        return format("%s%d %02d:%02d:%02d.%03d", sign, day, hour, minute, second, millis);
     }
 }
