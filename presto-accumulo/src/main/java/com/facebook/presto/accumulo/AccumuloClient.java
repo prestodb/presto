@@ -522,21 +522,7 @@ public class AccumuloClient
         Map<String, Pair<String, String>> mapping = new HashMap<>();
         for (ColumnMetadata column : columns) {
             Optional<String> fam = getColumnLocalityGroup(column.getName(), groups);
-            String qual = getRandomColumnName();
-            boolean tryAgain = false;
-
-            // sanity check for qualifier uniqueness... but, I mean, what are the odds?
-            do {
-                for (Map.Entry<String, Pair<String, String>> m : mapping.entrySet()) {
-                    if (m.getValue().getRight().equals(qual)) {
-                        tryAgain = true;
-                        break;
-                    }
-                }
-            }
-            while (tryAgain);
-
-            mapping.put(column.getName(), Pair.of(fam.orElse(getRandomColumnName()), qual));
+            mapping.put(column.getName(), Pair.of(fam.orElse(column.getName()), column.getName()));
         }
         return mapping;
     }
@@ -559,16 +545,6 @@ public class AccumuloClient
         }
 
         return Optional.empty();
-    }
-
-    /**
-     * Gets a random four-character hexidecimal number as a String to be used by the column name generator
-     *
-     * @return Random column name
-     */
-    private String getRandomColumnName()
-    {
-        return format("%04x", random.nextInt(Short.MAX_VALUE));
     }
 
     /**
