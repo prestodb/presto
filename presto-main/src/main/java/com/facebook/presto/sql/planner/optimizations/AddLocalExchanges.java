@@ -62,6 +62,7 @@ import com.google.common.collect.Lists;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -247,9 +248,14 @@ public class AddLocalExchanges
 
             if (node.getStep() == Step.FINAL || node.getStep() == Step.SINGLE) {
                 // final aggregation requires that all data be partitioned
-                requiredProperties = parentPreferences.withDefaultParallelism(session).withPartitioning(node.getGroupBy());
+                HashSet<Symbol> partitioningRequirement = new HashSet<>(node.getGroupingSets().get(0));
+                for (int i = 1; i < node.getGroupingSets().size(); i++) {
+                    partitioningRequirement.retainAll(node.getGroupingSets().get(i));
+                }
+
+                requiredProperties = parentPreferences.withDefaultParallelism(session).withPartitioning(partitioningRequirement);
                 preferredChildProperties = parentPreferences.withDefaultParallelism(session)
-                        .withPartitioning(node.getGroupBy());
+                        .withPartitioning(partitioningRequirement);
             }
             else {
                 requiredProperties = parentPreferences.withoutPreference().withDefaultParallelism(session);
