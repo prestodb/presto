@@ -62,6 +62,11 @@ public final class PlanMatchPattern
         return any(sources).matchToAnyNodeTree();
     }
 
+    public static PlanMatchPattern anyNot(Class<? extends PlanNode> excludeNodeClass, PlanMatchPattern... sources)
+    {
+        return any(sources).with(new NotPlanNodeMatcher(excludeNodeClass));
+    }
+
     public static PlanMatchPattern tableScan(String expectedTableName)
     {
         return any().with(new TableScanMatcher(expectedTableName));
