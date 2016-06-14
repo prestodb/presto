@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.client;
 
+import static java.lang.String.format;
+
 public final class IntervalYearMonth
 {
     private IntervalYearMonth() {}
@@ -24,6 +26,16 @@ public final class IntervalYearMonth
 
     public static String formatMonths(long months)
     {
-        return (months / 12) + "-" + (months % 12);
+        if (months == Long.MIN_VALUE) {
+            return "-768614336404564650-8";
+        }
+
+        String sign = "";
+        if (months < 0) {
+            sign = "-";
+            months = -months;
+        }
+
+        return format("%s%d-%d", sign, months / 12, months % 12);
     }
 }
