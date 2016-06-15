@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.util;
 
-import com.facebook.presto.spi.type.SqlIntervalDayTime;
-import com.facebook.presto.spi.type.SqlIntervalYearMonth;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.sql.tree.IntervalLiteral.IntervalField;
+import com.facebook.presto.type.SqlIntervalDayTime;
+import com.facebook.presto.type.SqlIntervalYearMonth;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.MutablePeriod;

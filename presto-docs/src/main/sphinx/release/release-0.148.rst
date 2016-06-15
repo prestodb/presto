@@ -38,6 +38,7 @@ General Changes
 * Change default ``task.max-worker-threads`` to ``2`` times the number of cores.
 * Use HTTPS in JDBC driver when using port 443.
 * Warn if Presto server is not using G1 garbage collector.
+* Move interval types out of SPI.
 
 Functions and Language Features
 -------------------------------

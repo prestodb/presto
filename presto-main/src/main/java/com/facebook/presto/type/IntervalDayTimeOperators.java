@@ -31,7 +31,7 @@ import static com.facebook.presto.metadata.OperatorType.MULTIPLY;
 import static com.facebook.presto.metadata.OperatorType.NEGATION;
 import static com.facebook.presto.metadata.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.metadata.OperatorType.SUBTRACT;
-import static com.facebook.presto.spi.type.SqlIntervalDayTime.formatMillis;
+import static com.facebook.presto.type.SqlIntervalDayTime.formatMillis;
 import static io.airlift.slice.Slices.utf8Slice;
 
 public final class IntervalDayTimeOperators
