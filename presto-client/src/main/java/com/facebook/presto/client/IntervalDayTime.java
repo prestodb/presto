@@ -17,6 +17,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static java.lang.Long.parseLong;
+import static java.lang.Math.addExact;
+import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
 
 public final class IntervalDayTime
@@ -34,11 +36,17 @@ public final class IntervalDayTime
 
     public static long toMillis(long day, long hour, long minute, long second, long millis)
     {
-        return (day * MILLIS_IN_DAY) +
-                (hour * MILLIS_IN_HOUR) +
-                (minute * MILLIS_IN_MINUTE) +
-                (second * MILLIS_IN_SECOND) +
-                millis;
+        try {
+            long value = millis;
+            value = addExact(value, multiplyExact(day, MILLIS_IN_DAY));
+            value = addExact(value, multiplyExact(hour, MILLIS_IN_HOUR));
+            value = addExact(value, multiplyExact(minute, MILLIS_IN_MINUTE));
+            value = addExact(value, multiplyExact(second, MILLIS_IN_SECOND));
+            return value;
+        }
+        catch (ArithmeticException e) {
+            throw new IllegalArgumentException(e);
+        }
     }
 
     public static String formatMillis(long millis)
