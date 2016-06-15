@@ -361,9 +361,12 @@ public class ColumnCardinalityCache
                 }
             });
 
-            ImmutableMap.Builder<Range, CacheKey> rangeToKeyBuilder = ImmutableMap.builder();
-            cacheKeys.forEach(k -> rangeToKeyBuilder.put(k.range, k));
-            Map<Range, CacheKey> rangeToKey = rangeToKeyBuilder.build();
+            // Transform the collection into a map of each CacheKey's Range to the key itself
+            // This allows us to look up the corresponding CacheKey based on the Row
+            // we receive from the scanner, and we can then back-fill our returned map
+            // With any values that were not returned by the scan (cardinality zero)
+            Map<Range, CacheKey> rangeToKey = new HashMap<>();
+            cacheKeys.forEach(k -> rangeToKey.put(k.range, k));
             LOG.debug("rangeToKey size is " + rangeToKey.size());
 
             // Get metrics table name and the column family for the scanner
@@ -376,39 +379,27 @@ public class ColumnCardinalityCache
                 bScanner.setRanges(cacheKeys.stream().map(k -> k.range).collect(Collectors.toList()));
                 bScanner.fetchColumn(columnFamily, Indexer.CARDINALITY_CQ_AS_TEXT);
 
-                // Create a new map to hold our cardinalities for each range, returning a default of
-                // Zero for each non-existent Key
-                Map<CacheKey, Long> rangeValues = new MapDefaultZero();
+                // Create a new map to hold our cardinalities for each range
+                // retrieved from the scanner
+                ImmutableMap.Builder<CacheKey, Long> rangeValues = ImmutableMap.builder();
                 for (Entry<Key, Value> entry : bScanner) {
-                    rangeValues.put(rangeToKey.get(Range.exact(entry.getKey().getRow())),
-                            Long.parseLong(entry.getValue().toString()));
+                    // Remove the cache key that corresponds to this row ID
+                    CacheKey cKey = rangeToKey.remove(Range.exact(entry.getKey().getRow()));
+                    rangeValues.put(cKey, Long.parseLong(entry.getValue().toString()));
                 }
-                return rangeValues;
+
+                // Add the remaining cache keys to our return list with a cardinality of zero
+                for (CacheKey remainingKey : rangeToKey.values()) {
+                    rangeValues.put(remainingKey, 0L);
+                }
+
+                return rangeValues.build();
             }
             finally {
                 if (bScanner != null) {
                     // Don't forget to close your scanner before returning the cardinalities
                     bScanner.close();
                 }
-            }
-        }
-
-        /**
-         * We extend HashMap here and override get to return a value of zero if the key is not in the map.
-         * This mitigates the CacheLoader InvalidCacheLoadException if loadAll fails to return a value for a given key,
-         * which occurs when there is no key in Accumulo.
-         */
-        public class MapDefaultZero
-                extends HashMap<CacheKey, Long>
-        {
-            @Override
-            public Long get(Object key)
-            {
-                // Get the key from our map overlord
-                Long value = super.get(key);
-
-                // Return zero if null
-                return value == null ? 0 : value;
             }
         }
     }
