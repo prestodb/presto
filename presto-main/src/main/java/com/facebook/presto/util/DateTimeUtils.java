@@ -14,6 +14,7 @@
 package com.facebook.presto.util;
 
 import com.facebook.presto.spi.type.SqlIntervalDayTime;
+import com.facebook.presto.spi.type.SqlIntervalYearMonth;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.sql.tree.IntervalLiteral.IntervalField;
 import org.joda.time.DateTime;
@@ -341,8 +342,9 @@ public final class DateTimeUtils
     private static long parsePeriodMonths(String value, PeriodFormatter periodFormatter, IntervalField startField, IntervalField endField)
     {
         Period period = parsePeriod(periodFormatter, value, startField, endField);
-        return period.getValue(YEAR_FIELD) * 12 +
-                period.getValue(MONTH_FIELD);
+        return SqlIntervalYearMonth.toMonths(
+                period.getValue(YEAR_FIELD),
+                period.getValue(MONTH_FIELD));
     }
 
     public static String printYearMonthInterval(long months)

@@ -21,8 +21,9 @@ General Changes
   honored by node scheduler. This bug could stop the cluster from making further progress.
 * Fix handling of ``INTERVAL DAY TO SECOND`` type in REST API. Previously, intervals greater than
   ``2,147,483,647`` milliseconds (about ``24`` days) were returned as the wrong value.
-* Fix handling of ``INTERVAL YEAR TO MONTH`` type in REST API. Previously, intervals greater than
-  ``2,147,483,647`` months were returned as the wrong value.
+* Fix handling of ``INTERVAL YEAR TO MONTH`` type. Previously, intervals greater than
+  ``2,147,483,647`` months were returned as the wrong value from the REST API
+  and parsed incorrectly when specified as a literal.
 * Fix incorrect results for grouping sets with partitioned source.
 * Add ``colocated-joins-enabled`` to enable colocated joins by default for
   connectors that expose node-partitioned data.
