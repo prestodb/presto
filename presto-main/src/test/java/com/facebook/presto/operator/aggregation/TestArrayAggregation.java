@@ -58,7 +58,7 @@ public class TestArrayAggregation
         assertAggregation(
                 bigIntAgg,
                 1.0,
-                null,
+                Arrays.asList(null, null, null),
                 createLongsBlock(new Long[] {null, null, null}));
     }
 
@@ -71,7 +71,7 @@ public class TestArrayAggregation
         assertAggregation(
                 bigIntAgg,
                 1.0,
-                Arrays.asList(2L, 3L),
+                Arrays.asList(null, 2L, null, 3L, null),
                 createLongsBlock(new Long[] {null, 2L, null, 3L, null}));
     }
 
