@@ -599,6 +599,7 @@ public class StatementResource
 
             return StatementStats.builder()
                     .setState(queryInfo.getState().toString())
+                    .setQueued(queryInfo.getState() == QueryState.QUEUED)
                     .setScheduled(queryInfo.isScheduled())
                     .setNodes(globalUniqueNodes(outputStage).size())
                     .setTotalSplits(queryStats.getTotalDrivers())
