@@ -16,6 +16,7 @@ package com.facebook.presto.client;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.client.IntervalYearMonth.formatMonths;
+import static com.facebook.presto.client.IntervalYearMonth.parseMonths;
 import static com.facebook.presto.client.IntervalYearMonth.toMonths;
 import static org.testng.Assert.assertEquals;
 
@@ -46,5 +47,6 @@ public class TestIntervalYearMonth
     private static void assertMonths(long months, String formatted)
     {
         assertEquals(formatMonths(months), formatted);
+        assertEquals(parseMonths(formatted), months);
     }
 }
