@@ -16,6 +16,7 @@ package com.facebook.presto.client;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.client.IntervalDayTime.formatMillis;
+import static com.facebook.presto.client.IntervalDayTime.parseMillis;
 import static com.facebook.presto.client.IntervalDayTime.toMillis;
 import static org.testng.Assert.assertEquals;
 
@@ -39,5 +40,6 @@ public class TestIntervalDayTime
     private static void assertMillis(long millis, String formatted)
     {
         assertEquals(formatMillis(millis), formatted);
+        assertEquals(parseMillis(formatted), millis);
     }
 }
