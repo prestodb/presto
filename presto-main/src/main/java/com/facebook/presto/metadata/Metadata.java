@@ -63,6 +63,9 @@ public interface Metadata
     @NotNull
     TableLayout getLayout(Session session, TableLayoutHandle handle);
 
+    @NotNull
+    Optional<Object> getInfo(Session session, TableLayoutHandle handle);
+
     /**
      * Return the metadata for the specified table handle.
      *
