@@ -28,7 +28,7 @@ public class SqlIntervalYearMonth
 
     public SqlIntervalYearMonth(int year, int months)
     {
-        this.months = 12 * year + months;
+        this.months = toMonths(year, months);
     }
 
     @Override
@@ -55,6 +55,11 @@ public class SqlIntervalYearMonth
     public String toString()
     {
         return formatMonths(months);
+    }
+
+    public static long toMonths(long year, long months)
+    {
+        return (year * 12) + months;
     }
 
     public static String formatMonths(long months)

@@ -22,9 +22,13 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
+import static org.testng.Assert.assertEquals;
 
 public class TestIntervalYearMonth
 {
+    private static final int MAX_INT = Integer.MAX_VALUE;
+
     private FunctionAssertions functionAssertions;
 
     @BeforeClass
@@ -39,6 +43,20 @@ public class TestIntervalYearMonth
     }
 
     @Test
+    public void testObject()
+            throws Exception
+    {
+        assertEquals(new SqlIntervalYearMonth(3, 11), new SqlIntervalYearMonth(47));
+        assertEquals(new SqlIntervalYearMonth(-3, -11), new SqlIntervalYearMonth(-47));
+
+        assertEquals(new SqlIntervalYearMonth(MAX_INT, 0), new SqlIntervalYearMonth(25_769_803_764L));
+        assertEquals(new SqlIntervalYearMonth(MAX_INT, MAX_INT), new SqlIntervalYearMonth(27_917_287_411L));
+
+        assertEquals(new SqlIntervalYearMonth(-MAX_INT, 0), new SqlIntervalYearMonth(-25_769_803_764L));
+        assertEquals(new SqlIntervalYearMonth(-MAX_INT, -MAX_INT), new SqlIntervalYearMonth(-27_917_287_411L));
+    }
+
+    @Test
     public void testLiteral()
             throws Exception
     {
@@ -48,6 +66,10 @@ public class TestIntervalYearMonth
         assertFunction("INTERVAL '124' YEAR", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(124, 0));
 
         assertFunction("INTERVAL '30' MONTH", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(0, 30));
+
+        assertFunction(format("INTERVAL '%s' YEAR", MAX_INT), INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(MAX_INT, 0));
+        assertFunction(format("INTERVAL '%s' MONTH", MAX_INT), INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(0, MAX_INT));
+        assertFunction(format("INTERVAL '%s-%s' YEAR TO MONTH", MAX_INT, MAX_INT), INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(MAX_INT, MAX_INT));
     }
 
     @Test
