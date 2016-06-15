@@ -282,6 +282,19 @@ public class HiveMetadata
     }
 
     @Override
+    public Optional<Object> getInfo(ConnectorTableLayoutHandle layoutHandle)
+    {
+        HiveTableLayoutHandle tableLayoutHandle = checkType(layoutHandle, HiveTableLayoutHandle.class, "layoutHandle");
+        if (!tableLayoutHandle.getPartitions().isPresent()) {
+            return Optional.of(new HiveInputInfo(tableLayoutHandle.getPartitions().get().stream()
+                    .map(HivePartition::getPartitionId)
+                    .collect(Collectors.toList())));
+        }
+
+        return Optional.empty();
+    }
+
+    @Override
     public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
     {
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();

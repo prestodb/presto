@@ -23,6 +23,7 @@ import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
@@ -321,6 +322,16 @@ public class MetadataManager
         ConnectorMetadata metadata = entry.getMetadata(session);
         ConnectorTransactionHandle transaction = entry.getTransactionHandle(session);
         return fromConnectorLayout(connectorId, transaction, metadata.getTableLayout(session.toConnectorSession(entry.getCatalog()), handle.getConnectorHandle()));
+    }
+
+    @Override
+    public Optional<Object> getInfo(Session session, TableLayoutHandle handle)
+    {
+        String connectorId = handle.getConnectorId();
+        ConnectorEntry entry = getConnectorMetadata(connectorId);
+        ConnectorMetadata metadata = entry.getMetadata(session);
+        ConnectorTableLayout tableLayout = metadata.getTableLayout(session.toConnectorSession(entry.getCatalog()), handle.getConnectorHandle());
+        return metadata.getInfo(tableLayout.getHandle());
     }
 
     @Override

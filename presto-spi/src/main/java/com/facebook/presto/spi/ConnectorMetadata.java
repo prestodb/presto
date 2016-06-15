@@ -68,6 +68,16 @@ public interface ConnectorMetadata
     ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table);
 
     /**
+     * Return the connector-specific metadata for the specified table layout. This is the object that is passed to the event listener framework.
+     *
+     * @throws RuntimeException if table handle is no longer valid
+     */
+    default Optional<Object> getInfo(ConnectorTableLayoutHandle layoutHandle)
+    {
+        return Optional.empty();
+    }
+
+    /**
      * List table names, possibly filtered by schema. An empty list is returned if none match.
      */
     List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull);
