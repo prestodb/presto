@@ -19,6 +19,10 @@ General Changes
 * Fix data duplication when ``task.writer-count`` configuration mismatches between coordinator and worker.
 * Fix bug where ``node-scheduler.max-pending-splits-per-node-per-task`` config is not always
   honored by node scheduler. This bug could stop the cluster from making further progress.
+* Fix parsing of negative interval literals. Previously, the sign of each field was treated
+  independently instead of applying to the entire interval value. For example, the literal
+  ``INTERVAL '-2-3' YEAR TO MONTH`` was interpreted as a negative interval of ``21`` months
+  rather than ``27`` months (positive ``3`` months was added to negative ``24`` months).
 * Fix handling of ``INTERVAL DAY TO SECOND`` type in REST API. Previously, intervals greater than
   ``2,147,483,647`` milliseconds (about ``24`` days) were returned as the wrong value.
 * Fix handling of ``INTERVAL YEAR TO MONTH`` type. Previously, intervals greater than

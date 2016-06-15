@@ -59,4 +59,9 @@ public class SqlIntervalYearMonth
     {
         return formatMonths(months);
     }
+
+    public long getMonths()
+    {
+        return months;
+    }
 }

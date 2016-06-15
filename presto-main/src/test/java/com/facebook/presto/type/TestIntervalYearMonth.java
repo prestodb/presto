@@ -13,9 +13,8 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.operator.scalar.FunctionAssertions;
+import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.type.Type;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -25,21 +24,9 @@ import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
 public class TestIntervalYearMonth
+        extends AbstractTestFunctions
 {
     private static final int MAX_INT = Integer.MAX_VALUE;
-
-    private FunctionAssertions functionAssertions;
-
-    @BeforeClass
-    public void setUp()
-    {
-        functionAssertions = new FunctionAssertions();
-    }
-
-    private void assertFunction(String projection, Type expectedType, Object expected)
-    {
-        functionAssertions.assertFunction(projection, expectedType, expected);
-    }
 
     @Test
     public void testObject()
@@ -59,16 +46,35 @@ public class TestIntervalYearMonth
     public void testLiteral()
             throws Exception
     {
-        assertFunction("INTERVAL '124-30' YEAR TO MONTH", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(124, 30));
-        assertFunction("INTERVAL '124' YEAR TO MONTH", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(124, 0));
+        assertLiteral("INTERVAL '124-30' YEAR TO MONTH", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(124, 30));
+        assertLiteral("INTERVAL '124' YEAR TO MONTH", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(124, 0));
 
-        assertFunction("INTERVAL '124' YEAR", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(124, 0));
+        assertLiteral("INTERVAL '124' YEAR", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(124, 0));
 
-        assertFunction("INTERVAL '30' MONTH", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(0, 30));
+        assertLiteral("INTERVAL '30' MONTH", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(0, 30));
 
-        assertFunction(format("INTERVAL '%s' YEAR", MAX_INT), INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(MAX_INT, 0));
-        assertFunction(format("INTERVAL '%s' MONTH", MAX_INT), INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(0, MAX_INT));
-        assertFunction(format("INTERVAL '%s-%s' YEAR TO MONTH", MAX_INT, MAX_INT), INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(MAX_INT, MAX_INT));
+        assertLiteral(format("INTERVAL '%s' YEAR", MAX_INT), INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(MAX_INT, 0));
+        assertLiteral(format("INTERVAL '%s' MONTH", MAX_INT), INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(0, MAX_INT));
+        assertLiteral(format("INTERVAL '%s-%s' YEAR TO MONTH", MAX_INT, MAX_INT), INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(MAX_INT, MAX_INT));
+    }
+
+    private void assertLiteral(String projection, Type expectedType, SqlIntervalYearMonth expectedValue)
+    {
+        assertFunction(projection, expectedType, expectedValue);
+
+        projection = projection.replace("INTERVAL '", "INTERVAL '-");
+        expectedValue = new SqlIntervalYearMonth(-expectedValue.getMonths());
+        assertFunction(projection, expectedType, expectedValue);
+    }
+
+    @Test
+    public void testInvalidLiteral()
+    {
+        assertInvalidFunction("INTERVAL '124X' YEAR", "Invalid INTERVAL YEAR value: 124X");
+        assertInvalidFunction("INTERVAL '124-30' YEAR", "Invalid INTERVAL YEAR value: 124-30");
+        assertInvalidFunction("INTERVAL '124-X' YEAR TO MONTH", "Invalid INTERVAL YEAR TO MONTH value: 124-X");
+        assertInvalidFunction("INTERVAL '124--30' YEAR TO MONTH", "Invalid INTERVAL YEAR TO MONTH value: 124--30");
+        assertInvalidFunction("INTERVAL '--124--30' YEAR TO MONTH", "Invalid INTERVAL YEAR TO MONTH value: --124--30");
     }
 
     @Test
