@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.util;
 
+import com.facebook.presto.client.IntervalDayTime;
+import com.facebook.presto.client.IntervalYearMonth;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.sql.tree.IntervalLiteral.IntervalField;
-import com.facebook.presto.type.SqlIntervalDayTime;
-import com.facebook.presto.type.SqlIntervalYearMonth;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.MutablePeriod;
@@ -307,17 +307,12 @@ public final class DateTimeUtils
     public static long parsePeriodMillis(PeriodFormatter periodFormatter, String value, IntervalField startField, IntervalField endField)
     {
         Period period = parsePeriod(periodFormatter, value, startField, endField);
-        return SqlIntervalDayTime.toMillis(
+        return IntervalDayTime.toMillis(
                 period.getValue(DAY_FIELD),
                 period.getValue(HOUR_FIELD),
                 period.getValue(MINUTE_FIELD),
                 period.getValue(SECOND_FIELD),
                 period.getValue(MILLIS_FIELD));
-    }
-
-    public static String printDayTimeInterval(long millis)
-    {
-        return SqlIntervalDayTime.formatMillis(millis);
     }
 
     public static long parseYearMonthInterval(String value, IntervalField startField, Optional<IntervalField> endField)
@@ -342,14 +337,9 @@ public final class DateTimeUtils
     private static long parsePeriodMonths(String value, PeriodFormatter periodFormatter, IntervalField startField, IntervalField endField)
     {
         Period period = parsePeriod(periodFormatter, value, startField, endField);
-        return SqlIntervalYearMonth.toMonths(
+        return IntervalYearMonth.toMonths(
                 period.getValue(YEAR_FIELD),
                 period.getValue(MONTH_FIELD));
-    }
-
-    public static String printYearMonthInterval(long months)
-    {
-        return (months / 12) + "-" + (months % 12);
     }
 
     private static Period parsePeriod(PeriodFormatter periodFormatter, String value, IntervalField startField, IntervalField endField)
