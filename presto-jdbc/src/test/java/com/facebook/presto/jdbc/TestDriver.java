@@ -45,6 +45,7 @@ import java.util.List;
 import java.util.Set;
 
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static java.lang.Float.POSITIVE_INFINITY;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
@@ -222,6 +223,8 @@ public class TestDriver
                         ", DATE '2013-03-22' as g" +
                         ", INTERVAL '123-11' YEAR TO MONTH as h" +
                         ", INTERVAL '11 22:33:44.555' DAY TO SECOND as i" +
+                        ", FLOAT '123.45' as j" +
+                        ", FLOAT 'Infinity' as k" +
                         "")) {
                     assertTrue(rs.next());
 
@@ -279,6 +282,15 @@ public class TestDriver
                     assertEquals(rs.getObject(9), new PrestoIntervalDayTime(11, 22, 33, 44, 555));
                     assertEquals(rs.getObject("i"), new PrestoIntervalDayTime(11, 22, 33, 44, 555));
 
+                    assertEquals(rs.getFloat(10), 123.45f);
+                    assertEquals(rs.getObject(10), 123.45f);
+                    assertEquals(rs.getFloat("j"), 123.45f);
+                    assertEquals(rs.getObject("j"), 123.45f);
+
+                    assertEquals(rs.getFloat(11), POSITIVE_INFINITY);
+                    assertEquals(rs.getObject(11), POSITIVE_INFINITY);
+                    assertEquals(rs.getFloat("k"), POSITIVE_INFINITY);
+                    assertEquals(rs.getObject("k"), POSITIVE_INFINITY);
                     assertFalse(rs.next());
                 }
             }
