@@ -17,6 +17,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static java.lang.Long.parseLong;
+import static java.lang.Math.addExact;
+import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
 
 public final class IntervalYearMonth
@@ -29,7 +31,12 @@ public final class IntervalYearMonth
 
     public static long toMonths(long year, long months)
     {
-        return (year * 12) + months;
+        try {
+            return addExact(multiplyExact(year, 12), months);
+        }
+        catch (ArithmeticException e) {
+            throw new IllegalArgumentException(e);
+        }
     }
 
     public static String formatMonths(long months)
