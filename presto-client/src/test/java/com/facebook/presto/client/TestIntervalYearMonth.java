@@ -49,4 +49,18 @@ public class TestIntervalYearMonth
         assertEquals(formatMonths(months), formatted);
         assertEquals(parseMonths(formatted), months);
     }
+
+    @Test
+    public void testMaxYears()
+    {
+        long years = Long.MAX_VALUE / 12;
+        assertEquals(toMonths(years, 0), years * 12);
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testOverflow()
+    {
+        long days = (Long.MAX_VALUE / 12) + 1;
+        toMonths(days, 0);
+    }
 }

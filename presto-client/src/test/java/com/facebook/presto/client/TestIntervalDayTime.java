@@ -18,6 +18,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.client.IntervalDayTime.formatMillis;
 import static com.facebook.presto.client.IntervalDayTime.parseMillis;
 import static com.facebook.presto.client.IntervalDayTime.toMillis;
+import static java.util.concurrent.TimeUnit.DAYS;
 import static org.testng.Assert.assertEquals;
 
 public class TestIntervalDayTime
@@ -41,5 +42,19 @@ public class TestIntervalDayTime
     {
         assertEquals(formatMillis(millis), formatted);
         assertEquals(parseMillis(formatted), millis);
+    }
+
+    @Test
+    public void textMaxDays()
+    {
+        long days = Long.MAX_VALUE / DAYS.toMillis(1);
+        assertEquals(toMillis(days, 0, 0, 0, 0), DAYS.toMillis(days));
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testOverflow()
+    {
+        long days = (Long.MAX_VALUE / DAYS.toMillis(1)) + 1;
+        toMillis(days, 0, 0, 0, 0);
     }
 }
