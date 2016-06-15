@@ -22,6 +22,8 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static org.testng.Assert.assertEquals;
 
 public class TestIntervalDayTime
 {
@@ -36,6 +38,20 @@ public class TestIntervalDayTime
     private void assertFunction(String projection, Type expectedType, Object expected)
     {
         functionAssertions.assertFunction(projection, expectedType, expected);
+    }
+
+    @Test
+    public void testObject()
+            throws Exception
+    {
+        assertEquals(new SqlIntervalDayTime(12, 10, 45, 32, 123), new SqlIntervalDayTime(1_075_532_123));
+        assertEquals(new SqlIntervalDayTime(-12, -10, -45, -32, -123), new SqlIntervalDayTime(-1_075_532_123));
+
+        assertEquals(new SqlIntervalDayTime(30, 0, 0, 0, 0), new SqlIntervalDayTime(DAYS.toMillis(30)));
+        assertEquals(new SqlIntervalDayTime(-30, 0, 0, 0, 0), new SqlIntervalDayTime(-DAYS.toMillis(30)));
+
+        assertEquals(new SqlIntervalDayTime(90, 0, 0, 0, 0), new SqlIntervalDayTime(DAYS.toMillis(90)));
+        assertEquals(new SqlIntervalDayTime(-90, 0, 0, 0, 0), new SqlIntervalDayTime(-DAYS.toMillis(90)));
     }
 
     @Test
@@ -57,6 +73,8 @@ public class TestIntervalDayTime
         assertFunction("INTERVAL '12' DAY TO HOUR", INTERVAL_DAY_TIME, new SqlIntervalDayTime(12, 0, 0, 0, 0));
 
         assertFunction("INTERVAL '12' DAY", INTERVAL_DAY_TIME, new SqlIntervalDayTime(12, 0, 0, 0, 0));
+        assertFunction("INTERVAL '30' DAY", INTERVAL_DAY_TIME, new SqlIntervalDayTime(30, 0, 0, 0, 0));
+        assertFunction("INTERVAL '90' DAY", INTERVAL_DAY_TIME, new SqlIntervalDayTime(90, 0, 0, 0, 0));
 
         assertFunction("INTERVAL '10:45:32.123' HOUR TO SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 10, 45, 32, 123));
         assertFunction("INTERVAL '10:45:32.12' HOUR TO SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 10, 45, 32, 120));
