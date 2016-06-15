@@ -17,6 +17,9 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.Objects;
 
+import static com.facebook.presto.client.IntervalYearMonth.formatMonths;
+import static com.facebook.presto.client.IntervalYearMonth.toMonths;
+
 public class SqlIntervalYearMonth
 {
     private final long months;
@@ -55,15 +58,5 @@ public class SqlIntervalYearMonth
     public String toString()
     {
         return formatMonths(months);
-    }
-
-    public static long toMonths(long year, long months)
-    {
-        return (year * 12) + months;
-    }
-
-    public static String formatMonths(long months)
-    {
-        return (months / 12) + "-" + (months % 12);
     }
 }
