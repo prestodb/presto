@@ -59,4 +59,9 @@ public class SqlIntervalDayTime
     {
         return formatMillis(milliSeconds);
     }
+
+    public long getMillis()
+    {
+        return milliSeconds;
+    }
 }
