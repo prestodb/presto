@@ -142,6 +142,8 @@ public class HashAggregationOperator
 
     private final List<Type> types;
 
+    private final HashCollisionsCounter hashCollisionsCounter;
+
     private GroupByHashAggregationBuilder aggregationBuilder;
     private Iterator<Page> outputIterator;
     private boolean finishing;
@@ -167,6 +169,8 @@ public class HashAggregationOperator
         this.step = step;
         this.expectedGroups = expectedGroups;
         this.types = toTypes(groupByTypes, step, accumulatorFactories, hashChannel);
+        this.hashCollisionsCounter = new HashCollisionsCounter(operatorContext);
+        operatorContext.setInfoSupplier(hashCollisionsCounter);
     }
 
     @Override
@@ -238,8 +242,8 @@ public class HashAggregationOperator
             if (!finishing && !aggregationBuilder.isFull()) {
                 return null;
             }
-
             outputIterator = aggregationBuilder.build();
+            aggregationBuilder.recordHashCollisions(hashCollisionsCounter);
             aggregationBuilder = null;
 
             if (!outputIterator.hasNext()) {
@@ -307,6 +311,11 @@ public class HashAggregationOperator
             for (Aggregator aggregator : aggregators) {
                 aggregator.processPage(groupIds, page);
             }
+        }
+
+        private void recordHashCollisions(HashCollisionsCounter hashCollisionsCounter)
+        {
+            hashCollisionsCounter.recordHashCollision(groupByHash.getHashCollisions(), groupByHash.getExpectedHashCollisions());
         }
 
         public boolean isFull()

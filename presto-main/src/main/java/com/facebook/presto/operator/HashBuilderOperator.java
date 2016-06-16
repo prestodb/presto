@@ -122,6 +122,8 @@ public class HashBuilderOperator
 
     private final PagesIndex pagesIndex;
 
+    private final HashCollisionsCounter hashCollisionsCounter;
+
     private boolean finished;
 
     public HashBuilderOperator(
@@ -141,6 +143,9 @@ public class HashBuilderOperator
         this.filterFunction = requireNonNull(filterFunction, "filterFunction is null");
 
         this.pagesIndex = new PagesIndex(lookupSourceSupplier.getTypes(), expectedPositions);
+
+        this.hashCollisionsCounter = new HashCollisionsCounter(operatorContext);
+        operatorContext.setInfoSupplier(hashCollisionsCounter);
     }
 
     @Override
@@ -165,6 +170,7 @@ public class HashBuilderOperator
         // After this point the LookupSource will take over our memory reservation, and ours will be zero
         LookupSource lookupSource = pagesIndex.createLookupSource(hashChannels, hashChannel, filterFunction);
         lookupSourceSupplier.setLookupSource(lookupSource, operatorContext);
+        hashCollisionsCounter.recordHashCollision(lookupSource.getHashCollisions(), lookupSource.getExpectedHashCollisions());
         finished = true;
     }
 

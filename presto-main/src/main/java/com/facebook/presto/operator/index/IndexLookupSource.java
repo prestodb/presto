@@ -64,6 +64,17 @@ public class IndexLookupSource
         return getJoinPosition(position, hashChannelsPage, allChannelsPage);
     }
 
+    public long getHashCollisions()
+    {
+        return 0L;
+    }
+
+    @Override
+    public double getExpectedHashCollisions()
+    {
+        return 0d;
+    }
+
     @Override
     public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage)
     {

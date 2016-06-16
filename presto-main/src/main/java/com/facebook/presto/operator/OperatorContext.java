@@ -87,7 +87,7 @@ public class OperatorContext
     private final OperatorSystemMemoryContext systemMemoryContext;
     private final long maxMemoryReservation;
 
-    private final AtomicReference<Supplier<Object>> infoSupplier = new AtomicReference<>();
+    private final AtomicReference<Supplier<?>> infoSupplier = new AtomicReference<>();
     private final boolean collectTimings;
 
     public OperatorContext(int operatorId, PlanNodeId planNodeId, String operatorType, DriverContext driverContext, Executor executor, long maxMemoryReservation)
@@ -348,7 +348,7 @@ public class OperatorContext
         }
     }
 
-    public void setInfoSupplier(Supplier<Object> infoSupplier)
+    public void setInfoSupplier(Supplier<?> infoSupplier)
     {
         requireNonNull(infoSupplier, "infoProvider is null");
         this.infoSupplier.set(infoSupplier);
@@ -376,23 +376,28 @@ public class OperatorContext
 
     public OperatorStats getOperatorStats()
     {
-        Supplier<Object> infoSupplier = this.infoSupplier.get();
+        Supplier<?> infoSupplier = this.infoSupplier.get();
         Object info = null;
         if (infoSupplier != null) {
             info = infoSupplier.get();
         }
+
+        long inputPositionsCount = inputPositions.getTotalCount();
 
         return new OperatorStats(
                 operatorId,
                 planNodeId,
                 operatorType,
 
+                1,
+
                 addInputCalls.get(),
                 new Duration(addInputWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputCpuNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputUserNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new DataSize(inputDataSize.getTotalCount(), BYTE).convertToMostSuccinctDataSize(),
-                inputPositions.getTotalCount(),
+                inputPositionsCount,
+                (double) inputPositionsCount * inputPositionsCount,
 
                 getOutputCalls.get(),
                 new Duration(getOutputWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),

@@ -131,6 +131,8 @@ public class ParallelHashBuildOperator
 
     private final PagesIndex index;
 
+    private final HashCollisionsCounter hashCollisionsCounter;
+
     private boolean finished;
 
     public ParallelHashBuildOperator(
@@ -151,6 +153,9 @@ public class ParallelHashBuildOperator
 
         this.hashChannels = hashChannels;
         this.preComputedHashChannel = preComputedHashChannel;
+
+        this.hashCollisionsCounter = new HashCollisionsCounter(operatorContext);
+        operatorContext.setInfoSupplier(hashCollisionsCounter);
     }
 
     @Override
@@ -176,6 +181,7 @@ public class ParallelHashBuildOperator
         // After this point the SharedLookupSource will take over our memory reservation, and ours will be zero
         LookupSource lookupSource = index.createLookupSource(hashChannels, preComputedHashChannel, filterFunction);
         lookupSourceSupplier.setLookupSource(partitionIndex, lookupSource, operatorContext);
+        hashCollisionsCounter.recordHashCollision(lookupSource.getHashCollisions(), lookupSource.getExpectedHashCollisions());
     }
 
     @Override

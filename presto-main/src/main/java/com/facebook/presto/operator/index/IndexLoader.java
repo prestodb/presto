@@ -395,6 +395,17 @@ public class IndexLoader
             return IndexSnapshot.UNLOADED_INDEX_KEY;
         }
 
+        public long getHashCollisions()
+        {
+            return 0L;
+        }
+
+        @Override
+        public double getExpectedHashCollisions()
+        {
+            return 0d;
+        }
+
         @Override
         public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage)
         {
