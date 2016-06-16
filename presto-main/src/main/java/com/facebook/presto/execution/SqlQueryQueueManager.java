@@ -32,6 +32,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 
 import static com.facebook.presto.execution.QueuedExecution.createQueuedExecution;
+import static com.facebook.presto.spi.StandardErrorCode.QUERY_QUEUE_FULL;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
 import static java.util.Objects.requireNonNull;
 
@@ -51,7 +52,7 @@ public class SqlQueryQueueManager
     }
 
     @Override
-    public boolean submit(Statement statement, QueryExecution queryExecution, Executor executor)
+    public void submit(Statement statement, QueryExecution queryExecution, Executor executor)
     {
         List<QueryQueue> queues;
         try {
@@ -59,19 +60,19 @@ public class SqlQueryQueueManager
         }
         catch (PrestoException e) {
             queryExecution.fail(e);
-            return false;
+            return;
         }
 
         for (QueryQueue queue : queues) {
             if (!queue.reserve(queryExecution)) {
                 // Reject query if we couldn't acquire a permit to enter the queue.
                 // The permits will be released when this query fails.
-                return false;
+                queryExecution.fail(new PrestoException(QUERY_QUEUE_FULL, "Too many queued queries!"));
+                return;
             }
         }
 
         queues.get(0).enqueue(createQueuedExecution(queryExecution, queues.subList(1, queues.size()), executor));
-        return true;
     }
 
     // Queues returned have already been created and added queryQueues
