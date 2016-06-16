@@ -470,6 +470,10 @@ public final class MathFunctions
         }
 
         double factor = Math.pow(10, decimals);
+        if (num < 0) {
+            return -Math.round(-num * factor) / factor;
+        }
+
         return Math.round(num * factor) / factor;
     }
 
