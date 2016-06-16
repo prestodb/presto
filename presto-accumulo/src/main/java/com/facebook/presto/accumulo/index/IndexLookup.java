@@ -228,12 +228,6 @@ public class IndexLookup
 
         Entry<Long, AccumuloColumnConstraint> lowestCardinality = entryOptional.get();
 
-        // If first entry has cardinality zero, the query would have no results
-        if (lowestCardinality.getKey() == 0L) {
-            LOG.info("Query would return no results, returning empty list of splits");
-            return true;
-        }
-
         String indexTable = Indexer.getIndexTableName(schema, table);
         String metricsTable = Indexer.getMetricsTableName(schema, table);
         long numRows = getNumRowsInTable(metricsTable);
