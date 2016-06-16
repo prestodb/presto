@@ -51,6 +51,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.IO_ERROR;
+import static com.facebook.presto.accumulo.io.AccumuloPageSink.ROW_ID_COLUMN;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -118,6 +119,9 @@ public class AccumuloRecordCursor
         else {
             // Else, we will be scanning some more columns here
             this.serializer.setRowOnly(false);
+
+            // Fetch the reserved row ID column
+            this.scan.fetchColumn(ROW_ID_COLUMN, ROW_ID_COLUMN);
 
             Text fam = new Text();
             Text qual = new Text();

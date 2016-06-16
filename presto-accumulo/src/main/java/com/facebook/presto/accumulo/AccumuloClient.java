@@ -18,6 +18,7 @@ import com.facebook.presto.accumulo.conf.AccumuloSessionProperties;
 import com.facebook.presto.accumulo.conf.AccumuloTableProperties;
 import com.facebook.presto.accumulo.index.IndexLookup;
 import com.facebook.presto.accumulo.index.Indexer;
+import com.facebook.presto.accumulo.io.AccumuloPageSink;
 import com.facebook.presto.accumulo.metadata.AccumuloMetadataManager;
 import com.facebook.presto.accumulo.metadata.AccumuloTable;
 import com.facebook.presto.accumulo.metadata.AccumuloView;
@@ -279,13 +280,6 @@ public class AccumuloClient
      */
     private void validateColumns(ConnectorTableMetadata meta)
     {
-        // Here, we make sure the user has specified at least one non-row ID column
-        // Accumulo requires a column family and qualifier against a row ID, and these values
-        // are specified by the other columns in the table
-        if (meta.getColumns().size() <= 1) {
-            throw new InvalidParameterException("Must have at least one non-row ID column");
-        }
-
         // Check all the column types, and throw an exception if the types of a map are complex
         // While it is a rare case, this is not supported by the Accumulo connector
         ImmutableSet.Builder<String> columnNameBuilder = ImmutableSet.builder();
@@ -316,6 +310,16 @@ public class AccumuloClient
                 throw new PrestoException(VALIDATION,
                         "Duplicate column family/qualifier pair detected in column mapping, check the value of " +
                                 AccumuloTableProperties.COLUMN_MAPPING);
+            }
+
+            // Validate no column is mapped to the reserved entry
+            String reservedRowIdColumn = AccumuloPageSink.ROW_ID_COLUMN.toString();
+            if (columnMapping.get().values().stream()
+                    .filter(pair -> pair.getKey().equals(reservedRowIdColumn)
+                            && pair.getValue().equals(reservedRowIdColumn)).count() > 0) {
+                throw new PrestoException(VALIDATION,
+                        format("Column familiy/qualifier mapping of %s:%s is reserved",
+                                reservedRowIdColumn, reservedRowIdColumn));
             }
         }
         else if (AccumuloTableProperties.isExternal(meta.getProperties())) {

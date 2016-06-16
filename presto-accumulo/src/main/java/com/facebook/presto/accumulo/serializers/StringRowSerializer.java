@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.accumulo.io.AccumuloPageSink.ROW_ID_COLUMN;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -104,6 +105,11 @@ public class StringRowSerializer
 
         kvp.getKey().getColumnFamily(cf);
         kvp.getKey().getColumnQualifier(cq);
+
+        if (cf.equals(ROW_ID_COLUMN) && cq.equals(ROW_ID_COLUMN)) {
+            return;
+        }
+
         value.set(kvp.getValue().get());
         columnValues.put(f2q2pc.get(cf.toString()).get(cq.toString()), value.toString());
     }

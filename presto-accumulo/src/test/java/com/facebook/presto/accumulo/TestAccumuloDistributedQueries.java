@@ -23,7 +23,6 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.accumulo.AccumuloQueryRunner.createAccumuloQueryRunner;
 import static com.facebook.presto.accumulo.AccumuloQueryRunner.dropTpchTables;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -57,45 +56,6 @@ public class TestAccumuloDistributedQueries
             throws Exception
     {
         // Adding columns via SQL are not supported until adding columns with comments are supported
-    }
-
-    @Override
-    public void testCompatibleTypeChangeForView()
-            throws Exception
-    {
-        // Override because base class error: Must have at least one non-row ID column
-        assertUpdate("CREATE TABLE test_table_1 AS SELECT 'abcdefg' a, 1 b", 1);
-        assertUpdate("CREATE VIEW test_view_1 AS SELECT a FROM test_table_1");
-
-        assertQuery("SELECT a FROM test_view_1", "VALUES 'abcdefg'");
-
-        // replace table with a version that's implicitly coercible to the previous one
-        assertUpdate("DROP TABLE test_table_1");
-        assertUpdate("CREATE TABLE test_table_1 AS SELECT 'abc' a, 1 b", 1);
-
-        assertQuery("SELECT a FROM test_view_1", "VALUES 'abc'");
-
-        assertUpdate("DROP VIEW test_view_1");
-        assertUpdate("DROP TABLE test_table_1");
-    }
-
-    @Override
-    public void testCompatibleTypeChangeForView2()
-            throws Exception
-    {
-        assertUpdate("CREATE TABLE test_table_2 AS SELECT BIGINT '1' v, 2 w", 1);
-        assertUpdate("CREATE VIEW test_view_2 AS SELECT * FROM test_table_2");
-
-        assertQuery("SELECT v FROM test_view_2", "VALUES 1");
-
-        // replace table with a version that's implicitly coercible to the previous one
-        assertUpdate("DROP TABLE test_table_2");
-        assertUpdate("CREATE TABLE test_table_2 AS SELECT INTEGER '1' v, 2 w", 1);
-
-        assertQuery("SELECT v FROM test_view_2 WHERE v = 1", "VALUES 1");
-
-        assertUpdate("DROP VIEW test_view_2");
-        assertUpdate("DROP TABLE test_table_2");
     }
 
     @Override
@@ -254,48 +214,6 @@ public class TestAccumuloDistributedQueries
         finally {
             assertUpdate("DROP TABLE test_insert_duplicate");
         }
-    }
-
-    @Override
-    public void testRenameColumn()
-            throws Exception
-    {
-        // Override because base class error: Must have at least one non-row ID column
-        assertUpdate("CREATE TABLE test_rename_column AS SELECT BIGINT '123' x, 456 a", 1);
-
-        assertUpdate("ALTER TABLE test_rename_column RENAME COLUMN x TO y");
-        MaterializedResult materializedRows = computeActual("SELECT y FROM test_rename_column");
-        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123L);
-
-        assertUpdate("ALTER TABLE test_rename_column RENAME COLUMN y TO Z");
-        materializedRows = computeActual("SELECT z FROM test_rename_column");
-        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123L);
-
-        assertUpdate("DROP TABLE test_rename_column");
-        assertFalse(queryRunner.tableExists(getSession(), "test_rename_column"));
-    }
-
-    @Override
-    public void testRenameTable()
-            throws Exception
-    {
-        // Override because base class error: Must have at least one non-row ID column
-        // Casting to BIGINT -- mvn test: integers... intellij: longs?  weird
-        assertUpdate("CREATE TABLE test_rename AS SELECT CAST(123 AS BIGINT) x, 456 a", 1);
-
-        assertUpdate("ALTER TABLE test_rename RENAME TO test_rename_new");
-        MaterializedResult materializedRows = computeActual("SELECT x FROM test_rename_new");
-        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123L);
-
-        // provide new table name in uppercase
-        assertUpdate("ALTER TABLE test_rename_new RENAME TO TEST_RENAME");
-        materializedRows = computeActual("SELECT x FROM test_rename");
-        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123L);
-
-        assertUpdate("DROP TABLE test_rename");
-
-        assertFalse(queryRunner.tableExists(getSession(), "test_rename"));
-        assertFalse(queryRunner.tableExists(getSession(), "test_rename_new"));
     }
 
     @Override
@@ -493,5 +411,19 @@ public class TestAccumuloDistributedQueries
         assertQuery("SELECT COUNT(*) FROM partsupp WHERE partkey = 1", "SELECT 4");
         assertQuery("SELECT COUNT(*) FROM partsupp WHERE partkey = 2", "SELECT 4");
         assertQuery("SELECT COUNT(*) FROM partsupp WHERE partkey IN (1, 2)", "SELECT 8");
+    }
+
+    @Test
+    public void testSelectNullValue()
+            throws Exception
+    {
+        try {
+            assertUpdate("CREATE TABLE test_select_null_value AS SELECT 1 a, 2 b, CAST(NULL AS BIGINT) c", 1);
+            assertQuery("SELECT * FROM test_select_null_value", "SELECT 1, 2, NULL");
+            assertQuery("SELECT a, c FROM test_select_null_value", "SELECT 1, NULL");
+        }
+        finally {
+            assertUpdate("DROP TABLE test_select_null_value");
+        }
     }
 }

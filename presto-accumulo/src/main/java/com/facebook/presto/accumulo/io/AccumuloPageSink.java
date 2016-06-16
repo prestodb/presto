@@ -72,6 +72,7 @@ import static java.util.Objects.requireNonNull;
 public class AccumuloPageSink
         implements ConnectorPageSink
 {
+    public static final Text ROW_ID_COLUMN = new Text("___ROW___");
     private final AccumuloRowSerializer serializer;
     private final BatchWriter wrtr;
     private final Optional<Indexer> indexer;
@@ -157,6 +158,10 @@ public class AccumuloPageSink
 
         // Iterate through all the column handles, setting the Mutation's columns
         Mutation m = new Mutation(value);
+
+        // Store row ID in a special column
+        m.put(ROW_ID_COLUMN, ROW_ID_COLUMN, new Value(value.copyBytes()));
+
         for (AccumuloColumnHandle ach : columns) {
             // Skip the row ID ordinal
             if (ach.getOrdinal() == rowIdOrdinal) {
