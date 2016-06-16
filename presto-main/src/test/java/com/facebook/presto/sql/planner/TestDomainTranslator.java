@@ -1343,7 +1343,7 @@ public class TestDomainTranslator
 
     private static Expression randPredicate(Symbol symbol)
     {
-        return comparison(GREATER_THAN, reference(symbol), new FunctionCall(new QualifiedName("rand"), ImmutableList.<Expression>of()));
+        return comparison(GREATER_THAN, reference(symbol), new FunctionCall(QualifiedName.of("rand"), ImmutableList.<Expression>of()));
     }
 
     private static QualifiedNameReference reference(Symbol symbol)

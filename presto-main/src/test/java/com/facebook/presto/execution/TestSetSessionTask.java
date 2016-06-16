@@ -69,7 +69,7 @@ public class TestSetSessionTask
             throws Exception
     {
         testSetSession(new StringLiteral("baz"), "baz");
-        testSetSession(new FunctionCall(new QualifiedName("concat"), ImmutableList.of(
+        testSetSession(new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(
                 new StringLiteral("ban"),
                 new StringLiteral("ana"))), "banana");
     }
