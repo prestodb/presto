@@ -73,6 +73,7 @@ import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
+import com.facebook.presto.operator.spiller.BinarySpillerFactory;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -83,6 +84,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.spiller.SpillerFactory;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
@@ -188,6 +190,7 @@ public class LocalQueryRunner
     private final NodePartitioningManager nodePartitioningManager;
     private final PageSinkManager pageSinkManager;
     private final TransactionManager transactionManager;
+    private final SpillerFactory spillerFactory;
 
     private final ExpressionCompiler compiler;
     private final ConnectorManager connectorManager;
@@ -303,6 +306,8 @@ public class LocalQueryRunner
                 .put(Commit.class, new CommitTask())
                 .put(Rollback.class, new RollbackTask())
                 .build();
+
+        this.spillerFactory = new BinarySpillerFactory(blockEncodingSerde);
     }
 
     public static LocalQueryRunner queryRunnerWithInitialTransaction(Session defaultSession)
@@ -528,7 +533,8 @@ public class LocalQueryRunner
                 compiler,
                 new IndexJoinLookupStats(),
                 new CompilerConfig().setInterpreterEnabled(false), // make sure tests fail if compiler breaks
-                new TaskManagerConfig().setTaskConcurrency(4));
+                new TaskManagerConfig().setTaskConcurrency(4),
+                spillerFactory);
 
         // plan query
         LocalExecutionPlan localExecutionPlan = executionPlanner.plan(

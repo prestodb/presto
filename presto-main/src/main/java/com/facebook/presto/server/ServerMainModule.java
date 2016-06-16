@@ -72,6 +72,7 @@ import com.facebook.presto.operator.ExchangeClientFactory;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
+import com.facebook.presto.operator.spiller.BinarySpillerFactory;
 import com.facebook.presto.server.remotetask.HttpLocationFactory;
 import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
@@ -82,6 +83,7 @@ import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.spiller.SpillerFactory;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.split.PageSinkManager;
@@ -387,6 +389,9 @@ public class ServerMainModule
 
         // Finalizer
         binder.bind(FinalizerService.class).in(Scopes.SINGLETON);
+
+        // Spiller
+        binder.bind(SpillerFactory.class).to(BinarySpillerFactory.class).in(Scopes.SINGLETON);
     }
 
     @Provides

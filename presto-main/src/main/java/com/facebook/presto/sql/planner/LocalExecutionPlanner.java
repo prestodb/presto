@@ -90,6 +90,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.spi.spiller.SpillerFactory;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.MappedRecordSet;
 import com.facebook.presto.split.PageSinkManager;
@@ -231,6 +232,7 @@ public class LocalExecutionPlanner
     private final IndexJoinLookupStats indexJoinLookupStats;
     private final DataSize maxPartialAggregationMemorySize;
     private final DataSize maxPagePartitioningBufferSize;
+    private final SpillerFactory spillerFactory;
 
     @Inject
     public LocalExecutionPlanner(
@@ -245,7 +247,8 @@ public class LocalExecutionPlanner
             ExpressionCompiler compiler,
             IndexJoinLookupStats indexJoinLookupStats,
             CompilerConfig compilerConfig,
-            TaskManagerConfig taskManagerConfig)
+            TaskManagerConfig taskManagerConfig,
+            SpillerFactory spillerFactory)
     {
         requireNonNull(compilerConfig, "compilerConfig is null");
         this.queryPerformanceFetcher = requireNonNull(queryPerformanceFetcher, "queryPerformanceFetcher is null");
@@ -259,6 +262,7 @@ public class LocalExecutionPlanner
         this.compiler = requireNonNull(compiler, "compiler is null");
         this.indexJoinLookupStats = requireNonNull(indexJoinLookupStats, "indexJoinLookupStats is null");
         this.maxIndexMemorySize = requireNonNull(taskManagerConfig, "taskManagerConfig is null").getMaxIndexMemoryUsage();
+        this.spillerFactory = requireNonNull(spillerFactory, "spillerFactory is null");
         this.maxPartialAggregationMemorySize = taskManagerConfig.getMaxPartialAggregationMemoryUsage();
         this.maxPagePartitioningBufferSize = taskManagerConfig.getMaxPagePartitioningBufferSize();
 
