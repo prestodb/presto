@@ -470,7 +470,12 @@ public final class MathFunctions
         }
 
         double factor = Math.pow(10, decimals);
-        return Math.round(num * factor) / factor;
+        if (num < 0) {
+            return -Math.round(-num * factor) / factor;
+        }
+        else {
+            return Math.round(num * factor) / factor;
+        }
     }
 
     @Description("signum")
