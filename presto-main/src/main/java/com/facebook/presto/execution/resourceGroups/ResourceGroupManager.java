@@ -75,7 +75,7 @@ public class ResourceGroupManager
     }
 
     @Override
-    public boolean submit(Statement statement, QueryExecution queryExecution, Executor executor)
+    public void submit(Statement statement, QueryExecution queryExecution, Executor executor)
     {
         ResourceGroupId group;
         try {
@@ -83,10 +83,10 @@ public class ResourceGroupManager
         }
         catch (PrestoException e) {
             queryExecution.fail(e);
-            return false;
+            return;
         }
         createGroupIfNecessary(group, queryExecution.getSession(), executor);
-        return groups.get(group).add(queryExecution);
+        groups.get(group).run(queryExecution);
     }
 
     @PreDestroy

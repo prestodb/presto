@@ -59,7 +59,6 @@ import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.StandardErrorCode.QUERY_QUEUE_FULL;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -337,9 +336,7 @@ public class SqlQueryManager
         queries.put(queryId, queryExecution);
 
         // start the query in the background
-        if (!queueManager.submit(statement, queryExecution, queryExecutor)) {
-            queryExecution.fail(new PrestoException(QUERY_QUEUE_FULL, "Too many queued queries!"));
-        }
+        queueManager.submit(statement, queryExecution, queryExecutor);
 
         return queryInfo;
     }

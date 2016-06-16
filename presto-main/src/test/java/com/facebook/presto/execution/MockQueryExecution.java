@@ -33,9 +33,10 @@ public class MockQueryExecution
         implements QueryExecution
 {
     private final List<StateChangeListener<QueryState>> listeners = new ArrayList<>();
-    private QueryState state = QUEUED;
     private final long memoryUsage;
     private final Session session;
+    private QueryState state = QUEUED;
+    private Throwable failureCause;
 
     public MockQueryExecution(long memoryUsage)
     {
@@ -72,6 +73,11 @@ public class MockQueryExecution
     public QueryState getState()
     {
         return state;
+    }
+
+    public Throwable getFailureCause()
+    {
+        return failureCause;
     }
 
     @Override
@@ -122,6 +128,7 @@ public class MockQueryExecution
     public void fail(Throwable cause)
     {
         state = FAILED;
+        failureCause = cause;
         fireStateChange();
     }
 
