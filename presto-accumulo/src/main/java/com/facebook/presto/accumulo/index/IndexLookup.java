@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.accumulo.index;
 
+import com.facebook.presto.accumulo.conf.AccumuloSessionProperties;
 import com.facebook.presto.accumulo.model.AccumuloColumnConstraint;
 import com.facebook.presto.accumulo.model.TabletSplitMetadata;
 import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
@@ -57,7 +58,6 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.accumulo.AccumuloClient.getRangesFromDomain;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
 import static com.facebook.presto.accumulo.conf.AccumuloSessionProperties.getIndexCardinalityCachePollingDuration;
-import static com.facebook.presto.accumulo.conf.AccumuloSessionProperties.getIndexSmallCardThreshold;
 import static com.facebook.presto.accumulo.conf.AccumuloSessionProperties.getIndexThreshold;
 import static com.facebook.presto.accumulo.conf.AccumuloSessionProperties.getNumIndexRowsPerSplit;
 import static com.facebook.presto.accumulo.conf.AccumuloSessionProperties.isIndexMetricsEnabled;
@@ -218,7 +218,7 @@ public class IndexLookup
                     table,
                     auths,
                     constraintRanges,
-                    (long) (numRows * getIndexSmallCardThreshold(session)),
+                    getSmallestCardinalityThreshold(session, numRows),
                     getIndexCardinalityCachePollingDuration(session));
         }
         else {
@@ -289,10 +289,25 @@ public class IndexLookup
 
     private static boolean smallestCardAboveThreshold(ConnectorSession session, long numRows, long smallestCardinality)
     {
-        double ratio = ((double) smallestCardinality / (double) numRows);
-        double threshold = getIndexSmallCardThreshold(session);
-        LOG.debug("Smallest cardinality is %d, num rows is %d, ratio is %2f with threshold of %f", smallestCardinality, numRows, ratio, threshold);
-        return ratio > threshold;
+        long threshold = getSmallestCardinalityThreshold(session, numRows);
+        LOG.info("Smallest cardinality is %s, num rows is %s, threshold is %s", smallestCardinality, numRows, threshold);
+        return smallestCardinality > threshold;
+    }
+
+    /**
+     * Gets the smallest cardinality threshold, which is the number of rows to skip index intersection
+     * if the cardinality is less than or equal to this value.
+     * <p>
+     * The threshold is the minimum of the percentage-based threshold and the row threshold
+     *
+     * @param session Current client session
+     * @param numRows Number of rows in the table
+     * @return Threshold
+     */
+    private static long getSmallestCardinalityThreshold(ConnectorSession session, long numRows)
+    {
+        return Math.min((long) (numRows * AccumuloSessionProperties.getIndexSmallCardThreshold(session)),
+                AccumuloSessionProperties.getIndexSmallCardRowThreshold(session));
     }
 
     private long getNumRowsInTable(String metricsTable, Authorizations auths)

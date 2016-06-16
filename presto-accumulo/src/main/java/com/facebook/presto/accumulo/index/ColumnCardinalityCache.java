@@ -158,7 +158,7 @@ public class ColumnCardinalityCache
                 Optional<Entry<Long, AccumuloColumnConstraint>> smallestCardinality = cardinalityToConstraints.entries().stream().findFirst();
                 if (smallestCardinality.isPresent()) {
                     if (smallestCardinality.get().getKey() <= earlyReturnThreshold) {
-                        LOG.info("Cardinality %s, is below threshold. Returning early while other tasks finish", smallestCardinality);
+                        LOG.info("Cardinality for column %s is below threshold of %s. Returning early while other tasks finish", smallestCardinality.get().getValue().getName(), earlyReturnThreshold);
                         earlyReturn = true;
                     }
                 }
