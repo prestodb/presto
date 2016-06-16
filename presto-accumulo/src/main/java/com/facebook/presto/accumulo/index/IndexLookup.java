@@ -199,7 +199,7 @@ public class IndexLookup
         Multimap<Long, AccumuloColumnConstraint> cardinalities;
         if (AccumuloSessionProperties.isIndexShortCircuitEnabled(session)) {
             cardinalities = cardinalityCache.getCardinalities(schema, table, constraintRanges,
-                    (long) (numRows * AccumuloSessionProperties.getIndexSmallCardThreshold(session)),
+                    getSmallestCardinalityThreshold(session, numRows),
                     AccumuloSessionProperties.getIndexCardinalityCachePollingDuration(session));
         }
         else {
@@ -270,10 +270,26 @@ public class IndexLookup
 
     private static boolean smallestCardAboveThreshold(ConnectorSession session, long numRows, long smallestCardinality)
     {
-        double ratio = ((double) smallestCardinality / (double) numRows);
-        double threshold = AccumuloSessionProperties.getIndexSmallCardThreshold(session);
-        LOG.debug("Smallest cardinality is %d, num rows is %d, ratio is %2f with threshold of %f", smallestCardinality, numRows, ratio, threshold);
-        return ratio > threshold;
+        long threshold = getSmallestCardinalityThreshold(session, numRows);
+        LOG.info("Smallest cardinality is %d, num rows is %d, threshold is %d",
+                smallestCardinality, numRows, threshold);
+        return smallestCardinality > threshold;
+    }
+
+    /**
+     * Gets the smallest cardinality threshold, which is the number of rows to skip index intersection
+     * if the cardinality is less than or equal to this value.
+     * <p>
+     * The threshold is the minimum of the percentage-based threshold and the row threshold
+     *
+     * @param session Current client session
+     * @param numRows Number of rows in the table
+     * @return Threshold
+     */
+    private static long getSmallestCardinalityThreshold(ConnectorSession session, long numRows)
+    {
+        return Math.min((long) (numRows * AccumuloSessionProperties.getIndexSmallCardThreshold(session)),
+                AccumuloSessionProperties.getIndexSmallCardRowThreshold(session));
     }
 
     private long getNumRowsInTable(String metricsTable, Authorizations auths)
