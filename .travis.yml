@@ -26,12 +26,14 @@ services:
 before_install:
   # This section can be removed once travis get equipped with docker 1.10 and docker-compose 1.6
   - |
-    sudo apt-get update
-    sudo apt-get -o "Dpkg::Options::=--force-confold" -y install docker-engine
-    sudo rm /usr/local/bin/docker-compose
-    curl -L https://github.com/docker/compose/releases/download/1.7.1/docker-compose-`uname -s`-`uname -m` > docker-compose
-    chmod +x docker-compose
-    sudo mv docker-compose /usr/local/bin
+    if [ -v PRODUCT_TESTS ] || [ -v INTEGRATION_TESTS ]; then
+      sudo apt-get update
+      sudo apt-get -o "Dpkg::Options::=--force-confold" -y install docker-engine
+      sudo rm /usr/local/bin/docker-compose
+      curl -L https://github.com/docker/compose/releases/download/1.7.1/docker-compose-`uname -s`-`uname -m` > docker-compose
+      chmod +x docker-compose
+      sudo mv docker-compose /usr/local/bin
+    fi
 
 install: ./mvnw install -DskipTests=true $MAVEN_SKIP_CHECKS_AND_DOCS -B -q -T 2 -pl '!presto-docs,!presto-server-rpm'
 
@@ -47,7 +49,7 @@ script:
   - |
     if [ -v INTEGRATION_TESTS ]; then
       presto-hive-hadoop2/bin/run_on_docker.sh
-      ./mvnw install -DskipTests=true -B;
+      ./mvnw install -DskipTests=true -B
     fi
 
 notifications:
