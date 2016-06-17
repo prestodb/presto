@@ -35,8 +35,10 @@ import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
+import static com.facebook.presto.operator.aggregation.FloatSumAggregation.FLOAT_SUM;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.FloatType.FLOAT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
@@ -86,8 +88,8 @@ public class TestAggregationOperator
                 new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.VARCHAR)));
         InternalAggregationFunction maxVarcharColumn = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("max", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR)));
-        List<Page> input = rowPagesBuilder(VARCHAR, BIGINT, VARCHAR, BIGINT, DOUBLE, VARCHAR)
-                .addSequencePage(100, 0, 0, 300, 500, 500, 500)
+        List<Page> input = rowPagesBuilder(VARCHAR, BIGINT, VARCHAR, BIGINT, FLOAT, DOUBLE, VARCHAR)
+                .addSequencePage(100, 0, 0, 300, 500, 400, 500, 500)
                 .build();
 
         OperatorFactory operatorFactory = new AggregationOperatorFactory(
@@ -100,12 +102,13 @@ public class TestAggregationOperator
                         maxVarcharColumn.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0),
                         countVarcharColumn.bind(ImmutableList.of(0), Optional.empty(), Optional.empty(), 1.0),
                         LONG_SUM.bind(ImmutableList.of(3), Optional.empty(), Optional.empty(), 1.0),
-                        DOUBLE_SUM.bind(ImmutableList.of(4), Optional.empty(), Optional.empty(), 1.0),
-                        maxVarcharColumn.bind(ImmutableList.of(5), Optional.empty(), Optional.empty(), 1.0)));
+                        FLOAT_SUM.bind(ImmutableList.of(4), Optional.empty(), Optional.empty(), 1.0),
+                        DOUBLE_SUM.bind(ImmutableList.of(5), Optional.empty(), Optional.empty(), 1.0),
+                        maxVarcharColumn.bind(ImmutableList.of(6), Optional.empty(), Optional.empty(), 1.0)));
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT, DOUBLE, VARCHAR)
-                .row(100L, 4950L, 49.5, "399", 100L, 54950L, 54950.0, "599")
+                .row(100L, 4950L, 49.5, "399", 100L, 54950L, 44950.0f, 54950.0, "599")
                 .build();
 
         assertOperatorEquals(operator, input, expected);
