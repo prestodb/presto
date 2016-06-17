@@ -31,6 +31,13 @@ Resource Group Properties
   group may use before new queries become queued. May be specified as
   an absolute value (i.e. ``1GB``) or as a percentage (i.e. ``10%``) of the cluster's memory.
 
+* ``softCpuLimit`` (optional): maximum amount of CPU time this
+  group may use in a period (see ``cpuQuotaPeriod``) before a penalty will be applied to
+  the maximum number of running queries. ``hardCpuLimit`` must also be specified.
+
+* ``hardCpuLimit`` (optional): maximum amount of CPU time this
+  group may use in a period.
+
 * ``schedulingPolicy`` (optional): specifies how queued queries are selected to run,
   and how sub groups become eligible to start their queries. May be one of three values:
 
@@ -60,6 +67,11 @@ Selector Properties
 * ``source`` (optional): regex to match against source string. Defaults to ``.*``
 
 * ``group`` (required): the group these queries will run in.
+
+Global Properties
+-----------------
+
+* ``cpuQuotaPeriod`` (optional): the period in which cpu quotas are enforced.
 
 Selectors are processed sequentially and the first one that matches will be used.
 In the example configuration below, there are five resource group templates.
@@ -150,6 +162,7 @@ all other users are subject to the follow limits:
         {
           "group": "global.adhoc_${USER}"
         }
-      ]
+      ],
+      "cpuQuotaPeriod": "1h"
     }
 

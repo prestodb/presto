@@ -39,6 +39,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -46,6 +47,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
 public class ResourceGroupManager
@@ -59,6 +61,7 @@ public class ResourceGroupManager
     private final ResourceGroupConfigurationManager configurationManager;
     private final MBeanExporter exporter;
     private final AtomicBoolean started = new AtomicBoolean();
+    private final AtomicLong lastCpuQuotaGenerationNanos = new AtomicLong(System.nanoTime());
 
     @Inject
     public ResourceGroupManager(List<? extends ResourceGroupSelector> selectors, ResourceGroupConfigurationManager configurationManager, MBeanExporter exporter)
@@ -105,7 +108,25 @@ public class ResourceGroupManager
 
     private void refreshAndStartQueries()
     {
+        long nanoTime = System.nanoTime();
+        long elapsedSeconds = NANOSECONDS.toSeconds(nanoTime - lastCpuQuotaGenerationNanos.get());
+        if (elapsedSeconds > 0) {
+            // Only advance our clock on second boundaries to avoid calling generateCpuQuota() too frequently, and because it would be a no-op for zero seconds.
+            lastCpuQuotaGenerationNanos.addAndGet(elapsedSeconds * 1_000_000_000L);
+        }
+        else if (elapsedSeconds < 0) {
+            // nano time has overflowed
+            lastCpuQuotaGenerationNanos.set(nanoTime);
+        }
         for (RootResourceGroup group : rootGroups) {
+            try {
+                if (elapsedSeconds > 0) {
+                    group.generateCpuQuota(elapsedSeconds);
+                }
+            }
+            catch (RuntimeException e) {
+                log.error(e, "Exception while generation cpu quota for %s", group);
+            }
             try {
                 group.processQueuedQueries();
             }

@@ -5,6 +5,8 @@
       "softMemoryLimit": "1MB",
       "maxRunning": 100,
       "maxQueued": 1000,
+      "softCpuLimit": "1h",
+      "hardCpuLimit": "1d",
       "schedulingPolicy": "weighted",
       "jmxExport": true,
       "subGroups": [
@@ -22,6 +24,7 @@
     {
       "group": "global"
     }
-  ]
+  ],
+  "cpuQuotaPeriod": "1h"
 }
 
