@@ -35,6 +35,7 @@ import com.facebook.presto.operator.aggregation.CountAggregation;
 import com.facebook.presto.operator.aggregation.CountIfAggregation;
 import com.facebook.presto.operator.aggregation.CovarianceAggregation;
 import com.facebook.presto.operator.aggregation.DoubleSumAggregation;
+import com.facebook.presto.operator.aggregation.FloatSumAggregation;
 import com.facebook.presto.operator.aggregation.GeometricMeanAggregations;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.aggregation.LongSumAggregation;
@@ -354,6 +355,7 @@ public class FunctionRegistry
                 .aggregate(BooleanAndAggregation.class)
                 .aggregate(BooleanOrAggregation.class)
                 .aggregate(DoubleSumAggregation.class)
+                .aggregate(FloatSumAggregation.class)
                 .aggregate(LongSumAggregation.class)
                 .aggregate(AverageAggregations.class)
                 .aggregate(GeometricMeanAggregations.class)
