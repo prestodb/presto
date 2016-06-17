@@ -489,6 +489,8 @@ public class TestMathFunctions
         assertFunction("round(CAST(NULL as DOUBLE), 1)", DOUBLE, null);
 
         assertFunction("round(nan(), 2)", DOUBLE, Double.NaN);
+        assertFunction("round(1.0 / 0, 2)", DOUBLE, Double.POSITIVE_INFINITY);
+        assertFunction("round(-1.0 / 0, 2)", DOUBLE, Double.NEGATIVE_INFINITY);
     }
 
     @Test
