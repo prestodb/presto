@@ -465,7 +465,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.DOUBLE)
     public static double round(@SqlType(StandardTypes.DOUBLE) double num, @SqlType(StandardTypes.BIGINT) long decimals)
     {
-        if (Double.isNaN(num)) {
+        if (Double.isNaN(num) || Double.isInfinite(num)) {
             return num;
         }
 
