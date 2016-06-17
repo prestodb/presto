@@ -37,4 +37,26 @@ final class FloatingPointBitsConverterUtil
         value = value ^ (value >> 63) & Long.MAX_VALUE;
         return Double.longBitsToDouble(value);
     }
+
+    /**
+     * Converts a float value to a sortable int.
+     *
+     * @see #doubleToSortableLong(double)
+     */
+    public static int floatToSortableInt(float value)
+    {
+        int bits = Float.floatToIntBits(value);
+        return bits ^ (bits >> 31) & Integer.MAX_VALUE;
+    }
+
+    /**
+     * Coverts a sortable int to float.
+     *
+     * @see #sortableLongToDouble(long)
+     */
+    public static float sortableIntToFloat(int value)
+    {
+        value = value ^ (value >> 31)  & Integer.MAX_VALUE;
+        return Float.intBitsToFloat(value);
+    }
 }
