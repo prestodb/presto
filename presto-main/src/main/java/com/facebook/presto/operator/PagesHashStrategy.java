@@ -49,20 +49,29 @@ public interface PagesHashStrategy
     long hashRow(int position, Page page);
 
     /**
-     * Compares the values in the specified blocks.  The values are compared positionally, so {@code leftBlocks}
-     * and {@code rightBlocks} must have the same number of entries as the hashed columns and each entry
+     * Compares the values in the specified pages. The values are compared positionally, so {@code leftPage}
+     * and {@code rightPage} must have the same number of entries as the hashed columns and each entry
      * is expected to be the same type.
      */
     boolean rowEqualsRow(int leftPosition, Page leftPage, int rightPosition, Page rightPage);
 
     /**
-     * Compares the hashed columns in this PagesHashStrategy to the values in the specified blocks.  The
-     * values are compared positionally, so {@code rightBlocks} must have the same number of entries as
+     * Compares the hashed columns in this PagesHashStrategy to the values in the specified page. The
+     * values are compared positionally, so {@code rightPage} must have the same number of entries as
      * the hashed columns and each entry is expected to be the same type.
-     * {@code rightBlocks} is used if join uses filter function and must contain all columns from probe side of join.
+     * {@code rightPage} is used if join uses filter function and must contain all columns from probe side of join.
      */
-    @Deprecated
     boolean positionEqualsRow(int leftBlockIndex, int leftPosition, int rightPosition, Page rightPage);
+
+    /**
+     * Compares the hashed columns in this PagesHashStrategy to the values in the specified page. The
+     * values are compared positionally, so {@code rightPage} must have the same number of entries as
+     * the hashed columns and each entry is expected to be the same type.
+     * {@code rightPage} is used if join uses filter function and must contain all columns from probe side of join.
+     *
+     * This method does not perform any null checks.
+     */
+    boolean positionEqualsRowIgnoreNulls(int leftBlockIndex, int leftPosition, int rightPosition, Page rightPage);
 
     /**
      * Compares the hashed columns in this PagesHashStrategy to the hashed columns in the Page. The
@@ -77,6 +86,13 @@ public interface PagesHashStrategy
     boolean positionEqualsPosition(int leftBlockIndex, int leftPosition, int rightBlockIndex, int rightPosition);
 
     /**
+     * Compares the hashed columns in this PagesHashStrategy at the specified positions.
+     *
+     * This method does not perform any null checks.
+     */
+    boolean positionEqualsPositionIgnoreNulls(int leftBlockIndex, int leftPosition, int rightBlockIndex, int rightPosition);
+
+    /**
      * Returns filter function assigned to this PagesHashStrategy.
      */
     Optional<JoinFilterFunction> getFilterFunction();
@@ -85,4 +101,9 @@ public interface PagesHashStrategy
      * Checks result of filter function for given row.
      */
     boolean applyFilterFunction(int leftBlockIndex, int leftPosition, int rightPosition, Block[] allRightBlocks);
+
+    /**
+     * Checks if any of the hashed columns is null
+     */
+    boolean isPositionNull(int blockIndex, int blockPosition);
 }
