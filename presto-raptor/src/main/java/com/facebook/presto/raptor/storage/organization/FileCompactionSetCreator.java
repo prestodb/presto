@@ -24,12 +24,15 @@ import java.util.Collection;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.UUID;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
+import static java.util.stream.Collectors.toSet;
 
 public final class FileCompactionSetCreator
         implements CompactionSetCreator
@@ -68,7 +71,17 @@ public final class FileCompactionSetCreator
         while (!shards.isEmpty()) {
             Set<ShardMetadata> compactionSet = getCompactionSet(shards);
             verify(!compactionSet.isEmpty());
-            compactionSets.add(new OrganizationSet(tableId, compactionSet));
+
+            Set<OptionalInt> bucketNumber = compactionSet.stream()
+                    .map(ShardMetadata::getBucketNumber)
+                    .collect(toSet());
+            verify(bucketNumber.size() == 1, "shards must belong to the same bucket");
+
+            Set<UUID> shardUuids = compactionSet.stream()
+                    .map(ShardMetadata::getShardUuid)
+                    .collect(toSet());
+            compactionSets.add(new OrganizationSet(tableId, shardUuids, getOnlyElement(bucketNumber)));
+
             shards.removeAll(compactionSet);
         }
         return compactionSets.build();

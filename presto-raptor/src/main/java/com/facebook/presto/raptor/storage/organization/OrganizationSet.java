@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.raptor.storage.organization;
 
-import com.facebook.presto.raptor.metadata.ShardMetadata;
-
 import java.util.Objects;
+import java.util.OptionalInt;
 import java.util.Set;
+import java.util.UUID;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -24,12 +24,14 @@ import static java.util.Objects.requireNonNull;
 public class OrganizationSet
 {
     private final long tableId;
-    private final Set<ShardMetadata> shards;
+    private final Set<UUID> shards;
+    private final OptionalInt bucketNumber;
 
-    public OrganizationSet(long tableId, Set<ShardMetadata> shards)
+    public OrganizationSet(long tableId, Set<UUID> shards, OptionalInt bucketNumber)
     {
         this.tableId = tableId;
         this.shards = requireNonNull(shards, "shards is null");
+        this.bucketNumber = requireNonNull(bucketNumber, "bucketNumber is null");
     }
 
     public long getTableId()
@@ -37,9 +39,14 @@ public class OrganizationSet
         return tableId;
     }
 
-    public Set<ShardMetadata> getShards()
+    public Set<UUID> getShards()
     {
         return shards;
+    }
+
+    public OptionalInt getBucketNumber()
+    {
+        return bucketNumber;
     }
 
     @Override
@@ -52,14 +59,15 @@ public class OrganizationSet
             return false;
         }
         OrganizationSet that = (OrganizationSet) o;
-        return Objects.equals(tableId, that.tableId) &&
-                Objects.equals(shards, that.shards);
+        return tableId == that.tableId &&
+                Objects.equals(shards, that.shards) &&
+                Objects.equals(bucketNumber, that.bucketNumber);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(tableId, shards);
+        return Objects.hash(tableId, shards, bucketNumber);
     }
 
     @Override
@@ -68,6 +76,8 @@ public class OrganizationSet
         return toStringHelper(this)
                 .add("tableId", tableId)
                 .add("shards", shards)
+                .add("bucketNumber", bucketNumber.isPresent() ? bucketNumber.getAsInt() : null)
+                .omitNullValues()
                 .toString();
     }
 }

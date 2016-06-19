@@ -19,6 +19,7 @@ import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimaps;
 import io.airlift.units.DataSize;
 
@@ -26,13 +27,16 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.Set;
+import java.util.UUID;
 
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 
 public class TemporalCompactionSetCreator
         implements CompactionSetCreator
@@ -60,6 +64,12 @@ public class TemporalCompactionSetCreator
             return ImmutableSet.of();
         }
 
+        Set<OptionalInt> bucketNumbers = shardMetadata.stream()
+                .map(ShardMetadata::getBucketNumber)
+                .collect(toSet());
+        checkArgument(bucketNumbers.size() == 1, "shards must belong to the same bucket");
+        OptionalInt bucketNumber = Iterables.getOnlyElement(bucketNumbers);
+
         ImmutableSet.Builder<OrganizationSet> compactionSets = ImmutableSet.builder();
         // don't compact shards across days or buckets
         Collection<Collection<ShardMetadata>> shardSets = getShardsByDaysBuckets(shardMetadata, type);
@@ -73,24 +83,24 @@ public class TemporalCompactionSetCreator
 
             long consumedBytes = 0;
             long consumedRows = 0;
-            ImmutableSet.Builder<ShardMetadata> shardsToCompact = ImmutableSet.builder();
+            ImmutableSet.Builder<UUID> shardsToCompact = ImmutableSet.builder();
 
             for (ShardMetadata shard : shards) {
                 if (((consumedBytes + shard.getUncompressedSize()) > maxShardSizeBytes) ||
                         (consumedRows + shard.getRowCount() > maxShardRows)) {
                     // Finalize this compaction set, and start a new one for the rest of the shards
-                    compactionSets.add(new OrganizationSet(tableId, shardsToCompact.build()));
+                    compactionSets.add(new OrganizationSet(tableId, shardsToCompact.build(), bucketNumber));
                     shardsToCompact = ImmutableSet.builder();
                     consumedBytes = 0;
                     consumedRows = 0;
                 }
-                shardsToCompact.add(shard);
+                shardsToCompact.add(shard.getShardUuid());
                 consumedBytes += shard.getUncompressedSize();
                 consumedRows += shard.getRowCount();
             }
             if (!shardsToCompact.build().isEmpty()) {
                 // create compaction set for the remaining shards of this day
-                compactionSets.add(new OrganizationSet(tableId, shardsToCompact.build()));
+                compactionSets.add(new OrganizationSet(tableId, shardsToCompact.build(), bucketNumber));
             }
         }
         return compactionSets.build();
