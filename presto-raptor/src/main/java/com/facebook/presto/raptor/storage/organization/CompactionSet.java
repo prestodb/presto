@@ -24,12 +24,12 @@ import static java.util.Objects.requireNonNull;
 public class CompactionSet
 {
     private final long tableId;
-    private final Set<ShardMetadata> shardsToCompact;
+    private final Set<ShardMetadata> shards;
 
-    public CompactionSet(long tableId, Set<ShardMetadata> shardsToCompact)
+    public CompactionSet(long tableId, Set<ShardMetadata> shards)
     {
         this.tableId = tableId;
-        this.shardsToCompact = requireNonNull(shardsToCompact, "shardsToCompact is null");
+        this.shards = requireNonNull(shards, "shards is null");
     }
 
     public long getTableId()
@@ -37,9 +37,9 @@ public class CompactionSet
         return tableId;
     }
 
-    public Set<ShardMetadata> getShardsToCompact()
+    public Set<ShardMetadata> getShards()
     {
-        return shardsToCompact;
+        return shards;
     }
 
     @Override
@@ -53,13 +53,13 @@ public class CompactionSet
         }
         CompactionSet that = (CompactionSet) o;
         return Objects.equals(tableId, that.tableId) &&
-                Objects.equals(shardsToCompact, that.shardsToCompact);
+                Objects.equals(shards, that.shards);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(tableId, shardsToCompact);
+        return Objects.hash(tableId, shards);
     }
 
     @Override
@@ -67,7 +67,7 @@ public class CompactionSet
     {
         return toStringHelper(this)
                 .add("tableId", tableId)
-                .add("shardsToCompact", shardsToCompact)
+                .add("shards", shards)
                 .toString();
     }
 }
