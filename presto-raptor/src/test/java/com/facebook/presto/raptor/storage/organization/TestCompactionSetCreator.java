@@ -52,7 +52,7 @@ public class TestCompactionSetCreator
 
         Set<CompactionSet> compactionSets = compactionSetCreator.createCompactionSets(1L, inputShards);
         assertEquals(compactionSets.size(), 1);
-        assertEquals(getOnlyElement(compactionSets).getShardsToCompact(), inputShards);
+        assertEquals(getOnlyElement(compactionSets).getShards(), inputShards);
     }
 
     @Test

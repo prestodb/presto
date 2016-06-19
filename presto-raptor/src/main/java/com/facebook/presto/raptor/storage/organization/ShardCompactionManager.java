@@ -336,12 +336,12 @@ public class ShardCompactionManager
     private void addToCompactionQueue(CompactionSetCreator compactionSetCreator, long tableId, Set<ShardMetadata> shardsToCompact)
     {
         for (CompactionSet compactionSet : compactionSetCreator.createCompactionSets(tableId, shardsToCompact)) {
-            if (compactionSet.getShardsToCompact().size() <= 1) {
+            if (compactionSet.getShards().size() <= 1) {
                 // throw it away because there is no work to be done
                 continue;
             }
 
-            compactionSet.getShardsToCompact().stream()
+            compactionSet.getShards().stream()
                     .map(ShardMetadata::getShardUuid)
                     .forEach(shardsInProgress::add);
 
@@ -401,7 +401,7 @@ public class ShardCompactionManager
         @Override
         public void run()
         {
-            Set<ShardMetadata> shards = compactionSet.getShardsToCompact();
+            Set<ShardMetadata> shards = compactionSet.getShards();
             OptionalInt bucketNumber = shards.iterator().next().getBucketNumber();
             for (ShardMetadata shard : shards) {
                 verify(bucketNumber.equals(shard.getBucketNumber()), "mismatched bucket numbers");
