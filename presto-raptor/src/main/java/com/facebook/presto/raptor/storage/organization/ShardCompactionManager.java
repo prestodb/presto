@@ -72,7 +72,6 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.partition;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
@@ -342,7 +341,6 @@ public class ShardCompactionManager
             }
 
             compactionSet.getShards().stream()
-                    .map(ShardMetadata::getShardUuid)
                     .forEach(shardsInProgress::add);
 
             compactionQueue.add(compactionSet);
@@ -401,15 +399,9 @@ public class ShardCompactionManager
         @Override
         public void run()
         {
-            Set<ShardMetadata> shards = compactionSet.getShards();
-            OptionalInt bucketNumber = shards.iterator().next().getBucketNumber();
-            for (ShardMetadata shard : shards) {
-                verify(bucketNumber.equals(shard.getBucketNumber()), "mismatched bucket numbers");
-            }
-            Set<UUID> shardUuids = shards.stream().map(ShardMetadata::getShardUuid).collect(toSet());
-
+            Set<UUID> shardUuids = compactionSet.getShards();
             try {
-                compactShards(compactionSet.getTableId(), bucketNumber, shardUuids);
+                compactShards(compactionSet.getTableId(), compactionSet.getBucketNumber(), shardUuids);
             }
             catch (IOException e) {
                 throw Throwables.propagate(e);
