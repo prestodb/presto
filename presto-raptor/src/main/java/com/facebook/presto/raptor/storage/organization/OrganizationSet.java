@@ -21,12 +21,12 @@ import java.util.Set;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class CompactionSet
+public class OrganizationSet
 {
     private final long tableId;
     private final Set<ShardMetadata> shards;
 
-    public CompactionSet(long tableId, Set<ShardMetadata> shards)
+    public OrganizationSet(long tableId, Set<ShardMetadata> shards)
     {
         this.tableId = tableId;
         this.shards = requireNonNull(shards, "shards is null");
@@ -51,7 +51,7 @@ public class CompactionSet
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        CompactionSet that = (CompactionSet) o;
+        OrganizationSet that = (OrganizationSet) o;
         return Objects.equals(tableId, that.tableId) &&
                 Objects.equals(shards, that.shards);
     }

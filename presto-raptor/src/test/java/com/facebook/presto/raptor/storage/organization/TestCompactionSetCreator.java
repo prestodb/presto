@@ -50,7 +50,7 @@ public class TestCompactionSetCreator
                 shardWithSize(100),
                 shardWithSize(100));
 
-        Set<CompactionSet> compactionSets = compactionSetCreator.createCompactionSets(1L, inputShards);
+        Set<OrganizationSet> compactionSets = compactionSetCreator.createCompactionSets(1L, inputShards);
         assertEquals(compactionSets.size(), 1);
         assertEquals(getOnlyElement(compactionSets).getShards(), inputShards);
     }
@@ -69,11 +69,11 @@ public class TestCompactionSetCreator
                 shardWithSize(30),
                 shardWithSize(120));
 
-        Set<CompactionSet> compactionSets = compactionSetCreator.createCompactionSets(tableId, ImmutableSet.copyOf(inputShards));
+        Set<OrganizationSet> compactionSets = compactionSetCreator.createCompactionSets(tableId, ImmutableSet.copyOf(inputShards));
         assertEquals(compactionSets.size(), 2);
-        Set<CompactionSet> expected = ImmutableSet.of(
-                new CompactionSet(tableId, ImmutableSet.of(inputShards.get(0), inputShards.get(2))),
-                new CompactionSet(tableId, ImmutableSet.of(inputShards.get(1))));
+        Set<OrganizationSet> expected = ImmutableSet.of(
+                new OrganizationSet(tableId, ImmutableSet.of(inputShards.get(0), inputShards.get(2))),
+                new OrganizationSet(tableId, ImmutableSet.of(inputShards.get(1))));
         assertEquals(compactionSets, expected);
     }
 
@@ -92,11 +92,11 @@ public class TestCompactionSetCreator
                 shardWithRange(10, day2, day2),
                 shardWithRange(10, day1, day1));
 
-        Set<CompactionSet> actual = compactionSetCreator.createCompactionSets(tableId, ImmutableSet.copyOf(inputShards));
+        Set<OrganizationSet> actual = compactionSetCreator.createCompactionSets(tableId, ImmutableSet.copyOf(inputShards));
         assertEquals(actual.size(), 2);
-        Set<CompactionSet> expected = ImmutableSet.of(
-                new CompactionSet(tableId, ImmutableSet.of(inputShards.get(0), inputShards.get(2))),
-                new CompactionSet(tableId, ImmutableSet.of(inputShards.get(1))));
+        Set<OrganizationSet> expected = ImmutableSet.of(
+                new OrganizationSet(tableId, ImmutableSet.of(inputShards.get(0), inputShards.get(2))),
+                new OrganizationSet(tableId, ImmutableSet.of(inputShards.get(1))));
         assertEquals(actual, expected);
     }
 
@@ -121,11 +121,11 @@ public class TestCompactionSetCreator
                 shardWithRange(10, day1, day4) // day2
         );
 
-        Set<CompactionSet> compactionSets = compactionSetCreator.createCompactionSets(tableId, ImmutableSet.copyOf(inputShards));
+        Set<OrganizationSet> compactionSets = compactionSetCreator.createCompactionSets(tableId, ImmutableSet.copyOf(inputShards));
         assertEquals(compactionSets.size(), 2);
-        Set<CompactionSet> expected = ImmutableSet.of(
-                new CompactionSet(tableId, ImmutableSet.of(inputShards.get(0), inputShards.get(1), inputShards.get(5), inputShards.get(6))),
-                new CompactionSet(tableId, ImmutableSet.of(inputShards.get(2), inputShards.get(3), inputShards.get(4))));
+        Set<OrganizationSet> expected = ImmutableSet.of(
+                new OrganizationSet(tableId, ImmutableSet.of(inputShards.get(0), inputShards.get(1), inputShards.get(5), inputShards.get(6))),
+                new OrganizationSet(tableId, ImmutableSet.of(inputShards.get(2), inputShards.get(3), inputShards.get(4))));
         assertEquals(compactionSets, expected);
     }
 
@@ -147,12 +147,12 @@ public class TestCompactionSetCreator
                 shardWithRange(10, day2, day3),
                 shardWithRange(10, day1, day2));
 
-        Set<CompactionSet> actual = compactionSetCreator.createCompactionSets(tableId, ImmutableSet.copyOf(inputShards));
+        Set<OrganizationSet> actual = compactionSetCreator.createCompactionSets(tableId, ImmutableSet.copyOf(inputShards));
         assertEquals(actual.size(), 3);
-        Set<CompactionSet> expected = ImmutableSet.of(
-                new CompactionSet(tableId, ImmutableSet.of(inputShards.get(0), inputShards.get(3), inputShards.get(5))),
-                new CompactionSet(tableId, ImmutableSet.of(inputShards.get(1), inputShards.get(4))),
-                new CompactionSet(tableId, ImmutableSet.of(inputShards.get(2))));
+        Set<OrganizationSet> expected = ImmutableSet.of(
+                new OrganizationSet(tableId, ImmutableSet.of(inputShards.get(0), inputShards.get(3), inputShards.get(5))),
+                new OrganizationSet(tableId, ImmutableSet.of(inputShards.get(1), inputShards.get(4))),
+                new OrganizationSet(tableId, ImmutableSet.of(inputShards.get(2))));
         assertEquals(actual, expected);
     }
 

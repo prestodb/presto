@@ -45,9 +45,9 @@ public final class FileCompactionSetCreator
     }
 
     @Override
-    public Set<CompactionSet> createCompactionSets(long tableId, Set<ShardMetadata> shardMetadata)
+    public Set<OrganizationSet> createCompactionSets(long tableId, Set<ShardMetadata> shardMetadata)
     {
-        ImmutableSet.Builder<CompactionSet> compactionSets = ImmutableSet.builder();
+        ImmutableSet.Builder<OrganizationSet> compactionSets = ImmutableSet.builder();
         Multimap<OptionalInt, ShardMetadata> map = Multimaps.index(shardMetadata, ShardMetadata::getBucketNumber);
         for (Collection<ShardMetadata> shards : map.asMap().values()) {
             compactionSets.addAll(buildCompactionSets(tableId, ImmutableSet.copyOf(shards)));
@@ -55,7 +55,7 @@ public final class FileCompactionSetCreator
         return compactionSets.build();
     }
 
-    private Set<CompactionSet> buildCompactionSets(long tableId, Set<ShardMetadata> shardMetadata)
+    private Set<OrganizationSet> buildCompactionSets(long tableId, Set<ShardMetadata> shardMetadata)
     {
         // Filter out shards larger than allowed size and sort in descending order of data size
         List<ShardMetadata> shards = shardMetadata.stream()
@@ -64,11 +64,11 @@ public final class FileCompactionSetCreator
                 .sorted(comparing(ShardMetadata::getUncompressedSize).reversed())
                 .collect(toCollection(ArrayList::new));
 
-        ImmutableSet.Builder<CompactionSet> compactionSets = ImmutableSet.builder();
+        ImmutableSet.Builder<OrganizationSet> compactionSets = ImmutableSet.builder();
         while (!shards.isEmpty()) {
             Set<ShardMetadata> compactionSet = getCompactionSet(shards);
             verify(!compactionSet.isEmpty());
-            compactionSets.add(new CompactionSet(tableId, compactionSet));
+            compactionSets.add(new OrganizationSet(tableId, compactionSet));
             shards.removeAll(compactionSet);
         }
         return compactionSets.build();

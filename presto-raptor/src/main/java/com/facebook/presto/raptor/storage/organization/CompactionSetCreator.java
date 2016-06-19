@@ -19,5 +19,5 @@ import java.util.Set;
 
 public interface CompactionSetCreator
 {
-    Set<CompactionSet> createCompactionSets(long tableId, Set<ShardMetadata> shardMetadata);
+    Set<OrganizationSet> createCompactionSets(long tableId, Set<ShardMetadata> shardMetadata);
 }

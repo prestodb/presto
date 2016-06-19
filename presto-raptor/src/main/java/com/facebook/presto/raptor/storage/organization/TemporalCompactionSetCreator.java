@@ -54,13 +54,13 @@ public class TemporalCompactionSetCreator
     }
 
     @Override
-    public Set<CompactionSet> createCompactionSets(long tableId, Set<ShardMetadata> shardMetadata)
+    public Set<OrganizationSet> createCompactionSets(long tableId, Set<ShardMetadata> shardMetadata)
     {
         if (shardMetadata.isEmpty()) {
             return ImmutableSet.of();
         }
 
-        ImmutableSet.Builder<CompactionSet> compactionSets = ImmutableSet.builder();
+        ImmutableSet.Builder<OrganizationSet> compactionSets = ImmutableSet.builder();
         // don't compact shards across days or buckets
         Collection<Collection<ShardMetadata>> shardSets = getShardsByDaysBuckets(shardMetadata, type);
 
@@ -79,7 +79,7 @@ public class TemporalCompactionSetCreator
                 if (((consumedBytes + shard.getUncompressedSize()) > maxShardSizeBytes) ||
                         (consumedRows + shard.getRowCount() > maxShardRows)) {
                     // Finalize this compaction set, and start a new one for the rest of the shards
-                    compactionSets.add(new CompactionSet(tableId, shardsToCompact.build()));
+                    compactionSets.add(new OrganizationSet(tableId, shardsToCompact.build()));
                     shardsToCompact = ImmutableSet.builder();
                     consumedBytes = 0;
                     consumedRows = 0;
@@ -90,7 +90,7 @@ public class TemporalCompactionSetCreator
             }
             if (!shardsToCompact.build().isEmpty()) {
                 // create compaction set for the remaining shards of this day
-                compactionSets.add(new CompactionSet(tableId, shardsToCompact.build()));
+                compactionSets.add(new OrganizationSet(tableId, shardsToCompact.build()));
             }
         }
         return compactionSets.build();
