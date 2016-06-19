@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.raptor.storage.organization;
 
-import com.facebook.presto.raptor.metadata.ShardMetadata;
+import com.facebook.presto.raptor.metadata.Table;
 
+import java.util.Collection;
 import java.util.Set;
 
 public interface CompactionSetCreator
 {
-    Set<OrganizationSet> createCompactionSets(long tableId, Set<ShardMetadata> shardMetadata);
+    Set<OrganizationSet> createCompactionSets(Table tableInfo, Collection<ShardIndexInfo> shards);
 }
