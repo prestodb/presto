@@ -11,10 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.raptor.storage;
+package com.facebook.presto.raptor.storage.organization;
 
 import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.ShardInfo;
+import com.facebook.presto.raptor.storage.ReaderAttributes;
+import com.facebook.presto.raptor.storage.Row;
+import com.facebook.presto.raptor.storage.StorageManager;
+import com.facebook.presto.raptor.storage.StoragePageSink;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;

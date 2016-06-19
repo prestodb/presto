@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.raptor.storage;
+package com.facebook.presto.raptor.storage.organization;
 
 import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.ForMetadata;
@@ -21,6 +21,7 @@ import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardMetadata;
 import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.raptor.metadata.TableMetadata;
+import com.facebook.presto.raptor.storage.StorageManagerConfig;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
