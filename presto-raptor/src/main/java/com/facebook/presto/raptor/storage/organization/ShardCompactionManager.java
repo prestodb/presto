@@ -13,36 +13,27 @@
  */
 package com.facebook.presto.raptor.storage.organization;
 
-import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.ForMetadata;
 import com.facebook.presto.raptor.metadata.MetadataDao;
-import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardMetadata;
-import com.facebook.presto.raptor.metadata.TableColumn;
-import com.facebook.presto.raptor.metadata.TableMetadata;
 import com.facebook.presto.raptor.storage.StorageManagerConfig;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
-import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.skife.jdbi.v2.IDBI;
-import org.weakref.jmx.Managed;
-import org.weakref.jmx.Nested;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -51,12 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -67,23 +53,18 @@ import static com.facebook.presto.raptor.metadata.DatabaseShardManager.minColumn
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
 import static com.facebook.presto.raptor.util.DatabaseUtil.metadataError;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
-import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.partition;
 import static com.google.common.collect.Maps.uniqueIndex;
-import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.runAsync;
-import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
 public class ShardCompactionManager
@@ -91,22 +72,14 @@ public class ShardCompactionManager
     private static final Logger log = Logger.get(ShardCompactionManager.class);
 
     private static final double FILL_FACTOR = 0.75;
-    private static final int MAX_PENDING_COMPACTIONS = 500;
 
     private final ScheduledExecutorService compactionDiscoveryService = newScheduledThreadPool(1, daemonThreadsNamed("shard-compaction-discovery"));
-    private final ExecutorService compactionDriverService = newFixedThreadPool(1, daemonThreadsNamed("shard-compaction-driver"));
-    private final ExecutorService compactionService;
 
     private final AtomicBoolean discoveryStarted = new AtomicBoolean();
-    private final AtomicBoolean compactionStarted = new AtomicBoolean();
     private final AtomicBoolean shutdown = new AtomicBoolean();
 
-    // Tracks shards that are scheduled for compaction so that we do not schedule them more than once
-    private final Set<UUID> shardsInProgress = newConcurrentHashSet();
-    private final BlockingQueue<OrganizationSet> compactionQueue = new LinkedBlockingQueue<>();
-
     private final MetadataDao metadataDao;
-    private final ShardCompactor compactor;
+    private final ShardOrganizer organizer;
     private final ShardManager shardManager;
     private final String currentNodeIdentifier;
 
@@ -116,20 +89,16 @@ public class ShardCompactionManager
     private final long maxShardRows;
     private final IDBI dbi;
 
-    private final CounterStat compactionSuccessCount = new CounterStat();
-    private final CounterStat compactionFailureCount = new CounterStat();
-
     @Inject
-    public ShardCompactionManager(@ForMetadata IDBI dbi, NodeManager nodeManager, ShardManager shardManager, ShardCompactor compactor, StorageManagerConfig config)
+    public ShardCompactionManager(@ForMetadata IDBI dbi, NodeManager nodeManager, ShardManager shardManager, ShardOrganizer organizer, StorageManagerConfig config)
     {
         this(dbi,
                 nodeManager.getCurrentNode().getNodeIdentifier(),
                 shardManager,
-                compactor,
+                organizer,
                 config.getCompactionInterval(),
                 config.getMaxShardSize(),
                 config.getMaxShardRows(),
-                config.getCompactionThreads(),
                 config.isCompactionEnabled());
     }
 
@@ -137,11 +106,10 @@ public class ShardCompactionManager
             IDBI dbi,
             String currentNodeIdentifier,
             ShardManager shardManager,
-            ShardCompactor compactor,
+            ShardOrganizer organizer,
             Duration compactionDiscoveryInterval,
             DataSize maxShardSize,
             long maxShardRows,
-            int compactionThreads,
             boolean compactionEnabled)
     {
         this.dbi = requireNonNull(dbi, "dbi is null");
@@ -149,7 +117,7 @@ public class ShardCompactionManager
 
         this.currentNodeIdentifier = requireNonNull(currentNodeIdentifier, "currentNodeIdentifier is null");
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
-        this.compactor = requireNonNull(compactor, "compactor is null");
+        this.organizer = requireNonNull(organizer, "organizer is null");
         this.compactionDiscoveryInterval = requireNonNull(compactionDiscoveryInterval, "compactionDiscoveryInterval is null");
 
         checkArgument(maxShardSize.toBytes() > 0, "maxShardSize must be > 0");
@@ -159,13 +127,6 @@ public class ShardCompactionManager
         this.maxShardRows = maxShardRows;
 
         this.compactionEnabled = compactionEnabled;
-        if (compactionEnabled) {
-            checkArgument(compactionThreads > 0, "compactionThreads must be > 0");
-            this.compactionService = newFixedThreadPool(compactionThreads, daemonThreadsNamed("shard-compactor-%s"));
-        }
-        else {
-            this.compactionService = null;
-        }
     }
 
     @PostConstruct
@@ -178,10 +139,6 @@ public class ShardCompactionManager
         if (!discoveryStarted.getAndSet(true)) {
             startDiscovery();
         }
-
-        if (!compactionStarted.getAndSet(true)) {
-            compactionDriverService.submit(new ShardCompactionDriver());
-        }
     }
 
     @PreDestroy
@@ -192,8 +149,6 @@ public class ShardCompactionManager
         }
         shutdown.set(true);
         compactionDiscoveryService.shutdown();
-        compactionDriverService.shutdown();
-        compactionService.shutdown();
     }
 
     private void startDiscovery()
@@ -216,10 +171,6 @@ public class ShardCompactionManager
 
     private void discoverShards()
     {
-        if (shardsInProgress.size() >= MAX_PENDING_COMPACTIONS) {
-            return;
-        }
-
         Set<ShardMetadata> allShards = shardManager.getNodeShards(currentNodeIdentifier);
         ListMultimap<Long, ShardMetadata> tableShards = Multimaps.index(allShards, ShardMetadata::getTableId);
 
@@ -245,7 +196,7 @@ public class ShardCompactionManager
     {
         Set<ShardMetadata> shards = shardMetadatas.stream()
                 .filter(this::needsCompaction)
-                .filter(shard -> !shardsInProgress.contains(shard.getShardUuid()))
+                .filter(shard -> !organizer.inProgress(shard.getShardUuid()))
                 .collect(toSet());
 
         if (temporalColumnId.isPresent()) {
@@ -340,10 +291,7 @@ public class ShardCompactionManager
                 continue;
             }
 
-            compactionSet.getShards().stream()
-                    .forEach(shardsInProgress::add);
-
-            compactionQueue.add(compactionSet);
+            organizer.enqueue(compactionSet);
         }
     }
 
@@ -357,125 +305,5 @@ public class ShardCompactionManager
             return true;
         }
         return false;
-    }
-
-    private class ShardCompactionDriver
-            implements Runnable
-    {
-        @Override
-        public void run()
-        {
-            while (!Thread.currentThread().isInterrupted() && !shutdown.get()) {
-                try {
-                    OrganizationSet compactionSet = compactionQueue.take();
-                    runAsync(new CompactionJob(compactionSet), compactionService)
-                            .whenComplete((none, throwable) -> {
-                                if (throwable == null) {
-                                    compactionSuccessCount.update(1);
-                                }
-                                else {
-                                    log.warn(throwable, "Error in compaction");
-                                    compactionFailureCount.update(1);
-                                }
-                            });
-                }
-                catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-            }
-        }
-    }
-
-    private class CompactionJob
-            implements Runnable
-    {
-        private final OrganizationSet compactionSet;
-
-        public CompactionJob(OrganizationSet compactionSet)
-        {
-            this.compactionSet = requireNonNull(compactionSet, "compactionSet is null");
-        }
-
-        @Override
-        public void run()
-        {
-            Set<UUID> shardUuids = compactionSet.getShards();
-            try {
-                compactShards(compactionSet.getTableId(), compactionSet.getBucketNumber(), shardUuids);
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
-            }
-            finally {
-                shardsInProgress.removeAll(shardUuids);
-            }
-        }
-
-        private void compactShards(long tableId, OptionalInt bucketNumber, Set<UUID> shardUuids)
-                throws IOException
-        {
-            long transactionId = shardManager.beginTransaction();
-            try {
-                compactShards(transactionId, bucketNumber, tableId, shardUuids);
-            }
-            catch (Throwable e) {
-                shardManager.rollbackTransaction(transactionId);
-                throw e;
-            }
-        }
-
-        private void compactShards(long transactionId, OptionalInt bucketNumber, long tableId, Set<UUID> shardUuids)
-                throws IOException
-        {
-            TableMetadata metadata = getTableMetadata(tableId);
-            List<ShardInfo> newShards = performCompaction(transactionId, bucketNumber, shardUuids, metadata);
-            log.info("Compacted shards %s into %s", shardUuids, newShards.stream().map(ShardInfo::getShardUuid).collect(toList()));
-            shardManager.replaceShardUuids(transactionId, tableId, metadata.getColumns(), shardUuids, newShards);
-        }
-
-        private List<ShardInfo> performCompaction(long transactionId, OptionalInt bucketNumber, Set<UUID> shardUuids, TableMetadata tableMetadata)
-                throws IOException
-        {
-            if (tableMetadata.getSortColumnIds().isEmpty()) {
-                return compactor.compact(transactionId, bucketNumber, shardUuids, tableMetadata.getColumns());
-            }
-            return compactor.compactSorted(
-                    transactionId,
-                    bucketNumber,
-                    shardUuids,
-                    tableMetadata.getColumns(),
-                    tableMetadata.getSortColumnIds(),
-                    nCopies(tableMetadata.getSortColumnIds().size(), ASC_NULLS_FIRST));
-        }
-    }
-
-    private TableMetadata getTableMetadata(long tableId)
-    {
-        List<TableColumn> sortColumns = metadataDao.listSortColumns(tableId);
-        List<Long> sortColumnIds = sortColumns.stream().map(TableColumn::getColumnId).collect(toList());
-        List<ColumnInfo> columns = metadataDao.listTableColumns(tableId).stream()
-                .map(TableColumn::toColumnInfo)
-                .collect(toList());
-        return new TableMetadata(tableId, columns, sortColumnIds);
-    }
-
-    @Managed
-    public int getShardsInProgress()
-    {
-        return shardsInProgress.size();
-    }
-
-    @Managed
-    @Nested
-    public CounterStat getCompactionSuccessCount()
-    {
-        return compactionSuccessCount;
-    }
-
-    @Managed
-    @Nested
-    public CounterStat getCompactionFailureCount()
-    {
-        return compactionFailureCount;
     }
 }
