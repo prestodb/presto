@@ -104,7 +104,7 @@ public class ShardCompactionManager
 
     // Tracks shards that are scheduled for compaction so that we do not schedule them more than once
     private final Set<UUID> shardsInProgress = newConcurrentHashSet();
-    private final BlockingQueue<CompactionSet> compactionQueue = new LinkedBlockingQueue<>();
+    private final BlockingQueue<OrganizationSet> compactionQueue = new LinkedBlockingQueue<>();
 
     private final MetadataDao metadataDao;
     private final ShardCompactor compactor;
@@ -335,7 +335,7 @@ public class ShardCompactionManager
 
     private void addToCompactionQueue(CompactionSetCreator compactionSetCreator, long tableId, Set<ShardMetadata> shardsToCompact)
     {
-        for (CompactionSet compactionSet : compactionSetCreator.createCompactionSets(tableId, shardsToCompact)) {
+        for (OrganizationSet compactionSet : compactionSetCreator.createCompactionSets(tableId, shardsToCompact)) {
             if (compactionSet.getShards().size() <= 1) {
                 // throw it away because there is no work to be done
                 continue;
@@ -369,7 +369,7 @@ public class ShardCompactionManager
         {
             while (!Thread.currentThread().isInterrupted() && !shutdown.get()) {
                 try {
-                    CompactionSet compactionSet = compactionQueue.take();
+                    OrganizationSet compactionSet = compactionQueue.take();
                     runAsync(new CompactionJob(compactionSet), compactionService)
                             .whenComplete((none, throwable) -> {
                                 if (throwable == null) {
@@ -391,9 +391,9 @@ public class ShardCompactionManager
     private class CompactionJob
             implements Runnable
     {
-        private final CompactionSet compactionSet;
+        private final OrganizationSet compactionSet;
 
-        public CompactionJob(CompactionSet compactionSet)
+        public CompactionJob(OrganizationSet compactionSet)
         {
             this.compactionSet = requireNonNull(compactionSet, "compactionSet is null");
         }
