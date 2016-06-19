@@ -19,13 +19,7 @@ import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.Ranges;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -39,11 +33,11 @@ import java.util.StringJoiner;
 
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.maxColumn;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.minColumn;
+import static com.facebook.presto.raptor.storage.ColumnIndexStatsUtils.jdbcType;
 import static com.facebook.presto.raptor.storage.ShardStats.truncateIndexValue;
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidStringToBytes;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -236,28 +230,5 @@ class ShardPredicate
                 return;
         }
         throw new PrestoException(INTERNAL_ERROR, "Unhandled type: " + type);
-    }
-
-    public static JDBCType jdbcType(Type type)
-    {
-        if (type.equals(BooleanType.BOOLEAN)) {
-            return JDBCType.BOOLEAN;
-        }
-        if (type.equals(BigintType.BIGINT) || type.equals(TimestampType.TIMESTAMP)) {
-            return JDBCType.BIGINT;
-        }
-        if (type.equals(INTEGER)) {
-            return JDBCType.INTEGER;
-        }
-        if (type.equals(DoubleType.DOUBLE)) {
-            return JDBCType.DOUBLE;
-        }
-        if (type.equals(DateType.DATE)) {
-            return JDBCType.INTEGER;
-        }
-        if (type instanceof VarcharType) {
-            return JDBCType.VARBINARY;
-        }
-        return null;
     }
 }

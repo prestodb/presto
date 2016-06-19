@@ -34,7 +34,7 @@ import static com.facebook.presto.raptor.metadata.DatabaseShardManager.maxColumn
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.minColumn;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
 import static com.facebook.presto.raptor.metadata.ShardPredicate.bindValue;
-import static com.facebook.presto.raptor.metadata.ShardPredicate.jdbcType;
+import static com.facebook.presto.raptor.storage.ColumnIndexStatsUtils.jdbcType;
 import static com.facebook.presto.raptor.util.ArrayUtil.intArrayToBytes;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidToBytes;
 import static com.google.common.base.Preconditions.checkArgument;
