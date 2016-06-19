@@ -13,14 +13,10 @@
  */
 package com.facebook.presto.raptor.storage.organization;
 
-import com.facebook.presto.raptor.metadata.ShardMetadata;
-import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ComparisonChain;
+import com.facebook.presto.raptor.metadata.Table;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import io.airlift.units.DataSize;
 
-import java.time.Duration;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -29,9 +25,9 @@ import java.util.Set;
 import java.util.UUID;
 
 import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.getShardsByDaysBuckets;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -40,40 +36,36 @@ public class TemporalCompactionSetCreator
         implements CompactionSetCreator
 {
     private final long maxShardSizeBytes;
-    private final Type type;
     private final long maxShardRows;
 
-    public TemporalCompactionSetCreator(DataSize maxShardSize, long maxShardRows, Type type)
+    public TemporalCompactionSetCreator(DataSize maxShardSize, long maxShardRows)
     {
         requireNonNull(maxShardSize, "maxShardSize is null");
-        checkArgument(type.equals(DATE) || type.equals(TIMESTAMP), "type must be timestamp or date");
-
         this.maxShardSizeBytes = maxShardSize.toBytes();
 
         checkArgument(maxShardRows > 0, "maxShardRows must be > 0");
         this.maxShardRows = maxShardRows;
-        this.type = requireNonNull(type, "type is null");
     }
 
     @Override
-    public Set<OrganizationSet> createCompactionSets(long tableId, Set<ShardMetadata> shardMetadata)
+    public Set<OrganizationSet> createCompactionSets(Table tableInfo, Collection<ShardIndexInfo> shardMetadata)
     {
         if (shardMetadata.isEmpty()) {
             return ImmutableSet.of();
         }
 
-        Set<OptionalInt> bucketNumbers = shardMetadata.stream()
-                .map(ShardMetadata::getBucketNumber)
-                .collect(toSet());
-        checkArgument(bucketNumbers.size() == 1, "shards must belong to the same bucket");
-        OptionalInt bucketNumber = Iterables.getOnlyElement(bucketNumbers);
-
         ImmutableSet.Builder<OrganizationSet> compactionSets = ImmutableSet.builder();
         // don't compact shards across days or buckets
-        Collection<Collection<ShardMetadata>> shardSets = getShardsByDaysBuckets(shardMetadata, type);
+        Collection<Collection<ShardIndexInfo>> shardSets = getShardsByDaysBuckets(tableInfo, shardMetadata);
 
-        for (Collection<ShardMetadata> shardSet : shardSets) {
-            List<ShardMetadata> shards = shardSet.stream()
+        for (Collection<ShardIndexInfo> shardSet : shardSets) {
+            Set<OptionalInt> bucketNumbers = shardSet.stream()
+                    .map(ShardIndexInfo::getBucketNumber)
+                    .collect(toSet());
+            verify(bucketNumbers.size() == 1, "shards must belong to the same bucket");
+            OptionalInt bucketNumber = getOnlyElement(bucketNumbers);
+
+            List<ShardIndexInfo> shards = shardSet.stream()
                     .filter(shard -> shard.getUncompressedSize() < maxShardSizeBytes)
                     .filter(shard -> shard.getRowCount() < maxShardRows)
                     .sorted(new ShardSorter())
@@ -83,11 +75,12 @@ public class TemporalCompactionSetCreator
             long consumedRows = 0;
             ImmutableSet.Builder<UUID> shardsToCompact = ImmutableSet.builder();
 
-            for (ShardMetadata shard : shards) {
+            for (ShardIndexInfo shard : shards) {
                 if (((consumedBytes + shard.getUncompressedSize()) > maxShardSizeBytes) ||
                         (consumedRows + shard.getRowCount() > maxShardRows)) {
                     // Finalize this compaction set, and start a new one for the rest of the shards
-                    compactionSets.add(new OrganizationSet(tableId, shardsToCompact.build(), bucketNumber));
+                    Set<UUID> shardUuids = shardsToCompact.build();
+                    compactionSets.add(new OrganizationSet(tableInfo.getTableId(), shardUuids, bucketNumber));
                     shardsToCompact = ImmutableSet.builder();
                     consumedBytes = 0;
                     consumedRows = 0;
@@ -96,33 +89,30 @@ public class TemporalCompactionSetCreator
                 consumedBytes += shard.getUncompressedSize();
                 consumedRows += shard.getRowCount();
             }
-            if (!shardsToCompact.build().isEmpty()) {
+            Set<UUID> shardUuids = shardsToCompact.build();
+            if (shardUuids.size() > 1) {
                 // create compaction set for the remaining shards of this day
-                compactionSets.add(new OrganizationSet(tableId, shardsToCompact.build(), bucketNumber));
+                compactionSets.add(new OrganizationSet(tableInfo.getTableId(), shardUuids, bucketNumber));
             }
         }
         return compactionSets.build();
     }
 
     private static class ShardSorter
-            implements Comparator<ShardMetadata>
+            implements Comparator<ShardIndexInfo>
     {
         @SuppressWarnings("SubtractionInCompareTo")
         @Override
-        public int compare(ShardMetadata shard1, ShardMetadata shard2)
+        public int compare(ShardIndexInfo shard1, ShardIndexInfo shard2)
         {
-            // sort shards first by the starting hour
-            // for shards that start in the same hour, pick shards that have a shorter time range
-            long shard1Hours = Duration.ofMillis(shard1.getRangeStart().getAsLong()).toHours();
-            long shard2Hours = Duration.ofMillis(shard2.getRangeStart().getAsLong()).toHours();
+            checkArgument(shard1.getTemporalRange().isPresent() && shard2.getTemporalRange().isPresent());
+            ShardRange range1 = shard1.getTemporalRange().get();
+            ShardRange range2 = shard2.getTemporalRange().get();
 
-            long shard1Range = shard1.getRangeEnd().getAsLong() - shard1.getRangeStart().getAsLong();
-            long shard2Range = shard2.getRangeEnd().getAsLong() - shard2.getRangeStart().getAsLong();
-
-            return ComparisonChain.start()
-                    .compare(shard1Hours, shard2Hours)
-                    .compare(shard1Range, shard2Range)
-                    .result();
+            if (range1.getMinTuple().compareTo(range2.getMinTuple()) == 0) {
+                return range1.getMaxTuple().compareTo(range2.getMaxTuple());
+            }
+            return range1.getMinTuple().compareTo(range2.getMinTuple());
         }
     }
 }

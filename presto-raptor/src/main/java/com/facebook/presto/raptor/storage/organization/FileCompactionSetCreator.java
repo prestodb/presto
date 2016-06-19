@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.raptor.storage.organization;
 
-import com.facebook.presto.raptor.metadata.ShardMetadata;
+import com.facebook.presto.raptor.metadata.Table;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
@@ -48,53 +48,55 @@ public final class FileCompactionSetCreator
     }
 
     @Override
-    public Set<OrganizationSet> createCompactionSets(long tableId, Set<ShardMetadata> shardMetadata)
+    public Set<OrganizationSet> createCompactionSets(Table tableInfo, Collection<ShardIndexInfo> shardInfos)
     {
         ImmutableSet.Builder<OrganizationSet> compactionSets = ImmutableSet.builder();
-        Multimap<OptionalInt, ShardMetadata> map = Multimaps.index(shardMetadata, ShardMetadata::getBucketNumber);
-        for (Collection<ShardMetadata> shards : map.asMap().values()) {
-            compactionSets.addAll(buildCompactionSets(tableId, ImmutableSet.copyOf(shards)));
+        Multimap<OptionalInt, ShardIndexInfo> map = Multimaps.index(shardInfos, ShardIndexInfo::getBucketNumber);
+        for (Collection<ShardIndexInfo> shards : map.asMap().values()) {
+            compactionSets.addAll(buildCompactionSets(tableInfo.getTableId(), ImmutableSet.copyOf(shards)));
         }
         return compactionSets.build();
     }
 
-    private Set<OrganizationSet> buildCompactionSets(long tableId, Set<ShardMetadata> shardMetadata)
+    private Set<OrganizationSet> buildCompactionSets(long tableId, Set<ShardIndexInfo> shardInfos)
     {
         // Filter out shards larger than allowed size and sort in descending order of data size
-        List<ShardMetadata> shards = shardMetadata.stream()
+        List<ShardIndexInfo> shards = shardInfos.stream()
                 .filter(shard -> shard.getUncompressedSize() < maxShardSize.toBytes())
                 .filter(shard -> shard.getRowCount() < maxShardRows)
-                .sorted(comparing(ShardMetadata::getUncompressedSize).reversed())
+                .sorted(comparing(ShardIndexInfo::getUncompressedSize).reversed())
                 .collect(toCollection(ArrayList::new));
 
         ImmutableSet.Builder<OrganizationSet> compactionSets = ImmutableSet.builder();
         while (!shards.isEmpty()) {
-            Set<ShardMetadata> compactionSet = getCompactionSet(shards);
+            Set<ShardIndexInfo> compactionSet = getCompactionSet(shards);
             verify(!compactionSet.isEmpty());
 
             Set<OptionalInt> bucketNumber = compactionSet.stream()
-                    .map(ShardMetadata::getBucketNumber)
+                    .map(ShardIndexInfo::getBucketNumber)
                     .collect(toSet());
             verify(bucketNumber.size() == 1, "shards must belong to the same bucket");
 
             Set<UUID> shardUuids = compactionSet.stream()
-                    .map(ShardMetadata::getShardUuid)
+                    .map(ShardIndexInfo::getShardUuid)
                     .collect(toSet());
-            compactionSets.add(new OrganizationSet(tableId, shardUuids, getOnlyElement(bucketNumber)));
+            if (shardUuids.size() > 1) {
+                compactionSets.add(new OrganizationSet(tableId, shardUuids, getOnlyElement(bucketNumber)));
+            }
 
             shards.removeAll(compactionSet);
         }
         return compactionSets.build();
     }
 
-    private Set<ShardMetadata> getCompactionSet(List<ShardMetadata> shardMetadata)
+    private Set<ShardIndexInfo> getCompactionSet(List<ShardIndexInfo> shardInfos)
     {
-        ImmutableSet.Builder<ShardMetadata> shards = ImmutableSet.builder();
+        ImmutableSet.Builder<ShardIndexInfo> shards = ImmutableSet.builder();
         long maxShardSizeBytes = maxShardSize.toBytes();
         long consumedBytes = 0;
         long consumedRows = 0;
 
-        for (ShardMetadata shard : shardMetadata) {
+        for (ShardIndexInfo shard : shardInfos) {
             if ((consumedBytes + shard.getUncompressedSize() > maxShardSizeBytes) ||
                     (consumedRows + shard.getRowCount() > maxShardRows)) {
                 break;
