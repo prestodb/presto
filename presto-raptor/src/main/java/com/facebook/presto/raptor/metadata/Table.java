@@ -56,23 +56,24 @@ public final class Table
     }
 
     @Override
-    public int hashCode()
+    public boolean equals(Object o)
     {
-        return Objects.hash(tableId, bucketCount);
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Table table = (Table) o;
+        return tableId == table.tableId &&
+                Objects.equals(distributionId, table.distributionId) &&
+                Objects.equals(bucketCount, table.bucketCount);
     }
 
     @Override
-    public boolean equals(Object obj)
+    public int hashCode()
     {
-        if (obj == this) {
-            return true;
-        }
-        if ((obj == null) || (getClass() != obj.getClass())) {
-            return false;
-        }
-        Table o = (Table) obj;
-        return tableId == o.tableId &&
-                Objects.equals(bucketCount, o.bucketCount);
+        return Objects.hash(tableId, distributionId, bucketCount);
     }
 
     @Override
