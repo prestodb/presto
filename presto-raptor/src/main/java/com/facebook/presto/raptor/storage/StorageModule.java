@@ -22,6 +22,8 @@ import com.facebook.presto.raptor.metadata.ShardCleaner;
 import com.facebook.presto.raptor.metadata.ShardCleanerConfig;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardRecorder;
+import com.facebook.presto.raptor.storage.organization.ShardCompactionManager;
+import com.facebook.presto.raptor.storage.organization.ShardCompactor;
 import com.google.common.base.Ticker;
 import com.google.inject.Binder;
 import com.google.inject.Module;
