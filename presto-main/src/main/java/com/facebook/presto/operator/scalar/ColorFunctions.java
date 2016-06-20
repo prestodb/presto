@@ -18,7 +18,6 @@ import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.ColorType;
 import com.facebook.presto.type.Constraint;
 import com.google.common.annotations.VisibleForTesting;
@@ -193,14 +192,14 @@ public final class ColorFunctions
     }
 
     @ScalarFunction
-    @SqlType(VarcharType.VARCHAR_UNBOUNDED)
+    @SqlType(StandardTypes.VARCHAR)
     public static Slice bar(@SqlType(StandardTypes.DOUBLE) double percent, @SqlType(StandardTypes.BIGINT) long width)
     {
         return bar(percent, width, rgb(255, 0, 0), rgb(0, 255, 0));
     }
 
     @ScalarFunction
-    @SqlType(VarcharType.VARCHAR_UNBOUNDED)
+    @SqlType(StandardTypes.VARCHAR)
     public static Slice bar(
             @SqlType(StandardTypes.DOUBLE) double percent,
             @SqlType(StandardTypes.BIGINT) long width,

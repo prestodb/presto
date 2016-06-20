@@ -25,7 +25,6 @@ import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.CodePointsType;
 import com.facebook.presto.type.Constraint;
 import com.facebook.presto.type.LiteralParameter;
@@ -603,7 +602,7 @@ public final class StringFunctions
     @Description("pads a string on the left")
     @ScalarFunction("lpad")
     @LiteralParameters({"x", "y"})
-    @SqlType(VarcharType.VARCHAR_UNBOUNDED)
+    @SqlType(StandardTypes.VARCHAR)
     public static Slice leftPad(@SqlType("varchar(x)") Slice text, @SqlType(StandardTypes.BIGINT) long targetLength, @SqlType("varchar(y)") Slice padString)
     {
         return pad(text, targetLength, padString, 0);
@@ -612,7 +611,7 @@ public final class StringFunctions
     @Description("pads a string on the right")
     @ScalarFunction("rpad")
     @LiteralParameters({"x", "y"})
-    @SqlType(VarcharType.VARCHAR_UNBOUNDED)
+    @SqlType(StandardTypes.VARCHAR)
     public static Slice rightPad(@SqlType("varchar(x)") Slice text, @SqlType(StandardTypes.BIGINT) long targetLength, @SqlType("varchar(y)") Slice padString)
     {
         return pad(text, targetLength, padString, text.length());
@@ -621,7 +620,7 @@ public final class StringFunctions
     @Description("transforms the string to normalized form")
     @ScalarFunction
     @LiteralParameters({"x", "y"})
-    @SqlType(VarcharType.VARCHAR_UNBOUNDED)
+    @SqlType(StandardTypes.VARCHAR)
     public static Slice normalize(@SqlType("varchar(x)") Slice slice, @SqlType("varchar(y)") Slice form)
     {
         Normalizer.Form targetForm;
@@ -636,7 +635,7 @@ public final class StringFunctions
 
     @Description("decodes the UTF-8 encoded string")
     @ScalarFunction
-    @SqlType(VarcharType.VARCHAR_UNBOUNDED)
+    @SqlType(StandardTypes.VARCHAR)
     public static Slice fromUtf8(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         return SliceUtf8.fixInvalidUtf8(slice);
@@ -645,7 +644,7 @@ public final class StringFunctions
     @Description("decodes the UTF-8 encoded string")
     @ScalarFunction
     @LiteralParameters("x")
-    @SqlType(VarcharType.VARCHAR_UNBOUNDED)
+    @SqlType(StandardTypes.VARCHAR)
     public static Slice fromUtf8(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType("varchar(x)") Slice replacementCharacter)
     {
         int count = countCodePoints(replacementCharacter);
@@ -670,7 +669,7 @@ public final class StringFunctions
 
     @Description("decodes the UTF-8 encoded string")
     @ScalarFunction
-    @SqlType(VarcharType.VARCHAR_UNBOUNDED)
+    @SqlType(StandardTypes.VARCHAR)
     public static Slice fromUtf8(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType(StandardTypes.BIGINT) long replacementCodePoint)
     {
         if (replacementCodePoint > MAX_CODE_POINT || Character.getType((int) replacementCodePoint) == SURROGATE) {
