@@ -54,6 +54,7 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
 import static com.facebook.presto.type.CodePointsType.CODE_POINTS;
@@ -283,6 +284,10 @@ public final class TypeRegistry
 
     private static Type getCommonSuperTypeForVarchar(VarcharType firstType, VarcharType secondType)
     {
+        if (firstType.isUnbounded() || secondType.isUnbounded()) {
+            return createUnboundedVarcharType();
+        }
+
         return createVarcharType(Math.max(firstType.getLength(), secondType.getLength()));
     }
 

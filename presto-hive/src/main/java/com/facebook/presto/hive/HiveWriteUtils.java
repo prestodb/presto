@@ -580,7 +580,7 @@ public final class HiveWriteUtils
             }
             // Unbounded VARCHAR is not supported by Hive.
             // Values for such columns must be stored as STRING in Hive
-            else if (varcharLength == VarcharType.MAX_LENGTH) {
+            else if (varcharLength == VarcharType.UNBOUNDED_LENGTH) {
                 return writableStringObjectInspector;
             }
         }

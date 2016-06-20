@@ -20,7 +20,6 @@ import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.concurrent.ThreadLocalCache;
 import io.airlift.slice.Slice;
 import org.joda.time.DateTime;
@@ -114,7 +113,7 @@ public final class DateTimeFunctions
 
     @Description("current time zone")
     @ScalarFunction("current_timezone")
-    @SqlType(VarcharType.VARCHAR_UNBOUNDED)
+    @SqlType(StandardTypes.VARCHAR)
     public static Slice currentTimeZone(ConnectorSession session)
     {
         return utf8Slice(session.getTimeZoneKey().getId());
@@ -520,7 +519,7 @@ public final class DateTimeFunctions
     @Description("formats the given time by the given format")
     @ScalarFunction
     @LiteralParameters("x")
-    @SqlType(VarcharType.VARCHAR_UNBOUNDED)
+    @SqlType(StandardTypes.VARCHAR)
     public static Slice formatDatetime(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp, @SqlType("varchar(x)") Slice formatString)
     {
         return formatDatetime(getChronology(session.getTimeZoneKey()), session.getLocale(), timestamp, formatString);
@@ -529,7 +528,7 @@ public final class DateTimeFunctions
     @Description("formats the given time by the given format")
     @ScalarFunction("format_datetime")
     @LiteralParameters("x")
-    @SqlType(VarcharType.VARCHAR_UNBOUNDED)
+    @SqlType(StandardTypes.VARCHAR)
     public static Slice formatDatetimeWithTimeZone(
             ConnectorSession session,
             @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone,
@@ -553,7 +552,7 @@ public final class DateTimeFunctions
 
     @ScalarFunction
     @LiteralParameters("x")
-    @SqlType(VarcharType.VARCHAR_UNBOUNDED)
+    @SqlType(StandardTypes.VARCHAR)
     public static Slice dateFormat(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp, @SqlType("varchar(x)") Slice formatString)
     {
         return dateFormat(getChronology(session.getTimeZoneKey()), session.getLocale(), timestamp, formatString);
@@ -561,7 +560,7 @@ public final class DateTimeFunctions
 
     @ScalarFunction("date_format")
     @LiteralParameters("x")
-    @SqlType(VarcharType.VARCHAR_UNBOUNDED)
+    @SqlType(StandardTypes.VARCHAR)
     public static Slice dateFormatWithTimeZone(
             ConnectorSession session,
             @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone,
