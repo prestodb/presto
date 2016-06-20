@@ -161,6 +161,7 @@ public class ShardCompactionManager
 
     private void discoverShards()
     {
+        log.info("Discovering shards that need compaction...");
         Set<ShardMetadata> allShards = shardManager.getNodeShards(currentNodeIdentifier);
         ListMultimap<Long, ShardMetadata> tableShards = Multimaps.index(allShards, ShardMetadata::getTableId);
 
@@ -170,7 +171,10 @@ public class ShardCompactionManager
                 continue;
             }
             List<ShardMetadata> shards = entry.getValue();
-            for (OrganizationSet set : filterAndCreateCompactionSets(tableId, shards)) {
+            Collection<OrganizationSet> organizationSets = filterAndCreateCompactionSets(tableId, shards);
+            log.info("Created %s organization set(s) for table ID %s", organizationSets.size(), tableId);
+
+            for (OrganizationSet set : organizationSets) {
                 organizer.enqueue(set);
             }
         }
