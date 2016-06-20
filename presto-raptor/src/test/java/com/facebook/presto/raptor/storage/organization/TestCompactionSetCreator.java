@@ -44,6 +44,8 @@ public class TestCompactionSetCreator
     private static final Table bucketedTableInfo = new Table(1L, OptionalLong.empty(), OptionalInt.of(3), OptionalLong.empty());
     private static final Table bucketedTemporalTableInfo = new Table(1L, OptionalLong.empty(), OptionalInt.of(3), OptionalLong.of(1));
 
+    private final CompactionSetCreator compactionSetCreator = new CompactionSetCreator(MAX_SHARD_SIZE, MAX_SHARD_ROWS);
+
     @Test
     public void testNonTemporalOrganizationSetSimple()
             throws Exception
@@ -53,7 +55,6 @@ public class TestCompactionSetCreator
                 shardWithSize(10, 10),
                 shardWithSize(10, 10));
 
-        CompactionSetCreator compactionSetCreator = new FileCompactionSetCreator(MAX_SHARD_SIZE, MAX_SHARD_ROWS);
         Set<OrganizationSet> compactionSets = compactionSetCreator.createCompactionSets(tableInfo, inputShards);
         assertEquals(compactionSets.size(), 1);
         assertEquals(getOnlyElement(compactionSets).getShards(), extractIndexes(inputShards, 0, 1, 2));
@@ -69,7 +70,6 @@ public class TestCompactionSetCreator
                 shardWithSize(10, 30),
                 shardWithSize(10, 120));
 
-        FileCompactionSetCreator compactionSetCreator = new FileCompactionSetCreator(MAX_SHARD_SIZE, MAX_SHARD_ROWS);
         Set<OrganizationSet> compactionSets = compactionSetCreator.createCompactionSets(tableInfo, inputShards);
 
         Set<UUID> actual = new HashSet<>();
@@ -89,7 +89,6 @@ public class TestCompactionSetCreator
                 shardWithSize(20, 10),
                 shardWithSize(30, 10));
 
-        CompactionSetCreator compactionSetCreator = new FileCompactionSetCreator(MAX_SHARD_SIZE, MAX_SHARD_ROWS);
         Set<OrganizationSet> compactionSets = compactionSetCreator.createCompactionSets(tableInfo, inputShards);
 
         Set<UUID> actual = new HashSet<>();
@@ -115,7 +114,6 @@ public class TestCompactionSetCreator
                 shardWithTemporalRange(TIMESTAMP, day1, day1),
                 shardWithTemporalRange(TIMESTAMP, day3, day3));
 
-        CompactionSetCreator compactionSetCreator = new TemporalCompactionSetCreator(MAX_SHARD_SIZE, MAX_SHARD_ROWS);
         Set<OrganizationSet> actual = compactionSetCreator.createCompactionSets(temporalTableInfo, inputShards);
         assertEquals(actual.size(), 2);
 
@@ -145,7 +143,6 @@ public class TestCompactionSetCreator
         );
 
         long tableId = temporalTableInfo.getTableId();
-        CompactionSetCreator compactionSetCreator = new TemporalCompactionSetCreator(MAX_SHARD_SIZE, MAX_SHARD_ROWS);
         Set<OrganizationSet> compactionSets = compactionSetCreator.createCompactionSets(temporalTableInfo, inputShards);
 
         assertEquals(compactionSets.size(), 2);
@@ -173,7 +170,6 @@ public class TestCompactionSetCreator
                 shardWithTemporalRange(DATE, day1, day2));
 
         long tableId = temporalTableInfo.getTableId();
-        CompactionSetCreator compactionSetCreator = new TemporalCompactionSetCreator(MAX_SHARD_SIZE, MAX_SHARD_ROWS);
         Set<OrganizationSet> actual = compactionSetCreator.createCompactionSets(temporalTableInfo, inputShards);
 
         assertEquals(actual.size(), 2);
@@ -197,7 +193,6 @@ public class TestCompactionSetCreator
                 shardWithBucket(1));
 
         long tableId = bucketedTableInfo.getTableId();
-        CompactionSetCreator compactionSetCreator = new FileCompactionSetCreator(MAX_SHARD_SIZE, MAX_SHARD_ROWS);
         Set<OrganizationSet> actual = compactionSetCreator.createCompactionSets(bucketedTableInfo, inputShards);
 
         assertEquals(actual.size(), 2);
@@ -235,7 +230,6 @@ public class TestCompactionSetCreator
                 shardWithTemporalBucket(OptionalInt.of(2), DATE, day4, day4));
 
         long tableId = bucketedTemporalTableInfo.getTableId();
-        CompactionSetCreator compactionSetCreator = new TemporalCompactionSetCreator(MAX_SHARD_SIZE, MAX_SHARD_ROWS);
         Set<OrganizationSet> actual = compactionSetCreator.createCompactionSets(bucketedTemporalTableInfo, inputShards);
 
         assertEquals(actual.size(), 2);

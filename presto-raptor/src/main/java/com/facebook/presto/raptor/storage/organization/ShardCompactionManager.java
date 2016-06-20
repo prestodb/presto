@@ -49,7 +49,6 @@ import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -71,6 +70,7 @@ public class ShardCompactionManager
     private final ShardOrganizer organizer;
     private final ShardManager shardManager;
     private final String currentNodeIdentifier;
+    private final CompactionSetCreator compactionSetCreator;
 
     private final boolean compactionEnabled;
     private final Duration compactionDiscoveryInterval;
@@ -116,6 +116,7 @@ public class ShardCompactionManager
         this.maxShardRows = maxShardRows;
 
         this.compactionEnabled = compactionEnabled;
+        this.compactionSetCreator = new CompactionSetCreator(maxShardSize, maxShardRows);
     }
 
     @PostConstruct
@@ -168,12 +169,14 @@ public class ShardCompactionManager
             if (!metadataDao.isCompactionEnabled(tableId)) {
                 continue;
             }
-            createCompactionSets(tableId, entry.getValue()).stream()
-                    .forEach(organizer::enqueue);
+            List<ShardMetadata> shards = entry.getValue();
+            for (OrganizationSet set : filterAndCreateCompactionSets(tableId, shards)) {
+                organizer.enqueue(set);
+            }
         }
     }
 
-    private Collection<OrganizationSet> createCompactionSets(long tableId, Collection<ShardMetadata> tableShards)
+    private Collection<OrganizationSet> filterAndCreateCompactionSets(long tableId, Collection<ShardMetadata> tableShards)
     {
         Table tableInfo = metadataDao.getTableInformation(tableId);
         OptionalLong temporalColumnId = tableInfo.getTemporalColumnId();
@@ -184,7 +187,6 @@ public class ShardCompactionManager
             }
         }
 
-        CompactionSetCreator compactionSetCreator = getCompactionSetCreator(tableInfo);
         Set<ShardMetadata> filteredShards = tableShards.stream()
                 .filter(this::needsCompaction)
                 .filter(shard -> !organizer.inProgress(shard.getShardUuid()))
@@ -199,17 +201,6 @@ public class ShardCompactionManager
         }
 
         return compactionSetCreator.createCompactionSets(tableInfo, shardIndexInfos);
-    }
-
-    private CompactionSetCreator getCompactionSetCreator(Table tableInfo)
-    {
-        if (!tableInfo.getTemporalColumnId().isPresent()) {
-            return new FileCompactionSetCreator(maxShardSize, maxShardRows);
-        }
-
-        Type type = metadataDao.getTableColumn(tableInfo.getTableId(), tableInfo.getTemporalColumnId().getAsLong()).getDataType();
-        verify(isValidTemporalColumn(tableInfo.getTableId(), type), "invalid temporal column type");
-        return new TemporalCompactionSetCreator(maxShardSize, maxShardRows);
     }
 
     private static boolean isValidTemporalColumn(long tableId, Type type)
