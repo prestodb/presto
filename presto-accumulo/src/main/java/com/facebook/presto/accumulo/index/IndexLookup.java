@@ -80,7 +80,7 @@ public class IndexLookup
             Authorizations auths)
     {
         this.connector = requireNonNull(connector, "connector is null");
-        this.cardinalityCache = new ColumnCardinalityCache(connector, requireNonNull(config, "config is null"), auths);
+        this.cardinalityCache = new ColumnCardinalityCache(connector, requireNonNull(config, "config is null"));
         AtomicLong threadCount = new AtomicLong(0);
         this.executor = MoreExecutors.getExitingExecutorService(
                 new ThreadPoolExecutor(1, 4 * Runtime.getRuntime().availableProcessors(), 60L,
@@ -198,13 +198,13 @@ public class IndexLookup
         // Get the cardinalities from the metrics table
         Multimap<Long, AccumuloColumnConstraint> cardinalities;
         if (AccumuloSessionProperties.isIndexShortCircuitEnabled(session)) {
-            cardinalities = cardinalityCache.getCardinalities(schema, table, constraintRanges,
+            cardinalities = cardinalityCache.getCardinalities(schema, table, constraintRanges, auths,
                     getSmallestCardinalityThreshold(session, numRows),
                     AccumuloSessionProperties.getIndexCardinalityCachePollingDuration(session));
         }
         else {
             // disable short circuit using 0
-            cardinalities = cardinalityCache.getCardinalities(schema, table, constraintRanges, 0, new Duration(0, TimeUnit.MILLISECONDS));
+            cardinalities = cardinalityCache.getCardinalities(schema, table, constraintRanges, auths, 0, new Duration(0, TimeUnit.MILLISECONDS));
         }
 
         Optional<Entry<Long, AccumuloColumnConstraint>> entry = cardinalities.entries().stream().findFirst();

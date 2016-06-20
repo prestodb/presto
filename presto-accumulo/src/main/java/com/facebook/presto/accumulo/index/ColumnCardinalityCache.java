@@ -70,7 +70,6 @@ import static java.util.Objects.requireNonNull;
  */
 public class ColumnCardinalityCache
 {
-    private final Authorizations auths;
     private static final Logger LOG = Logger.get(ColumnCardinalityCache.class);
     private final Connector connector;
     private final ExecutorService executorService;
@@ -78,11 +77,9 @@ public class ColumnCardinalityCache
 
     public ColumnCardinalityCache(
             Connector connector,
-            AccumuloConfig config,
-            Authorizations auths)
+            AccumuloConfig config)
     {
         this.connector = requireNonNull(connector, "connector is null");
-        this.auths = requireNonNull(auths, "auths is null");
         int size = requireNonNull(config, "config is null").getCardinalityCacheSize();
         Duration expireDuration = config.getCardinalityCacheExpiration();
 
@@ -118,20 +115,21 @@ public class ColumnCardinalityCache
      * @param schema Schema name
      * @param table Table name
      * @param idxConstraintRangePairs Mapping of all ranges for a given constraint
+     * @param auths Scan-time authorizations for loading any cardinalities from Accumulo
      * @param earlyReturnThreshold Smallest acceptable cardinality to return early while other tasks complete
      * @param pollingDuration Duration for polling the cardinality completion service
      * @return An immutable multimap of cardinality to column constraint, sorted by cardinality from smallest to largest
      * @throws TableNotFoundException If the metrics table does not exist
      * @throws ExecutionException If another error occurs; I really don't even know anymore.
      */
-    public Multimap<Long, AccumuloColumnConstraint> getCardinalities(String schema, String table, Multimap<AccumuloColumnConstraint, Range> idxConstraintRangePairs, long earlyReturnThreshold, Duration pollingDuration)
+    public Multimap<Long, AccumuloColumnConstraint> getCardinalities(String schema, String table, Multimap<AccumuloColumnConstraint, Range> idxConstraintRangePairs, Authorizations auths, long earlyReturnThreshold, Duration pollingDuration)
             throws ExecutionException, TableNotFoundException
     {
         // Submit tasks to the executor to fetch column cardinality, adding it to the Guava cache if necessary
         CompletionService<Pair<Long, AccumuloColumnConstraint>> executor = new ExecutorCompletionService<>(executorService);
         idxConstraintRangePairs.asMap().entrySet().forEach(e ->
                 executor.submit(() -> {
-                            long cardinality = getColumnCardinality(schema, table, e.getKey().getFamily(), e.getKey().getQualifier(), e.getValue());
+                            long cardinality = getColumnCardinality(schema, table, e.getKey().getFamily(), e.getKey().getQualifier(), auths, e.getValue());
                             LOG.info("Cardinality for column %s is %s", e.getKey().getName(), cardinality);
                             return Pair.of(cardinality, e.getKey());
                         }
@@ -183,10 +181,11 @@ public class ColumnCardinalityCache
      * @param table Table name
      * @param family Accumulo column family
      * @param qualifier Accumulo column qualifier
+     * @param auths Scan-time authorizations for loading any cardinalities from Accumulo
      * @param colValues All range values to summarize for the cardinality
      * @return The cardinality of the column
      */
-    public long getColumnCardinality(String schema, String table, String family, String qualifier, Collection<Range> colValues)
+    public long getColumnCardinality(String schema, String table, String family, String qualifier, Authorizations auths, Collection<Range> colValues)
             throws ExecutionException
     {
         LOG.debug("Getting cardinality for %s:%s", family, qualifier);
@@ -194,7 +193,7 @@ public class ColumnCardinalityCache
         // Collect all exact Accumulo Ranges, i.e. single value entries vs. a full scan
         Collection<CacheKey> exactRanges =
                 colValues.stream().filter(this::isExact).map(range ->
-                        new CacheKey(schema, table, family, qualifier, range)).collect(Collectors.toList());
+                        new CacheKey(schema, table, family, qualifier, auths, range)).collect(Collectors.toList());
 
         LOG.debug("Column values contain %s exact ranges of %s", exactRanges.size(),
                 colValues.size());
@@ -215,7 +214,7 @@ public class ColumnCardinalityCache
                 // if this range is not exact
                 if (!isExact(range)) {
                     // Then get the value for this range using the single-value cache lookup
-                    CacheKey key = new CacheKey(schema, table, family, qualifier, range);
+                    CacheKey key = new CacheKey(schema, table, family, qualifier, auths, range);
                     long val = cache.get(key);
 
                     // add our value to the cache and our sum
@@ -241,29 +240,32 @@ public class ColumnCardinalityCache
      */
     private class CacheKey
     {
-        String schema;
-        String table;
-        String family;
-        String qualifier;
-        Range range;
+        public String schema;
+        public String table;
+        public String family;
+        public String qualifier;
+        public Authorizations auths;
+        public Range range;
 
         public CacheKey(String schema,
                 String table,
                 String family,
                 String qualifier,
+                Authorizations auths,
                 Range range)
         {
             this.schema = schema;
             this.table = table;
             this.family = family;
             this.qualifier = qualifier;
+            this.auths = auths;
             this.range = range;
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(schema, table, family, qualifier, range);
+            return Objects.hash(schema, table, family, qualifier, auths, range);
         }
 
         @Override
@@ -282,6 +284,7 @@ public class ColumnCardinalityCache
                     && Objects.equals(this.schema, other.schema)
                     && Objects.equals(this.table, other.table)
                     && Objects.equals(this.family, other.family)
+                    && Objects.equals(this.auths, other.auths)
                     && Objects.equals(this.qualifier, other.qualifier);
         }
 
@@ -293,6 +296,7 @@ public class ColumnCardinalityCache
                     .add("table", table)
                     .add("family", family)
                     .add("qualifier", qualifier)
+                    .add("auths", auths)
                     .add("range", range).toString();
         }
     }
@@ -319,7 +323,7 @@ public class ColumnCardinalityCache
             Text columnFamily = new Text(Indexer.getIndexColumnFamily(key.family.getBytes(UTF_8), key.qualifier.getBytes(UTF_8)).array());
 
             // Create scanner for querying the range
-            Scanner scanner = connector.createScanner(metricsTable, auths);
+            Scanner scanner = connector.createScanner(metricsTable, key.auths);
             try {
                 scanner.setRange(key.range);
                 scanner.fetchColumn(columnFamily, Indexer.CARDINALITY_CQ_AS_TEXT);
@@ -374,15 +378,15 @@ public class ColumnCardinalityCache
             Text columnFamily = new Text(
                     Indexer.getIndexColumnFamily(key.family.getBytes(UTF_8), key.qualifier.getBytes(UTF_8)).array());
 
-            BatchScanner bScanner = connector.createBatchScanner(metricsTable, auths, 10);
+            BatchScanner scanner = connector.createBatchScanner(metricsTable, key.auths, 10);
             try {
-                bScanner.setRanges(cacheKeys.stream().map(k -> k.range).collect(Collectors.toList()));
-                bScanner.fetchColumn(columnFamily, Indexer.CARDINALITY_CQ_AS_TEXT);
+                scanner.setRanges(cacheKeys.stream().map(k -> k.range).collect(Collectors.toList()));
+                scanner.fetchColumn(columnFamily, Indexer.CARDINALITY_CQ_AS_TEXT);
 
                 // Create a new map to hold our cardinalities for each range
                 // retrieved from the scanner
                 ImmutableMap.Builder<CacheKey, Long> rangeValues = ImmutableMap.builder();
-                for (Entry<Key, Value> entry : bScanner) {
+                for (Entry<Key, Value> entry : scanner) {
                     // Remove the cache key that corresponds to this row ID
                     CacheKey cKey = rangeToKey.remove(Range.exact(entry.getKey().getRow()));
                     rangeValues.put(cKey, Long.parseLong(entry.getValue().toString()));
@@ -396,9 +400,9 @@ public class ColumnCardinalityCache
                 return rangeValues.build();
             }
             finally {
-                if (bScanner != null) {
+                if (scanner != null) {
                     // Don't forget to close your scanner before returning the cardinalities
-                    bScanner.close();
+                    scanner.close();
                 }
             }
         }
