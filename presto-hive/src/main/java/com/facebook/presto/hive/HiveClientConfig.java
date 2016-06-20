@@ -74,6 +74,7 @@ public class HiveClientConfig
     private HostAndPort metastoreSocksProxy;
     private Duration metastoreTimeout = new Duration(10, TimeUnit.SECONDS);
 
+    private Duration ipcPingInterval = new Duration(10, TimeUnit.SECONDS);
     private Duration dfsTimeout = new Duration(10, TimeUnit.SECONDS);
     private Duration dfsConnectTimeout = new Duration(500, TimeUnit.MILLISECONDS);
     private int dfsConnectMaxRetries = 5;
@@ -434,6 +435,20 @@ public class HiveClientConfig
     public HiveClientConfig setResourceConfigFiles(List<String> files)
     {
         this.resourceConfigFiles = (files == null) ? null : ImmutableList.copyOf(files);
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("1ms")
+    public Duration getIpcPingInterval()
+    {
+        return ipcPingInterval;
+    }
+
+    @Config("hive.ipc-ping-interval")
+    public HiveClientConfig setIpcPingInterval(Duration pingInterval)
+    {
+        this.ipcPingInterval = pingInterval;
         return this;
     }
 
