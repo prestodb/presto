@@ -18,6 +18,7 @@ import com.facebook.presto.operator.aggregation.state.HyperLogLogState;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.type.LiteralParameters;
 import com.facebook.presto.type.SqlType;
 import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
@@ -40,7 +41,8 @@ public final class ApproximateSetAggregation
     }
 
     @InputFunction
-    public static void input(HyperLogLogState state, @SqlType(StandardTypes.VARCHAR) Slice value)
+    @LiteralParameters("x")
+    public static void input(HyperLogLogState state, @SqlType("varchar(x)") Slice value)
     {
         HyperLogLog hll = getOrCreateHyperLogLog(state);
         state.addMemoryUsage(-hll.estimatedInMemorySize());

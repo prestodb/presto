@@ -23,11 +23,13 @@ import io.airlift.slice.Slices;
 
 import static com.facebook.presto.operator.aggregation.ApproximateUtils.countError;
 import static com.facebook.presto.operator.aggregation.ApproximateUtils.formatApproximateResult;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 
 @AggregationFunction(value = "count", approximate = true)
 public final class ApproximateCountColumnAggregations
 {
+    private static final int OUTPUT_VARCHAR_TYPE = 57;
+
     private ApproximateCountColumnAggregations() {}
 
     @InputFunction
@@ -66,11 +68,11 @@ public final class ApproximateCountColumnAggregations
         state.setSamples(state.getSamples() + otherState.getSamples());
     }
 
-    @OutputFunction(StandardTypes.VARCHAR)
+    @OutputFunction("varchar(57)")
     public static void output(ApproximateCountState state, double confidence, BlockBuilder out)
     {
         String result = formatApproximateResult(state.getCount(), countError(state.getSamples(), state.getCount()), confidence, true);
-        VARCHAR.writeSlice(out, Slices.utf8Slice(result));
+        createVarcharType(OUTPUT_VARCHAR_TYPE).writeSlice(out, Slices.utf8Slice(result));
     }
 
     public interface ApproximateCountState

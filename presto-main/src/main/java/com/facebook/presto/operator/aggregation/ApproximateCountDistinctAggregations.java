@@ -18,6 +18,7 @@ import com.facebook.presto.operator.aggregation.state.HyperLogLogState;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.type.LiteralParameters;
 import com.facebook.presto.type.SqlType;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.annotations.VisibleForTesting;
@@ -84,13 +85,15 @@ public final class ApproximateCountDistinctAggregations
     }
 
     @InputFunction
-    public static void input(HyperLogLogState state, @SqlType(StandardTypes.VARCHAR) Slice value)
+    @LiteralParameters("x")
+    public static void input(HyperLogLogState state, @SqlType("varchar(x)") Slice value)
     {
         input(state, value, DEFAULT_STANDARD_ERROR);
     }
 
     @InputFunction
-    public static void input(HyperLogLogState state, @SqlType(StandardTypes.VARCHAR) Slice value, @SqlType(StandardTypes.DOUBLE) double maxStandardError)
+    @LiteralParameters("x")
+    public static void input(HyperLogLogState state, @SqlType("varchar(x)") Slice value, @SqlType(StandardTypes.DOUBLE) double maxStandardError)
     {
         inputBinary(state, value, maxStandardError);
     }
