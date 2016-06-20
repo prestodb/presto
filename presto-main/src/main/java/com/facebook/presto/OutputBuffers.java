@@ -26,7 +26,7 @@ import java.util.Objects;
 
 import static com.facebook.presto.OutputBuffers.BufferType.BROADCAST;
 import static com.facebook.presto.OutputBuffers.BufferType.PARTITIONED;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isFixedBroadcastPartitioning;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -45,7 +45,7 @@ public final class OutputBuffers
     public static OutputBuffers createInitialEmptyOutputBuffers(PartitioningHandle partitioningHandle)
     {
         BufferType type;
-        if (partitioningHandle.equals(FIXED_BROADCAST_DISTRIBUTION)) {
+        if (isFixedBroadcastPartitioning(partitioningHandle)) {
             type = BROADCAST;
         }
         else {
