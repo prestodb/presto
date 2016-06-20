@@ -118,7 +118,7 @@ public class PlanFragmenter
                     Maps.filterKeys(types, in(dependencies)),
                     properties.getPartitioningHandle(),
                     schedulingOrder,
-                    properties.getPartitioningScheme());
+                    properties.getOutputPartitioningScheme());
 
             return new SubPlan(fragment, properties.getChildren());
         }
@@ -224,14 +224,14 @@ public class PlanFragmenter
     {
         private final List<SubPlan> children = new ArrayList<>();
 
-        private final PartitioningScheme partitioningScheme;
+        private final PartitioningScheme outputPartitioningScheme;
 
         private Optional<PartitioningHandle> partitioningHandle = Optional.empty();
         private final Set<PlanNodeId> partitionedSources = new HashSet<>();
 
-        public FragmentProperties(PartitioningScheme partitioningScheme)
+        public FragmentProperties(PartitioningScheme outputPartitioningScheme)
         {
-            this.partitioningScheme = partitioningScheme;
+            this.outputPartitioningScheme = outputPartitioningScheme;
         }
 
         public List<SubPlan> getChildren()
@@ -319,9 +319,9 @@ public class PlanFragmenter
             return this;
         }
 
-        public PartitioningScheme getPartitioningScheme()
+        public PartitioningScheme getOutputPartitioningScheme()
         {
-            return partitioningScheme;
+            return outputPartitioningScheme;
         }
 
         public PartitioningHandle getPartitioningHandle()

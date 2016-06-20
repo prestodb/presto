@@ -162,7 +162,7 @@ public class SqlTaskExecution
                         taskContext.getSession(),
                         fragment.getRoot(),
                         fragment.getSymbols(),
-                        fragment.getPartitioningScheme(),
+                        fragment.getOutputPartitioningScheme(),
                         outputBuffer);
                 driverFactories = localExecutionPlan.getDriverFactories();
             }

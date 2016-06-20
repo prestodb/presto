@@ -276,13 +276,13 @@ public class PlanPrinter
                             stageStats.get().getOutputDataSize()));
         }
 
-        PartitioningScheme partitioningScheme = fragment.getPartitioningScheme();
+        PartitioningScheme outputPartitioningScheme = fragment.getOutputPartitioningScheme();
         builder.append(indentString(1))
                 .append(format("Output layout: [%s]\n",
-                        Joiner.on(", ").join(partitioningScheme.getOutputLayout())));
+                        Joiner.on(", ").join(outputPartitioningScheme.getOutputLayout())));
 
-        boolean replicateNulls = partitioningScheme.isReplicateNulls();
-        List<String> arguments = partitioningScheme.getPartitioning().getArguments().stream()
+        boolean replicateNulls = outputPartitioningScheme.isReplicateNulls();
+        List<String> arguments = outputPartitioningScheme.getPartitioning().getArguments().stream()
                 .map(argument -> {
                     if (argument.isConstant()) {
                         NullableValue constant = argument.getConstant();
@@ -295,12 +295,12 @@ public class PlanPrinter
         builder.append(indentString(1));
         if (replicateNulls) {
             builder.append(format("Output partitioning: %s (replicate nulls) [%s]\n",
-                    partitioningScheme.getPartitioning().getHandle(),
+                    outputPartitioningScheme.getPartitioning().getHandle(),
                     Joiner.on(", ").join(arguments)));
         }
         else {
             builder.append(format("Output partitioning: %s [%s]\n",
-                    partitioningScheme.getPartitioning().getHandle(),
+                    outputPartitioningScheme.getPartitioning().getHandle(),
                     Joiner.on(", ").join(arguments)));
         }
 
