@@ -542,10 +542,11 @@ public class PrestoStatement
                 (direction == ResultSet.FETCH_UNKNOWN);
     }
 
-    private static void checkSetOrResetSession(StatementClient client) throws SQLException
+    private static void checkSetOrResetSession(StatementClient client)
+            throws SQLException
     {
         if (!client.getSetSessionProperties().isEmpty() || !client.getResetSessionProperties().isEmpty()) {
-            throw new SQLFeatureNotSupportedException(
+            throw new SQLFeatureNotSupportedException("" +
                     "SET/RESET SESSION is not supported via JDBC. " +
                     "Use the setSessionProperty() method on PrestoConnection.");
         }

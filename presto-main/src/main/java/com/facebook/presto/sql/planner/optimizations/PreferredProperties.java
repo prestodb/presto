@@ -382,8 +382,8 @@ class PreferredProperties
                     .map(Optional::get)
                     .collect(toImmutableSet());
 
-            // If nothing can be translated, then we won't have any partitioning preferences
-            if (newPartitioningColumns.isEmpty()) {
+            // Translation fails if we have prior partitioning columns and none could be translated
+            if (!partitioningColumns.isEmpty() && newPartitioningColumns.isEmpty()) {
                 return Optional.empty();
             }
 

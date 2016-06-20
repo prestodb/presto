@@ -16,14 +16,20 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.tree.Deallocate;
+import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.Prepare;
+import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.inject.Inject;
 
 import java.util.concurrent.CompletableFuture;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.SqlFormatterUtil.getFormattedSql;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -53,7 +59,13 @@ public class PrepareTask
     @Override
     public CompletableFuture<?> execute(Prepare prepare, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
     {
-        String sql = getFormattedSql(prepare.getStatement(), sqlParser);
+        Statement statement = prepare.getStatement();
+        if ((statement instanceof Prepare) || (statement instanceof Execute) || (statement instanceof Deallocate)) {
+            String type = statement.getClass().getSimpleName().toUpperCase(ENGLISH);
+            throw new PrestoException(NOT_SUPPORTED, "Invalid statement type for prepared statement: " + type);
+        }
+
+        String sql = getFormattedSql(statement, sqlParser);
         stateMachine.addPreparedStatement(prepare.getName(), sql);
         return completedFuture(null);
     }

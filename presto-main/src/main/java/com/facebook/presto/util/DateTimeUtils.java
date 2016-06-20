@@ -13,11 +13,14 @@
  */
 package com.facebook.presto.util;
 
-import com.facebook.presto.spi.type.SqlIntervalDayTime;
+import com.facebook.presto.client.IntervalDayTime;
+import com.facebook.presto.client.IntervalYearMonth;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.sql.tree.IntervalLiteral.IntervalField;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+import org.joda.time.DurationFieldType;
 import org.joda.time.MutablePeriod;
 import org.joda.time.Period;
 import org.joda.time.ReadWritablePeriod;
@@ -39,12 +42,14 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.packDateTimeWithZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackDateTimeZone;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 
 public final class DateTimeUtils
@@ -305,18 +310,18 @@ public final class DateTimeUtils
 
     public static long parsePeriodMillis(PeriodFormatter periodFormatter, String value, IntervalField startField, IntervalField endField)
     {
-        Period period = parsePeriod(periodFormatter, value, startField, endField);
-        return SqlIntervalDayTime.toMillis(
-                period.getValue(DAY_FIELD),
-                period.getValue(HOUR_FIELD),
-                period.getValue(MINUTE_FIELD),
-                period.getValue(SECOND_FIELD),
-                period.getValue(MILLIS_FIELD));
-    }
-
-    public static String printDayTimeInterval(long millis)
-    {
-        return SqlIntervalDayTime.formatMillis(millis);
+        try {
+            Period period = parsePeriod(periodFormatter, value);
+            return IntervalDayTime.toMillis(
+                    period.getValue(DAY_FIELD),
+                    period.getValue(HOUR_FIELD),
+                    period.getValue(MINUTE_FIELD),
+                    period.getValue(SECOND_FIELD),
+                    period.getValue(MILLIS_FIELD));
+        }
+        catch (IllegalArgumentException e) {
+            throw invalidInterval(e, value, startField, endField);
+        }
     }
 
     public static long parseYearMonthInterval(String value, IntervalField startField, Optional<IntervalField> endField)
@@ -340,24 +345,45 @@ public final class DateTimeUtils
 
     private static long parsePeriodMonths(String value, PeriodFormatter periodFormatter, IntervalField startField, IntervalField endField)
     {
-        Period period = parsePeriod(periodFormatter, value, startField, endField);
-        return period.getValue(YEAR_FIELD) * 12 +
-                period.getValue(MONTH_FIELD);
-    }
-
-    public static String printYearMonthInterval(long months)
-    {
-        return (months / 12) + "-" + (months % 12);
-    }
-
-    private static Period parsePeriod(PeriodFormatter periodFormatter, String value, IntervalField startField, IntervalField endField)
-    {
         try {
-            return periodFormatter.parsePeriod(value);
+            Period period = parsePeriod(periodFormatter, value);
+            return IntervalYearMonth.toMonths(
+                    period.getValue(YEAR_FIELD),
+                    period.getValue(MONTH_FIELD));
         }
         catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Invalid INTERVAL " + startField + " to " + endField + " value: " + value, e);
+            throw invalidInterval(e, value, startField, endField);
         }
+    }
+
+    private static Period parsePeriod(PeriodFormatter periodFormatter, String value)
+    {
+        boolean negative = value.startsWith("-");
+        if (negative) {
+            value = value.substring(1);
+        }
+
+        Period period = periodFormatter.parsePeriod(value);
+        for (DurationFieldType type : period.getFieldTypes()) {
+            checkArgument(period.get(type) >= 0, "Period field %s is negative", type);
+        }
+
+        if (negative) {
+            period = period.negated();
+        }
+        return period;
+    }
+
+    private static PrestoException invalidInterval(Throwable throwable, String value, IntervalField startField, IntervalField endField)
+    {
+        String message;
+        if (startField == endField) {
+            message = format("Invalid INTERVAL %s value: %s", startField, value);
+        }
+        else {
+            message = format("Invalid INTERVAL %s TO %s value: %s", startField, endField, value);
+        }
+        return new PrestoException(INVALID_FUNCTION_ARGUMENT, message, throwable);
     }
 
     private static PeriodFormatter cretePeriodFormatter(IntervalField startField, IntervalField endField)

@@ -11,30 +11,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.jdbc;
+package com.facebook.presto.type;
+
+import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.Objects;
 
 import static com.facebook.presto.client.IntervalYearMonth.formatMonths;
 import static com.facebook.presto.client.IntervalYearMonth.toMonths;
 
-public class PrestoIntervalYearMonth
+public class SqlIntervalYearMonth
 {
     private final long months;
 
-    public PrestoIntervalYearMonth(long months)
+    public SqlIntervalYearMonth(long months)
     {
         this.months = months;
     }
 
-    public PrestoIntervalYearMonth(int year, int months)
+    public SqlIntervalYearMonth(int year, int months)
     {
         this.months = toMonths(year, months);
-    }
-
-    public long getMonths()
-    {
-        return months;
     }
 
     @Override
@@ -52,13 +49,19 @@ public class PrestoIntervalYearMonth
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        PrestoIntervalYearMonth other = (PrestoIntervalYearMonth) obj;
+        SqlIntervalYearMonth other = (SqlIntervalYearMonth) obj;
         return Objects.equals(this.months, other.months);
     }
 
+    @JsonValue
     @Override
     public String toString()
     {
         return formatMonths(months);
+    }
+
+    public long getMonths()
+    {
+        return months;
     }
 }

@@ -439,13 +439,13 @@ public class TestMathFunctions
         assertFunction("round( 3.499)", DOUBLE, 3.0);
         assertFunction("round(-3.499)", DOUBLE, -3.0);
         assertFunction("round( 3.5)", DOUBLE, 4.0);
-        assertFunction("round(-3.5)", DOUBLE, -3.0);
+        assertFunction("round(-3.5)", DOUBLE, -4.0);
         assertFunction("round(-3.5001)", DOUBLE, -4.0);
         assertFunction("round(-3.99)", DOUBLE, -4.0);
         assertFunction("round(CAST(NULL as DOUBLE))", DOUBLE, null);
         assertFunction("round(" + GREATEST_DOUBLE_LESS_THAN_HALF + ")", DOUBLE, 0.0);
-        assertFunction("round(-" + 0x1p-1 + ")", DOUBLE, 0.0); // -0.5
-        assertFunction("round(-" + GREATEST_DOUBLE_LESS_THAN_HALF + ")", DOUBLE, 0.0);
+        assertFunction("round(-" + 0x1p-1 + ")", DOUBLE, -1.0); // -0.5
+        assertFunction("round(-" + GREATEST_DOUBLE_LESS_THAN_HALF + ")", DOUBLE, -0.0);
 
         assertFunction("round(3, 0)", INTEGER, 3);
         assertFunction("round(-3, 0)", INTEGER, -3);
@@ -458,12 +458,14 @@ public class TestMathFunctions
         assertFunction("round( 3.499, 0)", DOUBLE, 3.0);
         assertFunction("round(-3.499, 0)", DOUBLE, -3.0);
         assertFunction("round( 3.5, 0)", DOUBLE, 4.0);
-        assertFunction("round(-3.5, 0)", DOUBLE, -3.0);
+        assertFunction("round(-3.5, 0)", DOUBLE, -4.0);
         assertFunction("round(-3.5001, 0)", DOUBLE, -4.0);
         assertFunction("round(-3.99, 0)", DOUBLE, -4.0);
         assertFunction("round(" + GREATEST_DOUBLE_LESS_THAN_HALF + ", 0)", DOUBLE, 0.0);
-        assertFunction("round(-" + 0x1p-1 + ")", DOUBLE, 0.0); // -0.5
-        assertFunction("round(-" + GREATEST_DOUBLE_LESS_THAN_HALF + ", 0)", DOUBLE, 0.0);
+        assertFunction("round(-" + 0x1p-1 + ")", DOUBLE, -1.0); // -0.5
+        assertFunction("round(-" + GREATEST_DOUBLE_LESS_THAN_HALF + ", 0)", DOUBLE, -0.0);
+        assertFunction("round(0.3)", DOUBLE, 0.0);
+        assertFunction("round(-0.3)", DOUBLE, -0.0);
 
         assertFunction("round(3, 1)", INTEGER, 3);
         assertFunction("round(-3, 1)", INTEGER, -3);
@@ -485,6 +487,10 @@ public class TestMathFunctions
         assertFunction("round(CAST(NULL as DOUBLE), CAST(NULL as BIGINT))", DOUBLE, null);
         assertFunction("round(-3.0, CAST(NULL as BIGINT))", DOUBLE, null);
         assertFunction("round(CAST(NULL as DOUBLE), 1)", DOUBLE, null);
+
+        assertFunction("round(nan(), 2)", DOUBLE, Double.NaN);
+        assertFunction("round(1.0 / 0, 2)", DOUBLE, Double.POSITIVE_INFINITY);
+        assertFunction("round(-1.0 / 0, 2)", DOUBLE, Double.NEGATIVE_INFINITY);
     }
 
     @Test

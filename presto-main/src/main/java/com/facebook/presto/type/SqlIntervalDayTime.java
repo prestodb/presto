@@ -11,30 +11,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.type;
+package com.facebook.presto.type;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.Objects;
 
-public class SqlIntervalYearMonth
-{
-    private final long months;
+import static com.facebook.presto.client.IntervalDayTime.formatMillis;
+import static com.facebook.presto.client.IntervalDayTime.toMillis;
 
-    public SqlIntervalYearMonth(long months)
+public class SqlIntervalDayTime
+{
+    private final long milliSeconds;
+
+    public SqlIntervalDayTime(long milliSeconds)
     {
-        this.months = months;
+        this.milliSeconds = milliSeconds;
     }
 
-    public SqlIntervalYearMonth(int year, int months)
+    public SqlIntervalDayTime(int day, int hour, int minute, int second, int millis)
     {
-        this.months = 12 * year + months;
+        milliSeconds = toMillis(day, hour, minute, second, millis);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(months);
+        return Objects.hash(milliSeconds);
     }
 
     @Override
@@ -46,19 +49,19 @@ public class SqlIntervalYearMonth
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        SqlIntervalYearMonth other = (SqlIntervalYearMonth) obj;
-        return Objects.equals(this.months, other.months);
+        SqlIntervalDayTime other = (SqlIntervalDayTime) obj;
+        return Objects.equals(this.milliSeconds, other.milliSeconds);
     }
 
     @JsonValue
     @Override
     public String toString()
     {
-        return formatMonths(months);
+        return formatMillis(milliSeconds);
     }
 
-    public static String formatMonths(long months)
+    public long getMillis()
     {
-        return (months / 12) + "-" + (months % 12);
+        return milliSeconds;
     }
 }

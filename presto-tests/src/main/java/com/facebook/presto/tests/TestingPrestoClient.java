@@ -23,9 +23,14 @@ import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.type.SqlIntervalDayTime;
+import com.facebook.presto.type.SqlIntervalYearMonth;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
+import org.joda.time.Period;
+import org.joda.time.format.PeriodFormatter;
+import org.joda.time.format.PeriodFormatterBuilder;
 
 import java.math.BigDecimal;
 import java.sql.Date;
@@ -55,6 +60,8 @@ import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_W
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.testing.MaterializedResult.DEFAULT_PRECISION;
+import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static com.facebook.presto.util.DateTimeUtils.parseDate;
 import static com.facebook.presto.util.DateTimeUtils.parseTime;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithTimeZone;
@@ -70,6 +77,30 @@ public class TestingPrestoClient
         extends AbstractTestingPrestoClient<MaterializedResult>
 {
     private static final Logger log = Logger.get("TestQueries");
+
+    private static final PeriodFormatter INTERVAL_YEAR_TO_MONTH_FORMATTER = new PeriodFormatterBuilder()
+            .appendYears()
+            .appendLiteral("-")
+            .appendMonths()
+            .toFormatter();
+
+    private static final PeriodFormatter INTERVAL_DAY_TO_SECOND_FORMATTER = new PeriodFormatterBuilder()
+            .appendDays()
+            .appendLiteral(" ")
+            .appendHours()
+            .appendLiteral(":")
+            .appendMinutes()
+            .appendLiteral(":")
+            .appendSecondsWithOptionalMillis()
+            .toFormatter();
+
+    private static final int YEAR_FIELD = 0;
+    private static final int MONTH_FIELD = 1;
+    private static final int DAY_FIELD = 3;
+    private static final int HOUR_FIELD = 4;
+    private static final int MINUTE_FIELD = 5;
+    private static final int SECOND_FIELD = 6;
+    private static final int MILLIS_FIELD = 7;
 
     public TestingPrestoClient(TestingPrestoServer prestoServer, Session defaultSession)
     {
@@ -202,6 +233,21 @@ public class TestingPrestoClient
         }
         else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
             return new Timestamp(unpackMillisUtc(parseTimestampWithTimeZone(timeZoneKey, (String) value)));
+        }
+        else if (INTERVAL_DAY_TIME.equals(type)) {
+            Period period = INTERVAL_DAY_TO_SECOND_FORMATTER.parsePeriod(String.valueOf(value));
+            return new SqlIntervalDayTime(
+                    period.getValue(DAY_FIELD),
+                    period.getValue(HOUR_FIELD),
+                    period.getValue(MINUTE_FIELD),
+                    period.getValue(SECOND_FIELD),
+                    period.getValue(MILLIS_FIELD));
+        }
+        else if (INTERVAL_YEAR_MONTH.equals(type)) {
+            Period period = INTERVAL_YEAR_TO_MONTH_FORMATTER.parsePeriod(String.valueOf(value));
+            return new SqlIntervalYearMonth(
+                    period.getValue(YEAR_FIELD),
+                    period.getValue(MONTH_FIELD));
         }
         else if (type instanceof ArrayType) {
             return ((List<Object>) value).stream()
