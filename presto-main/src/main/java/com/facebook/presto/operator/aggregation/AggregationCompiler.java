@@ -121,7 +121,7 @@ public class AggregationCompiler
                             MethodHandle combineHandle = combineFunction == null ? null : lookup().unreflect(combineFunction);
                             MethodHandle outputHandle = outputFunction == null ? null : lookup().unreflect(outputFunction);
                             metadata = new AggregationMetadata(
-                                    generateAggregationName(name, outputType, inputTypes),
+                                    generateAggregationName(name, outputType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                                     getParameterMetadata(inputFunction, aggregationAnnotation.approximate()),
                                     inputHandle,
                                     getParameterMetadata(intermediateInputFunction, false),
