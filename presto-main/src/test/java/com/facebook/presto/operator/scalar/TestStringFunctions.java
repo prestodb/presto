@@ -262,17 +262,17 @@ public class TestStringFunctions
         assertFunction("SPLIT_TO_MAP('\u4EFF\u4EC1', '\u4E00', '\u4EFF')", expectedType, ImmutableMap.of("", "\u4EC1"));
 
         // Entry delimiter and key-value delimiter must not be the same.
-        assertInvalidFunction("SPLIT_TO_MAP('', '\u4EFF', '\u4EFF')", expectedType, "entryDelimiter and keyValueDelimiter must not be the same");
-        assertInvalidFunction("SPLIT_TO_MAP('a=123,b=.4,c=', '=', '=')", expectedType, "entryDelimiter and keyValueDelimiter must not be the same");
+        assertInvalidFunction("SPLIT_TO_MAP('', '\u4EFF', '\u4EFF')", "entryDelimiter and keyValueDelimiter must not be the same");
+        assertInvalidFunction("SPLIT_TO_MAP('a=123,b=.4,c=', '=', '=')", "entryDelimiter and keyValueDelimiter must not be the same");
 
         // Duplicate keys are not allowed to exist.
-        assertInvalidFunction("SPLIT_TO_MAP('a=123,a=.4', ',', '=')", expectedType, "Duplicate keys (a) are not allowed");
-        assertInvalidFunction("SPLIT_TO_MAP('\u4EA0\u4EFF\u4EA1\u4E00\u4EA0\u4EFF\u4EB1', '\u4E00', '\u4EFF')", expectedType, "Duplicate keys (\u4EA0) are not allowed");
+        assertInvalidFunction("SPLIT_TO_MAP('a=123,a=.4', ',', '=')", "Duplicate keys (a) are not allowed");
+        assertInvalidFunction("SPLIT_TO_MAP('\u4EA0\u4EFF\u4EA1\u4E00\u4EA0\u4EFF\u4EB1', '\u4E00', '\u4EFF')", "Duplicate keys (\u4EA0) are not allowed");
 
         // Key-value delimiter must appear exactly once in each entry.
-        assertInvalidFunction("SPLIT_TO_MAP('key', ',', '=')", expectedType, "Key-value delimiter must appear exactly once in each entry. Bad input: 'key'");
-        assertInvalidFunction("SPLIT_TO_MAP('key==value', ',', '=')", expectedType, "Key-value delimiter must appear exactly once in each entry. Bad input: 'key==value'");
-        assertInvalidFunction("SPLIT_TO_MAP('key=va=lue', ',', '=')", expectedType, "Key-value delimiter must appear exactly once in each entry. Bad input: 'key=va=lue'");
+        assertInvalidFunction("SPLIT_TO_MAP('key', ',', '=')", "Key-value delimiter must appear exactly once in each entry. Bad input: 'key'");
+        assertInvalidFunction("SPLIT_TO_MAP('key==value', ',', '=')", "Key-value delimiter must appear exactly once in each entry. Bad input: 'key==value'");
+        assertInvalidFunction("SPLIT_TO_MAP('key=va=lue', ',', '=')", "Key-value delimiter must appear exactly once in each entry. Bad input: 'key=va=lue'");
     }
 
     @Test

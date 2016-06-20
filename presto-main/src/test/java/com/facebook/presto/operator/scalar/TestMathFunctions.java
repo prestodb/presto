@@ -683,7 +683,7 @@ public class TestMathFunctions
         assertFunction("to_base(NULL, 16)", VARCHAR, null);
         assertFunction("to_base(-2147483647, NULL)", VARCHAR, null);
         assertFunction("to_base(NULL, NULL)", VARCHAR, null);
-        assertInvalidFunction("to_base(255, 1)", VARCHAR, "Radix must be between 2 and 36");
+        assertInvalidFunction("to_base(255, 1)", "Radix must be between 2 and 36");
         assertInvalidFunction("to_base(255, 1)", "Radix must be between 2 and 36");
     }
 
@@ -702,9 +702,9 @@ public class TestMathFunctions
         assertInvalidFunction("from_base('Z', 37)", "Radix must be between 2 and 36");
         assertInvalidFunction("from_base('Z', 35)", "Not a valid base-35 number: Z");
         assertInvalidFunction("from_base('9223372036854775808', 10)", "Not a valid base-10 number: 9223372036854775808");
-        assertInvalidFunction("from_base('Z', 37)", BIGINT, "Radix must be between 2 and 36");
-        assertInvalidFunction("from_base('Z', 35)", BIGINT, "Not a valid base-35 number: Z");
-        assertInvalidFunction("from_base('9223372036854775808', 10)", BIGINT, "Not a valid base-10 number: 9223372036854775808");
+        assertInvalidFunction("from_base('Z', 37)", "Radix must be between 2 and 36");
+        assertInvalidFunction("from_base('Z', 35)", "Not a valid base-35 number: Z");
+        assertInvalidFunction("from_base('9223372036854775808', 10)", "Not a valid base-10 number: 9223372036854775808");
     }
 
     @Test
