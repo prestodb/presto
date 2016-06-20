@@ -75,7 +75,7 @@ public class HiveClientConfig
     private Duration metastoreTimeout = new Duration(10, TimeUnit.SECONDS);
 
     private Duration ipcPingInterval = new Duration(10, TimeUnit.SECONDS);
-    private Duration dfsTimeout = new Duration(10, TimeUnit.SECONDS);
+    private Duration dfsTimeout = new Duration(60, TimeUnit.SECONDS);
     private Duration dfsConnectTimeout = new Duration(500, TimeUnit.MILLISECONDS);
     private int dfsConnectMaxRetries = 5;
     private boolean verifyChecksum = true;
