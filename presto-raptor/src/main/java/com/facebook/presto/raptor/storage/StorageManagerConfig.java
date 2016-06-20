@@ -121,6 +121,7 @@ public class StorageManagerConfig
         return this;
     }
 
+    @MinDuration("1s")
     public Duration getShardRecoveryTimeout()
     {
         return shardRecoveryTimeout;
@@ -134,6 +135,7 @@ public class StorageManagerConfig
         return this;
     }
 
+    @MinDuration("1s")
     public Duration getMissingShardDiscoveryInterval()
     {
         return missingShardDiscoveryInterval;
@@ -147,6 +149,7 @@ public class StorageManagerConfig
         return this;
     }
 
+    @MinDuration("1s")
     public Duration getCompactionInterval()
     {
         return compactionInterval;
