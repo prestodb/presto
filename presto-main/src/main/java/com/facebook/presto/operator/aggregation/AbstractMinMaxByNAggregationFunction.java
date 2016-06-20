@@ -46,6 +46,7 @@ import static com.facebook.presto.operator.aggregation.AggregationUtils.generate
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
 
@@ -152,7 +153,7 @@ public abstract class AbstractMinMaxByNAggregationFunction
                 new AggregationMetadata.ParameterMetadata(INPUT_CHANNEL, BIGINT));
 
         AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(name, valueType, inputTypes),
+                generateAggregationName(name, valueType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 inputParameterMetadata,
                 INPUT_FUNCTION.bindTo(comparator).bindTo(valueType).bindTo(keyType),
                 null,

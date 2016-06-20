@@ -37,6 +37,7 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static java.lang.invoke.MethodHandles.insertArguments;
 
@@ -78,7 +79,7 @@ public abstract class AbstractMinMaxBy
 
         MaxOrMinByStateFactory stateFactory = new MaxOrMinByStateFactory();
         AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(getSignature().getName(), valueType, inputTypes),
+                generateAggregationName(getSignature().getName(), valueType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(valueType, keyType),
                 insertArguments(INPUT_FUNCTION, 0, min).bindTo(keyType),
                 null,
