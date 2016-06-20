@@ -269,13 +269,13 @@ public class LocalExecutionPlanner
             Session session,
             PlanNode plan,
             Map<Symbol, Type> types,
-            PartitioningScheme partitioningScheme,
+            PartitioningScheme outputPartitioningScheme,
             OutputBuffer outputBuffer)
     {
-        List<Symbol> outputLayout = partitioningScheme.getOutputLayout();
-        if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_BROADCAST_DISTRIBUTION) ||
-                partitioningScheme.getPartitioning().getHandle().equals(SINGLE_DISTRIBUTION) ||
-                partitioningScheme.getPartitioning().getHandle().equals(COORDINATOR_DISTRIBUTION)) {
+        List<Symbol> outputLayout = outputPartitioningScheme.getOutputLayout();
+        if (outputPartitioningScheme.getPartitioning().getHandle().equals(FIXED_BROADCAST_DISTRIBUTION) ||
+                outputPartitioningScheme.getPartitioning().getHandle().equals(SINGLE_DISTRIBUTION) ||
+                outputPartitioningScheme.getPartitioning().getHandle().equals(COORDINATOR_DISTRIBUTION)) {
             return plan(session, plan, outputLayout, types, new TaskOutputFactory(outputBuffer));
         }
 
@@ -283,17 +283,17 @@ public class LocalExecutionPlanner
         List<Integer> partitionChannels;
         List<Optional<NullableValue>> partitionConstants;
         List<Type> partitionChannelTypes;
-        if (partitioningScheme.getHashColumn().isPresent()) {
-            partitionChannels = ImmutableList.of(outputLayout.indexOf(partitioningScheme.getHashColumn().get()));
+        if (outputPartitioningScheme.getHashColumn().isPresent()) {
+            partitionChannels = ImmutableList.of(outputLayout.indexOf(outputPartitioningScheme.getHashColumn().get()));
             partitionConstants = ImmutableList.of(Optional.empty());
             partitionChannelTypes = ImmutableList.of(BIGINT);
         }
         else {
-            partitionChannels = partitioningScheme.getPartitioning().getArguments().stream()
+            partitionChannels = outputPartitioningScheme.getPartitioning().getArguments().stream()
                     .map(ArgumentBinding::getColumn)
                     .map(outputLayout::indexOf)
                     .collect(toImmutableList());
-            partitionConstants = partitioningScheme.getPartitioning().getArguments().stream()
+            partitionConstants = outputPartitioningScheme.getPartitioning().getArguments().stream()
                     .map(argument -> {
                         if (argument.isConstant()) {
                             return Optional.of(argument.getConstant());
@@ -301,7 +301,7 @@ public class LocalExecutionPlanner
                         return Optional.<NullableValue>empty();
                     })
                     .collect(toImmutableList());
-            partitionChannelTypes = partitioningScheme.getPartitioning().getArguments().stream()
+            partitionChannelTypes = outputPartitioningScheme.getPartitioning().getArguments().stream()
                     .map(argument -> {
                         if (argument.isConstant()) {
                             return argument.getConstant().getType();
@@ -311,13 +311,13 @@ public class LocalExecutionPlanner
                     .collect(toImmutableList());
         }
 
-        PartitionFunction partitionFunction = nodePartitioningManager.getPartitionFunction(session, partitioningScheme, partitionChannelTypes);
+        PartitionFunction partitionFunction = nodePartitioningManager.getPartitionFunction(session, outputPartitioningScheme, partitionChannelTypes);
         OptionalInt nullChannel = OptionalInt.empty();
-        Set<Symbol> partitioningColumns = partitioningScheme.getPartitioning().getColumns();
+        Set<Symbol> partitioningColumns = outputPartitioningScheme.getPartitioning().getColumns();
 
         // partitioningColumns expected to have one column in the normal case, and zero columns when partitioning on a constant
-        checkArgument(!partitioningScheme.isReplicateNulls() || partitioningColumns.size() <= 1);
-        if (partitioningScheme.isReplicateNulls() && partitioningColumns.size() == 1) {
+        checkArgument(!outputPartitioningScheme.isReplicateNulls() || partitioningColumns.size() <= 1);
+        if (outputPartitioningScheme.isReplicateNulls() && partitioningColumns.size() == 1) {
             nullChannel = OptionalInt.of(outputLayout.indexOf(getOnlyElement(partitioningColumns)));
         }
 

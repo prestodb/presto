@@ -158,7 +158,7 @@ public class TestPhasedExecutionSchedule
                 Stream.of(fragments)
                         .map(PlanFragment::getId)
                         .collect(toImmutableList()),
-                fragments[0].getPartitioningScheme().getOutputLayout());
+                fragments[0].getOutputPartitioningScheme().getOutputLayout());
 
         return createFragment(planNode);
     }
@@ -168,7 +168,7 @@ public class TestPhasedExecutionSchedule
         PlanNode planNode = new UnionNode(
                 new PlanNodeId(name + "_id"),
                 Stream.of(fragments)
-                        .map(fragment -> new RemoteSourceNode(new PlanNodeId(fragment.getId().toString()), fragment.getId(), fragment.getPartitioningScheme().getOutputLayout()))
+                        .map(fragment -> new RemoteSourceNode(new PlanNodeId(fragment.getId().toString()), fragment.getId(), fragment.getOutputPartitioningScheme().getOutputLayout()))
                         .collect(toImmutableList()),
                 ImmutableListMultimap.of(),
                 ImmutableList.of());
