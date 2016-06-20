@@ -384,24 +384,24 @@ public class TestAccumuloDistributedQueries
         // Override base class because table descriptions for Accumulo connector include comments
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
 
-        assertEquals("orderkey", actual.getMaterializedRows().get(0).getField(0));
-        assertEquals("bigint", actual.getMaterializedRows().get(0).getField(1));
-        assertEquals("custkey", actual.getMaterializedRows().get(1).getField(0));
-        assertEquals("bigint", actual.getMaterializedRows().get(1).getField(1));
-        assertEquals("orderstatus", actual.getMaterializedRows().get(2).getField(0));
-        assertEquals("varchar", actual.getMaterializedRows().get(2).getField(1));
-        assertEquals("totalprice", actual.getMaterializedRows().get(3).getField(0));
-        assertEquals("double", actual.getMaterializedRows().get(3).getField(1));
-        assertEquals("orderdate", actual.getMaterializedRows().get(4).getField(0));
-        assertEquals("date", actual.getMaterializedRows().get(4).getField(1));
-        assertEquals("orderpriority", actual.getMaterializedRows().get(5).getField(0));
-        assertEquals("varchar", actual.getMaterializedRows().get(5).getField(1));
-        assertEquals("clerk", actual.getMaterializedRows().get(6).getField(0));
-        assertEquals("varchar", actual.getMaterializedRows().get(6).getField(1));
-        assertEquals("shippriority", actual.getMaterializedRows().get(7).getField(0));
-        assertEquals("integer", actual.getMaterializedRows().get(7).getField(1));
-        assertEquals("comment", actual.getMaterializedRows().get(8).getField(0));
-        assertEquals("varchar", actual.getMaterializedRows().get(8).getField(1));
+        assertEquals(actual.getMaterializedRows().get(0).getField(0), "orderkey");
+        assertEquals(actual.getMaterializedRows().get(0).getField(1), "bigint");
+        assertEquals(actual.getMaterializedRows().get(1).getField(0), "custkey");
+        assertEquals(actual.getMaterializedRows().get(1).getField(1), "bigint");
+        assertEquals(actual.getMaterializedRows().get(2).getField(0), "orderstatus");
+        assertEquals(actual.getMaterializedRows().get(2).getField(1), "varchar(1)");
+        assertEquals(actual.getMaterializedRows().get(3).getField(0), "totalprice");
+        assertEquals(actual.getMaterializedRows().get(3).getField(1), "double");
+        assertEquals(actual.getMaterializedRows().get(4).getField(0), "orderdate");
+        assertEquals(actual.getMaterializedRows().get(4).getField(1), "date");
+        assertEquals(actual.getMaterializedRows().get(5).getField(0), "orderpriority");
+        assertEquals(actual.getMaterializedRows().get(5).getField(1), "varchar(15)");
+        assertEquals(actual.getMaterializedRows().get(6).getField(0), "clerk");
+        assertEquals(actual.getMaterializedRows().get(6).getField(1), "varchar(15)");
+        assertEquals(actual.getMaterializedRows().get(7).getField(0), "shippriority");
+        assertEquals(actual.getMaterializedRows().get(7).getField(1), "integer");
+        assertEquals(actual.getMaterializedRows().get(8).getField(0), "comment");
+        assertEquals(actual.getMaterializedRows().get(8).getField(1), "varchar(79)");
     }
 
     @Test

@@ -17,6 +17,7 @@ import com.facebook.presto.accumulo.Types;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.slice.Slice;
 import org.apache.accumulo.core.client.lexicoder.BytesLexicoder;
 import org.apache.accumulo.core.client.lexicoder.DoubleLexicoder;
@@ -312,7 +313,7 @@ public class LexicoderRowSerializer
         else if (type.equals(VARBINARY) && v instanceof Slice) {
             toEncode = ((Slice) v).getBytes();
         }
-        else if (type.equals(VARCHAR) && v instanceof Slice) {
+        else if (type instanceof VarcharType && v instanceof Slice) {
             toEncode = ((Slice) v).toStringUtf8();
         }
         else if (type.equals(BIGINT) && v instanceof Integer) {
@@ -338,6 +339,9 @@ public class LexicoderRowSerializer
         }
         else if (Types.isMapType(type)) {
             return getMapLexicoder(type);
+        }
+        else if (type instanceof VarcharType) {
+            return lexicoderMap.get(VARCHAR);
         }
         else {
             Lexicoder l = lexicoderMap.get(type);
