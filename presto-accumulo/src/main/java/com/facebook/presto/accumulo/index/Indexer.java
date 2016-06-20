@@ -44,6 +44,7 @@ import org.apache.accumulo.core.iterators.LongCombiner;
 import org.apache.accumulo.core.iterators.TypedValueCombiner;
 import org.apache.accumulo.core.iterators.user.SummingCombiner;
 import org.apache.accumulo.core.security.Authorizations;
+import org.apache.accumulo.core.security.ColumnVisibility;
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.io.Text;
@@ -58,6 +59,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -65,7 +67,9 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_DNE;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.nio.ByteBuffer.wrap;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -105,27 +109,32 @@ public class Indexer
      * This variable stores the special row ID for storing metadata regarding the number of
      * rows, first row ID, and last row ID
      */
-    public static final ByteBuffer METRICS_TABLE_ROW_ID = wrap("___METRICS_TABLE___".getBytes());
+    public static final ByteBuffer METRICS_TABLE_ROW_ID = wrap("___METRICS_TABLE___".getBytes(UTF_8));
 
     /**
      * Rows column family for the METRICS_TABLE key
      */
-    public static final ByteBuffer METRICS_TABLE_ROWS_CF = wrap("___rows___".getBytes());
+    public static final ByteBuffer METRICS_TABLE_ROWS_CF = wrap("___rows___".getBytes(UTF_8));
+
+    /**
+     * MetricsKey for the row count
+     */
+    public static final MetricsKey METRICS_TABLE_ROW_COUNT = new MetricsKey(METRICS_TABLE_ROW_ID, METRICS_TABLE_ROWS_CF);
 
     /**
      * Qualifier for the first row ID of the table
      */
-    public static final ByteBuffer METRICS_TABLE_FIRST_ROW_CQ = wrap("___first_row___".getBytes());
+    public static final ByteBuffer METRICS_TABLE_FIRST_ROW_CQ = wrap("___first_row___".getBytes(UTF_8));
 
     /**
      * Qualifier for the last row ID of the table
      */
-    public static final ByteBuffer METRICS_TABLE_LAST_ROW_CQ = wrap("___last_row___".getBytes());
+    public static final ByteBuffer METRICS_TABLE_LAST_ROW_CQ = wrap("___last_row___".getBytes(UTF_8));
 
     /**
      * Cardinality Column Qualifier
      */
-    public static final byte[] CARDINALITY_CQ = "___card___".getBytes();
+    public static final byte[] CARDINALITY_CQ = "___card___".getBytes(UTF_8);
 
     /**
      * Text version of CARDINALITY_CQ
@@ -152,10 +161,11 @@ public class Indexer
     private final BatchWriter indexWrtr;
     private final BatchWriterConfig bwc;
     private final Connector conn;
+
     /**
      * This map tracks cardinality for each column family and qualifier that is added to the index
      */
-    private final Map<ByteBuffer, Map<ByteBuffer, AtomicLong>> metrics = new HashMap<>();
+    private final Map<MetricsKey, AtomicLong> metrics = new HashMap<>();
 
     /**
      * Mapping of column family to set of column qualifiers for all indexed Presto columns
@@ -207,8 +217,8 @@ public class Indexer
             if (col.isIndexed()) {
                 // Wrap the column family and qualifier for this column and add it to
                 // collection of indexed columns
-                ByteBuffer cf = wrap(col.getFamily().get().getBytes());
-                ByteBuffer cq = wrap(col.getQualifier().get().getBytes());
+                ByteBuffer cf = wrap(col.getFamily().get().getBytes(UTF_8));
+                ByteBuffer cq = wrap(col.getQualifier().get().getBytes(UTF_8));
                 indexColumnsBuilder.put(cf, cq);
 
                 // Create a mapping for this column's Presto type, again creating a new one for the
@@ -233,9 +243,7 @@ public class Indexer
 
         // Initialize metrics map
         // This metrics map is for column cardinality
-        Map<ByteBuffer, AtomicLong> cfMap = new HashMap<>();
-        cfMap.put(METRICS_TABLE_ROWS_CF, new AtomicLong(0));
-        metrics.put(METRICS_TABLE_ROW_ID, cfMap);
+        metrics.put(METRICS_TABLE_ROW_COUNT, new AtomicLong(0));
 
         // Scan the metrics table for existing first row and last row
         Pair<byte[], byte[]> minmax = getMinMaxRowIds(conn, table, auths);
@@ -255,7 +263,7 @@ public class Indexer
     public void index(Mutation m)
     {
         // Increment the cardinality for the number of rows in the table
-        metrics.get(METRICS_TABLE_ROW_ID).get(METRICS_TABLE_ROWS_CF).incrementAndGet();
+        metrics.get(METRICS_TABLE_ROW_COUNT).incrementAndGet();
 
         // Set the first and last row values of the table based on existing row IDs
         if (firstRow == null || byteArrayComparator.compare(m.getRow(), firstRow) < 0) {
@@ -287,17 +295,18 @@ public class Indexer
                     ByteBuffer idxCF = Indexer.getIndexColumnFamily(cu.getColumnFamily(),
                             cu.getColumnQualifier());
                     Type type = indexColumnTypes.get(cf).get(cq);
+                    ColumnVisibility cv = new ColumnVisibility(cu.getColumnVisibility());
 
                     // If this is an array type, then index each individual element in the array
                     if (Types.isArrayType(type)) {
                         Type eType = Types.getElementType(type);
                         List<?> array = serializer.decode(type, cu.getValue());
                         for (Object v : array) {
-                            addIndexMutation(wrap(serializer.encode(eType, v)), idxCF, m.getRow());
+                            addIndexMutation(wrap(serializer.encode(eType, v)), idxCF, cv, m.getRow());
                         }
                     }
                     else {
-                        addIndexMutation(wrap(cu.getValue()), idxCF, m.getRow());
+                        addIndexMutation(wrap(cu.getValue()), idxCF, cv, m.getRow());
                     }
                 }
             }
@@ -323,11 +332,11 @@ public class Indexer
      * @param family Family for the index mutation
      * @param qualifier Qualifier for the index mutation
      */
-    private void addIndexMutation(ByteBuffer row, ByteBuffer family, byte[] qualifier)
+    private void addIndexMutation(ByteBuffer row, ByteBuffer family, ColumnVisibility cv, byte[] qualifier)
     {
         // Create the mutation and add it to the batch writer
         Mutation mIdx = new Mutation(row.array());
-        mIdx.put(family.array(), qualifier, EMPTY_BYTES);
+        mIdx.put(family.array(), qualifier, cv, EMPTY_BYTES);
         try {
             indexWrtr.addMutation(mIdx);
         }
@@ -338,19 +347,14 @@ public class Indexer
 
         // Increment the cardinality metrics for this value of index
         // metrics is a mapping of row ID to column family
-        Map<ByteBuffer, AtomicLong> counter = metrics.get(row);
-        if (counter == null) {
-            counter = new HashMap<>();
-            metrics.put(row, counter);
+        MetricsKey key = new MetricsKey(row, family, cv);
+        AtomicLong count = metrics.get(key);
+        if (count == null) {
+            count = new AtomicLong(0);
+            metrics.put(key, count);
         }
 
-        AtomicLong card = counter.get(family);
-        if (card == null) {
-            card = new AtomicLong(0);
-            counter.put(family, card);
-        }
-
-        card.incrementAndGet();
+        count.incrementAndGet();
     }
 
     /**
@@ -371,9 +375,7 @@ public class Indexer
 
             // Re-initialize the metrics
             metrics.clear();
-            Map<ByteBuffer, AtomicLong> cfMap = new HashMap<>();
-            cfMap.put(METRICS_TABLE_ROWS_CF, new AtomicLong(0));
-            metrics.put(METRICS_TABLE_ROW_ID, cfMap);
+            metrics.put(METRICS_TABLE_ROW_COUNT, new AtomicLong(0));
         }
         catch (MutationsRejectedException e) {
             throw new PrestoException(INTERNAL_ERROR,
@@ -409,19 +411,16 @@ public class Indexer
     {
         ImmutableList.Builder<Mutation> mutationBuilder = ImmutableList.builder();
         // Mapping of column value to column to number of row IDs that contain that value
-        for (Entry<ByteBuffer, Map<ByteBuffer, AtomicLong>> m : metrics.entrySet()) {
-            // Create new mutation for this row value
-            ByteBuffer idxRow = m.getKey();
-            Mutation mut = new Mutation(idxRow.array());
-            // For each (presto column, cardinality) pair
-            for (Entry<ByteBuffer, AtomicLong> columnValues : m.getValue().entrySet()) {
-                // Row ID: Column value
-                // Family: columnfamily_columnqualifier
-                // Qualifier: CARDINALITY_CQ
-                // Value: Cardinality
-                mut.put(columnValues.getKey().array(), CARDINALITY_CQ,
-                        ENCODER.encode(columnValues.getValue().get()));
-            }
+        for (Entry<MetricsKey, AtomicLong> m : metrics.entrySet()) {
+            // Row ID: Column value
+            // Family: columnfamily_columnqualifier
+            // Qualifier: CARDINALITY_CQ
+            // Visibility: Inherited from indexed Mutation
+            // Value: Cardinality
+
+            Mutation mut = new Mutation(m.getKey().row.array());
+            mut.put(m.getKey().family.array(), CARDINALITY_CQ, m.getKey().visibility,
+                    ENCODER.encode(m.getValue().get()));
 
             // Add to our list of mutations
             mutationBuilder.add(mut);
@@ -506,8 +505,8 @@ public class Indexer
                 .collect(Collectors.toList())) {
             // Create a Text version of the index column family
             Text indexColumnFamily = new Text(
-                    getIndexColumnFamily(acc.getFamily().get().getBytes(), acc.getQualifier().get().getBytes())
-                            .array());
+                    getIndexColumnFamily(acc.getFamily().get().getBytes(UTF_8),
+                            acc.getQualifier().get().getBytes(UTF_8)).array());
 
             // Add this to the locality groups, it is a 1:1 mapping of locality group to column
             // families
@@ -597,5 +596,66 @@ public class Indexer
         }
         scan.close();
         return Pair.of(firstRow, lastRow);
+    }
+
+    /**
+     * Class containing the key for aggregating the local metrics counter
+     */
+    private static class MetricsKey
+    {
+        public ByteBuffer row;
+        public ByteBuffer family;
+        public ColumnVisibility visibility;
+        private static final ColumnVisibility EMPTY_VISIBILITY = new ColumnVisibility();
+
+        public MetricsKey(ByteBuffer row, ByteBuffer family)
+        {
+            requireNonNull(row, "row is null");
+            requireNonNull(family, "family is null");
+            this.row = row;
+            this.family = family;
+            this.visibility = EMPTY_VISIBILITY;
+        }
+
+        public MetricsKey(ByteBuffer row, ByteBuffer family, ColumnVisibility visibility)
+        {
+            requireNonNull(row, "row is null");
+            requireNonNull(family, "family is null");
+            requireNonNull(visibility, "visibility is null");
+            this.row = row;
+            this.family = family;
+            this.visibility = visibility.getExpression() != null ? visibility : EMPTY_VISIBILITY;
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if ((obj == null) || (getClass() != obj.getClass())) {
+                return false;
+            }
+
+            MetricsKey other = (MetricsKey) obj;
+            return Objects.equals(this.row, other.row)
+                    && Objects.equals(this.family, other.family)
+                    && Objects.equals(this.visibility, other.visibility);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(row, family, visibility);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("row", new String(row.array(), UTF_8))
+                    .add("family", new String(row.array(), UTF_8))
+                    .add("visibility", visibility.toString()).toString();
+        }
     }
 }
