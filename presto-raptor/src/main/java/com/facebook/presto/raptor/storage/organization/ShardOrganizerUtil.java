@@ -36,12 +36,16 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.Set;
+import java.util.UUID;
 
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.maxColumn;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.minColumn;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
 import static com.facebook.presto.raptor.storage.ColumnIndexStatsUtils.jdbcType;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.partition;
@@ -49,6 +53,7 @@ import static com.google.common.collect.Maps.uniqueIndex;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
+import static java.util.stream.Collectors.toSet;
 
 public class ShardOrganizerUtil
 {
@@ -259,5 +264,19 @@ public class ShardOrganizerUtil
                 return wrappedBuffer(resultSet.getBytes(columnName)).toStringUtf8();
         }
         throw new IllegalArgumentException("Unhandled type: " + type);
+    }
+
+    static OrganizationSet createOrganizationSet(long tableId, Set<ShardIndexInfo> shardsToCompact)
+    {
+        Set<UUID> uuids = shardsToCompact.stream()
+                .map(ShardIndexInfo::getShardUuid)
+                .collect(toSet());
+
+        Set<OptionalInt> bucketNumber = shardsToCompact.stream()
+                .map(ShardIndexInfo::getBucketNumber)
+                .collect(toSet());
+
+        checkArgument(bucketNumber.size() == 1);
+        return new OrganizationSet(tableId, uuids, getOnlyElement(bucketNumber));
     }
 }
