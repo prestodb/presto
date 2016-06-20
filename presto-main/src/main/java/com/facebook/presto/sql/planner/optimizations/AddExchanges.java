@@ -107,9 +107,9 @@ import static com.facebook.presto.sql.ExpressionUtils.stripDeterministicConjunct
 import static com.facebook.presto.sql.ExpressionUtils.stripNonDeterministicConjuncts;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.hasMultipleSources;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_RANDOM_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.fixedHashPartitioning;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.fixedRandomPartitioning;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.singlePartition;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.singleStreamPartition;
 import static com.facebook.presto.sql.planner.optimizations.LocalProperties.grouped;
@@ -628,7 +628,7 @@ public class AddExchanges
 
             Optional<PartitioningScheme> partitioningScheme = node.getPartitioningScheme();
             if (!partitioningScheme.isPresent() && redistributeWrites) {
-                partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(FIXED_RANDOM_DISTRIBUTION, ImmutableList.of()), source.getNode().getOutputSymbols()));
+                partitioningScheme = Optional.of(new PartitioningScheme(fixedRandomPartitioning(), source.getNode().getOutputSymbols()));
             }
 
             if (partitioningScheme.isPresent()) {
@@ -1109,7 +1109,7 @@ public class AddExchanges
             }
 
             // Otherwise, choose an arbitrary partitioning over the columns
-            return Partitioning.create(FIXED_HASH_DISTRIBUTION, ImmutableList.copyOf(parentPreference.getPartitioningColumns()));
+            return fixedHashPartitioning(ImmutableList.copyOf(parentPreference.getPartitioningColumns()));
         }
 
         @Override
@@ -1198,7 +1198,7 @@ public class AddExchanges
                         idAllocator.getNextId(),
                         GATHER,
                         REMOTE,
-                        new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
+                        new PartitioningScheme(singlePartition(), node.getOutputSymbols()),
                         partitionedChildren,
                         partitionedOutputLayouts);
 
