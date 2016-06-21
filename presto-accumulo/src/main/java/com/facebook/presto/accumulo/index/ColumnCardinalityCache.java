@@ -29,7 +29,6 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.apache.accumulo.core.client.BatchScanner;
 import org.apache.accumulo.core.client.Connector;
-import org.apache.accumulo.core.client.Scanner;
 import org.apache.accumulo.core.client.TableNotFoundException;
 import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.PartialKey;
@@ -323,17 +322,17 @@ public class ColumnCardinalityCache
             Text columnFamily = new Text(Indexer.getIndexColumnFamily(key.family.getBytes(UTF_8), key.qualifier.getBytes(UTF_8)).array());
 
             // Create scanner for querying the range
-            Scanner scanner = connector.createScanner(metricsTable, key.auths);
+            BatchScanner scanner = connector.createBatchScanner(metricsTable, key.auths, 10);
             try {
-                scanner.setRange(key.range);
+                scanner.setRanges(connector.tableOperations().splitRangeByTablets(metricsTable, key.range, Integer.MAX_VALUE));
                 scanner.fetchColumn(columnFamily, Indexer.CARDINALITY_CQ_AS_TEXT);
 
                 // Sum the entries to get the cardinality
-                long numEntries = 0;
+                long sum = 0;
                 for (Entry<Key, Value> entry : scanner) {
-                    numEntries += Long.parseLong(entry.getValue().toString());
+                    sum += Long.parseLong(entry.getValue().toString());
                 }
-                return numEntries;
+                return sum;
             }
             finally {
                 if (scanner != null) {
