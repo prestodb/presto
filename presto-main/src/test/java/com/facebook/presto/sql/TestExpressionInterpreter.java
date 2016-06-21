@@ -1174,6 +1174,7 @@ public class TestExpressionInterpreter
         optimize("MAP(ARRAY [1, 2], ARRAY [3, 4])[0]");
         optimize("MAP(ARRAY [BIGINT '1', 2], ARRAY [3, 4])[0]");
         optimize("MAP(ARRAY [1, 2], ARRAY [3, 4])[5]");
+        optimize("MAP(ARRAY [ARRAY[1,1]], ARRAY['a'])[ARRAY[1,1]]");
     }
 
     @Test(timeOut = 60000)

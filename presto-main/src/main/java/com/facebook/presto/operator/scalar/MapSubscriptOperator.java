@@ -172,7 +172,7 @@ public class MapSubscriptOperator
     {
         for (int position = 0; position < map.getPositionCount(); position += 2) {
             try {
-                if ((boolean) keyEqualsMethod.invokeExact(keyType.getObject(map, position), key)) {
+                if ((boolean) keyEqualsMethod.invoke(keyType.getObject(map, position), key)) {
                     return readNativeValue(valueType, map, position + 1); // position + 1: value position
                 }
             }
