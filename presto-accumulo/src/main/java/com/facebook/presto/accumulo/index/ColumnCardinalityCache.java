@@ -14,6 +14,7 @@
 package com.facebook.presto.accumulo.index;
 
 import com.facebook.presto.accumulo.conf.AccumuloConfig;
+import com.facebook.presto.accumulo.iterators.ValueSummingIterator;
 import com.facebook.presto.accumulo.model.AccumuloColumnConstraint;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.cache.CacheBuilder;
@@ -29,6 +30,7 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.apache.accumulo.core.client.BatchScanner;
 import org.apache.accumulo.core.client.Connector;
+import org.apache.accumulo.core.client.IteratorSetting;
 import org.apache.accumulo.core.client.TableNotFoundException;
 import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.PartialKey;
@@ -326,6 +328,10 @@ public class ColumnCardinalityCache
             try {
                 scanner.setRanges(connector.tableOperations().splitRangeByTablets(metricsTable, key.range, Integer.MAX_VALUE));
                 scanner.fetchColumn(columnFamily, Indexer.CARDINALITY_CQ_AS_TEXT);
+
+                IteratorSetting setting = new IteratorSetting(Integer.MAX_VALUE, "valuesummingcombiner", ValueSummingIterator.class);
+                ValueSummingIterator.setEncodingType(setting, Indexer.ENCODER_TYPE);
+                scanner.addScanIterator(setting);
 
                 // Sum the entries to get the cardinality
                 long sum = 0;

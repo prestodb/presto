@@ -114,10 +114,11 @@ public class Indexer
     public static final Text CARDINALITY_CQ_AS_TEXT = new Text(CARDINALITY_CQ);
     public static final Text METRICS_TABLE_ROWS_CF_AS_TEXT = new Text(METRICS_TABLE_ROWS_CF.array());
     public static final Text METRICS_TABLE_ROWID_AS_TEXT = new Text(METRICS_TABLE_ROW_ID.array());
+    public static final LongCombiner.Type ENCODER_TYPE = LongCombiner.Type.STRING;
 
+    private static final TypedValueCombiner.Encoder<Long> ENCODER = new LongCombiner.StringEncoder();
     private static final byte[] EMPTY_BYTES = new byte[0];
     private static final byte UNDERSCORE = '_';
-    private static final TypedValueCombiner.Encoder<Long> ENCODER = new LongCombiner.StringEncoder();
 
     private final AccumuloTable table;
     private final BatchWriter indexWriter;
