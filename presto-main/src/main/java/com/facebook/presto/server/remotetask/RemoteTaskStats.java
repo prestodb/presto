@@ -13,16 +13,17 @@
  */
 package com.facebook.presto.server.remotetask;
 
-import io.airlift.stats.DistributionStat;
+import com.google.common.util.concurrent.AtomicDouble;
 import org.weakref.jmx.Managed;
-import org.weakref.jmx.Nested;
+
+import javax.annotation.concurrent.ThreadSafe;
 
 public class RemoteTaskStats
 {
-    private final DistributionStat updateRoundTripMillis = new DistributionStat();
-    private final DistributionStat infoRoundTripMillis = new DistributionStat();
-    private final DistributionStat statusRoundTripMillis = new DistributionStat();
-    private final DistributionStat responseSizeBytes = new DistributionStat();
+    private final IncrementalAverage updateRoundTripMillis = new IncrementalAverage();
+    private final IncrementalAverage infoRoundTripMillis = new IncrementalAverage();
+    private final IncrementalAverage statusRoundTripMillis = new IncrementalAverage();
+    private final IncrementalAverage responseSizeBytes = new IncrementalAverage();
 
     private long requestSuccess;
     private long requestFailure;
@@ -58,31 +59,27 @@ public class RemoteTaskStats
     }
 
     @Managed
-    @Nested
-    public DistributionStat getResponseSizeBytes()
+    public double getResponseSizeBytes()
     {
-        return responseSizeBytes;
+        return responseSizeBytes.get();
     }
 
     @Managed
-    @Nested
-    public DistributionStat getStatusRoundTripMillis()
+    public double getStatusRoundTripMillis()
     {
-        return statusRoundTripMillis;
+        return statusRoundTripMillis.get();
     }
 
     @Managed
-    @Nested
-    public DistributionStat getUpdateRoundTripMillis()
+    public double getUpdateRoundTripMillis()
     {
-        return updateRoundTripMillis;
+        return updateRoundTripMillis.get();
     }
 
     @Managed
-    @Nested
-    public DistributionStat getInfoRoundTripMillis()
+    public double getInfoRoundTripMillis()
     {
-        return infoRoundTripMillis;
+        return infoRoundTripMillis.get();
     }
 
     @Managed
@@ -95,5 +92,24 @@ public class RemoteTaskStats
     public long getRequestFailure()
     {
         return requestFailure;
+    }
+
+    @ThreadSafe
+    private static class IncrementalAverage
+    {
+        private long count;
+        private final AtomicDouble average = new AtomicDouble();
+
+        synchronized void add(long value)
+        {
+            count++;
+            double oldAverage = average.get();
+            average.set(oldAverage + ((value - oldAverage) / count));
+        }
+
+        double get()
+        {
+            return average.get();
+        }
     }
 }
