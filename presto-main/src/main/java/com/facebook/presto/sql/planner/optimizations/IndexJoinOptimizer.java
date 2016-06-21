@@ -40,7 +40,6 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.base.Functions;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -56,11 +55,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 public class IndexJoinOptimizer
         implements PlanOptimizer
@@ -451,9 +452,10 @@ public class IndexJoinOptimizer
             {
                 // Map from output Symbols to source Symbols
                 Map<Symbol, Symbol> directSymbolTranslationOutputMap = Maps.transformValues(Maps.filterValues(node.getAssignments(), SymbolReference.class::isInstance), Symbol::from);
-                Map<Symbol, Symbol> outputToSourceMap = FluentIterable.from(lookupSymbols)
-                        .filter(in(directSymbolTranslationOutputMap.keySet()))
-                        .toMap(Functions.forMap(directSymbolTranslationOutputMap));
+                Map<Symbol, Symbol> outputToSourceMap = lookupSymbols.stream()
+                        .filter(directSymbolTranslationOutputMap.keySet()::contains)
+                        .collect(toImmutableMap(identity(), directSymbolTranslationOutputMap::get));
+
                 checkState(!outputToSourceMap.isEmpty(), "No lookup symbols were able to pass through the projection");
 
                 // Map from source Symbols to underlying index source Symbols
@@ -510,8 +512,7 @@ public class IndexJoinOptimizer
             public Map<Symbol, Symbol> visitIndexSource(IndexSourceNode node, Set<Symbol> lookupSymbols)
             {
                 checkState(node.getLookupSymbols().equals(lookupSymbols), "lookupSymbols must be the same as IndexSource lookup symbols");
-                return FluentIterable.from(lookupSymbols)
-                        .toMap(Functions.<Symbol>identity());
+                return lookupSymbols.stream().collect(toImmutableMap(identity(), identity()));
             }
         }
     }
