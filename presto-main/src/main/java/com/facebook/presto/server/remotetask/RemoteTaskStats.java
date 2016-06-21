@@ -76,17 +76,27 @@ public class RemoteTaskStats
         return infoRoundTripMillis;
     }
 
-    @Managed
-    @Nested
     public void updateSuccess()
     {
         requestSuccess.update(1);
     }
 
-    @Managed
-    @Nested
     public void updateFailure()
     {
         requestFailure.update(1);
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getRequestSuccess()
+    {
+        return requestSuccess;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getRequestFailure()
+    {
+        return requestFailure;
     }
 }
