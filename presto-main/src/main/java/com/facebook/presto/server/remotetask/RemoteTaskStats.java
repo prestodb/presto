@@ -48,6 +48,16 @@ public class RemoteTaskStats
         this.responseSizeBytes.add(responseSizeBytes);
     }
 
+    public void updateSuccess()
+    {
+        requestSuccess.update(1);
+    }
+
+    public void updateFailure()
+    {
+        requestFailure.update(1);
+    }
+
     @Managed
     @Nested
     public DistributionStat getResponseSizeBytes()
@@ -74,16 +84,6 @@ public class RemoteTaskStats
     public DistributionStat getInfoRoundTripMillis()
     {
         return infoRoundTripMillis;
-    }
-
-    public void updateSuccess()
-    {
-        requestSuccess.update(1);
-    }
-
-    public void updateFailure()
-    {
-        requestFailure.update(1);
     }
 
     @Managed
