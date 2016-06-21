@@ -188,7 +188,7 @@ public class HashGenerationOptimizer
             Symbol hashSymbol = child.getRequiredHashSymbol(hashComputation.get());
 
             return new PlanWithProperties(
-                    new DistinctLimitNode(idAllocator.getNextId(), child.getNode(), node.getLimit(), node.isPartial(), Optional.of(hashSymbol)),
+                    new DistinctLimitNode(idAllocator.getNextId(), child.getNode(), node.getLimit(), node.isPartial(), Optional.of(hashSymbol), node.getDistinctSymbols()),
                     child.getHashSymbols());
         }
 
