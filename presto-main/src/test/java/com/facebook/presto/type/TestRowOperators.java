@@ -104,6 +104,11 @@ public class TestRowOperators
         assertFunction("cast(row(2, cast(null as double)) as row(aa bigint, bb double)).bb", DOUBLE, null);
         assertFunction("cast(row(2, 'test_str') as row(aa bigint, bb varchar)).bb", VARCHAR, "test_str");
 
+        // ROW casting with NULLs
+        assertFunction("cast(row(1,null,3) as row(aa bigint, bb boolean, cc boolean)).bb", BOOLEAN, null);
+        assertFunction("cast(row(1,null,3) as row(aa bigint, bb boolean, cc boolean)).aa", BIGINT, 1L);
+        assertFunction("cast(row(null,null,null) as row(aa bigint, bb boolean, cc boolean)).aa", BIGINT, null);
+
         try {
             assertFunction("CAST(ROW(1, 2) AS ROW(a BIGINT, A DOUBLE)).a", BIGINT, 1L);
             fail("fields in Row are case insensitive");
