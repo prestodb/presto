@@ -133,6 +133,7 @@ import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
 import static com.facebook.presto.util.DateTimeUtils.timeHasTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.timestampHasTimeZone;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Sets.newIdentityHashSet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -288,6 +289,7 @@ public class ExpressionAnalyzer
         protected Type visitSymbolReference(SymbolReference node, StackableAstVisitorContext<AnalysisContext> context)
         {
             Type type = symbolTypes.get(Symbol.from(node));
+            checkArgument(type != null, "No type for symbol %s", node.getName());
             expressionTypes.put(node, type);
             return type;
         }
