@@ -32,12 +32,14 @@ public final class Table
     private final long tableId;
     private final OptionalLong distributionId;
     private final OptionalInt bucketCount;
+    private final OptionalLong temporalColumnId;
 
-    public Table(long tableId, OptionalLong distributionId, OptionalInt bucketCount)
+    public Table(long tableId, OptionalLong distributionId, OptionalInt bucketCount, OptionalLong temporalColumnId)
     {
         this.tableId = tableId;
         this.distributionId = requireNonNull(distributionId, "distributionId is null");
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
+        this.temporalColumnId = requireNonNull(temporalColumnId, "temporalColumnId is null");
     }
 
     public long getTableId()
@@ -55,6 +57,11 @@ public final class Table
         return bucketCount;
     }
 
+    public OptionalLong getTemporalColumnId()
+    {
+        return temporalColumnId;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -67,13 +74,14 @@ public final class Table
         Table table = (Table) o;
         return tableId == table.tableId &&
                 Objects.equals(distributionId, table.distributionId) &&
-                Objects.equals(bucketCount, table.bucketCount);
+                Objects.equals(bucketCount, table.bucketCount) &&
+                Objects.equals(temporalColumnId, table.temporalColumnId);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(tableId, distributionId, bucketCount);
+        return Objects.hash(tableId, distributionId, bucketCount, temporalColumnId);
     }
 
     @Override
@@ -83,6 +91,7 @@ public final class Table
                 .add("tableId", tableId)
                 .add("distributionId", distributionId.isPresent() ? distributionId.getAsLong() : null)
                 .add("bucketCount", bucketCount.isPresent() ? bucketCount.getAsInt() : null)
+                .add("temporalColumnId", temporalColumnId.isPresent() ? temporalColumnId.getAsLong() : null)
                 .omitNullValues()
                 .toString();
     }
@@ -97,7 +106,8 @@ public final class Table
             return new Table(
                     r.getLong("table_id"),
                     getOptionalLong(r, "distribution_id"),
-                    getOptionalInt(r, "bucket_count"));
+                    getOptionalInt(r, "bucket_count"),
+                    getOptionalLong(r, "temporal_column_id"));
         }
     }
 }

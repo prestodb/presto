@@ -17,6 +17,7 @@ import com.facebook.presto.raptor.metadata.ForMetadata;
 import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardMetadata;
+import com.facebook.presto.raptor.metadata.Table;
 import com.facebook.presto.raptor.storage.StorageManagerConfig;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.type.Type;
@@ -41,7 +42,6 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
@@ -56,7 +56,7 @@ import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.partition;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -180,47 +180,42 @@ public class ShardCompactionManager
                 continue;
             }
 
-            Optional<Long> temporalColumnId = Optional.ofNullable(metadataDao.getTemporalColumnId(tableId));
-            if (temporalColumnId.isPresent() && !isValidTemporalColumn(tableId, temporalColumnId.get())) {
-                continue;
-            }
+            Table table = metadataDao.getTableInformation(tableId);
 
-            CompactionSetCreator compactionSetCreator = getCompactionSetCreator(tableId, temporalColumnId);
-            Set<ShardMetadata> shards = getFilteredShards(entry.getValue(), tableId, temporalColumnId);
+            CompactionSetCreator compactionSetCreator = getCompactionSetCreator(table);
+            Set<ShardMetadata> shards = getFilteredShards(entry.getValue(), table);
 
             addToCompactionQueue(compactionSetCreator, tableId, shards);
         }
     }
 
-    private Set<ShardMetadata> getFilteredShards(List<ShardMetadata> shardMetadatas, long tableId, Optional<Long> temporalColumnId)
+    private Set<ShardMetadata> getFilteredShards(List<ShardMetadata> shardMetadatas, Table tableInfo)
     {
         Set<ShardMetadata> shards = shardMetadatas.stream()
                 .filter(this::needsCompaction)
                 .filter(shard -> !organizer.inProgress(shard.getShardUuid()))
                 .collect(toSet());
 
-        if (temporalColumnId.isPresent()) {
-            shards = filterShardsWithTemporalMetadata(shards, tableId, temporalColumnId.get());
+        if (tableInfo.getTemporalColumnId().isPresent()) {
+            shards = filterShardsWithTemporalMetadata(shards, tableInfo.getTableId(), tableInfo.getTemporalColumnId().getAsLong());
         }
 
         return shards;
     }
 
-    private CompactionSetCreator getCompactionSetCreator(long tableId, Optional<Long> temporalColumnId)
+    private CompactionSetCreator getCompactionSetCreator(Table tableInfo)
     {
-        if (!temporalColumnId.isPresent()) {
+        if (!tableInfo.getTemporalColumnId().isPresent()) {
             return new FileCompactionSetCreator(maxShardSize, maxShardRows);
         }
 
-        checkState(isValidTemporalColumn(tableId, temporalColumnId.get()), "invalid temporal column type");
-        Type type = metadataDao.getTableColumn(tableId, temporalColumnId.get()).getDataType();
-
+        Type type = metadataDao.getTableColumn(tableInfo.getTableId(), tableInfo.getTemporalColumnId().getAsLong()).getDataType();
+        verify(isValidTemporalColumn(tableInfo.getTableId(), type), "invalid temporal column type");
         return new TemporalCompactionSetCreator(maxShardSize, maxShardRows, type);
     }
 
-    private boolean isValidTemporalColumn(long tableId, long temporalColumnId)
+    private static boolean isValidTemporalColumn(long tableId, Type type)
     {
-        Type type = metadataDao.getTableColumn(tableId, temporalColumnId).getDataType();
         if (!type.equals(DATE) && !type.equals(TIMESTAMP)) {
             log.warn("Temporal column type of table ID %s set incorrectly to %s", tableId, type);
             return false;
