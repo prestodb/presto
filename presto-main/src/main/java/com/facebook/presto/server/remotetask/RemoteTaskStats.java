@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.server.remotetask;
 
-import io.airlift.stats.CounterStat;
 import io.airlift.stats.DistributionStat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -25,8 +24,8 @@ public class RemoteTaskStats
     private final DistributionStat statusRoundTripMillis = new DistributionStat();
     private final DistributionStat responseSizeBytes = new DistributionStat();
 
-    private final CounterStat requestSuccess = new CounterStat();
-    private final CounterStat requestFailure = new CounterStat();
+    private long requestSuccess;
+    private long requestFailure;
 
     public void statusRoundTripMillis(long roundTripMillis)
     {
@@ -50,12 +49,12 @@ public class RemoteTaskStats
 
     public void updateSuccess()
     {
-        requestSuccess.update(1);
+        requestSuccess++;
     }
 
     public void updateFailure()
     {
-        requestFailure.update(1);
+        requestFailure++;
     }
 
     @Managed
@@ -87,15 +86,13 @@ public class RemoteTaskStats
     }
 
     @Managed
-    @Nested
-    public CounterStat getRequestSuccess()
+    public long getRequestSuccess()
     {
         return requestSuccess;
     }
 
     @Managed
-    @Nested
-    public CounterStat getRequestFailure()
+    public long getRequestFailure()
     {
         return requestFailure;
     }
