@@ -202,8 +202,8 @@ public class ExchangeClient
 
         if (page != null) {
             synchronized (this) {
-                bufferBytes -= page.getSizeInBytes();
-                systemMemoryUsageListener.updateSystemMemoryUsage(-page.getSizeInBytes());
+                bufferBytes -= page.getRetainedSizeInBytes();
+                systemMemoryUsageListener.updateSystemMemoryUsage(-page.getRetainedSizeInBytes());
             }
             if (!closed.get() && pageBuffer.peek() == NO_MORE_PAGES) {
                 closed.set(true);
@@ -316,14 +316,17 @@ public class ExchangeClient
         // notify all blocked callers
         notifyBlockedCallers();
 
+        long memorySize = pages.stream()
+                .mapToLong(Page::getRetainedSizeInBytes)
+                .sum();
+
+        bufferBytes += memorySize;
+        systemMemoryUsageListener.updateSystemMemoryUsage(memorySize);
+        successfulRequests++;
+
         long responseSize = pages.stream()
                 .mapToLong(Page::getSizeInBytes)
                 .sum();
-
-        bufferBytes += responseSize;
-        systemMemoryUsageListener.updateSystemMemoryUsage(responseSize);
-        successfulRequests++;
-
         // AVG_n = AVG_(n-1) * (n-1)/n + VALUE_n / n
         averageBytesPerRequest = (long) (1.0 * averageBytesPerRequest * (successfulRequests - 1) / successfulRequests + responseSize / successfulRequests);
 
