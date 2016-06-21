@@ -108,6 +108,13 @@ public class TestCassandraDistributed
     }
 
     @Override
+    public void testCreateTableAsSelect()
+            throws Exception
+    {
+        // Cassandra connector currently does not support create table
+    }
+
+    @Override
     public void testDelete()
             throws Exception
     {
