@@ -101,6 +101,7 @@ function flattenNode(stages, nodeInfo, result)
         case 'delete':
         case 'metadatadelete':
         case 'tablecommit':
+        case 'groupid':
         case 'unnest':
         case 'scalar':
             sources = [nodeInfo.source];
