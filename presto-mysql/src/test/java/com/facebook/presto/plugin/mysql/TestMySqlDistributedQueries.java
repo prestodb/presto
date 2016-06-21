@@ -28,8 +28,10 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static org.testng.Assert.assertEquals;
@@ -164,6 +166,27 @@ public class TestMySqlDistributedQueries
         assertEquals(row.getField(4), "e");
         assertEquals(row.getField(5), "f");
         assertUpdate("DROP TABLE mysql_test_parameterized_varchar");
+    }
+
+    @Override
+    public void testShowColumns()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
+
+        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "bigint", "")
+                .row("custkey", "bigint", "")
+                .row("orderstatus", "varchar(255)", "")
+                .row("totalprice", "double", "")
+                .row("orderdate", "date", "")
+                .row("orderpriority", "varchar(255)", "")
+                .row("clerk", "varchar(255)", "")
+                .row("shippriority", "integer", "")
+                .row("comment", "varchar(255)", "")
+                .build();
+
+        assertEquals(actual, expectedParametrizedVarchar);
     }
 
     private void execute(String sql)
