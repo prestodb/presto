@@ -10,6 +10,7 @@ Release Notes
     release/release-0.147
     release/release-0.146
     release/release-0.145
+    release/release-0.144.6
     release/release-0.144.5
     release/release-0.144.4
     release/release-0.144.3
