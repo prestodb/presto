@@ -314,13 +314,6 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <!--Integrations tests fail when parallel, due-->
-                    <!--to a bug or configuration error in the embedded-->
-                    <!--cassandra instance.  This problem results in either-->
-                    <!--a hang in Thrift calls or broken sockets.-->
-                    <parallel />
-                    <threadCount>1</threadCount>
-
                     <!-- integration tests take a very long time so only run them in the CI server -->
                     <excludes>
                         <exclude>**/TestCassandraDistributed.java</exclude>

@@ -20,6 +20,8 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 import static com.facebook.presto.cassandra.CassandraQueryRunner.createSampledSession;
 
+//Integrations tests fail when parallel, due to a bug or configuration error in the embedded
+//cassandra instance. This problem results in either a hang in Thrift calls or broken sockets.
 @Test(singleThreaded = true)
 public class TestCassandraDistributed
         extends AbstractTestDistributedQueries
