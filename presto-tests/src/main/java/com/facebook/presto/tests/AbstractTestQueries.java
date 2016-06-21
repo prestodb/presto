@@ -190,6 +190,16 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testMapSubscript()
+            throws Exception
+    {
+        assertQuery("select map(array[1], array['aa'])[1]", "select 'aa'");
+        assertQuery("select map(array['a'], array['aa'])['a']", "select 'aa'");
+        assertQuery("select map(array[array[1,1]], array['a'])[array[1,1]]", "select 'a'");
+        assertQuery("select map(array[(1,2)], array['a'])[(1,2)]", "select 'a'");
+    }
+
+    @Test
     public void testVarbinary()
             throws Exception
     {
