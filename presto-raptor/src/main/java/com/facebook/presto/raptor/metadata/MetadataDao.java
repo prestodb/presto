@@ -25,7 +25,14 @@ import java.util.List;
 
 public interface MetadataDao
 {
-    @SqlQuery("SELECT t.table_id, t.distribution_id, d.bucket_count\n" +
+    @SqlQuery("SELECT t.table_id, t.distribution_id, d.bucket_count, t.temporal_column_id\n" +
+            "FROM tables t\n" +
+            "LEFT JOIN distributions d ON (t.distribution_id = d.distribution_id)\n" +
+            "WHERE t.table_id = :tableId")
+    @Mapper(TableMapper.class)
+    Table getTableInformation(@Bind("tableId") long tableId);
+
+    @SqlQuery("SELECT t.table_id, t.distribution_id, d.bucket_count, t.temporal_column_id\n" +
             "FROM tables t\n" +
             "LEFT JOIN distributions d ON (t.distribution_id = d.distribution_id)\n" +
             "WHERE t.schema_name = :schemaName\n" +
