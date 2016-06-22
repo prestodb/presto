@@ -59,8 +59,6 @@ import static com.facebook.presto.sql.planner.EqualityInference.createEqualityIn
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Predicates.in;
-import static com.google.common.collect.Iterables.transform;
-import static java.util.stream.Collectors.toList;
 
 /**
  * Computes the effective predicate at the top of the specified PlanNode
@@ -232,33 +230,33 @@ public class EffectivePredicateExtractor
             case LEFT:
                 return combineConjuncts(ImmutableList.<Expression>builder()
                         .add(leftPredicate)
-                        .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), in(node.getRight().getOutputSymbols())))
-                        .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, in(node.getRight().getOutputSymbols())))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), node.getRight().getOutputSymbols()::contains))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, node.getRight().getOutputSymbols()::contains))
                         .build());
             case RIGHT:
                 return combineConjuncts(ImmutableList.<Expression>builder()
                         .add(rightPredicate)
-                        .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(leftPredicate), in(node.getLeft().getOutputSymbols())))
-                        .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, in(node.getLeft().getOutputSymbols())))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(leftPredicate), node.getLeft().getOutputSymbols()::contains))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, node.getLeft().getOutputSymbols()::contains))
                         .build());
             case FULL:
                 return combineConjuncts(ImmutableList.<Expression>builder()
-                        .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(leftPredicate), in(node.getLeft().getOutputSymbols())))
-                        .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), in(node.getRight().getOutputSymbols())))
-                        .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, in(node.getLeft().getOutputSymbols()), in(node.getRight().getOutputSymbols())))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(leftPredicate), node.getLeft().getOutputSymbols()::contains))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), node.getRight().getOutputSymbols()::contains))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, node.getLeft().getOutputSymbols()::contains, node.getRight().getOutputSymbols()::contains))
                         .build());
             default:
                 throw new UnsupportedOperationException("Unknown join type: " + node.getType());
         }
     }
 
-    private Iterable<Expression> pullNullableConjunctsThroughOuterJoin(List<Expression> conjuncts, com.google.common.base.Predicate<Symbol>... nullSymbolScopes)
+    private Iterable<Expression> pullNullableConjunctsThroughOuterJoin(List<Expression> conjuncts, Predicate<Symbol>... nullSymbolScopes)
     {
         // Conjuncts without any symbol dependencies cannot be applied to the effective predicate (e.g. FALSE literal)
-        conjuncts = conjuncts.stream()
+        return conjuncts.stream()
                 .map(expression -> DependencyExtractor.extractAll(expression).isEmpty() ? TRUE_LITERAL : expression)
-                .collect(toList());
-        return transform(conjuncts, expressionOrNullSymbols(nullSymbolScopes));
+                .map(expressionOrNullSymbols(nullSymbolScopes))
+                .collect(toImmutableList());
     }
 
     @Override

@@ -59,6 +59,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -733,7 +734,7 @@ public class TestEffectivePredicateExtractor
         return normalizeConjuncts(Arrays.asList(conjuncts));
     }
 
-    private Set<Expression> normalizeConjuncts(Iterable<Expression> conjuncts)
+    private Set<Expression> normalizeConjuncts(Collection<Expression> conjuncts)
     {
         return normalizeConjuncts(combineConjuncts(conjuncts));
     }
