@@ -59,6 +59,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
+import static com.facebook.presto.connector.ConnectorManager.INFORMATION_SCHEMA_CONNECTOR_PREFIX;
+import static com.facebook.presto.connector.ConnectorManager.SYSTEM_TABLES_CONNECTOR_PREFIX;
 import static com.facebook.presto.execution.StageState.ABORTED;
 import static com.facebook.presto.execution.StageState.CANCELED;
 import static com.facebook.presto.execution.StageState.FAILED;
@@ -210,7 +212,11 @@ public class SqlQueryScheduler
         if (isUnknownPartitioning(plan.getFragment().getPartitioning())) {
             // nodes are selected dynamically based on the constraints of the splits and the system load
             Entry<PlanNodeId, SplitSource> entry = Iterables.getOnlyElement(plan.getSplitSources().entrySet());
-            NodeSelector nodeSelector = nodeScheduler.createNodeSelector(entry.getValue().getDataSourceName());
+            String dataSourceName = entry.getValue().getDataSourceName();
+            if (dataSourceName.startsWith(SYSTEM_TABLES_CONNECTOR_PREFIX) || dataSourceName.startsWith(INFORMATION_SCHEMA_CONNECTOR_PREFIX)) {
+                dataSourceName = null;
+            }
+            NodeSelector nodeSelector = nodeScheduler.createNodeSelector(dataSourceName);
             SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stage::getAllTasks);
             stageSchedulers.put(stageId, new SourcePartitionedScheduler(stage, entry.getKey(), entry.getValue(), placementPolicy, splitBatchSize));
             bucketToPartition = Optional.of(new int[1]);

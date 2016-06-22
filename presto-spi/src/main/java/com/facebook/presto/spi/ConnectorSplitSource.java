@@ -20,8 +20,6 @@ import java.util.concurrent.CompletableFuture;
 public interface ConnectorSplitSource
         extends Closeable
 {
-    String getDataSourceName();
-
     CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize);
 
     @Override

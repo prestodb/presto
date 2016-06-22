@@ -504,12 +504,6 @@ public class TestSourcePartitionedScheduler
         }
 
         @Override
-        public String getDataSourceName()
-        {
-            return CONNECTOR_ID;
-        }
-
-        @Override
         public synchronized CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize)
         {
             return notEmptyFuture.thenApply(x -> getBatch(maxSize));

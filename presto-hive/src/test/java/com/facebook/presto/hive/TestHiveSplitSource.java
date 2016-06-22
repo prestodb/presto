@@ -35,7 +35,7 @@ public class TestHiveSplitSource
     public void testOutstandingSplitCount()
             throws Exception
     {
-        HiveSplitSource hiveSplitSource = new HiveSplitSource("test", 10, new TestingHiveSplitLoader(), Executors.newFixedThreadPool(5));
+        HiveSplitSource hiveSplitSource = new HiveSplitSource(10, new TestingHiveSplitLoader(), Executors.newFixedThreadPool(5));
 
         // add 10 splits
         for (int i = 0; i < 10; i++) {
@@ -60,7 +60,7 @@ public class TestHiveSplitSource
     public void testFail()
             throws Exception
     {
-        HiveSplitSource hiveSplitSource = new HiveSplitSource("test", 10, new TestingHiveSplitLoader(), Executors.newFixedThreadPool(5));
+        HiveSplitSource hiveSplitSource = new HiveSplitSource(10, new TestingHiveSplitLoader(), Executors.newFixedThreadPool(5));
 
         // add some splits
         for (int i = 0; i < 5; i++) {
@@ -108,7 +108,7 @@ public class TestHiveSplitSource
     public void testReaderWaitsForSplits()
             throws Exception
     {
-        final HiveSplitSource hiveSplitSource = new HiveSplitSource("test", 10, new TestingHiveSplitLoader(), Executors.newFixedThreadPool(5));
+        final HiveSplitSource hiveSplitSource = new HiveSplitSource(10, new TestingHiveSplitLoader(), Executors.newFixedThreadPool(5));
 
         final SettableFuture<ConnectorSplit> splits = SettableFuture.create();
 

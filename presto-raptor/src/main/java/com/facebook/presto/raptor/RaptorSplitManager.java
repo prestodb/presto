@@ -167,12 +167,6 @@ public class RaptorSplitManager
         }
 
         @Override
-        public String getDataSourceName()
-        {
-            return connectorId;
-        }
-
-        @Override
         public synchronized CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize)
         {
             checkState((future == null) || future.isDone(), "previous batch not completed");
