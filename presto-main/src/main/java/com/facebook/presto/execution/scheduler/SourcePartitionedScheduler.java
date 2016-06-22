@@ -30,7 +30,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
-import static com.facebook.presto.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -135,7 +134,7 @@ public class SourcePartitionedScheduler
         ImmutableSet.Builder<RemoteTask> newTasks = ImmutableSet.builder();
         for (Entry<Node, Collection<Split>> taskSplits : splitAssignment.asMap().entrySet()) {
             // source partitioned tasks can only receive broadcast data; otherwise it would have a different distribution
-            newTasks.addAll(stage.scheduleSplits(taskSplits.getKey(), BROADCAST_PARTITION_ID, ImmutableMultimap.<PlanNodeId, Split>builder()
+            newTasks.addAll(stage.scheduleSplits(taskSplits.getKey(), ImmutableMultimap.<PlanNodeId, Split>builder()
                     .putAll(partitionedNode, taskSplits.getValue())
                     .build()));
         }
@@ -154,7 +153,7 @@ public class SourcePartitionedScheduler
         Set<Node> scheduledNodes = stage.getScheduledNodes();
         Set<RemoteTask> newTasks = splitPlacementPolicy.allNodes().stream()
                 .filter(node -> !scheduledNodes.contains(node))
-                .map(node -> stage.scheduleTask(node, BROADCAST_PARTITION_ID))
+                .flatMap(node -> stage.scheduleSplits(node, ImmutableMultimap.of()).stream())
                 .collect(toImmutableSet());
 
         // notify listeners that we have scheduled all tasks so they can set no more buffers or exchange splits
