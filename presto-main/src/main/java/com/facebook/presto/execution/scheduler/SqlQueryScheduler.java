@@ -26,7 +26,6 @@ import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
-import com.facebook.presto.execution.scheduler.OutputBufferManager.OutputBuffer;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.split.SplitSource;
@@ -479,9 +478,8 @@ public class SqlQueryScheduler
 
             if (!childOutputBufferManagers.isEmpty()) {
                 // Add an output buffer to the child stages for each new task
-                List<OutputBuffer> newOutputBuffers = newTasks.stream()
-                        .map(RemoteTask::getTaskId)
-                        .map(taskId -> new OutputBuffer(new OutputBufferId(taskId.getId()), taskId.getId()))
+                List<OutputBufferId> newOutputBuffers = newTasks.stream()
+                        .map(task -> new OutputBufferId(task.getTaskId().getId()))
                         .collect(toImmutableList());
                 for (OutputBufferManager child : childOutputBufferManagers) {
                     child.addOutputBuffers(newOutputBuffers, noMoreTasks);

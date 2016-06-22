@@ -43,7 +43,7 @@ public class PartitionedOutputBufferManager
     }
 
     @Override
-    public void addOutputBuffers(List<OutputBuffer> newBuffers, boolean noMoreBuffers)
+    public void addOutputBuffers(List<OutputBufferId> newBuffers, boolean noMoreBuffers)
     {
         OutputBuffers outputBuffers;
         synchronized (this) {
@@ -53,8 +53,8 @@ public class PartitionedOutputBufferManager
                 return;
             }
 
-            for (OutputBuffer newBuffer : newBuffers) {
-                partitions.put(newBuffer.getBufferId(), newBuffer.getBufferId().getId());
+            for (OutputBufferId newBuffer : newBuffers) {
+                partitions.put(newBuffer, newBuffer.getId());
             }
 
             // only update target when all buffers have been created
