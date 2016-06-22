@@ -71,3 +71,5 @@ The following SQL statements are not yet supported:
 * :doc:`/sql/delete`
 * :doc:`/sql/alter-table`
 * :doc:`/sql/create-table` (:doc:`/sql/create-table-as` is supported)
+* :doc:`/sql/grant`
+* :doc:`/sql/revoke`
