@@ -43,12 +43,12 @@ import static org.testng.Assert.assertTrue;
 public class TestLocalExchange
 {
     private static final List<Type> TYPES = ImmutableList.of(BIGINT);
-    private static final DataSize PAGE_SIZE = new DataSize(createPage(42).getSizeInBytes(), BYTE);
+    private static final DataSize RETAINED_PAGE_SIZE = new DataSize(createPage(42).getRetainedSizeInBytes(), BYTE);
 
     @Test
     public void testGatherSingleWriter()
     {
-        LocalExchange exchange = new LocalExchange(SINGLE_DISTRIBUTION, 8, TYPES, ImmutableList.of(), Optional.empty(), new DataSize(sizeOfPages(99), BYTE));
+        LocalExchange exchange = new LocalExchange(SINGLE_DISTRIBUTION, 8, TYPES, ImmutableList.of(), Optional.empty(), new DataSize(retainedSizeOfPages(99), BYTE));
         assertEquals(exchange.getBufferCount(), 1);
         assertExchangeTotalBufferedBytes(exchange, 0);
 
@@ -206,7 +206,7 @@ public class TestLocalExchange
 
             LocalExchangeBufferInfo bufferInfoA = sourceA.getBufferInfo();
             LocalExchangeBufferInfo bufferInfoB = sourceB.getBufferInfo();
-            assertEquals(bufferInfoA.getBufferedBytes() + bufferInfoB.getBufferedBytes(), sizeOfPages(i + 1));
+            assertEquals(bufferInfoA.getBufferedBytes() + bufferInfoB.getBufferedBytes(), retainedSizeOfPages(i + 1));
             assertEquals(bufferInfoA.getBufferedPages() + bufferInfoB.getBufferedPages(), i + 1);
         }
 
@@ -239,13 +239,13 @@ public class TestLocalExchange
 
         assertSource(sourceA, 1);
         assertSource(sourceB, 1);
-        assertExchangeTotalBufferedBytes(exchange, 1);
+        assertTrue(exchange.getBufferedBytes() >= retainedSizeOfPages(1));
 
         sink.addPage(createPage(0));
 
         assertSource(sourceA, 2);
         assertSource(sourceB, 2);
-        assertExchangeTotalBufferedBytes(exchange, 2);
+        assertTrue(exchange.getBufferedBytes() >= retainedSizeOfPages(2));
 
         assertPartitionedRemovePage(sourceA, 0, 2);
         assertSource(sourceA, 1);
@@ -446,7 +446,12 @@ public class TestLocalExchange
 
     private static void assertExchangeTotalBufferedBytes(LocalExchange exchange, int pageCount)
     {
-        assertEquals(exchange.getBufferedBytes(), sizeOfPages(pageCount));
+        assertEquals(exchange.getBufferedBytes(), retainedSizeOfPages(pageCount));
+    }
+
+    private static void assertExchangeTotalBufferedPages(LocalExchange exchange, int pageCount)
+    {
+        assertEquals(exchange, retainedSizeOfPages(pageCount));
     }
 
     private static Page createPage(int i)
@@ -454,8 +459,8 @@ public class TestLocalExchange
         return SequencePageBuilder.createSequencePage(TYPES, 100, i);
     }
 
-    public static long sizeOfPages(int count)
+    public static long retainedSizeOfPages(int count)
     {
-        return PAGE_SIZE.toBytes() * count;
+        return RETAINED_PAGE_SIZE.toBytes() * count;
     }
 }
