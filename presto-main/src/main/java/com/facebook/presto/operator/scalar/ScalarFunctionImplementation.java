@@ -16,6 +16,7 @@ package com.facebook.presto.operator.scalar;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,19 +27,26 @@ public final class ScalarFunctionImplementation
 {
     private final boolean nullable;
     private final List<Boolean> nullableArguments;
+    private final List<Boolean> nullFlags;
     private final MethodHandle methodHandle;
     private final Optional<MethodHandle> instanceFactory;
     private final boolean deterministic;
 
     public ScalarFunctionImplementation(boolean nullable, List<Boolean> nullableArguments, MethodHandle methodHandle, boolean deterministic)
     {
-        this(nullable, nullableArguments, methodHandle, Optional.empty(), deterministic);
+        this(nullable, nullableArguments, Collections.nCopies(nullableArguments.size(), false), methodHandle, Optional.empty(), deterministic);
     }
 
-    public ScalarFunctionImplementation(boolean nullable, List<Boolean> nullableArguments, MethodHandle methodHandle, Optional<MethodHandle> instanceFactory, boolean deterministic)
+    public ScalarFunctionImplementation(boolean nullable, List<Boolean> nullableArguments, List<Boolean> nullFlags, MethodHandle methodHandle, boolean deterministic)
+    {
+        this(nullable, nullableArguments, nullFlags, methodHandle, Optional.empty(), deterministic);
+    }
+
+    public ScalarFunctionImplementation(boolean nullable, List<Boolean> nullableArguments, List<Boolean> nullFlags, MethodHandle methodHandle, Optional<MethodHandle> instanceFactory, boolean deterministic)
     {
         this.nullable = nullable;
         this.nullableArguments = ImmutableList.copyOf(requireNonNull(nullableArguments, "nullableArguments is null"));
+        this.nullFlags = ImmutableList.copyOf(requireNonNull(nullFlags, "nullFlags is null"));
         this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
         this.instanceFactory = requireNonNull(instanceFactory, "instanceFactory is null");
         this.deterministic = deterministic;
@@ -46,6 +54,13 @@ public final class ScalarFunctionImplementation
         if (instanceFactory.isPresent()) {
             Class<?> instanceType = instanceFactory.get().type().returnType();
             checkArgument(instanceType.equals(methodHandle.type().parameterType(0)), "methodHandle is not an instance method");
+        }
+
+        // check if nullableArguments and nullFlags match
+        for (int i = 0; i < nullFlags.size(); i++) {
+            if (nullFlags.get(i)) {
+                checkArgument(nullableArguments.get(i), "argument %s marked as @IsNull is not nullable in method: %s", i, methodHandle);
+            }
         }
     }
 
@@ -57,6 +72,11 @@ public final class ScalarFunctionImplementation
     public List<Boolean> getNullableArguments()
     {
         return nullableArguments;
+    }
+
+    public List<Boolean> getNullFlags()
+    {
+        return nullFlags;
     }
 
     public MethodHandle getMethodHandle()

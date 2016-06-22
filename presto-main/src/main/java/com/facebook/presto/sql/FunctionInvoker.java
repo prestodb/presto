@@ -15,7 +15,9 @@ package com.facebook.presto.sql;
 
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.ConnectorSession;
+import com.google.common.base.Defaults;
 import com.google.common.base.Throwables;
 
 import java.lang.invoke.MethodHandle;
@@ -48,18 +50,33 @@ public class FunctionInvoker
      */
     public Object invoke(Signature function, ConnectorSession session, List<Object> arguments)
     {
-        MethodHandle method = registry.getScalarFunctionImplementation(function).getMethodHandle();
+        ScalarFunctionImplementation implementation = registry.getScalarFunctionImplementation(function);
+        MethodHandle method = implementation.getMethodHandle();
 
         List<Object> actualArguments = new ArrayList<>(arguments.size() + 1);
 
         Iterator<Object> iterator = arguments.iterator();
         for (int i = 0; i < method.type().parameterCount(); i++) {
-            if (method.type().parameterType(i) == ConnectorSession.class) {
+            Class<?> parameterType = method.type().parameterType(i);
+            if (parameterType == ConnectorSession.class) {
                 actualArguments.add(session);
             }
             else {
                 checkArgument(iterator.hasNext(), "Not enough arguments provided for method: %s", method.type());
-                actualArguments.add(iterator.next());
+                Object argument = iterator.next();
+                if (implementation.getNullFlags().get(i)) {
+                    boolean isNull = argument == null;
+                    if (isNull) {
+                        argument = Defaults.defaultValue(parameterType);
+                    }
+                    actualArguments.add(argument);
+                    actualArguments.add(isNull);
+                    // Skip the next method parameter which is marked @IsNull
+                    i++;
+                }
+                else {
+                    actualArguments.add(argument);
+                }
             }
         }
 
