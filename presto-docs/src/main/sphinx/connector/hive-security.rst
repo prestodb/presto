@@ -53,6 +53,16 @@ Lists)` to provide additional security for data.
 
 .. _hive-security-kerberos-support:
 
+.. warning::
+
+  Access to the Presto coordinator should be secured using Kerberos when using
+  Kerberos authentication to Hadoop services. Failure to secure access to the
+  Presto coordinator could result in unauthorized access to sensitive data on
+  the Hadoop cluster.
+
+  See :doc:`/security/server` and :doc:`/security/cli`
+  for information on setting up Kerberos authentication.
+
 Kerberos Support
 ================
 
