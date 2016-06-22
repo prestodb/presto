@@ -22,6 +22,7 @@ import com.facebook.presto.metadata.TypeVariableConstraint;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionDependency;
+import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.OperatorType;
@@ -90,6 +91,7 @@ public class ScalarImplementation
     private final Signature signature;
     private final boolean nullable;
     private final List<Boolean> nullableArguments;
+    private final List<Boolean> nullFlags;
     private final MethodHandle methodHandle;
     private final List<ImplementationDependency> dependencies;
     private final Optional<MethodHandle> constructor;
@@ -101,6 +103,7 @@ public class ScalarImplementation
             Signature signature,
             boolean nullable,
             List<Boolean> nullableArguments,
+            List<Boolean> nullFlags,
             MethodHandle methodHandle,
             List<ImplementationDependency> dependencies,
             Optional<MethodHandle> constructor,
@@ -111,6 +114,7 @@ public class ScalarImplementation
         this.signature = requireNonNull(signature, "signature is null");
         this.nullable = nullable;
         this.nullableArguments = ImmutableList.copyOf(requireNonNull(nullableArguments, "nullableArguments is null"));
+        this.nullFlags = ImmutableList.copyOf(requireNonNull(nullFlags, "nullFlags is null"));
         this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
         this.dependencies = ImmutableList.copyOf(requireNonNull(dependencies, "dependencies is null"));
         this.constructor = requireNonNull(constructor, "constructor is null");
@@ -131,7 +135,7 @@ public class ScalarImplementation
             return Optional.empty();
         }
         for (int i = 0; i < boundSignature.getArgumentTypes().size(); i++) {
-            Class<?> argumentContainerType = getNullAwareContainerType(typeManager.getType(boundSignature.getArgumentTypes().get(i)).getJavaType(), nullableArguments.get(i));
+            Class<?> argumentContainerType = getNullAwareContainerType(typeManager.getType(boundSignature.getArgumentTypes().get(i)).getJavaType(), nullableArguments.get(i) && !nullFlags.get(i));
             if (!argumentNativeContainerTypes.get(i).isAssignableFrom(argumentContainerType)) {
                 return Optional.empty();
             }
@@ -176,6 +180,11 @@ public class ScalarImplementation
     public List<Boolean> getNullableArguments()
     {
         return nullableArguments;
+    }
+
+    public List<Boolean> getNullFlags()
+    {
+        return nullFlags;
     }
 
     public MethodHandle getMethodHandle()
@@ -306,6 +315,7 @@ public class ScalarImplementation
         private final String functionName;
         private final boolean nullable;
         private final List<Boolean> nullableArguments = new ArrayList<>();
+        private final List<Boolean> nullFlags = new ArrayList<>();
         private final TypeSignature returnType;
         private final List<TypeSignature> argumentTypes = new ArrayList<>();
         private final List<Class<?>> argumentNativeContainerTypes = new ArrayList<>();
@@ -406,7 +416,26 @@ public class ScalarImplementation
                     }
                     argumentNativeContainerTypes.add(parameterType);
                     argumentTypes.add(parseTypeSignature(type.value(), literalParameters));
+
+                    boolean currentNullFlag = false;
+                    if (i + 1 < method.getParameterCount()) {
+                        boolean foundIsNull = false;
+                        annotations = method.getParameterAnnotations()[i + 1];
+                        for (Annotation annotation : annotations) {
+                            if (annotation instanceof IsNull) {
+                                foundIsNull = true;
+                                break;
+                            }
+                        }
+                        if (foundIsNull) {
+                            nullableArgument = true;
+                            currentNullFlag = true;
+                            // skip @IsNull on the next parameter
+                            i++;
+                        }
+                    }
                     nullableArguments.add(nullableArgument);
+                    nullFlags.add(currentNullFlag);
                 }
             }
         }
@@ -576,6 +605,7 @@ public class ScalarImplementation
                     signature,
                     nullable,
                     nullableArguments,
+                    nullFlags,
                     methodHandle,
                     dependencies,
                     constructorMethodHandle,
