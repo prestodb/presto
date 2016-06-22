@@ -146,8 +146,6 @@ public class TestIndexer
         iter = scan.iterator();
         assertKeyValuePair(iter.next(), AGE_VALUE, "cf_age", "___card___", "1");
         assertKeyValuePair(iter.next(), Indexer.METRICS_TABLE_ROW_ID.array(), "___rows___", "___card___", "1");
-        assertKeyValuePair(iter.next(), Indexer.METRICS_TABLE_ROW_ID.array(), "___rows___", "___first_row___", "row1");
-        assertKeyValuePair(iter.next(), Indexer.METRICS_TABLE_ROW_ID.array(), "___rows___", "___last_row___", "row1");
         assertKeyValuePair(iter.next(), bytes("abc"), "cf_arr", "___card___", "1");
         assertKeyValuePair(iter.next(), M1_FNAME_VALUE, "cf_firstname", "___card___", "1");
         assertKeyValuePair(iter.next(), bytes("def"), "cf_arr", "___card___", "1");
@@ -182,8 +180,6 @@ public class TestIndexer
         iter = scan.iterator();
         assertKeyValuePair(iter.next(), AGE_VALUE, "cf_age", "___card___", "2");
         assertKeyValuePair(iter.next(), Indexer.METRICS_TABLE_ROW_ID.array(), "___rows___", "___card___", "2");
-        assertKeyValuePair(iter.next(), Indexer.METRICS_TABLE_ROW_ID.array(), "___rows___", "___first_row___", "row1");
-        assertKeyValuePair(iter.next(), Indexer.METRICS_TABLE_ROW_ID.array(), "___rows___", "___last_row___", "row2");
         assertKeyValuePair(iter.next(), bytes("abc"), "cf_arr", "___card___", "2");
         assertKeyValuePair(iter.next(), M1_FNAME_VALUE, "cf_firstname", "___card___", "1");
         assertKeyValuePair(iter.next(), M2_FNAME_VALUE, "cf_firstname", "___card___", "1");
@@ -239,8 +235,6 @@ public class TestIndexer
         assertKeyValuePair(iter.next(), AGE_VALUE, "cf_age", "___card___", "1");
         assertKeyValuePair(iter.next(), AGE_VALUE, "cf_age", "___card___", "private", "1");
         assertKeyValuePair(iter.next(), Indexer.METRICS_TABLE_ROW_ID.array(), "___rows___", "___card___", "2");
-        assertKeyValuePair(iter.next(), Indexer.METRICS_TABLE_ROW_ID.array(), "___rows___", "___first_row___", "row1");
-        assertKeyValuePair(iter.next(), Indexer.METRICS_TABLE_ROW_ID.array(), "___rows___", "___last_row___", "row1");
         assertKeyValuePair(iter.next(), bytes("abc"), "cf_arr", "___card___", "1");
         assertKeyValuePair(iter.next(), bytes("abc"), "cf_arr", "___card___", "moreprivate", "1");
         assertKeyValuePair(iter.next(), M1_FNAME_VALUE, "cf_firstname", "___card___", "1");
@@ -291,8 +285,6 @@ public class TestIndexer
         assertKeyValuePair(iter.next(), AGE_VALUE, "cf_age", "___card___", "2");
         assertKeyValuePair(iter.next(), AGE_VALUE, "cf_age", "___card___", "private", "2");
         assertKeyValuePair(iter.next(), Indexer.METRICS_TABLE_ROW_ID.array(), "___rows___", "___card___", "4");
-        assertKeyValuePair(iter.next(), Indexer.METRICS_TABLE_ROW_ID.array(), "___rows___", "___first_row___", "row1");
-        assertKeyValuePair(iter.next(), Indexer.METRICS_TABLE_ROW_ID.array(), "___rows___", "___last_row___", "row2");
         assertKeyValuePair(iter.next(), bytes("abc"), "cf_arr", "___card___", "2");
         assertKeyValuePair(iter.next(), bytes("abc"), "cf_arr", "___card___", "moreprivate", "2");
         assertKeyValuePair(iter.next(), M1_FNAME_VALUE, "cf_firstname", "___card___", "1");

@@ -14,8 +14,6 @@
 package com.facebook.presto.accumulo.index;
 
 import com.facebook.presto.accumulo.Types;
-import com.facebook.presto.accumulo.iterators.MaxByteArrayCombiner;
-import com.facebook.presto.accumulo.iterators.MinByteArrayCombiner;
 import com.facebook.presto.accumulo.metadata.AccumuloTable;
 import com.facebook.presto.accumulo.model.AccumuloColumnHandle;
 import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
@@ -27,27 +25,21 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
-import com.google.common.primitives.UnsignedBytes;
 import org.apache.accumulo.core.client.BatchWriter;
 import org.apache.accumulo.core.client.BatchWriterConfig;
 import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.client.IteratorSetting;
 import org.apache.accumulo.core.client.IteratorSetting.Column;
 import org.apache.accumulo.core.client.MutationsRejectedException;
-import org.apache.accumulo.core.client.Scanner;
 import org.apache.accumulo.core.client.TableNotFoundException;
 import org.apache.accumulo.core.data.ColumnUpdate;
-import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.Mutation;
-import org.apache.accumulo.core.data.Range;
-import org.apache.accumulo.core.data.Value;
 import org.apache.accumulo.core.iterators.LongCombiner;
 import org.apache.accumulo.core.iterators.TypedValueCombiner;
 import org.apache.accumulo.core.iterators.user.SummingCombiner;
 import org.apache.accumulo.core.security.Authorizations;
 import org.apache.accumulo.core.security.ColumnVisibility;
 import org.apache.commons.lang.ArrayUtils;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.io.Text;
 
 import javax.annotation.concurrent.NotThreadSafe;
@@ -55,7 +47,6 @@ import javax.annotation.concurrent.NotThreadSafe;
 import java.io.Closeable;
 import java.nio.ByteBuffer;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -109,8 +100,6 @@ public class Indexer
     public static final ByteBuffer METRICS_TABLE_ROW_ID = wrap("___METRICS_TABLE___".getBytes(UTF_8));
     public static final ByteBuffer METRICS_TABLE_ROWS_CF = wrap("___rows___".getBytes(UTF_8));
     public static final MetricsKey METRICS_TABLE_ROW_COUNT = new MetricsKey(METRICS_TABLE_ROW_ID, METRICS_TABLE_ROWS_CF);
-    public static final ByteBuffer METRICS_TABLE_FIRST_ROW_CQ = wrap("___first_row___".getBytes(UTF_8));
-    public static final ByteBuffer METRICS_TABLE_LAST_ROW_CQ = wrap("___last_row___".getBytes(UTF_8));
     public static final byte[] CARDINALITY_CQ = "___card___".getBytes(UTF_8);
     public static final Text CARDINALITY_CQ_AS_TEXT = new Text(CARDINALITY_CQ);
     public static final Text METRICS_TABLE_ROWS_CF_AS_TEXT = new Text(METRICS_TABLE_ROWS_CF.array());
@@ -129,10 +118,6 @@ public class Indexer
     private final Multimap<ByteBuffer, ByteBuffer> indexColumns;
     private final Map<ByteBuffer, Map<ByteBuffer, Type>> indexColumnTypes;
     private final AccumuloRowSerializer serializer;
-    private final Comparator<byte[]> byteArrayComparator = UnsignedBytes.lexicographicalComparator();
-
-    private byte[] firstRow = null;
-    private byte[] lastRow = null;
 
     public Indexer(
             Connector connector,
@@ -185,11 +170,6 @@ public class Indexer
         // Initialize metrics map
         // This metrics map is for column cardinality
         metrics.put(METRICS_TABLE_ROW_COUNT, new AtomicLong(0));
-
-        // Scan the metrics table for existing first row and last row
-        Pair<byte[], byte[]> minmax = getMinMaxRowIds(connector, table, auths);
-        firstRow = minmax.getLeft();
-        lastRow = minmax.getRight();
     }
 
     /**
@@ -204,15 +184,6 @@ public class Indexer
     {
         // Increment the cardinality for the number of rows in the table
         metrics.get(METRICS_TABLE_ROW_COUNT).incrementAndGet();
-
-        // Set the first and last row values of the table based on existing row IDs
-        if (firstRow == null || byteArrayComparator.compare(mutation.getRow(), firstRow) < 0) {
-            firstRow = mutation.getRow();
-        }
-
-        if (lastRow == null || byteArrayComparator.compare(mutation.getRow(), lastRow) > 0) {
-            lastRow = mutation.getRow();
-        }
 
         // For each column update in this mutation
         for (ColumnUpdate columnUpdate : mutation.getUpdates()) {
@@ -340,19 +311,6 @@ public class Indexer
             mutationBuilder.add(mut);
         }
 
-        // If the first row and last row are both not null,
-        // which would really be for a brand new table that has zero rows and no indexed elements...
-        // Talk about your edge cases!
-        if (firstRow != null && lastRow != null) {
-            // Add a some columns to the special metrics table row ID for the first/last row.
-            // Note that if the values on the server side are greater/lesser,
-            // the configured iterator will take care of this at scan/compaction time
-            Mutation firstLastMutation = new Mutation(METRICS_TABLE_ROW_ID.array());
-            firstLastMutation.put(METRICS_TABLE_ROWS_CF.array(), METRICS_TABLE_FIRST_ROW_CQ.array(), firstRow);
-            firstLastMutation.put(METRICS_TABLE_ROWS_CF.array(), METRICS_TABLE_LAST_ROW_CQ.array(), lastRow);
-            mutationBuilder.add(firstLastMutation);
-        }
-
         return mutationBuilder.build();
     }
 
@@ -375,20 +333,12 @@ public class Indexer
             columnBuilder.add(new Column(s, cardQualifier));
         }
 
-        // Configuration rows for the Min/Max combiners
-        String firstRowColumn = rowsFamily + ":" + new String(METRICS_TABLE_FIRST_ROW_CQ.array());
-        String lastRowColumn = rowsFamily + ":" + new String(METRICS_TABLE_LAST_ROW_CQ.array());
-
         // Summing combiner for cardinality columns
         IteratorSetting s1 = new IteratorSetting(1, SummingCombiner.class);
         SummingCombiner.setEncodingType(s1, LongCombiner.Type.STRING);
         SummingCombiner.setColumns(s1, columnBuilder.build());
 
-        // Min/Max combiner for the first/last rows of the table
-        IteratorSetting s2 = new IteratorSetting(2, MinByteArrayCombiner.class, ImmutableMap.of("columns", firstRowColumn));
-        IteratorSetting s3 = new IteratorSetting(3, MaxByteArrayCombiner.class, ImmutableMap.of("columns", lastRowColumn));
-
-        return ImmutableList.of(s1, s2, s3);
+        return ImmutableList.of(s1);
     }
 
     /**
@@ -470,32 +420,6 @@ public class Indexer
     public static String getMetricsTableName(SchemaTableName tableName)
     {
         return getMetricsTableName(tableName.getSchemaName(), tableName.getTableName());
-    }
-
-    public static Pair<byte[], byte[]> getMinMaxRowIds(Connector connector, AccumuloTable table, Authorizations auths)
-            throws TableNotFoundException
-    {
-        Scanner scanner = connector.createScanner(table.getMetricsTableName(), auths);
-        scanner.setRange(new Range(new Text(Indexer.METRICS_TABLE_ROW_ID.array())));
-        Text family = new Text(Indexer.METRICS_TABLE_ROWS_CF.array());
-        Text firstRowQualifier = new Text(Indexer.METRICS_TABLE_FIRST_ROW_CQ.array());
-        Text lastRowQualifier = new Text(Indexer.METRICS_TABLE_LAST_ROW_CQ.array());
-        scanner.fetchColumn(family, firstRowQualifier);
-        scanner.fetchColumn(family, lastRowQualifier);
-
-        byte[] firstRow = null;
-        byte[] lastRow = null;
-        for (Entry<Key, Value> entry : scanner) {
-            if (entry.getKey().compareColumnQualifier(firstRowQualifier) == 0) {
-                firstRow = entry.getValue().get();
-            }
-
-            if (entry.getKey().compareColumnQualifier(lastRowQualifier) == 0) {
-                lastRow = entry.getValue().get();
-            }
-        }
-        scanner.close();
-        return Pair.of(firstRow, lastRow);
     }
 
     /**
