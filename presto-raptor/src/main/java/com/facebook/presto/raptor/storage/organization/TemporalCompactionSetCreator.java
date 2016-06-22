@@ -16,11 +16,8 @@ package com.facebook.presto.raptor.storage.organization;
 import com.facebook.presto.raptor.metadata.ShardMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ComparisonChain;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Multimaps;
 import io.airlift.units.DataSize;
 
 import java.time.Duration;
@@ -31,6 +28,7 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.getShardsByDaysBuckets;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -104,50 +102,6 @@ public class TemporalCompactionSetCreator
             }
         }
         return compactionSets.build();
-    }
-
-    private static Collection<Collection<ShardMetadata>> getShardsByDaysBuckets(Set<ShardMetadata> shardMetadata, Type type)
-    {
-        // bucket shards by the start day
-        ImmutableMultimap.Builder<Long, ShardMetadata> shardsByDays = ImmutableMultimap.builder();
-
-        // skip shards that do not have temporal information
-        shardMetadata.stream()
-                .filter(shard -> shard.getRangeStart().isPresent() && shard.getRangeEnd().isPresent())
-                .forEach(shard -> {
-                    long day = determineDay(shard.getRangeStart().getAsLong(), shard.getRangeEnd().getAsLong(), type);
-                    shardsByDays.put(day, shard);
-                });
-        Collection<Collection<ShardMetadata>> byDays = shardsByDays.build().asMap().values();
-
-        ImmutableList.Builder<Collection<ShardMetadata>> sets = ImmutableList.builder();
-        for (Collection<ShardMetadata> shards : byDays) {
-            sets.addAll(Multimaps.index(shards, ShardMetadata::getBucketNumber).asMap().values());
-        }
-        return sets.build();
-    }
-
-    private static long determineDay(long rangeStart, long rangeEnd, Type type)
-    {
-        if (type.equals(DATE)) {
-            return rangeStart;
-        }
-
-        long startDay = Duration.ofMillis(rangeStart).toDays();
-        long endDay = Duration.ofMillis(rangeEnd).toDays();
-        if (startDay == endDay) {
-            return startDay;
-        }
-
-        if ((endDay - startDay) > 1) {
-            // range spans multiple days, return the first full day
-            return startDay + 1;
-        }
-
-        // range spans two days, return the day that has the larger time range
-        long millisInStartDay = Duration.ofDays(endDay).toMillis() - rangeStart;
-        long millisInEndDay = rangeEnd - Duration.ofDays(endDay).toMillis();
-        return (millisInStartDay >= millisInEndDay) ? startDay : endDay;
     }
 
     private static class ShardSorter
