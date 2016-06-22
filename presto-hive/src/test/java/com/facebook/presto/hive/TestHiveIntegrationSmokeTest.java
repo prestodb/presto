@@ -204,7 +204,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(createTable);
 
-        TableMetadata tableMetadata = getTableMetadata("test_partitioned_table");
+        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_partitioned_table");
         assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
 
         List<String> partitionedBy = ImmutableList.of("_partition_string", "_partition_varchar", "_partition_tinyint", "_partition_smallint", "_partition_integer", "_partition_bigint", "_partition_decimal_short", "_partition_decimal_long");
@@ -280,7 +280,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(createTableAs, 1);
 
-        TableMetadata tableMetadata = getTableMetadata("test_format_table");
+        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_format_table");
         assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
 
         assertColumnType(tableMetadata, "_varchar", createVarcharType(3));
@@ -316,7 +316,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(createTable, "SELECT count(*) from orders");
 
-        TableMetadata tableMetadata = getTableMetadata("test_create_partitioned_table_as");
+        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_create_partitioned_table_as");
         assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
 
         List<String> partitionedBy = ImmutableList.of("ship_priority", "order_status");
@@ -408,7 +408,7 @@ public class TestHiveIntegrationSmokeTest
                 createTable,
                 "SELECT count(*) from orders");
 
-        TableMetadata tableMetadata = getTableMetadata("test_create_partitioned_bucketed_table_as");
+        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_create_partitioned_bucketed_table_as");
         assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
 
         List<String> partitionedBy = ImmutableList.of("orderstatus");
@@ -478,7 +478,7 @@ public class TestHiveIntegrationSmokeTest
                             orderStatus),
                     format("SELECT count(*) from orders where orderstatus = '%s'", orderStatus));
 
-            TableMetadata tableMetadata = getTableMetadata("test_insert_partitioned_bucketed_table");
+            TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_insert_partitioned_bucketed_table");
             assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
 
             List<String> partitionedBy = ImmutableList.of("orderstatus");
@@ -554,7 +554,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(createTable);
 
-        TableMetadata tableMetadata = getTableMetadata("test_insert_format_table");
+        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_insert_format_table");
         assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
 
         assertColumnType(tableMetadata, "_string", createUnboundedVarcharType());
@@ -619,7 +619,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(createTable);
 
-        TableMetadata tableMetadata = getTableMetadata("test_insert_partitioned_table");
+        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_insert_partitioned_table");
         assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
         assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), ImmutableList.of("ship_priority", "order_status"));
 
@@ -730,7 +730,7 @@ public class TestHiveIntegrationSmokeTest
         assertFalse(queryRunner.tableExists(getSession(), "test_metadata_delete"));
     }
 
-    private TableMetadata getTableMetadata(String tableName)
+    private TableMetadata getTableMetadata(String catalog, String schema, String tableName)
     {
         Session session = getSession();
         Metadata metadata = ((DistributedQueryRunner) queryRunner).getCoordinator().getMetadata();
@@ -738,7 +738,7 @@ public class TestHiveIntegrationSmokeTest
         return transaction(queryRunner.getTransactionManager())
                 .readOnly()
                 .execute(session, transactionSession -> {
-                    Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName));
+                    Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, new QualifiedObjectName(catalog, schema, tableName));
                     assertTrue(tableHandle.isPresent());
                     return metadata.getTableMetadata(transactionSession, tableHandle.get());
                 });
