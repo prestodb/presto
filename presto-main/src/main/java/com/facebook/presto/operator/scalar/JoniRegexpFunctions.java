@@ -18,19 +18,15 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.Description;
-import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.JoniRegexpType;
 import com.google.common.primitives.Ints;
-import io.airlift.jcodings.specific.NonStrictUTF8Encoding;
 import io.airlift.joni.Matcher;
 import io.airlift.joni.Option;
 import io.airlift.joni.Regex;
 import io.airlift.joni.Region;
-import io.airlift.joni.Syntax;
 import io.airlift.joni.exception.ValueException;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -49,21 +45,6 @@ public final class JoniRegexpFunctions
 {
     private JoniRegexpFunctions()
     {
-    }
-
-    @ScalarOperator(OperatorType.CAST)
-    @SqlType(JoniRegexpType.NAME)
-    public static Regex castToRegexp(@SqlType(StandardTypes.VARCHAR) Slice pattern)
-    {
-        Regex regex;
-        try {
-            // When normal UTF8 encoding instead of non-strict UTF8) is used, joni can infinite loop when invalid UTF8 slice is supplied to it.
-            regex = new Regex(pattern.getBytes(), 0, pattern.length(), Option.DEFAULT, NonStrictUTF8Encoding.INSTANCE, Syntax.Java);
-        }
-        catch (Exception e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
-        }
-        return regex;
     }
 
     @Description("returns whether the pattern is contained within the string")
