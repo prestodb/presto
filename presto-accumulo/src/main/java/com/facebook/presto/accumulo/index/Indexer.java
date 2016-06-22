@@ -32,6 +32,7 @@ import org.apache.accumulo.core.client.BatchWriter;
 import org.apache.accumulo.core.client.BatchWriterConfig;
 import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.client.IteratorSetting;
+import org.apache.accumulo.core.client.IteratorSetting.Column;
 import org.apache.accumulo.core.client.MutationsRejectedException;
 import org.apache.accumulo.core.client.Scanner;
 import org.apache.accumulo.core.client.TableNotFoundException;
@@ -368,18 +369,20 @@ public class Indexer
 
         // Build a string for all columns where the summing combiner should be applied,
         // i.e. all indexed columns
-        StringBuilder cardBuilder = new StringBuilder(rowsFamily + ":" + cardQualifier + ",");
+        ImmutableList.Builder<Column> columnBuilder = ImmutableList.builder();
+        columnBuilder.add(new Column(rowsFamily, cardQualifier));
         for (String s : getLocalityGroups(table).keySet()) {
-            cardBuilder.append(s).append(":").append(cardQualifier).append(',');
+            columnBuilder.add(new Column(s, cardQualifier));
         }
-        cardBuilder.deleteCharAt(cardBuilder.length() - 1);
 
         // Configuration rows for the Min/Max combiners
         String firstRowColumn = rowsFamily + ":" + new String(METRICS_TABLE_FIRST_ROW_CQ.array());
         String lastRowColumn = rowsFamily + ":" + new String(METRICS_TABLE_LAST_ROW_CQ.array());
 
         // Summing combiner for cardinality columns
-        IteratorSetting s1 = new IteratorSetting(1, SummingCombiner.class, ImmutableMap.of("columns", cardBuilder.toString(), "type", "STRING"));
+        IteratorSetting s1 = new IteratorSetting(1, SummingCombiner.class);
+        SummingCombiner.setEncodingType(s1, LongCombiner.Type.STRING);
+        SummingCombiner.setColumns(s1, columnBuilder.build());
 
         // Min/Max combiner for the first/last rows of the table
         IteratorSetting s2 = new IteratorSetting(2, MinByteArrayCombiner.class, ImmutableMap.of("columns", firstRowColumn));

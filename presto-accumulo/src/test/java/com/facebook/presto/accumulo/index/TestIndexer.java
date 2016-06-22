@@ -312,19 +312,19 @@ public class TestIndexer
 
     private static void assertKeyValuePair(Entry<Key, Value> e, byte[] row, String cf, String cq, String value)
     {
-        assertEquals(row, e.getKey().getRow().copyBytes());
-        assertEquals(cf, e.getKey().getColumnFamily().toString());
-        assertEquals(cq, e.getKey().getColumnQualifier().toString());
-        assertEquals(value, e.getValue().toString());
+        assertEquals(e.getKey().getRow().copyBytes(), row);
+        assertEquals(e.getKey().getColumnFamily().toString(), cf);
+        assertEquals(e.getKey().getColumnQualifier().toString(), cq);
+        assertEquals(e.getValue().toString(), value);
     }
 
     private static void assertKeyValuePair(Entry<Key, Value> e, byte[] row, String cf, String cq, String cv, String value)
     {
-        assertEquals(row, e.getKey().getRow().copyBytes());
-        assertEquals(cf, e.getKey().getColumnFamily().toString());
-        assertEquals(cq, e.getKey().getColumnQualifier().toString());
-        assertEquals(cv, e.getKey().getColumnVisibility().toString());
-        assertEquals(value, e.getValue().toString());
+        assertEquals(e.getKey().getRow().copyBytes(), row);
+        assertEquals(e.getKey().getColumnFamily().toString(), cf);
+        assertEquals(e.getKey().getColumnQualifier().toString(), cq);
+        assertEquals(e.getKey().getColumnVisibility().toString(), cv);
+        assertEquals(e.getValue().toString(), value);
     }
 
     private static byte[] bytes(String s)

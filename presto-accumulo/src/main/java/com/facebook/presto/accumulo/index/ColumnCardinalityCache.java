@@ -117,8 +117,8 @@ public class ColumnCardinalityCache
      * @param table Table name
      * @param idxConstraintRangePairs Mapping of all ranges for a given constraint
      * @param auths Scan-time authorizations for loading any cardinalities from Accumulo
-     * @param earlyReturnThreshold Smallest acceptable cardinality to return early while other tasks complete
-     * @param pollingDuration Duration for polling the cardinality completion service
+     * @param earlyReturnThreshold Smallest acceptable cardinality to return early while other tasks complete. Use a negative value to disable early return.
+     * @param pollingDuration Duration for polling the cardinality completion service. Use a Duration of zero to disable polling.
      * @return An immutable multimap of cardinality to column constraint, sorted by cardinality from smallest to largest
      * @throws TableNotFoundException If the metrics table does not exist
      * @throws ExecutionException If another error occurs; I really don't even know anymore.
@@ -126,6 +126,16 @@ public class ColumnCardinalityCache
     public Multimap<Long, AccumuloColumnConstraint> getCardinalities(String schema, String table, Multimap<AccumuloColumnConstraint, Range> idxConstraintRangePairs, Authorizations auths, long earlyReturnThreshold, Duration pollingDuration)
             throws ExecutionException, TableNotFoundException
     {
+        requireNonNull(schema, "schema is null");
+        requireNonNull(table, "table is null");
+        requireNonNull(idxConstraintRangePairs, "idxConstraintRangePairs is null");
+        requireNonNull(auths, "auths is null");
+        requireNonNull(pollingDuration, "pollingDuration is null");
+
+        if (idxConstraintRangePairs.isEmpty()) {
+            return ImmutableMultimap.of();
+        }
+
         // Submit tasks to the executor to fetch column cardinality, adding it to the Guava cache if necessary
         CompletionService<Pair<Long, AccumuloColumnConstraint>> executor = new ExecutorCompletionService<>(executorService);
         idxConstraintRangePairs.asMap().entrySet().forEach(e ->
@@ -136,6 +146,8 @@ public class ColumnCardinalityCache
                         }
                 ));
 
+        long pollingMillis = pollingDuration.toMillis();
+
         // Create a multi map sorted by cardinality
         ListMultimap<Long, AccumuloColumnConstraint> cardinalityToConstraints = MultimapBuilder.treeKeys().arrayListValues().build();
         try {
@@ -143,12 +155,14 @@ public class ColumnCardinalityCache
             int numTasks = idxConstraintRangePairs.asMap().entrySet().size();
             do {
                 // Sleep for the polling duration to allow concurrent tasks to run for this time
-                Thread.sleep(pollingDuration.toMillis());
+                if (pollingMillis > 0) {
+                    Thread.sleep(pollingMillis);
+                }
 
                 // Poll each task, retrieving the result if it is done
                 for (int i = 0; i < numTasks; ++i) {
                     Future<Pair<Long, AccumuloColumnConstraint>> futureCardinality = executor.poll();
-                    if (futureCardinality != null && futureCardinality.isDone()) {
+                    if (futureCardinality != null) {
                         Pair<Long, AccumuloColumnConstraint> columnCardinality = futureCardinality.get();
                         cardinalityToConstraints.put(columnCardinality.getLeft(), columnCardinality.getRight());
                     }
@@ -186,7 +200,7 @@ public class ColumnCardinalityCache
      * @param colValues All range values to summarize for the cardinality
      * @return The cardinality of the column
      */
-    public long getColumnCardinality(String schema, String table, String family, String qualifier, Authorizations auths, Collection<Range> colValues)
+    private long getColumnCardinality(String schema, String table, String family, String qualifier, Authorizations auths, Collection<Range> colValues)
             throws ExecutionException
     {
         LOG.debug("Getting cardinality for %s:%s", family, qualifier);

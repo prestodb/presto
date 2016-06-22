@@ -245,7 +245,7 @@ public final class AccumuloTableProperties
         requireNonNull(tableProperties);
 
         @SuppressWarnings("unchecked")
-        Boolean serializerClass = (Boolean) tableProperties.get(EXTERNAL);
-        return serializerClass;
+        Boolean external = (Boolean) tableProperties.get(EXTERNAL);
+        return external;
     }
 }

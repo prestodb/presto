@@ -909,7 +909,7 @@ public class AccumuloClient
         return rangeBuilder.build();
     }
 
-    private static Range getRangeFromPrestoRange(com.facebook.presto.spi.predicate.Range prestoRange, AccumuloRowSerializer serializer)
+    public static Range getRangeFromPrestoRange(com.facebook.presto.spi.predicate.Range prestoRange, AccumuloRowSerializer serializer)
             throws TableNotFoundException
     {
         Range accumuloRange;
