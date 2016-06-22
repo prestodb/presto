@@ -37,9 +37,9 @@ class PageReference
         this.referenceCount = new AtomicInteger(referenceCount);
     }
 
-    public long getSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
-        return page.getSizeInBytes();
+        return page.getRetainedSizeInBytes();
     }
 
     public Page removePage()

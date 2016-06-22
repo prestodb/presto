@@ -37,9 +37,9 @@ class BroadcastExchanger
     @Override
     public void accept(Page page)
     {
-        memoryTracker.accept(page.getSizeInBytes());
+        memoryTracker.accept(page.getRetainedSizeInBytes());
 
-        PageReference pageReference = new PageReference(page, buffers.size(), () -> memoryTracker.accept(-page.getSizeInBytes()));
+        PageReference pageReference = new PageReference(page, buffers.size(), () -> memoryTracker.accept(-page.getRetainedSizeInBytes()));
 
         for (Consumer<PageReference> buffer : buffers) {
             buffer.accept(pageReference);

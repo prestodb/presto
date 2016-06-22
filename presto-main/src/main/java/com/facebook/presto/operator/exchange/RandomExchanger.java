@@ -38,9 +38,9 @@ class RandomExchanger
     @Override
     public void accept(Page page)
     {
-        memoryTracker.accept(page.getSizeInBytes());
+        memoryTracker.accept(page.getRetainedSizeInBytes());
 
-        PageReference pageReference = new PageReference(page, 1, () -> memoryTracker.accept(-page.getSizeInBytes()));
+        PageReference pageReference = new PageReference(page, 1, () -> memoryTracker.accept(-page.getRetainedSizeInBytes()));
 
         int randomIndex = ThreadLocalRandom.current().nextInt(buffers.size());
         buffers.get(randomIndex).accept(pageReference);
