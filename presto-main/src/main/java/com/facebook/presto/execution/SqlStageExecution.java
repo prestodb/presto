@@ -334,7 +334,6 @@ public final class SqlStageExecution
                 stateMachine.getSession(),
                 taskId,
                 node,
-                taskId.getId(),
                 stateMachine.getFragment(),
                 initialSplits.build(),
                 outputBuffers.get(),
