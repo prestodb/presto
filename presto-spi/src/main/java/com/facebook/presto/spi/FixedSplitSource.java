@@ -23,13 +23,17 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 public class FixedSplitSource
         implements ConnectorSplitSource
 {
-    private final String dataSourceName;
     private final List<ConnectorSplit> splits;
     private int offset;
 
+    @Deprecated
     public FixedSplitSource(String dataSourceName, Iterable<? extends ConnectorSplit> splits)
     {
-        this.dataSourceName = dataSourceName;
+        this(splits);
+    }
+
+    public FixedSplitSource(Iterable<? extends ConnectorSplit> splits)
+    {
         if (splits == null) {
             throw new NullPointerException("splits is null");
         }
@@ -38,12 +42,6 @@ public class FixedSplitSource
             splitsList.add(split);
         }
         this.splits = Collections.unmodifiableList(splitsList);
-    }
-
-    @Override
-    public String getDataSourceName()
-    {
-        return dataSourceName;
     }
 
     @Override

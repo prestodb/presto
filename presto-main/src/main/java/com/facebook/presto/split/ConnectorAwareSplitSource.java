@@ -40,7 +40,7 @@ public class ConnectorAwareSplitSource
     @Override
     public String getDataSourceName()
     {
-        return source.getDataSourceName();
+        return connectorId;
     }
 
     @Override
