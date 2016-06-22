@@ -141,7 +141,7 @@ public class ColumnCardinalityCache
         idxConstraintRangePairs.asMap().entrySet().forEach(e ->
                 executor.submit(() -> {
                             long cardinality = getColumnCardinality(schema, table, e.getKey().getFamily(), e.getKey().getQualifier(), auths, e.getValue());
-                            LOG.info("Cardinality for column %s is %s", e.getKey().getName(), cardinality);
+                            LOG.debug("Cardinality for column %s is %s", e.getKey().getName(), cardinality);
                             return Pair.of(cardinality, e.getKey());
                         }
                 ));
@@ -172,7 +172,7 @@ public class ColumnCardinalityCache
                 Optional<Entry<Long, AccumuloColumnConstraint>> smallestCardinality = cardinalityToConstraints.entries().stream().findFirst();
                 if (smallestCardinality.isPresent()) {
                     if (smallestCardinality.get().getKey() <= earlyReturnThreshold) {
-                        LOG.info("Cardinality for column %s is below threshold of %s. Returning early while other tasks finish",
+                        LOG.debug("Cardinality for column %s is below threshold of %s. Returning early while other tasks finish",
                                 smallestCardinality.get().getValue().getName(), earlyReturnThreshold);
                         earlyReturn = true;
                     }
@@ -197,44 +197,44 @@ public class ColumnCardinalityCache
      * @param family Accumulo column family
      * @param qualifier Accumulo column qualifier
      * @param auths Scan-time authorizations for loading any cardinalities from Accumulo
-     * @param colValues All range values to summarize for the cardinality
+     * @param columnRanges All range values to summarize for the cardinality
      * @return The cardinality of the column
      */
-    private long getColumnCardinality(String schema, String table, String family, String qualifier, Authorizations auths, Collection<Range> colValues)
+    private long getColumnCardinality(String schema, String table, String family, String qualifier, Authorizations auths, Collection<Range> columnRanges)
             throws ExecutionException
     {
         LOG.debug("Getting cardinality for %s:%s", family, qualifier);
 
         // Collect all exact Accumulo Ranges, i.e. single value entries vs. a full scan
         Collection<CacheKey> exactRanges =
-                colValues.stream().filter(this::isExact).map(range ->
+                columnRanges.stream().filter(this::isExact).map(range ->
                         new CacheKey(schema, table, family, qualifier, auths, range)).collect(Collectors.toList());
 
         LOG.debug("Column values contain %s exact ranges of %s", exactRanges.size(),
-                colValues.size());
+                columnRanges.size());
 
         // Sum the cardinalities for the exact-value Ranges
         // This is where the reach-out to Accumulo occurs for all Ranges that have not
         // previously been fetched
         long sum = 0;
-        for (Long e : cache.getAll(exactRanges).values()) {
-            sum += e;
+        for (Long value : cache.getAll(exactRanges).values()) {
+            sum += value;
         }
 
         // If these collection sizes are not equal,
         // then there is at least one non-exact range
-        if (exactRanges.size() != colValues.size()) {
+        if (exactRanges.size() != columnRanges.size()) {
             // for each range in the column value
-            for (Range range : colValues) {
+            for (Range range : columnRanges) {
                 // if this range is not exact
                 if (!isExact(range)) {
                     // Then get the value for this range using the single-value cache lookup
                     CacheKey key = new CacheKey(schema, table, family, qualifier, auths, range);
-                    long val = cache.get(key);
+                    long value = cache.get(key);
 
                     // add our value to the cache and our sum
-                    cache.put(key, val);
-                    sum += val;
+                    cache.put(key, value);
+                    sum += value;
                 }
             }
         }
@@ -243,11 +243,11 @@ public class ColumnCardinalityCache
         return sum;
     }
 
-    private boolean isExact(Range r)
+    private boolean isExact(Range range)
     {
-        return !r.isInfiniteStartKey()
-                && !r.isInfiniteStopKey()
-                && r.getStartKey().followingKey(PartialKey.ROW).equals(r.getEndKey());
+        return !range.isInfiniteStartKey()
+                && !range.isInfiniteStopKey()
+                && range.getStartKey().followingKey(PartialKey.ROW).equals(range.getEndKey());
     }
 
     /**
@@ -410,8 +410,8 @@ public class ColumnCardinalityCache
                 for (Entry<Key, Value> entry : scanner) {
                     // Convert the row ID into an exact range and get the CacheKey
                     Range range = Range.exact(entry.getKey().getRow());
-                    CacheKey cKey = rangeToKey.get(range);
-                    if (cKey == null) {
+                    CacheKey cacheKey = rangeToKey.get(range);
+                    if (cacheKey == null) {
                         throw new PrestoException(INTERNAL_ERROR, "rangeToKey had no entry for " + range);
                     }
 
@@ -419,8 +419,8 @@ public class ColumnCardinalityCache
                     remainingKeys.remove(range);
 
                     // Sum the values (if a value exists already)
-                    Long value = rangeValues.get(cKey);
-                    rangeValues.put(cKey, Long.parseLong(entry.getValue().toString()) + (value == null ? 0 : value));
+                    Long value = rangeValues.get(cacheKey);
+                    rangeValues.put(cacheKey, Long.parseLong(entry.getValue().toString()) + (value == null ? 0 : value));
                 }
 
                 // Add the remaining cache keys to our return list with a cardinality of zero

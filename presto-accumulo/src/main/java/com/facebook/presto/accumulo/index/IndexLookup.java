@@ -16,6 +16,7 @@ package com.facebook.presto.accumulo.index;
 import com.facebook.presto.accumulo.AccumuloClient;
 import com.facebook.presto.accumulo.conf.AccumuloConfig;
 import com.facebook.presto.accumulo.conf.AccumuloSessionProperties;
+import com.facebook.presto.accumulo.iterators.ValueSummingIterator;
 import com.facebook.presto.accumulo.model.AccumuloColumnConstraint;
 import com.facebook.presto.accumulo.model.TabletSplitMetadata;
 import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
@@ -32,6 +33,7 @@ import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.BatchScanner;
 import org.apache.accumulo.core.client.Connector;
+import org.apache.accumulo.core.client.IteratorSetting;
 import org.apache.accumulo.core.client.Scanner;
 import org.apache.accumulo.core.client.TableNotFoundException;
 import org.apache.accumulo.core.data.Key;
@@ -56,7 +58,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -271,8 +272,7 @@ public class IndexLookup
     private static boolean smallestCardAboveThreshold(ConnectorSession session, long numRows, long smallestCardinality)
     {
         long threshold = getSmallestCardinalityThreshold(session, numRows);
-        LOG.info("Smallest cardinality is %d, num rows is %d, threshold is %d",
-                smallestCardinality, numRows, threshold);
+        LOG.info("Smallest cardinality is %d, num rows is %d, threshold is %d", smallestCardinality, numRows, threshold);
         return smallestCardinality > threshold;
     }
 
@@ -299,14 +299,14 @@ public class IndexLookup
         Scanner scanner = connector.createScanner(metricsTable, auths);
         scanner.setRange(METRICS_TABLE_ROWID_RANGE);
         scanner.fetchColumn(Indexer.METRICS_TABLE_ROWS_CF_AS_TEXT, Indexer.CARDINALITY_CQ_AS_TEXT);
+        IteratorSetting setting = new IteratorSetting(Integer.MAX_VALUE, "valuesummingiterator", ValueSummingIterator.class);
+        ValueSummingIterator.setEncodingType(setting, Indexer.ENCODER_TYPE);
+        scanner.addScanIterator(setting);
 
         // Scan the entry and get the number of rows
-        long numRows = -1;
+        long numRows = 0;
         for (Entry<Key, Value> entry : scanner) {
-            if (numRows > 0) {
-                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Should have received only one entry when scanning for number of rows in metrics table");
-            }
-            numRows = Long.parseLong(entry.getValue().toString());
+            numRows += Long.parseLong(entry.getValue().toString());
         }
         scanner.close();
 
@@ -323,18 +323,18 @@ public class IndexLookup
         for (Entry<AccumuloColumnConstraint, Collection<Range>> e : constraintRanges.asMap().entrySet()) {
             Callable<Set<Range>> task = () -> {
                 // Create a batch scanner against the index table, setting the ranges
-                BatchScanner scan = connector.createBatchScanner(indexTable, auths, 10);
-                scan.setRanges(e.getValue());
+                BatchScanner scanner = connector.createBatchScanner(indexTable, auths, 10);
+                scanner.setRanges(e.getValue());
 
                 // Fetch the column family for this specific column
                 Text cf = new Text(Indexer.getIndexColumnFamily(e.getKey().getFamily().getBytes(),
                         e.getKey().getQualifier().getBytes()).array());
-                scan.fetchColumnFamily(cf);
+                scanner.fetchColumnFamily(cf);
 
                 // For each entry in the scanner
                 Text tmpQualifier = new Text();
                 Set<Range> columnRanges = new HashSet<>();
-                for (Entry<Key, Value> entry : scan) {
+                for (Entry<Key, Value> entry : scanner) {
                     entry.getKey().getColumnQualifier(tmpQualifier);
 
                     // Add to our column ranges if it is in one of the row ID ranges
@@ -345,7 +345,7 @@ public class IndexLookup
 
                 LOG.info("Retrieved %d ranges for index column %s", columnRanges.size(), e.getKey().getName());
                 // Close the scanner
-                scan.close();
+                scanner.close();
                 return columnRanges;
             };
             tasks.add(task);
@@ -397,7 +397,7 @@ public class IndexLookup
      */
     private static boolean inRange(Text text, Collection<Range> ranges)
     {
-        Key kCq = new Key(text);
-        return ranges.stream().anyMatch(r -> !r.beforeStartKey(kCq) && !r.afterEndKey(kCq));
+        Key qualifier = new Key(text);
+        return ranges.stream().anyMatch(r -> !r.beforeStartKey(qualifier) && !r.afterEndKey(qualifier));
     }
 }

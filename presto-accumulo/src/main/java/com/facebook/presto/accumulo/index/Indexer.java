@@ -60,6 +60,7 @@ import static com.facebook.presto.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_DNE;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.ByteBuffer.wrap;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -99,7 +100,6 @@ public class Indexer
 {
     public static final ByteBuffer METRICS_TABLE_ROW_ID = wrap("___METRICS_TABLE___".getBytes(UTF_8));
     public static final ByteBuffer METRICS_TABLE_ROWS_CF = wrap("___rows___".getBytes(UTF_8));
-    public static final MetricsKey METRICS_TABLE_ROW_COUNT = new MetricsKey(METRICS_TABLE_ROW_ID, METRICS_TABLE_ROWS_CF);
     public static final byte[] CARDINALITY_CQ = "___card___".getBytes(UTF_8);
     public static final Text CARDINALITY_CQ_AS_TEXT = new Text(CARDINALITY_CQ);
     public static final Text METRICS_TABLE_ROWS_CF_AS_TEXT = new Text(METRICS_TABLE_ROWS_CF.array());
@@ -166,10 +166,6 @@ public class Indexer
         if (indexColumns.isEmpty()) {
             throw new PrestoException(NOT_SUPPORTED, "No indexed columns in table metadata. Refusing to index a table with no indexed columns");
         }
-
-        // Initialize metrics map
-        // This metrics map is for column cardinality
-        metrics.put(METRICS_TABLE_ROW_COUNT, new AtomicLong(0));
     }
 
     /**
@@ -182,8 +178,11 @@ public class Indexer
      */
     public void index(Mutation mutation)
     {
+        checkArgument(mutation.getUpdates().size() > 0, "Mutation must have at least one column update");
+
         // Increment the cardinality for the number of rows in the table
-        metrics.get(METRICS_TABLE_ROW_COUNT).incrementAndGet();
+        ColumnVisibility rowVisibility = new ColumnVisibility(mutation.getUpdates().stream().findAny().get().getColumnVisibility());
+        incrementMetric(METRICS_TABLE_ROW_ID, METRICS_TABLE_ROWS_CF, rowVisibility);
 
         // For each column update in this mutation
         for (ColumnUpdate columnUpdate : mutation.getUpdates()) {
@@ -242,6 +241,18 @@ public class Indexer
 
         // Increment the cardinality metrics for this value of index
         // metrics is a mapping of row ID to column family
+        incrementMetric(row, family, visibility);
+    }
+
+    /**
+     * Increments a metric for the given row, family, and visibility, creating it if necessary.
+     *
+     * @param row Row ID
+     * @param family Column family for the metric
+     * @param visibility Column visibility
+     */
+    private void incrementMetric(ByteBuffer row, ByteBuffer family, ColumnVisibility visibility)
+    {
         MetricsKey key = new MetricsKey(row, family, visibility);
         AtomicLong count = metrics.get(key);
         if (count == null) {
@@ -267,9 +278,8 @@ public class Indexer
             metricsWriter.addMutations(getMetricsMutations());
             metricsWriter.close();
 
-            // Re-initialize the metrics
+            // Clear the metrics
             metrics.clear();
-            metrics.put(METRICS_TABLE_ROW_COUNT, new AtomicLong(0));
         }
         catch (MutationsRejectedException e) {
             throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Index mutation was rejected by server on flush", e);
