@@ -35,7 +35,7 @@ import static java.util.Objects.requireNonNull;
 public class PrestoStatement
         implements Statement
 {
-    private final AtomicInteger maxRows = new AtomicInteger();
+    private final AtomicLong maxRows = new AtomicLong();
     private final AtomicInteger queryTimeoutSeconds = new AtomicInteger();
     private final AtomicInteger fetchSize = new AtomicInteger();
     private final AtomicBoolean escapeProcessing = new AtomicBoolean(true);
@@ -103,12 +103,22 @@ public class PrestoStatement
     public int getMaxRows()
             throws SQLException
     {
-        checkOpen();
-        return maxRows.get();
+        long result = getLargeMaxRows();
+        if (result > Integer.MAX_VALUE) {
+            throw new SQLException("Max rows exceeds limit of 2147483647");
+        }
+        return (int) result;
     }
 
     @Override
     public void setMaxRows(int max)
+            throws SQLException
+    {
+        setLargeMaxRows(max);
+    }
+
+    @Override
+    public void setLargeMaxRows(long max)
             throws SQLException
     {
         checkOpen();
@@ -116,6 +126,14 @@ public class PrestoStatement
             throw new SQLException("Max rows must be positive");
         }
         maxRows.set(max);
+    }
+
+    @Override
+    public long getLargeMaxRows()
+            throws SQLException
+    {
+        checkOpen();
+        return maxRows.get();
     }
 
     @Override
@@ -190,7 +208,7 @@ public class PrestoStatement
                 throw resultsException(client.finalResults());
             }
 
-            resultSet = new PrestoResultSet(client, progressConsumer);
+            resultSet = new PrestoResultSet(client, maxRows.get(), progressConsumer);
             checkSetOrResetSession(client);
 
             // check if this is a query
@@ -548,7 +566,7 @@ public class PrestoStatement
         if (!client.getSetSessionProperties().isEmpty() || !client.getResetSessionProperties().isEmpty()) {
             throw new SQLFeatureNotSupportedException("" +
                     "SET/RESET SESSION is not supported via JDBC. " +
-                    "Use the setSessionProperty() method on PrestoConnection.");
+                            "Use the setSessionProperty() method on PrestoConnection.");
         }
     }
 }
