@@ -26,12 +26,6 @@ public class FixedSplitSource
     private final List<ConnectorSplit> splits;
     private int offset;
 
-    @Deprecated
-    public FixedSplitSource(String dataSourceName, Iterable<? extends ConnectorSplit> splits)
-    {
-        this(splits);
-    }
-
     public FixedSplitSource(Iterable<? extends ConnectorSplit> splits)
     {
         if (splits == null) {

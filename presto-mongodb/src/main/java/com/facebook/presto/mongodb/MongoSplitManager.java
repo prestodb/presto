@@ -60,7 +60,7 @@ public class MongoSplitManager
                 tableLayout.getTupleDomain(),
                 addresses);
 
-        return new FixedSplitSource(connectorId, ImmutableList.of(split));
+        return new FixedSplitSource(ImmutableList.of(split));
     }
 
     @Override

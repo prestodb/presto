@@ -71,7 +71,7 @@ public class CassandraSplitManager
 
         requireNonNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
-            return new FixedSplitSource(connectorId, ImmutableList.<ConnectorSplit>of());
+            return new FixedSplitSource(ImmutableList.of());
         }
 
         // if this is an unpartitioned table, split into equal ranges
@@ -80,11 +80,11 @@ public class CassandraSplitManager
             if (cassandraPartition.isUnpartitioned() || cassandraPartition.isIndexedColumnPredicatePushdown()) {
                 CassandraTable table = schemaProvider.getTable(cassandraTableHandle);
                 List<ConnectorSplit> splits = getSplitsByTokenRange(table, cassandraPartition.getPartitionId());
-                return new FixedSplitSource(connectorId, splits);
+                return new FixedSplitSource(splits);
             }
         }
 
-        return new FixedSplitSource(connectorId, getSplitsForPartitions(cassandraTableHandle, partitions));
+        return new FixedSplitSource(getSplitsForPartitions(cassandraTableHandle, partitions));
     }
 
     private List<ConnectorSplit> getSplitsByTokenRange(CassandraTable table, String partitionId)

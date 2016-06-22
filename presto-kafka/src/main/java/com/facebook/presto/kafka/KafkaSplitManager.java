@@ -116,7 +116,7 @@ public class KafkaSplitManager
             }
         }
 
-        return new FixedSplitSource(connectorId, splits.build());
+        return new FixedSplitSource(splits.build());
     }
 
     private static long[] findAllOffsets(SimpleConsumer consumer, String topicName, int partitionId)

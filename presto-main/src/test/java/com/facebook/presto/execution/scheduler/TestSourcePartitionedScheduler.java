@@ -457,7 +457,7 @@ public class TestSourcePartitionedScheduler
         for (int i = 0; i < splitCount; i++) {
             splits.add(splitFactory.get());
         }
-        return new FixedSplitSource(CONNECTOR_ID, splits.build());
+        return new FixedSplitSource(splits.build());
     }
 
     private SqlStageExecution createSqlStageExecution(StageExecutionPlan tableScanPlan, NodeTaskMap nodeTaskMap)

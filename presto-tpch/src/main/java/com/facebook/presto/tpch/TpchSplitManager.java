@@ -64,6 +64,6 @@ public class TpchSplitManager
                 partNumber++;
             }
         }
-        return new FixedSplitSource(connectorId, splits.build());
+        return new FixedSplitSource(splits.build());
     }
 }

@@ -76,6 +76,6 @@ public class AtopSplitManager
             }
         }
 
-        return new FixedSplitSource(connectorId.getId(), splits);
+        return new FixedSplitSource(splits);
     }
 }

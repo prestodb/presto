@@ -60,6 +60,6 @@ public class ExampleSplitManager
         }
         Collections.shuffle(splits);
 
-        return new FixedSplitSource(connectorId, splits);
+        return new FixedSplitSource(splits);
     }
 }
