@@ -37,6 +37,7 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.operator.scalar.JoniRegexpCasts.joniRegexp;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
@@ -107,7 +108,7 @@ public class RegexpFunctionsBenchmark
                     throw new IllegalArgumentException("pattern: " + patternString + " not supported");
             }
 
-            joniPattern = JoniRegexpFunctions.castToRegexp(pattern);
+            joniPattern = joniRegexp(pattern);
             re2JPattern = castToRe2JRegexp(pattern);
             source = sliceOutput.slice();
             checkState(source.length() == sourceLength, "source.length=%s, sourceLength=%s", source.length(), sourceLength);
