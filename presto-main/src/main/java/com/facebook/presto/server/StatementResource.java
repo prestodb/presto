@@ -32,7 +32,7 @@ import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.buffer.BufferInfo;
-import com.facebook.presto.execution.buffer.SharedBufferInfo;
+import com.facebook.presto.execution.buffer.OutputBufferInfo;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientSupplier;
@@ -525,7 +525,7 @@ public class StatementResource
             // add any additional output locations
             if (!outputStage.getState().isDone()) {
                 for (TaskInfo taskInfo : outputStage.getTasks()) {
-                    SharedBufferInfo outputBuffers = taskInfo.getOutputBuffers();
+                    OutputBufferInfo outputBuffers = taskInfo.getOutputBuffers();
                     List<BufferInfo> buffers = outputBuffers.getBuffers();
                     if (buffers.isEmpty() || outputBuffers.getState().canAddBuffers()) {
                         // output buffer has not been created yet

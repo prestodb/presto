@@ -28,7 +28,7 @@ public interface OutputBuffer
      * Gets the current state of this buffer.  This method is guaranteed to not block or acquire
      * contended locks, but the stats in the info object may be internally inconsistent.
      */
-    SharedBufferInfo getInfo();
+    OutputBufferInfo getInfo();
 
     /**
      * A buffer is finished once no-more-pages has been set and all buffers have been closed

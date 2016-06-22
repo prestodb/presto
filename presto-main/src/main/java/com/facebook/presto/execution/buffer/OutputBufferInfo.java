@@ -22,7 +22,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public final class SharedBufferInfo
+public final class OutputBufferInfo
 {
     private final BufferState state;
     private final boolean canAddBuffers;
@@ -34,7 +34,7 @@ public final class SharedBufferInfo
     private final List<BufferInfo> buffers;
 
     @JsonCreator
-    public SharedBufferInfo(
+    public OutputBufferInfo(
             @JsonProperty("state") BufferState state,
             @JsonProperty("canAddBuffers") boolean canAddBuffers,
             @JsonProperty("canAddPages") boolean canAddPages,
@@ -111,7 +111,7 @@ public final class SharedBufferInfo
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        SharedBufferInfo that = (SharedBufferInfo) o;
+        OutputBufferInfo that = (OutputBufferInfo) o;
         return Objects.equals(canAddBuffers, that.canAddBuffers) &&
                 Objects.equals(canAddPages, that.canAddPages) &&
                 Objects.equals(totalBufferedBytes, that.totalBufferedBytes) &&

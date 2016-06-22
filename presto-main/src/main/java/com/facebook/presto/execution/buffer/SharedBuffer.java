@@ -122,7 +122,7 @@ public class SharedBuffer
     }
 
     @Override
-    public SharedBufferInfo getInfo()
+    public OutputBufferInfo getInfo()
     {
         //
         // NOTE: this code must be lock free to we are not hanging state machine updates
@@ -139,7 +139,7 @@ public class SharedBuffer
         long totalRowsSent = partitionBuffers.values().stream().mapToLong(PartitionBuffer::getRowCount).sum();
         long totalPagesSent = partitionBuffers.values().stream().mapToLong(PartitionBuffer::getPageCount).sum();
 
-        return new SharedBufferInfo(
+        return new OutputBufferInfo(
                 state,
                 state.canAddBuffers(),
                 state.canAddPages(),

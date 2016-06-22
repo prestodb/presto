@@ -14,7 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.execution.buffer.BufferInfo;
-import com.facebook.presto.execution.buffer.SharedBufferInfo;
+import com.facebook.presto.execution.buffer.OutputBufferInfo;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -38,7 +38,7 @@ public class TaskInfo
 {
     private final TaskStatus taskStatus;
     private final DateTime lastHeartbeat;
-    private final SharedBufferInfo outputBuffers;
+    private final OutputBufferInfo outputBuffers;
     private final Set<PlanNodeId> noMoreSplits;
     private final TaskStats stats;
 
@@ -47,7 +47,7 @@ public class TaskInfo
     @JsonCreator
     public TaskInfo(@JsonProperty("taskStatus") TaskStatus taskStatus,
             @JsonProperty("lastHeartbeat") DateTime lastHeartbeat,
-            @JsonProperty("outputBuffers") SharedBufferInfo outputBuffers,
+            @JsonProperty("outputBuffers") OutputBufferInfo outputBuffers,
             @JsonProperty("noMoreSplits") Set<PlanNodeId> noMoreSplits,
             @JsonProperty("stats") TaskStats stats,
 
@@ -75,7 +75,7 @@ public class TaskInfo
     }
 
     @JsonProperty
-    public SharedBufferInfo getOutputBuffers()
+    public OutputBufferInfo getOutputBuffers()
     {
         return outputBuffers;
     }
@@ -117,7 +117,7 @@ public class TaskInfo
         return new TaskInfo(
                 initialTaskStatus(taskId, location),
                 DateTime.now(),
-                new SharedBufferInfo(OPEN, true, true, 0, 0, 0, 0, bufferStates),
+                new OutputBufferInfo(OPEN, true, true, 0, 0, 0, 0, bufferStates),
                 ImmutableSet.of(),
                 taskStats,
                 true);
