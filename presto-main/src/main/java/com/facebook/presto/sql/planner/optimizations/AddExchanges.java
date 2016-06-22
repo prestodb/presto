@@ -45,6 +45,7 @@ import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -381,6 +382,31 @@ public class AddExchanges
                             node.getConfidence(),
                             node.getHashSymbol()),
                     deriveProperties(source, partial.getProperties()));
+        }
+
+        @Override
+        public PlanWithProperties visitGroupId(GroupIdNode node, Context context)
+        {
+            PreferredProperties childPreference = context.getPreferredProperties().translate(translateGroupIdSymbols(node));
+            PlanWithProperties child = planChild(node, context.withPreferredProperties(childPreference));
+            return rebaseAndDeriveProperties(node, child);
+        }
+
+        private Function<Symbol, Optional<Symbol>> translateGroupIdSymbols(GroupIdNode node)
+        {
+            Map<Symbol, Symbol> invertedMappings = ImmutableBiMap.copyOf(node.getIdentityMappings()).inverse();
+            List<Symbol> commonGroupingColumns = node.getCommonGroupingColumns();
+            return symbol -> {
+                if (invertedMappings.containsKey(symbol)) {
+                    return Optional.of(invertedMappings.get(symbol));
+                }
+
+                if (commonGroupingColumns.contains(symbol)) {
+                    return Optional.of(symbol);
+                }
+
+                return Optional.empty();
+            };
         }
 
         @Override

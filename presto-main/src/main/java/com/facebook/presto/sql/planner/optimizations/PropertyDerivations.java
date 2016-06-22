@@ -75,6 +75,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.facebook.presto.SystemSessionProperties.planWithTableNodePartitioning;
 import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValues;
@@ -213,7 +214,25 @@ class PropertyDerivations
         @Override
         public ActualProperties visitGroupId(GroupIdNode node, List<ActualProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+
+            return properties.translate(translateGroupIdSymbols(node));
+        }
+
+        private Function<Symbol, Optional<Symbol>> translateGroupIdSymbols(GroupIdNode node)
+        {
+            List<Symbol> commonGroupingColumns = node.getCommonGroupingColumns();
+            return symbol -> {
+                if (node.getIdentityMappings().containsKey(symbol)) {
+                    return Optional.of(node.getIdentityMappings().get(symbol));
+                }
+
+                if (commonGroupingColumns.contains(symbol)) {
+                    return Optional.of(symbol);
+                }
+
+                return Optional.empty();
+            };
         }
 
         @Override

@@ -1482,6 +1482,28 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGroupingSetsWithSingleDistinctAndUnion()
+            throws Exception
+    {
+        assertQuery("SELECT linenumber, COUNT(DISTINCT linenumber) FROM " +
+                        "(SELECT * FROM lineitem WHERE linenumber%2 = 0 UNION ALL SELECT * FROM lineitem WHERE linenumber%2 = 1) " +
+                        "GROUP BY GROUPING SETS ((linenumber), ())",
+                "SELECT DISTINCT linenumber, 1 FROM lineitem UNION ALL " +
+                        "SELECT NULL, COUNT(DISTINCT linenumber) FROM lineitem");
+    }
+
+    @Test
+    public void testGroupingSetsWithMultipleDistinctAndUnion()
+            throws Exception
+    {
+        assertQuery("SELECT linenumber, COUNT(DISTINCT linenumber), SUM(DISTINCT suppkey) FROM " +
+                        "(SELECT * FROM lineitem WHERE linenumber%2 = 0 UNION ALL SELECT * FROM lineitem WHERE linenumber%2 = 1) " +
+                        "GROUP BY GROUPING SETS ((linenumber), ())",
+                "SELECT linenumber, 1, SUM(DISTINCT suppkey) FROM lineitem GROUP BY linenumber UNION ALL " +
+                        "SELECT NULL, COUNT(DISTINCT linenumber), SUM(DISTINCT suppkey) FROM lineitem");
+    }
+
+    @Test
     public void testRollup()
             throws Exception
     {
