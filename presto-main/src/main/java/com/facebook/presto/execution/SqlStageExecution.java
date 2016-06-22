@@ -46,12 +46,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.MoreFutures.firstCompletedFuture;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -72,6 +74,7 @@ public final class SqlStageExecution
     private final AtomicInteger nextTaskId = new AtomicInteger();
     private final Set<TaskId> allTasks = newConcurrentHashSet();
     private final Set<TaskId> finishedTasks = newConcurrentHashSet();
+    private final AtomicBoolean splitsScheduled = new AtomicBoolean();
 
     private final Multimap<PlanNodeId, URI> exchangeLocations = HashMultimap.create();
     private final Set<PlanNodeId> completeSources = newConcurrentHashSet();
@@ -216,7 +219,7 @@ public final class SqlStageExecution
         for (RemoteTask task : getAllTasks()) {
             ImmutableMultimap.Builder<PlanNodeId, Split> newSplits = ImmutableMultimap.builder();
             for (URI exchangeLocation : exchangeLocations) {
-                newSplits.put(remoteSource.getId(), createRemoteSplitFor(task.getTaskStatus().getTaskId(), exchangeLocation));
+                newSplits.put(remoteSource.getId(), createRemoteSplitFor(task.getTaskId(), exchangeLocation));
             }
             task.addSplits(newSplits.build());
         }
@@ -289,20 +292,26 @@ public final class SqlStageExecution
     {
         requireNonNull(node, "node is null");
 
-        return scheduleTask(node, partition, ImmutableMultimap.of());
+        checkState(!splitsScheduled.get(), "scheduleTask can not be called once splits have been scheduled");
+        return scheduleTask(node, new TaskId(stateMachine.getStageId(), partition), ImmutableMultimap.of());
     }
 
-    public synchronized Set<RemoteTask> scheduleSplits(Node node, int partition, Multimap<PlanNodeId, Split> splits)
+    public synchronized Set<RemoteTask> scheduleSplits(Node node, Multimap<PlanNodeId, Split> splits)
     {
         requireNonNull(node, "node is null");
         requireNonNull(splits, "splits is null");
+
+        splitsScheduled.set(true);
 
         checkArgument(stateMachine.getFragment().getPartitionedSources().containsAll(splits.keySet()), "Invalid splits");
 
         ImmutableSet.Builder<RemoteTask> newTasks = ImmutableSet.builder();
         Collection<RemoteTask> tasks = this.tasks.get(node);
         if (tasks == null) {
-            newTasks.add(scheduleTask(node, partition, splits));
+            // The output buffer depends on the task id starting from 0 and being sequential, since each
+            // task is assigned a private buffer based on task id.
+            TaskId taskId = new TaskId(stateMachine.getStageId(), nextTaskId.getAndIncrement());
+            newTasks.add(scheduleTask(node, taskId, splits));
         }
         else {
             RemoteTask task = tasks.iterator().next();
@@ -311,11 +320,9 @@ public final class SqlStageExecution
         return newTasks.build();
     }
 
-    private synchronized RemoteTask scheduleTask(Node node, int partition, Multimap<PlanNodeId, Split> sourceSplits)
+    private synchronized RemoteTask scheduleTask(Node node, TaskId taskId, Multimap<PlanNodeId, Split> sourceSplits)
     {
-        // The output buffer depends on the task id starting from 0 and being sequential, since each
-        // task is assigned a private buffer based on task id.
-        TaskId taskId = new TaskId(stateMachine.getStageId(), nextTaskId.getAndIncrement());
+        checkArgument(!allTasks.contains(taskId), "A task with id %s already exists", taskId);
 
         ImmutableMultimap.Builder<PlanNodeId, Split> initialSplits = ImmutableMultimap.builder();
         initialSplits.putAll(sourceSplits);
@@ -327,7 +334,7 @@ public final class SqlStageExecution
                 stateMachine.getSession(),
                 taskId,
                 node,
-                partition,
+                taskId.getId(),
                 stateMachine.getFragment(),
                 initialSplits.build(),
                 outputBuffers.get(),

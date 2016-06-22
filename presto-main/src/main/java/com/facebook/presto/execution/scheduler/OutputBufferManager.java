@@ -34,6 +34,8 @@ interface OutputBufferManager
         public OutputBuffer(OutputBufferId bufferId, int partition)
         {
             this.bufferId = requireNonNull(bufferId, "bufferId is null");
+            // todo remove partition
+            checkArgument(bufferId.getId() == partition, "partition and buffer id must be the same");
             checkArgument(partition >= 0, "partition is negative");
             this.partition = partition;
         }

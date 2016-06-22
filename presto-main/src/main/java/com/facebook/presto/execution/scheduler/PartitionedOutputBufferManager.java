@@ -45,6 +45,7 @@ public class PartitionedOutputBufferManager
     @Override
     public void addOutputBuffers(List<OutputBuffer> newBuffers, boolean noMoreBuffers)
     {
+        OutputBuffers outputBuffers;
         synchronized (this) {
             if (noMoreBufferIds) {
                 // a stage can move to a final state (e.g., failed) while scheduling, so ignore
@@ -53,7 +54,7 @@ public class PartitionedOutputBufferManager
             }
 
             for (OutputBuffer newBuffer : newBuffers) {
-                partitions.put(newBuffer.getBufferId(), newBuffer.getPartition());
+                partitions.put(newBuffer.getBufferId(), newBuffer.getBufferId().getId());
             }
 
             // only update target when all buffers have been created
@@ -61,11 +62,11 @@ public class PartitionedOutputBufferManager
                 return;
             }
             noMoreBufferIds = true;
-        }
 
-        OutputBuffers outputBuffers = createInitialEmptyOutputBuffers()
-                .withBuffers(partitions)
-                .withNoMoreBufferIds();
+            outputBuffers = createInitialEmptyOutputBuffers()
+                    .withBuffers(partitions)
+                    .withNoMoreBufferIds();
+        }
 
         outputBufferTarget.accept(outputBuffers);
     }
