@@ -60,6 +60,6 @@ public class InformationSchemaSplitManager
 
         ConnectorSplit split = new InformationSchemaSplit(handle.getTable(), filters, localAddress);
 
-        return new FixedSplitSource(null, ImmutableList.of(split));
+        return new FixedSplitSource(ImmutableList.of(split));
     }
 }

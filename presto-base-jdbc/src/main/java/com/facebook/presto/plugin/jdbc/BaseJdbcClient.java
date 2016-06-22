@@ -235,7 +235,7 @@ public class BaseJdbcClient
                 connectionUrl,
                 fromProperties(connectionProperties),
                 layoutHandle.getTupleDomain());
-        return new FixedSplitSource(connectorId, ImmutableList.of(jdbcSplit));
+        return new FixedSplitSource(ImmutableList.of(jdbcSplit));
     }
 
     @Override

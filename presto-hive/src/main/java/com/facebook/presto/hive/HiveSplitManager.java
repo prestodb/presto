@@ -15,7 +15,6 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
@@ -142,7 +141,7 @@ public class HiveSplitManager
 
         HivePartition partition = Iterables.getFirst(partitions, null);
         if (partition == null) {
-            return new FixedSplitSource(connectorId, ImmutableList.<ConnectorSplit>of());
+            return new FixedSplitSource(ImmutableList.of());
         }
         SchemaTableName tableName = partition.getTableName();
         Optional<HiveBucketing.HiveBucket> bucket = partition.getBucket();
