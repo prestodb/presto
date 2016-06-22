@@ -30,11 +30,11 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.ValueSet;
-import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
+import io.airlift.slice.Slices;
 import io.airlift.tpch.LineItem;
 import io.airlift.tpch.TpchColumn;
 import io.airlift.tpch.TpchTable;
@@ -44,6 +44,7 @@ import org.apache.accumulo.core.client.BatchWriterConfig;
 import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.data.Mutation;
 import org.apache.accumulo.core.security.Authorizations;
+import org.apache.accumulo.core.security.ColumnVisibility;
 import org.apache.commons.lang.StringUtils;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
@@ -63,7 +64,9 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.accumulo.AccumuloClient.getRangeFromPrestoRange;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.tpch.TpchMetadata.getPrestoType;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -97,7 +100,7 @@ public class TestColumnCardinalityCache
     private RowSchema fromColumns(List<TpchColumn<LineItem>> columns)
     {
         RowSchema schema = new RowSchema();
-        schema.addColumn("UUID", Optional.empty(), Optional.empty(), VarcharType.VARCHAR);
+        schema.addColumn("UUID", Optional.empty(), Optional.empty(), VARCHAR);
         for (TpchColumn<?> column : columns) {
             schema.addColumn(column.getColumnName(), Optional.of(column.getColumnName()), Optional.of(column.getColumnName()), getPrestoType(column.getType()));
         }
@@ -108,7 +111,7 @@ public class TestColumnCardinalityCache
     {
         int ordinal = 0;
         ImmutableList.Builder<AccumuloColumnHandle> builder = ImmutableList.builder();
-        builder.add(new AccumuloColumnHandle("UUID", Optional.empty(), Optional.empty(), VarcharType.VARCHAR, ordinal++, "", false));
+        builder.add(new AccumuloColumnHandle("UUID", Optional.empty(), Optional.empty(), VARCHAR, ordinal++, "", false));
         for (TpchColumn<?> column : columns) {
             builder.add(new AccumuloColumnHandle(column.getColumnName(), Optional.of(column.getColumnName()), Optional.of(column.getColumnName()), getPrestoType(column.getType()), ordinal++, "", true));
         }
@@ -482,10 +485,67 @@ public class TestColumnCardinalityCache
         assertFalse(iterator.hasNext());
     }
 
+    @Test
+    public void testSameRowMultipleVisibilities()
+            throws Exception
+    {
+        List<ColumnMetadata> columns = ImmutableList.of(
+                new ColumnMetadata("a", VARCHAR),
+                new ColumnMetadata("b", VARCHAR),
+                new ColumnMetadata("c", VARCHAR)
+        );
+        Map<String, Object> properties = new HashMap<>();
+        new AccumuloTableProperties().getTableProperties().forEach(meta -> properties.put(meta.getName(), meta.getDefaultValue()));
+        properties.put("index_columns", "b,c");
+
+        SchemaTableName tableName = new SchemaTableName("default", "samerowmultiplevisibilities");
+        ConnectorTableMetadata metadata = new ConnectorTableMetadata(tableName, columns, properties);
+
+        AccumuloTable table = client.createTable(metadata);
+        connector.securityOperations().changeUserAuthorizations("root", new Authorizations("private"));
+        Indexer indexer = new Indexer(connector, new Authorizations("private"), table, BWC);
+
+        BatchWriter writer = connector.createBatchWriter(table.getFullTableName(), BWC);
+        Mutation m = new Mutation("1");
+        m.put("___ROW___", "___ROW___", "1");
+        m.put("b", "b", "2");
+        m.put("c", "c", "3");
+        writer.addMutation(m);
+        indexer.index(m);
+
+        m = new Mutation("2");
+        m.put("___ROW___", "___ROW___", new ColumnVisibility("private"), "2");
+        m.put("b", "b", new ColumnVisibility("private"), "2");
+        m.put("c", "c", new ColumnVisibility("private"), "3");
+        writer.addMutation(m);
+        indexer.index(m);
+        indexer.close();
+        writer.close();
+
+        ColumnCardinalityCache cache = new ColumnCardinalityCache(connector, CONFIG);
+        Range range = Range.equal(VARCHAR, Slices.copiedBuffer("2", UTF_8));
+        AccumuloColumnConstraint constraint = acc("b", Domain.create(ValueSet.ofRanges(range), false));
+
+        Multimap<AccumuloColumnConstraint, org.apache.accumulo.core.data.Range> constraints =
+                ImmutableMultimap.of(constraint, getRangeFromPrestoRange(range, SERIALIZER));
+
+        Multimap<Long, AccumuloColumnConstraint> cardinalities =
+                cache.getCardinalities(tableName.getSchemaName(), tableName.getTableName(), constraints, new Authorizations("private"), EARLY_RETURN_THRESHOLD, POLLING_DURATION);
+        assertEquals(cardinalities.size(), 1);
+
+        Iterator<Entry<Long, Collection<AccumuloColumnConstraint>>> iterator = cardinalities.asMap().entrySet().iterator();
+        Entry<Long, Collection<AccumuloColumnConstraint>> card = iterator.next();
+        assertNotNull(card);
+        assertEquals(card.getKey().longValue(), 2L);
+        assertEquals(card.getValue().size(), 1);
+        assertEquals(constraint, card.getValue().iterator().next());
+        assertFalse(iterator.hasNext());
+    }
+
     /**
      * Converts the given date string to number of days as a long
      *
-     * @param date
+     * @param date Date string
      * @return Number of days as long
      */
     private static long tld(String date)
@@ -498,7 +558,7 @@ public class TestColumnCardinalityCache
      *
      * @param name Presto column name
      * @param domain Presto Domain
-     * @return
+     * @return Constraint
      */
     private static AccumuloColumnConstraint acc(String name, Domain domain)
     {

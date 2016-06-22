@@ -388,9 +388,11 @@ public class ColumnCardinalityCache
             // This allows us to look up the corresponding CacheKey based on the Row
             // we receive from the scanner, and we can then back-fill our returned map
             // With any values that were not returned by the scan (cardinality zero)
-            Map<Range, CacheKey> rangeToKey = new HashMap<>();
+            Map<Range, CacheKey> rangeToKey = new HashMap<>(cacheKeys.size());
             cacheKeys.forEach(k -> rangeToKey.put(k.range, k));
-            LOG.debug("rangeToKey size is " + rangeToKey.size());
+
+            // Create a copy of the map which we will use to fill out the zeroes
+            Map<Range, CacheKey> remainingKeys = new HashMap<>(rangeToKey);
 
             // Get metrics table name and the column family for the scanner
             String metricsTable = Indexer.getMetricsTableName(key.schema, key.table);
@@ -404,19 +406,29 @@ public class ColumnCardinalityCache
 
                 // Create a new map to hold our cardinalities for each range
                 // retrieved from the scanner
-                ImmutableMap.Builder<CacheKey, Long> rangeValues = ImmutableMap.builder();
+                Map<CacheKey, Long> rangeValues = new HashMap<>();
                 for (Entry<Key, Value> entry : scanner) {
-                    // Remove the cache key that corresponds to this row ID
-                    CacheKey cKey = rangeToKey.remove(Range.exact(entry.getKey().getRow()));
-                    rangeValues.put(cKey, Long.parseLong(entry.getValue().toString()));
+                    // Convert the row ID into an exact range and get the CacheKey
+                    Range range = Range.exact(entry.getKey().getRow());
+                    CacheKey cKey = rangeToKey.get(range);
+                    if (cKey == null) {
+                        throw new PrestoException(INTERNAL_ERROR, "rangeToKey had no entry for " + range);
+                    }
+
+                    // Remove this range from remaining keys since we have a value
+                    remainingKeys.remove(range);
+
+                    // Sum the values (if a value exists already)
+                    Long value = rangeValues.get(cKey);
+                    rangeValues.put(cKey, Long.parseLong(entry.getValue().toString()) + (value == null ? 0 : value));
                 }
 
                 // Add the remaining cache keys to our return list with a cardinality of zero
-                for (CacheKey remainingKey : rangeToKey.values()) {
+                for (CacheKey remainingKey : remainingKeys.values()) {
                     rangeValues.put(remainingKey, 0L);
                 }
 
-                return rangeValues.build();
+                return ImmutableMap.copyOf(rangeValues);
             }
             finally {
                 if (scanner != null) {
