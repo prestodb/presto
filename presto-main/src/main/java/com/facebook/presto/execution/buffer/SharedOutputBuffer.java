@@ -62,7 +62,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
 @ThreadSafe
-public class SharedBuffer
+public class SharedOutputBuffer
         implements OutputBuffer
 {
     private final SettableFuture<OutputBuffers> finalOutputBuffers = SettableFuture.create();
@@ -70,7 +70,7 @@ public class SharedBuffer
     @GuardedBy("this")
     private OutputBuffers outputBuffers = createInitialEmptyOutputBuffers();
     @GuardedBy("this")
-    private final Map<Integer, PartitionBuffer> partitionBuffers = new ConcurrentHashMap<>();
+    private final Map<Integer, SharedOutputBufferPartition> partitionBuffers = new ConcurrentHashMap<>();
     @GuardedBy("this")
     private final Map<Integer, Set<NamedBuffer>> partitionToNamedBuffer = new ConcurrentHashMap<>();
     @GuardedBy("this")
@@ -86,12 +86,12 @@ public class SharedBuffer
 
     private final SharedBufferMemoryManager memoryManager;
 
-    public SharedBuffer(TaskId taskId, String taskInstanceId, Executor executor, DataSize maxBufferSize)
+    public SharedOutputBuffer(TaskId taskId, String taskInstanceId, Executor executor, DataSize maxBufferSize)
     {
         this(taskId, taskInstanceId, executor, maxBufferSize, deltaMemory -> { });
     }
 
-    public SharedBuffer(TaskId taskId, String taskInstanceId, Executor executor, DataSize maxBufferSize, SystemMemoryUsageListener systemMemoryUsageListener)
+    public SharedOutputBuffer(TaskId taskId, String taskInstanceId, Executor executor, DataSize maxBufferSize, SystemMemoryUsageListener systemMemoryUsageListener)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(executor, "executor is null");
@@ -134,10 +134,10 @@ public class SharedBuffer
             infos.add(namedBuffer.getInfo());
         }
 
-        long totalBufferedBytes = partitionBuffers.values().stream().mapToLong(PartitionBuffer::getBufferedBytes).sum();
-        long totalBufferedPages = partitionBuffers.values().stream().mapToLong(PartitionBuffer::getBufferedPageCount).sum();
-        long totalRowsSent = partitionBuffers.values().stream().mapToLong(PartitionBuffer::getRowCount).sum();
-        long totalPagesSent = partitionBuffers.values().stream().mapToLong(PartitionBuffer::getPageCount).sum();
+        long totalBufferedBytes = partitionBuffers.values().stream().mapToLong(SharedOutputBufferPartition::getBufferedBytes).sum();
+        long totalBufferedPages = partitionBuffers.values().stream().mapToLong(SharedOutputBufferPartition::getBufferedPageCount).sum();
+        long totalRowsSent = partitionBuffers.values().stream().mapToLong(SharedOutputBufferPartition::getRowCount).sum();
+        long totalPagesSent = partitionBuffers.values().stream().mapToLong(SharedOutputBufferPartition::getPageCount).sum();
 
         return new OutputBufferInfo(
                 state,
@@ -172,7 +172,7 @@ public class SharedBuffer
 
                 int partition = entry.getValue();
 
-                PartitionBuffer partitionBuffer = createOrGetPartitionBuffer(partition);
+                SharedOutputBufferPartition partitionBuffer = createOrGetPartitionBuffer(partition);
                 NamedBuffer namedBuffer = new NamedBuffer(bufferId, partitionBuffer);
 
                 // the buffer may have been aborted before the creation message was received
@@ -195,10 +195,10 @@ public class SharedBuffer
         updateState();
     }
 
-    private PartitionBuffer createOrGetPartitionBuffer(int partition)
+    private SharedOutputBufferPartition createOrGetPartitionBuffer(int partition)
     {
         checkHoldsLock();
-        return partitionBuffers.computeIfAbsent(partition, k -> new PartitionBuffer(partition, memoryManager));
+        return partitionBuffers.computeIfAbsent(partition, k -> new SharedOutputBufferPartition(partition, memoryManager));
     }
 
     @Override
@@ -218,7 +218,7 @@ public class SharedBuffer
             return immediateFuture(true);
         }
 
-        PartitionBuffer partitionBuffer = createOrGetPartitionBuffer(partition);
+        SharedOutputBufferPartition partitionBuffer = createOrGetPartitionBuffer(partition);
         partitionBuffer.enqueuePage(page);
         processPendingReads();
         updateState();
@@ -278,9 +278,9 @@ public class SharedBuffer
 
         state.set(FINISHED);
 
-        partitionBuffers.values().forEach(PartitionBuffer::destroy);
+        partitionBuffers.values().forEach(SharedOutputBufferPartition::destroy);
         // free readers
-        namedBuffers.values().forEach(SharedBuffer.NamedBuffer::abort);
+        namedBuffers.values().forEach(SharedOutputBuffer.NamedBuffer::abort);
         processPendingReads();
     }
 
@@ -293,7 +293,7 @@ public class SharedBuffer
         }
 
         state.set(FAILED);
-        partitionBuffers.values().forEach(PartitionBuffer::destroy);
+        partitionBuffers.values().forEach(SharedOutputBufferPartition::destroy);
 
         // DO NOT free readers
     }
@@ -329,12 +329,12 @@ public class SharedBuffer
             // advanced master queue
             if (!state.canAddBuffers() && !namedBuffers.isEmpty()) {
                 for (Map.Entry<Integer, Set<NamedBuffer>> entry : partitionToNamedBuffer.entrySet()) {
-                    PartitionBuffer partitionBuffer = partitionBuffers.get(entry.getKey());
+                    SharedOutputBufferPartition partition = partitionBuffers.get(entry.getKey());
                     long newMasterSequenceId = entry.getValue().stream()
                             .mapToLong(NamedBuffer::getSequenceId)
                             .min()
                             .getAsLong();
-                    partitionBuffer.advanceSequenceId(newMasterSequenceId);
+                    partition.advanceSequenceId(newMasterSequenceId);
                 }
             }
 
@@ -374,15 +374,15 @@ public class SharedBuffer
     private final class NamedBuffer
     {
         private final TaskId bufferId;
-        private final PartitionBuffer partitionBuffer;
+        private final SharedOutputBufferPartition partition;
 
         private final AtomicLong sequenceId = new AtomicLong();
         private final AtomicBoolean finished = new AtomicBoolean();
 
-        private NamedBuffer(TaskId bufferId, PartitionBuffer partitionBuffer)
+        private NamedBuffer(TaskId bufferId, SharedOutputBufferPartition partition)
         {
             this.bufferId = requireNonNull(bufferId, "bufferId is null");
-            this.partitionBuffer = requireNonNull(partitionBuffer, "partitionBuffer is null");
+            this.partition = requireNonNull(partition, "partitionBuffer is null");
         }
 
         public BufferInfo getInfo()
@@ -395,11 +395,11 @@ public class SharedBuffer
             long sequenceId = this.sequenceId.get();
 
             if (finished.get()) {
-                return new BufferInfo(bufferId, true, 0, sequenceId, partitionBuffer.getInfo());
+                return new BufferInfo(bufferId, true, 0, sequenceId, partition.getInfo());
             }
 
-            int bufferedPages = Math.max(Ints.checkedCast(partitionBuffer.getPageCount() - sequenceId), 0);
-            return new BufferInfo(bufferId, finished.get(), bufferedPages, sequenceId, partitionBuffer.getInfo());
+            int bufferedPages = Math.max(Ints.checkedCast(partition.getPageCount() - sequenceId), 0);
+            return new BufferInfo(bufferId, finished.get(), bufferedPages, sequenceId, partition.getInfo());
         }
 
         public long getSequenceId()
@@ -427,10 +427,10 @@ public class SharedBuffer
                 return emptyResults(taskInstanceId, startingSequenceId, true);
             }
 
-            List<Page> pages = partitionBuffer.getPages(maxSize, sequenceId);
+            List<Page> pages = partition.getPages(maxSize, sequenceId);
 
             // if we can't have any more pages, indicate that the buffer is complete
-            if (pages.isEmpty() && !state.get().canAddPages() && !partitionBuffer.hasMorePages(sequenceId)) {
+            if (pages.isEmpty() && !state.get().canAddPages() && !partition.hasMorePages(sequenceId)) {
                 return emptyResults(taskInstanceId, startingSequenceId, true);
             }
 

@@ -17,7 +17,7 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import com.facebook.presto.execution.buffer.OutputBuffer;
-import com.facebook.presto.execution.buffer.SharedBuffer;
+import com.facebook.presto.execution.buffer.SharedOutputBuffer;
 import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.MemoryPoolId;
 import com.facebook.presto.memory.QueryContext;
@@ -170,7 +170,7 @@ public class MockRemoteTaskFactory
 
             this.location = URI.create("fake://task/" + taskId);
 
-            this.outputBuffer = new SharedBuffer(taskId, TASK_INSTANCE_ID, executor, requireNonNull(new DataSize(1, BYTE), "maxBufferSize is null"));
+            this.outputBuffer = new SharedOutputBuffer(taskId, TASK_INSTANCE_ID, executor, requireNonNull(new DataSize(1, BYTE), "maxBufferSize is null"));
             this.fragment = requireNonNull(fragment, "fragment is null");
             this.nodeId = requireNonNull(nodeId, "nodeId is null");
             checkArgument(partition >= 0, "partition is negative");

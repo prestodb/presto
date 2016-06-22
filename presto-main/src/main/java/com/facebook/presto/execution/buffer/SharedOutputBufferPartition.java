@@ -33,7 +33,7 @@ import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-public class PartitionBuffer
+public class SharedOutputBufferPartition
 {
     private final LinkedList<Page> masterBuffer = new LinkedList<>();
     private final AtomicLong rowsAdded = new AtomicLong(); // Number of rows added to the masterBuffer
@@ -43,7 +43,7 @@ public class PartitionBuffer
     private final int partition;
     private final SharedBufferMemoryManager memoryManager;
 
-    public PartitionBuffer(int partition, SharedBufferMemoryManager memoryManager)
+    public SharedOutputBufferPartition(int partition, SharedBufferMemoryManager memoryManager)
     {
         checkArgument(partition >= 0, "partition must be >= 0");
         this.partition = partition;
