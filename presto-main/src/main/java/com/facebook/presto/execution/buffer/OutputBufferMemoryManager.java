@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class SharedBufferMemoryManager
+class OutputBufferMemoryManager
 {
     private final long maxBufferedBytes;
     private final AtomicLong bufferedBytes = new AtomicLong();
@@ -36,7 +36,7 @@ public class SharedBufferMemoryManager
 
     private final SystemMemoryUsageListener systemMemoryUsageListener;
 
-    public SharedBufferMemoryManager(long maxBufferedBytes, SystemMemoryUsageListener systemMemoryUsageListener)
+    public OutputBufferMemoryManager(long maxBufferedBytes, SystemMemoryUsageListener systemMemoryUsageListener)
     {
         checkArgument(maxBufferedBytes > 0, "maxBufferedBytes must be > 0");
         this.maxBufferedBytes = maxBufferedBytes;

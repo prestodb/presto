@@ -41,9 +41,9 @@ public class SharedOutputBufferPartition
     private final AtomicLong masterSequenceId = new AtomicLong();
     private final AtomicLong bufferedBytes = new AtomicLong();  // Bytes in the master buffer
     private final int partition;
-    private final SharedBufferMemoryManager memoryManager;
+    private final OutputBufferMemoryManager memoryManager;
 
-    public SharedOutputBufferPartition(int partition, SharedBufferMemoryManager memoryManager)
+    public SharedOutputBufferPartition(int partition, OutputBufferMemoryManager memoryManager)
     {
         checkArgument(partition >= 0, "partition must be >= 0");
         this.partition = partition;

@@ -84,7 +84,7 @@ public class SharedOutputBuffer
     @GuardedBy("this")
     private final List<GetBufferResult> stateChangeListeners = new ArrayList<>();
 
-    private final SharedBufferMemoryManager memoryManager;
+    private final OutputBufferMemoryManager memoryManager;
 
     public SharedOutputBuffer(TaskId taskId, String taskInstanceId, Executor executor, DataSize maxBufferSize)
     {
@@ -100,7 +100,7 @@ public class SharedOutputBuffer
         requireNonNull(maxBufferSize, "maxBufferSize is null");
         checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
         requireNonNull(systemMemoryUsageListener, "systemMemoryUsageListener is null");
-        this.memoryManager = new SharedBufferMemoryManager(maxBufferSize.toBytes(), systemMemoryUsageListener);
+        this.memoryManager = new OutputBufferMemoryManager(maxBufferSize.toBytes(), systemMemoryUsageListener);
     }
 
     @Override
