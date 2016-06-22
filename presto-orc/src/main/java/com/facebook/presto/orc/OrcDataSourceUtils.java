@@ -19,13 +19,13 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-
-import static com.google.common.collect.Lists.newArrayList;
 
 public final class OrcDataSourceUtils
 {
@@ -36,10 +36,10 @@ public final class OrcDataSourceUtils
     /**
      * Merge disk ranges that are closer than {@code maxMergeDistance}.
      */
-    public static List<DiskRange> mergeAdjacentDiskRanges(Iterable<DiskRange> diskRanges, DataSize maxMergeDistance, DataSize maxReadSize)
+    public static List<DiskRange> mergeAdjacentDiskRanges(Collection<DiskRange> diskRanges, DataSize maxMergeDistance, DataSize maxReadSize)
     {
         // sort ranges by start offset
-        List<DiskRange> ranges = newArrayList(diskRanges);
+        List<DiskRange> ranges = new ArrayList<>(diskRanges);
         Collections.sort(ranges, new Comparator<DiskRange>()
         {
             @Override
