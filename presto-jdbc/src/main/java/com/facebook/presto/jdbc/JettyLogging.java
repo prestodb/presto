@@ -13,20 +13,48 @@
  */
 package com.facebook.presto.jdbc;
 
-import org.eclipse.jetty.util.log.JavaUtilLog;
-import org.eclipse.jetty.util.log.Log;
+import java.lang.reflect.Field;
 
-// TODO: fix this in Airlift
 final class JettyLogging
 {
+    @SuppressWarnings({"StaticNonFinalField", "RedundantFieldInitialization"})
+    private static boolean setup = false;
+
     private JettyLogging() {}
 
     /**
      * Force Jetty to use java.util.logging instead of SLF4J
      */
-    public static void useJavaUtilLogging()
+    public static synchronized void useJavaUtilLogging()
     {
-        Log.__logClass = JavaUtilLog.class.getName();
-        Log.initialized();
+        try {
+            if (!setup) {
+                setup = true;
+                setup();
+            }
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException("Error initializing Jetty logging", e);
+        }
+    }
+
+    private static void setup()
+            throws ReflectiveOperationException
+    {
+        ClassLoader classLoader = JettyLogging.class.getClassLoader();
+        Class<?> jettyLog = classLoader.loadClass("org.eclipse.jetty.util.log.Log");
+        Class<?> javaUtilLog = classLoader.loadClass("org.eclipse.jetty.util.log.JavaUtilLog");
+
+        Field initialized = jettyLog.getDeclaredField("__initialized");
+        initialized.setAccessible(true);
+        if (initialized.getBoolean(null)) {
+            return;
+        }
+
+        Field log = jettyLog.getDeclaredField("LOG");
+        log.setAccessible(true);
+        log.set(null, javaUtilLog.getConstructor().newInstance());
+
+        initialized.setBoolean(null, true);
     }
 }
