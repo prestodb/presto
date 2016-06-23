@@ -60,7 +60,7 @@ public class ShardOrganizer
     @Inject
     public ShardOrganizer(JobFactory jobFactory, StorageManagerConfig config)
     {
-        this(jobFactory, config.getCompactionThreads());
+        this(jobFactory, config.getOrganizationThreads());
     }
 
     public ShardOrganizer(JobFactory jobFactory, int threads)
