@@ -209,13 +209,12 @@
                                     <excludes>
                                         <exclude>META-INF/maven/**</exclude>
                                         <exclude>META-INF/*.xml</exclude>
+                                        <exclude>META-INF/services/org.eclipse.**</exclude>
+                                        <exclude>META-INF/services/com.fasterxml.**</exclude>
                                         <exclude>LICENSE</exclude>
-                                    </excludes>
-                                </filter>
-                                <filter>
-                                    <artifact>com.fasterxml.jackson.*:*</artifact>
-                                    <excludes>
-                                        <exclude>META-INF/**</exclude>
+                                        <exclude>*.css</exclude>
+                                        <exclude>*.html</exclude>
+                                        <exclude>jetty-logging.properties</exclude>
                                     </excludes>
                                 </filter>
                                 <filter>
@@ -226,30 +225,6 @@
                                 </filter>
                                 <filter>
                                     <artifact>javax.validation:validation-api</artifact>
-                                    <excludes>
-                                        <exclude>**</exclude>
-                                    </excludes>
-                                </filter>
-                                <filter>
-                                    <artifact>io.airlift</artifact>
-                                    <excludes>
-                                        <exclude>jetty-logging.properties</exclude>
-                                    </excludes>
-                                </filter>
-                                <filter>
-                                    <artifact>org.eclipse.jetty:jetty-util</artifact>
-                                    <excludes>
-                                        <exclude>jetty-dir.css</exclude>
-                                    </excludes>
-                                </filter>
-                                <filter>
-                                    <artifact>org.eclipse.jetty:*</artifact>
-                                    <excludes>
-                                        <exclude>about.html</exclude>
-                                    </excludes>
-                                </filter>
-                                <filter>
-                                    <artifact>net.sf.opencsv:opencsv</artifact>
                                     <excludes>
                                         <exclude>**</exclude>
                                     </excludes>
