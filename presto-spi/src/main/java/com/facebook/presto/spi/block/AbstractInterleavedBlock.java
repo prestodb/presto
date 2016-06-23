@@ -32,7 +32,7 @@ public abstract class AbstractInterleavedBlock
 
     protected AbstractInterleavedBlock(int columns)
     {
-        if (columns < 0) {
+        if (columns <= 0) {
             throw new IllegalArgumentException("Number of blocks in InterleavedBlock must be positive");
         }
         this.columns = columns;
@@ -43,12 +43,14 @@ public abstract class AbstractInterleavedBlock
         return columns;
     }
 
-    AbstractInterleavedBlock semiCompact()
+    Block[] computeSerializableSubBlocks()
     {
-        // the returned InterleavedBlock is guaranteed to have
-        // * start equal to 0
-        // * positionCount equal to the sum of positionCount of column blocks
-        return getRegionAlwaysReturnInterleavedBlock(0, getPositionCount(), false);
+        InterleavedBlock interleavedBlock = (InterleavedBlock) sliceRange(0, getPositionCount(), false);
+        Block[] result = new Block[interleavedBlock.getBlockCount()];
+        for (int i = 0; i < result.length; i++) {
+            result[i] = interleavedBlock.getBlock(i);
+        }
+        return result;
     }
 
     /**
@@ -246,40 +248,30 @@ public abstract class AbstractInterleavedBlock
     @Override
     public Block copyRegion(int position, int length)
     {
-        return getRegion(position, length, true);
+        validateRange(position, length);
+        return sliceRange(position, length, true);
     }
 
-    protected Block getRegion(int position, int length, boolean compact)
+    protected void validateRange(int position, int length)
     {
         int positionCount = getPositionCount();
-        if (position < 0 || length < 0 || position + length > positionCount) {
-            throw new IndexOutOfBoundsException("Invalid position (" + position + "), length (" + length + ") in block with " + positionCount + " positions");
+        if (position < 0 || length < 0 || position + length > positionCount || position % columns != 0 || length % columns != 0) {
+            throw new IndexOutOfBoundsException("Invalid position (" + position + "), length (" + length + ") in InterleavedBlock with " + positionCount + " positions and " + columns + " columns");
         }
-        if (length <= 1) {
-            position = computePosition(position);
-            int positionInBlock = position / columns;
-            if (compact) {
-                return getBlock(position % columns).copyRegion(positionInBlock, length);
-            }
-            else {
-                return getBlock(position % columns).getRegion(positionInBlock, length);
-            }
-        }
-        return getRegionAlwaysReturnInterleavedBlock(position, length, compact);
     }
 
-    private InterleavedBlock getRegionAlwaysReturnInterleavedBlock(int position, int length, boolean compact)
+    protected Block sliceRange(int position, int length, boolean compact)
     {
         position = computePosition(position);
-        Block[] resultBlocks = new Block[Math.min(columns, length)];
-        for (int newBlockIndex = 0; newBlockIndex < resultBlocks.length; newBlockIndex++) {
-            int positionInBlock = (position + newBlockIndex) / columns;
-            int subBlockLength = (length + columns - 1 - newBlockIndex) / columns;
+        Block[] resultBlocks = new Block[columns];
+        int positionInBlock = position / columns;
+        int subBlockLength = length / columns;
+        for (int blockIndex = 0; blockIndex < columns; blockIndex++) {
             if (compact) {
-                resultBlocks[newBlockIndex] = getBlock((newBlockIndex + position) % columns).copyRegion(positionInBlock, subBlockLength);
+                resultBlocks[blockIndex] = getBlock((blockIndex + position) % columns).copyRegion(positionInBlock, subBlockLength);
             }
             else {
-                resultBlocks[newBlockIndex] = getBlock((newBlockIndex + position) % columns).getRegion(positionInBlock, subBlockLength);
+                resultBlocks[blockIndex] = getBlock((blockIndex + position) % columns).getRegion(positionInBlock, subBlockLength);
             }
         }
         return new InterleavedBlock(resultBlocks);

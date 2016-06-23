@@ -35,37 +35,17 @@ public class InterleavedBlock
         super(blocks.length);
         this.blocks = blocks;
 
-        // Aside from calculating sizeInBytes, retainedSizeInBytes, and positionCount,
-        // the loop below verifies that the position count of sub-blocks in the InterleavedBlock
-        // * differs by at most one
-        // * is non-ascending
         int sizeInBytes = 0;
         int retainedSizeInBytes = INSTANCE_SIZE;
         int positionCount = 0;
-        if (blocks.length != 0) {
-            int firstSubBlockPositionCount = blocks[0].getPositionCount();
-            boolean subBlockHasDifferentSize = false;
-            for (int i = 0; i < getBlockCount(); i++) {
-                sizeInBytes += blocks[i].getSizeInBytes();
-                retainedSizeInBytes += blocks[i].getRetainedSizeInBytes();
-                positionCount += blocks[i].getPositionCount();
+        int firstSubBlockPositionCount = blocks[0].getPositionCount();
+        for (int i = 0; i < getBlockCount(); i++) {
+            sizeInBytes += blocks[i].getSizeInBytes();
+            retainedSizeInBytes += blocks[i].getRetainedSizeInBytes();
+            positionCount += blocks[i].getPositionCount();
 
-                if (subBlockHasDifferentSize) {
-                    if (firstSubBlockPositionCount - 1 != blocks[i].getPositionCount()) {
-                        throw new IllegalArgumentException(
-                                "length of sub blocks differ by at least 2 or is not non-ascending: block 0: " + firstSubBlockPositionCount + ", block " + i + ": " + blocks[i].getPositionCount());
-                    }
-                }
-                else {
-                    if (firstSubBlockPositionCount != blocks[i].getPositionCount()) {
-                        if (firstSubBlockPositionCount - 1 == blocks[i].getPositionCount()) {
-                            subBlockHasDifferentSize = true;
-                        }
-                        else {
-                            throw new IllegalArgumentException("length of sub blocks differ by at least 2: block 0: " + firstSubBlockPositionCount + ", block " + i + ": " + blocks[i].getPositionCount());
-                        }
-                    }
-                }
+            if (firstSubBlockPositionCount != blocks[i].getPositionCount()) {
+                throw new IllegalArgumentException("length of sub blocks differ: block 0: " + firstSubBlockPositionCount + ", block " + i + ": " + blocks[i].getPositionCount());
             }
         }
 
@@ -90,9 +70,7 @@ public class InterleavedBlock
     @Override
     public Block getRegion(int position, int length)
     {
-        if (position < 0 || length < 0 || position + length > positionCount) {
-            throw new IndexOutOfBoundsException("Invalid position (" + position + "), length (" + length + ") in block with " + positionCount + " positions");
-        }
+        validateRange(position, length);
         return new InterleavedBlock(blocks, computePosition(position), length, retainedSizeInBytes, blockEncoding);
     }
 

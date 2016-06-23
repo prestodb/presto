@@ -134,16 +134,17 @@ public class TestInterleavedBlock
         Type type = TYPES.get(position % TYPES.size());
         assertInterleavedPosition(ImmutableList.of(type), block.getSingleValueBlock(position), 0, expectedValue);
 
-        assertInterleavedPosition(ImmutableList.of(type), block.getRegion(position, 1), 0, expectedValue);
-        assertInterleavedPosition(TYPES, block.getRegion(0, position + 1), position, expectedValue);
-        assertInterleavedPosition(ImmutableList.of(type), block.getRegion(position, block.getPositionCount() - position), 0, expectedValue);
+        int alignedPosition = position - position % COLUMN_COUNT;
 
-        assertInterleavedPosition(ImmutableList.of(type), block.copyRegion(position, 1), 0, expectedValue);
-        assertInterleavedPosition(TYPES, block.copyRegion(0, position + 1), position, expectedValue);
-        assertInterleavedPosition(ImmutableList.of(type), block.copyRegion(position, block.getPositionCount() - position), 0, expectedValue);
+        assertInterleavedPosition(ImmutableList.of(type), block.getRegion(alignedPosition, COLUMN_COUNT), position - alignedPosition, expectedValue);
+        assertInterleavedPosition(TYPES, block.getRegion(0, alignedPosition + COLUMN_COUNT), position, expectedValue);
+        assertInterleavedPosition(ImmutableList.of(type), block.getRegion(alignedPosition, block.getPositionCount() - alignedPosition), position - alignedPosition, expectedValue);
 
-        int positionFloored = position / COLUMN_COUNT * COLUMN_COUNT;
-        assertInterleavedPosition(TYPES, block.copyPositions(IntStream.range(positionFloored, positionFloored + COLUMN_COUNT).boxed().collect(Collectors.toList())), position % COLUMN_COUNT, expectedValue);
+        assertInterleavedPosition(ImmutableList.of(type), block.copyRegion(alignedPosition, COLUMN_COUNT), position - alignedPosition, expectedValue);
+        assertInterleavedPosition(TYPES, block.copyRegion(0, alignedPosition + COLUMN_COUNT), position, expectedValue);
+        assertInterleavedPosition(ImmutableList.of(type), block.copyRegion(alignedPosition, block.getPositionCount() - alignedPosition), position - alignedPosition, expectedValue);
+
+        assertInterleavedPosition(TYPES, block.copyPositions(IntStream.range(alignedPosition, alignedPosition + COLUMN_COUNT).boxed().collect(Collectors.toList())), position % COLUMN_COUNT, expectedValue);
     }
 
     private <T> void assertInterleavedPosition(List<Type> types, Block block, int position, T expectedValue)

@@ -238,7 +238,8 @@ public class InterleavedBlockBuilder
     @Override
     public Block getRegion(int position, int length)
     {
-        return getRegion(position, length, false);
+        validateRange(position, length);
+        return sliceRange(position, length, false);
     }
 
     @Override
