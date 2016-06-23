@@ -23,7 +23,6 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,7 +46,6 @@ class TranslationMap
     // current mappings of sub-expressions -> symbol
     private final Map<Expression, Symbol> expressionToSymbols = new HashMap<>();
     private final Map<Expression, Expression> expressionToExpressions = new HashMap<>();
-    private final List<Expression> translatedExpressions = new ArrayList<>();
 
     public TranslationMap(RelationPlan rewriteBase, Analysis analysis)
     {
@@ -85,7 +83,6 @@ class TranslationMap
 
         expressionToSymbols.putAll(other.expressionToSymbols);
         expressionToExpressions.putAll(other.expressionToExpressions);
-        translatedExpressions.addAll(other.translatedExpressions);
         System.arraycopy(other.fieldSymbols, 0, fieldSymbols, 0, other.fieldSymbols.length);
     }
 
@@ -106,7 +103,7 @@ class TranslationMap
             public Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
                 if (expressionToSymbols.containsKey(node)) {
-                    return new QualifiedNameReference(expressionToSymbols.get(node).toQualifiedName());
+                    return expressionToSymbols.get(node).toSymbolReference();
                 }
                 else if (expressionToExpressions.containsKey(node)) {
                     Expression mapping = expressionToExpressions.get(node);
@@ -125,7 +122,7 @@ class TranslationMap
         if (expression instanceof FieldReference) {
             int fieldIndex = ((FieldReference) expression).getFieldIndex();
             fieldSymbols[fieldIndex] = symbol;
-            expressionToSymbols.put(new QualifiedNameReference(rewriteBase.getSymbol(fieldIndex).toQualifiedName()), symbol);
+            expressionToSymbols.put(rewriteBase.getSymbol(fieldIndex).toSymbolReference(), symbol);
             return;
         }
 
@@ -165,14 +162,6 @@ class TranslationMap
         expressionToExpressions.put(translateNamesToSymbols(expression), rewritten);
     }
 
-    /**
-     * Mark this expression node as already translated. Then during the rewrite of expression such nodes will be left unmodified.
-     */
-    public void setExpressionAsAlreadyTranslated(Expression node)
-    {
-        translatedExpressions.add(node);
-    }
-
     private Expression translateNamesToSymbols(Expression expression)
     {
         return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
@@ -180,9 +169,6 @@ class TranslationMap
             @Override
             public Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                if (translatedExpressions.contains(node)) {
-                    return node;
-                }
                 Expression rewrittenExpression = treeRewriter.defaultRewrite(node, context);
                 return coerceIfNecessary(node, rewrittenExpression);
             }
@@ -192,15 +178,12 @@ class TranslationMap
             {
                 Symbol symbol = rewriteBase.getSymbol(node.getFieldIndex());
                 checkState(symbol != null, "No symbol mapping for node '%s' (%s)", node, node.getFieldIndex());
-                return new QualifiedNameReference(symbol.toQualifiedName());
+                return symbol.toSymbolReference();
             }
 
             @Override
             public Expression rewriteQualifiedNameReference(QualifiedNameReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                if (translatedExpressions.contains(node)) {
-                    return node;
-                }
                 return rewriteExpressionWithResolvedName(node);
             }
 
@@ -211,7 +194,7 @@ class TranslationMap
 
                 Symbol symbol = rewriteBase.getSymbol(fieldIndex.get());
                 checkState(symbol != null, "No symbol mapping for node '%s' (%s)", node, fieldIndex.get());
-                Expression rewrittenExpression = new QualifiedNameReference(symbol.toQualifiedName());
+                Expression rewrittenExpression = symbol.toSymbolReference();
 
                 return coerceIfNecessary(node, rewrittenExpression);
             }
@@ -219,10 +202,6 @@ class TranslationMap
             @Override
             public Expression rewriteDereferenceExpression(DereferenceExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                if (translatedExpressions.contains(node)) {
-                    return node;
-                }
-
                 if (analysis.getFieldIndex(node).isPresent()) {
                     return rewriteExpressionWithResolvedName(node);
                 }

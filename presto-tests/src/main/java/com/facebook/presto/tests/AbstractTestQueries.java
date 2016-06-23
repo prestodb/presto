@@ -190,6 +190,16 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testMapSubscript()
+            throws Exception
+    {
+        assertQuery("select map(array[1], array['aa'])[1]", "select 'aa'");
+        assertQuery("select map(array['a'], array['aa'])['a']", "select 'aa'");
+        assertQuery("select map(array[array[1,1]], array['a'])[array[1,1]]", "select 'a'");
+        assertQuery("select map(array[(1,2)], array['a'])[(1,2)]", "select 'a'");
+    }
+
+    @Test
     public void testVarbinary()
             throws Exception
     {
@@ -1469,6 +1479,28 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT linenumber, suppkey, COUNT(linenumber), SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY GROUPING SETS ((linenumber, suppkey), ())",
                 "SELECT linenumber, suppkey, COUNT(linenumber), SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY linenumber, suppkey UNION " +
                         "SELECT NULL, NULL, COUNT(linenumber), SUM(CAST(quantity AS BIGINT)) FROM lineitem");
+    }
+
+    @Test
+    public void testGroupingSetsWithSingleDistinctAndUnion()
+            throws Exception
+    {
+        assertQuery("SELECT linenumber, COUNT(DISTINCT linenumber) FROM " +
+                        "(SELECT * FROM lineitem WHERE linenumber%2 = 0 UNION ALL SELECT * FROM lineitem WHERE linenumber%2 = 1) " +
+                        "GROUP BY GROUPING SETS ((linenumber), ())",
+                "SELECT DISTINCT linenumber, 1 FROM lineitem UNION ALL " +
+                        "SELECT NULL, COUNT(DISTINCT linenumber) FROM lineitem");
+    }
+
+    @Test
+    public void testGroupingSetsWithMultipleDistinctAndUnion()
+            throws Exception
+    {
+        assertQuery("SELECT linenumber, COUNT(DISTINCT linenumber), SUM(DISTINCT suppkey) FROM " +
+                        "(SELECT * FROM lineitem WHERE linenumber%2 = 0 UNION ALL SELECT * FROM lineitem WHERE linenumber%2 = 1) " +
+                        "GROUP BY GROUPING SETS ((linenumber), ())",
+                "SELECT linenumber, 1, SUM(DISTINCT suppkey) FROM lineitem GROUP BY linenumber UNION ALL " +
+                        "SELECT NULL, COUNT(DISTINCT linenumber), SUM(DISTINCT suppkey) FROM lineitem");
     }
 
     @Test

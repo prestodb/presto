@@ -52,7 +52,6 @@ public class PartitionBuffer
 
     public synchronized void enqueuePage(Page page)
     {
-        long bytesAdded = 0;
         List<Page> pages = splitPage(page, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
         masterBuffer.addAll(pages);
 
@@ -61,8 +60,9 @@ public class PartitionBuffer
         rowsAdded.addAndGet(rowCount);
         pagesAdded.addAndGet(pages.size());
 
+        long bytesAdded = 0;
         for (Page p : pages) {
-            bytesAdded += p.getSizeInBytes();
+            bytesAdded += p.getRetainedSizeInBytes();
         }
         updateMemoryUsage(bytesAdded);
     }
@@ -120,7 +120,7 @@ public class PartitionBuffer
         long bytesRemoved = 0;
         for (int i = 0; i < pagesToRemove; i++) {
             Page page = masterBuffer.removeFirst();
-            bytesRemoved += page.getSizeInBytes();
+            bytesRemoved += page.getRetainedSizeInBytes();
         }
         updateMemoryUsage(-bytesRemoved);
     }

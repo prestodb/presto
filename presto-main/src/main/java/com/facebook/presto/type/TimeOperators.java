@@ -133,6 +133,6 @@ public final class TimeOperators
     @SqlType(StandardTypes.BIGINT)
     public static long hashCode(@SqlType(StandardTypes.TIME) long value)
     {
-        return (int) (value ^ (value >>> 32));
+        return value;
     }
 }

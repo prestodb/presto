@@ -27,6 +27,7 @@
       ]
     },
     {
+      "source": "(?i).*adhoc.*",
       "queues": [
         "adhoc-${USER}",
         "user-${USER}",

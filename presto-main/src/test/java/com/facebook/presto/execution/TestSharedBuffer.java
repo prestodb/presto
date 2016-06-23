@@ -51,6 +51,7 @@ public class TestSharedBuffer
     private static final Duration NO_WAIT = new Duration(0, TimeUnit.MILLISECONDS);
     private static final Duration MAX_WAIT = new Duration(1, TimeUnit.SECONDS);
     private static final DataSize PAGE_SIZE = new DataSize(createPage(42).getSizeInBytes(), BYTE);
+    private static final DataSize RETAINED_PAGE_SIZE = new DataSize(createPage(42).getRetainedSizeInBytes(), BYTE);
     private static final TaskId TASK_ID = new TaskId("query", "stage", "task");
     private static final int DEFAULT_PARTITION = 0;
     private static final String TASK_INSTANCE_ID = "task-instance-id";
@@ -69,6 +70,11 @@ public class TestSharedBuffer
     public static DataSize sizeOfPages(int count)
     {
         return new DataSize(PAGE_SIZE.toBytes() * count, BYTE);
+    }
+
+    public static DataSize retainedSizeOfPages(int count)
+    {
+        return new DataSize(RETAINED_PAGE_SIZE.toBytes() * count, BYTE);
     }
 
     private ScheduledExecutorService stateNotificationExecutor;
@@ -106,7 +112,7 @@ public class TestSharedBuffer
     public void testSimple()
             throws Exception
     {
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, sizeOfPages(10));
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, retainedSizeOfPages(10));
 
         // add three items
         for (int i = 0; i < 3; i++) {
@@ -253,7 +259,7 @@ public class TestSharedBuffer
     {
         int firstPartition = 0;
         int secondPartition = 1;
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, sizeOfPages(2));
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, retainedSizeOfPages(2));
 
         // Add two pages, buffer is full
         addPage(sharedBuffer, createPage(1), firstPartition);
@@ -269,7 +275,7 @@ public class TestSharedBuffer
     {
         int firstPartition = 0;
         int secondPartition = 1;
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, sizeOfPages(2));
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, retainedSizeOfPages(2));
         OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS
                 .withBuffer(FIRST, firstPartition)
                 .withBuffer(SECOND, secondPartition)
@@ -303,7 +309,7 @@ public class TestSharedBuffer
     {
         int firstPartition = 0;
         int secondPartition = 1;
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, sizeOfPages(20));
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, retainedSizeOfPages(20));
 
         // add three items to each buffer
         for (int i = 0; i < 3; i++) {
@@ -444,7 +450,7 @@ public class TestSharedBuffer
     public void testDuplicateRequests()
             throws Exception
     {
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, sizeOfPages(10));
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, retainedSizeOfPages(10));
         // add three items
         for (int i = 0; i < 3; i++) {
             addPage(sharedBuffer, createPage(i));
@@ -479,7 +485,7 @@ public class TestSharedBuffer
     public void testAddQueueAfterNoMoreQueues()
             throws Exception
     {
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, sizeOfPages(10));
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, retainedSizeOfPages(10));
         assertFalse(sharedBuffer.isFinished());
 
         // tell buffer no more queues will be added
@@ -510,7 +516,7 @@ public class TestSharedBuffer
     public void testAddQueueAfterDestroy()
             throws Exception
     {
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, sizeOfPages(10));
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, retainedSizeOfPages(10));
         assertFalse(sharedBuffer.isFinished());
 
         // destroy buffer
@@ -533,7 +539,7 @@ public class TestSharedBuffer
     public void testGetBeforeCreate()
             throws Exception
     {
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, sizeOfPages(10));
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, retainedSizeOfPages(10));
         assertFalse(sharedBuffer.isFinished());
 
         // get a page from a buffer that doesn't exist yet
@@ -553,7 +559,7 @@ public class TestSharedBuffer
     public void testAbortBeforeCreate()
             throws Exception
     {
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, sizeOfPages(10));
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, retainedSizeOfPages(10));
         assertFalse(sharedBuffer.isFinished());
 
         // get a page from a buffer that doesn't exist yet
@@ -580,14 +586,14 @@ public class TestSharedBuffer
             throws Exception
     {
         // add after finish
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, sizeOfPages(10));
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, retainedSizeOfPages(10));
         sharedBuffer.setNoMorePages();
         addPage(sharedBuffer, createPage(0));
         addPage(sharedBuffer, createPage(0));
         assertEquals(sharedBuffer.getInfo().getTotalPagesSent(), 0);
 
         // add after destroy
-        sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, sizeOfPages(10));
+        sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, retainedSizeOfPages(10));
         sharedBuffer.destroy();
         addPage(sharedBuffer, createPage(0));
         addPage(sharedBuffer, createPage(0));
@@ -598,7 +604,7 @@ public class TestSharedBuffer
     public void testAbort()
             throws Exception
     {
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, sizeOfPages(10));
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, retainedSizeOfPages(10));
 
         // fill the buffer
         for (int i = 0; i < 10; i++) {
@@ -627,7 +633,7 @@ public class TestSharedBuffer
     public void testFinishClosesEmptyQueues()
             throws Exception
     {
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, sizeOfPages(10));
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, retainedSizeOfPages(10));
         sharedBuffer.setOutputBuffers(INITIAL_EMPTY_OUTPUT_BUFFERS
                 .withBuffer(FIRST, 0)
                 .withBuffer(SECOND, 0));
@@ -649,7 +655,7 @@ public class TestSharedBuffer
     public void testAbortFreesReader()
             throws Exception
     {
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, sizeOfPages(5));
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, retainedSizeOfPages(5));
         sharedBuffer.setOutputBuffers(INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(QUEUE, 0));
         assertFalse(sharedBuffer.isFinished());
 
@@ -681,7 +687,7 @@ public class TestSharedBuffer
     public void testFinishFreesReader()
             throws Exception
     {
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, sizeOfPages(5));
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, retainedSizeOfPages(5));
         sharedBuffer.setOutputBuffers(INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(QUEUE, 0));
         assertFalse(sharedBuffer.isFinished());
 
@@ -715,7 +721,7 @@ public class TestSharedBuffer
     public void testFinishFreesWriter()
             throws Exception
     {
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, sizeOfPages(5));
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, retainedSizeOfPages(5));
         sharedBuffer.setOutputBuffers(INITIAL_EMPTY_OUTPUT_BUFFERS
                 .withBuffer(QUEUE, 0)
                 .withNoMoreBufferIds());
@@ -761,7 +767,7 @@ public class TestSharedBuffer
     public void testDestroyFreesReader()
             throws Exception
     {
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, sizeOfPages(5));
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, retainedSizeOfPages(5));
         sharedBuffer.setOutputBuffers(INITIAL_EMPTY_OUTPUT_BUFFERS
                 .withBuffer(QUEUE, 0)
                 .withNoMoreBufferIds());
@@ -795,7 +801,7 @@ public class TestSharedBuffer
     public void testDestroyFreesWriter()
             throws Exception
     {
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, sizeOfPages(5));
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, retainedSizeOfPages(5));
         sharedBuffer.setOutputBuffers(INITIAL_EMPTY_OUTPUT_BUFFERS
                 .withBuffer(QUEUE, 0)
                 .withNoMoreBufferIds());
@@ -831,7 +837,7 @@ public class TestSharedBuffer
     public void testBufferCompletion()
             throws Exception
     {
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, sizeOfPages(5));
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, TASK_INSTANCE_ID, stateNotificationExecutor, retainedSizeOfPages(5));
         sharedBuffer.setOutputBuffers(INITIAL_EMPTY_OUTPUT_BUFFERS
                 .withBuffer(QUEUE, 0)
                 .withNoMoreBufferIds());
@@ -905,7 +911,7 @@ public class TestSharedBuffer
                         new PageBufferInfo(
                                 partition,
                                 pageBufferBufferedPages,
-                                sizeOfPages(pageBufferBufferedPages).toBytes(),
+                                retainedSizeOfPages(pageBufferBufferedPages).toBytes(),
                                 pageBufferPagesSent, // every page has one row
                                 pageBufferPagesSent)));
     }

@@ -14,6 +14,7 @@
 package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.presto.execution.QueryExecution;
+import com.facebook.presto.spi.PrestoException;
 import io.airlift.units.DataSize;
 import org.weakref.jmx.Managed;
 
@@ -36,10 +37,12 @@ import static com.facebook.presto.SystemSessionProperties.getQueryPriority;
 import static com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy.FAIR;
 import static com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy.QUERY_PRIORITY;
 import static com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy.WEIGHTED;
+import static com.facebook.presto.spi.StandardErrorCode.QUERY_QUEUE_FULL;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -314,7 +317,7 @@ public class ResourceGroup
         }
     }
 
-    public boolean add(QueryExecution query)
+    public void run(QueryExecution query)
     {
         synchronized (root) {
             checkState(subGroups.isEmpty(), "Cannot add queries to %s. It is not a leaf group.", id);
@@ -331,7 +334,8 @@ public class ResourceGroup
                 group = group.parent.get();
             }
             if (!canQueue && !canRun) {
-                return false;
+                query.fail(new PrestoException(QUERY_QUEUE_FULL, format("Too many queued queries for \"%s\"!", id)));
+                return;
             }
             if (canRun) {
                 startInBackground(query);
@@ -347,7 +351,6 @@ public class ResourceGroup
             if (query.getState().isDone()) {
                 queryFinished(query);
             }
-            return true;
         }
     }
 

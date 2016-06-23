@@ -75,7 +75,7 @@ public class TestProgressMonitor
                 nextUriId == null ? null : URI.create(format(NEXT_URI, nextUriId)),
                 responseColumns,
                 data,
-                new StatementStats(state, true, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
+                new StatementStats(state, state.equals("QUEUED"), true, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
                 null,
                 null,
                 null);

@@ -38,7 +38,6 @@ import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -588,57 +587,57 @@ public class TestDomainTranslator
             throws Exception
     {
         // Test out the extraction of all basic comparisons where the reference literal ordering is flipped
-        ComparisonExpression originalExpression = comparison(GREATER_THAN, bigintLiteral(2L), reference(A));
+        ComparisonExpression originalExpression = comparison(GREATER_THAN, bigintLiteral(2L), A.toSymbolReference());
         ExtractionResult result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(A, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L)), false))));
 
-        originalExpression = comparison(GREATER_THAN_OR_EQUAL, bigintLiteral(2L), reference(A));
+        originalExpression = comparison(GREATER_THAN_OR_EQUAL, bigintLiteral(2L), A.toSymbolReference());
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(A, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BIGINT, 2L)), false))));
 
-        originalExpression = comparison(LESS_THAN, bigintLiteral(2L), reference(A));
+        originalExpression = comparison(LESS_THAN, bigintLiteral(2L), A.toSymbolReference());
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(A, Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 2L)), false))));
 
-        originalExpression = comparison(LESS_THAN_OR_EQUAL, bigintLiteral(2L), reference(A));
+        originalExpression = comparison(LESS_THAN_OR_EQUAL, bigintLiteral(2L), A.toSymbolReference());
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(A, Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(BIGINT, 2L)), false))));
 
-        originalExpression = comparison(EQUAL, bigintLiteral(2L), reference(A));
+        originalExpression = comparison(EQUAL, bigintLiteral(2L), A.toSymbolReference());
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(A, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 2L)), false))));
 
-        originalExpression = comparison(EQUAL, colorLiteral(COLOR_VALUE_1), reference(J));
+        originalExpression = comparison(EQUAL, colorLiteral(COLOR_VALUE_1), J.toSymbolReference());
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(J, Domain.create(ValueSet.of(COLOR, COLOR_VALUE_1), false))));
 
-        originalExpression = comparison(NOT_EQUAL, bigintLiteral(2L), reference(A));
+        originalExpression = comparison(NOT_EQUAL, bigintLiteral(2L), A.toSymbolReference());
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(A, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L), Range.greaterThan(BIGINT, 2L)), false))));
 
-        originalExpression = comparison(NOT_EQUAL, colorLiteral(COLOR_VALUE_1), reference(J));
+        originalExpression = comparison(NOT_EQUAL, colorLiteral(COLOR_VALUE_1), J.toSymbolReference());
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(J, Domain.create(ValueSet.of(COLOR, COLOR_VALUE_1).complement(), false))));
 
-        originalExpression = comparison(IS_DISTINCT_FROM, bigintLiteral(2L), reference(A));
+        originalExpression = comparison(IS_DISTINCT_FROM, bigintLiteral(2L), A.toSymbolReference());
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(A, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L), Range.greaterThan(BIGINT, 2L)), true))));
 
-        originalExpression = comparison(IS_DISTINCT_FROM, colorLiteral(COLOR_VALUE_1), reference(J));
+        originalExpression = comparison(IS_DISTINCT_FROM, colorLiteral(COLOR_VALUE_1), J.toSymbolReference());
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(J, Domain.create(ValueSet.of(COLOR, COLOR_VALUE_1).complement(), true))));
 
-        originalExpression = comparison(IS_DISTINCT_FROM, nullLiteral(), reference(A));
+        originalExpression = comparison(IS_DISTINCT_FROM, nullLiteral(), A.toSymbolReference());
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(A, Domain.notNull(BIGINT))));
@@ -938,18 +937,18 @@ public class TestDomainTranslator
         assertEquals(result.getRemainingExpression(), originalExpression);
         assertTrue(result.getTupleDomain().isAll());
 
-        originalExpression = new InPredicate(reference(D), new InListExpression(ImmutableList.of(unprocessableExpression1(D))));
+        originalExpression = new InPredicate(D.toSymbolReference(), new InListExpression(ImmutableList.of(unprocessableExpression1(D))));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), equal(D, unprocessableExpression1(D)));
         assertTrue(result.getTupleDomain().isAll());
 
-        originalExpression = new InPredicate(reference(D), new InListExpression(ImmutableList.of(TRUE_LITERAL, unprocessableExpression1(D))));
+        originalExpression = new InPredicate(D.toSymbolReference(), new InListExpression(ImmutableList.of(TRUE_LITERAL, unprocessableExpression1(D))));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), or(equal(D, TRUE_LITERAL), equal(D, unprocessableExpression1(D))));
         assertTrue(result.getTupleDomain().isAll());
 
         // Test complement
-        originalExpression = not(new InPredicate(reference(D), new InListExpression(ImmutableList.of(unprocessableExpression1(D)))));
+        originalExpression = not(new InPredicate(D.toSymbolReference(), new InListExpression(ImmutableList.of(unprocessableExpression1(D)))));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), not(equal(D, unprocessableExpression1(D))));
         assertTrue(result.getTupleDomain().isAll());
@@ -1141,14 +1140,14 @@ public class TestDomainTranslator
     public void testExpressionConstantFolding()
             throws Exception
     {
-        Expression originalExpression = comparison(GREATER_THAN, reference(L), function("from_hex", stringLiteral("123456")));
+        Expression originalExpression = comparison(GREATER_THAN, L.toSymbolReference(), function("from_hex", stringLiteral("123456")));
         ExtractionResult result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Slice value = Slices.wrappedBuffer(BaseEncoding.base16().decode("123456"));
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(L, Domain.create(ValueSet.ofRanges(Range.greaterThan(VARBINARY, value)), false))));
 
         Expression expression = toPredicate(result.getTupleDomain());
-        assertEquals(expression, comparison(GREATER_THAN, reference(L), varbinaryLiteral(value)));
+        assertEquals(expression, comparison(GREATER_THAN, L.toSymbolReference(), varbinaryLiteral(value)));
     }
 
     @Test
@@ -1333,22 +1332,17 @@ public class TestDomainTranslator
 
     private static Expression unprocessableExpression1(Symbol symbol)
     {
-        return comparison(GREATER_THAN, reference(symbol), reference(symbol));
+        return comparison(GREATER_THAN, symbol.toSymbolReference(), symbol.toSymbolReference());
     }
 
     private static Expression unprocessableExpression2(Symbol symbol)
     {
-        return comparison(LESS_THAN, reference(symbol), reference(symbol));
+        return comparison(LESS_THAN, symbol.toSymbolReference(), symbol.toSymbolReference());
     }
 
     private static Expression randPredicate(Symbol symbol)
     {
-        return comparison(GREATER_THAN, reference(symbol), new FunctionCall(new QualifiedName("rand"), ImmutableList.<Expression>of()));
-    }
-
-    private static QualifiedNameReference reference(Symbol symbol)
-    {
-        return new QualifiedNameReference(symbol.toQualifiedName());
+        return comparison(GREATER_THAN, symbol.toSymbolReference(), new FunctionCall(QualifiedName.of("rand"), ImmutableList.<Expression>of()));
     }
 
     private static NotExpression not(Expression expression)
@@ -1363,59 +1357,59 @@ public class TestDomainTranslator
 
     private static ComparisonExpression equal(Symbol symbol, Expression expression)
     {
-        return comparison(EQUAL, reference(symbol), expression);
+        return comparison(EQUAL, symbol.toSymbolReference(), expression);
     }
 
     private static ComparisonExpression notEqual(Symbol symbol, Expression expression)
     {
-        return comparison(NOT_EQUAL, reference(symbol), expression);
+        return comparison(NOT_EQUAL, symbol.toSymbolReference(), expression);
     }
 
     private static ComparisonExpression greaterThan(Symbol symbol, Expression expression)
     {
-        return comparison(GREATER_THAN, reference(symbol), expression);
+        return comparison(GREATER_THAN, symbol.toSymbolReference(), expression);
     }
 
     private static ComparisonExpression greaterThanOrEqual(Symbol symbol, Expression expression)
     {
-        return comparison(GREATER_THAN_OR_EQUAL, reference(symbol), expression);
+        return comparison(GREATER_THAN_OR_EQUAL, symbol.toSymbolReference(), expression);
     }
 
     private static ComparisonExpression lessThan(Symbol symbol, Expression expression)
     {
-        return comparison(LESS_THAN, reference(symbol), expression);
+        return comparison(LESS_THAN, symbol.toSymbolReference(), expression);
     }
 
     private static ComparisonExpression lessThanOrEqual(Symbol symbol, Expression expression)
     {
-        return comparison(LESS_THAN_OR_EQUAL, reference(symbol), expression);
+        return comparison(LESS_THAN_OR_EQUAL, symbol.toSymbolReference(), expression);
     }
 
     private static ComparisonExpression isDistinctFrom(Symbol symbol, Expression expression)
     {
-        return comparison(IS_DISTINCT_FROM, reference(symbol), expression);
+        return comparison(IS_DISTINCT_FROM, symbol.toSymbolReference(), expression);
     }
 
     private static Expression isNotNull(Symbol symbol)
     {
-        return new NotExpression(new IsNullPredicate(reference(symbol)));
+        return new NotExpression(new IsNullPredicate(symbol.toSymbolReference()));
     }
 
     private static IsNullPredicate isNull(Symbol symbol)
     {
-        return new IsNullPredicate(reference(symbol));
+        return new IsNullPredicate(symbol.toSymbolReference());
     }
 
     private static InPredicate in(Symbol symbol, List<?> values)
     {
         List<Type> types = nCopies(values.size(), TYPES.get(symbol));
         List<Expression> expressions = LiteralInterpreter.toExpressions(values, types);
-        return new InPredicate(reference(symbol), new InListExpression(expressions));
+        return new InPredicate(symbol.toSymbolReference(), new InListExpression(expressions));
     }
 
     private static BetweenPredicate between(Symbol symbol, Expression min, Expression max)
     {
-        return new BetweenPredicate(reference(symbol), min, max);
+        return new BetweenPredicate(symbol.toSymbolReference(), min, max);
     }
 
     private static Literal bigintLiteral(long value)

@@ -49,7 +49,7 @@ public class TestFileResourceGroupConfigurationManager
         builder.put("resource-groups.config-file", getResourceFilePath("resource_groups_memory_percentage.json"));
         Map<String, String> properties = builder.build();
 
-        try (DistributedQueryRunner queryRunner = createQueryRunner(properties)) {
+        try (DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of(), properties)) {
             queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
             while (true) {
                 TimeUnit.SECONDS.sleep(1);
@@ -105,7 +105,7 @@ public class TestFileResourceGroupConfigurationManager
 
     private FileResourceGroupConfigurationManager parse(String fileName)
     {
-        ResourceGroupConfig config = new ResourceGroupConfig();
+        FileResourceGroupConfig config = new FileResourceGroupConfig();
         config.setConfigFile(getResourceFilePath(fileName));
         return new FileResourceGroupConfigurationManager(
                 (poolId, listener) -> { },

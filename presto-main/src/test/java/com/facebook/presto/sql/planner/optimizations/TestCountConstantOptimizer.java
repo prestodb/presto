@@ -27,6 +27,7 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -48,7 +49,7 @@ public class TestCountConstantOptimizer
         PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
         Symbol countAggregationSymbol = new Symbol("count");
         Signature countAggregationSignature = new Signature("count", FunctionKind.AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BIGINT));
-        ImmutableMap<Symbol, FunctionCall> aggregations = ImmutableMap.of(countAggregationSymbol, new FunctionCall(QualifiedName.of("count"), ImmutableList.of(new QualifiedNameReference(QualifiedName.of("expr")))));
+        ImmutableMap<Symbol, FunctionCall> aggregations = ImmutableMap.of(countAggregationSymbol, new FunctionCall(QualifiedName.of("count"), ImmutableList.of(new SymbolReference("expr"))));
         ImmutableMap<Symbol, Signature> functions = ImmutableMap.of(countAggregationSymbol, countAggregationSignature);
         ValuesNode valuesNode = new ValuesNode(planNodeIdAllocator.getNextId(), ImmutableList.of(new Symbol("col")), ImmutableList.of(ImmutableList.of()));
 

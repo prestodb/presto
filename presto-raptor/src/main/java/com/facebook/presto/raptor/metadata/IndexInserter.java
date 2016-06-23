@@ -29,8 +29,7 @@ import java.util.Set;
 import java.util.StringJoiner;
 import java.util.UUID;
 
-import static com.facebook.presto.raptor.RaptorColumnHandle.isShardRowIdColumn;
-import static com.facebook.presto.raptor.RaptorColumnHandle.isShardUuidColumn;
+import static com.facebook.presto.raptor.RaptorColumnHandle.isHiddenColumn;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.maxColumn;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.minColumn;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
@@ -66,14 +65,15 @@ class IndexInserter
         StringJoiner valueJoiner = new StringJoiner(", ");
         int index = 1;
 
-        nameJoiner.add("shard_id").add("shard_uuid").add("node_ids");
+        nameJoiner.add("shard_id").add("shard_uuid");
         valueJoiner.add("?").add("?").add("?");
         index += 3;
 
         if (bucketed) {
             nameJoiner.add("bucket_number");
-            valueJoiner.add("?");
-            index++;
+        }
+        else {
+            nameJoiner.add("node_ids");
         }
 
         for (ColumnInfo column : columns) {
@@ -83,7 +83,7 @@ class IndexInserter
             }
 
             long columnId = column.getColumnId();
-            if (isShardUuidColumn(columnId) || isShardRowIdColumn(columnId)) {
+            if (isHiddenColumn(columnId)) {
                 continue;
             }
 
@@ -122,14 +122,14 @@ class IndexInserter
     {
         statement.setLong(1, shardId);
         statement.setBytes(2, uuidToBytes(shardUuid));
-        statement.setBytes(3, intArrayToBytes(nodeIds));
 
         if (bucketed) {
             checkArgument(bucketNumber.isPresent(), "shard bucket missing for bucketed table");
-            statement.setInt(4, bucketNumber.getAsInt());
+            statement.setInt(3, bucketNumber.getAsInt());
         }
         else {
             checkArgument(!bucketNumber.isPresent(), "shard bucket present for non-bucketed table");
+            statement.setBytes(3, intArrayToBytes(nodeIds));
         }
 
         for (ColumnInfo column : columns) {

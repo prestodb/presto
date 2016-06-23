@@ -27,7 +27,7 @@ import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -93,7 +93,7 @@ public class ProjectionPushDown
             ImmutableList.Builder<PlanNode> outputSources = ImmutableList.builder();
 
             for (int i = 0; i < source.getSources().size(); i++) {
-                Map<Symbol, QualifiedNameReference> outputToInput = source.sourceSymbolMap(i);   // Map: output of union -> input of this source to the union
+                Map<Symbol, SymbolReference> outputToInput = source.sourceSymbolMap(i);   // Map: output of union -> input of this source to the union
                 ImmutableMap.Builder<Symbol, Expression> assignments = ImmutableMap.builder();      // assignments for the new ProjectNode
 
                 // mapping from current ProjectNode to new ProjectNode, used to identify the output layout
@@ -119,7 +119,7 @@ public class ProjectionPushDown
             ImmutableList.Builder<PlanNode> newSourceBuilder = ImmutableList.builder();
             ImmutableList.Builder<List<Symbol>> inputsBuilder = ImmutableList.builder();
             for (int i = 0; i < exchange.getSources().size(); i++) {
-                Map<Symbol, QualifiedNameReference> outputToInputMap = extractExchangeOutputToInput(exchange, i);
+                Map<Symbol, SymbolReference> outputToInputMap = extractExchangeOutputToInput(exchange, i);
 
                 Map<Symbol, Expression> projections = new LinkedHashMap<>(); // Use LinkedHashMap to make output symbol order deterministic
                 ImmutableList.Builder<Symbol> inputs = ImmutableList.builder();
@@ -128,14 +128,14 @@ public class ProjectionPushDown
                 exchange.getPartitioningScheme().getPartitioning().getColumns().stream()
                         .map(outputToInputMap::get)
                         .forEach(nameReference -> {
-                            Symbol symbol = Symbol.fromQualifiedName(nameReference.getName());
+                            Symbol symbol = Symbol.from(nameReference);
                             projections.put(symbol, nameReference);
                             inputs.add(symbol);
                         });
 
                 if (exchange.getPartitioningScheme().getHashColumn().isPresent()) {
                     // Need to retain the hash symbol for the exchange
-                    projections.put(exchange.getPartitioningScheme().getHashColumn().get(), exchange.getPartitioningScheme().getHashColumn().get().toQualifiedNameReference());
+                    projections.put(exchange.getPartitioningScheme().getHashColumn().get(), exchange.getPartitioningScheme().getHashColumn().get().toSymbolReference());
                     inputs.add(exchange.getPartitioningScheme().getHashColumn().get());
                 }
                 for (Map.Entry<Symbol, Expression> projection : node.getAssignments().entrySet()) {
@@ -178,16 +178,16 @@ public class ProjectionPushDown
         }
     }
 
-    private static Map<Symbol, QualifiedNameReference> extractExchangeOutputToInput(ExchangeNode exchange, int sourceIndex)
+    private static Map<Symbol, SymbolReference> extractExchangeOutputToInput(ExchangeNode exchange, int sourceIndex)
     {
-        Map<Symbol, QualifiedNameReference> outputToInputMap = new HashMap<>();
+        Map<Symbol, SymbolReference> outputToInputMap = new HashMap<>();
         for (int i = 0; i < exchange.getOutputSymbols().size(); i++) {
-            outputToInputMap.put(exchange.getOutputSymbols().get(i), exchange.getInputs().get(sourceIndex).get(i).toQualifiedNameReference());
+            outputToInputMap.put(exchange.getOutputSymbols().get(i), exchange.getInputs().get(sourceIndex).get(i).toSymbolReference());
         }
         return outputToInputMap;
     }
 
-    private static Expression translateExpression(Expression inputExpression, Map<Symbol, QualifiedNameReference> symbolMapping)
+    private static Expression translateExpression(Expression inputExpression, Map<Symbol, SymbolReference> symbolMapping)
     {
         return ExpressionTreeRewriter.rewriteWith(new ExpressionSymbolInliner(symbolMapping), inputExpression);
     }

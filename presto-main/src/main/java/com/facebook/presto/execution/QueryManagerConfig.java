@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.DefunctConfig;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
@@ -36,7 +37,7 @@ public class QueryManagerConfig
     private String queueConfigFile;
 
     private int initialHashPartitions = 100;
-    private Duration maxQueryAge = new Duration(15, TimeUnit.MINUTES);
+    private Duration minQueryExpireAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
 
@@ -118,15 +119,16 @@ public class QueryManagerConfig
     }
 
     @NotNull
-    public Duration getMaxQueryAge()
+    public Duration getMinQueryExpireAge()
     {
-        return maxQueryAge;
+        return minQueryExpireAge;
     }
 
-    @Config("query.max-age")
-    public QueryManagerConfig setMaxQueryAge(Duration maxQueryAge)
+    @LegacyConfig("query.max-age")
+    @Config("query.min-expire-age")
+    public QueryManagerConfig setMinQueryExpireAge(Duration minQueryExpireAge)
     {
-        this.maxQueryAge = maxQueryAge;
+        this.minQueryExpireAge = minQueryExpireAge;
         return this;
     }
 

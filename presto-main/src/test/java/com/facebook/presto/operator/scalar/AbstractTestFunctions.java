@@ -33,6 +33,7 @@ import java.util.List;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
@@ -63,18 +64,6 @@ public abstract class AbstractTestFunctions
         assertFunction(statement,
                 createDecimalType(expectedResult.getPrecision(), expectedResult.getScale()),
                 expectedResult);
-    }
-
-    protected void assertInvalidFunction(String projection, Type expectedType, String message)
-    {
-        try {
-            assertFunction(projection, expectedType, null);
-            fail("Expected to throw an INVALID_FUNCTION_ARGUMENT exception with message " + message);
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
-            assertEquals(e.getMessage(), message);
-        }
     }
 
     protected void assertInvalidFunction(String projection, String message)
@@ -108,6 +97,18 @@ public abstract class AbstractTestFunctions
         }
         catch (PrestoException e) {
             assertEquals(e.getErrorCode(), expectedErrorCode.toErrorCode());
+        }
+    }
+
+    protected void assertNumericOverflow(String projection, String message)
+    {
+        try {
+            evaluateInvalid(projection);
+            fail("Expected to throw an NUMERIC_VALUE_OUT_OF_RANGE exception with message " + message);
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode());
+            assertEquals(e.getMessage(), message);
         }
     }
 

@@ -26,8 +26,10 @@ import static com.facebook.presto.block.BlockAssertions.createArrayBigintBlock;
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
+import static com.facebook.presto.block.BlockAssertions.createTypedLongsBlock;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 
 public class TestArrayAggregation
@@ -56,7 +58,7 @@ public class TestArrayAggregation
         assertAggregation(
                 bigIntAgg,
                 1.0,
-                null,
+                Arrays.asList(null, null, null),
                 createLongsBlock(new Long[] {null, null, null}));
     }
 
@@ -69,7 +71,7 @@ public class TestArrayAggregation
         assertAggregation(
                 bigIntAgg,
                 1.0,
-                Arrays.asList(2L, 3L),
+                Arrays.asList(null, 2L, null, 3L, null),
                 createLongsBlock(new Long[] {null, 2L, null, 3L, null}));
     }
 
@@ -122,7 +124,7 @@ public class TestArrayAggregation
                 varcharAgg,
                 1.0,
                 Arrays.asList(new SqlDate(1), new SqlDate(2), new SqlDate(4)),
-                createLongsBlock(new Long[] {1L, 2L, 4L}));
+                createTypedLongsBlock(DATE, ImmutableList.of(1L, 2L, 4L)));
     }
 
     @Test

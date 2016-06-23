@@ -13,8 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.collect.Lists;
-
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -69,20 +68,20 @@ public class DereferenceExpression
     public static QualifiedName getQualifiedName(DereferenceExpression expression)
     {
         List<String> parts = tryParseParts(expression.base, expression.fieldName);
-        return parts == null ? null : new QualifiedName(parts);
+        return parts == null ? null : QualifiedName.of(parts);
     }
 
     private static List<String> tryParseParts(Expression base, String fieldName)
     {
         if (base instanceof QualifiedNameReference) {
-            List<String> newList = Lists.newArrayList(((QualifiedNameReference) base).getName().getParts());
+            List<String> newList = new ArrayList<>(((QualifiedNameReference) base).getName().getParts());
             newList.add(fieldName);
             return newList;
         }
         else if (base instanceof DereferenceExpression) {
             QualifiedName baseQualifiedName = getQualifiedName((DereferenceExpression) base);
             if (baseQualifiedName != null) {
-                List<String> newList = Lists.newArrayList(baseQualifiedName.getParts());
+                List<String> newList = new ArrayList<>(baseQualifiedName.getParts());
                 newList.add(fieldName);
                 return newList;
             }

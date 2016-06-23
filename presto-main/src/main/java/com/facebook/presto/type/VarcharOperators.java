@@ -150,6 +150,19 @@ public final class VarcharOperators
 
     @LiteralParameters("x")
     @ScalarOperator(CAST)
+    @SqlType(StandardTypes.FLOAT)
+    public static long castToFloat(@SqlType("varchar(x)") Slice slice)
+    {
+        try {
+            return Float.floatToIntBits(Float.parseFloat(slice.toStringUtf8()));
+        }
+        catch (Exception e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Can not cast '%s' to FLOAT", slice.toStringUtf8()));
+        }
+    }
+
+    @LiteralParameters("x")
+    @ScalarOperator(CAST)
     @SqlType(StandardTypes.BIGINT)
     public static long castToBigint(@SqlType("varchar(x)") Slice slice)
     {

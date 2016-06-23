@@ -72,20 +72,6 @@ public abstract class AbstractArrayElementBlock
     }
 
     @Override
-    public float getFloat(int position, int offset)
-    {
-        checkReadablePosition(position);
-        return getBlock().getFloat(position + start, offset);
-    }
-
-    @Override
-    public double getDouble(int position, int offset)
-    {
-        checkReadablePosition(position);
-        return getBlock().getDouble(position + start, offset);
-    }
-
-    @Override
     public Slice getSlice(int position, int offset, int length)
     {
         checkReadablePosition(position);
@@ -160,11 +146,6 @@ public abstract class AbstractArrayElementBlock
     {
         checkReadablePosition(position);
         return getBlock().isNull(position + start);
-    }
-
-    @Override
-    public void assureLoaded()
-    {
     }
 
     @Override

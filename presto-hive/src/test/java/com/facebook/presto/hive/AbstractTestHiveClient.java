@@ -1316,13 +1316,13 @@ public abstract class AbstractTestHiveClient
             sink.finish();
 
             // verify we have data files
-            assertFalse(listAllDataFiles(outputHandle).isEmpty());
+            assertFalse(listAllDataFiles(getStagingPathRoot(outputHandle)).isEmpty());
 
             // rollback the table
             rollback(metadata);
 
             // verify all files have been deleted
-            assertTrue(listAllDataFiles(outputHandle).isEmpty());
+            assertTrue(listAllDataFiles(getStagingPathRoot(outputHandle)).isEmpty());
 
             // verify table is not in the metastore
             assertNull(metadata.getTableHandle(session, temporaryCreateRollbackTable));
@@ -1621,7 +1621,7 @@ public abstract class AbstractTestHiveClient
         Collection<Slice> fragments = sink.finish();
 
         // verify all new files start with the unique prefix
-        for (String filePath : listAllDataFiles(outputHandle)) {
+        for (String filePath : listAllDataFiles(getStagingPathRoot(outputHandle))) {
             assertTrue(new Path(filePath).getName().startsWith(getFilePrefix(outputHandle)));
         }
 
@@ -1744,7 +1744,7 @@ public abstract class AbstractTestHiveClient
         assertEquals(listAllDataFiles(tableName.getSchemaName(), tableName.getTableName()), existingFiles);
 
         // verify all temp files start with the unique prefix
-        Set<String> tempFiles = listAllDataFiles(insertTableHandle);
+        Set<String> tempFiles = listAllDataFiles(getStagingPathRoot(insertTableHandle));
         assertTrue(!tempFiles.isEmpty());
         for (String filePath : tempFiles) {
             assertTrue(new Path(filePath).getName().startsWith(getFilePrefix(insertTableHandle)));
@@ -1761,7 +1761,7 @@ public abstract class AbstractTestHiveClient
         assertEquals(listAllDataFiles(tableName.getSchemaName(), tableName.getTableName()), existingFiles);
 
         // verify temp directory is empty
-        assertTrue(listAllDataFiles(insertTableHandle).isEmpty());
+        assertTrue(listAllDataFiles(getStagingPathRoot(insertTableHandle)).isEmpty());
     }
 
     // These are protected so extensions to the hive connector can replace the handle classes
@@ -1775,20 +1775,22 @@ public abstract class AbstractTestHiveClient
         return ((HiveInsertTableHandle) insertTableHandle).getFilePrefix();
     }
 
-    protected Set<String> listAllDataFiles(ConnectorOutputTableHandle tableHandle)
-            throws IOException
+    protected Path getStagingPathRoot(ConnectorInsertTableHandle insertTableHandle)
     {
-        HiveOutputTableHandle hiveOutputTableHandle = (HiveOutputTableHandle) tableHandle;
-        Path writePath = new Path(getLocationService(hiveOutputTableHandle.getSchemaName()).writePathRoot(hiveOutputTableHandle.getLocationHandle()).get().toString());
-        return listAllDataFiles(writePath);
+        HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) insertTableHandle;
+        return getLocationService(hiveInsertTableHandle.getSchemaName()).writePathRoot(hiveInsertTableHandle.getLocationHandle()).get();
     }
 
-    protected Set<String> listAllDataFiles(ConnectorInsertTableHandle tableHandle)
-            throws IOException
+    protected Path getStagingPathRoot(ConnectorOutputTableHandle outputTableHandle)
     {
-        HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) tableHandle;
-        Path writePath = new Path(getLocationService(hiveInsertTableHandle.getSchemaName()).writePathRoot(hiveInsertTableHandle.getLocationHandle()).get().toString());
-        return listAllDataFiles(writePath);
+        HiveOutputTableHandle hiveOutputTableHandle = (HiveOutputTableHandle) outputTableHandle;
+        return getLocationService(hiveOutputTableHandle.getSchemaName()).writePathRoot(hiveOutputTableHandle.getLocationHandle()).get();
+    }
+
+    protected Path getTargetPathRoot(ConnectorInsertTableHandle insertTableHandle)
+    {
+        HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) insertTableHandle;
+        return getLocationService(hiveInsertTableHandle.getSchemaName()).targetPathRoot(hiveInsertTableHandle.getLocationHandle());
     }
 
     protected Set<String> listAllDataFiles(String schemaName, String tableName)
@@ -1887,7 +1889,7 @@ public abstract class AbstractTestHiveClient
         assertEquals(listAllDataFiles(tableName.getSchemaName(), tableName.getTableName()), existingFiles);
 
         // verify all temp files start with the unique prefix
-        Set<String> tempFiles = listAllDataFiles(insertTableHandle);
+        Set<String> tempFiles = listAllDataFiles(getStagingPathRoot(insertTableHandle));
         assertTrue(!tempFiles.isEmpty());
         for (String filePath : tempFiles) {
             assertTrue(new Path(filePath).getName().startsWith(getFilePrefix(insertTableHandle)));
@@ -1904,7 +1906,7 @@ public abstract class AbstractTestHiveClient
         assertEquals(listAllDataFiles(tableName.getSchemaName(), tableName.getTableName()), existingFiles);
 
         // verify temp directory is empty
-        assertTrue(listAllDataFiles(insertTableHandle).isEmpty());
+        assertTrue(listAllDataFiles(getStagingPathRoot(insertTableHandle)).isEmpty());
     }
 
     private void doInsertUnsupportedWriteType(HiveStorageFormat storageFormat, SchemaTableName tableName)
@@ -1984,7 +1986,7 @@ public abstract class AbstractTestHiveClient
         assertEquals(listAllDataFiles(tableName.getSchemaName(), tableName.getTableName()), existingFiles);
 
         // verify all temp files start with the unique prefix
-        Set<String> tempFiles = listAllDataFiles(insertTableHandle);
+        Set<String> tempFiles = listAllDataFiles(getStagingPathRoot(insertTableHandle));
         assertTrue(!tempFiles.isEmpty());
         for (String filePath : tempFiles) {
             assertTrue(new Path(filePath).getName().startsWith(getFilePrefix(insertTableHandle)));
@@ -2001,10 +2003,11 @@ public abstract class AbstractTestHiveClient
         assertEquals(listAllDataFiles(tableName.getSchemaName(), tableName.getTableName()), existingFiles);
 
         // verify temp directory is empty
-        assertTrue(listAllDataFiles(insertTableHandle).isEmpty());
+        assertTrue(listAllDataFiles(getStagingPathRoot(insertTableHandle)).isEmpty());
     }
 
     private void insertData(ConnectorTableHandle tableHandle, MaterializedResult data, ConnectorSession session)
+            throws Exception
     {
         ConnectorMetadata metadata = newMetadata();
         ConnectorTransactionHandle transaction = newTransaction();
@@ -2018,6 +2021,14 @@ public abstract class AbstractTestHiveClient
 
         // commit the insert
         metadata.finishInsert(session, insertTableHandle, fragments);
+
+        // check that temporary files are removed
+        Path writePath = getStagingPathRoot(insertTableHandle);
+        Path targetPath = getTargetPathRoot(insertTableHandle);
+        if (!writePath.equals(targetPath)) {
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem("user", writePath);
+            assertFalse(fileSystem.exists(writePath));
+        }
     }
 
     private void doMetadataDelete(HiveStorageFormat storageFormat, SchemaTableName tableName)

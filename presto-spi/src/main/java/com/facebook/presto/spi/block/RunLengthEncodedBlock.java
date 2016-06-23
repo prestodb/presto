@@ -20,7 +20,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.block.BlockValidationUtil.checkValidPositions;
+import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -136,18 +136,6 @@ public class RunLengthEncodedBlock
     public long getLong(int position, int offset)
     {
         return value.getLong(0, offset);
-    }
-
-    @Override
-    public float getFloat(int position, int offset)
-    {
-        return value.getFloat(0, offset);
-    }
-
-    @Override
-    public double getDouble(int position, int offset)
-    {
-        return value.getDouble(0, offset);
     }
 
     @Override

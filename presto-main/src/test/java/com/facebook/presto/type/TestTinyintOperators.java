@@ -19,14 +19,15 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.FloatType.FLOAT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
 
 public class TestTinyintOperators
         extends AbstractTestFunctions
@@ -65,7 +66,7 @@ public class TestTinyintOperators
         assertFunction("TINYINT'37' + TINYINT'17'", TINYINT, (byte) (37 + 17));
         assertFunction("TINYINT'17' + TINYINT'37'", TINYINT, (byte) (17 + 37));
         assertFunction("TINYINT'17' + TINYINT'17'", TINYINT, (byte) (17 + 17));
-        assertInvalidFunction("TINYINT'" + Byte.MAX_VALUE + "' + TINYINT'1'", NUMERIC_VALUE_OUT_OF_RANGE);
+        assertNumericOverflow(format("TINYINT'%s' + TINYINT'1'", Byte.MAX_VALUE), "tinyint addition overflow: 127 + 1");
     }
 
     @Test
@@ -76,7 +77,7 @@ public class TestTinyintOperators
         assertFunction("TINYINT'37' - TINYINT'17'", TINYINT, (byte) (37 - 17));
         assertFunction("TINYINT'17' - TINYINT'37'", TINYINT, (byte) (17 - 37));
         assertFunction("TINYINT'17' - TINYINT'17'", TINYINT, (byte) 0);
-        assertInvalidFunction("TINYINT'" + Byte.MIN_VALUE + "' - TINYINT'1'", NUMERIC_VALUE_OUT_OF_RANGE);
+        assertNumericOverflow(format("TINYINT'%s' - TINYINT'1'", Byte.MIN_VALUE), "tinyint subtraction overflow: -128 - 1");
     }
 
     @Test
@@ -87,7 +88,7 @@ public class TestTinyintOperators
         assertFunction("TINYINT'11' * TINYINT'9'", TINYINT, (byte) (11 * 9));
         assertFunction("TINYINT'9' * TINYINT'11'", TINYINT, (byte) (9 * 11));
         assertFunction("TINYINT'9' * TINYINT'9'", TINYINT, (byte) (9 * 9));
-        assertInvalidFunction("TINYINT'" + Byte.MAX_VALUE + "' * TINYINT'2'", NUMERIC_VALUE_OUT_OF_RANGE);
+        assertNumericOverflow(format("TINYINT'%s' * TINYINT'2'", Byte.MAX_VALUE), "tinyint multiplication overflow: 127 * 2");
     }
 
     @Test
@@ -119,6 +120,7 @@ public class TestTinyintOperators
         assertFunction("-(TINYINT'37')", TINYINT, (byte) -37);
         assertFunction("-(TINYINT'17')", TINYINT, (byte) -17);
         assertFunction("-(TINYINT'" + Byte.MAX_VALUE + "')", TINYINT, (byte) (Byte.MIN_VALUE + 1));
+        assertNumericOverflow(format("-(TINYINT'%s')", Byte.MIN_VALUE), "tinyint negation overflow: -128");
     }
 
     @Test
@@ -236,6 +238,15 @@ public class TestTinyintOperators
     {
         assertFunction("cast(TINYINT'37' as double)", DOUBLE, 37.0);
         assertFunction("cast(TINYINT'17' as double)", DOUBLE, 17.0);
+    }
+
+    @Test
+    public void testCastToFloat()
+            throws Exception
+    {
+        assertFunction("cast(TINYINT'37' as float)", FLOAT, 37.0f);
+        assertFunction("cast(TINYINT'-128' as float)", FLOAT, -128.0f);
+        assertFunction("cast(TINYINT'0' as float)", FLOAT, 0.0f);
     }
 
     @Test

@@ -24,13 +24,19 @@ import javax.validation.constraints.NotNull;
 @DefunctConfig("node-scheduler.location-aware-scheduling-enabled")
 public class NodeSchedulerConfig
 {
-    public static final String LEGACY_NETWORK_TOPOLOGY = "legacy";
+    public static class NetworkTopologyType
+    {
+        public static final String LEGACY = "legacy";
+        public static final String FLAT = "flat";
+        public static final String BENCHMARK = "benchmark";
+    };
+
     private int minCandidates = 10;
     private boolean includeCoordinator = true;
     private boolean multipleTasksPerNode;
     private int maxSplitsPerNode = 100;
     private int maxPendingSplitsPerNodePerStage = 10;
-    private String networkTopology = LEGACY_NETWORK_TOPOLOGY;
+    private String networkTopology = NetworkTopologyType.LEGACY;
 
     @NotNull
     public String getNetworkTopology()

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.metadata;
+package com.facebook.presto.raptor.backup;
 
 import javax.inject.Qualifier;
 
@@ -26,6 +26,6 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @Retention(RUNTIME)
 @Target({FIELD, PARAMETER, METHOD})
 @Qualifier
-public @interface ForGracefulShutdown
+public @interface ForHttpBackup
 {
 }

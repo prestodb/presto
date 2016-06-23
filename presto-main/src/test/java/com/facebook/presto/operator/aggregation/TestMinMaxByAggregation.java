@@ -46,6 +46,8 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
+import static java.lang.Double.doubleToLongBits;
+import static java.lang.Double.longBitsToDouble;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -284,7 +286,7 @@ public class TestMinMaxByAggregation
             if (block.isNull(position)) {
                 return null;
             }
-            return block.getDouble(position, 0);
+            return longBitsToDouble(block.getLong(position, 0));
         }
 
         @Override
@@ -298,15 +300,14 @@ public class TestMinMaxByAggregation
         @Override
         public long hash(Block block, int position)
         {
-            long value = block.getLong(position, 0);
-            return (int) (value ^ (value >>> 32));
+            return block.getLong(position, 0);
         }
 
         @Override
         public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
         {
-            double leftValue = leftBlock.getDouble(leftPosition, 0);
-            double rightValue = rightBlock.getDouble(rightPosition, 0);
+            double leftValue = longBitsToDouble(leftBlock.getLong(leftPosition, 0));
+            double rightValue = longBitsToDouble(rightBlock.getLong(rightPosition, 0));
             return Double.compare(leftValue, rightValue);
         }
 
@@ -317,20 +318,20 @@ public class TestMinMaxByAggregation
                 blockBuilder.appendNull();
             }
             else {
-                blockBuilder.writeDouble(block.getDouble(position, 0)).closeEntry();
+                blockBuilder.writeLong(block.getLong(position, 0)).closeEntry();
             }
         }
 
         @Override
         public double getDouble(Block block, int position)
         {
-            return block.getDouble(position, 0);
+            return longBitsToDouble(block.getLong(position, 0));
         }
 
         @Override
         public void writeDouble(BlockBuilder blockBuilder, double value)
         {
-            blockBuilder.writeDouble(value).closeEntry();
+            blockBuilder.writeLong(doubleToLongBits(value)).closeEntry();
         }
     }
 }

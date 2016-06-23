@@ -476,7 +476,7 @@ public class BackgroundHiveSplitLoader
                             partitionKeys,
                             addresses,
                             bucketNumber,
-                            forceLocalScheduling,
+                            forceLocalScheduling && hasRealAddress(addresses),
                             effectivePredicate));
 
                     chunkOffset += chunkLength;
@@ -502,10 +502,16 @@ public class BackgroundHiveSplitLoader
                     partitionKeys,
                     addresses,
                     bucketNumber,
-                    forceLocalScheduling,
+                    forceLocalScheduling && hasRealAddress(addresses),
                     effectivePredicate));
         }
         return builder.build();
+    }
+
+    private static boolean hasRealAddress(List<HostAddress> addresses)
+    {
+        // Hadoop FileSystem returns "localhost" as a default
+        return addresses.stream().anyMatch(address -> !address.getHostText().equals("localhost"));
     }
 
     private static List<HostAddress> toHostAddress(String[] hosts)

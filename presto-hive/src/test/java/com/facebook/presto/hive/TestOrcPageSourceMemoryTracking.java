@@ -308,7 +308,7 @@ public class TestOrcPageSourceMemoryTracking
         // Page source is over, but data still exist in buffer of ScanFilterProjectOperator
         assertFalse(operator.isFinished());
         assertNull(operator.getOutput());
-        assertBetweenInclusive(driverContext.getSystemMemoryUsage(), 110000L, 119999L);
+        assertBetweenInclusive(driverContext.getSystemMemoryUsage(), 100000L, 109999L);
         assertFalse(operator.isFinished());
         Page lastPage = operator.getOutput();
         assertNotNull(lastPage);

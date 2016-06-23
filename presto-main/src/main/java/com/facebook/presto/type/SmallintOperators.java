@@ -38,6 +38,8 @@ import static com.facebook.presto.metadata.OperatorType.SUBTRACT;
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Float.floatToRawIntBits;
+import static java.lang.String.format;
 import static java.lang.String.valueOf;
 
 public final class SmallintOperators
@@ -54,7 +56,7 @@ public final class SmallintOperators
             return Shorts.checkedCast(left + right);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("smallint addition overflow: %s + %s", left, right), e);
         }
     }
 
@@ -66,7 +68,7 @@ public final class SmallintOperators
             return Shorts.checkedCast(left - right);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("smallint subtraction overflow: %s - %s", left, right), e);
         }
     }
 
@@ -78,7 +80,7 @@ public final class SmallintOperators
             return Shorts.checkedCast(left * right);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("smallint multiplication overflow: %s * %s", left, right), e);
         }
     }
 
@@ -114,7 +116,7 @@ public final class SmallintOperators
             return Shorts.checkedCast(-value);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "smallint negation overflow: " + value, e);
         }
     }
 
@@ -189,7 +191,7 @@ public final class SmallintOperators
             return SignedBytes.checkedCast(value);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for tinyint: " + value, e);
         }
     }
 
@@ -205,6 +207,13 @@ public final class SmallintOperators
     public static double castToDouble(@SqlType(StandardTypes.SMALLINT) long value)
     {
         return value;
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.FLOAT)
+    public static long castToFloat(@SqlType(StandardTypes.SMALLINT) long value)
+    {
+        return (long) floatToRawIntBits((float) value);
     }
 
     @ScalarOperator(CAST)

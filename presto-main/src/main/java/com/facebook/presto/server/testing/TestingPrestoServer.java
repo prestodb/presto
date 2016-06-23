@@ -16,12 +16,7 @@ package com.facebook.presto.server.testing;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.TaskManager;
-import com.facebook.presto.execution.resourceGroups.FileResourceGroupsModule;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
-import com.facebook.presto.execution.scheduler.FlatNetworkTopology;
-import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
-import com.facebook.presto.execution.scheduler.NetworkTopology;
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.metadata.AllNodes;
@@ -82,10 +77,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 
-import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.LEGACY_NETWORK_TOPOLOGY;
-import static com.facebook.presto.server.ConditionalModule.installModuleIf;
 import static com.facebook.presto.server.testing.FileUtils.deleteRecursively;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.FILE_BASED_RESOURCE_GROUP_MANAGER;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
 import static java.lang.Integer.parseInt;
@@ -176,8 +169,6 @@ public class TestingPrestoServer
                 .put("task.concurrency", "4")
                 .put("task.max-worker-threads", "4")
                 .put("exchange.client-threads", "4")
-                .put("scheduler.http-client.http2.enabled", "false")
-                .put("exchange.http-client.http2.enabled", "false")
                 .put("analyzer.experimental-syntax-enabled", "true");
 
         if (!properties.containsKey("query.max-memory-per-node")) {
@@ -199,18 +190,6 @@ public class TestingPrestoServer
                 .add(new EventModule())
                 .add(new TraceTokenModule())
                 .add(new ServerMainModule(new SqlParserOptions()))
-                .add(installModuleIf(
-                        FeaturesConfig.class,
-                        config -> config.isResourceGroupsEnabled() && FILE_BASED_RESOURCE_GROUP_MANAGER.equalsIgnoreCase(config.getResourceGroupManager()),
-                        binder -> binder.install(new FileResourceGroupsModule())))
-                .add(installModuleIf(
-                        NodeSchedulerConfig.class,
-                        config -> LEGACY_NETWORK_TOPOLOGY.equalsIgnoreCase(config.getNetworkTopology()),
-                        binder -> binder.bind(NetworkTopology.class).to(LegacyNetworkTopology.class).in(Scopes.SINGLETON)))
-                .add(installModuleIf(
-                        NodeSchedulerConfig.class,
-                        config -> "flat".equalsIgnoreCase(config.getNetworkTopology()),
-                        binder -> binder.bind(NetworkTopology.class).to(FlatNetworkTopology.class).in(Scopes.SINGLETON)))
                 .add(binder -> {
                     binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(AccessControlManager.class).to(TestingAccessControlManager.class).in(Scopes.SINGLETON);
@@ -268,7 +247,12 @@ public class TestingPrestoServer
         else {
             resourceGroupManager = Optional.empty();
         }
-        clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
+        if (coordinator) {
+            clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
+        }
+        else {
+            clusterMemoryManager = null;
+        }
         localMemoryManager = injector.getInstance(LocalMemoryManager.class);
         nodeManager = injector.getInstance(InternalNodeManager.class);
         serviceSelectorManager = injector.getInstance(ServiceSelectorManager.class);
@@ -376,6 +360,7 @@ public class TestingPrestoServer
 
     public ClusterMemoryManager getClusterMemoryManager()
     {
+        checkState(coordinator, "not a coordinator");
         return clusterMemoryManager;
     }
 

@@ -26,6 +26,7 @@ import java.util.Set;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
+import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
@@ -182,6 +183,41 @@ public class TestQueues
         }
     }
 
+    @Test(timeOut = 240_000)
+    public void testSqlQueryQueueManagerRejection()
+            throws Exception
+    {
+        testRejection(false);
+    }
+
+    @Test(timeOut = 240_000)
+    public void testResourceGroupManagerRejection()
+            throws Exception
+    {
+        testRejection(true);
+    }
+
+    private void testRejection(boolean resourceGroups)
+            throws Exception
+    {
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+        if (resourceGroups) {
+            builder.put("experimental.resource-groups-enabled", "true");
+            builder.put("resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json"));
+        }
+        else {
+            builder.put("query.queue-config-file", getResourceFilePath("queue_config_dashboard.json"));
+        }
+        Map<String, String> properties = builder.build();
+
+        try (DistributedQueryRunner queryRunner = createQueryRunner(properties)) {
+            QueryId queryId = createQuery(queryRunner, newRejectionSession(), LONG_LASTING_QUERY);
+            waitForQueryState(queryRunner, queryId, FAILED);
+            QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
+            assertEquals(queryManager.getQueryInfo(queryId).getErrorCode(), QUERY_REJECTED.toErrorCode());
+        }
+    }
+
     private static QueryId createQuery(DistributedQueryRunner queryRunner, Session session, String sql)
     {
         return queryRunner.getCoordinator().getQueryManager().createQuery(session, sql).getQueryId();
@@ -216,7 +252,7 @@ public class TestQueues
     private static DistributedQueryRunner createQueryRunner(Map<String, String> properties)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(testSessionBuilder().build(), 2, properties);
+        DistributedQueryRunner queryRunner = new DistributedQueryRunner(testSessionBuilder().build(), 2, ImmutableMap.of(), properties);
 
         try {
             queryRunner.installPlugin(new TpchPlugin());
@@ -234,6 +270,7 @@ public class TestQueues
         return testSessionBuilder()
                 .setCatalog("tpch")
                 .setSchema("sf100000")
+                .setSource("adhoc")
                 .build();
     }
 
@@ -243,6 +280,15 @@ public class TestQueues
                 .setCatalog("tpch")
                 .setSchema("sf100000")
                 .setSource("dashboard")
+                .build();
+    }
+
+    private static Session newRejectionSession()
+    {
+        return testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema("sf100000")
+                .setSource("reject")
                 .build();
     }
 }

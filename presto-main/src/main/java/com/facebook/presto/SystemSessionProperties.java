@@ -53,8 +53,7 @@ public final class SystemSessionProperties
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
     public static final String PUSH_TABLE_WRITE_THROUGH_UNION = "push_table_write_through_union";
     public static final String EXECUTION_POLICY = "execution_policy";
-    public static final String COLUMNAR_PROCESSING = "columnar_processing";
-    public static final String COLUMNAR_PROCESSING_DICTIONARY = "columnar_processing_dictionary";
+    public static final String PROCESSING_OPTIMIZATION = "processing_optimization";
     public static final String DICTIONARY_AGGREGATION = "dictionary_aggregation";
     public static final String PLAN_WITH_TABLE_NODE_PARTITIONING = "plan_with_table_node_partitioning";
     public static final String COLOCATED_JOIN = "colocated_join";
@@ -177,15 +176,10 @@ public final class SystemSessionProperties
                         "Use resources which are not guaranteed to be available to the query",
                         false,
                         false),
-                booleanSessionProperty(
-                        COLUMNAR_PROCESSING,
-                        "Use columnar processing",
-                        featuresConfig.isColumnarProcessing(),
-                        false),
-                booleanSessionProperty(
-                        COLUMNAR_PROCESSING_DICTIONARY,
-                        "Use columnar processing with optimizations for dictionaries",
-                        featuresConfig.isColumnarProcessingDictionary(),
+                stringSessionProperty(
+                        PROCESSING_OPTIMIZATION,
+                        "Type of optimization for query processing",
+                        featuresConfig.getProcessingOptimization(),
                         false),
                 booleanSessionProperty(
                         DICTIONARY_AGGREGATION,
@@ -288,14 +282,9 @@ public final class SystemSessionProperties
         return session.getProperty(TASK_SHARE_INDEX_LOADING, Boolean.class);
     }
 
-    public static boolean isColumnarProcessingEnabled(Session session)
+    public static String getProcessingOptimization(Session session)
     {
-        return session.getProperty(COLUMNAR_PROCESSING, Boolean.class);
-    }
-
-    public static boolean isColumnarProcessingDictionaryEnabled(Session session)
-    {
-        return session.getProperty(COLUMNAR_PROCESSING_DICTIONARY, Boolean.class);
+        return session.getProperty(PROCESSING_OPTIMIZATION, String.class);
     }
 
     public static boolean isDictionaryAggregationEnabled(Session session)

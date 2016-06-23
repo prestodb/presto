@@ -24,6 +24,7 @@ import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.SymbolReference;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -115,17 +116,17 @@ final class ExpressionVerifier
     protected Boolean visitQualifiedNameReference(QualifiedNameReference actual, Expression expected)
     {
         if (isReference(expected)) {
-            symbolAliases.put(asQualifiedName(expected).toString(), Symbol.fromQualifiedName(asQualifiedName(actual)));
+            symbolAliases.put(asQualifiedName(expected).toString(), Symbol.from(actual));
             return true;
         }
         return false;
     }
 
     @Override
-    protected Boolean visitDereferenceExpression(DereferenceExpression actual, Expression expected)
+    protected Boolean visitSymbolReference(SymbolReference actual, Expression expected)
     {
         if (isReference(expected)) {
-            symbolAliases.put(asQualifiedName(expected).toString(), Symbol.fromQualifiedName(asQualifiedName(actual)));
+            symbolAliases.put(asQualifiedName(expected).toString(), Symbol.from(actual));
             return true;
         }
         return false;
@@ -133,7 +134,7 @@ final class ExpressionVerifier
 
     private boolean isReference(Expression expression)
     {
-        return expression instanceof DereferenceExpression || expression instanceof QualifiedNameReference;
+        return expression instanceof DereferenceExpression || expression instanceof QualifiedNameReference || expression instanceof SymbolReference;
     }
 
     private QualifiedName asQualifiedName(Expression expression)
@@ -143,6 +144,9 @@ final class ExpressionVerifier
         }
         else if (expression instanceof QualifiedNameReference) {
             return ((QualifiedNameReference) expression).getName();
+        }
+        else if (expression instanceof SymbolReference) {
+            return QualifiedName.of(((SymbolReference) expression).getName());
         }
         else {
             throw new IllegalArgumentException("Expression is not a DereferenceExpression or QualifiedNameReference");

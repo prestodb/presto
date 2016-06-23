@@ -179,6 +179,8 @@ public class DriverContext
     {
         pipelineContext.failed(cause);
         finished.set(true);
+
+        freeMemory(memoryReservation.get());
     }
 
     public boolean isDone()

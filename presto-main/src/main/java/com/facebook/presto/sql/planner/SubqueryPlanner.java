@@ -22,8 +22,8 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.SubqueryExpression;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Collection;
@@ -99,8 +99,7 @@ class SubqueryPlanner
         RelationPlan valueListRelation = createRelationPlan((SubqueryExpression) inPredicate.getValueList());
 
         TranslationMap translationMap = subPlan.copyTranslations();
-        QualifiedNameReference valueList = getOnlyElement(valueListRelation.getOutputSymbols()).toQualifiedNameReference();
-        translationMap.setExpressionAsAlreadyTranslated(valueList);
+        SymbolReference valueList = getOnlyElement(valueListRelation.getOutputSymbols()).toSymbolReference();
         translationMap.put(inPredicate, new InPredicate(inPredicate.getValue(), valueList));
 
         return new PlanBuilder(translationMap,

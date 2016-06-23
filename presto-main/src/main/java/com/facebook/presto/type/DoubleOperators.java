@@ -43,6 +43,7 @@ import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Double.doubleToLongBits;
+import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.valueOf;
 import static java.math.RoundingMode.FLOOR;
 
@@ -175,7 +176,7 @@ public final class DoubleOperators
             return Ints.checkedCast((long) MathFunctions.round(value));
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for integer: " + value, e);
         }
     }
 
@@ -187,7 +188,7 @@ public final class DoubleOperators
             return Shorts.checkedCast((long) MathFunctions.round(value));
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for smallint: " + value, e);
         }
     }
 
@@ -199,7 +200,7 @@ public final class DoubleOperators
             return SignedBytes.checkedCast((long) MathFunctions.round(value));
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for tinyint: " + value, e);
         }
     }
 
@@ -208,6 +209,13 @@ public final class DoubleOperators
     public static long castToLong(@SqlType(StandardTypes.DOUBLE) double value)
     {
         return (long) MathFunctions.round(value);
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.FLOAT)
+    public static long castToFloat(@SqlType(StandardTypes.DOUBLE) double value)
+    {
+        return floatToRawIntBits((float) value);
     }
 
     @ScalarOperator(CAST)
