@@ -102,12 +102,6 @@
             <artifactId>annotations</artifactId>
         </dependency>
 
-        <!-- TODO: fix this in Airlift and remove this dependency -->
-        <dependency>
-            <groupId>org.eclipse.jetty</groupId>
-            <artifactId>jetty-util</artifactId>
-        </dependency>
-
         <!-- for testing -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
@@ -214,7 +208,6 @@
                                         <exclude>LICENSE</exclude>
                                         <exclude>*.css</exclude>
                                         <exclude>*.html</exclude>
-                                        <exclude>jetty-logging.properties</exclude>
                                     </excludes>
                                 </filter>
                                 <filter>
