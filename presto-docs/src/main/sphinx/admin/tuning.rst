@@ -5,6 +5,15 @@ Tuning Presto
 The default Presto settings should work well for most workloads. The following
 information may help you if your cluster is facing a specific performance problem.
 
+When setting up a cluster for a specific workload it may be necessary to adjust the
+following properties to ensure optimal performance:
+
+  * :ref:`distributed-joins-enabled <tuning-pref-general>`
+  * :ref:`query.max-memory <tuning-pref-query>`
+  * :ref:`query.max-memory-per-node <tuning-pref-query>`
+  * :ref:`query.initial-hash-partitions <tuning-pref-query>`
+  * :ref:`task.concurrency <tuning-pref-task>`
+
 .. _tuning-pref-general:
 
 General properties
