@@ -71,7 +71,7 @@ public class InterleavedBlock
     public Block getRegion(int position, int length)
     {
         validateRange(position, length);
-        return new InterleavedBlock(blocks, computePosition(position), length, retainedSizeInBytes, blockEncoding);
+        return new InterleavedBlock(blocks, toAbsolutePosition(position), length, retainedSizeInBytes, blockEncoding);
     }
 
     @Override
@@ -85,7 +85,7 @@ public class InterleavedBlock
     }
 
     @Override
-    protected int computePosition(int position)
+    protected int toAbsolutePosition(int position)
     {
         return position + start;
     }

@@ -91,7 +91,7 @@ public class InterleavedBlockBuilder
     }
 
     @Override
-    protected int computePosition(int position)
+    protected int toAbsolutePosition(int position)
     {
         return position;
     }

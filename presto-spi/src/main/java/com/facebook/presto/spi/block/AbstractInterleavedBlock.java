@@ -25,7 +25,7 @@ public abstract class AbstractInterleavedBlock
 
     protected abstract Block getBlock(int blockIndex);
 
-    protected abstract int computePosition(int position);
+    protected abstract int toAbsolutePosition(int position);
 
     @Override
     public abstract InterleavedBlockEncoding getEncoding();
@@ -69,7 +69,7 @@ public abstract class AbstractInterleavedBlock
     @Override
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
-        position = computePosition(position);
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
@@ -79,7 +79,7 @@ public abstract class AbstractInterleavedBlock
     @Override
     public byte getByte(int position, int offset)
     {
-        position = computePosition(position);
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
@@ -89,7 +89,7 @@ public abstract class AbstractInterleavedBlock
     @Override
     public short getShort(int position, int offset)
     {
-        position = computePosition(position);
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
@@ -99,7 +99,7 @@ public abstract class AbstractInterleavedBlock
     @Override
     public int getInt(int position, int offset)
     {
-        position = computePosition(position);
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
@@ -109,7 +109,7 @@ public abstract class AbstractInterleavedBlock
     @Override
     public long getLong(int position, int offset)
     {
-        position = computePosition(position);
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
@@ -119,7 +119,7 @@ public abstract class AbstractInterleavedBlock
     @Override
     public Slice getSlice(int position, int offset, int length)
     {
-        position = computePosition(position);
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
@@ -129,7 +129,7 @@ public abstract class AbstractInterleavedBlock
     @Override
     public <T> T getObject(int position, Class<T> clazz)
     {
-        position = computePosition(position);
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
@@ -139,7 +139,7 @@ public abstract class AbstractInterleavedBlock
     @Override
     public int getLength(int position)
     {
-        position = computePosition(position);
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
@@ -149,7 +149,7 @@ public abstract class AbstractInterleavedBlock
     @Override
     public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
     {
-        position = computePosition(position);
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
@@ -159,7 +159,7 @@ public abstract class AbstractInterleavedBlock
     @Override
     public boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
     {
-        position = computePosition(position);
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
@@ -169,7 +169,7 @@ public abstract class AbstractInterleavedBlock
     @Override
     public long hash(int position, int offset, int length)
     {
-        position = computePosition(position);
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
@@ -179,7 +179,7 @@ public abstract class AbstractInterleavedBlock
     @Override
     public int compareTo(int position, int offset, int length, Block otherBlock, int otherPosition, int otherOffset, int otherLength)
     {
-        position = computePosition(position);
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
@@ -189,7 +189,7 @@ public abstract class AbstractInterleavedBlock
     @Override
     public int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
     {
-        position = computePosition(position);
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
@@ -199,7 +199,7 @@ public abstract class AbstractInterleavedBlock
     @Override
     public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
     {
-        position = computePosition(position);
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
@@ -209,7 +209,7 @@ public abstract class AbstractInterleavedBlock
     @Override
     public Block getSingleValueBlock(int position)
     {
-        position = computePosition(position);
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
@@ -231,7 +231,7 @@ public abstract class AbstractInterleavedBlock
         }
         int ordinal = 0;
         for (int position : positions) {
-            position = computePosition(position);
+            position = toAbsolutePosition(position);
             if (ordinal % columns != position % columns) {
                 throw new IllegalArgumentException("Position (" + position + ") is not congruent to ordinal (" + ordinal + ") modulo columns (" + columns + ")");
             }
@@ -262,7 +262,7 @@ public abstract class AbstractInterleavedBlock
 
     protected Block sliceRange(int position, int length, boolean compact)
     {
-        position = computePosition(position);
+        position = toAbsolutePosition(position);
         Block[] resultBlocks = new Block[columns];
         int positionInBlock = position / columns;
         int subBlockLength = length / columns;
@@ -280,7 +280,7 @@ public abstract class AbstractInterleavedBlock
     @Override
     public boolean isNull(int position)
     {
-        position = computePosition(position);
+        position = toAbsolutePosition(position);
         int blockIndex = position % columns;
         int positionInBlock = position / columns;
 
