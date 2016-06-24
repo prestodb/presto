@@ -445,7 +445,7 @@ public class HiveClientConfig
         return ipcPingInterval;
     }
 
-    @Config("hive.ipc-ping-interval")
+    @Config("hive.dfs.ipc-ping-interval")
     public HiveClientConfig setIpcPingInterval(Duration pingInterval)
     {
         this.ipcPingInterval = pingInterval;

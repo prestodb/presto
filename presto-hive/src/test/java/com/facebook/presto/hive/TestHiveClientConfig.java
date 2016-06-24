@@ -124,7 +124,7 @@ public class TestHiveClientConfig
                 .put("hive.metastore-timeout", "20s")
                 .put("hive.metastore.partition-batch-size.min", "1")
                 .put("hive.metastore.partition-batch-size.max", "1000")
-                .put("hive.ipc-ping-interval", "34s")
+                .put("hive.dfs.ipc-ping-interval", "34s")
                 .put("hive.dfs-timeout", "33s")
                 .put("hive.dfs.connect.timeout", "20s")
                 .put("hive.dfs.connect.max-retries", "10")
