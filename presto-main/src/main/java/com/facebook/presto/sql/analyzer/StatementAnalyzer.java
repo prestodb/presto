@@ -215,7 +215,6 @@ import static com.facebook.presto.sql.tree.ShowCreate.Type.VIEW;
 import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -1415,7 +1414,7 @@ class StatementAnalyzer
         checkState(node.getRows().size() >= 1);
 
         // get unique row types
-        Set<List<Type>> rowTypes = node.getRows().stream()
+        List<List<Type>> rowTypes = node.getRows().stream()
                 .map(row -> analyzeExpression(row, new RelationType(), context).getType(row))
                 .map(type -> {
                     if (type instanceof RowType) {
@@ -1423,11 +1422,22 @@ class StatementAnalyzer
                     }
                     return ImmutableList.of(type);
                 })
-                .collect(toImmutableSet());
+                .collect(toImmutableList());
 
         // determine common super type of the rows
         List<Type> fieldTypes = new ArrayList<>(rowTypes.iterator().next());
+        int rowIndex = -1;
         for (List<Type> rowType : rowTypes) {
+            // check field count consistency for rows
+            rowIndex++;
+            if (rowType.size() != fieldTypes.size()) {
+                throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
+                        node,
+                        "Values rows have mismatched types: %s vs %s",
+                        Iterables.get(rowTypes, 0),
+                        Iterables.get(rowTypes, rowIndex));
+            }
+
             for (int i = 0; i < rowType.size(); i++) {
                 Type fieldType = rowType.get(i);
                 Type superType = fieldTypes.get(i);
@@ -1438,7 +1448,7 @@ class StatementAnalyzer
                             node,
                             "Values rows have mismatched types: %s vs %s",
                             Iterables.get(rowTypes, 0),
-                            Iterables.get(rowTypes, 1));
+                            Iterables.get(rowTypes, rowIndex));
                 }
                 fieldTypes.set(i, commonSuperType.get());
             }
