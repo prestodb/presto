@@ -802,9 +802,9 @@
                 </plugin>
 
                 <plugin>
-                    <groupId>org.tomdz.maven</groupId>
+                    <groupId>kr.motd.maven</groupId>
                     <artifactId>sphinx-maven-plugin</artifactId>
-                    <version>1.0.3</version>
+                    <version>1.3.1.Final</version>
                 </plugin>
 
                 <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->

@@ -119,7 +119,7 @@ For example, if we set the language to Spanish::
     =>
     enero
 
-If we set the language to Japanese::
+If we set the language to Japanese:: none
 
     SELECT date_format(TIMESTAMP '2001-01-09 09:04', '%M');
     =>
