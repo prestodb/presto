@@ -173,7 +173,7 @@ MongoDB maintains table definitions on the special collection where ``mongodb.sc
 
 A schema collection consists of a MongoDB document for a table.
 
-.. code-block:: json
+.. code-block:: none
 
     {
         "table": ...,
@@ -195,7 +195,7 @@ Field           Required  Type           Description
 
 Each field definition:
 
-.. code-block:: json
+.. code-block:: none
 
     {
         "name": ...,
