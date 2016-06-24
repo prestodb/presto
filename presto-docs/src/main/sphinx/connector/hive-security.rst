@@ -2,9 +2,38 @@
 Hive Security Configuration
 ===========================
 
+Authorization
+=============
+
+You can enable authorization checks for the :doc:`/connector/hive` by setting
+the ``hive.security`` property in the Hive catalog properties file. This
+property must be one of the following values:
+
+================================================== ============================================================
+Property Value                                     Description
+================================================== ============================================================
+``allow-all`` (default value)                      No authorization checks are enforced, thus allowing any
+                                                   operation.
+
+``read-only``                                      Operations that read data or metadata, such as ``SELECT``,
+                                                   are permitted, but none of the operations that write data or
+                                                   metadata, such as ``CREATE``, ``INSERT`` or ``DELETE``, are
+                                                   allowed.
+
+``sql-standard``                                   Users are permitted to perform the operations as long as
+                                                   they have the required privileges as per the SQL standard.
+                                                   In this mode, Presto enforces the authorization checks for
+                                                   queries based on the privileges defined in Hive metastore.
+                                                   To alter these privileges, use the :doc:`/sql/grant` and
+                                                   :doc:`/sql/revoke` commands.
+================================================== ============================================================
+
+Authentication
+==============
+
 The default security configuration of the :doc:`/connector/hive` does not use
 authentication when connecting to a Hadoop cluster. All queries are executed as
-the user who runs the Presto process, regardless of which user who submits the
+the user who runs the Presto process, regardless of which user submits the
 query.
 
 The Hive connector provides additional security options to support Hadoop
