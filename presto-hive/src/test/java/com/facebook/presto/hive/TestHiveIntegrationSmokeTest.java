@@ -471,6 +471,47 @@ public class TestHiveIntegrationSmokeTest
         assertFalse(queryRunner.tableExists(getSession(), tableName));
     }
 
+    @Test
+    public void testCreatePartitionedBucketedTableAsWithUnionAll()
+            throws Exception
+    {
+        testCreatePartitionedBucketedTableAsWithUnionAll(HiveStorageFormat.RCBINARY);
+    }
+
+    private void testCreatePartitionedBucketedTableAsWithUnionAll(HiveStorageFormat storageFormat)
+            throws Exception
+    {
+        String tableName = "test_create_partitioned_bucketed_table_as_with_union_all";
+
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE " + tableName + " " +
+                "WITH (" +
+                "format = '" + storageFormat + "', " +
+                "partitioned_by = ARRAY[ 'orderstatus' ], " +
+                "bucketed_by = ARRAY[ 'custkey' ], " +
+                "bucket_count = 11 " +
+                ") " +
+                "AS " +
+                "SELECT custkey, comment, orderstatus " +
+                "FROM tpch.tiny.orders " +
+                "WHERE length(comment) % 2 = 0 " +
+                "UNION ALL " +
+                "SELECT custkey, comment, orderstatus " +
+                "FROM tpch.tiny.orders " +
+                "WHERE length(comment) % 2 = 1";
+
+        assertUpdate(
+                // make sure that we will get one file per bucket regardless of writer count configured
+                getSession().withSystemProperty("task_writer_count", "3"),
+                createTable,
+                "SELECT count(*) from orders");
+
+        verifyPartitionedBucketedTable(storageFormat, tableName);
+
+        assertUpdate("DROP TABLE " + tableName);
+        assertFalse(queryRunner.tableExists(getSession(), tableName));
+    }
+
     private void verifyPartitionedBucketedTable(HiveStorageFormat storageFormat, String tableName)
             throws Exception
     {
@@ -618,6 +659,54 @@ public class TestHiveIntegrationSmokeTest
                                     "FROM tpch.tiny.orders " +
                                     "WHERE orderstatus = '%s'",
                             orderStatus),
+                    format("SELECT count(*) from orders where orderstatus = '%s'", orderStatus));
+        }
+
+        verifyPartitionedBucketedTable(storageFormat, tableName);
+
+        assertUpdate("DROP TABLE " + tableName);
+        assertFalse(queryRunner.tableExists(getSession(), tableName));
+    }
+
+    @Test
+    public void testInsertPartitionedBucketedTableWithUnionAll()
+            throws Exception
+    {
+        testInsertPartitionedBucketedTableWithUnionAll(HiveStorageFormat.RCBINARY);
+    }
+
+    private void testInsertPartitionedBucketedTableWithUnionAll(HiveStorageFormat storageFormat)
+            throws Exception
+    {
+        String tableName = "test_insert_partitioned_bucketed_table_with_union_all";
+
+        assertUpdate("" +
+                "CREATE TABLE " + tableName + " (" +
+                "  custkey bigint," +
+                "  comment varchar," +
+                "  orderstatus varchar)" +
+                "WITH (" +
+                "format = '" + storageFormat + "', " +
+                "partitioned_by = ARRAY[ 'orderstatus' ], " +
+                "bucketed_by = ARRAY[ 'custkey' ], " +
+                "bucket_count = 11)");
+
+        ImmutableList<String> orderStatusList = ImmutableList.of("F", "O", "P");
+        for (int i = 0; i < orderStatusList.size(); i++) {
+            String orderStatus = orderStatusList.get(i);
+            assertUpdate(
+                    // make sure that we will get one file per bucket regardless of writer count configured
+                    getSession().withSystemProperty("task_writer_count", "3"),
+                    format(
+                            "INSERT INTO " + tableName + " " +
+                                    "SELECT custkey, comment, orderstatus " +
+                                    "FROM tpch.tiny.orders " +
+                                    "WHERE orderstatus = '%s' and length(comment) %% 2 = 0 " +
+                                    "UNION ALL " +
+                                    "SELECT custkey, comment, orderstatus " +
+                                    "FROM tpch.tiny.orders " +
+                                    "WHERE orderstatus = '%s' and length(comment) %% 2 = 1",
+                            orderStatus, orderStatus),
                     format("SELECT count(*) from orders where orderstatus = '%s'", orderStatus));
         }
 
