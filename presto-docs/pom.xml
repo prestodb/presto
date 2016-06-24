@@ -45,7 +45,7 @@
 
         <plugins>
             <plugin>
-                <groupId>org.tomdz.maven</groupId>
+                <groupId>kr.motd.maven</groupId>
                 <artifactId>sphinx-maven-plugin</artifactId>
                 <configuration>
                     <fork>true</fork>
