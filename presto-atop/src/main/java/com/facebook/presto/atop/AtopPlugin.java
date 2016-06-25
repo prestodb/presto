@@ -19,6 +19,7 @@ import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.node.NodeConfig;
 
 import javax.inject.Inject;
@@ -34,7 +35,6 @@ public class AtopPlugin
 {
     private TypeManager typeManager;
     private NodeManager nodeManager;
-    private NodeConfig nodeConfig;
     private Map<String, String> optionalConfig = ImmutableMap.of();
 
     @Override
@@ -55,15 +55,10 @@ public class AtopPlugin
         this.nodeManager = nodeManager;
     }
 
-    @Inject
-    public void setNodeConfig(NodeConfig config)
-    {
-        this.nodeConfig = config;
-    }
-
     @Override
     public <T> List<T> getServices(Class<T> type)
     {
+        NodeConfig nodeConfig = new ConfigurationFactory(optionalConfig).build(NodeConfig.class);
         if (type == ConnectorFactory.class) {
             return ImmutableList.of(type.cast(new AtopConnectorFactory(AtopProcessFactory.class, optionalConfig, getClassLoader(), typeManager, nodeManager, nodeConfig)));
         }
