@@ -15,6 +15,7 @@ package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -26,6 +27,18 @@ public interface ConfigurableResourceGroup
     DataSize getSoftMemoryLimit();
 
     void setSoftMemoryLimit(DataSize limit);
+
+    Duration getSoftCpuLimit();
+
+    void setSoftCpuLimit(Duration limit);
+
+    Duration getHardCpuLimit();
+
+    void setHardCpuLimit(Duration limit);
+
+    long getCpuQuotaGenerationMillisPerSecond();
+
+    void setCpuQuotaGenerationMillisPerSecond(long rate);
 
     int getMaxRunningQueries();
 

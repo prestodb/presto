@@ -17,6 +17,7 @@ import com.facebook.presto.execution.MockQueryExecution;
 import com.facebook.presto.execution.resourceGroups.ResourceGroup.RootResourceGroup;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.testng.annotations.Test;
 
@@ -40,6 +41,7 @@ import static io.airlift.testing.Assertions.assertLessThan;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Collections.reverse;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 
 public class TestResourceGroups
@@ -183,6 +185,65 @@ public class TestResourceGroups
         root.processQueuedQueries();
         assertEquals(query2.getState(), RUNNING);
         assertEquals(query3.getState(), RUNNING);
+    }
+
+    @Test(timeOut = 10_000)
+    public void testSoftCpuLimit()
+    {
+        RootResourceGroup root = new RootResourceGroup("root", (group, export) -> { }, directExecutor());
+        root.setSoftMemoryLimit(new DataSize(1, BYTE));
+        root.setSoftCpuLimit(new Duration(1, SECONDS));
+        root.setHardCpuLimit(new Duration(2, SECONDS));
+        root.setCpuQuotaGenerationMillisPerSecond(2000);
+        root.setMaxQueuedQueries(1);
+        root.setMaxRunningQueries(2);
+
+        MockQueryExecution query1 = new MockQueryExecution(1, new Duration(1, SECONDS), 1);
+        root.run(query1);
+        assertEquals(query1.getState(), RUNNING);
+
+        MockQueryExecution query2 = new MockQueryExecution(0);
+        root.run(query2);
+        assertEquals(query2.getState(), RUNNING);
+
+        MockQueryExecution query3 = new MockQueryExecution(0);
+        root.run(query3);
+        assertEquals(query3.getState(), QUEUED);
+
+        query1.complete();
+        root.processQueuedQueries();
+        assertEquals(query2.getState(), RUNNING);
+        assertEquals(query3.getState(), QUEUED);
+
+        root.generateCpuQuota(2);
+        root.processQueuedQueries();
+        assertEquals(query2.getState(), RUNNING);
+        assertEquals(query3.getState(), RUNNING);
+    }
+
+    @Test(timeOut = 10_000)
+    public void testHardCpuLimit()
+    {
+        RootResourceGroup root = new RootResourceGroup("root", (group, export) -> { }, directExecutor());
+        root.setSoftMemoryLimit(new DataSize(1, BYTE));
+        root.setHardCpuLimit(new Duration(1, SECONDS));
+        root.setCpuQuotaGenerationMillisPerSecond(2000);
+        root.setMaxQueuedQueries(1);
+        root.setMaxRunningQueries(1);
+        MockQueryExecution query1 = new MockQueryExecution(1, new Duration(2, SECONDS), 1);
+        root.run(query1);
+        assertEquals(query1.getState(), RUNNING);
+        MockQueryExecution query2 = new MockQueryExecution(0);
+        root.run(query2);
+        assertEquals(query2.getState(), QUEUED);
+
+        query1.complete();
+        root.processQueuedQueries();
+        assertEquals(query2.getState(), QUEUED);
+
+        root.generateCpuQuota(2);
+        root.processQueuedQueries();
+        assertEquals(query2.getState(), RUNNING);
     }
 
     @Test(timeOut = 10_000)

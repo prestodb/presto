@@ -20,7 +20,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.mongodb.MongoQueryRunner.createMongoQueryRunner;
 
-@Test(singleThreaded = true)
+@Test
 public class TestMongoDistributedQueries
         extends AbstractTestQueries
 {
