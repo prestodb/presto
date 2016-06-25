@@ -53,13 +53,6 @@ public class InterleavedBlockEncoding
     }
 
     @Override
-    public int getEstimatedSize(Block block)
-    {
-        //TODO remove this method
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public Block readBlock(SliceInput sliceInput)
     {
         Block[] individualBlocks = new Block[individualBlockEncodings.length];

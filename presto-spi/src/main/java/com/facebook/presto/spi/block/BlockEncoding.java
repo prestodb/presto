@@ -34,13 +34,6 @@ public interface BlockEncoding
      */
     void writeBlock(SliceOutput sliceOutput, Block block);
 
-    //TODO remove this method. This was a temporary hack. There will be no real call-site to this method after Array/Row/Block representation re-work is in.
-
-    /**
-     * Estimated serialized block size
-     */
-    int getEstimatedSize(Block block);
-
     /**
      * Return associated factory
      */
