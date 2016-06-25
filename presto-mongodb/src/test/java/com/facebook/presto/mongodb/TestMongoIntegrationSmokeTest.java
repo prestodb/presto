@@ -16,6 +16,7 @@ package com.facebook.presto.mongodb;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
+import com.google.common.io.BaseEncoding;
 import org.joda.time.DateTime;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -62,7 +63,8 @@ public class TestMongoIntegrationSmokeTest
                 ", 3.14 _double" +
                 ", true _boolean" +
                 ", DATE '1980-05-07' _date" +
-                ", TIMESTAMP '1980-05-07 11:22:33.456' _timestamp";
+                ", TIMESTAMP '1980-05-07 11:22:33.456' _timestamp" +
+                ", ObjectId('54f86a939e5bc3d6278757c5') _objectid";
 
         assertUpdate(query, 1);
 
@@ -76,6 +78,7 @@ public class TestMongoIntegrationSmokeTest
         assertEquals(row.getField(4), true);
         assertEquals(row.getField(5), new Date(new DateTime(1980, 5, 7, 0, 0, 0, UTC).getMillis()));
         assertEquals(row.getField(6), new Timestamp(new DateTime(1980, 5, 7, 11, 22, 33, 456, UTC).getMillis()));
+        assertEquals(row.getField(7), BaseEncoding.base16().lowerCase().decode("54f86a939e5bc3d6278757c5"));
         assertUpdate("DROP TABLE test_types_table");
 
         assertFalse(queryRunner.tableExists(getSession(), "test_types_table"));
@@ -144,12 +147,33 @@ public class TestMongoIntegrationSmokeTest
         assertOneNotNullResult("SELECT col[TIMESTAMP '2001-08-22 03:04:05.321'] FROM tmp_map7");
     }
 
+    @Test
+    public void testObjectIds()
+            throws Exception
+    {
+        assertUpdate("CREATE TABLE tmp_objectid1 AS SELECT ObjectId('54f86a939e5bc3d6278757c5') AS col", 1);
+        assertOneNotNullResult("SELECT col FROM tmp_objectid1 WHERE col = ObjectId('54f86a939e5bc3d6278757c5')");
+
+        assertUpdate("CREATE TABLE tmp_objectid2 AS (SELECT ObjectId('54f86a939e5bc3d6278757c5') AS col UNION SELECT ObjectId('54f86a939e5bc3d6278757c6') AS col)", 2);
+        assertTwoNotNullResults("SELECT col FROM tmp_objectid2 WHERE col IN (ObjectId('54 f8 6a 93 9e 5b c3 d6 27 87 57 c5'), ObjectId('54f86a939e5bc3d6278757c6'))");
+    }
+
     private void assertOneNotNullResult(String query)
     {
         MaterializedResult results = queryRunner.execute(getSession(), query).toJdbcTypes();
         assertEquals(results.getRowCount(), 1);
         assertEquals(results.getMaterializedRows().get(0).getFieldCount(), 1);
         assertNotNull(results.getMaterializedRows().get(0).getField(0));
+    }
+
+    private void assertTwoNotNullResults(String query)
+    {
+        MaterializedResult results = queryRunner.execute(getSession(), query).toJdbcTypes();
+        assertEquals(results.getRowCount(), 2);
+        assertEquals(results.getMaterializedRows().get(0).getFieldCount(), 1);
+        assertNotNull(results.getMaterializedRows().get(0).getField(0));
+        assertEquals(results.getMaterializedRows().get(1).getFieldCount(), 1);
+        assertNotNull(results.getMaterializedRows().get(1).getField(0));
     }
 
     @Override

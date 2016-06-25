@@ -193,6 +193,9 @@ public class TestingPrestoClient
         else if (VARBINARY.equals(type)) {
             return value;
         }
+        else if (type.toString().equals("ObjectId")) { // So there's no circular dependency (presto-mongodb -> presto-tests -> presto-mongodb)
+            return value;
+        }
         else if (DATE.equals(type)) {
             int days = parseDate((String) value);
             return new Date(TimeUnit.DAYS.toMillis(days));

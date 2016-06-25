@@ -19,7 +19,9 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.BaseEncoding;
 import org.bson.Document;
+import org.bson.types.ObjectId;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.predicate.Range.equal;
@@ -29,6 +31,7 @@ import static com.facebook.presto.spi.predicate.Range.range;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
 
@@ -36,19 +39,22 @@ public class TestMongoSession
 {
     private static final MongoColumnHandle COL1 = new MongoColumnHandle("mongodb", "col1", BIGINT, false);
     private static final MongoColumnHandle COL2 = new MongoColumnHandle("mongodb", "col2", createUnboundedVarcharType(), false);
+    private static final MongoColumnHandle COL_ID = new MongoColumnHandle("mongodb", "_id", ObjectIdType.OBJECT_ID, false);
 
     @Test
     public void testBuildQuery()
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                 COL1, Domain.create(ValueSet.ofRanges(range(BIGINT, 100L, false, 200L, true)), false),
-                COL2, Domain.singleValue(createUnboundedVarcharType(), utf8Slice("a value"))
+                COL2, Domain.singleValue(createUnboundedVarcharType(), utf8Slice("a value")),
+                COL_ID, Domain.singleValue(new ObjectIdType(), wrappedBuffer(BaseEncoding.base16().lowerCase().decode("54f86a939e5bc3d6278757c5")))
         ));
 
         Document query = MongoSession.buildQuery(tupleDomain);
         Document expected = new Document()
                 .append(COL1.getName(), new Document().append("$gt", 100L).append("$lte", 200L))
-                .append(COL2.getName(), new Document("$eq", "a value"));
+                .append(COL2.getName(), new Document("$eq", "a value"))
+                .append(COL_ID.getName(), new Document("$eq", new ObjectId("54f86a939e5bc3d6278757c5")));
         assertEquals(query, expected);
     }
 
