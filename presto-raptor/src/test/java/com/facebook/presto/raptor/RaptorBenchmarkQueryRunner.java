@@ -15,10 +15,8 @@ package com.facebook.presto.raptor;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.benchmark.BenchmarkSuite;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.testing.LocalQueryRunner;
@@ -91,13 +89,11 @@ public final class RaptorBenchmarkQueryRunner
                     .build();
 
             TypeManager typeManager = new TypeRegistry();
-            BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(typeManager);
 
             RaptorPlugin plugin = new RaptorPlugin();
 
             plugin.setOptionalConfig(config);
             plugin.setNodeManager(nodeManager);
-            plugin.setBlockEncodingSerde(blockEncodingSerde);
             plugin.setTypeManager(typeManager);
 
             return getOnlyElement(plugin.getServices(ConnectorFactory.class));
