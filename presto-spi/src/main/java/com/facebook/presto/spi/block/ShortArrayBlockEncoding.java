@@ -48,27 +48,6 @@ public class ShortArrayBlockEncoding
     }
 
     @Override
-    public int getEstimatedSize(Block block)
-    {
-        int positionCount = block.getPositionCount();
-
-        // positionCount integer bytes
-        int size = Integer.BYTES;
-
-        // one byte null bits per eight elements and possibly last null bits
-        size += positionCount / Byte.SIZE + 1;
-
-        // non-null data values
-        for (int position = 0; position < positionCount; position++) {
-            if (!block.isNull(position)) {
-                size += Short.BYTES;
-            }
-        }
-
-        return size;
-    }
-
-    @Override
     public Block readBlock(SliceInput sliceInput)
     {
         int positionCount = sliceInput.readInt();
