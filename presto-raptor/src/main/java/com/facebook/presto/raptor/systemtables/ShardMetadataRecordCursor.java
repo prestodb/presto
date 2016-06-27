@@ -309,25 +309,32 @@ public class ShardMetadataRecordCursor
         Domain schemaNameDomain = domains.get(getColumnIndex(SHARD_METADATA, SCHEMA_NAME));
         Domain tableNameDomain = domains.get(getColumnIndex(SHARD_METADATA, TABLE_NAME));
 
+        List<String> values = new ArrayList<>();
         StringBuilder sql = new StringBuilder("SELECT table_id FROM tables ");
         if (schemaNameDomain != null || tableNameDomain != null) {
             sql.append("WHERE ");
             List<String> predicates = new ArrayList<>();
             if (tableNameDomain != null && tableNameDomain.isSingleValue()) {
-                predicates.add(format("table_name = '%s'", getStringValue(tableNameDomain.getSingleValue())));
+                predicates.add("table_name = ?");
+                values.add(getStringValue(tableNameDomain.getSingleValue()));
             }
             if (schemaNameDomain != null && schemaNameDomain.isSingleValue()) {
-                predicates.add(format("schema_name = '%s'", getStringValue(schemaNameDomain.getSingleValue())));
+                predicates.add("schema_name = ?");
+                values.add(getStringValue(schemaNameDomain.getSingleValue()));
             }
             sql.append(Joiner.on(" AND ").join(predicates));
         }
 
         ImmutableList.Builder<Long> tableIds = ImmutableList.builder();
         try (Connection connection = dbi.open().getConnection();
-                Statement statement = connection.createStatement();
-                ResultSet resultSet = statement.executeQuery(sql.toString())) {
-            while (resultSet.next()) {
-                tableIds.add(resultSet.getLong("table_id"));
+                PreparedStatement statement = connection.prepareStatement(sql.toString())) {
+            for (int i = 0; i < values.size(); i++) {
+                statement.setString(i + 1, values.get(i));
+            }
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    tableIds.add(resultSet.getLong("table_id"));
+                }
             }
         }
         catch (SQLException | DBIException e) {
