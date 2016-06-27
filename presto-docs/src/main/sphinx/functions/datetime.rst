@@ -200,6 +200,8 @@ Specifier Description
 
 .. warning:: The following specifiers are not currently supported: ``%D %U %u %V %X``
 
+.. warning:: Timestamp is truncated to milliseconds
+
 .. function:: date_format(timestamp, format) -> varchar
 
     Formats ``timestamp`` as a string using ``format``.
