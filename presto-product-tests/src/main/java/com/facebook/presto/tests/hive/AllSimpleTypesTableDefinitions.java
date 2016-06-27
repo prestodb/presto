@@ -24,6 +24,8 @@ import static com.teradata.tempto.fulfillment.table.hive.InlineDataSource.create
 
 public final class AllSimpleTypesTableDefinitions
 {
+    // TODO generate data files using hive instead using prebuilt commited files.
+
     private AllSimpleTypesTableDefinitions()
     {
     }
