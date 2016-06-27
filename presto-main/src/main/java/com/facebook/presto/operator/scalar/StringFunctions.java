@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
@@ -20,6 +21,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.type.CodePointsType;
 import com.facebook.presto.type.LiteralParameters;
 import com.facebook.presto.type.SqlType;
 import com.google.common.primitives.Ints;
@@ -455,21 +457,40 @@ public final class StringFunctions
     @ScalarFunction("ltrim")
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice leftTrim(@SqlType("varchar(x)") Slice slice, @SqlType(StandardTypes.VARCHAR) Slice charactersToTrim)
+    public static Slice leftTrim(@SqlType("varchar(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
     {
-        int[] codePointsToTrim = toCodePoints(charactersToTrim);
         return SliceUtf8.leftTrim(slice, codePointsToTrim);
     }
 
-    private static int[] toCodePoints(Slice slice)
+    @Description("remove the longest string containing only given characters from the end of a string")
+    @ScalarFunction("rtrim")
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Slice rightTrim(@SqlType("varchar(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
     {
-        int[] codePointsToTrim = new int[safeCountCodePoints(slice)];
+        return SliceUtf8.rightTrim(slice, codePointsToTrim);
+    }
+
+    @Description("remove the longest string containing only given characters from the beginning and end of a string")
+    @ScalarFunction("trim")
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Slice trim(@SqlType("varchar(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
+    {
+        return SliceUtf8.trim(slice, codePointsToTrim);
+    }
+
+    @ScalarOperator(OperatorType.CAST)
+    @SqlType(CodePointsType.NAME)
+    public static int[] castToCodePoints(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    {
+        int[] codePoints = new int[safeCountCodePoints(slice)];
         int position = 0;
-        for (int index = 0; index < codePointsToTrim.length; index++) {
-            codePointsToTrim[index] = getCodePointAt(slice, position);
+        for (int index = 0; index < codePoints.length; index++) {
+            codePoints[index] = getCodePointAt(slice, position);
             position += lengthOfCodePoint(slice, position);
         }
-        return codePointsToTrim;
+        return codePoints;
     }
 
     private static int safeCountCodePoints(Slice slice)
@@ -484,26 +505,6 @@ public final class StringFunctions
             codePoints++;
         }
         return codePoints;
-    }
-
-    @Description("remove the longest string containing only given characters from the end of a string")
-    @ScalarFunction("rtrim")
-    @LiteralParameters("x")
-    @SqlType("varchar(x)")
-    public static Slice rightTrim(@SqlType("varchar(x)") Slice slice, @SqlType(StandardTypes.VARCHAR) Slice charactersToTrim)
-    {
-        int[] codePointsToTrim = toCodePoints(charactersToTrim);
-        return SliceUtf8.rightTrim(slice, codePointsToTrim);
-    }
-
-    @Description("remove the longest string containing only given characters from the beginning and end of a string")
-    @ScalarFunction("trim")
-    @LiteralParameters("x")
-    @SqlType("varchar(x)")
-    public static Slice trim(@SqlType("varchar(x)") Slice slice, @SqlType(StandardTypes.VARCHAR) Slice charactersToTrim)
-    {
-        int[] codePointsToTrim = toCodePoints(charactersToTrim);
-        return SliceUtf8.trim(slice, codePointsToTrim);
     }
 
     @Description("converts the string to lower case")
