@@ -167,7 +167,7 @@ Specifier Description
 ``%D``    Day of the month with English suffix (``0th``, ``1st``, ``2nd``, ``3rd``, ...)
 ``%d``    Day of the month, numeric (``00`` .. ``31``)
 ``%e``    Day of the month, numeric (``0`` .. ``31``)
-``%f``    Microseconds (``000000`` .. ``999999``)
+``%f``    Nanoseconds (``000000000`` .. ``999999999``)
 ``%H``    Hour (``00`` .. ``23``)
 ``%h``    Hour (``01`` .. ``12``)
 ``%I``    Hour (``01`` .. ``12``)
