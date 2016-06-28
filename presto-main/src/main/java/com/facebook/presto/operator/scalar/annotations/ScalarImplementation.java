@@ -114,21 +114,21 @@ public class ScalarImplementation
         this.specializedTypeParameters = ImmutableMap.copyOf(requireNonNull(specializedTypeParameters, "specializedTypeParameters is null"));
     }
 
-    public MethodHandleAndConstructor specialize(Signature boundSignature, BoundVariables boundVariables, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public Optional<MethodHandleAndConstructor> specialize(Signature boundSignature, BoundVariables boundVariables, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         for (Map.Entry<String, Class<?>> entry : specializedTypeParameters.entrySet()) {
             if (!entry.getValue().isAssignableFrom(boundVariables.getTypeVariable(entry.getKey()).getJavaType())) {
-                return null;
+                return Optional.empty();
             }
         }
         Class<?> returnContainerType = getNullAwareContainerType(typeManager.getType(boundSignature.getReturnType()).getJavaType(), nullable);
         if (!returnContainerType.equals(methodHandle.type().returnType())) {
-            return null;
+            return Optional.empty();
         }
         for (int i = 0; i < boundSignature.getArgumentTypes().size(); i++) {
             Class<?> argumentContainerType = getNullAwareContainerType(typeManager.getType(boundSignature.getArgumentTypes().get(i)).getJavaType(), nullableArguments.get(i));
             if (!argumentNativeContainerTypes.get(i).isAssignableFrom(argumentContainerType)) {
-                return null;
+                return Optional.empty();
             }
         }
         MethodHandle methodHandle = this.methodHandle;
@@ -142,7 +142,7 @@ public class ScalarImplementation
                 constructor = constructor.bindTo(dependency.resolve(boundVariables.getTypeVariables(), typeManager, functionRegistry));
             }
         }
-        return new MethodHandleAndConstructor(methodHandle, Optional.ofNullable(constructor));
+        return Optional.of(new MethodHandleAndConstructor(methodHandle, Optional.ofNullable(constructor)));
     }
 
     private static Class<?> getNullAwareContainerType(Class<?> clazz, boolean nullable)
