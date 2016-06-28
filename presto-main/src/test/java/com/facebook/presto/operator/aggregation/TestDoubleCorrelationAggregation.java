@@ -27,7 +27,7 @@ import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.constructDoublePrimitiveArray;
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class TestCorrelationAggregation
+public class TestDoubleCorrelationAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
