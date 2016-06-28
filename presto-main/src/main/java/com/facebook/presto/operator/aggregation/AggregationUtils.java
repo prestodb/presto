@@ -50,6 +50,16 @@ public final class AggregationUtils
         state.setSumY(state.getSumY() + y);
     }
 
+    public static double getCovarianceSample(CovarianceState state)
+    {
+        return (state.getSumXY() - state.getSumX() * state.getSumY() / state.getCount()) / (state.getCount() - 1);
+    }
+
+    public static double getCovariancePopulation(CovarianceState state)
+    {
+        return (state.getSumXY() - state.getSumX() * state.getSumY() / state.getCount()) / state.getCount();
+    }
+
     public static void updateCorrelationState(CorrelationState state, double x, double y)
     {
         updateCovarianceState(state, x, y);
