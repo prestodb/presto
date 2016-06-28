@@ -6,7 +6,7 @@ java_version() {
 # The one argument is the location of java (either $JAVA_HOME or a potential
 # candidate for JAVA_HOME.
   JAVA="$1"/bin/java
-  "$JAVA" -version 2>&1 | grep "java version" | awk '{ print substr($3, 2, length($3)-2); }'
+  "$JAVA" -version 2>&1 | grep "\(java\|openjdk\) version" | awk '{ print substr($3, 2, length($3)-2); }'
 }
 
 java_vendor() {
