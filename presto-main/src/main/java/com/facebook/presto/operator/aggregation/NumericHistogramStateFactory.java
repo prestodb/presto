@@ -20,35 +20,35 @@ import com.facebook.presto.util.array.ObjectBigArray;
 import static java.util.Objects.requireNonNull;
 
 public class NumericHistogramStateFactory
-        implements AccumulatorStateFactory<NumericHistogramAggregation.State>
+        implements AccumulatorStateFactory<DoubleHistogramAggregation.State>
 {
     @Override
-    public NumericHistogramAggregation.State createSingleState()
+    public DoubleHistogramAggregation.State createSingleState()
     {
         return new SingleState();
     }
 
     @Override
-    public Class<? extends NumericHistogramAggregation.State> getSingleStateClass()
+    public Class<? extends DoubleHistogramAggregation.State> getSingleStateClass()
     {
         return SingleState.class;
     }
 
     @Override
-    public NumericHistogramAggregation.State createGroupedState()
+    public DoubleHistogramAggregation.State createGroupedState()
     {
         return new GroupedState();
     }
 
     @Override
-    public Class<? extends NumericHistogramAggregation.State> getGroupedStateClass()
+    public Class<? extends DoubleHistogramAggregation.State> getGroupedStateClass()
     {
         return GroupedState.class;
     }
 
     public static class GroupedState
             extends AbstractGroupedAccumulatorState
-            implements NumericHistogramAggregation.State
+            implements DoubleHistogramAggregation.State
     {
         private final ObjectBigArray<NumericHistogram> histograms = new ObjectBigArray<>();
         private long size;
@@ -87,7 +87,7 @@ public class NumericHistogramStateFactory
     }
 
     public static class SingleState
-            implements NumericHistogramAggregation.State
+            implements DoubleHistogramAggregation.State
     {
         private NumericHistogram histogram;
 
