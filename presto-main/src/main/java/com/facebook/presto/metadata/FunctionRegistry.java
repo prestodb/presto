@@ -38,6 +38,7 @@ import com.facebook.presto.operator.aggregation.DoubleHistogramAggregation;
 import com.facebook.presto.operator.aggregation.DoubleSumAggregation;
 import com.facebook.presto.operator.aggregation.FloatAverageAggregation;
 import com.facebook.presto.operator.aggregation.FloatGeometricMeanAggregations;
+import com.facebook.presto.operator.aggregation.FloatHistogramAggregation;
 import com.facebook.presto.operator.aggregation.FloatSumAggregation;
 import com.facebook.presto.operator.aggregation.GeometricMeanAggregations;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
@@ -367,6 +368,7 @@ public class FunctionRegistry
                 .aggregate(MergeHyperLogLogAggregation.class)
                 .aggregate(ApproximateSetAggregation.class)
                 .aggregate(DoubleHistogramAggregation.class)
+                .aggregate(FloatHistogramAggregation.class)
                 .aggregate(CovarianceAggregation.class)
                 .aggregate(RegressionAggregation.class)
                 .aggregate(CorrelationAggregation.class)
