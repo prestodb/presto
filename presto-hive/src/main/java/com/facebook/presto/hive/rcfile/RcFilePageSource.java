@@ -52,6 +52,7 @@ import java.util.Properties;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.charParitionKey;
 import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
@@ -63,6 +64,7 @@ import static com.facebook.presto.hive.HiveUtil.varcharPartitionKey;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -225,6 +227,12 @@ public class RcFilePageSource
                 }
                 else if (isVarcharType(type)) {
                     Slice value = varcharPartitionKey(partitionKey.getValue(), name, type);
+                    for (int i = 0; i < MAX_PAGE_SIZE; i++) {
+                        type.writeSlice(blockBuilder, value);
+                    }
+                }
+                else if (isCharType(type)) {
+                    Slice value = charParitionKey(partitionKey.getValue(), name, type);
                     for (int i = 0; i < MAX_PAGE_SIZE; i++) {
                         type.writeSlice(blockBuilder, value);
                     }

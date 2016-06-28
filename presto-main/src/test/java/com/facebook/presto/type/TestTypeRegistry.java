@@ -13,8 +13,13 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
@@ -22,6 +27,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -60,6 +66,12 @@ public class TestTypeRegistry
 
         assertTrue(isTypeOnlyCoercion("array(varchar(42))", "array(varchar(44))"));
         assertFalse(isTypeOnlyCoercion("array(varchar(44))", "array(varchar(42))"));
+
+        assertTrue(isTypeOnlyCoercion("char(42)", "char(44)"));
+        assertFalse(isTypeOnlyCoercion("char(44)", "char(42)"));
+
+        assertTrue(isTypeOnlyCoercion("array(char(42))", "array(char(44))"));
+        assertFalse(isTypeOnlyCoercion("array(char(44))", "array(char(42))"));
 
         assertTrue(isTypeOnlyCoercion("decimal(22,1)", "decimal(23,1)"));
         assertTrue(isTypeOnlyCoercion("decimal(2,1)", "decimal(3,1)"));
@@ -205,15 +217,33 @@ public class TestTypeRegistry
             throws Exception
     {
         Set<Type> types = getStandardPrimitiveTypes();
-        for (Type sourceType : types) {
+        for (Type transitiveType : types) {
             for (Type resultType : types) {
-                if (typeRegistry.canCoerce(sourceType, resultType)) {
-                    for (Type transitiveType : types) {
-                        if (typeRegistry.canCoerce(transitiveType, sourceType) && !typeRegistry.canCoerce(transitiveType, resultType)) {
-                            fail(format("'%s' -> '%s' coercion is missing when transitive coercion is possible: '%s' -> '%s' -> '%s'",
-                                    transitiveType, resultType, transitiveType, sourceType, resultType));
+                if (typeRegistry.canCoerce(transitiveType, resultType)) {
+                    for (Type sourceType : types) {
+                        if (typeRegistry.canCoerce(sourceType, transitiveType)) {
+                            if (!typeRegistry.canCoerce(sourceType, resultType)) {
+                                fail(format("'%s' -> '%s' coercion is missing when transitive coercion is possible: '%s' -> '%s' -> '%s'",
+                                        sourceType, resultType, sourceType, transitiveType, resultType));
+                            }
                         }
                     }
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testCastOperatorsExistForCoercions()
+    {
+        FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig().setExperimentalSyntaxEnabled(true));
+
+        Set<Type> types = getStandardPrimitiveTypes();
+        for (Type sourceType : types) {
+            for (Type resultType : types) {
+                if (typeRegistry.canCoerce(sourceType, resultType) && sourceType != UNKNOWN && resultType != UNKNOWN && resultType == JsonPathType.JSON_PATH) {
+                    assertTrue(functionRegistry.canResolveOperator(OperatorType.CAST, resultType, ImmutableList.of(sourceType)),
+                            format("'%s' -> '%s' coercion exists but there is no cast operator", sourceType, resultType));
                 }
             }
         }
@@ -232,6 +262,8 @@ public class TestTypeRegistry
         builder.add(createDecimalType(38, 38));
         builder.add(createVarcharType(0));
         builder.add(createUnboundedVarcharType());
+        builder.add(createCharType(1));
+        builder.add(createCharType(42));
         return builder.build();
     }
 

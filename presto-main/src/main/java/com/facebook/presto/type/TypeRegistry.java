@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -37,6 +38,7 @@ import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -52,6 +54,7 @@ import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_W
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
 import static com.facebook.presto.type.ColorType.COLOR;
 import static com.facebook.presto.type.FunctionParametricType.FUNCTION;
@@ -115,6 +118,7 @@ public final class TypeRegistry
         addType(COLOR);
         addType(JSON);
         addParametricType(VarcharParametricType.VARCHAR);
+        addParametricType(CharParametricType.CHAR);
         addParametricType(DecimalParametricType.DECIMAL);
         addParametricType(ROW);
         addParametricType(ARRAY);
@@ -193,6 +197,10 @@ public final class TypeRegistry
             return true;
         }
 
+        if (source instanceof CharType && result instanceof CharType) {
+            return true;
+        }
+
         if (source instanceof DecimalType && result instanceof DecimalType) {
             DecimalType sourceDecimal = (DecimalType) source;
             DecimalType resultDecimal = (DecimalType) result;
@@ -242,9 +250,9 @@ public final class TypeRegistry
                 return Optional.of(getCommonSuperTypeForDecimal(
                         checkType(firstType, DecimalType.class, "firstType"), checkType(secondType, DecimalType.class, "secondType")));
             }
-            if (firstTypeBaseName.equals(StandardTypes.VARCHAR)) {
-                return Optional.of(getCommonSuperTypeForVarchar(
-                        checkType(firstType, VarcharType.class, "firstType"), checkType(secondType, VarcharType.class, "secondType")));
+            if ((firstTypeBaseName.equals(StandardTypes.VARCHAR) || firstTypeBaseName.equals(StandardTypes.CHAR)) &&
+                    (secondTypeBaseName.equals(StandardTypes.VARCHAR) || secondTypeBaseName.equals(StandardTypes.CHAR))) {
+                return Optional.of(getCommonSuperTypeForCharacterStrings(firstType, secondType));
             }
 
             if (isCovariantParametrizedType(firstType)) {
@@ -275,9 +283,21 @@ public final class TypeRegistry
         return createDecimalType(targetPrecision, targetScale);
     }
 
-    private Type getCommonSuperTypeForVarchar(VarcharType firstType, VarcharType secondType)
+    private Type getCommonSuperTypeForCharacterStrings(Type firstType, Type secondType)
     {
-        return createVarcharType(Math.max(firstType.getLength(), secondType.getLength()));
+        int returnTypeLength = Math.max(getCharacterStringTypeLength(firstType), getCharacterStringTypeLength(secondType));
+        if (firstType instanceof VarcharType || secondType instanceof VarcharType) {
+            return createVarcharType(returnTypeLength);
+        }
+        return createCharType(returnTypeLength);
+    }
+
+    private int getCharacterStringTypeLength(Type type)
+    {
+        if (isVarcharType(type)) {
+            return ((VarcharType) type).getLength();
+        }
+        return checkType(type, CharType.class, "type").getLength();
     }
 
     private Optional<Type> getCommonSupperTypeForCovariantParametrizedType(Type firstType, Type secondType)
@@ -348,6 +368,8 @@ public final class TypeRegistry
                         return Optional.of(getType(new TypeSignature(resultTypeBase)));
                     case StandardTypes.VARCHAR:
                         return Optional.of(createVarcharType(0));
+                    case StandardTypes.CHAR:
+                        return Optional.of(createCharType(1));
                     case StandardTypes.DECIMAL:
                         return Optional.of(createDecimalType(1, 0));
                     default:
@@ -442,6 +464,23 @@ public final class TypeRegistry
             }
             case StandardTypes.VARCHAR: {
                 switch (resultTypeBase) {
+                    case JoniRegexpType.NAME:
+                        return Optional.of(JONI_REGEXP);
+                    case Re2JRegexpType.NAME:
+                        return Optional.of(RE2J_REGEXP);
+                    case LikePatternType.NAME:
+                        return Optional.of(LIKE_PATTERN);
+                    case JsonPathType.NAME:
+                        return Optional.of(JSON_PATH);
+                    default:
+                        return Optional.empty();
+                }
+            }
+            case StandardTypes.CHAR: {
+                switch (resultTypeBase) {
+                    case StandardTypes.VARCHAR:
+                        CharType charType = (CharType) sourceType;
+                        return Optional.of(createVarcharType(charType.getLength()));
                     case JoniRegexpType.NAME:
                         return Optional.of(JONI_REGEXP);
                     case Re2JRegexpType.NAME:

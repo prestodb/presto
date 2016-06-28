@@ -75,7 +75,6 @@ import com.facebook.presto.operator.scalar.MapNotEqualOperator;
 import com.facebook.presto.operator.scalar.MapToMapCast;
 import com.facebook.presto.operator.scalar.MapValues;
 import com.facebook.presto.operator.scalar.MathFunctions;
-import com.facebook.presto.operator.scalar.Re2JCastToRegexpFunction;
 import com.facebook.presto.operator.scalar.Re2JRegexpFunctions;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.SequenceFunction;
@@ -106,6 +105,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
+import com.facebook.presto.type.CharOperators;
 import com.facebook.presto.type.ColorOperators;
 import com.facebook.presto.type.DateOperators;
 import com.facebook.presto.type.DateTimeOperators;
@@ -188,6 +188,11 @@ import static com.facebook.presto.operator.scalar.ArrayToArrayCast.ARRAY_TO_ARRA
 import static com.facebook.presto.operator.scalar.ArrayToElementConcatFunction.ARRAY_TO_ELEMENT_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArrayToJsonCast.ARRAY_TO_JSON;
 import static com.facebook.presto.operator.scalar.CastFromUnknownOperator.CAST_FROM_UNKNOWN;
+import static com.facebook.presto.operator.scalar.CharacterStringCasts.CHAR_TO_CHAR_CAST;
+import static com.facebook.presto.operator.scalar.CharacterStringCasts.CHAR_TO_VARCHAR_CAST;
+import static com.facebook.presto.operator.scalar.CharacterStringCasts.VARCHAR_TO_CHAR_CAST;
+import static com.facebook.presto.operator.scalar.CharacterStringCasts.VARCHAR_TO_CHAR_SATURATED_FLOOR_CAST;
+import static com.facebook.presto.operator.scalar.CharacterStringCasts.VARCHAR_TO_VARCHAR_CAST;
 import static com.facebook.presto.operator.scalar.ConcatFunction.CONCAT;
 import static com.facebook.presto.operator.scalar.ElementToArrayConcatFunction.ELEMENT_TO_ARRAY_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.Greatest.GREATEST;
@@ -200,13 +205,14 @@ import static com.facebook.presto.operator.scalar.MapElementAtFunction.MAP_ELEME
 import static com.facebook.presto.operator.scalar.MapHashCodeOperator.MAP_HASH_CODE;
 import static com.facebook.presto.operator.scalar.MapSubscriptOperator.MAP_SUBSCRIPT;
 import static com.facebook.presto.operator.scalar.MapToJsonCast.MAP_TO_JSON;
+import static com.facebook.presto.operator.scalar.Re2JCastToRegexpFunction.castCharToRe2JRegexp;
+import static com.facebook.presto.operator.scalar.Re2JCastToRegexpFunction.castVarcharToRe2JRegexp;
 import static com.facebook.presto.operator.scalar.RowEqualOperator.ROW_EQUAL;
 import static com.facebook.presto.operator.scalar.RowHashCodeOperator.ROW_HASH_CODE;
 import static com.facebook.presto.operator.scalar.RowNotEqualOperator.ROW_NOT_EQUAL;
 import static com.facebook.presto.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static com.facebook.presto.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
 import static com.facebook.presto.operator.scalar.TryCastFunction.TRY_CAST;
-import static com.facebook.presto.operator.scalar.VarcharToVarcharCast.VARCHAR_TO_VARCHAR_CAST;
 import static com.facebook.presto.operator.scalar.ZipFunction.ZIP_FUNCTIONS;
 import static com.facebook.presto.operator.window.AggregateWindowFunction.supplier;
 import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
@@ -217,6 +223,20 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.type.CharOperators.CHAR_BETWEEN_NO_PAD;
+import static com.facebook.presto.type.CharOperators.CHAR_BETWEEN_PAD_SPACES;
+import static com.facebook.presto.type.CharOperators.CHAR_EQUAL_NO_PAD;
+import static com.facebook.presto.type.CharOperators.CHAR_EQUAL_PAD_SPACES;
+import static com.facebook.presto.type.CharOperators.CHAR_GREATER_THAN_NO_PAD;
+import static com.facebook.presto.type.CharOperators.CHAR_GREATER_THAN_OR_EQUAL_NO_PAD;
+import static com.facebook.presto.type.CharOperators.CHAR_GREATER_THAN_OR_EQUAL_PAD_SPACES;
+import static com.facebook.presto.type.CharOperators.CHAR_GREATER_THAN_PAD_SPACES;
+import static com.facebook.presto.type.CharOperators.CHAR_LESS_THAN_NO_PAD;
+import static com.facebook.presto.type.CharOperators.CHAR_LESS_THAN_OR_EQUAL_NO_PAD;
+import static com.facebook.presto.type.CharOperators.CHAR_LESS_THAN_OR_EQUAL_PAD_SPACES;
+import static com.facebook.presto.type.CharOperators.CHAR_LESS_THAN_PAD_SPACES;
+import static com.facebook.presto.type.CharOperators.CHAR_NOT_EQUAL_NO_PAD;
+import static com.facebook.presto.type.CharOperators.CHAR_NOT_EQUAL_PAD_SPACES;
 import static com.facebook.presto.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.BOOLEAN_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_BIGINT_CAST;
@@ -427,6 +447,7 @@ public class FunctionRegistry
                 .scalar(MapCardinalityFunction.class)
                 .scalar(MapConcatFunction.class)
                 .scalar(MapToMapCast.class)
+                .scalar(CharOperators.class)
                 .functions(ZIP_FUNCTIONS)
                 .functions(ARRAY_JOIN, ARRAY_JOIN_WITH_NULL_REPLACEMENT)
                 .functions(ARRAY_TO_ARRAY_CAST, ARRAY_LESS_THAN)
@@ -448,7 +469,7 @@ public class FunctionRegistry
                 .function(DECIMAL_BETWEEN_OPERATOR)
                 .function(HISTOGRAM)
                 .function(CHECKSUM_AGGREGATION)
-                .function(VARCHAR_TO_VARCHAR_CAST)
+                .functions(VARCHAR_TO_VARCHAR_CAST, CHAR_TO_CHAR_CAST, CHAR_TO_VARCHAR_CAST, VARCHAR_TO_CHAR_CAST, VARCHAR_TO_CHAR_SATURATED_FLOOR_CAST)
                 .function(IDENTITY_CAST)
                 .function(ARBITRARY_AGGREGATION)
                 .function(ARRAY_AGGREGATION)
@@ -467,8 +488,28 @@ public class FunctionRegistry
                 break;
             case RE2J:
                 builder.scalar(Re2JRegexpFunctions.class)
-                        .function(new Re2JCastToRegexpFunction(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()));
+                        .function(castVarcharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
+                        .function(castCharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()));
                 break;
+        }
+
+        if (featuresConfig.isCharPadSpaces()) {
+            builder.function(CHAR_EQUAL_PAD_SPACES)
+                    .function(CHAR_NOT_EQUAL_PAD_SPACES)
+                    .function(CHAR_LESS_THAN_PAD_SPACES)
+                    .function(CHAR_LESS_THAN_OR_EQUAL_PAD_SPACES)
+                    .function(CHAR_GREATER_THAN_PAD_SPACES)
+                    .function(CHAR_GREATER_THAN_OR_EQUAL_PAD_SPACES)
+                    .function(CHAR_BETWEEN_PAD_SPACES);
+        }
+        else {
+            builder.function(CHAR_EQUAL_NO_PAD)
+                    .function(CHAR_NOT_EQUAL_NO_PAD)
+                    .function(CHAR_LESS_THAN_NO_PAD)
+                    .function(CHAR_LESS_THAN_OR_EQUAL_NO_PAD)
+                    .function(CHAR_GREATER_THAN_NO_PAD)
+                    .function(CHAR_GREATER_THAN_OR_EQUAL_NO_PAD)
+                    .function(CHAR_BETWEEN_NO_PAD);
         }
 
         if (featuresConfig.isExperimentalSyntaxEnabled()) {

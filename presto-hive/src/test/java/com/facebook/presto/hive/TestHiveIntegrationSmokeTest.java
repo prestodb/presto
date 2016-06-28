@@ -49,6 +49,7 @@ import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveUtil.annotateColumnComment;
+import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
@@ -140,7 +141,8 @@ public class TestHiveIntegrationSmokeTest
                 ", DATE '1980-05-07' _date" +
                 ", TIMESTAMP '1980-05-07 11:22:33.456' _timestamp" +
                 ", CAST('3.14' AS DECIMAL(3,2)) _decimal_short" +
-                ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _decimal_long";
+                ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _decimal_long" +
+                ", CAST('bar' AS CHAR(10)) _char";
 
         assertUpdate(query, 1);
 
@@ -157,6 +159,7 @@ public class TestHiveIntegrationSmokeTest
         assertEquals(row.getField(7), new Timestamp(new DateTime(1980, 5, 7, 11, 22, 33, 456, UTC).getMillis()));
         assertEquals(row.getField(8), new BigDecimal("3.14"));
         assertEquals(row.getField(9), new BigDecimal("12345678901234567890.0123456789"));
+        assertEquals(row.getField(10), "bar       ");
         assertUpdate("DROP TABLE test_types_table");
 
         assertFalse(queryRunner.tableExists(getSession(), "test_types_table"));
@@ -180,6 +183,7 @@ public class TestHiveIntegrationSmokeTest
                 "CREATE TABLE test_partitioned_table (" +
                 "  _string VARCHAR" +
                 ",  _varchar VARCHAR(65535)" +
+                ", _char CHAR(10)" +
                 ", _bigint BIGINT" +
                 ", _integer INTEGER" +
                 ", _smallint SMALLINT" +
@@ -190,6 +194,7 @@ public class TestHiveIntegrationSmokeTest
                 ", _decimal_long DECIMAL(30,10)" +
                 ", _partition_string VARCHAR" +
                 ", _partition_varchar VARCHAR(65535)" +
+                ", _partition_char CHAR(10)" +
                 ", _partition_tinyint TINYINT" +
                 ", _partition_smallint SMALLINT" +
                 ", _partition_integer INTEGER" +
@@ -199,7 +204,7 @@ public class TestHiveIntegrationSmokeTest
                 ") " +
                 "WITH (" +
                 "format = '" + storageFormat + "', " +
-                "partitioned_by = ARRAY[ '_partition_string', '_partition_varchar', '_partition_tinyint', '_partition_smallint', '_partition_integer', '_partition_bigint', '_partition_decimal_short', '_partition_decimal_long' ]" +
+                "partitioned_by = ARRAY[ '_partition_string', '_partition_varchar', '_partition_char', '_partition_tinyint', '_partition_smallint', '_partition_integer', '_partition_bigint', '_partition_decimal_short', '_partition_decimal_long' ]" +
                 ") ";
 
         assertUpdate(createTable);
@@ -207,7 +212,7 @@ public class TestHiveIntegrationSmokeTest
         TableMetadata tableMetadata = getTableMetadata("test_partitioned_table");
         assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
 
-        List<String> partitionedBy = ImmutableList.of("_partition_string", "_partition_varchar", "_partition_tinyint", "_partition_smallint", "_partition_integer", "_partition_bigint", "_partition_decimal_short", "_partition_decimal_long");
+        List<String> partitionedBy = ImmutableList.of("_partition_string", "_partition_varchar", "_partition_char", "_partition_tinyint", "_partition_smallint", "_partition_integer", "_partition_bigint", "_partition_decimal_short", "_partition_decimal_long");
         assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), partitionedBy);
         for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
             boolean partitionKey = partitionedBy.contains(columnMetadata.getName());
@@ -216,6 +221,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertColumnType(tableMetadata, "_string", createUnboundedVarcharType());
         assertColumnType(tableMetadata, "_varchar", createVarcharType(65535));
+        assertColumnType(tableMetadata, "_char", createCharType(10));
         assertColumnType(tableMetadata, "_partition_string", createUnboundedVarcharType());
         assertColumnType(tableMetadata, "_partition_varchar", createVarcharType(65535));
 
@@ -226,6 +232,7 @@ public class TestHiveIntegrationSmokeTest
                 "SELECT" +
                 " 'foo' _string" +
                 ", 'bar' _varchar" +
+                ", CAST('boo' AS CHAR(10)) _char" +
                 ", CAST(1 AS BIGINT) _bigint" +
                 ", 2 _integer" +
                 ", CAST (3 AS SMALLINT) _smallint" +
@@ -236,6 +243,7 @@ public class TestHiveIntegrationSmokeTest
                 ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _decimal_long" +
                 ", 'foo' _partition_string" +
                 ", 'bar' _partition_varchar" +
+                ", CAST('boo' AS CHAR(10)) _partition_char" +
                 ", CAST(1 AS TINYINT) _partition_tinyint" +
                 ", CAST(1 AS SMALLINT) _partition_smallint" +
                 ", 1 _partition_integer" +
@@ -267,6 +275,7 @@ public class TestHiveIntegrationSmokeTest
     {
         @Language("SQL") String select = "SELECT" +
                 " 'foo' _varchar" +
+                ", CAST('bar' AS CHAR(10)) _char" +
                 ", CAST (1 AS BIGINT) _bigint" +
                 ", 2 _integer" +
                 ", CAST (3 AS SMALLINT) _smallint" +
@@ -284,6 +293,7 @@ public class TestHiveIntegrationSmokeTest
         assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
 
         assertColumnType(tableMetadata, "_varchar", createVarcharType(3));
+        assertColumnType(tableMetadata, "_char", createCharType(10));
 
         assertQuery("SELECT * from test_format_table", select);
 
@@ -543,6 +553,7 @@ public class TestHiveIntegrationSmokeTest
                 "(" +
                 "  _string VARCHAR," +
                 "  _varchar VARCHAR(65535)," +
+                "  _char CHAR(10)," +
                 "  _bigint BIGINT," +
                 "  _integer INTEGER," +
                 "  _smallint SMALLINT," +
@@ -561,10 +572,12 @@ public class TestHiveIntegrationSmokeTest
 
         assertColumnType(tableMetadata, "_string", createUnboundedVarcharType());
         assertColumnType(tableMetadata, "_varchar", createVarcharType(65535));
+        assertColumnType(tableMetadata, "_char", createCharType(10));
 
         @Language("SQL") String select = "SELECT" +
                 " 'foo' _string" +
                 ", 'bar' _varchar" +
+                ", CAST('boo' AS CHAR(10)) _char" +
                 ", 1 _bigint" +
                 ", CAST(42 AS INTEGER) _integer" +
                 ", CAST(43 AS SMALLINT) _smallint" +
@@ -580,15 +593,15 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate("INSERT INTO test_insert_format_table (_tinyint, _smallint, _integer, _bigint, _double) SELECT CAST(1 AS TINYINT), CAST(2 AS SMALLINT), 3, 4, 14.3", 1);
 
-        assertQuery("SELECT * from test_insert_format_table where _bigint = 4", "SELECT null, null, 4, 3, 2, 1, 14.3, null, null, null");
+        assertQuery("SELECT * from test_insert_format_table where _bigint = 4", "SELECT null, null, null, 4, 3, 2, 1, 14.3, null, null, null");
 
         assertUpdate("INSERT INTO test_insert_format_table (_double, _bigint) SELECT 2.72, 3", 1);
 
-        assertQuery("SELECT * from test_insert_format_table where _bigint = 3", "SELECT null, null, 3, null, null, null, 2.72, null, null, null");
+        assertQuery("SELECT * from test_insert_format_table where _bigint = 3", "SELECT null, null, null, 3, null, null, null, 2.72, null, null, null");
 
         assertUpdate("INSERT INTO test_insert_format_table (_decimal_short, _decimal_long) SELECT DECIMAL '2.72', DECIMAL '98765432101234567890.0123456789'", 1);
 
-        assertQuery("SELECT * from test_insert_format_table where _decimal_long = DECIMAL '98765432101234567890.0123456789'", "SELECT null, null, null, null, null, null, null, null, 2.72, 98765432101234567890.0123456789");
+        assertQuery("SELECT * from test_insert_format_table where _decimal_long = DECIMAL '98765432101234567890.0123456789'", "SELECT null, null, null, null, null, null, null, null, null, 2.72, 98765432101234567890.0123456789");
 
         assertUpdate("DROP TABLE test_insert_format_table");
 
@@ -887,7 +900,7 @@ public class TestHiveIntegrationSmokeTest
             throws Exception
     {
         assertUpdate("CREATE TABLE tmp_complex1 AS SELECT " +
-                "ARRAY [MAP(ARRAY['a', 'b'], ARRAY[2.0, 4.0]), MAP(ARRAY['c', 'd'], ARRAY[12.0, 14.0])] AS a",
+                        "ARRAY [MAP(ARRAY['a', 'b'], ARRAY[2.0, 4.0]), MAP(ARRAY['c', 'd'], ARRAY[12.0, 14.0])] AS a",
                 1);
 
         assertQuery(
