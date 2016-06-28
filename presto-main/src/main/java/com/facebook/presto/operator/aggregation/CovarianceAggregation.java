@@ -18,6 +18,8 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 
+import static com.facebook.presto.operator.aggregation.AggregationUtils.getCovariancePopulation;
+import static com.facebook.presto.operator.aggregation.AggregationUtils.getCovarianceSample;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.mergeCovarianceState;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.updateCovarianceState;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -47,7 +49,7 @@ public class CovarianceAggregation
             out.appendNull();
         }
         else {
-            double result = (state.getSumXY() - state.getSumX() * state.getSumY() / state.getCount()) / (state.getCount() - 1);
+            double result = getCovarianceSample(state);
             DOUBLE.writeDouble(out, result);
         }
     }
@@ -60,7 +62,7 @@ public class CovarianceAggregation
             out.appendNull();
         }
         else {
-            double result = (state.getSumXY() - state.getSumX() * state.getSumY() / state.getCount()) / state.getCount();
+            double result = getCovariancePopulation(state);
             DOUBLE.writeDouble(out, result);
         }
     }
