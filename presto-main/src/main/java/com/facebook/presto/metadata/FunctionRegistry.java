@@ -33,7 +33,7 @@ import com.facebook.presto.operator.aggregation.BooleanOrAggregation;
 import com.facebook.presto.operator.aggregation.CorrelationAggregation;
 import com.facebook.presto.operator.aggregation.CountAggregation;
 import com.facebook.presto.operator.aggregation.CountIfAggregation;
-import com.facebook.presto.operator.aggregation.CovarianceAggregation;
+import com.facebook.presto.operator.aggregation.DoubleCovarianceAggregation;
 import com.facebook.presto.operator.aggregation.DoubleHistogramAggregation;
 import com.facebook.presto.operator.aggregation.DoubleSumAggregation;
 import com.facebook.presto.operator.aggregation.FloatAverageAggregation;
@@ -369,7 +369,7 @@ public class FunctionRegistry
                 .aggregate(ApproximateSetAggregation.class)
                 .aggregate(DoubleHistogramAggregation.class)
                 .aggregate(FloatHistogramAggregation.class)
-                .aggregate(CovarianceAggregation.class)
+                .aggregate(DoubleCovarianceAggregation.class)
                 .aggregate(RegressionAggregation.class)
                 .aggregate(CorrelationAggregation.class)
                 .scalars(SequenceFunction.class)

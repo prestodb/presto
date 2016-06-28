@@ -23,7 +23,7 @@ import java.util.List;
 import static com.facebook.presto.block.BlockAssertions.createDoubleSequenceBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.constructDoublePrimitiveArray;
 
-public class TestCovariancePopAggregation
+public class TestDoubleCovariancePopAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
