@@ -41,12 +41,12 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public class TestNumericHistogramAggregation
+public class TestDoubleHistogramAggregation
 {
     private final AccumulatorFactory factory;
     private final Page input;
 
-    public TestNumericHistogramAggregation()
+    public TestDoubleHistogramAggregation()
     {
         TypeRegistry typeRegistry = new TypeRegistry();
         FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig().setExperimentalSyntaxEnabled(true));

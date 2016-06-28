@@ -15,7 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.AccumulatorState;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateMetadata;
-import com.facebook.presto.operator.aggregation.state.NumericHistogramStateSerializer;
+import com.facebook.presto.operator.aggregation.state.DoubleHistogramStateSerializer;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -33,15 +33,15 @@ import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.util.Failures.checkCondition;
 
 @AggregationFunction("numeric_histogram")
-public final class NumericHistogramAggregation
+public final class DoubleHistogramAggregation
 {
     public static final int ENTRY_BUFFER_SIZE = 100;
 
-    private NumericHistogramAggregation()
+    private DoubleHistogramAggregation()
     {
     }
 
-    @AccumulatorStateMetadata(stateSerializerClass = NumericHistogramStateSerializer.class, stateFactoryClass = NumericHistogramStateFactory.class)
+    @AccumulatorStateMetadata(stateSerializerClass = DoubleHistogramStateSerializer.class, stateFactoryClass = NumericHistogramStateFactory.class)
     public interface State
             extends AccumulatorState
     {

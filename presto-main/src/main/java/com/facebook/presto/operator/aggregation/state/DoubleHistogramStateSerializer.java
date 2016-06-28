@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
+import com.facebook.presto.operator.aggregation.DoubleHistogramAggregation;
 import com.facebook.presto.operator.aggregation.NumericHistogram;
-import com.facebook.presto.operator.aggregation.NumericHistogramAggregation;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 
-public class NumericHistogramStateSerializer
-        implements AccumulatorStateSerializer<NumericHistogramAggregation.State>
+public class DoubleHistogramStateSerializer
+        implements AccumulatorStateSerializer<DoubleHistogramAggregation.State>
 {
     @Override
     public Type getSerializedType()
@@ -31,7 +31,7 @@ public class NumericHistogramStateSerializer
     }
 
     @Override
-    public void serialize(NumericHistogramAggregation.State state, BlockBuilder out)
+    public void serialize(DoubleHistogramAggregation.State state, BlockBuilder out)
     {
         if (state.get() == null) {
             out.appendNull();
@@ -42,10 +42,10 @@ public class NumericHistogramStateSerializer
     }
 
     @Override
-    public void deserialize(Block block, int index, NumericHistogramAggregation.State state)
+    public void deserialize(Block block, int index, DoubleHistogramAggregation.State state)
     {
         if (!block.isNull(index)) {
-            state.set(new NumericHistogram(VARBINARY.getSlice(block, index), NumericHistogramAggregation.ENTRY_BUFFER_SIZE));
+            state.set(new NumericHistogram(VARBINARY.getSlice(block, index), DoubleHistogramAggregation.ENTRY_BUFFER_SIZE));
         }
     }
 }
