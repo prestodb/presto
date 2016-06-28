@@ -23,9 +23,9 @@ import static com.facebook.presto.operator.aggregation.AggregationUtils.updateCo
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 @AggregationFunction("corr")
-public class CorrelationAggregation
+public class DoubleCorrelationAggregation
 {
-    private CorrelationAggregation() {}
+    private DoubleCorrelationAggregation() {}
 
     @InputFunction
     public static void input(CorrelationState state, @SqlType(StandardTypes.DOUBLE) double dependentValue, @SqlType(StandardTypes.DOUBLE) double independentValue)
