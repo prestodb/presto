@@ -29,27 +29,28 @@ import io.airlift.stats.cardinality.HyperLogLog;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.testing.AggregationTestUtils.generateInternalAggregationFunction;
 import static com.facebook.presto.util.Failures.checkCondition;
 
 @AggregationFunction("approx_distinct")
 public final class ApproximateCountDistinctAggregations
 {
     public static final InternalAggregationFunction LONG_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS =
-            AggregationCompiler.generateAggregationBindableFunction(
+            generateInternalAggregationFunction(
                     ApproximateCountDistinctAggregations.class,
                     BIGINT.getTypeSignature(),
-                    ImmutableList.of(BIGINT.getTypeSignature(), DOUBLE.getTypeSignature())).getOnlySpecialization();
+                    ImmutableList.of(BIGINT.getTypeSignature(), DOUBLE.getTypeSignature()));
     public static final InternalAggregationFunction DOUBLE_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS =
-            AggregationCompiler.generateAggregationBindableFunction(
+            generateInternalAggregationFunction(
                     ApproximateCountDistinctAggregations.class,
                     BIGINT.getTypeSignature(),
-                    ImmutableList.of(DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature())).getOnlySpecialization();
+                    ImmutableList.of(DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
     public static final InternalAggregationFunction VARBINARY_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS =
-            AggregationCompiler.generateAggregationBindableFunction(
+            generateInternalAggregationFunction(
                     ApproximateCountDistinctAggregations.class,
                     BIGINT.getTypeSignature(),
-                    ImmutableList.of(VarcharType.getParametrizedVarcharSignature("x"), DOUBLE.getTypeSignature()))
-                    .specialize(BoundVariables.builder().setLongVariable("x", (long) Integer.MAX_VALUE).build(), 1, new TypeRegistry());
+                    ImmutableList.of(VarcharType.getParametrizedVarcharSignature("x"), DOUBLE.getTypeSignature()),
+                    new TypeRegistry(), BoundVariables.builder().setLongVariable("x", (long) Integer.MAX_VALUE).build(), 1);
 
     private static final double DEFAULT_STANDARD_ERROR = 0.023;
     private static final double LOWEST_MAX_STANDARD_ERROR = 0.01150;

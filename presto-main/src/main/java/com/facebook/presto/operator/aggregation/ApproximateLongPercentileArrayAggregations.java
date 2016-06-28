@@ -27,21 +27,22 @@ import java.util.List;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.testing.AggregationTestUtils.generateInternalAggregationFunction;
 import static com.facebook.presto.util.Failures.checkCondition;
 
 @AggregationFunction("approx_percentile")
 public final class ApproximateLongPercentileArrayAggregations
 {
     public static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION =
-            AggregationCompiler.generateAggregationBindableFunction(
+            generateInternalAggregationFunction(
                     ApproximateLongPercentileArrayAggregations.class,
                     new ArrayType(BIGINT).getTypeSignature(),
-                    ImmutableList.of(BIGINT.getTypeSignature(), new ArrayType(DOUBLE).getTypeSignature())).getOnlySpecialization();
+                    ImmutableList.of(BIGINT.getTypeSignature(), new ArrayType(DOUBLE).getTypeSignature()));
     public static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION =
-            AggregationCompiler.generateAggregationBindableFunction(
+            generateInternalAggregationFunction(
                     ApproximateLongPercentileArrayAggregations.class,
                     new ArrayType(BIGINT).getTypeSignature(),
-                    ImmutableList.of(BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), new ArrayType(DOUBLE).getTypeSignature())).getOnlySpecialization();
+                    ImmutableList.of(BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), new ArrayType(DOUBLE).getTypeSignature()));
 
     private ApproximateLongPercentileArrayAggregations() {}
 

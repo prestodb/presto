@@ -21,20 +21,15 @@ import com.google.common.collect.ImmutableList;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.testing.AggregationTestUtils.generateInternalAggregationFunction;
 
 @AggregationFunction("avg")
 public final class AverageAggregations
 {
     public static final InternalAggregationFunction LONG_AVERAGE =
-            AggregationCompiler.generateAggregationBindableFunction(
-                    AverageAggregations.class,
-                    DOUBLE.getTypeSignature(),
-                    ImmutableList.of(BIGINT.getTypeSignature())).getOnlySpecialization();
+            generateInternalAggregationFunction(AverageAggregations.class, DOUBLE.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature()));
     public static final InternalAggregationFunction DOUBLE_AVERAGE =
-            AggregationCompiler.generateAggregationBindableFunction(
-                    AverageAggregations.class,
-                    DOUBLE.getTypeSignature(),
-                    ImmutableList.of(DOUBLE.getTypeSignature())).getOnlySpecialization();
+            generateInternalAggregationFunction(AverageAggregations.class, DOUBLE.getTypeSignature(), ImmutableList.of(DOUBLE.getTypeSignature()));
 
     private AverageAggregations() {}
 
