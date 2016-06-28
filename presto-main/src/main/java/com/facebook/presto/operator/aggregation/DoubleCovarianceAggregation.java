@@ -25,9 +25,9 @@ import static com.facebook.presto.operator.aggregation.AggregationUtils.updateCo
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 @AggregationFunction("")
-public class CovarianceAggregation
+public class DoubleCovarianceAggregation
 {
-    private CovarianceAggregation() {}
+    private DoubleCovarianceAggregation() {}
 
     @InputFunction
     public static void input(CovarianceState state, @SqlType(StandardTypes.DOUBLE) double dependentValue, @SqlType(StandardTypes.DOUBLE) double independentValue)
