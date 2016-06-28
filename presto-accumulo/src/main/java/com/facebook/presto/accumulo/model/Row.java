@@ -32,6 +32,7 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.NOT_SUPPORTED;
@@ -83,6 +84,7 @@ public class Row
      */
     public Row addField(Field f)
     {
+        requireNonNull(f, "field is null");
         fields.add(f);
         return this;
     }
@@ -96,6 +98,7 @@ public class Row
      */
     public Row addField(Object v, Type t)
     {
+        requireNonNull(t, "type is null");
         fields.add(new Field(v, t));
         return this;
     }
@@ -141,33 +144,24 @@ public class Row
     @Override
     public boolean equals(Object obj)
     {
-        if (obj instanceof Row) {
-            Row r = (Row) obj;
-            int i = 0;
-            for (Field f : r.getFields()) {
-                if (!this.fields.get(i++).equals(f)) {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        return false;
+        return !(obj == null || !(obj instanceof Row))
+                && Objects.equals(this.fields, ((Row) obj).getFields());
     }
 
     @Override
     public String toString()
     {
-        StringBuilder bldr = new StringBuilder("(");
-        for (Field f : fields) {
-            bldr.append(f).append(",");
+        if (fields.isEmpty()) {
+            return "()";
         }
-
-        if (bldr.length() > 0) {
+        else {
+            StringBuilder bldr = new StringBuilder("(");
+            for (Field f : fields) {
+                bldr.append(f).append(",");
+            }
             bldr.deleteCharAt(bldr.length() - 1);
+            return bldr.append(')').toString();
         }
-        return bldr.append(')').toString();
     }
 
     /**

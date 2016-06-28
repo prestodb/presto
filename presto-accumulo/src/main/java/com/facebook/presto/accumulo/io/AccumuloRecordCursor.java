@@ -28,7 +28,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Marker.Bound;
 import com.facebook.presto.spi.predicate.Range;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
@@ -56,9 +55,12 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.FloatType.FLOAT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -281,21 +283,35 @@ public class AccumuloRecordCursor
     @Override
     public long getLong(int field)
     {
-        checkFieldType(field, BIGINT, DATE, INTEGER, TIME, TIMESTAMP);
-        switch (getType(field).getDisplayName()) {
-            case StandardTypes.BIGINT:
-                return serializer.getLong(fieldToColumnName[field]);
-            case StandardTypes.DATE:
-                return serializer.getDate(fieldToColumnName[field]).getTime();
-            case StandardTypes.INTEGER:
-                return serializer.getInt(fieldToColumnName[field]);
-            case StandardTypes.TIME:
-                return serializer.getTime(fieldToColumnName[field]).getTime();
-            case StandardTypes.TIMESTAMP:
-                return serializer.getTimestamp(fieldToColumnName[field]).getTime();
-            default:
-                throw new PrestoException(INTERNAL_ERROR,
-                        "Unsupported type " + getType(field));
+        checkFieldType(field, BIGINT, DATE, FLOAT, INTEGER, SMALLINT, TIME, TIMESTAMP, TINYINT);
+        Type type = getType(field);
+        if (type.equals(BIGINT)) {
+            return serializer.getLong(fieldToColumnName[field]);
+        }
+        else if (type.equals(DATE)) {
+            return serializer.getDate(fieldToColumnName[field]).getTime();
+        }
+        else if (type.equals(FLOAT)) {
+            return Float.floatToIntBits(serializer.getFloat(fieldToColumnName[field]));
+        }
+        else if (type.equals(INTEGER)) {
+            return serializer.getInt(fieldToColumnName[field]);
+        }
+        else if (type.equals(SMALLINT)) {
+            return serializer.getShort(fieldToColumnName[field]);
+        }
+        else if (type.equals(TIME)) {
+            return serializer.getTime(fieldToColumnName[field]).getTime();
+        }
+        else if (type.equals(TIMESTAMP)) {
+            return serializer.getTimestamp(fieldToColumnName[field]).getTime();
+        }
+        else if (type.equals(TINYINT)) {
+            return serializer.getByte(fieldToColumnName[field]);
+        }
+        else {
+            throw new PrestoException(INTERNAL_ERROR,
+                    "Unsupported type " + getType(field));
         }
     }
 

@@ -19,16 +19,7 @@ import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.IntegerType;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.TimeType;
-import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.slice.Slice;
 
@@ -44,6 +35,20 @@ import java.util.Objects;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.FloatType.FLOAT;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static java.lang.Enum.valueOf;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -100,34 +105,45 @@ public class Field
             return;
         }
 
-        switch (type.getDisplayName()) {
-            case StandardTypes.BIGINT:
-                this.value = f.getBigInt();
-                break;
-            case StandardTypes.BOOLEAN:
-                this.value = f.getBoolean();
-                break;
-            case StandardTypes.DATE:
-                this.value = new Date(f.getDate().getTime());
-                break;
-            case StandardTypes.DOUBLE:
-                this.value = f.getDouble();
-                break;
-            case StandardTypes.TIME:
-                this.value = new Time(f.getTime().getTime());
-                break;
-            case StandardTypes.TIMESTAMP:
-                this.value = new Timestamp(f.getTimestamp().getTime());
-                break;
-            case StandardTypes.VARBINARY:
-                this.value = Arrays.copyOf(f.getVarbinary(), f.getVarbinary().length);
-                break;
-            case StandardTypes.VARCHAR:
-                this.value = f.getVarchar();
-                break;
-            default:
-                throw new PrestoException(NOT_SUPPORTED,
-                        "Unsupported type " + type);
+        if (type.equals(BIGINT)) {
+            this.value = f.getLong();
+        }
+        else if (type.equals(BOOLEAN)) {
+            this.value = f.getBoolean();
+        }
+        else if (type.equals(DATE)) {
+            this.value = new Date(f.getDate().getTime());
+        }
+        else if (type.equals(DOUBLE)) {
+            this.value = f.getDouble();
+        }
+        else if (type.equals(FLOAT)) {
+            this.value = f.getFloat();
+        }
+        else if (type.equals(INTEGER)) {
+            this.value = f.getInt();
+        }
+        else if (type.equals(SMALLINT)) {
+            this.value = f.getShort();
+        }
+        else if (type.equals(TIME)) {
+            this.value = new Time(f.getTime().getTime());
+        }
+        else if (type.equals(TIMESTAMP)) {
+            this.value = new Timestamp(f.getTimestamp().getTime());
+        }
+        else if (type.equals(TINYINT)) {
+            this.value = f.getByte();
+        }
+        else if (type.equals(VARBINARY)) {
+            this.value = Arrays.copyOf(f.getVarbinary(), f.getVarbinary().length);
+        }
+        else if (type.equals(VARCHAR)) {
+            this.value = f.getVarchar();
+        }
+        else {
+            throw new PrestoException(NOT_SUPPORTED,
+                    "Unsupported type " + type);
         }
     }
 
@@ -157,7 +173,7 @@ public class Field
      *
      * @return Value as Long
      */
-    public Long getBigInt()
+    public Long getLong()
     {
         return (Long) value;
     }
@@ -170,6 +186,16 @@ public class Field
     public Boolean getBoolean()
     {
         return (Boolean) value;
+    }
+
+    /**
+     * Gets the value of the field as a Byte. For TINYINT types
+     *
+     * @return Value as Byte
+     */
+    public Byte getByte()
+    {
+        return (Byte) value;
     }
 
     /**
@@ -190,6 +216,16 @@ public class Field
     public Double getDouble()
     {
         return (Double) value;
+    }
+
+    /**
+     * Gets the value of the field as a Float. For FLOAT types
+     *
+     * @return Value as Float
+     */
+    public Float getFloat()
+    {
+        return (Float) value;
     }
 
     /**
@@ -221,6 +257,16 @@ public class Field
     public Object getObject()
     {
         return value;
+    }
+
+    /**
+     * Gets the value of the field as a Short. For SMALLINT types
+     *
+     * @return Value as Short
+     */
+    public Short getShort()
+    {
+        return (Short) value;
     }
 
     /**
@@ -302,13 +348,13 @@ public class Field
                 else if (this.isNull() ^ f.isNull()) {
                     retval = false;
                 }
-                else if (type.equals(VarbinaryType.VARBINARY)) {
+                else if (type.equals(VARBINARY)) {
                     // special case for byte arrays
                     // aren't they so fancy
                     retval = Arrays.equals((byte[]) value, (byte[]) f.getObject());
                 }
-                else if (type.equals(DateType.DATE) || type.equals(TimeType.TIME)
-                        || type.equals(TimestampType.TIMESTAMP)) {
+                else if (type.equals(DATE) || type.equals(TIME)
+                        || type.equals(TIMESTAMP)) {
                     retval = value.toString().equals(f.getObject().toString());
                 }
                 else {
@@ -409,20 +455,20 @@ public class Field
         }
 
         // Validate the object is the given type
-        if (type instanceof BigintType || type instanceof BooleanType || type instanceof DoubleType) {
+        if (type.equals(BIGINT) || type.equals(BOOLEAN) || type.equals(DOUBLE) || type.equals(FLOAT) || type.equals(INTEGER) || type.equals(TINYINT) || type.equals(SMALLINT)) {
             return value.toString();
         }
-        else if (type instanceof DateType) {
+        else if (type.equals(DATE)) {
             return "DATE '" + value.toString() + "'";
         }
-        else if (type instanceof TimeType) {
+        else if (type.equals(TIME)) {
             return "TIME '" + value.toString() + "'";
         }
-        else if (type instanceof TimestampType) {
+        else if (type.equals(TIMESTAMP)) {
             return "TIMESTAMP '" + value.toString() + "'";
         }
-        else if (type instanceof VarbinaryType) {
-            return "CAST('" + new String((byte[]) value) + "' AS VARBINARY)";
+        else if (type.equals(VARBINARY)) {
+            return "CAST('" + new String((byte[]) value, UTF_8).replaceAll("'", "''") + "' AS VARBINARY)";
         }
         else if (type instanceof VarcharType) {
             return "'" + value.toString().replaceAll("'", "''") + "'";
@@ -467,13 +513,13 @@ public class Field
         }
 
         // And now for the plain types
-        if (t instanceof BigintType) {
+        if (t.equals(BIGINT)) {
             if (!(v instanceof Long)) {
                 throw new PrestoException(INTERNAL_ERROR,
                         "Object is not a Long, but " + v.getClass());
             }
         }
-        else if (t instanceof IntegerType) {
+        else if (t.equals(INTEGER)) {
             if (v instanceof Long) {
                 return ((Long) v).intValue();
             }
@@ -483,14 +529,14 @@ public class Field
                         "Object is not a Long or Integer, but " + v.getClass());
             }
         }
-        else if (t instanceof BooleanType) {
+        else if (t.equals(BOOLEAN)) {
             if (!(v instanceof Boolean)) {
                 throw new PrestoException(INTERNAL_ERROR,
                         "Object is not a Boolean, but " + v.getClass());
             }
             return v;
         }
-        else if (t instanceof DateType) {
+        else if (t.equals(DATE)) {
             if (v instanceof Long) {
                 return new Date((Long) v);
             }
@@ -504,13 +550,41 @@ public class Field
                         "Object is not a Calendar, Date, or Long, but " + v.getClass());
             }
         }
-        else if (t instanceof DoubleType) {
+        else if (t.equals(DOUBLE)) {
             if (!(v instanceof Double)) {
                 throw new PrestoException(INTERNAL_ERROR,
                         "Object is not a Double, but " + v.getClass());
             }
         }
-        else if (t instanceof TimeType) {
+        else if (t.equals(FLOAT)) {
+            if (v instanceof Long) {
+                return Float.intBitsToFloat(((Long) v).intValue());
+            }
+
+            if (v instanceof Integer) {
+                return Float.intBitsToFloat((Integer) v);
+            }
+
+            if (!(v instanceof Float)) {
+                throw new PrestoException(INTERNAL_ERROR,
+                        "Object is not a Float, but " + v.getClass());
+            }
+        }
+        else if (t.equals(SMALLINT)) {
+            if (v instanceof Long) {
+                return ((Long) v).shortValue();
+            }
+
+            if (v instanceof Integer) {
+                return ((Integer) v).shortValue();
+            }
+
+            if (!(v instanceof Short)) {
+                throw new PrestoException(INTERNAL_ERROR,
+                        "Object is not a Short, but " + v.getClass());
+            }
+        }
+        else if (t.equals(TIME)) {
             if (v instanceof Long) {
                 return new Time((Long) v);
             }
@@ -520,7 +594,7 @@ public class Field
                         "Object is not a Long or Time, but " + v.getClass());
             }
         }
-        else if (t instanceof TimestampType) {
+        else if (t.equals(TIMESTAMP)) {
             if (v instanceof Long) {
                 return new Timestamp((Long) v);
             }
@@ -530,7 +604,25 @@ public class Field
                         "Object is not a Long or Timestamp, but " + v.getClass());
             }
         }
-        else if (t instanceof VarbinaryType) {
+        else if (t.equals(TINYINT)) {
+            if (v instanceof Long) {
+                return ((Long) v).byteValue();
+            }
+
+            if (v instanceof Integer) {
+                return ((Integer) v).byteValue();
+            }
+
+            if (v instanceof Short) {
+                return ((Short) v).byteValue();
+            }
+
+            if (!(v instanceof Byte)) {
+                throw new PrestoException(INTERNAL_ERROR,
+                        "Object is not a Byte, but " + v.getClass());
+            }
+        }
+        else if (t.equals(VARBINARY)) {
             if (v instanceof Slice) {
                 return ((Slice) v).getBytes();
             }

@@ -26,16 +26,8 @@ import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.IntegerType;
-import com.facebook.presto.spi.type.TimeType;
-import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeUtils;
-import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -59,6 +51,17 @@ import static com.facebook.presto.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_DNE;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.FloatType.FLOAT;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -77,7 +80,7 @@ public class AccumuloPageSink
     private final BatchWriter wrtr;
     private final Optional<Indexer> indexer;
     private final List<AccumuloColumnHandle> columns;
-    private Integer rowIdOrdinal;
+    private final int rowIdOrdinal;
 
     /**
      * Creates a new instance of {@link AccumuloPageSink}
@@ -93,16 +96,15 @@ public class AccumuloPageSink
         this.columns = table.getColumns();
 
         // Fetch the row ID ordinal, throwing an exception if not found for safety
-        for (AccumuloColumnHandle ach : columns) {
-            if (ach.getName().equals(table.getRowId())) {
-                rowIdOrdinal = ach.getOrdinal();
-                break;
-            }
-        }
+        Optional<Integer> ordinal = columns.stream()
+                .filter(columnHandle -> columnHandle.getName().equals(table.getRowId()))
+                .map(AccumuloColumnHandle::getOrdinal).findAny();
 
-        if (rowIdOrdinal == null) {
+        if (!ordinal.isPresent()) {
             throw new PrestoException(INTERNAL_ERROR, "Row ID ordinal not found");
         }
+
+        rowIdOrdinal = ordinal.get();
 
         this.serializer = table.getSerializerInstance();
 
@@ -198,28 +200,37 @@ public class AccumuloPageSink
             serializer.setMap(value, type, field.getMap());
         }
         else {
-            if (type instanceof BigintType) {
-                serializer.setLong(value, field.getBigInt());
+            if (type.equals(BIGINT)) {
+                serializer.setLong(value, field.getLong());
             }
-            else if (type instanceof BooleanType) {
+            else if (type.equals(BOOLEAN)) {
                 serializer.setBoolean(value, field.getBoolean());
             }
-            else if (type instanceof DateType) {
+            else if (type.equals(DATE)) {
                 serializer.setDate(value, field.getDate());
             }
-            else if (type instanceof DoubleType) {
+            else if (type.equals(DOUBLE)) {
                 serializer.setDouble(value, field.getDouble());
             }
-            else if (type instanceof IntegerType) {
+            else if (type.equals(FLOAT)) {
+                serializer.setFloat(value, field.getFloat());
+            }
+            else if (type.equals(INTEGER)) {
                 serializer.setInt(value, field.getInt());
             }
-            else if (type instanceof TimeType) {
+            else if (type.equals(SMALLINT)) {
+                serializer.setShort(value, field.getShort());
+            }
+            else if (type.equals(TIME)) {
                 serializer.setTime(value, field.getTime());
             }
-            else if (type instanceof TimestampType) {
+            else if (type.equals(TINYINT)) {
+                serializer.setByte(value, field.getByte());
+            }
+            else if (type.equals(TIMESTAMP)) {
                 serializer.setTimestamp(value, field.getTimestamp());
             }
-            else if (type instanceof VarbinaryType) {
+            else if (type.equals(VARBINARY)) {
                 serializer.setVarbinary(value, field.getVarbinary());
             }
             else if (type instanceof VarcharType) {

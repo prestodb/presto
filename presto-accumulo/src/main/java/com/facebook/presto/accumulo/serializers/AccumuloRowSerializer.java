@@ -154,6 +154,22 @@ public interface AccumuloRowSerializer
     void setBoolean(Text text, Boolean value);
 
     /**
+     * Gets the Byte value of the given Presto column
+     *
+     * @param name Column name
+     * @return Byte value
+     */
+    byte getByte(String name);
+
+    /**
+     * Encode the given Byte value into the given Text object
+     *
+     * @param text Text object to set
+     * @param value Value to encode
+     */
+    void setByte(Text text, Byte value);
+
+    /**
      * Gets the Date value of the given Presto column
      *
      * @param name Column name
@@ -184,6 +200,22 @@ public interface AccumuloRowSerializer
      * @param value Value to encode
      */
     void setDouble(Text text, Double value);
+
+    /**
+     * Gets the Float value of the given Presto column
+     *
+     * @param name Column name
+     * @return Float value
+     */
+    float getFloat(String name);
+
+    /**
+     * Encode the given Float value into the given Text object
+     *
+     * @param text Text object to set
+     * @param value Value to encode
+     */
+    void setFloat(Text text, Float value);
 
     /**
      * Gets the Integer value of the given Presto column
@@ -234,6 +266,22 @@ public interface AccumuloRowSerializer
      * @param block Map block
      */
     void setMap(Text text, Type type, Block block);
+
+    /**
+     * Gets the Short value of the given Presto column
+     *
+     * @param name Column name
+     * @return Short value
+     */
+    short getShort(String name);
+
+    /**
+     * Encode the given Short value into the given Text object
+     *
+     * @param text Text object to set
+     * @param value Value to encode
+     */
+    void setShort(Text text, Short value);
 
     /**
      * Gets the Time value of the given Presto column
