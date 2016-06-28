@@ -47,7 +47,6 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static java.lang.Enum.valueOf;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
@@ -67,79 +66,79 @@ public class Field
      * Constructs a new instance of {@link Field} with the given value and Presto type. Default is
      * not indexed.
      *
-     * @param v Java object that matches the
-     * @param t Presto type
+     * @param value Java object that matches the
+     * @param type Presto type
      * @throws PrestoException If the given value is not or cannot be converted to the given Presto type
      */
-    public Field(Object v, Type t)
+    public Field(Object value, Type type)
     {
-        this(v, t, false);
+        this(value, type, false);
     }
 
     /**
      * Constructs a new instance of {@link Field} with the given value and Presto type.
      *
-     * @param v Java object that matches the
-     * @param t Presto type
+     * @param value Java object that matches the
+     * @param type Presto type
      * @param indexed True if this column is indexed, false otherwise
      * @throws PrestoException If the given value is not or cannot be converted to the given Presto type
      */
-    public Field(Object v, Type t, boolean indexed)
+    public Field(Object value, Type type, boolean indexed)
     {
-        this.value = cleanObject(v, t);
-        this.type = requireNonNull(t, "type is null");
+        this.value = cleanObject(value, type);
+        this.type = requireNonNull(type, "type is null");
         this.indexed = indexed;
     }
 
     /**
      * Constructs a new {@link Field} from the given Field via shallow copy
      *
-     * @param f Field to copy
+     * @param field Field to copy
      */
-    public Field(Field f)
+    public Field(Field field)
     {
-        this.type = f.type;
+        this.type = field.type;
 
         if (Types.isArrayType(this.type) || Types.isMapType(this.type)) {
-            this.value = f.value;
+            this.value = field.value;
             return;
         }
 
         if (type.equals(BIGINT)) {
-            this.value = f.getLong();
+            this.value = field.getLong();
         }
         else if (type.equals(BOOLEAN)) {
-            this.value = f.getBoolean();
+            this.value = field.getBoolean();
         }
         else if (type.equals(DATE)) {
-            this.value = new Date(f.getDate().getTime());
+            this.value = new Date(field.getDate().getTime());
         }
         else if (type.equals(DOUBLE)) {
-            this.value = f.getDouble();
+            this.value = field.getDouble();
         }
         else if (type.equals(FLOAT)) {
-            this.value = f.getFloat();
+            this.value = field.getFloat();
         }
         else if (type.equals(INTEGER)) {
-            this.value = f.getInt();
+            this.value = field.getInt();
         }
         else if (type.equals(SMALLINT)) {
-            this.value = f.getShort();
+            this.value = field.getShort();
         }
         else if (type.equals(TIME)) {
-            this.value = new Time(f.getTime().getTime());
+            this.value = new Time(field.getTime().getTime());
         }
         else if (type.equals(TIMESTAMP)) {
-            this.value = new Timestamp(f.getTimestamp().getTime());
+            this.value = new Timestamp(field.getTimestamp().getTime());
         }
         else if (type.equals(TINYINT)) {
-            this.value = f.getByte();
+            this.value = field.getByte();
         }
         else if (type.equals(VARBINARY)) {
-            this.value = Arrays.copyOf(f.getVarbinary(), f.getVarbinary().length);
+            this.value = Arrays.copyOf(field.getVarbinary(), field.getVarbinary().length);
         }
         else if (type.equals(VARCHAR)) {
-            this.value = f.getVarchar();
+            this.value = field.getVarchar();
         }
         else {
             throw new PrestoException(NOT_SUPPORTED,
@@ -340,29 +339,29 @@ public class Field
     {
         boolean retval = true;
         if (obj instanceof Field) {
-            Field f = (Field) obj;
-            if (type.equals(f.getType())) {
-                if (this.isNull() && f.isNull()) {
+            Field field = (Field) obj;
+            if (type.equals(field.getType())) {
+                if (this.isNull() && field.isNull()) {
                     retval = true;
                 }
-                else if (this.isNull() ^ f.isNull()) {
+                else if (this.isNull() ^ field.isNull()) {
                     retval = false;
                 }
                 else if (type.equals(VARBINARY)) {
                     // special case for byte arrays
                     // aren't they so fancy
-                    retval = Arrays.equals((byte[]) value, (byte[]) f.getObject());
+                    retval = Arrays.equals((byte[]) value, (byte[]) field.getObject());
                 }
                 else if (type.equals(DATE) || type.equals(TIME)
                         || type.equals(TIMESTAMP)) {
-                    retval = value.toString().equals(f.getObject().toString());
+                    retval = value.toString().equals(field.getObject().toString());
                 }
                 else {
                     if (value instanceof Block) {
-                        retval = equals((Block) value, (Block) f.getObject());
+                        retval = equals((Block) value, (Block) field.getObject());
                     }
                     else {
-                        retval = value.equals(f.getObject());
+                        retval = value.equals(field.getObject());
                     }
                 }
             }
@@ -370,15 +369,15 @@ public class Field
         return retval;
     }
 
-    private boolean equals(Block b1, Block b2)
+    private boolean equals(Block block1, Block block2)
     {
-        boolean retval = b1.getPositionCount() == b2.getPositionCount();
-        for (int i = 0; i < b1.getPositionCount() && retval; ++i) {
-            if (b1 instanceof ArrayBlock && b2 instanceof ArrayBlock) {
-                retval = equals(b1.getObject(i, Block.class), b2.getObject(i, Block.class));
+        boolean retval = block1.getPositionCount() == block2.getPositionCount();
+        for (int i = 0; i < block1.getPositionCount() && retval; ++i) {
+            if (block1 instanceof ArrayBlock && block2 instanceof ArrayBlock) {
+                retval = equals(block1.getObject(i, Block.class), block2.getObject(i, Block.class));
             }
             else {
-                retval = b1.compareTo(i, 0, b1.getLength(i), b2, i, 0, b2.getLength(i)) == 0;
+                retval = block1.compareTo(i, 0, block1.getLength(i), block2, i, 0, block2.getLength(i)) == 0;
             }
         }
         return retval;
@@ -392,66 +391,66 @@ public class Field
         }
 
         if (Types.isArrayType(type)) {
-            Type et = Types.getElementType(type);
-            StringBuilder bldr = new StringBuilder("ARRAY [");
-            for (Object f : AccumuloRowSerializer.getArrayFromBlock(et, this.getArray())) {
-                if (Types.isArrayType(et)) {
-                    Type eet = Types.getElementType(et);
-                    bldr.append(new Field(AccumuloRowSerializer.getBlockFromArray(eet, (List<?>) f),
-                            et)).append(',');
+            Type elementType = Types.getElementType(type);
+            StringBuilder builder = new StringBuilder("ARRAY [");
+            for (Object element : AccumuloRowSerializer.getArrayFromBlock(elementType, this.getArray())) {
+                if (Types.isArrayType(elementType)) {
+                    Type eet = Types.getElementType(elementType);
+                    builder.append(new Field(AccumuloRowSerializer.getBlockFromArray(eet, (List<?>) element),
+                            elementType)).append(',');
                 }
-                else if (Types.isMapType(et)) {
-                    bldr.append(
-                            new Field(AccumuloRowSerializer.getBlockFromMap(et, (Map<?, ?>) f), et))
+                else if (Types.isMapType(elementType)) {
+                    builder.append(
+                            new Field(AccumuloRowSerializer.getBlockFromMap(elementType, (Map<?, ?>) element), elementType))
                             .append(',');
                 }
                 else {
-                    bldr.append(new Field(f, et)).append(',');
+                    builder.append(new Field(element, elementType)).append(',');
                 }
             }
 
-            return bldr.deleteCharAt(bldr.length() - 1).append("]").toString();
+            return builder.deleteCharAt(builder.length() - 1).append("]").toString();
         }
 
         if (Types.isMapType(type)) {
-            StringBuilder bldr = new StringBuilder("MAP(");
+            StringBuilder builder = new StringBuilder("MAP(");
             StringBuilder keys = new StringBuilder("ARRAY [");
             StringBuilder values = new StringBuilder("ARRAY [");
-            for (Entry<Object, Object> e : AccumuloRowSerializer
+            for (Entry<Object, Object> entry : AccumuloRowSerializer
                     .getMapFromBlock(type, this.getMap()).entrySet()) {
-                Type kt = Types.getKeyType(type);
-                if (Types.isArrayType(kt)) {
+                Type keyType = Types.getKeyType(type);
+                if (Types.isArrayType(keyType)) {
                     keys.append(new Field(AccumuloRowSerializer
-                            .getBlockFromArray(Types.getElementType(kt), (List<?>) e.getKey()), kt))
+                            .getBlockFromArray(Types.getElementType(keyType), (List<?>) entry.getKey()), keyType))
                             .append(',');
                 }
-                else if (Types.isMapType(kt)) {
+                else if (Types.isMapType(keyType)) {
                     keys.append(new Field(
-                            AccumuloRowSerializer.getBlockFromMap(kt, (Map<?, ?>) e.getKey()), kt))
+                            AccumuloRowSerializer.getBlockFromMap(keyType, (Map<?, ?>) entry.getKey()), keyType))
                             .append(',');
                 }
                 else {
-                    keys.append(new Field(e.getKey(), kt)).append(',');
+                    keys.append(new Field(entry.getKey(), keyType)).append(',');
                 }
 
-                Type vt = Types.getValueType(type);
-                if (Types.isArrayType(vt)) {
+                Type valueType = Types.getValueType(type);
+                if (Types.isArrayType(valueType)) {
                     values.append(new Field(AccumuloRowSerializer.getBlockFromArray(
-                            Types.getElementType(vt), (List<?>) e.getValue()), vt)).append(',');
+                            Types.getElementType(valueType), (List<?>) entry.getValue()), valueType)).append(',');
                 }
-                else if (Types.isMapType(vt)) {
+                else if (Types.isMapType(valueType)) {
                     values.append(new Field(
-                            AccumuloRowSerializer.getBlockFromMap(vt, (Map<?, ?>) e.getValue()),
-                            vt)).append(',');
+                            AccumuloRowSerializer.getBlockFromMap(valueType, (Map<?, ?>) entry.getValue()),
+                            valueType)).append(',');
                 }
                 else {
-                    values.append(new Field(e.getValue(), vt)).append(',');
+                    values.append(new Field(entry.getValue(), valueType)).append(',');
                 }
             }
 
             keys.deleteCharAt(keys.length() - 1).append(']');
             values.deleteCharAt(values.length() - 1).append(']');
-            return bldr.append(keys).append(", ").append(values).append(")").toString();
+            return builder.append(keys).append(", ").append(values).append(")").toString();
         }
 
         // Validate the object is the given type
@@ -482,171 +481,171 @@ public class Field
     /**
      * Does it's damnedest job to convert the given object to the given type.
      *
-     * @param v Object to convert
-     * @param t Destination Presto type
+     * @param value Object to convert
+     * @param type Destination Presto type
      * @return Null if null, the converted type of it could convert it, or the same value if it is
      * fine just the way it is :D
      * @throws PrestoException If the given object is not any flavor of the given type
      */
-    private Object cleanObject(Object v, Type t)
+    private Object cleanObject(Object value, Type type)
     {
-        if (v == null) {
+        if (value == null) {
             return null;
         }
 
         // Array? Better be a block!
-        if (Types.isArrayType(t)) {
-            if (!(v instanceof Block)) {
+        if (Types.isArrayType(type)) {
+            if (!(value instanceof Block)) {
                 throw new PrestoException(INTERNAL_ERROR,
-                        "Object is not a Block, but " + v.getClass());
+                        "Object is not a Block, but " + value.getClass());
             }
-            return v;
+            return value;
         }
 
         // Map? Better be a block!
-        if (Types.isMapType(t)) {
-            if (!(v instanceof Block)) {
+        if (Types.isMapType(type)) {
+            if (!(value instanceof Block)) {
                 throw new PrestoException(INTERNAL_ERROR,
-                        "Object is not a Block, but " + v.getClass());
+                        "Object is not a Block, but " + value.getClass());
             }
-            return v;
+            return value;
         }
 
         // And now for the plain types
-        if (t.equals(BIGINT)) {
-            if (!(v instanceof Long)) {
+        if (type.equals(BIGINT)) {
+            if (!(value instanceof Long)) {
                 throw new PrestoException(INTERNAL_ERROR,
-                        "Object is not a Long, but " + v.getClass());
+                        "Object is not a Long, but " + value.getClass());
             }
         }
-        else if (t.equals(INTEGER)) {
-            if (v instanceof Long) {
-                return ((Long) v).intValue();
+        else if (type.equals(INTEGER)) {
+            if (value instanceof Long) {
+                return ((Long) value).intValue();
             }
 
-            if (!(v instanceof Integer)) {
+            if (!(value instanceof Integer)) {
                 throw new PrestoException(INTERNAL_ERROR,
-                        "Object is not a Long or Integer, but " + v.getClass());
+                        "Object is not a Long or Integer, but " + value.getClass());
             }
         }
-        else if (t.equals(BOOLEAN)) {
-            if (!(v instanceof Boolean)) {
+        else if (type.equals(BOOLEAN)) {
+            if (!(value instanceof Boolean)) {
                 throw new PrestoException(INTERNAL_ERROR,
-                        "Object is not a Boolean, but " + v.getClass());
+                        "Object is not a Boolean, but " + value.getClass());
             }
-            return v;
+            return value;
         }
-        else if (t.equals(DATE)) {
-            if (v instanceof Long) {
-                return new Date((Long) v);
+        else if (type.equals(DATE)) {
+            if (value instanceof Long) {
+                return new Date((Long) value);
             }
 
-            if (v instanceof Calendar) {
-                return new Date(((Calendar) v).getTime().getTime());
+            if (value instanceof Calendar) {
+                return new Date(((Calendar) value).getTime().getTime());
             }
 
-            if (!(v instanceof Date)) {
+            if (!(value instanceof Date)) {
                 throw new PrestoException(INTERNAL_ERROR,
-                        "Object is not a Calendar, Date, or Long, but " + v.getClass());
-            }
-        }
-        else if (t.equals(DOUBLE)) {
-            if (!(v instanceof Double)) {
-                throw new PrestoException(INTERNAL_ERROR,
-                        "Object is not a Double, but " + v.getClass());
+                        "Object is not a Calendar, Date, or Long, but " + value.getClass());
             }
         }
-        else if (t.equals(FLOAT)) {
-            if (v instanceof Long) {
-                return Float.intBitsToFloat(((Long) v).intValue());
-            }
-
-            if (v instanceof Integer) {
-                return Float.intBitsToFloat((Integer) v);
-            }
-
-            if (!(v instanceof Float)) {
+        else if (type.equals(DOUBLE)) {
+            if (!(value instanceof Double)) {
                 throw new PrestoException(INTERNAL_ERROR,
-                        "Object is not a Float, but " + v.getClass());
+                        "Object is not a Double, but " + value.getClass());
             }
         }
-        else if (t.equals(SMALLINT)) {
-            if (v instanceof Long) {
-                return ((Long) v).shortValue();
+        else if (type.equals(FLOAT)) {
+            if (value instanceof Long) {
+                return Float.intBitsToFloat(((Long) value).intValue());
             }
 
-            if (v instanceof Integer) {
-                return ((Integer) v).shortValue();
+            if (value instanceof Integer) {
+                return Float.intBitsToFloat((Integer) value);
             }
 
-            if (!(v instanceof Short)) {
+            if (!(value instanceof Float)) {
                 throw new PrestoException(INTERNAL_ERROR,
-                        "Object is not a Short, but " + v.getClass());
+                        "Object is not a Float, but " + value.getClass());
             }
         }
-        else if (t.equals(TIME)) {
-            if (v instanceof Long) {
-                return new Time((Long) v);
+        else if (type.equals(SMALLINT)) {
+            if (value instanceof Long) {
+                return ((Long) value).shortValue();
             }
 
-            if (!(v instanceof Time)) {
+            if (value instanceof Integer) {
+                return ((Integer) value).shortValue();
+            }
+
+            if (!(value instanceof Short)) {
                 throw new PrestoException(INTERNAL_ERROR,
-                        "Object is not a Long or Time, but " + v.getClass());
+                        "Object is not a Short, but " + value.getClass());
             }
         }
-        else if (t.equals(TIMESTAMP)) {
-            if (v instanceof Long) {
-                return new Timestamp((Long) v);
+        else if (type.equals(TIME)) {
+            if (value instanceof Long) {
+                return new Time((Long) value);
             }
 
-            if (!(v instanceof Timestamp)) {
+            if (!(value instanceof Time)) {
                 throw new PrestoException(INTERNAL_ERROR,
-                        "Object is not a Long or Timestamp, but " + v.getClass());
+                        "Object is not a Long or Time, but " + value.getClass());
             }
         }
-        else if (t.equals(TINYINT)) {
-            if (v instanceof Long) {
-                return ((Long) v).byteValue();
+        else if (type.equals(TIMESTAMP)) {
+            if (value instanceof Long) {
+                return new Timestamp((Long) value);
             }
 
-            if (v instanceof Integer) {
-                return ((Integer) v).byteValue();
-            }
-
-            if (v instanceof Short) {
-                return ((Short) v).byteValue();
-            }
-
-            if (!(v instanceof Byte)) {
+            if (!(value instanceof Timestamp)) {
                 throw new PrestoException(INTERNAL_ERROR,
-                        "Object is not a Byte, but " + v.getClass());
+                        "Object is not a Long or Timestamp, but " + value.getClass());
             }
         }
-        else if (t.equals(VARBINARY)) {
-            if (v instanceof Slice) {
-                return ((Slice) v).getBytes();
+        else if (type.equals(TINYINT)) {
+            if (value instanceof Long) {
+                return ((Long) value).byteValue();
             }
 
-            if (!(v instanceof byte[])) {
+            if (value instanceof Integer) {
+                return ((Integer) value).byteValue();
+            }
+
+            if (value instanceof Short) {
+                return ((Short) value).byteValue();
+            }
+
+            if (!(value instanceof Byte)) {
                 throw new PrestoException(INTERNAL_ERROR,
-                        "Object is not a Slice byte[], but " + v.getClass());
+                        "Object is not a Byte, but " + value.getClass());
             }
         }
-        else if (t instanceof VarcharType) {
-            if (v instanceof Slice) {
-                return new String(((Slice) v).getBytes());
+        else if (type.equals(VARBINARY)) {
+            if (value instanceof Slice) {
+                return ((Slice) value).getBytes();
             }
 
-            if (!(v instanceof String)) {
+            if (!(value instanceof byte[])) {
                 throw new PrestoException(INTERNAL_ERROR,
-                        "Object is not a Slice or String, but " + v.getClass());
+                        "Object is not a Slice byte[], but " + value.getClass());
+            }
+        }
+        else if (type instanceof VarcharType) {
+            if (value instanceof Slice) {
+                return new String(((Slice) value).getBytes(), UTF_8);
+            }
+
+            if (!(value instanceof String)) {
+                throw new PrestoException(INTERNAL_ERROR,
+                        "Object is not a Slice or String, but " + value.getClass());
             }
         }
         else {
             throw new PrestoException(INTERNAL_ERROR,
-                    "Unsupported PrestoType " + t);
+                    "Unsupported PrestoType " + type);
         }
 
-        return v;
+        return value;
     }
 }

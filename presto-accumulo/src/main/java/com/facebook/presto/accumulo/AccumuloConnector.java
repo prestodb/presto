@@ -49,11 +49,9 @@ public class AccumuloConnector
     private static final Logger LOG = Logger.get(AccumuloConnector.class);
 
     private final LifeCycleManager lifeCycleManager;
-    private final AccumuloMetadata metadata;
     private final AccumuloMetadataFactory metadataFactory;
     private final AccumuloSplitManager splitManager;
     private final AccumuloRecordSetProvider recordSetProvider;
-    private final AccumuloHandleResolver handleResolver;
     private final AccumuloPageSinkProvider pageSinkProvider;
     private final AccumuloSessionProperties sessionProperties;
     private final AccumuloTableProperties tableProperties;
@@ -64,29 +62,23 @@ public class AccumuloConnector
      * Creates a new instance of AccumuloConnector, brought to you by Guice.
      *
      * @param lifeCycleManager Manages the life cycle
-     * @param metadata Provides metadata operations for creating tables, dropping tables, returing table
-     * metadata, etc
      * @param metadataFactory Factory for making Metadata
      * @param splitManager Splits tables into parallel operations for scans
      * @param recordSetProvider Converts splits into rows of data
-     * @param handleResolver Defines various handles for Presto to instantiate
      * @param pageSinkProvider Provides a means to write data to Accumulo via INSERTs
      * @param sessionProperties Defines all Accumulo session properties
      * @param tableProperties Defines all Accumulo table properties
      */
     @Inject
-    public AccumuloConnector(LifeCycleManager lifeCycleManager, AccumuloMetadata metadata,
-            AccumuloMetadataFactory metadataFactory, AccumuloSplitManager splitManager,
-            AccumuloRecordSetProvider recordSetProvider, AccumuloHandleResolver handleResolver,
+    public AccumuloConnector(LifeCycleManager lifeCycleManager, AccumuloMetadataFactory metadataFactory,
+            AccumuloSplitManager splitManager, AccumuloRecordSetProvider recordSetProvider,
             AccumuloPageSinkProvider pageSinkProvider, AccumuloSessionProperties sessionProperties,
             AccumuloTableProperties tableProperties)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
         this.metadataFactory = requireNonNull(metadataFactory, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
-        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");

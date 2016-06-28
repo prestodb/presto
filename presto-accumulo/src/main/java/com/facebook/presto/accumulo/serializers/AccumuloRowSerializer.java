@@ -84,10 +84,10 @@ public interface AccumuloRowSerializer
      * Sets the mapping for the Presto column name to Accumulo family and qualifier
      *
      * @param name Presto name
-     * @param fam Accumulo family
-     * @param qual Accumulo qualifier
+     * @param family Accumulo family
+     * @param qualifier Accumulo qualifier
      */
-    void setMapping(String name, String fam, String qual);
+    void setMapping(String name, String family, String qualifier);
 
     /**
      * Sets a Boolean value indicating whether or not only the row ID is going to be retrieved from
@@ -105,10 +105,10 @@ public interface AccumuloRowSerializer
     /**
      * Deserialize the given Accumulo entry, retrieving data for the Presto column
      *
-     * @param kvp Entry to deserialize
+     * @param entry Entry to deserialize
      * @throws IOException If an IO error occurs during deserialization
      */
-    void deserialize(Entry<Key, Value> kvp)
+    void deserialize(Entry<Key, Value> entry)
             throws IOException;
 
     /**
@@ -364,6 +364,10 @@ public interface AccumuloRowSerializer
      * <td>com.facebook.presto.spi.block.Block</td>
      * </tr>
      * <tr>
+     * <td>BIGINT</td>
+     * <td>Integer or Long</td>
+     * </tr>
+     * <tr>
      * <td>BOOLEAN</td>
      * <td>Boolean</td>
      * </tr>
@@ -376,20 +380,32 @@ public interface AccumuloRowSerializer
      * <td>Double</td>
      * </tr>
      * <tr>
-     * <td>LONG</td>
-     * <td>Long</td>
+     * <td>FLOAT</td>
+     * <td>Float</td>
+     * </tr>
+     * <tr>
+     * <td>INTEGER</td>
+     * <td>Integer</td>
      * </tr>
      * <tr>
      * <td>Map</td>
      * <td>com.facebook.presto.spi.block.Block</td>
      * </tr>
      * <tr>
-     * <td>Time</td>
+     * <td>SMALLINT</td>
+     * <td>Short</td>
+     * </tr>
+     * <tr>
+     * <td>TIME</td>
      * <td>java.sql.Time, Long</td>
      * </tr>
      * <tr>
-     * <td>Timestamp</td>
+     * <td>TIMESTAMP</td>
      * <td>java.sql.Timestamp, Long</td>
+     * </tr>
+     * <tr>
+     * <td>TINYINT</td>
+     * <td>Byte</td>
      * </tr>
      * <tr>
      * <td>VARBINARY</td>
@@ -402,10 +418,10 @@ public interface AccumuloRowSerializer
      * </table>
      *
      * @param type The presto {@link com.facebook.presto.spi.type.Type}
-     * @param v The Java object per the table in the method description
+     * @param value The Java object per the table in the method description
      * @return Encoded bytes
      */
-    public byte[] encode(Type type, Object v);
+    byte[] encode(Type type, Object value);
 
     /**
      * Generic function to decode the given byte array to a Java object based on the given type.
@@ -424,6 +440,10 @@ public interface AccumuloRowSerializer
      * <td>List&lt;?&gt;</td>
      * </tr>
      * <tr>
+     * <td>BIGINT</td>
+     * <td>Long</td>
+     * </tr>
+     * <tr>
      * <td>BOOLEAN</td>
      * <td>Boolean</td>
      * </tr>
@@ -436,19 +456,27 @@ public interface AccumuloRowSerializer
      * <td>Double</td>
      * </tr>
      * <tr>
-     * <td>LONG</td>
-     * <td>Long</td>
+     * <td>FLOAT</td>
+     * <td>Double</td>
      * </tr>
      * <tr>
      * <td>Map</td>
      * <td>Map&lt;?,?&gt;</td>
      * </tr>
      * <tr>
-     * <td>Time</td>
+     * <td>SMALLINT</td>
      * <td>Long</td>
      * </tr>
      * <tr>
-     * <td>Timestamp</td>
+     * <td>TIME</td>
+     * <td>Long</td>
+     * </tr>
+     * <tr>
+     * <td>TIMESTAMP</td>
+     * <td>Long</td>
+     * </tr>
+     * <tr>
+     * <td>TINYINT</td>
      * <td>Long</td>
      * </tr>
      * <tr>
@@ -462,11 +490,11 @@ public interface AccumuloRowSerializer
      * </table>
      *
      * @param type The presto {@link com.facebook.presto.spi.type.Type}
-     * @param v Encoded bytes to decode
+     * @param value Encoded bytes to decode
      * @param <T> The Java type of the object that has been encoded to the given byte array
      * @return The Java object per the table in the method description
      */
-    public <T> T decode(Type type, byte[] v);
+    <T> T decode(Type type, byte[] value);
 
     /**
      * Given the array element type and Presto Block, decodes the Block into a list of values.
@@ -494,10 +522,10 @@ public interface AccumuloRowSerializer
     static Map<Object, Object> getMapFromBlock(Type type, Block block)
     {
         Map<Object, Object> map = new HashMap<>(block.getPositionCount() / 2);
-        Type kt = Types.getKeyType(type);
-        Type vt = Types.getValueType(type);
+        Type keyType = Types.getKeyType(type);
+        Type valueType = Types.getValueType(type);
         for (int i = 0; i < block.getPositionCount(); i += 2) {
-            map.put(readObject(kt, block, i), readObject(vt, block, i + 1));
+            map.put(readObject(keyType, block, i), readObject(valueType, block, i + 1));
         }
         return map;
     }
@@ -511,11 +539,11 @@ public interface AccumuloRowSerializer
      */
     static Block getBlockFromArray(Type elementType, List<?> array)
     {
-        BlockBuilder bldr = elementType.createBlockBuilder(new BlockBuilderStatus(), array.size());
+        BlockBuilder builder = elementType.createBlockBuilder(new BlockBuilderStatus(), array.size());
         for (Object item : (List<?>) array) {
-            writeObject(bldr, elementType, item);
+            writeObject(builder, elementType, item);
         }
-        return bldr.build();
+        return builder.build();
     }
 
     /**
@@ -530,14 +558,14 @@ public interface AccumuloRowSerializer
         Type keyType = mapType.getTypeParameters().get(0);
         Type valueType = mapType.getTypeParameters().get(1);
 
-        BlockBuilder bldr = new InterleavedBlockBuilder(ImmutableList.of(keyType, valueType),
+        BlockBuilder builder = new InterleavedBlockBuilder(ImmutableList.of(keyType, valueType),
                 new BlockBuilderStatus(), map.size() * 2);
 
         for (Entry<?, ?> entry : map.entrySet()) {
-            writeObject(bldr, keyType, entry.getKey());
-            writeObject(bldr, valueType, entry.getValue());
+            writeObject(builder, keyType, entry.getKey());
+            writeObject(builder, valueType, entry.getValue());
         }
-        return bldr.build();
+        return builder.build();
     }
 
     /**
@@ -545,32 +573,32 @@ public interface AccumuloRowSerializer
      * {@link AccumuloRowSerializer#getBlockFromMap} to add the given object to the given block
      * builder. Supports nested complex types!
      *
-     * @param bldr Block builder
+     * @param builder Block builder
      * @param type Presto type
-     * @param o Object to write to the block builder
+     * @param obj Object to write to the block builder
      */
-    static void writeObject(BlockBuilder bldr, Type type, Object o)
+    static void writeObject(BlockBuilder builder, Type type, Object obj)
     {
         if (Types.isArrayType(type)) {
-            BlockBuilder arrayBldr = bldr.beginBlockEntry();
-            Type et = Types.getElementType(type);
-            for (Object item : (List<?>) o) {
-                writeObject(arrayBldr, et, item);
+            BlockBuilder arrayBldr = builder.beginBlockEntry();
+            Type elementType = Types.getElementType(type);
+            for (Object item : (List<?>) obj) {
+                writeObject(arrayBldr, elementType, item);
             }
-            bldr.closeEntry();
+            builder.closeEntry();
         }
         else if (Types.isMapType(type)) {
-            Type kt = ((MapType) type).getKeyType();
-            Type vt = ((MapType) type).getValueType();
-            BlockBuilder mapBlockBuilder = bldr.beginBlockEntry();
-            for (Entry<?, ?> entry : ((Map<?, ?>) o).entrySet()) {
-                writeObject(mapBlockBuilder, kt, entry.getKey());
-                writeObject(mapBlockBuilder, vt, entry.getValue());
+            Type keyType = ((MapType) type).getKeyType();
+            Type valueType = ((MapType) type).getValueType();
+            BlockBuilder mapBlockBuilder = builder.beginBlockEntry();
+            for (Entry<?, ?> entry : ((Map<?, ?>) obj).entrySet()) {
+                writeObject(mapBlockBuilder, keyType, entry.getKey());
+                writeObject(mapBlockBuilder, valueType, entry.getValue());
             }
-            bldr.closeEntry();
+            builder.closeEntry();
         }
         else {
-            TypeUtils.writeNativeValue(type, bldr, o);
+            TypeUtils.writeNativeValue(type, builder, obj);
         }
     }
 

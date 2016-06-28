@@ -77,7 +77,7 @@ public class AccumuloPageSink
 {
     public static final Text ROW_ID_COLUMN = new Text("___ROW___");
     private final AccumuloRowSerializer serializer;
-    private final BatchWriter wrtr;
+    private final BatchWriter writer;
     private final Optional<Indexer> indexer;
     private final List<AccumuloColumnHandle> columns;
     private final int rowIdOrdinal;
@@ -104,20 +104,20 @@ public class AccumuloPageSink
             throw new PrestoException(INTERNAL_ERROR, "Row ID ordinal not found");
         }
 
-        rowIdOrdinal = ordinal.get();
+        this.rowIdOrdinal = ordinal.get();
 
         this.serializer = table.getSerializerInstance();
 
         try {
-            Connector conn = AccumuloClient.getAccumuloConnector(config);
+            Connector connector = AccumuloClient.getAccumuloConnector(config);
             // Create a BatchWriter to the Accumulo table
             BatchWriterConfig conf = new BatchWriterConfig();
-            wrtr = conn.createBatchWriter(table.getFullTableName(), conf);
+            writer = connector.createBatchWriter(table.getFullTableName(), conf);
 
             // If the table is indexed, create an instance of an Indexer, else null
             if (table.isIndexed()) {
-                indexer = Optional.of(new Indexer(conn,
-                        conn.securityOperations().getUserAuthorizations(config.getUsername()),
+                indexer = Optional.of(new Indexer(connector,
+                        connector.securityOperations().getUserAuthorizations(config.getUsername()),
                         table, conf));
             }
             else {
@@ -151,36 +151,36 @@ public class AccumuloPageSink
     {
         // Set our value to the row ID
         Text value = new Text();
-        Field rField = row.getField(rowIdOrdinal);
-        if (rField.isNull()) {
+        Field rowField = row.getField(rowIdOrdinal);
+        if (rowField.isNull()) {
             throw new PrestoException(VALIDATION, "Column mapped as the Accumulo row ID cannot be null");
         }
 
-        setText(rField, value, serializer);
+        setText(rowField, value, serializer);
 
         // Iterate through all the column handles, setting the Mutation's columns
-        Mutation m = new Mutation(value);
+        Mutation mutation = new Mutation(value);
 
         // Store row ID in a special column
-        m.put(ROW_ID_COLUMN, ROW_ID_COLUMN, new Value(value.copyBytes()));
+        mutation.put(ROW_ID_COLUMN, ROW_ID_COLUMN, new Value(value.copyBytes()));
 
-        for (AccumuloColumnHandle ach : columns) {
+        for (AccumuloColumnHandle columnHandle : columns) {
             // Skip the row ID ordinal
-            if (ach.getOrdinal() == rowIdOrdinal) {
+            if (columnHandle.getOrdinal() == rowIdOrdinal) {
                 continue;
             }
 
             // If the value of the field is not null
-            if (!row.getField(ach.getOrdinal()).isNull()) {
+            if (!row.getField(columnHandle.getOrdinal()).isNull()) {
                 // Serialize the value to the text
-                setText(row.getField(ach.getOrdinal()), value, serializer);
+                setText(row.getField(columnHandle.getOrdinal()), value, serializer);
 
                 // And add the bytes to the Mutation
-                m.put(ach.getFamily().get(), ach.getQualifier().get(), new Value(value.copyBytes()));
+                mutation.put(columnHandle.getFamily().get(), columnHandle.getQualifier().get(), new Value(value.copyBytes()));
             }
         }
 
-        return m;
+        return mutation;
     }
 
     /**
@@ -259,15 +259,15 @@ public class AccumuloPageSink
             }
 
             // Convert row to a Mutation
-            Mutation m = toMutation(row, rowIdOrdinal, columns, serializer);
+            Mutation mutation = toMutation(row, rowIdOrdinal, columns, serializer);
 
             // If this mutation has columns
-            if (m.size() > 0) {
+            if (mutation.size() > 0) {
                 try {
                     // Write the mutation and index it
-                    wrtr.addMutation(m);
+                    writer.addMutation(mutation);
                     if (indexer.isPresent()) {
-                        indexer.get().index(m);
+                        indexer.get().index(mutation);
                     }
                 }
                 catch (MutationsRejectedException e) {
@@ -290,8 +290,8 @@ public class AccumuloPageSink
     {
         try {
             // Done serializing rows, so flush and close the writer and indexer
-            wrtr.flush();
-            wrtr.close();
+            writer.flush();
+            writer.close();
             if (indexer.isPresent()) {
                 indexer.get().close();
             }

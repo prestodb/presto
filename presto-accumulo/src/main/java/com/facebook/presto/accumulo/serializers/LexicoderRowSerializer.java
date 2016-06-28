@@ -111,16 +111,16 @@ public class LexicoderRowSerializer
     }
 
     @Override
-    public void setMapping(String name, String fam, String qual)
+    public void setMapping(String name, String family, String qualifier)
     {
         columnValues.put(name, null);
-        Map<String, String> q2pc = f2q2pc.get(fam);
+        Map<String, String> q2pc = f2q2pc.get(family);
         if (q2pc == null) {
             q2pc = new HashMap<>();
-            f2q2pc.put(fam, q2pc);
+            f2q2pc.put(family, q2pc);
         }
 
-        q2pc.put(qual, name);
+        q2pc.put(qualifier, name);
     }
 
     @Override
@@ -130,11 +130,11 @@ public class LexicoderRowSerializer
     }
 
     @Override
-    public void deserialize(Entry<Key, Value> kvp)
+    public void deserialize(Entry<Key, Value> entry)
             throws IOException
     {
         if (!columnValues.containsKey(rowIdName)) {
-            kvp.getKey().getRow(rowId);
+            entry.getKey().getRow(rowId);
             columnValues.put(rowIdName, rowId.copyBytes());
         }
 
@@ -142,14 +142,14 @@ public class LexicoderRowSerializer
             return;
         }
 
-        kvp.getKey().getColumnFamily(cf);
-        kvp.getKey().getColumnQualifier(cq);
+        entry.getKey().getColumnFamily(cf);
+        entry.getKey().getColumnQualifier(cq);
 
         if (cf.equals(ROW_ID_COLUMN) && cq.equals(ROW_ID_COLUMN)) {
             return;
         }
 
-        value.set(kvp.getValue().get());
+        value.set(entry.getValue().get());
         columnValues.put(f2q2pc.get(cf.toString()).get(cq.toString()), value.copyBytes());
     }
 
@@ -335,57 +335,57 @@ public class LexicoderRowSerializer
     }
 
     @Override
-    public byte[] encode(Type type, Object v)
+    public byte[] encode(Type type, Object value)
     {
         Object toEncode;
         if (Types.isArrayType(type)) {
             toEncode =
-                    AccumuloRowSerializer.getArrayFromBlock(Types.getElementType(type), (Block) v);
+                    AccumuloRowSerializer.getArrayFromBlock(Types.getElementType(type), (Block) value);
         }
         else if (Types.isMapType(type)) {
-            toEncode = AccumuloRowSerializer.getMapFromBlock(type, (Block) v);
+            toEncode = AccumuloRowSerializer.getMapFromBlock(type, (Block) value);
         }
-        else if (type.equals(DATE) && v instanceof Date) {
-            toEncode = ((Date) v).getTime();
+        else if (type.equals(BIGINT) && value instanceof Integer) {
+            toEncode = ((Integer) value).longValue();
         }
-        else if (type.equals(FLOAT) && v instanceof Float) {
-            toEncode = ((Float) v).doubleValue();
+        else if (type.equals(DATE) && value instanceof Date) {
+            toEncode = ((Date) value).getTime();
         }
-        else if (type.equals(INTEGER) && v instanceof Integer) {
-            toEncode = ((Integer) v).longValue();
+        else if (type.equals(FLOAT) && value instanceof Float) {
+            toEncode = ((Float) value).doubleValue();
         }
-        else if (type.equals(SMALLINT) && v instanceof Short) {
-            toEncode = ((Short) v).longValue();
+        else if (type.equals(INTEGER) && value instanceof Integer) {
+            toEncode = ((Integer) value).longValue();
         }
-        else if (type.equals(TIME) && v instanceof Time) {
-            toEncode = ((Time) v).getTime();
+        else if (type.equals(SMALLINT) && value instanceof Short) {
+            toEncode = ((Short) value).longValue();
         }
-        else if (type.equals(TIMESTAMP) && v instanceof Timestamp) {
-            toEncode = ((Timestamp) v).getTime();
+        else if (type.equals(TIME) && value instanceof Time) {
+            toEncode = ((Time) value).getTime();
         }
-        else if (type.equals(TINYINT) && v instanceof Byte) {
-            toEncode = ((Byte) v).longValue();
+        else if (type.equals(TIMESTAMP) && value instanceof Timestamp) {
+            toEncode = ((Timestamp) value).getTime();
         }
-        else if (type.equals(VARBINARY) && v instanceof Slice) {
-            toEncode = ((Slice) v).getBytes();
+        else if (type.equals(TINYINT) && value instanceof Byte) {
+            toEncode = ((Byte) value).longValue();
         }
-        else if (type instanceof VarcharType && v instanceof Slice) {
-            toEncode = ((Slice) v).toStringUtf8();
+        else if (type.equals(VARBINARY) && value instanceof Slice) {
+            toEncode = ((Slice) value).getBytes();
         }
-        else if (type.equals(BIGINT) && v instanceof Integer) {
-            toEncode = ((Integer) v).longValue();
+        else if (type instanceof VarcharType && value instanceof Slice) {
+            toEncode = ((Slice) value).toStringUtf8();
         }
         else {
-            toEncode = v;
+            toEncode = value;
         }
 
         return getLexicoder(type).encode(toEncode);
     }
 
     @Override
-    public <T> T decode(Type type, byte[] v)
+    public <T> T decode(Type type, byte[] value)
     {
-        return (T) getLexicoder(type).decode(v);
+        return (T) getLexicoder(type).decode(value);
     }
 
     public static Lexicoder getLexicoder(Type type)

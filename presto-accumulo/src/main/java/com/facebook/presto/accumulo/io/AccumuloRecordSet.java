@@ -60,7 +60,7 @@ public class AccumuloRecordSet
     private final List<AccumuloColumnConstraint> constraints;
     private final List<Type> columnTypes;
     private final AccumuloRowSerializer serializer;
-    private final BatchScanner scan;
+    private final BatchScanner scanner;
     private final String rowIdName;
 
     /**
@@ -101,9 +101,9 @@ public class AccumuloRecordSet
         try {
             // Create the BatchScanner and set the ranges from the split
             Connector conn = AccumuloClient.getAccumuloConnector(config);
-            scan = conn.createBatchScanner(split.getFullTableName(),
+            scanner = conn.createBatchScanner(split.getFullTableName(),
                     getScanAuthorizations(session, split, config, conn), 10);
-            scan.setRanges(split.getRanges());
+            scanner.setRanges(split.getRanges());
         }
         catch (Exception e) {
             throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR,
@@ -112,7 +112,7 @@ public class AccumuloRecordSet
     }
 
     /**
-     * Gets the scan authorizations to use for scanning tables.<br>
+     * Gets the scanner authorizations to use for scanning tables.<br>
      * <br>
      * In order of priority: session username authorizations, then table property, then the default
      * connector auths
@@ -133,7 +133,7 @@ public class AccumuloRecordSet
         if (sessionScanUser != null) {
             Authorizations scanAuths =
                     conn.securityOperations().getUserAuthorizations(sessionScanUser);
-            LOG.debug("Using session scan auths for user %s: %s", sessionScanUser, scanAuths);
+            LOG.debug("Using session scanner auths for user %s: %s", sessionScanUser, scanAuths);
             return scanAuths;
         }
 
@@ -160,6 +160,6 @@ public class AccumuloRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new AccumuloRecordCursor(serializer, scan, rowIdName, columnHandles, constraints);
+        return new AccumuloRecordCursor(serializer, scanner, rowIdName, columnHandles, constraints);
     }
 }

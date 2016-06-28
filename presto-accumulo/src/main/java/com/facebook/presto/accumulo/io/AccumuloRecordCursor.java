@@ -24,7 +24,6 @@ import com.facebook.presto.accumulo.model.AccumuloColumnHandle;
 import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Marker.Bound;
 import com.facebook.presto.spi.predicate.Range;
@@ -62,6 +61,7 @@ import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -74,13 +74,13 @@ import static java.util.Objects.requireNonNull;
 public class AccumuloRecordCursor
         implements RecordCursor
 {
-    private final List<AccumuloColumnHandle> cHandles;
+    private final List<AccumuloColumnHandle> columnHandles;
     private final String[] fieldToColumnName;
 
     private long bytesRead = 0L;
     private long nanoStart = 0L;
     private long nanoEnd = 0L;
-    private final BatchScanner scan;
+    private final BatchScanner scanner;
     private final Iterator<Entry<Key, Value>> iterator;
     private final AccumuloRowSerializer serializer;
     private Entry<Key, Value> prevKV;
@@ -91,25 +91,25 @@ public class AccumuloRecordCursor
      * Creates a new instance of {@link AccumuloRecordCursor}
      *
      * @param serializer Serializer to decode the data stored in Accumulo
-     * @param scan BatchScanner for retrieving rows of data
+     * @param scanner BatchScanner for retrieving rows of data
      * @param rowIdName Presto column that is the Accumulo row ID
-     * @param cHandles List of column handles in each row
+     * @param columnHandles List of column handles in each row
      * @param constraints List of all column constraints
      */
-    public AccumuloRecordCursor(AccumuloRowSerializer serializer, BatchScanner scan,
-            String rowIdName, List<AccumuloColumnHandle> cHandles,
+    public AccumuloRecordCursor(AccumuloRowSerializer serializer, BatchScanner scanner,
+            String rowIdName, List<AccumuloColumnHandle> columnHandles,
             List<AccumuloColumnConstraint> constraints)
     {
-        this.cHandles = requireNonNull(cHandles, "cHandles is null");
-        this.scan = requireNonNull(scan, "scan is null");
+        this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
+        this.scanner = requireNonNull(scanner, "scanner is null");
         this.serializer = requireNonNull(serializer, "serializer is null");
         this.serializer.setRowIdName(requireNonNull(rowIdName, "rowIdName is null"));
 
-        requireNonNull(cHandles, "cHandles is null");
+        requireNonNull(columnHandles, "columnHandles is null");
         requireNonNull(constraints, "constraints is null");
 
         if (retrieveOnlyRowIds(rowIdName)) {
-            this.scan.addScanIterator(
+            this.scanner.addScanIterator(
                     new IteratorSetting(1, "firstentryiter", FirstEntryInRowIterator.class));
 
             fieldToColumnName = new String[1];
@@ -123,28 +123,28 @@ public class AccumuloRecordCursor
             this.serializer.setRowOnly(false);
 
             // Fetch the reserved row ID column
-            this.scan.fetchColumn(ROW_ID_COLUMN, ROW_ID_COLUMN);
+            this.scanner.fetchColumn(ROW_ID_COLUMN, ROW_ID_COLUMN);
 
-            Text fam = new Text();
-            Text qual = new Text();
+            Text family = new Text();
+            Text qualifier = new Text();
 
             // Create an array which maps the column ordinal to the name of the column
-            fieldToColumnName = new String[cHandles.size()];
-            for (int i = 0; i < cHandles.size(); ++i) {
-                AccumuloColumnHandle cHandle = cHandles.get(i);
-                fieldToColumnName[i] = cHandle.getName();
+            fieldToColumnName = new String[columnHandles.size()];
+            for (int i = 0; i < columnHandles.size(); ++i) {
+                AccumuloColumnHandle columnHandle = columnHandles.get(i);
+                fieldToColumnName[i] = columnHandle.getName();
 
                 // Make sure to skip the row ID!
-                if (!cHandle.getName().equals(rowIdName)) {
+                if (!columnHandle.getName().equals(rowIdName)) {
                     // Set the mapping of presto column name to the family/qualifier
-                    this.serializer.setMapping(cHandle.getName(), cHandle.getFamily().get(),
-                            cHandle.getQualifier().get());
+                    this.serializer.setMapping(columnHandle.getName(), columnHandle.getFamily().get(),
+                            columnHandle.getQualifier().get());
 
                     // Set our scanner to fetch this family/qualifier column
                     // This will help us prune which data we receive from Accumulo
-                    fam.set(cHandle.getFamily().get());
-                    qual.set(cHandle.getQualifier().get());
-                    this.scan.fetchColumn(fam, qual);
+                    family.set(columnHandle.getFamily().get());
+                    qualifier.set(columnHandle.getQualifier().get());
+                    this.scanner.fetchColumn(family, qualifier);
                 }
             }
         }
@@ -152,7 +152,7 @@ public class AccumuloRecordCursor
         // Add column iterators and retrieve the iterator
         // TODO Predicate pushdown via iterators needs work
         // addColumnIterators(constraints);
-        iterator = this.scan.iterator();
+        iterator = this.scanner.iterator();
     }
 
     @Override
@@ -176,8 +176,8 @@ public class AccumuloRecordCursor
     @Override
     public Type getType(int field)
     {
-        checkArgument(field < cHandles.size(), "Invalid field index");
-        return cHandles.get(field).getType();
+        checkArgument(field >= 0 && field < columnHandles.size(), "Invalid field index");
+        return columnHandles.get(field).getType();
     }
 
     @Override
@@ -223,15 +223,15 @@ public class AccumuloRecordCursor
             boolean advancedToNewRow = false;
             while (iterator.hasNext() && !advancedToNewRow) {
                 // Scan the key value pair and get the row ID
-                Entry<Key, Value> kv = iterator.next();
+                Entry<Key, Value> entry = iterator.next();
 
-                bytesRead += kv.getKey().getSize() + kv.getValue().getSize();
-                kv.getKey().getRow(rowID);
+                bytesRead += entry.getKey().getSize() + entry.getValue().getSize();
+                entry.getKey().getRow(rowID);
 
                 // If the row IDs are equivalent or there is no previous row
                 // ID (length == 0), deserialize the KV pair
                 if (rowID.equals(prevRowID) || prevRowID.getLength() == 0) {
-                    serializer.deserialize(kv);
+                    serializer.deserialize(entry);
                 }
                 else {
                     // If they are different, then we have advanced to a new row and we need to
@@ -240,7 +240,7 @@ public class AccumuloRecordCursor
                 }
 
                 // Set our 'previous' member variables to track the previously scanned entry
-                prevKV = kv;
+                prevKV = entry;
                 prevRowID.set(rowID);
             }
 
@@ -262,7 +262,7 @@ public class AccumuloRecordCursor
     @Override
     public boolean isNull(int field)
     {
-        checkArgument(field < cHandles.size(), "Invalid field index");
+        checkArgument(field < columnHandles.size(), "Invalid field index");
         return serializer.isNull(fieldToColumnName[field]);
     }
 
@@ -349,7 +349,7 @@ public class AccumuloRecordCursor
     @Override
     public void close()
     {
-        scan.close();
+        scanner.close();
         nanoEnd = System.nanoTime();
     }
 
@@ -365,7 +365,7 @@ public class AccumuloRecordCursor
      */
     private boolean retrieveOnlyRowIds(String rowIdName)
     {
-        return cHandles.size() == 0 || (cHandles.size() == 1 && cHandles.get(0).getName().equals(rowIdName));
+        return columnHandles.size() == 0 || (columnHandles.size() == 1 && columnHandles.get(0).getName().equals(rowIdName));
     }
 
     /**
@@ -378,14 +378,14 @@ public class AccumuloRecordCursor
     private void checkFieldType(int field, Type... expected)
     {
         Type actual = getType(field);
-        for (Type t : expected) {
-            if (actual.equals(t)) {
+        for (Type type : expected) {
+            if (actual.equals(type)) {
                 return;
             }
         }
 
-        checkArgument(false, "Expected field %s to be a type of %s but is %s", field,
-                StringUtils.join(expected, ","), actual);
+        throw new IllegalArgumentException(format("Expected field %s to be a type of %s but is %s", field,
+                StringUtils.join(expected, ","), actual));
     }
 
     /**
@@ -405,60 +405,60 @@ public class AccumuloRecordCursor
         // predicates
         AtomicInteger priority = new AtomicInteger(1);
         List<IteratorSetting> allSettings = new ArrayList<>();
-        for (AccumuloColumnConstraint col : constraints) {
+        for (AccumuloColumnConstraint columnConstraint : constraints) {
             // If this column's predicate domain allows null values, then add a NullRowFilter
             // setting
-            if (!col.getDomain().isPresent()) {
+            if (!columnConstraint.getDomain().isPresent()) {
                 continue;
             }
 
-            Domain dom = col.getDomain().get();
-            List<IteratorSetting> colSettings = new ArrayList<>();
-            if (dom.isNullAllowed()) {
-                colSettings.add(getNullFilterSetting(col, priority));
+            Domain domain = columnConstraint.getDomain().get();
+            List<IteratorSetting> columnSettings = new ArrayList<>();
+            if (domain.isNullAllowed()) {
+                columnSettings.add(getNullFilterSetting(columnConstraint, priority));
             }
 
             // Map types are discrete values
-            if (Types.isMapType(dom.getType())) {
+            if (Types.isMapType(domain.getType())) {
                 // Create an iterator setting for each discrete value
-                for (Object o : dom.getValues().getDiscreteValues().getValues()) {
-                    IteratorSetting cfg = getIteratorSetting(priority, col, CompareOp.EQUAL,
-                            dom.getType(), (Block) o);
+                for (Object object : domain.getValues().getDiscreteValues().getValues()) {
+                    IteratorSetting cfg = getIteratorSetting(priority, columnConstraint, CompareOp.EQUAL,
+                            domain.getType(), object);
                     if (cfg != null) {
-                        colSettings.add(cfg);
+                        columnSettings.add(cfg);
                     }
                 }
             }
             else {
                 // For non-map types (or so it seems), all ranges are ordered
-                for (Range r : dom.getValues().getRanges().getOrderedRanges()) {
+                for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
                     // Create a filter setting for each range in this domain
-                    IteratorSetting cfg = getFilterSettingFromRange(col, r, priority);
-                    if (cfg != null) {
-                        colSettings.add(cfg);
+                    IteratorSetting setting = getFilterSettingFromRange(columnConstraint, range, priority);
+                    if (setting != null) {
+                        columnSettings.add(setting);
                     }
                 }
             }
 
             // If there was only one setting, then just add it to all of our settings
-            if (colSettings.size() == 1) {
-                allSettings.add(colSettings.get(0));
+            if (columnSettings.size() == 1) {
+                allSettings.add(columnSettings.get(0));
             }
-            else if (colSettings.size() > 0) {
+            else if (columnSettings.size() > 0) {
                 // If we have any iterator for this column, or them together and add it to our list
                 IteratorSetting ore = OrFilter.orFilters(priority.getAndIncrement(),
-                        colSettings.toArray(new IteratorSetting[0]));
+                        columnSettings.toArray(new IteratorSetting[0]));
                 allSettings.add(ore);
             } // else there are no settings and we can move on
         }
 
         // If there is only one iterator, then just use that
         if (allSettings.size() == 1) {
-            this.scan.addScanIterator(allSettings.get(0));
+            this.scanner.addScanIterator(allSettings.get(0));
         }
         else if (allSettings.size() > 0) {
             // Else, and all settings together and add those
-            this.scan.addScanIterator(AndFilter.andFilters(1, allSettings));
+            this.scanner.addScanIterator(AndFilter.andFilters(1, allSettings));
         }
     }
 
@@ -473,7 +473,7 @@ public class AccumuloRecordCursor
     private IteratorSetting getNullFilterSetting(AccumuloColumnConstraint col,
             AtomicInteger priority)
     {
-        String name = String.format("%s:%d", col.getName(), priority.get());
+        String name = format("%s:%d", col.getName(), priority.get());
         return new IteratorSetting(priority.getAndIncrement(), name, NullRowFilter.class,
                 NullRowFilter.getProperties(col.getFamily(), col.getQualifier()));
     }
@@ -481,50 +481,50 @@ public class AccumuloRecordCursor
     /**
      * Gets settings for a SingleColumnValueFilter based on the given column constraint and range.
      *
-     * @param col Column constraint
-     * @param r Presto range to retrieve values for the column filter
+     * @param constraint Column constraint
+     * @param range Presto range to retrieve values for the column filter
      * @param priority Priority of this setting, which is arbitrary in the long run since only one
      * iterator is set.
      * @return Iterator setting, or null if the Range is all values
      */
-    private IteratorSetting getFilterSettingFromRange(AccumuloColumnConstraint col, Range r,
+    private IteratorSetting getFilterSettingFromRange(AccumuloColumnConstraint constraint, Range range,
             AtomicInteger priority)
     {
-        if (r.isAll()) {
+        if (range.isAll()) {
             // [min, max]
             return null;
         }
-        else if (r.isSingleValue()) {
+        else if (range.isSingleValue()) {
             // value = value
-            return getIteratorSetting(priority, col, CompareOp.EQUAL, r.getType(),
-                    r.getSingleValue());
+            return getIteratorSetting(priority, constraint, CompareOp.EQUAL, range.getType(),
+                    range.getSingleValue());
         }
         else {
-            if (r.getLow().isLowerUnbounded()) {
+            if (range.getLow().isLowerUnbounded()) {
                 // (min, x] WHERE x < 10
-                CompareOp op = r.getHigh().getBound() == Bound.EXACTLY ? CompareOp.LESS_OR_EQUAL
+                CompareOp op = range.getHigh().getBound() == Bound.EXACTLY ? CompareOp.LESS_OR_EQUAL
                         : CompareOp.LESS;
-                return getIteratorSetting(priority, col, op, r.getType(), r.getHigh().getValue());
+                return getIteratorSetting(priority, constraint, op, range.getType(), range.getHigh().getValue());
             }
-            else if (r.getHigh().isUpperUnbounded()) {
+            else if (range.getHigh().isUpperUnbounded()) {
                 // [(x, max] WHERE x > 10
-                CompareOp op = r.getLow().getBound() == Bound.EXACTLY ? CompareOp.GREATER_OR_EQUAL
+                CompareOp op = range.getLow().getBound() == Bound.EXACTLY ? CompareOp.GREATER_OR_EQUAL
                         : CompareOp.GREATER;
-                return getIteratorSetting(priority, col, op, r.getType(), r.getLow().getValue());
+                return getIteratorSetting(priority, constraint, op, range.getType(), range.getLow().getValue());
             }
             else {
                 // WHERE x > 10 AND x < 20
-                CompareOp op = r.getHigh().getBound() == Bound.EXACTLY ? CompareOp.LESS_OR_EQUAL
+                CompareOp op = range.getHigh().getBound() == Bound.EXACTLY ? CompareOp.LESS_OR_EQUAL
                         : CompareOp.LESS;
 
                 IteratorSetting high =
-                        getIteratorSetting(priority, col, op, r.getType(), r.getHigh().getValue());
+                        getIteratorSetting(priority, constraint, op, range.getType(), range.getHigh().getValue());
 
-                op = r.getLow().getBound() == Bound.EXACTLY ? CompareOp.GREATER_OR_EQUAL
+                op = range.getLow().getBound() == Bound.EXACTLY ? CompareOp.GREATER_OR_EQUAL
                         : CompareOp.GREATER;
 
                 IteratorSetting low =
-                        getIteratorSetting(priority, col, op, r.getType(), r.getLow().getValue());
+                        getIteratorSetting(priority, constraint, op, range.getType(), range.getLow().getValue());
 
                 return AndFilter.andFilters(priority.getAndIncrement(), high, low);
             }
@@ -544,7 +544,7 @@ public class AccumuloRecordCursor
     private IteratorSetting getIteratorSetting(AtomicInteger priority, AccumuloColumnConstraint col,
             CompareOp op, Type type, Object value)
     {
-        String name = String.format("%s:%d", col.getName(), priority.get());
+        String name = format("%s:%d", col.getName(), priority.get());
         byte[] valueBytes = serializer.encode(type, value);
         return new IteratorSetting(priority.getAndIncrement(), name, SingleColumnValueFilter.class,
                 SingleColumnValueFilter.getProperties(col.getFamily(), col.getQualifier(), op,

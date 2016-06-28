@@ -42,6 +42,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -54,10 +55,10 @@ public class TestIndexer
         return serializer.encode(type, v);
     }
 
-    private static final byte[] AGE = "age".getBytes();
-    private static final byte[] CF = "cf".getBytes();
-    private static final byte[] FIRSTNAME = "firstname".getBytes();
-    private static final byte[] SENDERS = "arr".getBytes();
+    private static final byte[] AGE = b("age");
+    private static final byte[] CF = b("cf");
+    private static final byte[] FIRSTNAME = b("firstname");
+    private static final byte[] SENDERS = b("arr");
 
     private static final byte[] M1_ROWID = encode(VARCHAR, "row1");
     private static final byte[] AGE_VALUE = encode(BIGINT, 27L);
@@ -137,10 +138,10 @@ public class TestIndexer
 
         Iterator<Entry<Key, Value>> iter = scan.iterator();
         assertKeyValuePair(iter.next(), AGE_VALUE, "cf_age", "row1", "");
-        assertKeyValuePair(iter.next(), "abc".getBytes(), "cf_arr", "row1", "");
+        assertKeyValuePair(iter.next(), b("abc"), "cf_arr", "row1", "");
         assertKeyValuePair(iter.next(), M1_FNAME_VALUE, "cf_firstname", "row1", "");
-        assertKeyValuePair(iter.next(), "def".getBytes(), "cf_arr", "row1", "");
-        assertKeyValuePair(iter.next(), "ghi".getBytes(), "cf_arr", "row1", "");
+        assertKeyValuePair(iter.next(), b("def"), "cf_arr", "row1", "");
+        assertKeyValuePair(iter.next(), b("ghi"), "cf_arr", "row1", "");
         assertFalse(iter.hasNext());
 
         scan.close();
@@ -156,10 +157,10 @@ public class TestIndexer
                 "___first_row___", "row1");
         assertKeyValuePair(iter.next(), Indexer.METRICS_TABLE_ROW_ID.array(), "___rows___",
                 "___last_row___", "row1");
-        assertKeyValuePair(iter.next(), "abc".getBytes(), "cf_arr", "___card___", "1");
+        assertKeyValuePair(iter.next(), b("abc"), "cf_arr", "___card___", "1");
         assertKeyValuePair(iter.next(), M1_FNAME_VALUE, "cf_firstname", "___card___", "1");
-        assertKeyValuePair(iter.next(), "def".getBytes(), "cf_arr", "___card___", "1");
-        assertKeyValuePair(iter.next(), "ghi".getBytes(), "cf_arr", "___card___", "1");
+        assertKeyValuePair(iter.next(), b("def"), "cf_arr", "___card___", "1");
+        assertKeyValuePair(iter.next(), b("ghi"), "cf_arr", "___card___", "1");
         assertFalse(iter.hasNext());
 
         scan.close();
@@ -172,14 +173,14 @@ public class TestIndexer
         iter = scan.iterator();
         assertKeyValuePair(iter.next(), AGE_VALUE, "cf_age", "row1", "");
         assertKeyValuePair(iter.next(), AGE_VALUE, "cf_age", "row2", "");
-        assertKeyValuePair(iter.next(), "abc".getBytes(), "cf_arr", "row1", "");
-        assertKeyValuePair(iter.next(), "abc".getBytes(), "cf_arr", "row2", "");
+        assertKeyValuePair(iter.next(), b("abc"), "cf_arr", "row1", "");
+        assertKeyValuePair(iter.next(), b("abc"), "cf_arr", "row2", "");
         assertKeyValuePair(iter.next(), M1_FNAME_VALUE, "cf_firstname", "row1", "");
         assertKeyValuePair(iter.next(), M2_FNAME_VALUE, "cf_firstname", "row2", "");
-        assertKeyValuePair(iter.next(), "def".getBytes(), "cf_arr", "row1", "");
-        assertKeyValuePair(iter.next(), "ghi".getBytes(), "cf_arr", "row1", "");
-        assertKeyValuePair(iter.next(), "ghi".getBytes(), "cf_arr", "row2", "");
-        assertKeyValuePair(iter.next(), "mno".getBytes(), "cf_arr", "row2", "");
+        assertKeyValuePair(iter.next(), b("def"), "cf_arr", "row1", "");
+        assertKeyValuePair(iter.next(), b("ghi"), "cf_arr", "row1", "");
+        assertKeyValuePair(iter.next(), b("ghi"), "cf_arr", "row2", "");
+        assertKeyValuePair(iter.next(), b("mno"), "cf_arr", "row2", "");
         assertFalse(iter.hasNext());
 
         scan.close();
@@ -195,12 +196,12 @@ public class TestIndexer
                 "___first_row___", "row1");
         assertKeyValuePair(iter.next(), Indexer.METRICS_TABLE_ROW_ID.array(), "___rows___",
                 "___last_row___", "row2");
-        assertKeyValuePair(iter.next(), "abc".getBytes(), "cf_arr", "___card___", "2");
+        assertKeyValuePair(iter.next(), b("abc"), "cf_arr", "___card___", "2");
         assertKeyValuePair(iter.next(), M1_FNAME_VALUE, "cf_firstname", "___card___", "1");
         assertKeyValuePair(iter.next(), M2_FNAME_VALUE, "cf_firstname", "___card___", "1");
-        assertKeyValuePair(iter.next(), "def".getBytes(), "cf_arr", "___card___", "1");
-        assertKeyValuePair(iter.next(), "ghi".getBytes(), "cf_arr", "___card___", "2");
-        assertKeyValuePair(iter.next(), "mno".getBytes(), "cf_arr", "___card___", "1");
+        assertKeyValuePair(iter.next(), b("def"), "cf_arr", "___card___", "1");
+        assertKeyValuePair(iter.next(), b("ghi"), "cf_arr", "___card___", "2");
+        assertKeyValuePair(iter.next(), b("mno"), "cf_arr", "___card___", "1");
         assertFalse(iter.hasNext());
 
         scan.close();
@@ -229,14 +230,14 @@ public class TestIndexer
         Iterator<Entry<Key, Value>> iter = scan.iterator();
         assertKeyValuePair(iter.next(), AGE_VALUE, "cf_age", "row1", "");
         assertKeyValuePair(iter.next(), AGE_VALUE, "cf_age", "row1", "private", "");
-        assertKeyValuePair(iter.next(), "abc".getBytes(), "cf_arr", "row1", "");
-        assertKeyValuePair(iter.next(), "abc".getBytes(), "cf_arr", "row1", "moreprivate", "");
+        assertKeyValuePair(iter.next(), b("abc"), "cf_arr", "row1", "");
+        assertKeyValuePair(iter.next(), b("abc"), "cf_arr", "row1", "moreprivate", "");
         assertKeyValuePair(iter.next(), M1_FNAME_VALUE, "cf_firstname", "row1", "");
         assertKeyValuePair(iter.next(), M1_FNAME_VALUE, "cf_firstname", "row1", "private", "");
-        assertKeyValuePair(iter.next(), "def".getBytes(), "cf_arr", "row1", "");
-        assertKeyValuePair(iter.next(), "def".getBytes(), "cf_arr", "row1", "moreprivate", "");
-        assertKeyValuePair(iter.next(), "ghi".getBytes(), "cf_arr", "row1", "");
-        assertKeyValuePair(iter.next(), "ghi".getBytes(), "cf_arr", "row1", "moreprivate", "");
+        assertKeyValuePair(iter.next(), b("def"), "cf_arr", "row1", "");
+        assertKeyValuePair(iter.next(), b("def"), "cf_arr", "row1", "moreprivate", "");
+        assertKeyValuePair(iter.next(), b("ghi"), "cf_arr", "row1", "");
+        assertKeyValuePair(iter.next(), b("ghi"), "cf_arr", "row1", "moreprivate", "");
         assertFalse(iter.hasNext());
 
         scan.close();
@@ -253,14 +254,14 @@ public class TestIndexer
                 "___first_row___", "row1");
         assertKeyValuePair(iter.next(), Indexer.METRICS_TABLE_ROW_ID.array(), "___rows___",
                 "___last_row___", "row1");
-        assertKeyValuePair(iter.next(), "abc".getBytes(), "cf_arr", "___card___", "1");
-        assertKeyValuePair(iter.next(), "abc".getBytes(), "cf_arr", "___card___", "moreprivate", "1");
+        assertKeyValuePair(iter.next(), b("abc"), "cf_arr", "___card___", "1");
+        assertKeyValuePair(iter.next(), b("abc"), "cf_arr", "___card___", "moreprivate", "1");
         assertKeyValuePair(iter.next(), M1_FNAME_VALUE, "cf_firstname", "___card___", "1");
         assertKeyValuePair(iter.next(), M1_FNAME_VALUE, "cf_firstname", "___card___", "private", "1");
-        assertKeyValuePair(iter.next(), "def".getBytes(), "cf_arr", "___card___", "1");
-        assertKeyValuePair(iter.next(), "def".getBytes(), "cf_arr", "___card___", "moreprivate", "1");
-        assertKeyValuePair(iter.next(), "ghi".getBytes(), "cf_arr", "___card___", "1");
-        assertKeyValuePair(iter.next(), "ghi".getBytes(), "cf_arr", "___card___", "moreprivate", "1");
+        assertKeyValuePair(iter.next(), b("def"), "cf_arr", "___card___", "1");
+        assertKeyValuePair(iter.next(), b("def"), "cf_arr", "___card___", "moreprivate", "1");
+        assertKeyValuePair(iter.next(), b("ghi"), "cf_arr", "___card___", "1");
+        assertKeyValuePair(iter.next(), b("ghi"), "cf_arr", "___card___", "moreprivate", "1");
         assertFalse(iter.hasNext());
 
         scan.close();
@@ -276,22 +277,22 @@ public class TestIndexer
         assertKeyValuePair(iter.next(), AGE_VALUE, "cf_age", "row1", "private", "");
         assertKeyValuePair(iter.next(), AGE_VALUE, "cf_age", "row2", "");
         assertKeyValuePair(iter.next(), AGE_VALUE, "cf_age", "row2", "private", "");
-        assertKeyValuePair(iter.next(), "abc".getBytes(), "cf_arr", "row1", "");
-        assertKeyValuePair(iter.next(), "abc".getBytes(), "cf_arr", "row1", "moreprivate", "");
-        assertKeyValuePair(iter.next(), "abc".getBytes(), "cf_arr", "row2", "");
-        assertKeyValuePair(iter.next(), "abc".getBytes(), "cf_arr", "row2", "moreprivate", "");
+        assertKeyValuePair(iter.next(), b("abc"), "cf_arr", "row1", "");
+        assertKeyValuePair(iter.next(), b("abc"), "cf_arr", "row1", "moreprivate", "");
+        assertKeyValuePair(iter.next(), b("abc"), "cf_arr", "row2", "");
+        assertKeyValuePair(iter.next(), b("abc"), "cf_arr", "row2", "moreprivate", "");
         assertKeyValuePair(iter.next(), M1_FNAME_VALUE, "cf_firstname", "row1", "");
         assertKeyValuePair(iter.next(), M1_FNAME_VALUE, "cf_firstname", "row1", "private", "");
         assertKeyValuePair(iter.next(), M2_FNAME_VALUE, "cf_firstname", "row2", "");
         assertKeyValuePair(iter.next(), M2_FNAME_VALUE, "cf_firstname", "row2", "moreprivate", "");
-        assertKeyValuePair(iter.next(), "def".getBytes(), "cf_arr", "row1", "");
-        assertKeyValuePair(iter.next(), "def".getBytes(), "cf_arr", "row1", "moreprivate", "");
-        assertKeyValuePair(iter.next(), "ghi".getBytes(), "cf_arr", "row1", "");
-        assertKeyValuePair(iter.next(), "ghi".getBytes(), "cf_arr", "row1", "moreprivate", "");
-        assertKeyValuePair(iter.next(), "ghi".getBytes(), "cf_arr", "row2", "");
-        assertKeyValuePair(iter.next(), "ghi".getBytes(), "cf_arr", "row2", "moreprivate", "");
-        assertKeyValuePair(iter.next(), "mno".getBytes(), "cf_arr", "row2", "");
-        assertKeyValuePair(iter.next(), "mno".getBytes(), "cf_arr", "row2", "moreprivate", "");
+        assertKeyValuePair(iter.next(), b("def"), "cf_arr", "row1", "");
+        assertKeyValuePair(iter.next(), b("def"), "cf_arr", "row1", "moreprivate", "");
+        assertKeyValuePair(iter.next(), b("ghi"), "cf_arr", "row1", "");
+        assertKeyValuePair(iter.next(), b("ghi"), "cf_arr", "row1", "moreprivate", "");
+        assertKeyValuePair(iter.next(), b("ghi"), "cf_arr", "row2", "");
+        assertKeyValuePair(iter.next(), b("ghi"), "cf_arr", "row2", "moreprivate", "");
+        assertKeyValuePair(iter.next(), b("mno"), "cf_arr", "row2", "");
+        assertKeyValuePair(iter.next(), b("mno"), "cf_arr", "row2", "moreprivate", "");
         assertFalse(iter.hasNext());
 
         scan.close();
@@ -308,18 +309,18 @@ public class TestIndexer
                 "___first_row___", "row1");
         assertKeyValuePair(iter.next(), Indexer.METRICS_TABLE_ROW_ID.array(), "___rows___",
                 "___last_row___", "row2");
-        assertKeyValuePair(iter.next(), "abc".getBytes(), "cf_arr", "___card___", "2");
-        assertKeyValuePair(iter.next(), "abc".getBytes(), "cf_arr", "___card___", "moreprivate", "2");
+        assertKeyValuePair(iter.next(), b("abc"), "cf_arr", "___card___", "2");
+        assertKeyValuePair(iter.next(), b("abc"), "cf_arr", "___card___", "moreprivate", "2");
         assertKeyValuePair(iter.next(), M1_FNAME_VALUE, "cf_firstname", "___card___", "1");
         assertKeyValuePair(iter.next(), M1_FNAME_VALUE, "cf_firstname", "___card___", "private", "1");
         assertKeyValuePair(iter.next(), M2_FNAME_VALUE, "cf_firstname", "___card___", "1");
         assertKeyValuePair(iter.next(), M2_FNAME_VALUE, "cf_firstname", "___card___", "moreprivate", "1");
-        assertKeyValuePair(iter.next(), "def".getBytes(), "cf_arr", "___card___", "1");
-        assertKeyValuePair(iter.next(), "def".getBytes(), "cf_arr", "___card___", "moreprivate", "1");
-        assertKeyValuePair(iter.next(), "ghi".getBytes(), "cf_arr", "___card___", "2");
-        assertKeyValuePair(iter.next(), "ghi".getBytes(), "cf_arr", "___card___", "moreprivate", "2");
-        assertKeyValuePair(iter.next(), "mno".getBytes(), "cf_arr", "___card___", "1");
-        assertKeyValuePair(iter.next(), "mno".getBytes(), "cf_arr", "___card___", "moreprivate", "1");
+        assertKeyValuePair(iter.next(), b("def"), "cf_arr", "___card___", "1");
+        assertKeyValuePair(iter.next(), b("def"), "cf_arr", "___card___", "moreprivate", "1");
+        assertKeyValuePair(iter.next(), b("ghi"), "cf_arr", "___card___", "2");
+        assertKeyValuePair(iter.next(), b("ghi"), "cf_arr", "___card___", "moreprivate", "2");
+        assertKeyValuePair(iter.next(), b("mno"), "cf_arr", "___card___", "1");
+        assertKeyValuePair(iter.next(), b("mno"), "cf_arr", "___card___", "moreprivate", "1");
         assertFalse(iter.hasNext());
 
         scan.close();
@@ -344,5 +345,10 @@ public class TestIndexer
         assertEquals(cq, e.getKey().getColumnQualifier().toString());
         assertEquals(cv, e.getKey().getColumnVisibility().toString());
         assertEquals(value, e.getValue().toString());
+    }
+
+    private static byte[] b(String s)
+    {
+        return s.getBytes(UTF_8);
     }
 }

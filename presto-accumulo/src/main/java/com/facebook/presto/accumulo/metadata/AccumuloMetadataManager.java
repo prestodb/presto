@@ -118,9 +118,9 @@ public abstract class AccumuloMetadataManager
     /**
      * Destroy the metadata for the given table
      *
-     * @param stName Schema and table name
+     * @param tableName Schema and table name
      */
-    public abstract void deleteTableMetadata(SchemaTableName stName);
+    public abstract void deleteTableMetadata(SchemaTableName tableName);
 
     /**
      * Creates and stores view metadata
@@ -132,9 +132,9 @@ public abstract class AccumuloMetadataManager
     /**
      * Destroy the metadata for the given view
      *
-     * @param stName Schema and view name
+     * @param tableName Schema and view name
      */
-    public abstract void deleteViewMetadata(SchemaTableName stName);
+    public abstract void deleteViewMetadata(SchemaTableName tableName);
 
     /**
      * Gets a Boolean value indicating whether or not the given byte array can be deserialized to an {@link AccumuloTable} object
@@ -165,7 +165,7 @@ public abstract class AccumuloMetadataManager
     }
 
     /**
-     * Converts the given byte array to an {@link AccumuloTable}.
+     * Converts the given byte array to an {@link AccumuloTable}
      *
      * @param data byte array of a serialized AccumuloTable
      * @return AccumuloTable
@@ -178,7 +178,7 @@ public abstract class AccumuloMetadataManager
     }
 
     /**
-     * Converts the given byte array to an {@link AccumuloView}.
+     * Converts the given byte array to an {@link AccumuloView}
      *
      * @param data byte array of a serialized AccumuloView
      * @return AccumuloTable
@@ -191,15 +191,15 @@ public abstract class AccumuloMetadataManager
     }
 
     /**
-     * Converts the given {@link AccumuloTable} to a byte array.
+     * Converts the given Object to a byte array
      *
-     * @param t AccumuloTable
+     * @param obj Object
      * @return The byte array of the serialized object
      * @throws IOException If an IOException occurs
      */
-    protected byte[] toJsonBytes(Object t)
+    protected byte[] toJsonBytes(Object obj)
             throws IOException
     {
-        return mapper.writeValueAsBytes(t);
+        return mapper.writeValueAsBytes(obj);
     }
 }

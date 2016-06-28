@@ -30,8 +30,8 @@ public class NullRowFilter
         extends RowFilter
         implements OptionDescriber
 {
-    protected static final String CF = "family";
-    protected static final String CQ = "qualifier";
+    protected static final String FAMILY = "family";
+    protected static final String QUALIFIER = "qualifier";
 
     private Text columnFamily;
     private Text columnQualifier;
@@ -41,8 +41,8 @@ public class NullRowFilter
             throws IOException
     {
         while (rowIterator.hasTop()) {
-            Key k = rowIterator.getTopKey();
-            if (k.compareColumnFamily(columnFamily) == 0 && k.compareColumnQualifier(columnQualifier) == 0) {
+            Key key = rowIterator.getTopKey();
+            if (key.compareColumnFamily(columnFamily) == 0 && key.compareColumnQualifier(columnQualifier) == 0) {
                 return false;
             }
             rowIterator.next();
@@ -55,8 +55,8 @@ public class NullRowFilter
             throws IOException
     {
         super.init(source, options, env);
-        columnFamily = new Text(options.get(CF));
-        columnQualifier = new Text(options.get(CQ));
+        columnFamily = new Text(options.get(FAMILY));
+        columnQualifier = new Text(options.get(QUALIFIER));
     }
 
     @Override
@@ -79,7 +79,7 @@ public class NullRowFilter
     {
         return new IteratorOptions("singlecolumnvaluefilter", "Filter accepts or rejects each Key/Value pair based on the lexicographic comparison of a value stored in a single column family/qualifier",
                 // @formatter:off
-        ImmutableMap.<String, String>builder().put(CF, "column family to match on, required").put(CQ, "column qualifier to match on, required").build(),
+        ImmutableMap.<String, String>builder().put(FAMILY, "column family to match on, required").put(QUALIFIER, "column qualifier to match on, required").build(),
         // @formatter:on
                 null);
     }
@@ -87,8 +87,8 @@ public class NullRowFilter
     @Override
     public boolean validateOptions(Map<String, String> options)
     {
-        checkNotNull(CF, options);
-        checkNotNull(CQ, options);
+        checkNotNull(FAMILY, options);
+        checkNotNull(QUALIFIER, options);
 
         return true;
     }
@@ -104,8 +104,8 @@ public class NullRowFilter
     {
         Map<String, String> opts = new HashMap<>();
 
-        opts.put(CF, family);
-        opts.put(CQ, qualifier);
+        opts.put(FAMILY, family);
+        opts.put(QUALIFIER, qualifier);
 
         return opts;
     }

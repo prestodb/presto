@@ -44,11 +44,11 @@ public class AccumuloTableManager
 {
     private static final Logger LOG = Logger.get(AccumuloTableManager.class);
     private static final String DEFAULT = "default";
-    private final Connector conn;
+    private final Connector connector;
 
     public AccumuloTableManager(AccumuloConfig config)
     {
-        this.conn = AccumuloClient.getAccumuloConnector(requireNonNull(config, "config is null"));
+        this.connector = AccumuloClient.getAccumuloConnector(requireNonNull(config, "config is null"));
     }
 
     /**
@@ -61,8 +61,8 @@ public class AccumuloTableManager
         try {
             // If the table schema is not "default" and the namespace does not exist, create it
             if (!schema.equals(DEFAULT)
-                    && !conn.namespaceOperations().exists(schema)) {
-                conn.namespaceOperations().create(schema);
+                    && !connector.namespaceOperations().exists(schema)) {
+                connector.namespaceOperations().create(schema);
             }
         }
         catch (AccumuloException | AccumuloSecurityException e) {
@@ -82,7 +82,7 @@ public class AccumuloTableManager
      */
     public boolean exists(String table)
     {
-        return conn.tableOperations().exists(table);
+        return connector.tableOperations().exists(table);
     }
 
     /**
@@ -93,7 +93,7 @@ public class AccumuloTableManager
     public void createAccumuloTable(String table)
     {
         try {
-            conn.tableOperations().create(table);
+            connector.tableOperations().create(table);
         }
         catch (AccumuloException | AccumuloSecurityException e) {
             throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to create Accumulo table", e);
@@ -116,7 +116,7 @@ public class AccumuloTableManager
         }
 
         try {
-            conn.tableOperations().setLocalityGroups(tableName, groups);
+            connector.tableOperations().setLocalityGroups(tableName, groups);
             LOG.info("Set locality groups for %s to %s", tableName, groups);
         }
         catch (AccumuloException | AccumuloSecurityException e) {
@@ -137,12 +137,12 @@ public class AccumuloTableManager
     {
         try {
             // Remove any existing iterator settings of the same name, if applicable
-            Map<String, EnumSet<IteratorScope>> iterators = conn.tableOperations().listIterators(table);
+            Map<String, EnumSet<IteratorScope>> iterators = connector.tableOperations().listIterators(table);
             if (iterators.containsKey(setting.getName())) {
-                conn.tableOperations().removeIterator(table, setting.getName(), iterators.get(setting.getName()));
+                connector.tableOperations().removeIterator(table, setting.getName(), iterators.get(setting.getName()));
             }
 
-            conn.tableOperations().attachIterator(table, setting);
+            connector.tableOperations().attachIterator(table, setting);
         }
         catch (AccumuloSecurityException | AccumuloException e) {
             throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to set iterator on table " + table, e);
@@ -160,7 +160,7 @@ public class AccumuloTableManager
     public void deleteAccumuloTable(String tableName)
     {
         try {
-            conn.tableOperations().delete(tableName);
+            connector.tableOperations().delete(tableName);
         }
         catch (AccumuloException | AccumuloSecurityException e) {
             throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to delete Accumulo table", e);
@@ -179,7 +179,7 @@ public class AccumuloTableManager
     public void renameAccumuloTable(String oldName, String newName)
     {
         try {
-            conn.tableOperations().rename(oldName, newName);
+            connector.tableOperations().rename(oldName, newName);
         }
         catch (AccumuloSecurityException | AccumuloException e) {
             throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to rename table", e);

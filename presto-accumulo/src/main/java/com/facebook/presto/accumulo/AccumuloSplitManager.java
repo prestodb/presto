@@ -86,15 +86,15 @@ public class AccumuloSplitManager
 
         // Call out to our client to retrieve all tablet split metadata using the row ID domain
         // and the secondary index, if enabled
-        List<TabletSplitMetadata> tSplits = client.getTabletSplits(session, schemaName, tableName,
+        List<TabletSplitMetadata> tabletSplits = client.getTabletSplits(session, schemaName, tableName,
                 rDom, constraints, tableHandle.getSerializerInstance());
 
         // Pack the tablet split metadata into a connector split
         ImmutableList.Builder<ConnectorSplit> cSplits = ImmutableList.builder();
-        for (TabletSplitMetadata smd : tSplits) {
+        for (TabletSplitMetadata splitMetadata : tabletSplits) {
             AccumuloSplit split = new AccumuloSplit(connectorId, schemaName, tableName, rowIdName,
-                    tableHandle.getSerializerClassName(), smd.getRanges(), constraints,
-                    tableHandle.getScanAuthorizations(), smd.getHostPort());
+                    tableHandle.getSerializerClassName(), splitMetadata.getRanges(), constraints,
+                    tableHandle.getScanAuthorizations(), splitMetadata.getHostPort());
             LOG.debug("Added split %s", split);
             cSplits.add(split);
         }
@@ -112,11 +112,13 @@ public class AccumuloSplitManager
      */
     private static Optional<Domain> getRangeDomain(String rowIdName, TupleDomain<ColumnHandle> constraint)
     {
-        for (ColumnDomain<ColumnHandle> cd : constraint.getColumnDomains().get()) {
-            AccumuloColumnHandle col =
-                    checkType(cd.getColumn(), AccumuloColumnHandle.class, "column handle");
-            if (col.getName().equals(rowIdName)) {
-                return Optional.of(cd.getDomain());
+        if (constraint.getColumnDomains().isPresent()) {
+            for (ColumnDomain<ColumnHandle> cd : constraint.getColumnDomains().get()) {
+                AccumuloColumnHandle col =
+                        checkType(cd.getColumn(), AccumuloColumnHandle.class, "column handle");
+                if (col.getName().equals(rowIdName)) {
+                    return Optional.of(cd.getDomain());
+                }
             }
         }
 
@@ -135,14 +137,14 @@ public class AccumuloSplitManager
             TupleDomain<ColumnHandle> constraint)
     {
         ImmutableList.Builder<AccumuloColumnConstraint> constraintBuilder = ImmutableList.builder();
-        for (ColumnDomain<ColumnHandle> cd : constraint.getColumnDomains().get()) {
-            AccumuloColumnHandle col =
-                    checkType(cd.getColumn(), AccumuloColumnHandle.class, "column handle");
+        for (ColumnDomain<ColumnHandle> columnDomain : constraint.getColumnDomains().get()) {
+            AccumuloColumnHandle columnHandle =
+                    checkType(columnDomain.getColumn(), AccumuloColumnHandle.class, "column handle");
 
-            if (!col.getName().equals(rowIdName)) {
+            if (!columnHandle.getName().equals(rowIdName)) {
                 // Family and qualifier will exist for non-row ID columns
-                constraintBuilder.add(new AccumuloColumnConstraint(col.getName(), col.getFamily().get(),
-                        col.getQualifier().get(), Optional.of(cd.getDomain()), col.isIndexed()));
+                constraintBuilder.add(new AccumuloColumnConstraint(columnHandle.getName(), columnHandle.getFamily().get(),
+                        columnHandle.getQualifier().get(), Optional.of(columnDomain.getDomain()), columnHandle.isIndexed()));
             }
         }
 

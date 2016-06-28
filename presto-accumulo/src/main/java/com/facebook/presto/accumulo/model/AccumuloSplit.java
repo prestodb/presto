@@ -237,10 +237,10 @@ public class AccumuloSplit
         public void serialize(Range value, JsonGenerator jgen, SerializerProvider provider)
                 throws IOException
         {
-            DataOutputBuffer dout = TL_OUT.get();
-            dout.reset();
-            value.write(dout);
-            jgen.writeBinary(dout.getData(), 0, dout.getLength());
+            DataOutputBuffer out = TL_OUT.get();
+            out.reset();
+            value.write(out);
+            jgen.writeBinary(out.getData(), 0, out.getLength());
         }
     }
 

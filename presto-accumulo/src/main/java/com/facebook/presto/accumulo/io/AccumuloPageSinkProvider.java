@@ -57,9 +57,9 @@ public class AccumuloPageSinkProvider
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle,
             ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
     {
-        AccumuloTableHandle tHandle =
-                checkType(outputTableHandle, AccumuloTableHandle.class, "tHandle");
-        return new AccumuloPageSink(config, client.getTable(tHandle.toSchemaTableName()));
+        AccumuloTableHandle tableHandle =
+                checkType(outputTableHandle, AccumuloTableHandle.class, "tableHandle");
+        return new AccumuloPageSink(config, client.getTable(tableHandle.toSchemaTableName()));
     }
 
     @Override

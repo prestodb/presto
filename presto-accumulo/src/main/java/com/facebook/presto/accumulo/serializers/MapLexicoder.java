@@ -39,13 +39,13 @@ public class MapLexicoder<K, V>
     /**
      * Creates a new {@link MapLexicoder} using the given lexicoders for key and value data types
      *
-     * @param kl Lexicoder for the keys
-     * @param vl Lexicoder for the values
+     * @param keyLexicoder Lexicoder for the keys
+     * @param valueLexicoder Lexicoder for the values
      */
-    public MapLexicoder(Lexicoder<K> kl, Lexicoder<V> vl)
+    public MapLexicoder(Lexicoder<K> keyLexicoder, Lexicoder<V> valueLexicoder)
     {
-        this.keyLexicoder = kl;
-        this.valueLexicoder = vl;
+        this.keyLexicoder = keyLexicoder;
+        this.valueLexicoder = valueLexicoder;
     }
 
     @Override
@@ -53,9 +53,9 @@ public class MapLexicoder<K, V>
     {
         byte[][] elements = new byte[v.size() * 2][];
         int index = 0;
-        for (Entry<K, V> e : v.entrySet()) {
-            elements[index++] = escape(keyLexicoder.encode(e.getKey()));
-            elements[index++] = escape(valueLexicoder.encode(e.getValue()));
+        for (Entry<K, V> entry : v.entrySet()) {
+            elements[index++] = escape(keyLexicoder.encode(entry.getKey()));
+            elements[index++] = escape(valueLexicoder.encode(entry.getValue()));
         }
 
         return concat(elements);

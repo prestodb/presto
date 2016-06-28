@@ -80,22 +80,27 @@ public class AccumuloTable
         this.scanAuthorizations = scanAuthorizations;
 
         boolean indexed = false;
-        Integer rido = null;
+        Optional<Integer> rowIdOrdinal = Optional.empty();
 
         // Extract the ColumnMetadata from the handles for faster access
-        ImmutableList.Builder<ColumnMetadata> cmb = ImmutableList.builder();
+        ImmutableList.Builder<ColumnMetadata> columnMetadataBuilder = ImmutableList.builder();
         for (AccumuloColumnHandle column : this.columns) {
-            cmb.add(column.getColumnMetadata());
+            columnMetadataBuilder.add(column.getColumnMetadata());
             indexed |= column.isIndexed();
             if (column.getName().equals(this.rowId)) {
-                rido = column.getOrdinal();
+                rowIdOrdinal = Optional.of(column.getOrdinal());
             }
         }
 
-        this.rowIdOrdinal = requireNonNull(rido,
-                "rowIdOrdinal is null, enable to locate rowId in given column list");
+        if (rowIdOrdinal.isPresent()) {
+            this.rowIdOrdinal = rowIdOrdinal.get();
+        }
+        else {
+            throw new IllegalArgumentException("rowIdOrdinal is null, enable to locate rowId in given column list");
+        }
+
         this.indexed = indexed;
-        this.columnsMetadata = cmb.build();
+        this.columnsMetadata = columnMetadataBuilder.build();
         this.schemaTableName = new SchemaTableName(this.schema, this.table);
     }
 
@@ -186,11 +191,11 @@ public class AccumuloTable
             // column at the appropriate place
             newColumns = ImmutableList.builder();
             int ordinal = 0;
-            for (AccumuloColumnHandle col : columns) {
+            for (AccumuloColumnHandle columnHandle : columns) {
                 // Validate this column does not already exist
-                if (col.getName().equals(newColumn.getName())) {
+                if (columnHandle.getName().equals(newColumn.getName())) {
                     throw new PrestoException(VALIDATION,
-                            format("Column %s already exists in table", col.getName()));
+                            format("Column %s already exists in table", columnHandle.getName()));
                 }
 
                 // Add the new column here
@@ -200,8 +205,8 @@ public class AccumuloTable
                 }
 
                 // Update the ordinal and add the already existing column
-                col.setOrdinal(ordinal);
-                newColumns.add(col);
+                columnHandle.setOrdinal(ordinal);
+                newColumns.add(columnHandle);
 
                 ++ordinal;
             }
@@ -280,13 +285,13 @@ public class AccumuloTable
      * Gets the full table name of the Accumulo table, i.e. schemaName.tableName. If the schemaName
      * is 'default', then there is no Accumulo namespace and the table name is all that is returned.
      *
-     * @param stn SchemaTableName
+     * @param tableName SchemaTableName
      * @return Full table name
      */
     @JsonIgnore
-    public static String getFullTableName(SchemaTableName stn)
+    public static String getFullTableName(SchemaTableName tableName)
     {
-        return getFullTableName(stn.getSchemaName(), stn.getTableName());
+        return getFullTableName(tableName.getSchemaName(), tableName.getTableName());
     }
 
     @JsonIgnore

@@ -35,8 +35,8 @@ public class AndFilter
     public boolean acceptRow(SortedKeyValueIterator<Key, Value> rowIterator)
             throws IOException
     {
-        for (RowFilter f : filters) {
-            if (!f.acceptRow(rowIterator)) {
+        for (RowFilter filter : filters) {
+            if (!filter.acceptRow(rowIterator)) {
                 return false;
             }
             rowIterator.seek(SEEK_RANGE, SEEK_HASH_SET, false);

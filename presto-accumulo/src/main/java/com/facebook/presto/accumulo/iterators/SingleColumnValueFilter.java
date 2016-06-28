@@ -37,8 +37,8 @@ public class SingleColumnValueFilter
         LESS, LESS_OR_EQUAL, EQUAL, NOT_EQUAL, GREATER_OR_EQUAL, GREATER
     }
 
-    protected static final String CF = "family";
-    protected static final String CQ = "qualifier";
+    protected static final String FAMILY = "family";
+    protected static final String QUALIFIER = "qualifier";
     protected static final String COMPARE_OP = "compareOp";
     protected static final String VALUE = "value";
 
@@ -63,23 +63,23 @@ public class SingleColumnValueFilter
         return columnFound;
     }
 
-    private boolean acceptSingleKeyValue(Key k, Value v)
+    private boolean acceptSingleKeyValue(Key key, Value value)
     {
-        if (k.compareColumnQualifier(columnQualifier) == 0 && k.compareColumnFamily(columnFamily) == 0) {
+        if (key.compareColumnQualifier(columnQualifier) == 0 && key.compareColumnFamily(columnFamily) == 0) {
             columnFound = true;
             switch (compareOp) {
                 case LESS:
-                    return v.compareTo(value) < 0;
+                    return value.compareTo(this.value) < 0;
                 case LESS_OR_EQUAL:
-                    return v.compareTo(value) <= 0;
+                    return value.compareTo(this.value) <= 0;
                 case EQUAL:
-                    return v.compareTo(value) == 0;
+                    return value.compareTo(this.value) == 0;
                 case NOT_EQUAL:
-                    return v.compareTo(value) != 0;
+                    return value.compareTo(this.value) != 0;
                 case GREATER_OR_EQUAL:
-                    return v.compareTo(value) >= 0;
+                    return value.compareTo(this.value) >= 0;
                 case GREATER:
-                    return v.compareTo(value) > 0;
+                    return value.compareTo(this.value) > 0;
                 default:
                     throw new RuntimeException("Unknown Compare op " + compareOp.name());
             }
@@ -92,8 +92,8 @@ public class SingleColumnValueFilter
             throws IOException
     {
         super.init(source, options, env);
-        columnFamily = new Text(options.get(CF));
-        columnQualifier = new Text(options.get(CQ));
+        columnFamily = new Text(options.get(FAMILY));
+        columnQualifier = new Text(options.get(QUALIFIER));
         compareOp = CompareOp.valueOf(options.get(COMPARE_OP));
 
         try {
@@ -127,7 +127,7 @@ public class SingleColumnValueFilter
     {
         return new IteratorOptions("singlecolumnvaluefilter", "Filter accepts or rejects each Key/Value pair based on the lexicographic comparison of a value stored in a single column family/qualifier",
                 // @formatter:off
-        ImmutableMap.<String, String>builder().put(CF, "column family to match on, required").put(CQ, "column qualifier to match on, required").put(COMPARE_OP, "CompareOp enum type for lexicographic comparison, required").put(VALUE, "Hex-encoded bytes of the value for comparison, required").build(),
+        ImmutableMap.<String, String>builder().put(FAMILY, "column family to match on, required").put(QUALIFIER, "column qualifier to match on, required").put(COMPARE_OP, "CompareOp enum type for lexicographic comparison, required").put(VALUE, "Hex-encoded bytes of the value for comparison, required").build(),
         // @formatter:on
                 null);
     }
@@ -135,8 +135,8 @@ public class SingleColumnValueFilter
     @Override
     public boolean validateOptions(Map<String, String> options)
     {
-        checkNotNull(CF, options);
-        checkNotNull(CQ, options);
+        checkNotNull(FAMILY, options);
+        checkNotNull(QUALIFIER, options);
         checkNotNull(COMPARE_OP, options);
 
         try {
@@ -169,8 +169,8 @@ public class SingleColumnValueFilter
     {
         Map<String, String> opts = new HashMap<>();
 
-        opts.put(CF, family);
-        opts.put(CQ, qualifier);
+        opts.put(FAMILY, family);
+        opts.put(QUALIFIER, qualifier);
         opts.put(COMPARE_OP, op.toString());
         opts.put(VALUE, Hex.encodeHexString(value));
 

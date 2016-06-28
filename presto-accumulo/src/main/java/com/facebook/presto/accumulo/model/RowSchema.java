@@ -110,9 +110,9 @@ public class RowSchema
      */
     public AccumuloColumnHandle getColumn(String name)
     {
-        for (AccumuloColumnHandle c : columns) {
-            if (c.getName().equals(name)) {
-                return c;
+        for (AccumuloColumnHandle columnHandle : columns) {
+            if (columnHandle.getName().equals(name)) {
+                return columnHandle;
             }
         }
 
@@ -143,15 +143,15 @@ public class RowSchema
      * Creates a new {@link RowSchema} from a list of {@link AccumuloColumnHandle} objects. Does not
      * validate the schema.
      *
-     * @param cols Column handles
+     * @param columns Column handles
      * @return Row schema
      */
-    public static RowSchema fromColumns(List<AccumuloColumnHandle> cols)
+    public static RowSchema fromColumns(List<AccumuloColumnHandle> columns)
     {
         RowSchema schema = RowSchema.newRowSchema();
-        for (AccumuloColumnHandle ach : cols) {
-            schema.addColumn(ach.getName(), ach.getFamily(), ach.getQualifier(), ach.getType(),
-                    ach.isIndexed());
+        for (AccumuloColumnHandle columnHandle : columns) {
+            schema.addColumn(columnHandle.getName(), columnHandle.getFamily(),
+                    columnHandle.getQualifier(), columnHandle.getType(), columnHandle.isIndexed());
         }
         return schema;
     }
@@ -159,16 +159,16 @@ public class RowSchema
     @Override
     public String toString()
     {
-        StringBuilder bldr = new StringBuilder("{");
-        for (AccumuloColumnHandle ach : columns) {
-            bldr.append(ach.getName()).append(' ').append(ach.getType()).append(',');
+        StringBuilder builder = new StringBuilder("{");
+        for (AccumuloColumnHandle columnHandle : columns) {
+            builder.append(columnHandle.getName()).append(' ').append(columnHandle.getType()).append(',');
         }
 
-        if (bldr.length() > 1) {
-            bldr.deleteCharAt(bldr.length() - 1);
+        if (builder.length() > 1) {
+            builder.deleteCharAt(builder.length() - 1);
         }
 
-        bldr.append('}');
-        return bldr.toString();
+        builder.append('}');
+        return builder.toString();
     }
 }

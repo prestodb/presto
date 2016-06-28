@@ -54,11 +54,11 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 public class StringRowSerializer
         implements AccumuloRowSerializer
 {
-    private Map<String, Map<String, String>> f2q2pc = new HashMap<>();
+    private Map<String, Map<String, String>> familyQualifierColumnMap = new HashMap<>();
     private Map<String, Object> columnValues = new HashMap<>();
     private Text rowId = new Text();
-    private Text cf = new Text();
-    private Text cq = new Text();
+    private Text family = new Text();
+    private Text qualifier = new Text();
     private Text value = new Text();
     private boolean rowOnly = false;
     private String rowIdName;
@@ -76,16 +76,16 @@ public class StringRowSerializer
     }
 
     @Override
-    public void setMapping(String name, String fam, String qual)
+    public void setMapping(String name, String family, String qualifier)
     {
         columnValues.put(name, null);
-        Map<String, String> q2pc = f2q2pc.get(fam);
-        if (q2pc == null) {
-            q2pc = new HashMap<>();
-            f2q2pc.put(fam, q2pc);
+        Map<String, String> qualifierColumnMap = familyQualifierColumnMap.get(family);
+        if (qualifierColumnMap == null) {
+            qualifierColumnMap = new HashMap<>();
+            familyQualifierColumnMap.put(family, qualifierColumnMap);
         }
 
-        q2pc.put(qual, name);
+        qualifierColumnMap.put(qualifier, name);
     }
 
     @Override
@@ -95,11 +95,11 @@ public class StringRowSerializer
     }
 
     @Override
-    public void deserialize(Entry<Key, Value> kvp)
+    public void deserialize(Entry<Key, Value> entry)
             throws IOException
     {
         if (!columnValues.containsKey(rowIdName)) {
-            kvp.getKey().getRow(rowId);
+            entry.getKey().getRow(rowId);
             columnValues.put(rowIdName, rowId.toString());
         }
 
@@ -107,15 +107,15 @@ public class StringRowSerializer
             return;
         }
 
-        kvp.getKey().getColumnFamily(cf);
-        kvp.getKey().getColumnQualifier(cq);
+        entry.getKey().getColumnFamily(family);
+        entry.getKey().getColumnQualifier(qualifier);
 
-        if (cf.equals(ROW_ID_COLUMN) && cq.equals(ROW_ID_COLUMN)) {
+        if (family.equals(ROW_ID_COLUMN) && qualifier.equals(ROW_ID_COLUMN)) {
             return;
         }
 
-        value.set(kvp.getValue().get());
-        columnValues.put(f2q2pc.get(cf.toString()).get(cq.toString()), value.toString());
+        value.set(entry.getValue().get());
+        columnValues.put(familyQualifierColumnMap.get(family.toString()).get(qualifier.toString()), value.toString());
     }
 
     @Override
@@ -302,9 +302,9 @@ public class StringRowSerializer
     }
 
     @Override
-    public byte[] encode(Type type, Object v)
+    public byte[] encode(Type type, Object value)
     {
-        Text t = new Text();
+        Text text = new Text();
         if (Types.isArrayType(type)) {
             throw new PrestoException(NOT_SUPPORTED,
                     "arrays are not (yet?) supported for StringRowSerializer");
@@ -313,67 +313,67 @@ public class StringRowSerializer
             throw new PrestoException(NOT_SUPPORTED,
                     "maps are not (yet?) supported for StringRowSerializer");
         }
-        else if (type.equals(BIGINT) && v instanceof Integer) {
-            setLong(t, ((Integer) v).longValue());
+        else if (type.equals(BIGINT) && value instanceof Integer) {
+            setLong(text, ((Integer) value).longValue());
         }
-        else if (type.equals(BIGINT) && v instanceof Long) {
-            setLong(t, (Long) v);
+        else if (type.equals(BIGINT) && value instanceof Long) {
+            setLong(text, (Long) value);
         }
         else if (type.equals(BOOLEAN)) {
-            setBoolean(t, v.equals(Boolean.TRUE));
+            setBoolean(text, value.equals(Boolean.TRUE));
         }
         else if (type.equals(DATE)) {
-            setDate(t, (Date) v);
+            setDate(text, (Date) value);
         }
         else if (type.equals(DOUBLE)) {
-            setDouble(t, (Double) v);
+            setDouble(text, (Double) value);
         }
         else if (type.equals(FLOAT)) {
-            setFloat(t, (Float) v);
+            setFloat(text, (Float) value);
         }
-        else if (type.equals(INTEGER) && v instanceof Integer) {
-            setInt(t, (Integer) v);
+        else if (type.equals(INTEGER) && value instanceof Integer) {
+            setInt(text, (Integer) value);
         }
-        else if (type.equals(INTEGER) && v instanceof Long) {
-            setInt(t, ((Long) v).intValue());
+        else if (type.equals(INTEGER) && value instanceof Long) {
+            setInt(text, ((Long) value).intValue());
         }
         else if (type.equals(SMALLINT)) {
-            setShort(t, (Short) v);
+            setShort(text, (Short) value);
         }
         else if (type.equals(TIME)) {
-            setTime(t, (Time) v);
+            setTime(text, (Time) value);
         }
         else if (type.equals(TIMESTAMP)) {
-            setTimestamp(t, (Timestamp) v);
+            setTimestamp(text, (Timestamp) value);
         }
         else if (type.equals(TINYINT)) {
-            setByte(t, (Byte) v);
+            setByte(text, (Byte) value);
         }
-        else if (type.equals(VARBINARY) && v instanceof byte[]) {
-            setVarbinary(t, (byte[]) v);
+        else if (type.equals(VARBINARY) && value instanceof byte[]) {
+            setVarbinary(text, (byte[]) value);
         }
-        else if (type.equals(VARBINARY) && v instanceof Slice) {
-            setVarbinary(t, ((Slice) v).getBytes());
+        else if (type.equals(VARBINARY) && value instanceof Slice) {
+            setVarbinary(text, ((Slice) value).getBytes());
         }
-        else if (type.equals(VARCHAR) && v instanceof String) {
-            setVarchar(t, ((String) v));
+        else if (type.equals(VARCHAR) && value instanceof String) {
+            setVarchar(text, ((String) value));
         }
-        else if (type.equals(VARCHAR) && v instanceof Slice) {
-            setVarchar(t, ((Slice) v).toStringUtf8());
+        else if (type.equals(VARCHAR) && value instanceof Slice) {
+            setVarchar(text, ((Slice) value).toStringUtf8());
         }
         else {
             throw new PrestoException(NOT_SUPPORTED,
-                    format("StringLexicoder does not support encoding type %s, object class is %s", type, v.getClass()));
+                    format("StringLexicoder does not support encoding type %s, object class is %s", type, value.getClass()));
         }
 
-        return t.copyBytes();
+        return text.copyBytes();
     }
 
     @SuppressWarnings("unchecked")
     @Override
-    public <T> T decode(Type type, byte[] v)
+    public <T> T decode(Type type, byte[] value)
     {
-        String str = new String(v);
+        String strValue = new String(value);
         if (Types.isArrayType(type)) {
             throw new PrestoException(NOT_SUPPORTED,
                     "arrays are not (yet?) supported for StringRowSerializer");
@@ -383,40 +383,40 @@ public class StringRowSerializer
                     "maps are not (yet?) supported for StringRowSerializer");
         }
         else if (type.equals(BIGINT)) {
-            return (T) (Long) Long.parseLong(str);
+            return (T) (Long) Long.parseLong(strValue);
         }
         else if (type.equals(BOOLEAN)) {
-            return (T) (Boolean) Boolean.parseBoolean(str);
+            return (T) (Boolean) Boolean.parseBoolean(strValue);
         }
         else if (type.equals(DATE)) {
-            return (T) (Long) Long.parseLong(str);
+            return (T) (Long) Long.parseLong(strValue);
         }
         else if (type.equals(DOUBLE)) {
-            return (T) (Double) Double.parseDouble(str);
+            return (T) (Double) Double.parseDouble(strValue);
         }
         else if (type.equals(FLOAT)) {
-            return (T) (Double) ((Float) Float.parseFloat(str)).doubleValue();
+            return (T) (Double) ((Float) Float.parseFloat(strValue)).doubleValue();
         }
         else if (type.equals(INTEGER)) {
-            return (T) (Long) ((Integer) Integer.parseInt(str)).longValue();
+            return (T) (Long) ((Integer) Integer.parseInt(strValue)).longValue();
         }
         else if (type.equals(SMALLINT)) {
-            return (T) (Long) ((Short) Short.parseShort(str)).longValue();
+            return (T) (Long) ((Short) Short.parseShort(strValue)).longValue();
         }
         else if (type.equals(TIME)) {
-            return (T) (Long) Long.parseLong(str);
+            return (T) (Long) Long.parseLong(strValue);
         }
         else if (type.equals(TIMESTAMP)) {
-            return (T) (Long) Long.parseLong(str);
+            return (T) (Long) Long.parseLong(strValue);
         }
         else if (type.equals(TINYINT)) {
-            return (T) (Long) ((Byte) Byte.parseByte(str)).longValue();
+            return (T) (Long) ((Byte) Byte.parseByte(strValue)).longValue();
         }
         else if (type.equals(VARBINARY)) {
-            return (T) v;
+            return (T) value;
         }
         else if (type.equals(VARCHAR)) {
-            return (T) new String(v);
+            return (T) new String(value);
         }
         else {
             throw new PrestoException(NOT_SUPPORTED,

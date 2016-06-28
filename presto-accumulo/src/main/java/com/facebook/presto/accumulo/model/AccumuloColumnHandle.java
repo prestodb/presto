@@ -163,13 +163,13 @@ public final class AccumuloColumnHandle
     public String toString()
     {
         return toStringHelper(this).add("name", name)
-                .add("columnFamily", family).add("columnQualifier", qualifier).add("type", type)
+                .add("columnFamily", family.orElse(null)).add("columnQualifier", qualifier.orElse(null)).add("type", type)
                 .add("ordinal", ordinal).add("comment", comment).add("indexed", indexed).toString();
     }
 
     @Override
-    public int compareTo(AccumuloColumnHandle o)
+    public int compareTo(AccumuloColumnHandle obj)
     {
-        return Integer.compare(this.getOrdinal(), o.getOrdinal());
+        return Integer.compare(this.getOrdinal(), obj.getOrdinal());
     }
 }

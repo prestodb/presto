@@ -47,18 +47,17 @@ public abstract class AbstractBooleanFilter
             throws IOException
     {
         super.init(source, options, env);
-        for (Entry<String, String> e : options.entrySet()) {
+        for (Entry<String, String> entry : options.entrySet()) {
             try {
-                Map<String, String> props = OBJECT_MAPPER.readValue(e.getValue(), new TypeReference<Map<String, String>>()
-                {});
+                Map<String, String> props = OBJECT_MAPPER.readValue(entry.getValue(), new TypeReference<Map<String, String>>() {});
                 String clazz = props.remove(FILTER_JAVA_CLASS_NAME);
-                RowFilter f = (RowFilter) Class.forName(clazz).newInstance();
-                f.init(this, props, env);
-                filters.add(f);
-                LOG.info("%s: Added Filter %s", super.toString(), f);
+                RowFilter filter = (RowFilter) Class.forName(clazz).newInstance();
+                filter.init(this, props, env);
+                filters.add(filter);
+                LOG.info("%s: Added Filter %s", super.toString(), filter);
             }
             catch (Exception ex) {
-                throw new IllegalArgumentException("Failed to deserialize Filter information from JSON value " + e.getValue(), ex);
+                throw new IllegalArgumentException("Failed to deserialize Filter information from JSON value " + entry.getValue(), ex);
             }
         }
     }
@@ -70,16 +69,16 @@ public abstract class AbstractBooleanFilter
         }
 
         Map<String, String> props = new HashMap<>();
-        for (IteratorSetting cfg : configs) {
-            if (props.containsKey(cfg.getName())) {
-                throw new IllegalArgumentException("Destination config already has config for filter called " + cfg.getName());
+        for (IteratorSetting setting : configs) {
+            if (props.containsKey(setting.getName())) {
+                throw new IllegalArgumentException("Destination config already has config for filter called " + setting.getName());
             }
 
-            Map<String, String> propCopy = new HashMap<>(cfg.getOptions());
-            propCopy.put(FILTER_JAVA_CLASS_NAME, cfg.getIteratorClass());
+            Map<String, String> propCopy = new HashMap<>(setting.getOptions());
+            propCopy.put(FILTER_JAVA_CLASS_NAME, setting.getIteratorClass());
 
             try {
-                props.put(cfg.getName(), OBJECT_MAPPER.writeValueAsString(propCopy));
+                props.put(setting.getName(), OBJECT_MAPPER.writeValueAsString(propCopy));
             }
             catch (JsonProcessingException e) {
                 throw new IllegalArgumentException("Failed to encode map as json string", e);

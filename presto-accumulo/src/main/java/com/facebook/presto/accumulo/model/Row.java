@@ -71,35 +71,35 @@ public class Row
     public Row(Row row)
     {
         requireNonNull(row, "row is null");
-        for (Field f : row.fields) {
-            fields.add(new Field(f));
+        for (Field field : row.fields) {
+            fields.add(new Field(field));
         }
     }
 
     /**
      * Appends the given field to the end of the row
      *
-     * @param f Field to append
+     * @param field Field to append
      * @return this, for fluent programming
      */
-    public Row addField(Field f)
+    public Row addField(Field field)
     {
-        requireNonNull(f, "field is null");
-        fields.add(f);
+        requireNonNull(field, "field is null");
+        fields.add(field);
         return this;
     }
 
     /**
      * Appends the a new {@link Field} of the given object and type to the end of the row
      *
-     * @param v Value of the field
-     * @param t Type of the field
+     * @param value Value of the field
+     * @param type Type of the field
      * @return this, for fluent programming
      */
-    public Row addField(Object v, Type t)
+    public Row addField(Object value, Type type)
     {
-        requireNonNull(t, "type is null");
-        fields.add(new Field(v, t));
+        requireNonNull(type, "type is null");
+        fields.add(new Field(value, type));
         return this;
     }
 
@@ -155,12 +155,12 @@ public class Row
             return "()";
         }
         else {
-            StringBuilder bldr = new StringBuilder("(");
+            StringBuilder builder = new StringBuilder("(");
             for (Field f : fields) {
-                bldr.append(f).append(",");
+                builder.append(f).append(",");
             }
-            bldr.deleteCharAt(bldr.length() - 1);
-            return bldr.append(')').toString();
+            builder.deleteCharAt(builder.length() - 1);
+            return builder.append(')').toString();
         }
     }
 
@@ -177,7 +177,7 @@ public class Row
      */
     public static Row fromString(RowSchema schema, String str, char delimiter)
     {
-        Row r = Row.newRow();
+        Row row = new Row();
 
         String[] fields = StringUtils.split(str, delimiter);
 
@@ -194,30 +194,30 @@ public class Row
             Type type = schema.getColumn(i).getType();
 
             if (type instanceof BigintType) {
-                r.addField(Long.parseLong(fields[i]), BIGINT);
+                row.addField(Long.parseLong(fields[i]), BIGINT);
             }
             else if (type instanceof BooleanType) {
-                r.addField(Boolean.parseBoolean(fields[i]), BOOLEAN);
+                row.addField(Boolean.parseBoolean(fields[i]), BOOLEAN);
             }
             else if (type instanceof DateType) {
-                r.addField(
+                row.addField(
                         new Date(TimeUnit.MILLISECONDS.toDays(Date.valueOf(fields[i]).getTime())),
                         DATE);
             }
             else if (type instanceof DoubleType) {
-                r.addField(Double.parseDouble(fields[i]), DOUBLE);
+                row.addField(Double.parseDouble(fields[i]), DOUBLE);
             }
             else if (type instanceof TimeType) {
-                r.addField(Time.valueOf(fields[i]), TIME);
+                row.addField(Time.valueOf(fields[i]), TIME);
             }
             else if (type instanceof TimestampType) {
-                r.addField(Timestamp.valueOf(fields[i]), TIMESTAMP);
+                row.addField(Timestamp.valueOf(fields[i]), TIMESTAMP);
             }
             else if (type instanceof VarbinaryType) {
-                r.addField(fields[i].getBytes(), VARBINARY);
+                row.addField(fields[i].getBytes(), VARBINARY);
             }
             else if (type instanceof VarcharType) {
-                r.addField(fields[i], VARCHAR);
+                row.addField(fields[i], VARCHAR);
             }
             else {
                 throw new PrestoException(NOT_SUPPORTED,
@@ -225,16 +225,6 @@ public class Row
             }
         }
 
-        return r;
-    }
-
-    /**
-     * Static function to create a new Row
-     *
-     * @return New row
-     */
-    public static Row newRow()
-    {
-        return new Row();
+        return row;
     }
 }

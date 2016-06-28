@@ -40,6 +40,7 @@ import java.util.UUID;
 import java.util.function.BiFunction;
 
 import static java.nio.ByteBuffer.wrap;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -574,7 +575,7 @@ public class TestSingleColumnValueFilter
 
         Set<byte[]> bytes = new HashSet<>();
         for (int i = 0; i < 100; ++i) {
-            bytes.add(UUID.randomUUID().toString().getBytes());
+            bytes.add(UUID.randomUUID().toString().getBytes(UTF_8));
         }
 
         for (byte[] filterValue : bytes) {

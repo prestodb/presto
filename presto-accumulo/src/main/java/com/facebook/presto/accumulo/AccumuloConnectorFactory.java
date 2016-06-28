@@ -59,8 +59,7 @@ public class AccumuloConnectorFactory
         try {
             // A plugin is not required to use Guice; it is just very convenient
             // Unless you don't really know how to Guice, then it is less convenient
-            Bootstrap app =
-                    new Bootstrap(new JsonModule(), new AccumuloModule(connectorId, typeManager));
+            Bootstrap app = new Bootstrap(new JsonModule(), new AccumuloModule(connectorId, typeManager));
 
             Injector injector = app.strictConfig().doNotInitializeLogging()
                     .setRequiredConfigurationProperties(requiredConfig)
