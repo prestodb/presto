@@ -26,8 +26,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.SqlType;
-import com.facebook.presto.type.TypeRegistry;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
@@ -146,18 +144,6 @@ public class BindableAggregationFunction
     public InternalAggregationFunction specialize(BoundVariables variables, int arity, TypeManager typeManager)
     {
         return specialize(variables, arity, typeManager, null);
-    }
-
-    @VisibleForTesting
-    public InternalAggregationFunction getOnlySpecialization()
-    {
-        return getOnlySpecialization(new TypeRegistry());
-    }
-
-    public InternalAggregationFunction getOnlySpecialization(TypeManager typeManager)
-    {
-        // TODO check if default specialization exists
-        return specialize(BoundVariables.builder().build(), 0, typeManager);
     }
 
     private static List<TypeSignature> signaturesFromTypes(List<Type> types)
