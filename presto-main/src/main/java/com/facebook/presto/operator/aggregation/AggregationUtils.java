@@ -67,6 +67,18 @@ public final class AggregationUtils
         state.setSumYSquare(state.getSumYSquare() + y * y);
     }
 
+    public static double getCorrelation(CorrelationState state)
+    {
+        // Math comes from ISO9075-2:2011(E) 10.9 General Rules 7 c x
+        double dividend = state.getCount() * state.getSumXY() - state.getSumX() * state.getSumY();
+        dividend = dividend * dividend;
+        double divisor1 = state.getCount() * state.getSumXSquare() - state.getSumX() * state.getSumX();
+        double divisor2 = state.getCount() * state.getSumYSquare() - state.getSumY() * state.getSumY();
+
+        // divisor1 and divisor2 deliberately not checked for zero because the result can be Infty or NaN even if they are both not zero
+        return dividend / divisor1 / divisor2; // When the left expression yields a finite value, dividend / (divisor1 * divisor2) can yield Infty or NaN.
+    }
+
     public static void updateRegressionState(RegressionState state, double x, double y)
     {
         updateCovarianceState(state, x, y);
