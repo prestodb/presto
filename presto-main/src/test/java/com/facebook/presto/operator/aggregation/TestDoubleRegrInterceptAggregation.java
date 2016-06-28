@@ -25,7 +25,7 @@ import static com.facebook.presto.block.BlockAssertions.createDoubleSequenceBloc
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class TestRegrSlopeAggregation
+public class TestDoubleRegrInterceptAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
@@ -37,7 +37,7 @@ public class TestRegrSlopeAggregation
     @Override
     protected String getFunctionName()
     {
-        return "regr_slope";
+        return "regr_intercept";
     }
 
     @Override
@@ -56,7 +56,7 @@ public class TestRegrSlopeAggregation
         for (int i = start; i < start + length; i++) {
             regression.addData(i + 2, i);
         }
-        return regression.getSlope();
+        return regression.getIntercept();
     }
 
     @Test
@@ -72,8 +72,8 @@ public class TestRegrSlopeAggregation
         for (int i = 0; i < x.length; i++) {
             regression.addData(x[i], y[i]);
         }
-        double expected = regression.getSlope();
-        checkArgument(Double.isFinite(expected) && expected != 0.0, "Expected result is trivial");
+        double expected = regression.getIntercept();
+        checkArgument(Double.isFinite(expected) && expected != 0., "Expected result is trivial");
         testAggregation(expected, createDoublesBlock(y), createDoublesBlock(x));
     }
 }

@@ -23,9 +23,9 @@ import static com.facebook.presto.operator.aggregation.AggregationUtils.updateRe
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 @AggregationFunction("") // Names are on output methods
-public class RegressionAggregation
+public class DoubleRegressionAggregation
 {
-    private RegressionAggregation() {}
+    private DoubleRegressionAggregation() {}
 
     @InputFunction
     public static void input(RegressionState state, @SqlType(StandardTypes.DOUBLE) double dependentValue, @SqlType(StandardTypes.DOUBLE) double independentValue)
