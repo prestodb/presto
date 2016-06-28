@@ -73,6 +73,26 @@ public final class AggregationUtils
         state.setSumXSquare(state.getSumXSquare() + x * x);
     }
 
+    public static double getRegressionSlope(RegressionState state)
+    {
+        // Math comes from ISO9075-2:2011(E) 10.9 General Rules 7 c xii
+        double dividend = state.getCount() * state.getSumXY() - state.getSumX() * state.getSumY();
+        double divisor = state.getCount() * state.getSumXSquare() - state.getSumX() * state.getSumX();
+
+        // divisor deliberately not checked for zero because the result can be Infty or NaN even if it is not zero
+        return dividend / divisor;
+    }
+
+    public static double getRegressionIntercept(RegressionState state)
+    {
+        // Math comes from ISO9075-2:2011(E) 10.9 General Rules 7 c xiii
+        double dividend = state.getSumY() * state.getSumXSquare() - state.getSumX() * state.getSumXY();
+        double divisor = state.getCount() * state.getSumXSquare() - state.getSumX() * state.getSumX();
+
+        // divisor deliberately not checked for zero because the result can be Infty or NaN even if it is not zero
+        return dividend / divisor;
+    }
+
     public static void mergeVarianceState(VarianceState state, VarianceState otherState)
     {
         long count = otherState.getCount();

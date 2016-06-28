@@ -18,6 +18,8 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 
+import static com.facebook.presto.operator.aggregation.AggregationUtils.getRegressionIntercept;
+import static com.facebook.presto.operator.aggregation.AggregationUtils.getRegressionSlope;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.mergeRegressionState;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.updateRegressionState;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -43,12 +45,7 @@ public class DoubleRegressionAggregation
     @OutputFunction(StandardTypes.DOUBLE)
     public static void regrSlope(RegressionState state, BlockBuilder out)
     {
-        // Math comes from ISO9075-2:2011(E) 10.9 General Rules 7 c xii
-        double dividend = state.getCount() * state.getSumXY() - state.getSumX() * state.getSumY();
-        double divisor = state.getCount() * state.getSumXSquare() - state.getSumX() * state.getSumX();
-
-        // divisor deliberately not checked for zero because the result can be Infty or NaN even if it is not zero
-        double result = dividend / divisor;
+        double result = getRegressionSlope(state);
         if (Double.isFinite(result)) {
             DOUBLE.writeDouble(out, result);
         }
@@ -61,12 +58,7 @@ public class DoubleRegressionAggregation
     @OutputFunction(StandardTypes.DOUBLE)
     public static void regrIntercept(RegressionState state, BlockBuilder out)
     {
-        // Math comes from ISO9075-2:2011(E) 10.9 General Rules 7 c xiii
-        double dividend = state.getSumY() * state.getSumXSquare() - state.getSumX() * state.getSumXY();
-        double divisor = state.getCount() * state.getSumXSquare() - state.getSumX() * state.getSumX();
-
-        // divisor deliberately not checked for zero because the result can be Infty or NaN even if it is not zero
-        double result = dividend / divisor;
+        double result = getRegressionIntercept(state);
         if (Double.isFinite(result)) {
             DOUBLE.writeDouble(out, result);
         }
