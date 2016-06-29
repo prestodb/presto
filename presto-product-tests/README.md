@@ -155,6 +155,10 @@ where [profile](#profile) is one of either:
  installation running on a single Docker container and a single node
  installation of kerberized Presto also running on a single Docker container.
  This profile runs Kerberos without impersonation.
+- **singlenode-ldap** - Three single node Docker containers, one running an
+ OpenLDAP server, one running with SSL/TLS certificates installed on top of a
+ single node Presto installation, and one with a pseudo-distributed Hadoop
+ installation.
 
 Please keep in mind that if you run tests on Hive of version not greater than 1.0.1, you should exclude test from `post_hive_1_0_1` group by passing the following flag to tempto: `-x post_hive_1_0_1`.
 First version of Hive capable of running tests from `post_hive_1_0_1` group is Hive 1.1.0.
@@ -206,6 +210,7 @@ groups.
 | Authorization         | ``authorization``         | ``singlenode-kerberos-hdfs-impersonation``                                       |
 | HDFS impersonation    | ``hdfs_impersonation``    | ``singlenode-hdfs-impersonation``, ``singlenode-kerberos-hdfs-impersonation``    |
 | No HDFS impersonation | ``hdfs_no_impersonation`` | ``singlenode``, ``singlenode-kerberos-hdfs-no_impersonation``                    |
+| LDAP                  | ``ldap``                  | ``singlenode-ldap``                                                              |
 
 Below is a list of commands that explain how to run these profile specific tests
 and also the entire test suite:
@@ -226,6 +231,11 @@ and also the entire test suite:
 
     ```
     presto-product-tests/bin/run_on_docker.sh <profile> -g hdfs_no_impersonation
+    ```
+* Run **LDAP** tests:
+
+    ```
+    presto-product-tests/bin/run_on_docker.sh singlenode-ldap -g ldap
     ```
 * Run the **entire test suite** excluding all profile specific tests, where &lt;profile> can
 be any one of the available profiles:
