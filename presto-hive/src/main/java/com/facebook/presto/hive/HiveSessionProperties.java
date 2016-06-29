@@ -28,7 +28,6 @@ import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharTyp
 public final class HiveSessionProperties
 {
     private static final String FORCE_LOCAL_SCHEDULING = "force_local_scheduling";
-    private static final String OPTIMIZED_READER_ENABLED = "optimized_reader_enabled";
     private static final String ORC_MAX_MERGE_DISTANCE = "orc_max_merge_distance";
     private static final String ORC_MAX_BUFFER_SIZE = "orc_max_buffer_size";
     private static final String ORC_STREAM_BUFFER_SIZE = "orc_stream_buffer_size";
