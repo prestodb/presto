@@ -23,7 +23,7 @@ databases:
     jdbc_user: hive
     https_keystore_path: /etc/presto/conf/keystore.jks
     https_keystore_password: password
-    cli_authentication: true
+    cli_kerberos_authentication: true
     cli_kerberos_principal: presto-client/presto-master@LABS.TERADATA.COM
     cli_kerberos_keytab: /etc/presto/conf/presto-client.keytab
     cli_kerberos_config_path: /etc/krb5.conf
