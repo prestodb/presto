@@ -63,9 +63,9 @@
             </plugin>
             <!-- Build presto-server rpm using the untarred artifacts -->
             <plugin>
-                <groupId>uk.co.codezen</groupId>
-                <artifactId>redlinerpm-maven-plugin</artifactId>
-                <version>2.0</version>
+                <groupId>com.teradata</groupId>
+                <artifactId>redlinerpm-maven-plugin-td</artifactId>
+                <version>2.1.2</version>
                 <extensions>true</extensions>
 
                 <configuration>
@@ -168,27 +168,4 @@
             </plugin>
         </plugins>
     </build>
-    <profiles>
-        <profile>
-            <!-- This profile builds an rpm that works on versions of rpm earlier than 4.6.
-            Later versions of redline-rpm use 64bit integers, which isn't
-            supported before version 4.6 of rpm -->
-            <id>old-rpm</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <artifactId>redlinerpm-maven-plugin</artifactId>
-                        <groupId>uk.co.codezen</groupId>
-                        <dependencies>
-                            <dependency>
-                                <artifactId>redline</artifactId>
-                                <groupId>org.redline-rpm</groupId>
-                                <version>1.2.1</version>
-                            </dependency>
-                        </dependencies>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
 </project>
