@@ -28,8 +28,8 @@ function StatementClient(connectionData, headerCallback, dataCallback, errorCall
     this.headers = {
         "X-Presto-User": this.user ? this.user : 'N/A',
         "X-Presto-Source": this.source,
-        "X-Presto-Catalog": this.catalog,
-        "X-Presto-Schema": this.schema,
+        "X-Presto-Catalog": this.catalog ? this.catalog : 'N/A',
+        "X-Presto-Schema": this.schema ? this.schema : 'N/A',
         "X-Presto-Session": this.sessionParameters
     };
 
