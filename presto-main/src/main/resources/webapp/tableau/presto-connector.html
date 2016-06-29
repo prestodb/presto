@@ -135,8 +135,6 @@
 
         function populateCatalogs() {
             var catalogClient = new StatementClient({
-                    'catalog': 'system',
-                    'schema': 'default',
                     'query': 'show catalogs'
                 },
                 function() {},
