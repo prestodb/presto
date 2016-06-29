@@ -17,7 +17,6 @@ import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetRecordCursorProvider;
-import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
@@ -46,7 +45,6 @@ public final class HiveTestUtils
     {
         HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig);
         return ImmutableSet.<HivePageSourceFactory>builder()
-                .add(new RcFilePageSourceFactory(TYPE_MANAGER, testHdfsEnvironment))
                 .add(new OrcPageSourceFactory(TYPE_MANAGER, hiveClientConfig, testHdfsEnvironment))
                 .add(new DwrfPageSourceFactory(TYPE_MANAGER, testHdfsEnvironment))
                 .build();
