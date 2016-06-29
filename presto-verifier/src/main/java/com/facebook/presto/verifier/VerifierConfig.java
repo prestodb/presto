@@ -64,7 +64,7 @@ public class VerifierConfig
     private boolean checkCorrectness = true;
     private String skipCpuCheckRegex = "(?i)(?s).*LIMIT.*";
     private boolean checkCpu = true;
-    private boolean explainOnly = false;
+    private boolean explainOnly;
     private boolean verboseResultsComparison;
     private String testCatalogOverride;
     private String testSchemaOverride;
