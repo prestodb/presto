@@ -45,6 +45,8 @@ import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.statistics.Estimate;
+import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.annotations.VisibleForTesting;
@@ -66,6 +68,8 @@ import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
 import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
+
+import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -127,6 +131,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
+import static com.facebook.presto.spi.statistics.TableStatistics.EMPTY_STATISTICS;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.concat;
@@ -332,6 +337,82 @@ public class HiveMetadata
             }
         }
         return columns.build();
+    }
+
+    @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
+    {
+        List<ConnectorTableLayoutResult> tableLayouts = getTableLayouts(session, tableHandle, constraint, Optional.empty());
+        if (tableLayouts.isEmpty()) {
+            // todo - return statistics matching empty table instead
+            return EMPTY_STATISTICS;
+        }
+        HiveTableLayoutHandle layout = checkType(tableLayouts.get(0), HiveTableLayoutHandle.class, "layoutHandle");
+        List<HivePartition> hivePartitions = layout.getPartitions().orElse(ImmutableList.of());
+        List<Long> knownPartitionRowCounts = hivePartitions.stream()
+                .map(this::getPartitionStatistics)
+                .map(PartitionStatistics::getNumRows)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(toList());
+
+        long knownPartitionRowCountsSum = knownPartitionRowCounts.stream().mapToLong(a -> a).sum();
+        long partitionsWithStatsCount = knownPartitionRowCounts.size();
+        long allPartitionsCount = hivePartitions.size();
+
+        TableStatistics tableStatistics = EMPTY_STATISTICS;
+        if (partitionsWithStatsCount > 0) {
+            tableStatistics = TableStatistics.builder()
+                    .setRowCount(new Estimate(1.0 * knownPartitionRowCountsSum / partitionsWithStatsCount * allPartitionsCount))
+                    .build();
+        }
+        return tableStatistics;
+    }
+
+    private PartitionStatistics getPartitionStatistics(HivePartition hivePartition)
+    {
+        String databaseName = hivePartition.getTableName().getSchemaName();
+        String tableName = hivePartition.getTableName().getTableName();
+        String partitionId = hivePartition.getPartitionId();
+        if (partitionId.equals(HivePartition.UNPARTITIONED_ID)) {
+            Optional<Table> tableOptional = metastore.getTable(databaseName, tableName);
+            Table table = tableOptional
+                    .orElseThrow(() -> new IllegalArgumentException(format("Could not get metadata for table %s.%s", databaseName, tableName)));
+            return readStatisticsFromParameters(table.getParameters());
+        }
+        else {
+            Optional<Partition> partitionOptional = metastore.getPartition(databaseName, tableName, toPartitionValues(partitionId));
+            Partition partition = partitionOptional
+                    .orElseThrow(() -> new IllegalArgumentException(format("Could not get metadata for partition %s.%s.%s", databaseName, tableName, partitionId)));
+            return readStatisticsFromParameters(partition.getParameters());
+        }
+    }
+
+    private PartitionStatistics readStatisticsFromParameters(Map<String, String> parameters)
+    {
+        boolean columnStatsAcurate = Boolean.valueOf(Optional.ofNullable(parameters.get("COLUMN_STATS_ACCURATE")).orElse("false"));
+        Optional<Long> numFiles = convertStringParameter(parameters.get("numFiles"));
+        Optional<Long> numRows = convertStringParameter(parameters.get("numRows"));
+        Optional<Long> rawDataSize = convertStringParameter(parameters.get("rawDataSize"));
+        Optional<Long> totalSize = convertStringParameter(parameters.get("totalSize"));
+        return new PartitionStatistics(columnStatsAcurate, numFiles, numRows, rawDataSize, totalSize);
+    }
+
+    private Optional<Long> convertStringParameter(@Nullable String parameterValue)
+    {
+        if (parameterValue == null) {
+            return Optional.empty();
+        }
+        try {
+            Long longValue = Long.valueOf(parameterValue);
+            if (longValue < 0) {
+                return Optional.empty();
+            }
+            return Optional.of(longValue);
+        }
+        catch (NumberFormatException e) {
+            return Optional.empty();
+        }
     }
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
