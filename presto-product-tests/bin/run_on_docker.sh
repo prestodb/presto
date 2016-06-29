@@ -197,6 +197,12 @@ environment_compose up -d ${EXTERNAL_SERVICES}
 
 # start docker logs for the external services
 environment_compose logs --no-color -f ${EXTERNAL_SERVICES} &
+
+# start ldap container
+if [[ "$ENVIRONMENT" == "singlenode-ldap" ]]; then
+  environment_compose up -d ldapserver
+fi
+
 HADOOP_LOGS_PID=$!
 
 # wait until hadoop processes is started
