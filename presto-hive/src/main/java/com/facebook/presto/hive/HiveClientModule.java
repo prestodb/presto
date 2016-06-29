@@ -28,6 +28,7 @@ import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorTableStatisticsProvider;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -116,6 +117,7 @@ public class HiveClientModule
         binder.bind(ConnectorPageSourceProvider.class).to(HivePageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(HivePageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorNodePartitioningProvider.class).to(HiveNodePartitioningProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorTableStatisticsProvider.class).to(HiveTableStatisticsProvider.class).in(Scopes.SINGLETON);
 
         jsonCodecBinder(binder).bindJsonCodec(PartitionUpdate.class);
 
