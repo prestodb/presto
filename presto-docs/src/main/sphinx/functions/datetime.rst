@@ -167,7 +167,7 @@ Specifier Description
 ``%D``    Day of the month with English suffix (``0th``, ``1st``, ``2nd``, ``3rd``, ...)
 ``%d``    Day of the month, numeric (``00`` .. ``31``)
 ``%e``    Day of the month, numeric (``0`` .. ``31``)
-``%f``    Nanoseconds (``000000000`` .. ``999999999``)
+``%f``    Fraction of second (6 - 9 digits: ``000000`` .. ``999999999``)
 ``%H``    Hour (``00`` .. ``23``)
 ``%h``    Hour (``01`` .. ``12``)
 ``%I``    Hour (``01`` .. ``12``)
@@ -201,6 +201,9 @@ Specifier Description
 .. warning:: The following specifiers are not currently supported: ``%D %U %u %V %X``
 
 .. warning:: Timestamp is truncated to milliseconds
+
+.. note:: ``Fraction of second`` behaves the same way as ``Microseconds`` from the MySQL reference manual (for the ``date_format`` function)
+    Similarly to MySQL, it accepts between 6 and 9 digits of input.
 
 .. function:: date_format(timestamp, format) -> varchar
 
