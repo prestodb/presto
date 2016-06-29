@@ -28,10 +28,16 @@ function StatementClient(connectionData, headerCallback, dataCallback, errorCall
     this.headers = {
         "X-Presto-User": this.user ? this.user : 'N/A',
         "X-Presto-Source": this.source,
-        "X-Presto-Catalog": this.catalog,
-        "X-Presto-Schema": this.schema,
         "X-Presto-Session": this.sessionParameters
     };
+
+    if (!(this.catalog === undefined)) {
+        this.headers["X-Presto-Catalog"] = this.catalog
+    }
+
+    if (!(this.schema === undefined)) {
+        this.headers["X-Presto-Schema"] = this.schema
+    }
 
     // lastRecordNumber starts with 0 according to Tableau web connector docs
     this.submitQuery(0);
