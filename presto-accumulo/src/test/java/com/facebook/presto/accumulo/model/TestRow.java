@@ -21,6 +21,8 @@ import org.testng.annotations.Test;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.GregorianCalendar;
+import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -73,5 +75,46 @@ public class TestRow
     {
         Row r1 = new Row();
         r1.addField(VARCHAR, null);
+    }
+
+    @Test
+    public void testRowFromString()
+            throws Exception
+    {
+        Row expected = new Row();
+        expected.addField(new Field(AccumuloRowSerializer.getBlockFromArray(VARCHAR, ImmutableList.of("a", "b", "c")), new ArrayType(VARCHAR)));
+        expected.addField(true, BOOLEAN);
+        expected.addField(new Field(new Date(TimeUnit.MILLISECONDS.toDays(new GregorianCalendar(1999, 0, 1).getTime().getTime())), DATE));
+        expected.addField(123.45678, DOUBLE);
+        expected.addField(new Field(123.45678f, FLOAT));
+        expected.addField(12345678, INTEGER);
+        expected.addField(new Field(12345678L, BIGINT));
+        expected.addField(new Field((short) 12345, SMALLINT));
+        expected.addField(new GregorianCalendar(1999, 0, 1, 12, 30, 00).getTime().getTime(), TIME);
+        expected.addField(new Field(new Timestamp(new GregorianCalendar(1999, 0, 1, 12, 30, 00).getTime().getTime()), TIMESTAMP));
+        expected.addField((byte) 123, TINYINT);
+        expected.addField(new Field("O'Leary".getBytes(UTF_8), VARBINARY));
+        expected.addField("O'Leary", VARCHAR);
+        expected.addField(null, VARCHAR);
+
+        RowSchema schema = new RowSchema();
+        schema.addRowId("a", new ArrayType(VARCHAR));
+        schema.addColumn("b", Optional.of("b"), Optional.of("b"), BOOLEAN);
+        schema.addColumn("c", Optional.of("c"), Optional.of("c"), DATE);
+        schema.addColumn("d", Optional.of("d"), Optional.of("d"), DOUBLE);
+        schema.addColumn("e", Optional.of("e"), Optional.of("e"), FLOAT);
+        schema.addColumn("f", Optional.of("f"), Optional.of("f"), INTEGER);
+        schema.addColumn("g", Optional.of("g"), Optional.of("g"), BIGINT);
+        schema.addColumn("h", Optional.of("h"), Optional.of("h"), SMALLINT);
+        schema.addColumn("i", Optional.of("i"), Optional.of("i"), TIME);
+        schema.addColumn("j", Optional.of("j"), Optional.of("j"), TIMESTAMP);
+        schema.addColumn("k", Optional.of("k"), Optional.of("k"), TINYINT);
+        schema.addColumn("l", Optional.of("l"), Optional.of("l"), VARBINARY);
+        schema.addColumn("m", Optional.of("m"), Optional.of("m"), VARCHAR);
+        schema.addColumn("n", Optional.of("n"), Optional.of("n"), VARCHAR);
+
+        Row actual = Row.fromString(schema, "a,b,c|true|1999-01-01|123.45678|123.45678|12345678|12345678|" +
+                "12345|12:30:00|1999-01-01 12:30:00.0|123|O'Leary|O'Leary|", '|');
+        assertEquals(actual, expected);
     }
 }
