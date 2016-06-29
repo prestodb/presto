@@ -47,6 +47,7 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetOptimizedReaderEnabled;
@@ -165,7 +166,7 @@ public class ParquetPageSourceFactory
             MessageType fileSchema = fileMetaData.getSchema();
 
             List<parquet.schema.Type> fields = columns.stream()
-                    .filter(column -> !column.isPartitionKey())
+                    .filter(column -> column.getColumnType() == REGULAR)
                     .map(column -> getParquetType(column, fileSchema, useParquetColumnNames))
                     .filter(Objects::nonNull)
                     .collect(toList());
@@ -208,7 +209,8 @@ public class ParquetPageSourceFactory
                     effectivePredicate,
                     hiveStorageTimeZone,
                     typeManager,
-                    useParquetColumnNames);
+                    useParquetColumnNames,
+                    path);
         }
         catch (Exception e) {
             try {
@@ -232,8 +234,8 @@ public class ParquetPageSourceFactory
     // TODO: support complex types
     private static boolean columnTypeSupported(List<HiveColumnHandle> columns)
     {
-        boolean nonPartitionColumnsSupported = columns.stream()
-                .filter(column -> !column.isPartitionKey())
+        boolean regularColumnsSupported = columns.stream()
+                .filter(column -> column.getColumnType() == REGULAR)
                 .map(HiveColumnHandle::getTypeSignature)
                 .map(TypeSignature::getBase)
                 .allMatch(SUPPORTED_COLUMN_TYPES::contains);
@@ -244,6 +246,6 @@ public class ParquetPageSourceFactory
                 .map(TypeSignature::getBase)
                 .allMatch(SUPPORTED_PARTITION_TYPES::contains);
 
-        return nonPartitionColumnsSupported && partitionColumnsSupported;
+        return regularColumnsSupported && partitionColumnsSupported;
     }
 }

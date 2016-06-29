@@ -33,6 +33,7 @@ import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
+import org.apache.hadoop.fs.Path;
 import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
@@ -40,9 +41,12 @@ import org.testng.annotations.Test;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static com.facebook.presto.hive.HiveQueryRunner.createBucketedSession;
@@ -1167,6 +1171,71 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(createTableSql);
         actualResult = computeActual("SHOW CREATE TABLE \"test_show_create_table'2\"");
         assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+    }
+
+    @Test
+    public void testPathHiddenColumn()
+            throws Exception
+    {
+        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
+            doTestPathHiddenColumn(storageFormat);
+        }
+    }
+
+    private void doTestPathHiddenColumn(HiveStorageFormat storageFormat)
+    {
+        @Language("SQL") String createTable = "CREATE TABLE test_path " +
+                "WITH (" +
+                "format = '" + storageFormat + "'," +
+                "partitioned_by = ARRAY['col1']" +
+                ") AS " +
+                "SELECT * FROM (VALUES " +
+                "(0, 0), (3, 0), (6, 0), " +
+                "(1, 1), (4, 1), (7, 1), " +
+                "(2, 2), (5, 2) " +
+                " ) t(col0, col1) ";
+        assertUpdate(createTable, 8);
+        assertTrue(queryRunner.tableExists(getSession(), "test_path"));
+
+        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_path");
+        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+
+        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME);
+        List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
+        assertEquals(columnMetadatas.size(), columnNames.size());
+        for (int i = 0; i < columnMetadatas.size(); i++) {
+            ColumnMetadata columnMetadata = columnMetadatas.get(i);
+            assertEquals(columnMetadata.getName(), columnNames.get(i));
+            if (columnMetadata.getName().equals(PATH_COLUMN_NAME)) {
+                // $path should be hidden column
+                assertTrue(columnMetadata.isHidden());
+            }
+        }
+        assertEquals(getPartitions("test_path").size(), 3);
+
+        MaterializedResult results = computeActual(format("SELECT *, \"%s\" FROM test_path", PATH_COLUMN_NAME));
+        Map<Integer, String> partitionPathMap = new HashMap<>();
+        for (int i = 0; i < results.getRowCount(); i++) {
+            MaterializedRow row = results.getMaterializedRows().get(i);
+            int col0 = (int) row.getField(0);
+            int col1 = (int) row.getField(1);
+            String pathName = (String) row.getField(2);
+            String parentDirectory = new Path(pathName).getParent().toString();
+
+            assertTrue(pathName.length() > 0);
+            assertEquals((int) (col0 % 3), col1);
+            if (partitionPathMap.containsKey(col1)) {
+                // the rows in the same partition should be in the same partition directory
+                assertEquals(partitionPathMap.get(col1), parentDirectory);
+            }
+            else {
+                partitionPathMap.put(col1, parentDirectory);
+            }
+        }
+        assertEquals(partitionPathMap.size(), 3);
+
+        assertUpdate("DROP TABLE test_path");
+        assertFalse(queryRunner.tableExists(getSession(), "test_path"));
     }
 
     private void assertOneNotNullResult(@Language("SQL") String query)

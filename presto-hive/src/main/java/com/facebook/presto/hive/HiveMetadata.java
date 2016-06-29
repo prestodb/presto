@@ -86,6 +86,10 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.HIDDEN;
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.updateRowIdHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_COLUMN_ORDER_MISMATCH;
@@ -725,7 +729,9 @@ public class HiveMetadata
         }
 
         // forceIntegralToBigint is set to false here because we would have already failed the query if there were any non-integral bigint types
-        List<HiveColumnHandle> handles = hiveColumnHandles(connectorId, table.get(), false);
+        List<HiveColumnHandle> handles = hiveColumnHandles(connectorId, table.get(), false).stream()
+                .filter(columnHandle -> !columnHandle.isHidden())
+                .collect(toList());
 
         HiveStorageFormat tableStorageFormat = extractHiveStorageFormat(table.get());
         HiveInsertTableHandle result = new HiveInsertTableHandle(
@@ -1559,13 +1565,23 @@ public class HiveMetadata
         ImmutableList.Builder<HiveColumnHandle> columnHandles = ImmutableList.builder();
         int ordinal = 0;
         for (ColumnMetadata column : tableMetadata.getColumns()) {
+            HiveColumnHandle.ColumnType columnType;
+            if (partitionColumnNames.contains(column.getName())) {
+                columnType = PARTITION_KEY;
+            }
+            else if (column.isHidden()) {
+                columnType = HIDDEN;
+            }
+            else {
+                columnType = REGULAR;
+            }
             columnHandles.add(new HiveColumnHandle(
                     connectorId,
                     column.getName(),
                     toHiveType(typeTranslator, column.getType()),
                     column.getType().getTypeSignature(),
                     ordinal,
-                    partitionColumnNames.contains(column.getName())));
+                    columnType));
             ordinal++;
         }
         if (tableMetadata.isSampled()) {
@@ -1575,7 +1591,7 @@ public class HiveMetadata
                     toHiveType(typeTranslator, BIGINT),
                     BIGINT.getTypeSignature(),
                     ordinal,
-                    false));
+                    REGULAR));
         }
 
         return columnHandles.build();
@@ -1602,13 +1618,16 @@ public class HiveMetadata
                 builder.put(field.getName(), Optional.empty());
             }
         }
+        // add hidden column
+        builder.put(PATH_COLUMN_NAME, Optional.empty());
+
         Map<String, Optional<String>> columnComment = builder.build();
 
         return handle -> new ColumnMetadata(
                 handle.getName(),
                 typeManager.getType(handle.getTypeSignature()),
                 annotateColumnComment(columnComment.get(handle.getName()), handle.isPartitionKey()),
-                false);
+                handle.isHidden());
     }
 
     private void checkNoRollback()

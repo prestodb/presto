@@ -72,6 +72,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveColumnHandle.isPathColumnHandle;
+import static com.facebook.presto.hive.HiveColumnHandle.pathColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
@@ -92,7 +96,6 @@ import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Lists.transform;
 import static java.lang.Byte.parseByte;
@@ -147,7 +150,7 @@ public final class HiveUtil
     public static RecordReader<?, ?> createRecordReader(Configuration configuration, Path path, long start, long length, Properties schema, List<HiveColumnHandle> columns)
     {
         // determine which hive columns we will read
-        List<HiveColumnHandle> readColumns = ImmutableList.copyOf(filter(columns, not(HiveColumnHandle::isPartitionKey)));
+        List<HiveColumnHandle> readColumns = ImmutableList.copyOf(filter(columns, column -> column.getColumnType() == REGULAR));
         List<Integer> readHiveColumnIndexes = ImmutableList.copyOf(transform(readColumns, HiveColumnHandle::getHiveColumnIndex));
 
         // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
@@ -656,15 +659,18 @@ public final class HiveUtil
         ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
 
         // add the data fields first
-        columns.addAll(getNonPartitionKeyColumnHandles(connectorId, table, forceIntegralToBigint));
+        columns.addAll(getRegularColumnHandles(connectorId, table, forceIntegralToBigint));
 
         // add the partition keys last (like Hive does)
         columns.addAll(getPartitionKeyColumnHandles(connectorId, table, forceIntegralToBigint));
 
+        // add hidden column
+        columns.add(pathColumnHandle(connectorId));
+
         return columns.build();
     }
 
-    public static List<HiveColumnHandle> getNonPartitionKeyColumnHandles(String connectorId, Table table, boolean forceIntegralToBigint)
+    public static List<HiveColumnHandle> getRegularColumnHandles(String connectorId, Table table, boolean forceIntegralToBigint)
     {
         ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
 
@@ -673,7 +679,7 @@ public final class HiveUtil
             // ignore unsupported types rather than failing
             HiveType hiveType = field.getType();
             if (hiveType.isSupportedType()) {
-                columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveType, hiveType.getTypeSignature(forceIntegralToBigint), hiveColumnIndex, false));
+                columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveType, hiveType.getTypeSignature(forceIntegralToBigint), hiveColumnIndex, REGULAR));
             }
             hiveColumnIndex++;
         }
@@ -691,7 +697,7 @@ public final class HiveUtil
             if (!hiveType.isSupportedType()) {
                 throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type %s found in partition keys of table %s.%s", hiveType, table.getDatabaseName(), table.getTableName()));
             }
-            columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveType, hiveType.getTypeSignature(forceIntegralToBigint), -1, true));
+            columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveType, hiveType.getTypeSignature(forceIntegralToBigint), -1, PARTITION_KEY));
         }
 
         return columns.build();
@@ -745,5 +751,16 @@ public final class HiveUtil
             start = end + 1;
         }
         return resultBuilder.build();
+    }
+
+    public static String getPrefilledColumnValue(HiveColumnHandle columnHandle, HivePartitionKey partitionKey, Path path)
+    {
+        if (partitionKey != null) {
+            return partitionKey.getValue();
+        }
+        if (isPathColumnHandle(columnHandle)) {
+            return path.toString();
+        }
+        throw new PrestoException(NOT_SUPPORTED, "unsupported hidden column: " + columnHandle);
     }
 }

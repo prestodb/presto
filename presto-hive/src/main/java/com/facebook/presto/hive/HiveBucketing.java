@@ -45,7 +45,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.hive.HiveUtil.getNonPartitionKeyColumnHandles;
+import static com.facebook.presto.hive.HiveUtil.getRegularColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.getTableStructFields;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -189,7 +189,7 @@ final class HiveBucketing
             return Optional.empty();
         }
 
-        Map<String, HiveColumnHandle> map = getNonPartitionKeyColumnHandles(connectorId, table, forceIntegralToBigint).stream()
+        Map<String, HiveColumnHandle> map = getRegularColumnHandles(connectorId, table, forceIntegralToBigint).stream()
                 .collect(Collectors.toMap(HiveColumnHandle::getName, identity()));
 
         List<HiveColumnHandle> bucketColumns = hiveBucketProperty.get().getBucketedBy().stream()
