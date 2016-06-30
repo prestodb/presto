@@ -15,31 +15,18 @@ package com.facebook.presto.teradata.functions;
 
 import com.facebook.presto.metadata.FunctionFactory;
 import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 
-import javax.inject.Inject;
-
 import java.util.List;
-
-import static java.util.Objects.requireNonNull;
 
 public class TeradataFunctionsPlugin
         implements Plugin
 {
-    private TypeManager typeManager;
-
-    @Inject
-    public void setTypeManager(TypeManager typeManager)
-    {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-    }
-
     @Override
     public <T> List<T> getServices(Class<T> type)
     {
         if (type == FunctionFactory.class) {
-            return ImmutableList.of(type.cast(new TeradataFunctionFactory(typeManager)));
+            return ImmutableList.of(type.cast(new TeradataFunctionFactory()));
         }
         return ImmutableList.of();
     }
