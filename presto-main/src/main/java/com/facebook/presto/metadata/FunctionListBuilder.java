@@ -15,7 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.operator.scalar.JsonPath;
-import com.facebook.presto.operator.scalar.ReflectionParametricScalar;
+import com.facebook.presto.operator.scalar.annotations.ScalarFromAnnotationsParser;
 import com.facebook.presto.operator.window.ReflectionWindowFunctionSupplier;
 import com.facebook.presto.operator.window.SqlWindowFunction;
 import com.facebook.presto.operator.window.ValueWindowFunction;
@@ -83,13 +83,13 @@ public class FunctionListBuilder
 
     public FunctionListBuilder scalar(Class<?> clazz)
     {
-        functions.addAll(ReflectionParametricScalar.parseFunctionDefinition(clazz));
+        functions.addAll(ScalarFromAnnotationsParser.parseFunctionDefinition(clazz));
         return this;
     }
 
     public FunctionListBuilder scalars(Class<?> clazz)
     {
-        functions.addAll(ReflectionParametricScalar.parseFunctionDefinitions(clazz));
+        functions.addAll(ScalarFromAnnotationsParser.parseFunctionDefinitions(clazz));
         return this;
     }
 
