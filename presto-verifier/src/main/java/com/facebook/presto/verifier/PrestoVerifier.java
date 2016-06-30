@@ -36,6 +36,8 @@ import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
@@ -44,6 +46,7 @@ import com.google.inject.name.Names;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.EventClient;
+import io.airlift.log.Logger;
 import org.skife.jdbi.v2.DBI;
 
 import java.io.File;
@@ -53,6 +56,7 @@ import java.net.URLClassLoader;
 import java.nio.file.Paths;
 import java.sql.Driver;
 import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
@@ -67,6 +71,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 public class PrestoVerifier
 {
     public static final String SUPPORTED_EVENT_CLIENTS = "SUPPORTED_EVENT_CLIENTS";
+    private static final Logger LOG = Logger.get(PrestoVerifier.class);
 
     protected PrestoVerifier()
     {
@@ -113,6 +118,11 @@ public class PrestoVerifier
             queries = applyOverrides(config, queries);
             queries = filterQueryTypes(new SqlParser(getParserOptions()), config, queries);
             queries = filterQueries(queries);
+            if (config.getShadowWrites()) {
+                Sets.SetView<QueryType> allowedTypes = Sets.union(config.getTestQueryTypes(), config.getControlQueryTypes());
+                checkArgument(!Sets.intersection(allowedTypes, ImmutableSet.of(CREATE, MODIFY)).isEmpty(), "CREATE or MODIFY queries must be allowed in test or control to use write shadowing");
+                queries = rewriteQueries(new SqlParser(getParserOptions()), config, queries);
+            }
 
             // Load jdbc drivers if needed
             if (config.getAdditionalJdbcDriverPath() != null) {
@@ -193,6 +203,44 @@ public class PrestoVerifier
         return queries;
     }
 
+    private static List<QueryPair> rewriteQueries(SqlParser parser, VerifierConfig config, List<QueryPair> queries)
+    {
+        QueryRewriter testRewriter = new QueryRewriter(
+                parser,
+                config.getTestGateway(),
+                config.getShadowTestTablePrefix(),
+                Optional.ofNullable(config.getTestCatalogOverride()),
+                Optional.ofNullable(config.getTestSchemaOverride()),
+                Optional.ofNullable(config.getTestUsernameOverride()),
+                Optional.ofNullable(config.getTestPasswordOverride()),
+                config.getDoublePrecision(),
+                config.getTestTimeout());
+
+        QueryRewriter controlRewriter = new QueryRewriter(
+                parser,
+                config.getControlGateway(),
+                config.getShadowControlTablePrefix(),
+                Optional.ofNullable(config.getControlCatalogOverride()),
+                Optional.ofNullable(config.getControlSchemaOverride()),
+                Optional.ofNullable(config.getControlUsernameOverride()),
+                Optional.ofNullable(config.getControlPasswordOverride()),
+                config.getDoublePrecision(),
+                config.getControlTimeout());
+
+        ImmutableList.Builder<QueryPair> builder = ImmutableList.builder();
+        for (QueryPair pair : queries) {
+            try {
+                Query testQuery = testRewriter.shadowQuery(pair.getTest());
+                Query controlQuery = controlRewriter.shadowQuery(pair.getControl());
+                builder.add(new QueryPair(pair.getSuite(), pair.getName(), testQuery, controlQuery));
+            }
+            catch (SQLException | QueryRewriter.QueryRewriteException e) {
+                LOG.warn(e, "Failed to rewrite %s for shadowing. Skipping.", pair.getName());
+            }
+        }
+        return builder.build();
+    }
+
     private static List<QueryPair> filterQueryTypes(SqlParser parser, VerifierConfig config, List<QueryPair> queries)
     {
         ImmutableList.Builder<QueryPair> builder = ImmutableList.builder();
@@ -222,7 +270,7 @@ public class PrestoVerifier
         return allowedTypes.containsAll(types);
     }
 
-    private static QueryType statementToQueryType(SqlParser parser, String sql)
+    static QueryType statementToQueryType(SqlParser parser, String sql)
     {
         try {
             return statementToQueryType(parser.createStatement(sql));
