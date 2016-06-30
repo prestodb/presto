@@ -53,6 +53,7 @@ import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
+import static com.facebook.presto.type.CodePointsType.CODE_POINTS;
 import static com.facebook.presto.type.ColorType.COLOR;
 import static com.facebook.presto.type.FunctionParametricType.FUNCTION;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
@@ -114,6 +115,7 @@ public final class TypeRegistry
         addType(JSON_PATH);
         addType(COLOR);
         addType(JSON);
+        addType(CODE_POINTS);
         addParametricType(VarcharParametricType.VARCHAR);
         addParametricType(DecimalParametricType.DECIMAL);
         addParametricType(ROW);
@@ -345,6 +347,7 @@ public final class TypeRegistry
                     case LikePatternType.NAME:
                     case JsonPathType.NAME:
                     case ColorType.NAME:
+                    case CodePointsType.NAME:
                         return Optional.of(getType(new TypeSignature(resultTypeBase)));
                     case StandardTypes.VARCHAR:
                         return Optional.of(createVarcharType(0));
@@ -450,6 +453,8 @@ public final class TypeRegistry
                         return Optional.of(LIKE_PATTERN);
                     case JsonPathType.NAME:
                         return Optional.of(JSON_PATH);
+                    case CodePointsType.NAME:
+                        return Optional.of(CODE_POINTS);
                     default:
                         return Optional.empty();
                 }
