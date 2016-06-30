@@ -1,0 +1,50 @@
+<div class="row">
+    <ol class="breadcrumb">
+        <li><a href="#/">Home</a></li>
+        <li class="active">{{::environment.name}}</li>
+    </ol>
+
+    <div class="col-sm-12">
+        <h2 class="sub-header">Environment: {{::environment.name}}</h2>
+    </div>
+</div>
+<div class="row">
+    <div class="col-sm-12">
+        <h3 class="sub-header">Attributes</h3>
+        <div class="table-responsive">
+            <table class="table table-striped table-condensed">
+                <thead>
+                <tr>
+                    <td>Name</td>
+                    <td>Value</td>
+                </tr>
+                </thead>
+                <tr ng-repeat="(name, value) in ::environment.attributes">
+                    <td>{{::name}}</td>
+                    <td>{{::value}}</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</div>
+<div class="row" ng-show="tags.length">
+    <div class="col-sm-12">
+        <h3 class="sub-header">Tags</h3>
+        <div class="table-responsive">
+            <table class="table table-striped table-condensed">
+                <thead>
+                <tr>
+                    <td>Date</td>
+                    <td>Tag</td>
+                    <td>Description</td>
+                </tr>
+                </thead>
+                <tr ng-repeat="tag in ::tags">
+                    <td>{{::tag.created | date : 'yyyy-MM-dd HH:mm:ss'}}</td>
+                    <td>{{::tag.name }}</td>
+                    <td>{{::tag.description}}</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</div>

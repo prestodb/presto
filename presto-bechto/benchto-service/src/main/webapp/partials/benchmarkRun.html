@@ -1,0 +1,167 @@
+<div class="row">
+    <ol class="breadcrumb">
+        <li><a href="#/">Home</a></li>
+        <li><a ng-href="#/{{::benchmarkRun.environment.name}}">{{::benchmarkRun.environment.name}}</a></li>
+        <li><a ng-href="#/benchmark/{{benchmarkRun.uniqueName}}?environment={{::benchmarkRun.environment.name}}">{{::benchmarkRun.uniqueName}}</a></li>
+        <li class="active">{{::benchmarkRun.sequenceId}}</li>
+    </ol>
+
+    <div class="col-sm-12">
+        <div class="row">
+            <div class="col-sm-9">
+                <h3>Benchmark: {{::benchmarkRun.name}}</h3>
+            </div>
+
+            <div ng-switch on="isAddedToCompare(benchmarkRun)" class="col-sm-3">
+                <div ng-switch-when="false">
+                    <button class="btn btn-primary pull-right" ng-click="addToCompare(benchmarkRun)">
+                        <i class="glyphicon glyphicon-shopping-cart"></i> Add to compare
+                    </button>
+                </div>
+                <div ng-switch-when="true">
+                    <button class="btn btn-primary pull-right disabled" ng-click="addToCompare(benchmarkRun)">
+                        <i class="glyphicon glyphicon-shopping-cart"></i> Already added to compare
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <pre ng-if="::benchmarkRun.attributes.sqlStatement" class="prettyprint lang-sql">{{::benchmarkRun.attributes.sqlStatement}}</pre>
+
+
+        <ul>
+            <li>
+                <strong>Status:</strong>
+                <span class="execution-status execution-status-{{::benchmarkRun.status}}">{{benchmarkRun.status}}</span>
+            </li>
+            <li>
+                <strong>Environment:</strong>
+                <a target="_blank" ng-href="#/environment/{{::benchmarkRun.environment.name}}">
+                    {{::benchmarkRun.environment.name}}
+                </a>
+            </li>
+            <li>
+                <strong>Started:</strong> {{::benchmarkRun.started | date : 'yyyy-MM-dd HH:mm:ss'}}
+            </li>
+            <li>
+                <strong>Ended:</strong> {{benchmarkRun.ended ? (benchmarkRun.ended | date : 'yyyy-MM-dd HH:mm:ss') : 'Not finished'}}
+            </li>
+            <li ng-if="::tag">
+                <div title="{{::tag.description}}"><strong>Latest tag:</strong> {{::tag.name}}</div>
+            </li>
+            <li ng-if="::benchmarkRun.environment.attributes.dashboardURL">
+                <strong>Monitoring:</strong>
+                <a ng-if="benchmarkRun.ended" target="_blank" ng-if="::benchmarkRun.environment.attributes.dashboardType == 'grafana'"
+                   ng-href="{{::benchmarkRun.environment.attributes.dashboardURL}}?from={{benchmarkFromParam(benchmarkRun)}}&to={{benchmarkToParam(benchmarkRun)}}">
+                    {{::benchmarkRun.environment.attributes.dashboardType}} dashboard
+                </a>
+                <a ng-if="!benchmarkRun.ended" target="_blank" ng-if="::benchmarkRun.environment.attributes.dashboardType == 'grafana'"
+                   ng-href="{{::benchmarkRun.environment.attributes.dashboardURL}}?from={{benchmarkFromParam(benchmarkRun)}}">
+                    {{::benchmarkRun.environment.attributes.dashboardType}} dashboard
+                </a>
+            </li>
+            <li ng-show="showBenchmarkDetails" ng-repeat="(name, value) in benchmarkRun.variables">
+                <strong>{{name}}:</strong> {{value}}
+            </li>
+            <li ng-show="showBenchmarkDetails" ng-repeat="(name, value) in benchmarkRun.attributes">
+                <span ng-if="name != 'sqlStatement'">
+                    <strong>{{name}}:</strong> {{value}}
+                </span>
+            </li>
+            <a ng-show="!showBenchmarkDetails" ng-click="showBenchmarkDetails = true"> ...more details <span class="glyphicon glyphicon-triangle-bottom" aria-hidden="true"></span></a>
+        </ul>
+
+        <div ng-if="benchmarkRun.measurements > 0">
+            <h4 class="sub-header">Measurements</h4>
+
+            <div class="table-responsive">
+                <table class="table table-striped table-condensed">
+                    <thead>
+                    <tr>
+                        <td>Name</td>
+                        <td>Value</td>
+                    </tr>
+                    </thead>
+                    <tr ng-repeat="measurement in benchmarkRun.measurements">
+                        <td>{{measurement.name}}</td>
+                        <td>{{measurement.value | unit : measurement.unit}}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <h4 class="sub-header">Aggregated measurements</h4>
+
+        <div class="table-responsive">
+            <table class="table table-striped table-condensed">
+                <thead>
+                <tr>
+                    <td>Name</td>
+                    <td>Mean</td>
+                    <td>StdDev</td>
+                    <td>Min</td>
+                    <td>Max</td>
+                </tr>
+                </thead>
+                <tr ng-repeat="(name, aggregatedMeasurement) in benchmarkRun.aggregatedMeasurements">
+                    <td><strong>{{::name}}</strong></td>
+                    <td>{{aggregatedMeasurement.mean | unit : measurementUnit(name)}}</td>
+                    <td>&#177; {{aggregatedMeasurement.stdDev | unit : measurementUnit(name)}} ({{aggregatedMeasurement.stdDevPercent | unit : 'PERCENT'}})</td>
+                    <td>{{aggregatedMeasurement.min | unit : measurementUnit(name)}}</td>
+                    <td>{{aggregatedMeasurement.max | unit : measurementUnit(name)}}</td>
+                </tr>
+            </table>
+        </div>
+
+        <h4 class="sub-header">Executions</h4>
+
+        <div class="table-responsive">
+            <table class="table table-striped table-condensed">
+                <thead>
+                <tr>
+                    <td>#</td>
+                    <td>Status</td>
+                    <td>Measurements</td>
+                    <td>Query monitoring</td>
+                    <td>Query history</td>
+                </tr>
+                </thead>
+                <tr ng-repeat="execution in benchmarkRun.executions">
+                    <td>
+                        {{execution.sequenceId}}
+                    </td>
+                    <td>
+                        <span class="execution-status execution-status-{{::execution.status}}">{{execution.status}}</span>
+                        <span ng-if="execution.status == 'FAILED'"><a href="" ng-click="showFailure(execution)"> - details</a></span>
+                    </td>
+                    <td>
+                        <span ng-show="execution.isVisible">
+                            <ul>
+                                <li ng-repeat="executionMeasurement in execution.measurements">
+                                    <strong>{{executionMeasurement.name}}:</strong>
+                                    {{executionMeasurement.value | unit : executionMeasurement.unit}}
+                                </li>
+                            </ul>
+                            <a ng-click="execution.isVisible = false">hide details</a>
+                        </span>
+                        <span ng-show="!execution.isVisible && execution.measurements">
+                            <span ng-repeat="executionMeasurement in execution.measurements | limitTo : 3">
+                                <strong>{{executionMeasurement.name}}:</strong>
+                                        {{executionMeasurement.value | unit : executionMeasurement.unit}},
+                            </span>
+                            <a ng-click="execution.isVisible = true"> ...more details</a>
+                        </span>
+                    </td>
+                    <td>
+                        <a target="_blank" ng-if="execution.attributes.prestoQueryId"
+                           ng-href="{{::benchmarkRun.environment.attributes.prestoURL}}query.html?{{execution.attributes.prestoQueryId}}">{{execution.attributes.prestoQueryId}}</a>
+                    </td>
+                    <td>
+                        <a target="_blank" ng-if="execution.attributes.prestoQueryId"
+                           ng-href="{{::benchmarkRun.environment.attributes.prestoMonitorService}}history/{{::benchmarkRun.environment.name}}/query/{{execution.attributes.prestoQueryId}}">{{execution.attributes.prestoQueryId}}</a>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,16 @@
+<div class="row">
+    <ol class="breadcrumb">
+        <li class="active">Home</li>
+    </ol>
+
+    <div class="col-sm-12">
+        <h2 class="sub-header">Select environment</h2>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-4 col-xs-4" ng-repeat="environment in environments">
+        <p>
+            <a class="btn btn-default btn-block" role="button" ng-href="#/{{environment.name}}">{{environment.name}}</a>
+        </p>
+    </div>
+</div>

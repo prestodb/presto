@@ -1,0 +1,54 @@
+<ehcache xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="http://ehcache.org/ehcache.xsd"
+         updateCheck="true"
+         monitoring="autodetect"
+         dynamicConfig="true">
+
+    <diskStore path="java.io.tmpdir"/>
+
+    <cache name="org.hibernate.cache.spi.UpdateTimestampsCache"
+           maxEntriesLocalHeap="2000"
+           eternal="true"
+           memoryStoreEvictionPolicy="FIFO"/>
+
+    <cache name="org.hibernate.cache.internal.StandardQueryCache"
+           maxEntriesLocalHeap="2000"
+           eternal="true"
+           memoryStoreEvictionPolicy="FIFO"/>
+
+    <!-- Entities cache -->
+    <cache name="com.teradata.benchto.service.model.Environment"
+           maxEntriesLocalHeap="50"
+           eternal="true"
+           memoryStoreEvictionPolicy="FIFO"/>
+
+    <cache name="com.teradata.benchto.service.model.BenchmarkRunExecution"
+           maxEntriesLocalHeap="1000"
+           eternal="true"
+           memoryStoreEvictionPolicy="FIFO"/>
+
+    <cache name="com.teradata.benchto.service.model.BenchmarkRunExecution.attributes"
+           maxEntriesLocalHeap="5000"
+           eternal="true"
+           memoryStoreEvictionPolicy="FIFO"/>
+
+    <cache name="com.teradata.benchto.service.model.BenchmarkRun.variables"
+           maxEntriesLocalHeap="5000"
+           eternal="true"
+           memoryStoreEvictionPolicy="FIFO"/>
+
+    <cache name="com.teradata.benchto.service.model.BenchmarkRun.attributes"
+           maxEntriesLocalHeap="5000"
+           eternal="true"
+           memoryStoreEvictionPolicy="FIFO"/>
+
+    <cache name="com.teradata.benchto.service.model.Environment.attributes"
+           maxEntriesLocalHeap="5000"
+           eternal="true"
+           memoryStoreEvictionPolicy="FIFO"/>
+
+    <defaultCache
+            maxEntriesLocalHeap="10000"
+            eternal="true"
+            memoryStoreEvictionPolicy="FIFO"/>
+</ehcache>

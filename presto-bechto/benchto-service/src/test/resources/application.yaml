@@ -1,0 +1,8 @@
+spring:
+  jpa:
+    hibernate.ddl-auto: create-drop
+    properties:
+      hibernate.cache.region.factory_class: org.hibernate.cache.ehcache.EhCacheRegionFactory
+
+flyway:
+  enabled: false
