@@ -102,4 +102,9 @@ public interface ShardManager
      * Get map of buckets to node identifiers for a table.
      */
     Map<Integer, String> getBucketAssignments(long distributionId);
+
+    /**
+     * Return the subset of shard uuids that exist
+     */
+    Set<UUID> getExistingShardUuids(long tableId, Set<UUID> shardUuids);
 }

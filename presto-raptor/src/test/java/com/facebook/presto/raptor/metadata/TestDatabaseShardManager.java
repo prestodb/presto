@@ -258,6 +258,25 @@ public class TestDatabaseShardManager
     }
 
     @Test
+    public void testGetExistingShards()
+            throws Exception
+    {
+        long tableId = createTable("test");
+        UUID shard1 = UUID.randomUUID();
+        UUID shard2 = UUID.randomUUID();
+        List<ShardInfo> shardNodes = ImmutableList.of(shardInfo(shard1, "node1"), shardInfo(shard2, "node1"));
+        List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
+
+        shardManager.createTable(tableId, columns, false);
+
+        long transactionId = shardManager.beginTransaction();
+        shardManager.commitShards(transactionId, tableId, columns, shardNodes, Optional.empty());
+        Set<UUID> actual = shardManager.getExistingShardUuids(tableId, ImmutableSet.of(shard1, shard2, UUID.randomUUID()));
+        Set<UUID> expected = ImmutableSet.of(shard1, shard2);
+        assertEquals(actual, expected);
+    }
+
+    @Test
     public void testReplaceShardUuids()
             throws Exception
     {

@@ -73,6 +73,7 @@ import static com.facebook.presto.raptor.util.DatabaseUtil.bindOptionalInt;
 import static com.facebook.presto.raptor.util.DatabaseUtil.metadataError;
 import static com.facebook.presto.raptor.util.DatabaseUtil.runIgnoringConstraintViolation;
 import static com.facebook.presto.raptor.util.DatabaseUtil.runTransaction;
+import static com.facebook.presto.raptor.util.UuidUtil.uuidFromBytes;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidToBytes;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
@@ -548,6 +549,31 @@ public class DatabaseShardManager
         }
         catch (UncheckedExecutionException | ExecutionError e) {
             throw Throwables.propagate(e.getCause());
+        }
+    }
+
+    @Override
+    public Set<UUID> getExistingShardUuids(long tableId, Set<UUID> shardUuids)
+    {
+        try (Handle handle = dbi.open()) {
+            String args = Joiner.on(",").join(nCopies(shardUuids.size(), "?"));
+            String selectShards = format(
+                    "SELECT shard_uuid FROM %s WHERE shard_uuid IN (%s)",
+                    shardIndexTable(tableId), args);
+
+            ImmutableSet.Builder<UUID> existingShards = ImmutableSet.builder();
+            try (PreparedStatement statement = handle.getConnection().prepareStatement(selectShards)) {
+                bindUuids(statement, shardUuids);
+                try (ResultSet rs = statement.executeQuery()) {
+                    while (rs.next()) {
+                        existingShards.add(uuidFromBytes(rs.getBytes("shard_uuid")));
+                    }
+                }
+            }
+            return existingShards.build();
+        }
+        catch (SQLException e) {
+            throw Throwables.propagate(e);
         }
     }
 
