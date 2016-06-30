@@ -41,7 +41,7 @@ public class MLFunctionFactory
                 .aggregate(LearnLibSvmVarcharClassifierAggregation.class)
                 .aggregate(LearnLibSvmRegressorAggregation.class)
                 .aggregate(EvaluateClassifierPredictionsAggregation.class)
-                .scalar(MLFunctions.class)
+                .scalars(MLFunctions.class)
                 .getFunctions();
     }
 }

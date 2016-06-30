@@ -16,8 +16,6 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.operator.scalar.JsonPath;
 import com.facebook.presto.operator.scalar.ReflectionParametricScalar;
-import com.facebook.presto.operator.scalar.ScalarFunction;
-import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.operator.window.ReflectionWindowFunctionSupplier;
 import com.facebook.presto.operator.window.SqlWindowFunction;
 import com.facebook.presto.operator.window.ValueWindowFunction;
@@ -31,7 +29,6 @@ import com.google.common.collect.Lists;
 import io.airlift.joni.Regex;
 
 import java.lang.reflect.AnnotatedElement;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -41,7 +38,6 @@ import static com.facebook.presto.metadata.FunctionKind.WINDOW;
 import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class FunctionListBuilder
@@ -87,21 +83,13 @@ public class FunctionListBuilder
 
     public FunctionListBuilder scalar(Class<?> clazz)
     {
-        ScalarFunction scalarAnnotation = clazz.getAnnotation(ScalarFunction.class);
-        ScalarOperator operatorAnnotation = clazz.getAnnotation(ScalarOperator.class);
-        if (scalarAnnotation != null || operatorAnnotation != null) {
-            functions.addAll(ReflectionParametricScalar.parseDefinition(clazz));
-            return this;
-        }
+        functions.addAll(ReflectionParametricScalar.parseFunctionDefinition(clazz));
+        return this;
+    }
 
-        boolean foundOne = false;
-        for (Method method : clazz.getMethods()) {
-            if (ReflectionParametricScalar.canParseMethodDefinition(method)) {
-                functions.addAll(ReflectionParametricScalar.parseDefinition(method));
-                foundOne = true;
-            }
-        }
-        checkArgument(foundOne, "Expected class %s to be annotated with @%s, or contain at least one method annotated with @%s", clazz.getName(), ScalarFunction.class.getSimpleName(), ScalarFunction.class.getSimpleName());
+    public FunctionListBuilder scalars(Class<?> clazz)
+    {
+        functions.addAll(ReflectionParametricScalar.parseFunctionDefinitions(clazz));
         return this;
     }
 
