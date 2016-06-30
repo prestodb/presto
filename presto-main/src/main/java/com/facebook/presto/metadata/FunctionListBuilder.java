@@ -24,7 +24,6 @@ import com.facebook.presto.operator.window.ValueWindowFunction;
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -55,12 +54,6 @@ public class FunctionListBuilder
             JsonPath.class);
 
     private final List<SqlFunction> functions = new ArrayList<>();
-    private final TypeManager typeManager;
-
-    public FunctionListBuilder(TypeManager typeManager)
-    {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-    }
 
     public FunctionListBuilder window(String name, Type returnType, List<? extends Type> argumentTypes, Class<? extends WindowFunction> functionClass)
     {

@@ -16,26 +16,16 @@ package com.facebook.presto.mongodb;
 import com.facebook.presto.metadata.FunctionFactory;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.SqlFunction;
-import com.facebook.presto.spi.type.TypeManager;
 
 import java.util.List;
-
-import static java.util.Objects.requireNonNull;
 
 public class MongoFunctionFactory
         implements FunctionFactory
 {
-    private final TypeManager typeManager;
-
-    public MongoFunctionFactory(TypeManager typeManager)
-    {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-    }
-
     @Override
     public List<SqlFunction> listFunctions()
     {
-        return new FunctionListBuilder(typeManager)
+        return new FunctionListBuilder()
                 .scalar(ObjectIdFunctions.class)
                 .getFunctions();
     }

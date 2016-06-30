@@ -112,7 +112,7 @@ public class BenchmarkArraySort
         public void setup()
         {
             MetadataManager metadata = MetadataManager.createTestMetadataManager();
-            metadata.addFunctions(new FunctionListBuilder(metadata.getTypeManager()).scalar(BenchmarkArraySort.class).getFunctions());
+            metadata.addFunctions(new FunctionListBuilder().scalar(BenchmarkArraySort.class).getFunctions());
             ExpressionCompiler compiler = new ExpressionCompiler(metadata);
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             Block[] blocks = new Block[TYPES.size()];

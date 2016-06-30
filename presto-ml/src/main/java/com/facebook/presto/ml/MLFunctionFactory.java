@@ -33,7 +33,7 @@ public class MLFunctionFactory
     @Override
     public List<SqlFunction> listFunctions()
     {
-        return new FunctionListBuilder(typeManager)
+        return new FunctionListBuilder()
                 .aggregate(LearnClassifierAggregation.class)
                 .aggregate(LearnVarcharClassifierAggregation.class)
                 .aggregate(LearnRegressorAggregation.class)
