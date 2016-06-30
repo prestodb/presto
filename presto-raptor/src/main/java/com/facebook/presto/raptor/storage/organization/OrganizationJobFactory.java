@@ -99,6 +99,14 @@ public class OrganizationJobFactory
                 throws IOException
         {
             TableMetadata metadata = getTableMetadata(tableId);
+
+            // This job could be in the queue for quite some time, so before doing any expensive operations,
+            // filter out shards that no longer exist, reducing the possibility of failure
+            shardUuids = shardManager.getExistingShardUuids(tableId, shardUuids);
+            if (shardUuids.size() <= 1) {
+                return;
+            }
+
             List<ShardInfo> newShards = performCompaction(transactionId, bucketNumber, shardUuids, metadata);
             log.info("Compacted shards %s into %s", shardUuids, newShards.stream().map(ShardInfo::getShardUuid).collect(toList()));
             shardManager.replaceShardUuids(transactionId, tableId, metadata.getColumns(), shardUuids, newShards);
