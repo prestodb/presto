@@ -139,7 +139,7 @@ public abstract class AbstractTestFunctions
     {
         Metadata metadata = functionAssertions.getMetadata();
         List<SqlFunction> functions = new FunctionListBuilder()
-                .scalar(clazz)
+                .scalars(clazz)
                 .getFunctions();
         metadata.getFunctionRegistry().addFunctions(functions);
     }

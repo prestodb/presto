@@ -178,7 +178,7 @@ public class ReflectionParametricScalar
         throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported type parameters (%s) for %s", boundVariables, getSignature()));
     }
 
-    public static List<SqlScalarFunction> parseDefinition(Class<?> clazz)
+    public static List<SqlScalarFunction> parseFunctionDefinition(Class<?> clazz)
     {
         ScalarFunction scalarAnnotation = clazz.getAnnotation(ScalarFunction.class);
         ScalarOperator operatorAnnotation = clazz.getAnnotation(ScalarOperator.class);
@@ -192,6 +192,20 @@ public class ReflectionParametricScalar
         }
 
         throw new PrestoException(FUNCTION_NOT_FOUND, format("The class %s does not define neither @ScalarFunction nor @ScalarOperator.", clazz.getSimpleName()));
+    }
+
+    public static List<SqlScalarFunction> parseFunctionDefinitions(Class<?> clazz)
+    {
+        ImmutableList.Builder<SqlScalarFunction> scalars = ImmutableList.builder();
+        for (Method method : clazz.getMethods()) {
+            if (canParseMethodDefinition(method)) {
+                scalars.addAll(parseDefinition(method));
+            }
+        }
+
+        List<SqlScalarFunction> resultScalars = scalars.build();
+        checkArgument(!resultScalars.isEmpty(), "Expected class %s to contain at least one method annotated with @%s or @%s", clazz.getName(), ScalarFunction.class.getSimpleName(), ScalarOperator.class.getSimpleName());
+        return resultScalars;
     }
 
     public static boolean canParseMethodDefinition(Method method)

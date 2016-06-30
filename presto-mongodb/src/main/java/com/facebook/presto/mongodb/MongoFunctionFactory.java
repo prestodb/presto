@@ -26,7 +26,7 @@ public class MongoFunctionFactory
     public List<SqlFunction> listFunctions()
     {
         return new FunctionListBuilder()
-                .scalar(ObjectIdFunctions.class)
+                .scalars(ObjectIdFunctions.class)
                 .getFunctions();
     }
 }

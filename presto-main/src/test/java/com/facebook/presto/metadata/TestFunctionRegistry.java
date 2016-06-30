@@ -108,7 +108,7 @@ public class TestFunctionRegistry
     public void testDuplicateFunctions()
     {
         List<SqlFunction> functions = new FunctionListBuilder()
-                .scalar(CustomFunctions.class)
+                .scalars(CustomFunctions.class)
                 .getFunctions()
                 .stream()
                 .filter(input -> input.getSignature().getName().equals("custom_add"))
@@ -125,7 +125,7 @@ public class TestFunctionRegistry
             throws Exception
     {
         List<SqlFunction> functions = new FunctionListBuilder()
-                .scalar(ScalarSum.class)
+                .scalars(ScalarSum.class)
                 .getFunctions();
 
         TypeRegistry typeManager = new TypeRegistry();

@@ -26,8 +26,8 @@ public class TeradataFunctionFactory
     public List<SqlFunction> listFunctions()
     {
         return new FunctionListBuilder()
-                .scalar(TeradataStringFunctions.class)
-                .scalar(TeradataDateFunctions.class)
+                .scalars(TeradataStringFunctions.class)
+                .scalars(TeradataDateFunctions.class)
                 .getFunctions();
     }
 }
