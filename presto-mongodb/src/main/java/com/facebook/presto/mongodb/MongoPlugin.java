@@ -57,7 +57,7 @@ public class MongoPlugin
             return ImmutableList.of(type.cast(OBJECT_ID));
         }
         if (type == FunctionFactory.class) {
-            return ImmutableList.of(type.cast(new MongoFunctionFactory(typeManager)));
+            return ImmutableList.of(type.cast(new MongoFunctionFactory()));
         }
         return ImmutableList.of();
     }

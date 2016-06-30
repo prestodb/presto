@@ -328,7 +328,7 @@ public class FunctionRegistry
                     }
                 });
 
-        FunctionListBuilder builder = new FunctionListBuilder(typeManager)
+        FunctionListBuilder builder = new FunctionListBuilder()
                 .window("row_number", BIGINT, ImmutableList.<Type>of(), RowNumberFunction.class)
                 .window("rank", BIGINT, ImmutableList.<Type>of(), RankFunction.class)
                 .window("dense_rank", BIGINT, ImmutableList.<Type>of(), DenseRankFunction.class)
