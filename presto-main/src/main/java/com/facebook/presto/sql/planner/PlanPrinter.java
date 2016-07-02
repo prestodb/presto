@@ -105,6 +105,7 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.CaseFormat.UPPER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.DataSize.succinctDataSize;
 import static java.lang.Double.isFinite;
 import static java.lang.String.format;
@@ -1019,7 +1020,7 @@ public class PlanPrinter
             }
             Optional<DataSize> outputDataSize;
             if (planNodeStats1.getOutputDataSize().isPresent() && planNodeStats2.getOutputDataSize().isPresent()) {
-                outputDataSize = Optional.of(succinctDataSize(planNodeStats1.getOutputDataSize().get().toBytes() + planNodeStats2.getOutputDataSize().get().toBytes(), BYTE));
+                outputDataSize = Optional.of(succinctBytes(planNodeStats1.getOutputDataSize().get().toBytes() + planNodeStats2.getOutputDataSize().get().toBytes()));
             }
             else if (planNodeStats1.getOutputDataSize().isPresent()) {
                 outputDataSize = planNodeStats1.getOutputDataSize();
