@@ -60,6 +60,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.nanosSince;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static java.util.Objects.requireNonNull;
@@ -214,7 +215,7 @@ public class ShardRecoveryManager
         }
 
         Duration duration = nanosSince(start);
-        DataSize size = new DataSize(stagingFile.length(), BYTE);
+        DataSize size = succinctBytes(stagingFile.length());
         DataSize rate = dataRate(size, duration).convertToMostSuccinctDataSize();
         stats.addShardRecoveryDataRate(rate, size, duration);
 
