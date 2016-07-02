@@ -31,6 +31,7 @@ import java.util.concurrent.Executor;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalLimit;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -76,7 +77,7 @@ public class QueryContext
         checkArgument(bytes >= 0, "bytes is negative");
 
         if (reserved + bytes > maxMemory) {
-            throw exceededLocalLimit(new DataSize(maxMemory, DataSize.Unit.BYTE).convertToMostSuccinctDataSize());
+            throw exceededLocalLimit(succinctBytes(maxMemory));
         }
         ListenableFuture<?> future = memoryPool.reserve(queryId, bytes);
         reserved += bytes;

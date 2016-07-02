@@ -65,8 +65,7 @@ import static com.facebook.presto.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.collect.Sets.difference;
-import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.airlift.units.DataSize.succinctDataSize;
+import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -160,13 +159,13 @@ public class ClusterMemoryManager
             totalBytes += bytes;
             if (resourceOvercommit(query.getSession()) && outOfMemory) {
                 // If a query has requested resource overcommit, only kill it if the cluster has run out of memory
-                DataSize memory = succinctDataSize(bytes, BYTE);
+                DataSize memory = succinctBytes(bytes);
                 query.fail(new PrestoException(CLUSTER_OUT_OF_MEMORY,
                         format("The cluster is out of memory and %s=true, so this query was killed. It was using %s of memory", RESOURCE_OVERCOMMIT, memory)));
                 queryKilled = true;
             }
             if (!resourceOvercommit(query.getSession()) && bytes > queryMemoryLimit) {
-                DataSize maxMemory = succinctDataSize(queryMemoryLimit, BYTE);
+                DataSize maxMemory = succinctBytes(queryMemoryLimit);
                 query.fail(exceededGlobalLimit(maxMemory));
                 queryKilled = true;
             }

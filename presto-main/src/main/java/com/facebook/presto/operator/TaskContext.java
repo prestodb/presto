@@ -40,7 +40,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
-import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -373,19 +373,19 @@ public class TaskContext
                 runningPartitionedDrivers,
                 completedDrivers,
                 cumulativeMemory.get(),
-                new DataSize(memoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),
-                new DataSize(systemMemoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(memoryReservation.get()),
+                succinctBytes(systemMemoryReservation.get()),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 fullyBlocked && (runningDrivers > 0 || runningPartitionedDrivers > 0),
                 blockedReasons,
-                new DataSize(rawInputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(rawInputDataSize),
                 rawInputPositions,
-                new DataSize(processedInputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(processedInputDataSize),
                 processedInputPositions,
-                new DataSize(outputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(outputDataSize),
                 outputPositions,
                 pipelineStats);
     }

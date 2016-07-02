@@ -42,6 +42,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -391,14 +392,14 @@ public class OperatorContext
                 new Duration(addInputWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputCpuNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputUserNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new DataSize(inputDataSize.getTotalCount(), BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(inputDataSize.getTotalCount()),
                 inputPositions.getTotalCount(),
 
                 getOutputCalls.get(),
                 new Duration(getOutputWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(getOutputCpuNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(getOutputUserNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new DataSize(outputDataSize.getTotalCount(), BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(outputDataSize.getTotalCount()),
                 outputPositions.getTotalCount(),
 
                 new Duration(blockedWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
@@ -408,8 +409,8 @@ public class OperatorContext
                 new Duration(finishCpuNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(finishUserNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
-                new DataSize(memoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),
-                new DataSize(systemMemoryContext.getReservedBytes(), BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(memoryReservation.get()),
+                succinctBytes(systemMemoryContext.getReservedBytes()),
                 memoryFuture.get().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
                 info);
     }
