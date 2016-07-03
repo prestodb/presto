@@ -20,7 +20,10 @@ import com.facebook.presto.hive.metastore.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
+import com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import com.facebook.presto.hive.metastore.Partition;
+import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
@@ -78,6 +81,7 @@ import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.net.HostAndPort;
@@ -90,9 +94,6 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
-import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
-import org.apache.hadoop.hive.metastore.api.PrincipalType;
-import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.TestException;
@@ -2888,12 +2889,15 @@ public abstract class AbstractTestHiveClient
                     .setStorageFormat(StorageFormat.create(hiveStorageFormat.getSerDe(), hiveStorageFormat.getInputFormat(), hiveStorageFormat.getOutputFormat()))
                     .setSerdeParameters(ImmutableMap.of());
 
-            PrivilegeGrantInfo allPrivileges = new PrivilegeGrantInfo("all", 0, tableOwner, PrincipalType.USER, true);
-            PrincipalPrivilegeSet principalPrivilegeSet = new PrincipalPrivilegeSet(
-                    ImmutableMap.of(session.getUser(), ImmutableList.of(allPrivileges)),
-                    ImmutableMap.of(),
-                    ImmutableMap.of());
-            transaction.getMetastore(schemaName).createTable(session, tableBuilder.build(), principalPrivilegeSet, Optional.empty());
+            PrincipalPrivileges principalPrivileges = new PrincipalPrivileges(
+                    ImmutableMultimap.<String, HivePrivilegeInfo>builder()
+                            .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.SELECT, true))
+                            .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.INSERT, true))
+                            .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.UPDATE, true))
+                            .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.DELETE, true))
+                            .build(),
+                    ImmutableMultimap.of());
+            transaction.getMetastore(schemaName).createTable(session, tableBuilder.build(), principalPrivileges, Optional.empty());
 
             transaction.commit();
         }

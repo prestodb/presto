@@ -20,6 +20,7 @@ import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.metastore.ThriftHiveMetastore;
 import com.facebook.presto.spi.ColumnHandle;
@@ -48,6 +49,7 @@ import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.net.HostAndPort;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
@@ -55,7 +57,6 @@ import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.api.Database;
-import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -456,12 +457,12 @@ public abstract class AbstractTestHiveClientS3
         }
 
         @Override
-        public void createTable(Table table, PrincipalPrivilegeSet privilegeSet)
+        public void createTable(Table table, PrincipalPrivileges privileges)
         {
             // hack to work around the metastore not being configured for S3
             Table.Builder tableBuilder = Table.builder(table);
             tableBuilder.getStorageBuilder().setLocation("/");
-            super.createTable(tableBuilder.build(), privilegeSet);
+            super.createTable(tableBuilder.build(), privileges);
         }
 
         @Override
@@ -480,7 +481,7 @@ public abstract class AbstractTestHiveClientS3
                 tableBuilder.getStorageBuilder().setLocation("/");
 
                 // drop table
-                replaceTable(databaseName, tableName, tableBuilder.build(), new PrincipalPrivilegeSet());
+                replaceTable(databaseName, tableName, tableBuilder.build(), new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of()));
                 delegate.dropTable(databaseName, tableName, false);
 
                 // drop data
@@ -509,7 +510,8 @@ public abstract class AbstractTestHiveClientS3
             Table.Builder tableBuilder = Table.builder(table.get());
             tableBuilder.getStorageBuilder().setLocation(location);
 
-            replaceTable(databaseName, tableName, tableBuilder.build(), new PrincipalPrivilegeSet());
+            // NOTE: this clears the permissions
+            replaceTable(databaseName, tableName, tableBuilder.build(), new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of()));
         }
 
         private List<String> listAllDataPaths(String schemaName, String tableName)
