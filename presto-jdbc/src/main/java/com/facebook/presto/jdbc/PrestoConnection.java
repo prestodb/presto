@@ -69,6 +69,7 @@ public class PrestoConnection
     private final AtomicReference<String> timeZoneId = new AtomicReference<>();
     private final AtomicReference<Locale> locale = new AtomicReference<>();
     private final URI uri;
+    private final Properties props;
     private final HostAndPort address;
     private final String user;
     private final Map<String, String> clientInfo = new ConcurrentHashMap<>();
@@ -76,12 +77,14 @@ public class PrestoConnection
     private final AtomicReference<String> transactionId = new AtomicReference<>();
     private final QueryExecutor queryExecutor;
 
-    PrestoConnection(URI uri, String user, QueryExecutor queryExecutor)
+    PrestoConnection(URI uri, Properties props, QueryExecutor queryExecutor)
             throws SQLException
     {
         this.uri = requireNonNull(uri, "uri is null");
+        this.props = requireNonNull(props, "props is null");
         this.address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
-        this.user = requireNonNull(user, "user is null");
+        this.user = requireNonNull(props.getProperty(PrestoDriver.USER_PROPERTY),
+                PrestoDriver.USER_PROPERTY + " is null");
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
         timeZoneId.set(TimeZone.getDefault().getID());
         locale.set(Locale.getDefault());
@@ -649,10 +652,14 @@ public class PrestoConnection
         return createHttpUri(address);
     }
 
-    private static URI createHttpUri(HostAndPort address)
+    private URI createHttpUri(HostAndPort address)
     {
+        String sslProperty = props.getProperty(PrestoDriver.SSL_PROPERTY);
+        if (sslProperty == null) {
+            sslProperty = (address.getPort() == 443) ? "true" : "false";
+        }
         return uriBuilder()
-                .scheme((address.getPort() == 443) ? "https" : "http")
+                .scheme(Boolean.valueOf(sslProperty) ? "https" : "http")
                 .host(address.getHostText())
                 .port(address.getPort())
                 .build();

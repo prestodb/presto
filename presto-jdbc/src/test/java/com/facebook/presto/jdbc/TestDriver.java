@@ -1145,11 +1145,27 @@ public class TestDriver
     public void testConnectionWithSSL()
             throws Exception
     {
-        String url = format("jdbc:presto://some-ssl-server:443/%s", "blackhole");
+        String url;
+
+        url = format("jdbc:presto://some-ssl-server:443/%s", "blackhole");
         try (PrestoConnection connection = (PrestoConnection) DriverManager.getConnection(url, "test", null)) {
             URI uri = connection.getHttpUri();
             assertEquals(uri.getPort(), 443);
             assertEquals(uri.getScheme(), "https");
+        }
+
+        url = format("jdbc:presto://some-ssl-server:443/%s?ssl=true", "blackhole");
+        try (PrestoConnection connection = (PrestoConnection) DriverManager.getConnection(url, "test", null)) {
+            URI uri = connection.getHttpUri();
+            assertEquals(uri.getPort(), 443);
+            assertEquals(uri.getScheme(), "https");
+        }
+
+        url = format("jdbc:presto://some-ssl-server:443/%s?ssl=false", "blackhole");
+        try (PrestoConnection connection = (PrestoConnection) DriverManager.getConnection(url, "test", null)) {
+            URI uri = connection.getHttpUri();
+            assertEquals(uri.getPort(), 443);
+            assertEquals(uri.getScheme(), "http");
         }
     }
 

@@ -16,8 +16,10 @@ package com.facebook.presto.jdbc;
 import com.google.common.base.Throwables;
 
 import java.io.Closeable;
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLDecoder;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.DriverManager;
@@ -42,12 +44,13 @@ public class PrestoDriver
     static final String DRIVER_NAME = "Presto JDBC Driver";
     static final String DRIVER_VERSION = VERSION_MAJOR + "." + VERSION_MINOR;
 
+    static final String USER_PROPERTY = "user";
+    static final String SSL_PROPERTY = "ssl";
+
     private static final DriverPropertyInfo[] DRIVER_PROPERTY_INFOS = {};
 
     private static final String JDBC_URL_START = "jdbc:";
     private static final String DRIVER_URL_START = "jdbc:presto:";
-
-    private static final String USER_PROPERTY = "user";
 
     private final QueryExecutor queryExecutor;
 
@@ -81,12 +84,14 @@ public class PrestoDriver
             return null;
         }
 
-        String user = info.getProperty(USER_PROPERTY);
-        if (isNullOrEmpty(user)) {
+        Properties props = new Properties(info);
+
+        if (isNullOrEmpty(props.getProperty(USER_PROPERTY))) {
             throw new SQLException(format("Username property (%s) must be set", USER_PROPERTY));
         }
 
-        return new PrestoConnection(parseDriverUrl(url), user, queryExecutor);
+        URI uri = parseDriverUrl(url, props);
+        return new PrestoConnection(uri, props, queryExecutor);
     }
 
     @Override
@@ -130,7 +135,7 @@ public class PrestoDriver
         throw new SQLFeatureNotSupportedException();
     }
 
-    private static URI parseDriverUrl(String url)
+    private static URI parseDriverUrl(String url, Properties props)
             throws SQLException
     {
         URI uri;
@@ -149,6 +154,27 @@ public class PrestoDriver
         if ((uri.getPort() < 1) || (uri.getPort() > 65535)) {
             throw new SQLException("Invalid port number: " + url);
         }
+
+        String query = uri.getQuery();
+        if (query != null) {
+            for (String pair : query.split("&")) {
+                String[] kv = pair.split("=", 2);
+                props.setProperty(decode(kv[0]), decode(kv[1]));
+            }
+        }
         return uri;
+    }
+
+    private static String decode(String strOrNull)
+    {
+        if (strOrNull == null) {
+            return null;
+        }
+        try {
+            return URLDecoder.decode(strOrNull, "UTF-8");
+        }
+        catch (UnsupportedEncodingException ignore) {
+            return null;
+        }
     }
 }
