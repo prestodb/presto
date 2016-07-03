@@ -14,10 +14,9 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.GroupByHashPageIndexerFactory;
-import com.facebook.presto.hive.metastore.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePageSinkMetadata;
-import com.facebook.presto.hive.metastore.InMemoryHiveMetastore;
+import com.facebook.presto.hive.metastore.TestingHiveMetastore;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
@@ -92,7 +91,7 @@ public class TestHivePageSink
         HiveClientConfig config = new HiveClientConfig();
         File tempDir = Files.createTempDir();
         try {
-            ExtendedHiveMetastore metastore = new BridgingHiveMetastore(new InMemoryHiveMetastore(new File(tempDir, "metastore")));
+            ExtendedHiveMetastore metastore = new TestingHiveMetastore(new File(tempDir, "metastore"));
             for (HiveStorageFormat format : HiveStorageFormat.values()) {
                 config.setHiveStorageFormat(format);
                 config.setHiveCompressionCodec(NONE);

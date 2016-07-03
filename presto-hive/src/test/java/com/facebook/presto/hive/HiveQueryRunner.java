@@ -14,8 +14,9 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.hive.metastore.BridgingHiveMetastore;
-import com.facebook.presto.hive.metastore.InMemoryHiveMetastore;
+import com.facebook.presto.hive.metastore.Database;
+import com.facebook.presto.hive.metastore.PrincipalType;
+import com.facebook.presto.hive.metastore.TestingHiveMetastore;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
@@ -26,13 +27,12 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.tpch.TpchTable;
-import org.apache.hadoop.hive.metastore.api.Database;
-import org.apache.hadoop.hive.metastore.api.PrincipalType;
 import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTimeZone;
 
 import java.io.File;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.hive.security.SqlStandardAccessControl.ADMIN_ROLE_NAME;
 import static com.facebook.presto.hive.util.Types.checkType;
@@ -89,11 +89,11 @@ public final class HiveQueryRunner
             queryRunner.createCatalog("tpch", "tpch");
 
             File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
-            InMemoryHiveMetastore metastore = new InMemoryHiveMetastore(baseDir);
+            TestingHiveMetastore metastore = new TestingHiveMetastore(baseDir);
             metastore.setUserRoles(createSession().getUser(), ImmutableSet.of(ADMIN_ROLE_NAME));
             metastore.createDatabase(createDatabaseMetastoreObject(baseDir, TPCH_SCHEMA));
             metastore.createDatabase(createDatabaseMetastoreObject(baseDir, TPCH_BUCKETED_SCHEMA));
-            queryRunner.installPlugin(new HivePlugin(HIVE_CATALOG, new BridgingHiveMetastore(metastore)));
+            queryRunner.installPlugin(new HivePlugin(HIVE_CATALOG, metastore));
 
             metastore.setUserRoles(createSession().getUser(), ImmutableSet.of("admin"));
 
@@ -126,10 +126,12 @@ public final class HiveQueryRunner
 
     private static Database createDatabaseMetastoreObject(File baseDir, String name)
     {
-        Database database = new Database(name, null, new File(baseDir, name).toURI().toString(), null);
-        database.setOwnerName("public");
-        database.setOwnerType(PrincipalType.ROLE);
-        return database;
+        return Database.builder()
+                .setDatabaseName(name)
+                .setLocation(Optional.of(new File(baseDir, name).toURI().toString()))
+                .setOwnerName("public")
+                .setOwnerType(PrincipalType.ROLE)
+                .build();
     }
 
     public static Session createSession()
