@@ -715,6 +715,59 @@ public class TestDriver
                 assertFalse(rs.next());
             }
         }
+
+        try (Connection connection = createConnection("blackhole", "blackhole");
+            Statement statement = connection.createStatement()) {
+                assertEquals(statement.executeUpdate(
+                    "CREATE TABLE test_get_columns_table (" +
+                        "c1 boolean, " +
+                        "c2 bigint, " +
+                        "c3 integer, " +
+                        "c4 smallint, " +
+                        "c5 tinyint, " +
+                        "c6 double, " +
+                        "c7 varchar(1234), " +
+                        "c8 varbinary, " +
+                        "c9 time, " +
+                        "c10 \"time with time zone\", " +
+                        "c11 timestamp, " +
+                        "c12 \"timestamp with time zone\", " +
+                        "c13 date, " +
+                        "c14 decimal(8,2), " +
+                        "c15 decimal(38,0)" +
+                        ")"), 0);
+        }
+
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getColumns("blackhole", "blackhole", "test_get_columns_table", null)) {
+                assertColumnMetadata(rs);
+                assertColumnSpec(rs, null,          null,   0L);    // boolean
+                assertColumnSpec(rs, 19L,           null,   0L);    // bigint
+                assertColumnSpec(rs, 10L,           null,   0L);    // integer
+                assertColumnSpec(rs, 5L,            null,   0L);    // smallint
+                assertColumnSpec(rs, 3L,            null,   0L);    // tinyint
+                assertColumnSpec(rs, null,          null,   0L);    // double
+                assertColumnSpec(rs, 1234L,         null,   1234L); // varchar(1234)
+                assertColumnSpec(rs, 2147483647L,   null,   0L);    // varbinary
+                assertColumnSpec(rs, 8L,            null,   0L);    // time
+                assertColumnSpec(rs, 14L,           null,   0L);    // time with time zone
+                assertColumnSpec(rs, 23L,           null,   0L);    // timestamp
+                assertColumnSpec(rs, 29L,           null,   0L);    // timestamp with time zone
+                assertColumnSpec(rs, 15L,           null,   0L);    // date
+                assertColumnSpec(rs, 8L,            2L,     0L);    // decimal
+                assertColumnSpec(rs, 38L,           0L,     0L);    // decimal
+                assertFalse(rs.next());
+            }
+        }
+    }
+
+    private static void assertColumnSpec(ResultSet rs, Long columnSize, Long decimalDigits, Long charOctetLength)
+            throws SQLException
+    {
+        assertTrue(rs.next());
+        assertEquals(rs.getObject("COLUMN_SIZE"), columnSize);
+        assertEquals(rs.getObject("DECIMAL_DIGITS"), decimalDigits);
+        assertEquals(rs.getObject("CHAR_OCTET_LENGTH"), charOctetLength);
     }
 
     private static void assertColumnMetadata(ResultSet rs)
