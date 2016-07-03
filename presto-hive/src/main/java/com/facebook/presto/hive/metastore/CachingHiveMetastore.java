@@ -430,6 +430,9 @@ public class CachingHiveMetastore
         tableCache.invalidate(new HiveTableName(databaseName, tableName));
         tableNamesCache.invalidate(databaseName);
         viewNamesCache.invalidate(databaseName);
+        userTablePrivileges.asMap().keySet().stream()
+                .filter(userTableKey -> userTableKey.matches(databaseName, tableName))
+                .forEach(userTablePrivileges::invalidate);
         invalidatePartitionCache(databaseName, tableName);
     }
 
@@ -840,6 +843,11 @@ public class CachingHiveMetastore
         public String getTable()
         {
             return table;
+        }
+
+        public boolean matches(String databaseName, String tableName)
+        {
+            return this.database.equals(databaseName) && this.table.equals(tableName);
         }
 
         @Override
