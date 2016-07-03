@@ -26,8 +26,10 @@ import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
@@ -190,7 +192,7 @@ public class MetastoreUtil
         return FileUtils.makePartName(partitionColumnNames, values);
     }
 
-    public static org.apache.hadoop.hive.metastore.api.Table toMetastoreApiTable(Table table, PrincipalPrivilegeSet privileges)
+    public static org.apache.hadoop.hive.metastore.api.Table toMetastoreApiTable(Table table, PrincipalPrivileges privileges)
     {
         org.apache.hadoop.hive.metastore.api.Table result = new org.apache.hadoop.hive.metastore.api.Table();
         result.setDbName(table.getDatabaseName());
@@ -200,10 +202,38 @@ public class MetastoreUtil
         result.setParameters(table.getParameters());
         result.setPartitionKeys(table.getPartitionColumns().stream().map(MetastoreUtil::toMetastoreApiFieldSchema).collect(toList()));
         result.setSd(makeStorageDescriptor(table.getTableName(), table.getDataColumns(), table.getStorage()));
-        result.setPrivileges(privileges);
+        result.setPrivileges(toMetastoreApiPrincipalPrivilegeSet(table.getOwner(), privileges));
         result.setViewOriginalText(table.getViewOriginalText().orElse(null));
         result.setViewExpandedText(table.getViewExpandedText().orElse(null));
         return result;
+    }
+
+    private static PrincipalPrivilegeSet toMetastoreApiPrincipalPrivilegeSet(String grantee, PrincipalPrivileges privileges)
+    {
+        ImmutableMap.Builder<String, List<PrivilegeGrantInfo>> userPrivileges = ImmutableMap.builder();
+        for (Entry<String, Collection<HivePrivilegeInfo>> entry : privileges.getUserPrivileges().asMap().entrySet()) {
+            userPrivileges.put(entry.getKey(), entry.getValue().stream()
+                    .map(privilegeInfo -> toMetastoreApiPrivilegeGrantInfo(grantee, privilegeInfo))
+                    .collect(toList()));
+        }
+
+        ImmutableMap.Builder<String, List<PrivilegeGrantInfo>> rolePrivileges = ImmutableMap.builder();
+        for (Entry<String, Collection<HivePrivilegeInfo>> entry : privileges.getRolePrivileges().asMap().entrySet()) {
+            rolePrivileges.put(entry.getKey(), entry.getValue().stream()
+                    .map(privilegeInfo -> toMetastoreApiPrivilegeGrantInfo(grantee, privilegeInfo))
+                    .collect(toList()));
+        }
+
+        return new PrincipalPrivilegeSet(userPrivileges.build(), ImmutableMap.of(), rolePrivileges.build());
+    }
+
+    public static PrivilegeGrantInfo toMetastoreApiPrivilegeGrantInfo(String grantee, HivePrivilegeInfo privilegeInfo)
+    {
+        return new PrivilegeGrantInfo(
+                privilegeInfo.getHivePrivilege().name().toLowerCase(),
+                0,
+                grantee,
+                org.apache.hadoop.hive.metastore.api.PrincipalType.USER, privilegeInfo.isGrantOption());
     }
 
     public static org.apache.hadoop.hive.metastore.api.Partition toMetastoreApiPartition(Partition partition)
