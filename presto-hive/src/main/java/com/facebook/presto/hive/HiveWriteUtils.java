@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Storage;
@@ -48,7 +49,6 @@ import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.ProtectMode;
-import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
 import org.apache.hadoop.hive.serde2.SerDeException;
@@ -401,12 +401,12 @@ public final class HiveWriteUtils
 
     public static Path getTableDefaultLocation(String user, SemiTransactionalHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName)
     {
-        String location = getDatabase(metastore, schemaName).getLocationUri();
-        if (isNullOrEmpty(location)) {
+        Optional<String> location = getDatabase(metastore, schemaName).getLocation();
+        if (!location.isPresent() || location.get().isEmpty()) {
             throw new PrestoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not set", schemaName));
         }
 
-        Path databasePath = new Path(location);
+        Path databasePath = new Path(location.get());
         if (!isS3FileSystem(user, hdfsEnvironment, databasePath)) {
             if (!pathExists(user, hdfsEnvironment, databasePath)) {
                 throw new PrestoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location does not exist: %s", schemaName, databasePath));

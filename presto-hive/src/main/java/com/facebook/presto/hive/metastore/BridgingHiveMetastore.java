@@ -21,7 +21,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
-import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 
@@ -33,6 +32,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.hive.metastore.MetastoreUtil.toMetastoreApiDatabase;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toMetastoreApiPartition;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toMetastoreApiPrivilegeGrantInfo;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toMetastoreApiTable;
@@ -58,7 +58,7 @@ public class BridgingHiveMetastore
     @Override
     public Optional<Database> getDatabase(String databaseName)
     {
-        return delegate.getDatabase(databaseName);
+        return delegate.getDatabase(databaseName).map(MetastoreUtil::fromMetastoreApiDatabase);
     }
 
     @Override
@@ -88,7 +88,7 @@ public class BridgingHiveMetastore
     @Override
     public void createDatabase(Database database)
     {
-        delegate.createDatabase(database);
+        delegate.createDatabase(toMetastoreApiDatabase(database));
     }
 
     @Override
@@ -100,7 +100,7 @@ public class BridgingHiveMetastore
     @Override
     public void renameDatabase(String databaseName, String newDatabaseName)
     {
-        Database database = delegate.getDatabase(databaseName)
+        org.apache.hadoop.hive.metastore.api.Database database = delegate.getDatabase(databaseName)
                 .orElseThrow(() -> new SchemaNotFoundException(databaseName));
         database.setName(newDatabaseName);
         delegate.alterDatabase(databaseName, database);
