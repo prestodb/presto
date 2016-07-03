@@ -19,6 +19,7 @@ import com.facebook.presto.hive.AbstractTestHiveClient.Transaction;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
+import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Table;
@@ -56,7 +57,6 @@ import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.metastore.api.Database;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -449,11 +449,10 @@ public abstract class AbstractTestHiveClientS3
         @Override
         public Optional<Database> getDatabase(String databaseName)
         {
-            Optional<Database> database = super.getDatabase(databaseName);
-            if (database.isPresent()) {
-                database.get().setLocationUri("s3://" + writableBucket + "/");
-            }
-            return database;
+            return super.getDatabase(databaseName)
+                    .map(database -> Database.builder()
+                            .setLocation("s3://" + writableBucket + "/")
+                            .build());
         }
 
         @Override

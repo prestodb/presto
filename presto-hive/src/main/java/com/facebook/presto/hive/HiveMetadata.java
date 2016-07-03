@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import com.facebook.presto.hive.metastore.Partition;
@@ -60,8 +61,6 @@ import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
-import org.apache.hadoop.hive.metastore.api.Database;
-import org.apache.hadoop.hive.metastore.api.PrincipalType;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
 import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
@@ -346,21 +345,22 @@ public class HiveMetadata
     @Override
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
     {
-        Database database = new Database();
-        database.setName(schemaName);
-
-        HiveSchemaProperties.getLocation(properties).ifPresent(locationUri -> {
+        String location = HiveSchemaProperties.getLocation(properties).map(locationUri -> {
             try {
                 hdfsEnvironment.getFileSystem(session.getUser(), new Path(locationUri));
             }
             catch (IOException e) {
                 throw new PrestoException(INVALID_SCHEMA_PROPERTY, "Invalid location URI: " + locationUri, e);
             }
-            database.setLocationUri(locationUri);
-        });
+            return locationUri;
+        }).orElse(null);
 
-        database.setOwnerType(PrincipalType.USER);
-        database.setOwnerName(session.getUser());
+        Database database = Database.builder()
+                .setDatabaseName(schemaName)
+                .setLocation(location)
+                .setOwnerType(com.facebook.presto.hive.metastore.PrincipalType.USER)
+                .setOwnerName(session.getUser())
+                .build();
 
         metastore.createDatabase(database);
     }

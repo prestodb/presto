@@ -26,7 +26,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ExecutionError;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.Duration;
-import org.apache.hadoop.hive.metastore.api.Database;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -320,7 +319,7 @@ public class CachingHiveMetastore
             delegate.createDatabase(database);
         }
         finally {
-            invalidateDatabase(database.getName());
+            invalidateDatabase(database.getDatabaseName());
         }
     }
 

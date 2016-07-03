@@ -14,7 +14,6 @@
 package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.hive.HiveType;
-import org.apache.hadoop.hive.metastore.api.Database;
 
 import java.util.List;
 import java.util.Map;
