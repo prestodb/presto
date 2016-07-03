@@ -428,6 +428,8 @@ public class CachingHiveMetastore
         tableCache.invalidate(new HiveTableName(databaseName, tableName));
         tableNamesCache.invalidate(databaseName);
         viewNamesCache.invalidate(databaseName);
+        // todo this should only remove keys for this table
+        userTablePrivileges.invalidateAll();
         invalidatePartitionCache(databaseName, tableName);
     }
 
