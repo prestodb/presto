@@ -137,7 +137,7 @@ function redraw() {
             html += "<div class='output " + (task.bufferedPages > 0 ? "slow" : "") + "'>" + formatCount(task.outputRows) + " rows (" + formatDataSize(task.outputBytes) + "), buffered pages: " + task.bufferedPages + "</div>";
             html += "<div class='task-details'>";
             html += "<div class='taskid'>" + task.taskId + "</div>";
-            html += "<div class='host'>" + task.host + "</div>";
+            html += "<div class='host'>" + task.self + "</div>";
             html += "<span class='elapsedTime'>Elapsed: " + formatDuration(task.uptime) + "</span> / ";
             html += "<span class='cpuTime'>CPU: " + formatDuration(task.cpuMillis) + "</span> / ";
             html += "<span class='blockedTime'>Blocked: " + formatDuration(task.blockedMillis) + "</span>";

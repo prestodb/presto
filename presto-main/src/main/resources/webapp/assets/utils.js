@@ -127,11 +127,9 @@ function formatState(state, fullyBlocked) {
     }
 }
 
-function getHostname(url) {
-    var hostname = new URL(url).hostname;
-    if ((hostname.charAt(0) == '[') && (hostname.charAt(hostname.length - 1) == ']')) {
-        hostname = hostname.substr(1, hostname.length - 2);
-    }
+function getHostURL(url) {
+    var urlObj = new URL(url);
+    var hostname = urlObj.hostname + ":" + urlObj.port;
     return hostname;
 }
 
