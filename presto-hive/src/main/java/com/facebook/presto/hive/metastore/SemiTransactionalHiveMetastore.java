@@ -1431,6 +1431,11 @@ public class SemiTransactionalHiveMetastore
 
     private static RecursiveDeleteResult doRecursiveDeleteFiles(FileSystem fileSystem, Path directory, List<String> filePrefixes, boolean deleteEmptyDirectories)
     {
+        // don't delete hidden presto directories
+        if (directory.getName().startsWith(".presto")) {
+            return new RecursiveDeleteResult(false, ImmutableList.of());
+        }
+
         FileStatus[] allFiles;
         try {
             allFiles = fileSystem.listStatus(directory);
@@ -1448,11 +1453,9 @@ public class SemiTransactionalHiveMetastore
                 Path filePath = fileStatus.getPath();
                 String fileName = filePath.getName();
                 boolean eligible = false;
-                for (String filePrefix : filePrefixes) {
-                    if (fileName.startsWith(filePrefix)) {
-                        eligible = true;
-                        break;
-                    }
+                // never delete presto dot files
+                if (!fileName.startsWith(".presto")) {
+                    eligible = filePrefixes.stream().anyMatch(fileName::startsWith);
                 }
                 if (eligible) {
                     if (!deleteIfExists(fileSystem, filePath, false)) {

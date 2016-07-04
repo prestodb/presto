@@ -14,16 +14,16 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.PrincipalType;
-import com.facebook.presto.hive.metastore.TestingHiveMetastore;
+import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.tpch.TpchTable;
@@ -32,9 +32,7 @@ import org.joda.time.DateTimeZone;
 
 import java.io.File;
 import java.util.Map;
-import java.util.Optional;
 
-import static com.facebook.presto.hive.security.SqlStandardAccessControl.ADMIN_ROLE_NAME;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
@@ -89,13 +87,15 @@ public final class HiveQueryRunner
             queryRunner.createCatalog("tpch", "tpch");
 
             File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
-            TestingHiveMetastore metastore = new TestingHiveMetastore(baseDir);
-            metastore.setUserRoles(createSession().getUser(), ImmutableSet.of(ADMIN_ROLE_NAME));
-            metastore.createDatabase(createDatabaseMetastoreObject(baseDir, TPCH_SCHEMA));
-            metastore.createDatabase(createDatabaseMetastoreObject(baseDir, TPCH_BUCKETED_SCHEMA));
-            queryRunner.installPlugin(new HivePlugin(HIVE_CATALOG, metastore));
 
-            metastore.setUserRoles(createSession().getUser(), ImmutableSet.of("admin"));
+            HiveClientConfig hiveClientConfig = new HiveClientConfig();
+            HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveClientConfig));
+            HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig, new NoHdfsAuthentication());
+
+            FileHiveMetastore metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
+            metastore.createDatabase(createDatabaseMetastoreObject(TPCH_SCHEMA));
+            metastore.createDatabase(createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA));
+            queryRunner.installPlugin(new HivePlugin(HIVE_CATALOG, metastore));
 
             Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
                     .putAll(extraHiveProperties)
@@ -124,11 +124,10 @@ public final class HiveQueryRunner
         }
     }
 
-    private static Database createDatabaseMetastoreObject(File baseDir, String name)
+    private static Database createDatabaseMetastoreObject(String name)
     {
         return Database.builder()
                 .setDatabaseName(name)
-                .setLocation(Optional.of(new File(baseDir, name).toURI().toString()))
                 .setOwnerName("public")
                 .setOwnerType(PrincipalType.ROLE)
                 .build();
