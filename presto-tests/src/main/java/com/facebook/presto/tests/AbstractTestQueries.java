@@ -6969,4 +6969,10 @@ public abstract class AbstractTestQueries
     {
         assertQueryFails("EXECUTE my_query", "Prepared statement not found: my_query");
     }
+
+    @Test
+    public void testParametersNonPreparedStatement()
+    {
+        assertQueryFails("SELECT ?, 1", "line 1:8: Parameters are only allowed in prepared statements");
+    }
 }

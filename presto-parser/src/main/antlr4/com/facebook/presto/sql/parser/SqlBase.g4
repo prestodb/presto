@@ -264,6 +264,7 @@ primaryExpression
     | booleanValue                                                                   #booleanLiteral
     | STRING                                                                         #stringLiteral
     | BINARY_LITERAL                                                                 #binaryLiteral
+    | '?'                                                                            #parameter
     | POSITION '(' valueExpression IN valueExpression ')'                            #position
     | '(' expression (',' expression)+ ')'                                           #rowConstructor
     | ROW '(' expression (',' expression)* ')'                                       #rowConstructor

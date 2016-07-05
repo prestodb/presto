@@ -673,6 +673,19 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        public Expression visitParameter(Parameter node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteParameter(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            return node;
+        }
+
+        @Override
         public Expression visitQualifiedNameReference(QualifiedNameReference node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

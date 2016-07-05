@@ -80,4 +80,6 @@ public enum SemanticErrorCode
     INVALID_PRIVILEGE,
 
     AMBIGUOUS_FUNCTION_CALL,
+
+    INVALID_PARAMETER_USAGE,
 }
