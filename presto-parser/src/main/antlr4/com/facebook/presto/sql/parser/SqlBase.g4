@@ -78,7 +78,7 @@ statement
         (LIMIT limit=(INTEGER_VALUE | ALL))?                           #showPartitions
     | PREPARE identifier FROM statement                                #prepare
     | DEALLOCATE PREPARE identifier                                    #deallocate
-    | EXECUTE identifier                                               #execute
+    | EXECUTE identifier (USING expression (',' expression)*)?         #execute
     ;
 
 query
