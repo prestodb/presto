@@ -13,6 +13,46 @@
  */
 
  var QueryListItem = React.createClass({
+    formatQueryText: function(queryText)
+    {
+        var lines = queryText.split("\n");
+        var minLeadingWhitespace = -1;
+        for (var i = 0; i < lines.length; i++) {
+            if (minLeadingWhitespace == 0) {
+                break;
+            }
+
+            if (lines[i].trim().length == 0) {
+                continue;
+            }
+
+            var leadingWhitespace = lines[i].search(/\S/);
+
+            if (leadingWhitespace > -1 && ((leadingWhitespace < minLeadingWhitespace) || minLeadingWhitespace == -1)) {
+            	minLeadingWhitespace = leadingWhitespace;
+            }
+        }
+
+        var formattedQueryText = "";
+
+        for (i = 0; i < lines.length; i++) {
+            var trimmedLine = lines[i].substring(minLeadingWhitespace).replace(/\s+$/g, '');
+
+            if (trimmedLine.length > 0) {
+            	formattedQueryText += trimmedLine;
+
+                if (i < (lines.length -1)) {
+                    formattedQueryText += "\n";
+                }
+            }
+        }
+
+        if (formattedQueryText.length > 300) {
+            return formattedQueryText.substring(0, 300) + "...";
+        }
+
+        return formattedQueryText;
+    },
     render: function()
     {
         var query = this.props.query;
@@ -106,11 +146,6 @@
             );
         }
 
-        var queryText = query.query;
-        if (queryText.length > 300) {
-            queryText = queryText.substring(0, 300) + "...";
-        }
-
         return (
             <div className="query">
                 <div className="row">
@@ -161,7 +196,7 @@
                         </div>
                         <div className="row query-row-bottom">
                             <div className="col-xs-12">
-                                <pre className="query-snippet"><code className="sql">{ queryText }</code></pre>
+                                <pre className="query-snippet"><code className="sql">{ this.formatQueryText(query.query) }</code></pre>
                             </div>
                         </div>
                     </div>
