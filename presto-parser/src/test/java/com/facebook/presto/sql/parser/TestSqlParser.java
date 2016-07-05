@@ -67,6 +67,7 @@ import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
@@ -1472,6 +1473,15 @@ public class TestSqlParser
         assertStatement("PREPARE myquery FROM select * from foo",
                 new Prepare("myquery", simpleQuery(
                         selectList(new AllColumns()),
+                        table(QualifiedName.of("foo")))));
+    }
+
+    @Test
+    public void testPrepareWithParameters()
+    {
+        assertStatement("PREPARE myquery FROM SELECT ?, ? FROM foo",
+                new Prepare("myquery", simpleQuery(
+                        selectList(new Parameter(0), new Parameter(1)),
                         table(QualifiedName.of("foo")))));
     }
 
