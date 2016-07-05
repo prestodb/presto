@@ -41,6 +41,7 @@ import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.sql.QueryUtil.table;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
@@ -80,7 +81,7 @@ public class TestPrepareTask
     @Test
     public void testPrepareInvalidStatement()
     {
-        Statement statement = new Execute("foo");
+        Statement statement = new Execute("foo", emptyList());
         String sqlString = "PREPARE my_query FROM EXECUTE foo";
         try {
             executePrepare("my_query", statement, sqlString, TEST_SESSION);

@@ -350,7 +350,7 @@ class AstBuilder
     public Node visitExecute(SqlBaseParser.ExecuteContext context)
     {
         String name = context.identifier().getText();
-        return new Execute(getLocation(context), name);
+        return new Execute(getLocation(context), name, visit(context.expression(), Expression.class));
     }
 
     // ********************** query expressions ********************
@@ -426,6 +426,7 @@ class AstBuilder
     public Node visitQuerySpecification(SqlBaseParser.QuerySpecificationContext context)
     {
         Optional<Relation> from = Optional.empty();
+        List<SelectItem> selectItems = visit(context.selectItem(), SelectItem.class);
 
         List<Relation> relations = visit(context.relation(), Relation.class);
         if (!relations.isEmpty()) {
@@ -442,13 +443,13 @@ class AstBuilder
 
         return new QuerySpecification(
                 getLocation(context),
-                new Select(getLocation(context.SELECT()), isDistinct(context.setQuantifier()), visit(context.selectItem(), SelectItem.class)),
+                new Select(getLocation(context.SELECT()), isDistinct(context.setQuantifier()), selectItems),
                 from,
                 visitIfPresent(context.where, Expression.class),
                 visitIfPresent(context.groupBy(), GroupBy.class),
                 visitIfPresent(context.having, Expression.class),
                 ImmutableList.of(),
-                Optional.<String>empty());
+                Optional.empty());
     }
 
     @Override
