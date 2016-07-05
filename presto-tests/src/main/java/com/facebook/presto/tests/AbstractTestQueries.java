@@ -56,7 +56,9 @@ import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_Z
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static com.facebook.presto.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
@@ -4675,6 +4677,22 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testExplainExecuteWithUsing()
+    {
+        Session session = getSession().withPreparedStatement("my_query", "SELECT * FROM orders where orderkey < ?");
+        MaterializedResult result = computeActual(session, "EXPLAIN (TYPE LOGICAL) EXECUTE my_query USING 7");
+        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("SELECT * FROM orders where orderkey < 7", LOGICAL));
+    }
+
+    @Test
+    public void testExplainSetSessionWithUsing()
+    {
+        Session session = getSession().withPreparedStatement("my_query", "SET SESSION foo = ?");
+        MaterializedResult result = computeActual(session, "EXPLAIN (TYPE LOGICAL) EXECUTE my_query USING 7");
+        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), "SET SESSION foo = 7");
+    }
+
+    @Test
     public void testShowCatalogs()
             throws Exception
     {
@@ -6965,6 +6983,66 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testExecuteUsing()
+            throws Exception
+    {
+        String query = "SELECT a + 1, count(?) FROM (VALUES 1, 2, 3, 2) t1(a) JOIN (VALUES 1, 2, 3, 4) t2(b) ON b < ? WHERE a < ? GROUP BY a + 1 HAVING count(1) > ?";
+        Session session = getSession().withPreparedStatement("my_query", query);
+        assertQuery(session,
+                "EXECUTE my_query USING 1, 5, 4, 0",
+                "VALUES (2, 4), (3, 8), (4, 4)");
+    }
+
+    @Test
+    public void testExecuteUsingWithSubquery()
+            throws Exception
+    {
+        String query = "SELECT ? in (SELECT orderkey FROM orders)";
+        Session session = getSession().withPreparedStatement("my_query", query);
+
+        assertQuery(session,
+                "EXECUTE my_query USING 10",
+                "SELECT 10 in (SELECT orderkey FROM orders)"
+                );
+    }
+
+    @Test
+    public void testExecuteUsingWithSubqueryInJoin()
+        throws Exception
+    {
+        String query = "SELECT * " +
+                "FROM " +
+                "    (VALUES ?,2,3) t(x) " +
+                "  JOIN " +
+                "    (VALUES 1,2,3) t2(y) " +
+                "  ON "  +
+                "(x in (VALUES 1,2,?)) = (y in (VALUES 1,2,3)) AND (x in (VALUES 1,?)) = (y in (VALUES 1,2))";
+
+        Session session = getSession().withPreparedStatement("my_query", query);
+        assertQuery(session,
+                "EXECUTE my_query USING 1, 3, 2",
+                "VALUES (1,1), (1,2), (2,2), (2,1), (3,3)");
+    }
+
+    @Test
+    public void testExecuteWithParametersInGroupBy()
+            throws Exception
+    {
+        try {
+            String query = "SELECT a + ?, count(1) FROM (VALUES 1, 2, 3, 2) t(a) GROUP BY a + ?";
+            Session session = getSession().withPreparedStatement("my_query", query);
+            computeActual(session, "EXECUTE my_query USING 1, 1");
+            fail("parameters in group by and select should fail");
+        }
+        catch (SemanticException e) {
+            assertEquals(e.getCode(), MUST_BE_AGGREGATE_OR_GROUP_BY);
+        }
+        catch (RuntimeException e) {
+            assertEquals(e.getMessage(), "line 1:10: '(\"a\" + ?)' must be an aggregate expression or appear in GROUP BY clause");
+        }
+    }
+
+    @Test
     public void testExecuteNoSuchQuery()
     {
         assertQueryFails("EXECUTE my_query", "Prepared statement not found: my_query");
@@ -6973,6 +7051,15 @@ public abstract class AbstractTestQueries
     @Test
     public void testParametersNonPreparedStatement()
     {
-        assertQueryFails("SELECT ?, 1", "line 1:8: Parameters are only allowed in prepared statements");
+        try {
+            computeActual("SELECT ?, 1");
+            fail("parameters not in prepared statements should fail");
+        }
+        catch (SemanticException e) {
+            assertEquals(e.getCode(), INVALID_PARAMETER_USAGE);
+        }
+        catch (RuntimeException e) {
+            assertEquals(e.getMessage(), "line 1:1: Incorrect number of parameters: expected 1 but found 0");
+        }
     }
 }

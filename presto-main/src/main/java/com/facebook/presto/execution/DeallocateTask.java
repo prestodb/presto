@@ -17,8 +17,10 @@ package com.facebook.presto.execution;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.sql.tree.Deallocate;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.transaction.TransactionManager;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -33,7 +35,7 @@ public class DeallocateTask
     }
 
     @Override
-    public CompletableFuture<?> execute(Deallocate statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
+    public CompletableFuture<?> execute(Deallocate statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         String statementName = statement.getName();
         stateMachine.removePreparedStatement(statementName);

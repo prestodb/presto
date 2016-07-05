@@ -38,13 +38,15 @@ public class Analyzer
     private final Session session;
     private final Optional<QueryExplainer> queryExplainer;
     private final boolean experimentalSyntaxEnabled;
+    private final List<Expression> parameters;
 
     public Analyzer(Session session,
             Metadata metadata,
             SqlParser sqlParser,
             AccessControl accessControl,
             Optional<QueryExplainer> queryExplainer,
-            boolean experimentalSyntaxEnabled)
+            boolean experimentalSyntaxEnabled,
+            List<Expression> parameters)
     {
         this.session = requireNonNull(session, "session is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -52,12 +54,13 @@ public class Analyzer
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.queryExplainer = requireNonNull(queryExplainer, "query explainer is null");
         this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
+        this.parameters = parameters;
     }
 
     public Analysis analyze(Statement statement)
     {
-        Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement);
-        Analysis analysis = new Analysis(rewrittenStatement);
+        Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters);
+        Analysis analysis = new Analysis(rewrittenStatement, parameters);
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, experimentalSyntaxEnabled);
         analyzer.process(rewrittenStatement, Scope.builder().markQueryBoundary().build());
         return analysis;

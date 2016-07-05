@@ -126,9 +126,9 @@ final class ShowQueriesRewrite
         implements StatementRewrite.Rewrite
 {
     @Override
-    public Statement rewrite(Session session, Metadata metadata, SqlParser parser, Optional<QueryExplainer> queryExplainer, Statement node)
+    public Statement rewrite(Session session, Metadata metadata, SqlParser parser, Optional<QueryExplainer> queryExplainer, Statement node, List<Expression> parameters)
     {
-        return (Statement) new Visitor(metadata, parser, session).process(node, null);
+        return (Statement) new Visitor(metadata, parser, session, parameters).process(node, null);
     }
 
     private static class Visitor
@@ -137,12 +137,14 @@ final class ShowQueriesRewrite
         private final Metadata metadata;
         private final Session session;
         private final SqlParser sqlParser;
+        List<Expression> parameters;
 
-        public Visitor(Metadata metadata, SqlParser sqlParser, Session session)
+        public Visitor(Metadata metadata, SqlParser sqlParser, Session session, List<Expression> parameters)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.session = requireNonNull(session, "session is null");
+            this.parameters = requireNonNull(parameters, "parameters is null");
         }
 
         @Override
@@ -384,7 +386,7 @@ final class ShowQueriesRewrite
                 }
 
                 Query query = parseView(viewDefinition.get().getOriginalSql(), objectName, node);
-                String sql = formatSql(new CreateView(createQualifiedName(objectName), query, false)).trim();
+                String sql = formatSql(new CreateView(createQualifiedName(objectName), query, false), Optional.of(parameters)).trim();
                 return singleValueQuery("Create View", sql);
             }
 
@@ -431,7 +433,7 @@ final class ShowQueriesRewrite
                 }
 
                 CreateTable createTable = new CreateTable(QualifiedName.of(objectName.getCatalogName(), objectName.getSchemaName(), objectName.getObjectName()), columns, false, sqlProperties);
-                return singleValueQuery("Create Table", formatSql(createTable).trim());
+                return singleValueQuery("Create Table", formatSql(createTable, Optional.of(parameters)).trim());
             }
 
             throw new UnsupportedOperationException("SHOW CREATE only supported for tables and views");

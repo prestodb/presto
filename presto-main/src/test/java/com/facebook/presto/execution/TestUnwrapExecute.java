@@ -16,18 +16,22 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AllColumns;
+import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Statement;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.SqlQueryManager.unwrapExecuteStatement;
+import static com.facebook.presto.execution.SqlQueryManager.validateParameters;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.sql.QueryUtil.table;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -65,6 +69,36 @@ public class TestUnwrapExecute
         }
         catch (PrestoException e) {
             assertEquals(e.getErrorCode(), NOT_FOUND.toErrorCode());
+        }
+    }
+
+    @Test
+    public void testTooManyParameters()
+            throws Exception
+    {
+        try {
+            Session session = TEST_SESSION.withPreparedStatement("my_query", "SELECT * FROM foo where col1 = ?");
+            Statement statement = SQL_PARSER.createStatement("EXECUTE my_query USING 1,2");
+            validateParameters(unwrapExecuteStatement(statement, SQL_PARSER, session), ((Execute) statement).getParameters());
+            fail("expected exception");
+        }
+        catch (SemanticException e) {
+            assertEquals(e.getCode(), INVALID_PARAMETER_USAGE);
+        }
+    }
+
+    @Test
+    public void testTooFewParameters()
+            throws Exception
+    {
+        try {
+            Session session = TEST_SESSION.withPreparedStatement("my_query", "SELECT ? FROM foo where col1 = ?");
+            Statement statement = SQL_PARSER.createStatement("EXECUTE my_query USING 1");
+            validateParameters(unwrapExecuteStatement(statement, SQL_PARSER, session), ((Execute) statement).getParameters());
+            fail("expected exception");
+        }
+        catch (SemanticException e) {
+            assertEquals(e.getCode(), INVALID_PARAMETER_USAGE);
         }
     }
 }

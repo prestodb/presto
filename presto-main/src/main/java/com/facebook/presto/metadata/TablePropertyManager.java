@@ -20,7 +20,9 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.planner.ParameterRewriter;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 
@@ -58,7 +60,8 @@ public class TablePropertyManager
             String catalog,
             Map<String, Expression> sqlPropertyValues,
             Session session,
-            Metadata metadata)
+            Metadata metadata,
+            List<Expression> parameters)
     {
         Map<String, PropertyMetadata<?>> supportedTableProperties = catalogTableProperties.get(catalog);
         if (supportedTableProperties == null) {
@@ -77,7 +80,7 @@ public class TablePropertyManager
 
             Object sqlObjectValue;
             try {
-                sqlObjectValue = evaluatePropertyValue(sqlProperty.getValue(), tableProperty.getSqlType(), session, metadata);
+                sqlObjectValue = evaluatePropertyValue(sqlProperty.getValue(), tableProperty.getSqlType(), session, metadata, parameters);
             }
             catch (SemanticException e) {
                 throw new PrestoException(INVALID_TABLE_PROPERTY,
@@ -117,9 +120,10 @@ public class TablePropertyManager
         return ImmutableMap.copyOf(catalogTableProperties);
     }
 
-    private static Object evaluatePropertyValue(Expression expression, Type expectedType, Session session, Metadata metadata)
+    private static Object evaluatePropertyValue(Expression expression, Type expectedType, Session session, Metadata metadata, List<Expression> parameters)
     {
-        Object value = evaluateConstantExpression(expression, expectedType, metadata, session);
+        Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), expression);
+        Object value = evaluateConstantExpression(rewritten, expectedType, metadata, session, parameters);
 
         // convert to object value type of SQL type
         BlockBuilder blockBuilder = expectedType.createBlockBuilder(new BlockBuilderStatus(), 1);

@@ -38,6 +38,7 @@ import java.util.Map;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -113,7 +114,7 @@ public final class TypeValidator
                     verifyTypeSignature(entry.getKey(), expectedType.getTypeSignature(), types.get(Symbol.from(symbolReference)).getTypeSignature());
                     continue;
                 }
-                Type actualType = getExpressionTypes(session, metadata, sqlParser, types, entry.getValue()).get(entry.getValue());
+                Type actualType = getExpressionTypes(session, metadata, sqlParser, types, entry.getValue(), emptyList() /* parameters already replaced */).get(entry.getValue());
                 verifyTypeSignature(entry.getKey(), expectedType.getTypeSignature(), actualType.getTypeSignature());
             }
 
@@ -150,7 +151,7 @@ public final class TypeValidator
         {
             for (Map.Entry<Symbol, FunctionCall> entry : functionCalls.entrySet()) {
                 Type expectedType = types.get(entry.getKey());
-                Type actualType = getExpressionTypes(session, metadata, sqlParser, types, entry.getValue()).get(entry.getValue());
+                Type actualType = getExpressionTypes(session, metadata, sqlParser, types, entry.getValue(), emptyList() /*parameters already replaced */).get(entry.getValue());
                 verifyTypeSignature(entry.getKey(), expectedType.getTypeSignature(), actualType.getTypeSignature());
             }
         }
