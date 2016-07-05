@@ -228,7 +228,6 @@ booleanExpression
     | NOT booleanExpression                                        #logicalNot
     | left=booleanExpression operator=AND right=booleanExpression  #logicalBinary
     | left=booleanExpression operator=OR right=booleanExpression   #logicalBinary
-    | EXISTS '(' query ')'                                         #exists
     ;
 
 // workaround for:
@@ -273,6 +272,8 @@ primaryExpression
     | identifier '->' expression                                                     #lambda
     | '(' identifier (',' identifier)* ')' '->' expression                           #lambda
     | '(' query ')'                                                                  #subqueryExpression
+    // This is an extension to ANSI SQL, which considers EXISTS to be a <boolean expression>
+    | EXISTS '(' query ')'                                                           #exists
     | CASE valueExpression whenClause+ (ELSE elseExpression=expression)? END         #simpleCase
     | CASE whenClause+ (ELSE elseExpression=expression)? END                         #searchedCase
     | CAST '(' expression AS type ')'                                                #cast
