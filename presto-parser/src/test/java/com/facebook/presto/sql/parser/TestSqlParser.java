@@ -123,6 +123,7 @@ import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.negative;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.positive;
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -1494,7 +1495,14 @@ public class TestSqlParser
     @Test
     public void testExecute()
     {
-        assertStatement("EXECUTE myquery", new Execute("myquery"));
+        assertStatement("EXECUTE myquery", new Execute("myquery", emptyList()));
+    }
+
+    @Test
+    public void testExecuteWithUsing()
+    {
+        assertStatement("EXECUTE myquery USING 1, 'abc', ARRAY ['hello']",
+                new Execute("myquery", ImmutableList.of(new LongLiteral("1"), new StringLiteral("abc"), new ArrayConstructor(ImmutableList.of(new StringLiteral("hello"))))));
     }
 
     @Test

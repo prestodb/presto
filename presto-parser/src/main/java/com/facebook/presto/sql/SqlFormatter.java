@@ -174,6 +174,11 @@ public final class SqlFormatter
         {
             append(indent, "EXECUTE ");
             builder.append(node.getName());
+            List<Expression> parameters = node.getParameters();
+            if (!parameters.isEmpty()) {
+                builder.append(" USING ");
+                Joiner.on(", ").appendTo(builder, parameters);
+            }
             return null;
         }
 
