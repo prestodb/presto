@@ -46,6 +46,7 @@ import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FieldReference;
@@ -150,6 +151,7 @@ public class ExpressionAnalyzer
     private final IdentityHashMap<Expression, Integer> resolvedNames = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> expressionTypes = new IdentityHashMap<>();
     private final Set<SubqueryExpression> scalarSubqueries = newIdentityHashSet();
+    private final Set<ExistsPredicate> existsSubqueries = newIdentityHashSet();
     private final IdentityHashMap<Expression, Type> expressionCoercions = new IdentityHashMap<>();
     private final Set<Expression> typeOnlyCoercions = newIdentityHashSet();
     private final Set<InPredicate> subqueryInPredicates = newIdentityHashSet();
@@ -216,6 +218,11 @@ public class ExpressionAnalyzer
     public Set<SubqueryExpression> getScalarSubqueries()
     {
         return scalarSubqueries;
+    }
+
+    public Set<ExistsPredicate> getExistsSubqueries()
+    {
+        return existsSubqueries;
     }
 
     private class Visitor
@@ -941,9 +948,9 @@ public class ExpressionAnalyzer
                         descriptor.getVisibleFieldCount());
             }
 
-            Optional<Node> previousNode = context.getPreviousNode();
-            if (previousNode.isPresent() && previousNode.get() instanceof InPredicate && ((InPredicate) previousNode.get()).getValue() != node) {
-                subqueryInPredicates.add((InPredicate) previousNode.get());
+            Node previousNode = context.getPreviousNode().orElse(null);
+            if (previousNode instanceof InPredicate && ((InPredicate) previousNode).getValue() != node) {
+                subqueryInPredicates.add((InPredicate) previousNode);
             }
             else {
                 scalarSubqueries.add(node);
@@ -952,6 +959,18 @@ public class ExpressionAnalyzer
             Type type = Iterables.getOnlyElement(descriptor.getVisibleFields()).getType();
             expressionTypes.put(node, type);
             return type;
+        }
+
+        @Override
+        protected Type visitExists(ExistsPredicate node, StackableAstVisitorContext<AnalysisContext> context)
+        {
+            StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node);
+            analyzer.process(node.getSubquery(), new AnalysisContext(context.getContext(), tupleDescriptor));
+
+            existsSubqueries.add(node);
+
+            expressionTypes.put(node, BOOLEAN);
+            return BOOLEAN;
         }
 
         @Override
@@ -1176,6 +1195,7 @@ public class ExpressionAnalyzer
                 analyzer.getExpressionCoercions(),
                 analyzer.getSubqueryInPredicates(),
                 analyzer.getScalarSubqueries(),
+                analyzer.getExistsSubqueries(),
                 analyzer.getResolvedNames().keySet(),
                 analyzer.getTypeOnlyCoercions());
     }
@@ -1210,6 +1230,7 @@ public class ExpressionAnalyzer
                 expressionCoercions,
                 analyzer.getSubqueryInPredicates(),
                 analyzer.getScalarSubqueries(),
+                analyzer.getExistsSubqueries(),
                 analyzer.getColumnReferences(),
                 analyzer.getTypeOnlyCoercions());
     }

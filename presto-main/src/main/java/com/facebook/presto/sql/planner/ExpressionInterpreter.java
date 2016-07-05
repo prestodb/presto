@@ -47,6 +47,7 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
+import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -635,6 +636,15 @@ public class ExpressionInterpreter
                 return null;
             }
             return false;
+        }
+
+        @Override
+        protected Object visitExists(ExistsPredicate node, Object context)
+        {
+            if (!optimize) {
+                throw new UnsupportedOperationException("Exists subquery not yet implemented");
+            }
+            return node;
         }
 
         @Override

@@ -14,21 +14,38 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.analyzer.Analysis;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
+import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.Collection;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Type.GREATER_THAN;
 import static com.facebook.presto.sql.util.AstUtils.nodeContains;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkState;
@@ -80,6 +97,12 @@ class SubqueryPlanner
                         .stream()
                         .filter(subquery -> nodeContains(expression, subquery))
                         .collect(toImmutableSet()));
+        builder = appendExistsSubqueryApplyNodes(
+                builder,
+                analysis.getExistsSubqueries(node)
+                        .stream()
+                        .filter(subquery -> nodeContains(expression, subquery))
+                        .collect(toImmutableSet()));
         return builder;
     }
 
@@ -96,7 +119,8 @@ class SubqueryPlanner
         subPlan = subPlan.appendProjections(ImmutableList.of(inPredicate.getValue()), symbolAllocator, idAllocator);
 
         checkState(inPredicate.getValueList() instanceof SubqueryExpression);
-        RelationPlan valueListRelation = createRelationPlan((SubqueryExpression) inPredicate.getValueList());
+        SubqueryExpression subqueryExpression = (SubqueryExpression) inPredicate.getValueList();
+        RelationPlan valueListRelation = createRelationPlan(subqueryExpression.getQuery());
 
         TranslationMap translationMap = subPlan.copyTranslations();
         SymbolReference valueList = getOnlyElement(valueListRelation.getOutputSymbols()).toSymbolReference();
@@ -121,35 +145,96 @@ class SubqueryPlanner
 
     private PlanBuilder appendScalarSubqueryApplyNode(PlanBuilder subPlan, SubqueryExpression scalarSubquery)
     {
-        if (subPlan.canTranslate(scalarSubquery)) {
+        return appendSubqueryApplyNode(
+                subPlan,
+                scalarSubquery,
+                scalarSubquery.getQuery(),
+                subquery -> new EnforceSingleRowNode(idAllocator.getNextId(), createRelationPlan(subquery).getRoot()));
+    }
+
+    private PlanBuilder appendExistsSubqueryApplyNodes(PlanBuilder builder, Set<ExistsPredicate> existsPredicates)
+    {
+        for (ExistsPredicate existsPredicate : existsPredicates) {
+            builder = appendExistSubqueryApplyNode(builder, existsPredicate);
+        }
+        return builder;
+    }
+
+    /**
+     * Exists is modeled as:
+     * <pre>
+     *     - EnforceSingleRow
+     *       - Project($0 > 0)
+     *         - Aggregation(COUNT(*))
+     *           - Limit(1)
+     *             -- subquery
+     * </pre>
+     */
+    private PlanBuilder appendExistSubqueryApplyNode(PlanBuilder subPlan, ExistsPredicate existsPredicate)
+    {
+        return appendSubqueryApplyNode(subPlan, existsPredicate, existsPredicate.getSubquery(), subquery -> {
+            PlanNode subqueryPlan = createRelationPlan(subquery).getRoot();
+
+            subqueryPlan = new LimitNode(idAllocator.getNextId(), subqueryPlan, 1, false);
+
+            FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
+            QualifiedName countFunction = QualifiedName.of("count");
+            Symbol count = symbolAllocator.newSymbol(countFunction.toString(), BIGINT);
+            subqueryPlan = new AggregationNode(
+                    idAllocator.getNextId(),
+                    subqueryPlan,
+                    ImmutableList.of(),
+                    ImmutableMap.of(count, new FunctionCall(countFunction, ImmutableList.of())),
+                    ImmutableMap.of(count, functionRegistry.resolveFunction(countFunction, ImmutableList.of(), false)),
+                    ImmutableMap.of(),
+                    ImmutableList.of(ImmutableList.of()),
+                    AggregationNode.Step.SINGLE,
+                    Optional.empty(),
+                    1.0,
+                    Optional.empty());
+
+            Symbol exists = symbolAllocator.newSymbol("exists", BOOLEAN);
+            ComparisonExpression countGreaterThanZero = new ComparisonExpression(GREATER_THAN, count.toSymbolReference(), new Cast(new LongLiteral("0"), BIGINT.toString()));
+            return new EnforceSingleRowNode(
+                    idAllocator.getNextId(),
+                    new ProjectNode(
+                            idAllocator.getNextId(),
+                            subqueryPlan,
+                            ImmutableMap.of(exists, countGreaterThanZero)));
+        });
+    }
+
+    private PlanBuilder appendSubqueryApplyNode(PlanBuilder subPlan, Expression subqueryExpression, Query subquery, Function<Query, PlanNode> subqueryPlanner)
+    {
+        if (subPlan.canTranslate(subqueryExpression)) {
             // given subquery is already appended
             return subPlan;
         }
 
-        EnforceSingleRowNode enforceSingleRowNode = new EnforceSingleRowNode(idAllocator.getNextId(), createRelationPlan(scalarSubquery).getRoot());
+        PlanNode subqueryNode = subqueryPlanner.apply(subquery);
 
         TranslationMap translations = subPlan.copyTranslations();
-        translations.put(scalarSubquery, getOnlyElement(enforceSingleRowNode.getOutputSymbols()));
+        translations.put(subqueryExpression, getOnlyElement(subqueryNode.getOutputSymbols()));
 
         PlanNode root = subPlan.getRoot();
         if (root.getOutputSymbols().isEmpty()) {
             // there is nothing to join with - e.g. SELECT (SELECT 1)
-            return new PlanBuilder(translations, enforceSingleRowNode, subPlan.getSampleWeight());
+            return new PlanBuilder(translations, subqueryNode, subPlan.getSampleWeight());
         }
         else {
             return new PlanBuilder(translations,
                     // TODO handle parameter list
                     new ApplyNode(idAllocator.getNextId(),
                             root,
-                            enforceSingleRowNode,
+                            subqueryNode,
                             ImmutableList.of()),
                     subPlan.getSampleWeight());
         }
     }
 
-    private RelationPlan createRelationPlan(SubqueryExpression subqueryExpression)
+    private RelationPlan createRelationPlan(Query subquery)
     {
         return new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session)
-                .process(subqueryExpression.getQuery(), null);
+                .process(subquery, null);
     }
 }

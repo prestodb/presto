@@ -25,6 +25,7 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.DereferenceExpression;
+import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FieldReference;
@@ -150,6 +151,12 @@ class AggregationAnalyzer
 
         @Override
         protected Boolean visitSubqueryExpression(SubqueryExpression node, Void context)
+        {
+            return true;
+        }
+
+        @Override
+        protected Boolean visitExists(ExistsPredicate node, Void context)
         {
             return true;
         }

@@ -53,9 +53,7 @@ public class TransformUncorrelatedScalarToJoin
         public PlanNode visitApply(ApplyNode node, RewriteContext<PlanNode> context)
         {
             ApplyNode rewrittenNode = (ApplyNode) context.defaultRewrite(node, context.get());
-
             if (rewrittenNode.getCorrelation().isEmpty() && rewrittenNode.getSubquery() instanceof EnforceSingleRowNode) {
-                // only scalar subquery wraps expression in EnforceSingleRowNode
                 return new JoinNode(
                         idAllocator.getNextId(),
                         JoinNode.Type.INNER,

@@ -5669,6 +5669,67 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testExistsSubquery()
+            throws Exception
+    {
+        // nested
+        assertQuery("SELECT EXISTS(SELECT NOT EXISTS(SELECT EXISTS(SELECT 1)))");
+
+        // aggregation
+        assertQuery("SELECT COUNT(*) FROM lineitem WHERE " +
+                "EXISTS(SELECT max(orderkey) FROM orders)");
+        assertQuery("SELECT COUNT(*) FROM lineitem WHERE " +
+                "NOT EXISTS(SELECT max(orderkey) FROM orders)");
+        assertQuery("SELECT COUNT(*) FROM lineitem WHERE " +
+                "NOT EXISTS(SELECT orderkey FROM orders WHERE false)");
+
+        // no output
+        assertQuery("SELECT COUNT(*) FROM lineitem WHERE " +
+                "EXISTS(SELECT orderkey FROM orders WHERE false)");
+        assertQuery("SELECT COUNT(*) FROM lineitem WHERE " +
+                "NOT EXISTS(SELECT orderkey FROM orders WHERE false)");
+
+        // exists with in-predicate
+        assertQuery("SELECT (EXISTS(SELECT 1)) IN (false)", "SELECT false");
+        assertQuery("SELECT (NOT EXISTS(SELECT 1)) IN (false)", "SELECT true");
+
+        assertQuery("SELECT (EXISTS(SELECT 1)) IN (true, false)", "SELECT true");
+        assertQuery("SELECT (NOT EXISTS(SELECT 1)) IN (true, false)", "SELECT true");
+
+        assertQuery("SELECT (EXISTS(SELECT 1 WHERE false)) IN (true, false)", "SELECT true");
+        assertQuery("SELECT (NOT EXISTS(SELECT 1 WHERE false)) IN (true, false)", "SELECT true");
+
+        assertQuery("SELECT (EXISTS(SELECT 1 WHERE false)) IN (false)", "SELECT true");
+        assertQuery("SELECT (NOT EXISTS(SELECT 1 WHERE false)) IN (false)", "SELECT false");
+
+        // multiple exists
+        assertQuery("SELECT (EXISTS(SELECT 1)) = (EXISTS(SELECT 1)) WHERE NOT EXISTS(SELECT 1)", "SELECT true WHERE false");
+        assertQuery("SELECT (EXISTS(SELECT 1)) = (EXISTS(SELECT 3)) WHERE NOT EXISTS(SELECT 1 WHERE false)", "SELECT true");
+        assertQuery("SELECT COUNT(*) FROM lineitem WHERE " +
+                "(EXISTS(SELECT min(orderkey) FROM orders))" +
+                "=" +
+                "(NOT EXISTS(SELECT orderkey FROM orders WHERE false))",
+                "SELECT count(*) FROM lineitem");
+        assertQuery("SELECT EXISTS(SELECT 1), EXISTS(SELECT 1), EXISTS(SELECT 3), NOT EXISTS(SELECT 1), NOT EXISTS(SELECT 1 WHERE false)");
+
+        // distinct
+        assertQuery("SELECT DISTINCT orderkey FROM lineitem " +
+                "WHERE EXISTS(SELECT avg(orderkey) FROM orders)");
+
+        // subqueries with joins
+        for (String joinType : ImmutableList.of("INNER", "LEFT OUTER")) {
+            assertQuery("SELECT l.orderkey, COUNT(*) " +
+                    "FROM lineitem l " + joinType + " JOIN orders o ON l.orderkey = o.orderkey " +
+                    "WHERE EXISTS(SELECT avg(orderkey) FROM orders) " +
+                    "GROUP BY l.orderkey");
+        }
+
+        // subqueries with ORDER BY
+        assertQuery("SELECT orderkey, totalprice FROM orders ORDER BY EXISTS(SELECT 2)");
+        assertQuery("SELECT orderkey, totalprice FROM orders ORDER BY NOT(EXISTS(SELECT 2))");
+    }
+
+    @Test
     public void testScalarSubqueryWithGroupBy()
             throws Exception
     {
@@ -5723,6 +5784,49 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testExistsSubqueryWithGroupBy()
+            throws Exception
+    {
+        // using the same subquery in query
+        assertQuery("SELECT linenumber, min(orderkey), EXISTS(SELECT orderkey FROM orders WHERE orderkey < 7)" +
+                "FROM lineitem " +
+                "GROUP BY linenumber");
+
+        assertQuery("SELECT linenumber, min(orderkey), EXISTS(SELECT orderkey FROM orders WHERE orderkey < 7)" +
+                "FROM lineitem " +
+                "GROUP BY linenumber, EXISTS(SELECT orderkey FROM orders WHERE orderkey < 7)");
+
+        assertQuery("SELECT linenumber, min(orderkey) " +
+                "FROM lineitem " +
+                "GROUP BY linenumber, EXISTS(SELECT orderkey FROM orders WHERE orderkey < 7)");
+
+        assertQuery("SELECT linenumber, min(orderkey) " +
+                "FROM lineitem " +
+                "GROUP BY linenumber " +
+                "HAVING EXISTS(SELECT orderkey FROM orders WHERE orderkey < 7)");
+
+        assertQuery("SELECT linenumber, min(orderkey), EXISTS(SELECT orderkey FROM orders WHERE orderkey < 7)" +
+                "FROM lineitem " +
+                "GROUP BY linenumber, EXISTS(SELECT orderkey FROM orders WHERE orderkey < 7)" +
+                "HAVING EXISTS(SELECT orderkey FROM orders WHERE orderkey < 7)");
+
+        // using different subqueries
+        assertQuery("SELECT linenumber, min(orderkey), EXISTS(SELECT orderkey FROM orders WHERE orderkey < 7)" +
+                "FROM lineitem " +
+                "GROUP BY linenumber, EXISTS(SELECT orderkey FROM orders WHERE orderkey < 17)");
+
+        assertQuery("SELECT linenumber, max(orderkey), EXISTS(SELECT orderkey FROM orders WHERE orderkey < 5)" +
+                "FROM lineitem " +
+                "GROUP BY linenumber " +
+                "HAVING EXISTS(SELECT orderkey FROM orders WHERE orderkey < 7)");
+
+        assertQuery("SELECT linenumber, min(orderkey), EXISTS(SELECT orderkey FROM orders WHERE orderkey < 17)" +
+                "FROM lineitem " +
+                "GROUP BY linenumber, EXISTS(SELECT orderkey FROM orders WHERE orderkey < 17)" +
+                "HAVING EXISTS(SELECT orderkey FROM orders WHERE orderkey < 27)");
+    }
+
+    @Test
     public void testCorrelatedScalarSubqueries()
             throws Exception
     {
@@ -5764,6 +5868,28 @@ public abstract class AbstractTestQueries
 
         // subrelation
         assertQueryFails("SELECT * FROM lineitem l WHERE l.orderkey = (SELECT * FROM (SELECT 1 IN (SELECT l.orderkey)))", errorMsg);
+    }
+
+    @Test
+    public void testCorrelatedExistsSubqueries()
+            throws Exception
+    {
+        String errorMsg = "line .*: Correlated queries not yet supported. Invalid column reference: .*";
+
+        assertQueryFails("SELECT EXISTS(SELECT l.orderkey) FROM lineitem l", errorMsg);
+        assertQueryFails("SELECT * FROM lineitem l WHERE EXISTS(SELECT l.orderkey)", errorMsg);
+        assertQueryFails("SELECT * FROM lineitem l ORDER BY EXISTS(SELECT l.orderkey)", errorMsg);
+
+        // group by
+        assertQueryFails("SELECT max(l.quantity), l.orderkey, EXISTS(SELECT l.orderkey) FROM lineitem l GROUP BY l.orderkey", errorMsg);
+        assertQueryFails("SELECT max(l.quantity), l.orderkey FROM lineitem l GROUP BY l.orderkey HAVING EXISTS (SELECT l.orderkey)", errorMsg);
+        assertQueryFails("SELECT max(l.quantity), l.orderkey FROM lineitem l GROUP BY l.orderkey, EXISTS (SELECT l.orderkey)", errorMsg);
+
+        // join
+        assertQueryFails("SELECT * FROM lineitem l1 JOIN lineitem l2 ON EXISTS(SELECT l1.orderkey = l2.orderkey)", errorMsg);
+
+        // subrelation
+        assertQueryFails("SELECT * FROM lineitem l WHERE l.orderkey= (SELECT * FROM (SELECT EXISTS( SELECT l.orderkey)))", errorMsg);
     }
 
     @Test
