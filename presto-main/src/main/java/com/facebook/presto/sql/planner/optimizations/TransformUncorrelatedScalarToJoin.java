@@ -19,7 +19,6 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
-import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -28,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.optimizations.PlanCardinalityExtractor.extractCardinality;
 import static java.util.Objects.requireNonNull;
 
 public class TransformUncorrelatedScalarToJoin
@@ -54,8 +54,8 @@ public class TransformUncorrelatedScalarToJoin
         {
             ApplyNode rewrittenNode = (ApplyNode) context.defaultRewrite(node, context.get());
 
-            if (rewrittenNode.getCorrelation().isEmpty() && rewrittenNode.getSubquery() instanceof EnforceSingleRowNode) {
-                // only scalar subquery wraps expression in EnforceSingleRowNode
+            if (rewrittenNode.getCorrelation().isEmpty()
+                    && extractCardinality(node.getSubquery()).map(cardinality -> cardinality == 1).orElse(false)) {
                 return new JoinNode(
                         idAllocator.getNextId(),
                         JoinNode.Type.INNER,

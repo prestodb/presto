@@ -68,8 +68,8 @@ public class PlanOptimizersFactory
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 
         builder.add(new DesugaringOptimizer(metadata, sqlParser), // Clean up all the sugar in expressions, e.g. AtTimeZone, must be run before all the other optimizers
-                new TransformUncorrelatedScalarToJoin(),
                 new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
+                new TransformUncorrelatedScalarToJoin(),
                 new ImplementSampleAsFilter(),
                 new CanonicalizeExpressions(),
                 new SimplifyExpressions(metadata, sqlParser),
