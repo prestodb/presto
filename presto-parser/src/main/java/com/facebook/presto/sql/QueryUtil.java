@@ -141,6 +141,18 @@ public final class QueryUtil
         return ImmutableList.copyOf(items);
     }
 
+    public static Query simpleQuery(Select select)
+    {
+        return query(new QuerySpecification(
+                select,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(),
+                Optional.empty()));
+    }
+
     public static Query simpleQuery(Select select, Relation from)
     {
         return simpleQuery(select, from, Optional.empty(), ImmutableList.of());
