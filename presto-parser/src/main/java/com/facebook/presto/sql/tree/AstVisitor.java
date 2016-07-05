@@ -377,6 +377,11 @@ public abstract class AstVisitor<R, C>
         return visitLiteral(node, context);
     }
 
+    protected R visitParameter(Parameter node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitLogicalBinaryExpression(LogicalBinaryExpression node, C context)
     {
         return visitExpression(node, context);
