@@ -107,7 +107,7 @@ public class BeginTableWrite
             TableWriterNode.DeleteHandle deleteHandle = (TableWriterNode.DeleteHandle) context.get().getMaterializedHandle(node.getTarget()).get();
             return new DeleteNode(
                     node.getId(),
-                    rewriteDeleteTableScan(node.getSource(), deleteHandle.getHandle(), context),
+                    rewriteDeleteTableScan(node.getSource(), deleteHandle.getHandle()),
                     deleteHandle,
                     node.getRowId(),
                     node.getOutputSymbols());
@@ -162,7 +162,7 @@ public class BeginTableWrite
             throw new IllegalArgumentException("Unhandled target type: " + target.getClass().getSimpleName());
         }
 
-        private PlanNode rewriteDeleteTableScan(PlanNode node, TableHandle handle, RewriteContext<Context> context)
+        private PlanNode rewriteDeleteTableScan(PlanNode node, TableHandle handle)
         {
             if (node instanceof TableScanNode) {
                 TableScanNode scan = (TableScanNode) node;
@@ -186,19 +186,19 @@ public class BeginTableWrite
             }
 
             if (node instanceof FilterNode) {
-                PlanNode source = rewriteDeleteTableScan(((FilterNode) node).getSource(), handle, context);
+                PlanNode source = rewriteDeleteTableScan(((FilterNode) node).getSource(), handle);
                 return replaceChildren(node, ImmutableList.of(source));
             }
             if (node instanceof ProjectNode) {
-                PlanNode source = rewriteDeleteTableScan(((ProjectNode) node).getSource(), handle, context);
+                PlanNode source = rewriteDeleteTableScan(((ProjectNode) node).getSource(), handle);
                 return replaceChildren(node, ImmutableList.of(source));
             }
             if (node instanceof SemiJoinNode) {
-                PlanNode source = rewriteDeleteTableScan(((SemiJoinNode) node).getSource(), handle, context);
+                PlanNode source = rewriteDeleteTableScan(((SemiJoinNode) node).getSource(), handle);
                 return replaceChildren(node, ImmutableList.of(source, ((SemiJoinNode) node).getFilteringSource()));
             }
             if (node instanceof JoinNode && (((JoinNode) node).getType() == JoinNode.Type.INNER) && isScalar(((JoinNode) node).getRight())) {
-                PlanNode source = rewriteDeleteTableScan(((JoinNode) node).getLeft(), handle, context);
+                PlanNode source = rewriteDeleteTableScan(((JoinNode) node).getLeft(), handle);
                 return replaceChildren(node, ImmutableList.of(source, ((JoinNode) node).getRight()));
             }
             throw new IllegalArgumentException("Invalid descendant for DeleteNode: " + node.getClass().getName());
