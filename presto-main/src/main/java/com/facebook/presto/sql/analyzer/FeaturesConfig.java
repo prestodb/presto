@@ -37,6 +37,8 @@ public class FeaturesConfig
     }
 
     public static final String FILE_BASED_RESOURCE_GROUP_MANAGER = "file";
+    public static final int DEFAULT_BROADCAST_JOIN_CARDINALITY = 1_000_000;
+
     private boolean experimentalSyntaxEnabled;
     private boolean distributedIndexJoinsEnabled;
     private boolean distributedJoinsEnabled = true;
@@ -46,6 +48,7 @@ public class FeaturesConfig
     private boolean optimizeHashGeneration = true;
     private boolean optimizeSingleDistinct = true;
     private boolean pushTableWriteThroughUnion = true;
+    private int broadcastJoinCardinality = DEFAULT_BROADCAST_JOIN_CARDINALITY;
 
     private String processingOptimization = ProcessingOptimization.DISABLED;
     private boolean dictionaryAggregation;
@@ -216,6 +219,19 @@ public class FeaturesConfig
     public FeaturesConfig setDictionaryAggregation(boolean dictionaryAggregation)
     {
         this.dictionaryAggregation = dictionaryAggregation;
+        return this;
+    }
+
+    @Min(1)
+    public int getBroadcastJoinCardinality()
+    {
+        return broadcastJoinCardinality;
+    }
+
+    @Config("optimizer.broadcast-join-cardinality")
+    public FeaturesConfig setBroadcastJoinCardinality(int broadcastJoinCardinality)
+    {
+        this.broadcastJoinCardinality = broadcastJoinCardinality;
         return this;
     }
 
