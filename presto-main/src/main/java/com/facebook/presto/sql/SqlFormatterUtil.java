@@ -19,7 +19,7 @@ import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
 
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
 public final class SqlFormatterUtil
 {
@@ -35,10 +35,10 @@ public final class SqlFormatterUtil
             parsed = sqlParser.createStatement(sql);
         }
         catch (ParsingException e) {
-            throw new PrestoException(INTERNAL_ERROR, "Formatted query does not parse: " + statement);
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Formatted query does not parse: " + statement);
         }
         if (!statement.equals(parsed)) {
-            throw new PrestoException(INTERNAL_ERROR, "Query does not round-trip: " + statement);
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Query does not round-trip: " + statement);
         }
 
         return sql;

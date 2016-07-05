@@ -31,7 +31,7 @@ import java.util.Map;
 
 import static com.facebook.presto.raptor.util.Types.isArrayType;
 import static com.facebook.presto.raptor.util.Types.isMapType;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
@@ -175,7 +175,7 @@ public class Row
             }
             return map;
         }
-        throw new PrestoException(INTERNAL_ERROR, "Unimplemented type: " + type);
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unimplemented type: " + type);
     }
 
     private static class RowBuilder

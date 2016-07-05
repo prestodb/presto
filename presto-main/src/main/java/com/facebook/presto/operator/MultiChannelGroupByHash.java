@@ -33,7 +33,7 @@ import java.util.Optional;
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
-import static com.facebook.presto.spi.StandardErrorCode.INSUFFICIENT_RESOURCES;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.gen.JoinCompiler.PagesHashStrategyFactory;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -307,7 +307,7 @@ public class MultiChannelGroupByHash
     {
         long newCapacityLong = this.groupIdsByHash.length * 2L;
         if (newCapacityLong > Integer.MAX_VALUE) {
-            throw new PrestoException(INSUFFICIENT_RESOURCES, "Size of hash table cannot exceed 1 billion entries");
+            throw new PrestoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of hash table cannot exceed 1 billion entries");
         }
         int newCapacity = (int) newCapacityLong;
 

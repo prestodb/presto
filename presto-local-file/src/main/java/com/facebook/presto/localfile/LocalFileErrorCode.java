@@ -15,17 +15,20 @@ package com.facebook.presto.localfile;
 
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorCodeSupplier;
+import com.facebook.presto.spi.ErrorType;
+
+import static com.facebook.presto.spi.ErrorType.EXTERNAL;
 
 public enum LocalFileErrorCode
         implements ErrorCodeSupplier
 {
-    LOCAL_FILE_ERROR_CODE(0);
+    LOCAL_FILE_ERROR_CODE(0, EXTERNAL);
 
     private final ErrorCode errorCode;
 
-    LocalFileErrorCode(int code)
+    LocalFileErrorCode(int code, ErrorType type)
     {
-        errorCode = new ErrorCode(code + 0x0500_0000, name());
+        errorCode = new ErrorCode(code + 0x0500_0000, name(), type);
     }
 
     @Override

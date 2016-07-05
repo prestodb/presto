@@ -39,7 +39,7 @@ import static com.facebook.presto.SystemSessionProperties.getQueryPriority;
 import static com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy.FAIR;
 import static com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy.QUERY_PRIORITY;
 import static com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy.WEIGHTED;
-import static com.facebook.presto.spi.StandardErrorCode.ErrorType.USER_ERROR;
+import static com.facebook.presto.spi.ErrorType.USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_QUEUE_FULL;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;

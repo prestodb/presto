@@ -393,12 +393,12 @@ public final class SqlStageExecution
                 RuntimeException failure = taskStatus.getFailures().stream()
                         .findFirst()
                         .map(ExecutionFailureInfo::toException)
-                        .orElse(new PrestoException(StandardErrorCode.INTERNAL_ERROR, "A task failed for an unknown reason"));
+                        .orElse(new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
                 stateMachine.transitionToFailed(failure);
             }
             else if (taskState == TaskState.ABORTED) {
                 // A task should only be in the aborted state if the STAGE is done (ABORTED or FAILED)
-                stateMachine.transitionToFailed(new PrestoException(StandardErrorCode.INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageState));
+                stateMachine.transitionToFailed(new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageState));
             }
             else if (taskState == TaskState.FINISHED) {
                 finishedTasks.add(taskStatus.getTaskId());

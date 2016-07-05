@@ -20,7 +20,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.ShortArrayBlockBuilder;
 
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 
 public final class SmallintType
@@ -127,10 +127,10 @@ public final class SmallintType
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
         if (value > Short.MAX_VALUE) {
-            throw new PrestoException(INTERNAL_ERROR, String.format("Value %d exceeds MAX_SHORT", value));
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, String.format("Value %d exceeds MAX_SHORT", value));
         }
         else if (value < Short.MIN_VALUE) {
-            throw new PrestoException(INTERNAL_ERROR, String.format("Value %d is less than MIN_SHORT", value));
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, String.format("Value %d is less than MIN_SHORT", value));
         }
 
         blockBuilder.writeShort((int) value).closeEntry();

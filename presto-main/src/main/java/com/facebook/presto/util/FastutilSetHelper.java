@@ -34,7 +34,7 @@ import java.util.Set;
 
 import static com.facebook.presto.metadata.OperatorType.EQUAL;
 import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
 public final class FastutilSetHelper
 {
@@ -105,7 +105,7 @@ public final class FastutilSetHelper
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
                 Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(INTERNAL_ERROR, t);
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
 
@@ -118,7 +118,7 @@ public final class FastutilSetHelper
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
                 Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(INTERNAL_ERROR, t);
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
     }
@@ -144,7 +144,7 @@ public final class FastutilSetHelper
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
                 Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(INTERNAL_ERROR, t);
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
 
@@ -157,7 +157,7 @@ public final class FastutilSetHelper
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
                 Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(INTERNAL_ERROR, t);
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
     }
@@ -187,7 +187,7 @@ public final class FastutilSetHelper
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
                 Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(INTERNAL_ERROR, t);
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
 
@@ -200,7 +200,7 @@ public final class FastutilSetHelper
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
                 Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(INTERNAL_ERROR, t);
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
     }

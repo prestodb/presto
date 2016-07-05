@@ -28,7 +28,7 @@ import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.metadata.OperatorType.LESS_THAN;
 import static com.facebook.presto.metadata.OperatorType.LESS_THAN_OR_EQUAL;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.type.ArrayType.ARRAY_NULL_ELEMENT_MSG;
 import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
@@ -65,7 +65,7 @@ public final class ArrayLessThanOrEqualOperator
                 Throwables.propagateIfInstanceOf(t, Error.class);
                 Throwables.propagateIfInstanceOf(t, PrestoException.class);
 
-                throw new PrestoException(INTERNAL_ERROR, t);
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
             index++;
         }
@@ -101,7 +101,7 @@ public final class ArrayLessThanOrEqualOperator
                 Throwables.propagateIfInstanceOf(t, Error.class);
                 Throwables.propagateIfInstanceOf(t, PrestoException.class);
 
-                throw new PrestoException(INTERNAL_ERROR, t);
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
             index++;
         }

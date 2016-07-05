@@ -64,7 +64,7 @@ import static com.facebook.presto.execution.StageState.FAILED;
 import static com.facebook.presto.execution.StageState.FINISHED;
 import static com.facebook.presto.execution.StageState.RUNNING;
 import static com.facebook.presto.execution.StageState.SCHEDULED;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -163,7 +163,7 @@ public class SqlQueryScheduler
                 }
                 else if (state == ABORTED) {
                     // this should never happen, since abort can only be triggered in query clean up after the query is finished
-                    queryStateMachine.transitionToFailed(new PrestoException(INTERNAL_ERROR, "Query stage was aborted"));
+                    queryStateMachine.transitionToFailed(new PrestoException(GENERIC_INTERNAL_ERROR, "Query stage was aborted"));
                 }
                 else if (queryStateMachine.getQueryState() == QueryState.STARTING) {
                     // if the stage has at least one task, we are running
@@ -371,7 +371,7 @@ public class SqlQueryScheduler
             for (SqlStageExecution stage : stages.values()) {
                 StageState state = stage.getState();
                 if (state != SCHEDULED && state != RUNNING && !state.isDone()) {
-                    throw new PrestoException(INTERNAL_ERROR, format("Scheduling is complete, but stage %s is in state %s", stage.getStageId(), state));
+                    throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Scheduling is complete, but stage %s is in state %s", stage.getStageId(), state));
                 }
             }
         }

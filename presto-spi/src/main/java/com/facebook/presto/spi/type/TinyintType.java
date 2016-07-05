@@ -20,7 +20,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.ByteArrayBlockBuilder;
 
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 
 public final class TinyintType
@@ -127,10 +127,10 @@ public final class TinyintType
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
         if (value > Byte.MAX_VALUE) {
-            throw new PrestoException(INTERNAL_ERROR, String.format("Value %d exceeds MAX_BYTE", value));
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, String.format("Value %d exceeds MAX_BYTE", value));
         }
         else if (value < Byte.MIN_VALUE) {
-            throw new PrestoException(INTERNAL_ERROR, String.format("Value %d is less than MIN_BYTE", value));
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, String.format("Value %d is less than MIN_BYTE", value));
         }
 
         blockBuilder.writeByte((int) value).closeEntry();

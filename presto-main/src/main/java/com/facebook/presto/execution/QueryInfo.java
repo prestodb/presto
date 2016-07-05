@@ -17,7 +17,7 @@ import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.memory.MemoryPoolId;
 import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.StandardErrorCode.ErrorType;
+import com.facebook.presto.spi.ErrorType;
 import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -35,7 +35,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.execution.StageInfo.getAllStages;
-import static com.facebook.presto.spi.StandardErrorCode.toErrorType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -120,7 +119,7 @@ public class QueryInfo
         this.updateType = updateType;
         this.outputStage = outputStage;
         this.failureInfo = failureInfo;
-        this.errorType = errorCode == null ? null : toErrorType(errorCode.getCode());
+        this.errorType = errorCode == null ? null : errorCode.getType();
         this.errorCode = errorCode;
         this.inputs = ImmutableSet.copyOf(inputs);
     }

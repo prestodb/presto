@@ -100,8 +100,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTIO
 import static com.facebook.presto.server.ResourceUtil.assertRequest;
 import static com.facebook.presto.server.ResourceUtil.createSessionForRequest;
 import static com.facebook.presto.server.ResourceUtil.urlEncode;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.toErrorType;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -714,7 +713,7 @@ public class StatementResource
                 errorCode = queryInfo.getErrorCode();
             }
             else {
-                errorCode = INTERNAL_ERROR.toErrorCode();
+                errorCode = GENERIC_INTERNAL_ERROR.toErrorCode();
                 log.warn("Failed query %s has no error code", queryInfo.getQueryId());
             }
             return new QueryError(
@@ -722,7 +721,7 @@ public class StatementResource
                     null,
                     errorCode.getCode(),
                     errorCode.getName(),
-                    toErrorType(errorCode.getCode()).toString(),
+                    errorCode.getType().toString(),
                     failure.getErrorLocation(),
                     failure);
         }

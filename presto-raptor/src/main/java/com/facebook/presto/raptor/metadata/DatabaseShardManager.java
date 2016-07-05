@@ -74,7 +74,7 @@ import static com.facebook.presto.raptor.util.DatabaseUtil.metadataError;
 import static com.facebook.presto.raptor.util.DatabaseUtil.runIgnoringConstraintViolation;
 import static com.facebook.presto.raptor.util.DatabaseUtil.runTransaction;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidToBytes;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
@@ -614,7 +614,7 @@ public class DatabaseShardManager
 
         id = dao.getNodeId(nodeIdentifier);
         if (id == null) {
-            throw new PrestoException(INTERNAL_ERROR, "node does not exist after insert");
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "node does not exist after insert");
         }
         return id;
     }

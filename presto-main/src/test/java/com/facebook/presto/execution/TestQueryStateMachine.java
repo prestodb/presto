@@ -43,7 +43,7 @@ import static com.facebook.presto.execution.QueryState.PLANNING;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.QueryState.STARTING;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -349,7 +349,7 @@ public class TestQueryStateMachine
                 assertEquals(queryInfo.getErrorCode(), ((PrestoException) expectedException).getErrorCode());
             }
             else {
-                assertEquals(queryInfo.getErrorCode(), INTERNAL_ERROR.toErrorCode());
+                assertEquals(queryInfo.getErrorCode(), GENERIC_INTERNAL_ERROR.toErrorCode());
             }
         }
         else {

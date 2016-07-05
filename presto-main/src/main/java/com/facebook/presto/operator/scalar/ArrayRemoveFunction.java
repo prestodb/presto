@@ -31,7 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.metadata.OperatorType.EQUAL;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 
 @ScalarFunction("array_remove")
@@ -97,7 +97,7 @@ public final class ArrayRemoveFunction
                 Throwables.propagateIfInstanceOf(t, Error.class);
                 Throwables.propagateIfInstanceOf(t, PrestoException.class);
 
-                throw new PrestoException(INTERNAL_ERROR, t);
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
 

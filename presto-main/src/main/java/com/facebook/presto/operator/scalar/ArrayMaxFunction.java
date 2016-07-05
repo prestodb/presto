@@ -33,7 +33,7 @@ import static com.facebook.presto.operator.scalar.ArrayMinMaxUtils.booleanArrayM
 import static com.facebook.presto.operator.scalar.ArrayMinMaxUtils.doubleArrayMinMax;
 import static com.facebook.presto.operator.scalar.ArrayMinMaxUtils.longArrayMinMax;
 import static com.facebook.presto.operator.scalar.ArrayMinMaxUtils.sliceArrayMinMax;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Throwables.propagateIfInstanceOf;
 
 @ScalarFunction("array_max")
@@ -125,7 +125,7 @@ public final class ArrayMaxFunction
         catch (Throwable t) {
             propagateIfInstanceOf(t, Error.class);
             propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(INTERNAL_ERROR, t);
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
         }
     }
 }

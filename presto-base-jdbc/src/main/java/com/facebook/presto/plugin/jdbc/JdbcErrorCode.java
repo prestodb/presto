@@ -15,18 +15,21 @@ package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorCodeSupplier;
+import com.facebook.presto.spi.ErrorType;
+
+import static com.facebook.presto.spi.ErrorType.EXTERNAL;
 
 public enum JdbcErrorCode
         implements ErrorCodeSupplier
 {
-    JDBC_ERROR(0),
-    JDBC_NON_TRANSIENT_ERROR(1);
+    JDBC_ERROR(0, EXTERNAL),
+    JDBC_NON_TRANSIENT_ERROR(1, EXTERNAL);
 
     private final ErrorCode errorCode;
 
-    JdbcErrorCode(int code)
+    JdbcErrorCode(int code, ErrorType type)
     {
-        errorCode = new ErrorCode(code + 0x0400_0000, name());
+        errorCode = new ErrorCode(code + 0x0400_0000, name(), type);
     }
 
     @Override
