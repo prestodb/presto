@@ -40,6 +40,7 @@ import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Execute;
+import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainType;
@@ -1481,6 +1482,39 @@ public class TestSqlParser
     public void testExecute()
     {
         assertStatement("EXECUTE myquery", new Execute("myquery"));
+    }
+
+    @Test
+    public void testExists()
+    {
+        assertStatement("SELECT EXISTS(SELECT 1)", simpleQuery(selectList(new ExistsPredicate(simpleQuery(selectList(new LongLiteral("1")))))));
+
+        assertStatement(
+                "SELECT EXISTS(SELECT 1) = EXISTS(SELECT 2)",
+                simpleQuery(
+                        selectList(new ComparisonExpression(
+                                ComparisonExpression.Type.EQUAL,
+                                new ExistsPredicate(simpleQuery(selectList(new LongLiteral("1")))),
+                                new ExistsPredicate(simpleQuery(selectList(new LongLiteral("2"))))))));
+
+        assertStatement(
+                "SELECT NOT EXISTS(SELECT 1) = EXISTS(SELECT 2)",
+                simpleQuery(
+                        selectList(
+                                new NotExpression(
+                                        new ComparisonExpression(
+                                                ComparisonExpression.Type.EQUAL,
+                                                new ExistsPredicate(simpleQuery(selectList(new LongLiteral("1")))),
+                                                new ExistsPredicate(simpleQuery(selectList(new LongLiteral("2")))))))));
+
+        assertStatement(
+                "SELECT (NOT EXISTS(SELECT 1)) = EXISTS(SELECT 2)",
+                simpleQuery(
+                        selectList(
+                                new ComparisonExpression(
+                                        ComparisonExpression.Type.EQUAL,
+                                        new NotExpression(new ExistsPredicate(simpleQuery(selectList(new LongLiteral("1"))))),
+                                        new ExistsPredicate(simpleQuery(selectList(new LongLiteral("2"))))))));
     }
 
     private static void assertCast(String type)
