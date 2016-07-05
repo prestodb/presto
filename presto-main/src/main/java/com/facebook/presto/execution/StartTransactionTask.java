@@ -20,12 +20,14 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Isolation;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.TransactionAccessMode;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -42,7 +44,7 @@ public class StartTransactionTask
     }
 
     @Override
-    public CompletableFuture<?> execute(StartTransaction statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
+    public CompletableFuture<?> execute(StartTransaction statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
         if (!session.isClientTransactionSupport()) {

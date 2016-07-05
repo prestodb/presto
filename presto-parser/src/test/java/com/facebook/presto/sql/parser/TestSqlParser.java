@@ -1564,8 +1564,8 @@ public class TestSqlParser
         if (!parsed.equals(expected)) {
             fail(format("expected\n\n%s\n\nto parse as\n\n%s\n\nbut was\n\n%s\n",
                     indent(input),
-                    indent(formatSql(expected)),
-                    indent(formatSql(parsed))));
+                    indent(formatSql(expected, Optional.empty())),
+                    indent(formatSql(parsed, Optional.empty()))));
         }
     }
 

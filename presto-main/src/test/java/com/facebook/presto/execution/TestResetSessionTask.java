@@ -32,6 +32,7 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 
@@ -69,7 +70,7 @@ public class TestResetSessionTask
 
         TransactionManager transactionManager = createTestTransactionManager();
         QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "reset foo", session, URI.create("fake://uri"), false, transactionManager, executor);
-        new ResetSessionTask().execute(new ResetSession(QualifiedName.of("catalog", "baz")), transactionManager, metadata, new AllowAllAccessControl(), stateMachine).join();
+        new ResetSessionTask().execute(new ResetSession(QualifiedName.of("catalog", "baz")), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()).join();
 
         Set<String> sessionProperties = stateMachine.getResetSessionProperties();
         assertEquals(sessionProperties, ImmutableSet.of("catalog.baz"));

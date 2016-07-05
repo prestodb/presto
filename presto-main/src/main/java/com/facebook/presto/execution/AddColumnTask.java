@@ -23,9 +23,11 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.AddColumn;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.TableElement;
 import com.facebook.presto.transaction.TransactionManager;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -49,7 +51,7 @@ public class AddColumnTask
     }
 
     @Override
-    public CompletableFuture<?> execute(AddColumn statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
+    public CompletableFuture<?> execute(AddColumn statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());

@@ -20,8 +20,10 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.DropTable;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.transaction.TransactionManager;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -39,7 +41,7 @@ public class DropTableTask
     }
 
     @Override
-    public CompletableFuture<?> execute(DropTable statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
+    public CompletableFuture<?> execute(DropTable statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName());

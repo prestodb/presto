@@ -59,7 +59,6 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUM
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SCHEMA_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_FRAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
@@ -85,6 +84,7 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -976,12 +976,6 @@ public class TestAnalyzer
         assertFails(TYPE_MISMATCH, "SELECT 'abc' AT TIME ZONE 'America/Los_Angeles'");
     }
 
-    @Test
-    public void testParametersNonPreparedStatement()
-    {
-        assertFails(INVALID_PARAMETER_USAGE, "SELECT ?, 1");
-    }
-
     private void assertMissingInformationSchema(Session session, @Language("SQL") String query)
     {
         try {
@@ -1117,7 +1111,8 @@ public class TestAnalyzer
                 SQL_PARSER,
                 new AllowAllAccessControl(),
                 Optional.empty(),
-                experimentalSyntaxEnabled);
+                experimentalSyntaxEnabled,
+                emptyList());
     }
 
     private void analyze(@Language("SQL") String query)

@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nullable;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static java.lang.String.format;
@@ -34,11 +35,11 @@ public final class TreeAssertions
 
     public static void assertFormattedSql(SqlParser sqlParser, Node expected)
     {
-        String formatted = formatSql(expected);
+        String formatted = formatSql(expected, Optional.empty());
 
         // verify round-trip of formatting already-formatted SQL
         Statement actual = parseFormatted(sqlParser, formatted, expected);
-        assertEquals(formatSql(actual), formatted);
+        assertEquals(formatSql(actual, Optional.empty()), formatted);
 
         // compare parsed tree with parsed tree of formatted SQL
         if (!actual.equals(expected)) {

@@ -47,6 +47,7 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Join;
@@ -112,7 +113,7 @@ class RelationPlanner
         this.idAllocator = idAllocator;
         this.metadata = metadata;
         this.session = session;
-        this.subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, metadata, session);
+        this.subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, metadata, session, analysis.getParameters());
     }
 
     @Override
@@ -308,6 +309,7 @@ class RelationPlanner
 
         if (node.getType() != INNER && !complexJoinExpressions.isEmpty()) {
             Expression joinedFilterCondition = ExpressionUtils.and(complexJoinExpressions);
+            joinedFilterCondition = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), joinedFilterCondition);
             Expression rewritenFilterCondition = translationMap.rewrite(joinedFilterCondition);
             root = new JoinNode(idAllocator.getNextId(),
                     JoinNode.Type.typeConvert(node.getType()),
@@ -334,7 +336,7 @@ class RelationPlanner
 
         if (node.getType() == INNER) {
             // rewrite all the other conditions using output symbols from left + right plan node.
-            PlanBuilder rootPlanBuilder = new PlanBuilder(translationMap, root, sampleWeight);
+            PlanBuilder rootPlanBuilder = new PlanBuilder(translationMap, root, sampleWeight, analysis.getParameters());
             rootPlanBuilder = subqueryPlanner.handleSubqueries(rootPlanBuilder, complexJoinExpressions, node);
 
             for (Expression expression : complexJoinExpressions) {
@@ -444,12 +446,14 @@ class RelationPlanner
                 List<Expression> items = ((Row) row).getItems();
                 for (int i = 0; i < items.size(); i++) {
                     Expression expression = items.get(i);
-                    Object constantValue = evaluateConstantExpression(expression, analysis.getCoercions(), metadata, session, analysis.getColumnReferences());
+                    expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), expression);
+                    Object constantValue = evaluateConstantExpression(expression, analysis.getCoercions(), metadata, session, analysis.getColumnReferences(), analysis.getParameters());
                     values.add(LiteralInterpreter.toExpression(constantValue, scope.getRelationType().getFieldByIndex(i).getType()));
                 }
             }
             else {
-                Object constantValue = evaluateConstantExpression(row, analysis.getCoercions(), metadata, session, analysis.getColumnReferences());
+                row = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), row);
+                Object constantValue = evaluateConstantExpression(row, analysis.getCoercions(), metadata, session, analysis.getColumnReferences(), analysis.getParameters());
                 values.add(LiteralInterpreter.toExpression(constantValue, scope.getRelationType().getFieldByIndex(0).getType()));
             }
 
@@ -477,7 +481,8 @@ class RelationPlanner
         ImmutableMap.Builder<Symbol, List<Symbol>> unnestSymbols = ImmutableMap.builder();
         Iterator<Symbol> unnestedSymbolsIterator = unnestedSymbols.iterator();
         for (Expression expression : node.getExpressions()) {
-            Object constantValue = evaluateConstantExpression(expression, analysis.getCoercions(), metadata, session, analysis.getColumnReferences());
+            expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), expression);
+            Object constantValue = evaluateConstantExpression(expression, analysis.getCoercions(), metadata, session, analysis.getColumnReferences(), analysis.getParameters());
             Type type = analysis.getType(expression);
             values.add(LiteralInterpreter.toExpression(constantValue, type));
             Symbol inputSymbol = symbolAllocator.newSymbol(expression, type);
@@ -659,7 +664,7 @@ class RelationPlanner
         // This makes it possible to rewrite FieldOrExpressions that reference fields from the underlying tuple directly
         translations.setFieldMappings(relationPlan.getOutputSymbols());
 
-        return new PlanBuilder(translations, relationPlan.getRoot(), relationPlan.getSampleWeight());
+        return new PlanBuilder(translations, relationPlan.getRoot(), relationPlan.getSampleWeight(), analysis.getParameters());
     }
 
     private PlanNode distinct(PlanNode node)

@@ -20,9 +20,11 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.transaction.TransactionManager;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -44,7 +46,7 @@ public class RenameColumnTask
     }
 
     @Override
-    public CompletableFuture<?> execute(RenameColumn statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
+    public CompletableFuture<?> execute(RenameColumn statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());

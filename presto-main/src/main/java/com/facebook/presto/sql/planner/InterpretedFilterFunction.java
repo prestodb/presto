@@ -32,6 +32,7 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
 import static java.lang.Boolean.TRUE;
+import static java.util.Collections.emptyList;
 
 public class InterpretedFilterFunction
         implements FilterFunction, JoinFilterFunction
@@ -55,7 +56,7 @@ public class InterpretedFilterFunction
         for (Map.Entry<Symbol, Integer> entry : symbolToInputMappings.entrySet()) {
             inputTypes.put(entry.getValue(), symbolTypes.get(entry.getKey()));
         }
-        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(session, metadata, sqlParser, inputTypes.build(), rewritten);
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(session, metadata, sqlParser, inputTypes.build(), rewritten, emptyList() /* parameters already rewritten */);
 
         evaluator = ExpressionInterpreter.expressionInterpreter(rewritten, metadata, session, expressionTypes);
         InputReferenceExtractor inputReferenceExtractor = new InputReferenceExtractor();

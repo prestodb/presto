@@ -36,6 +36,7 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -67,7 +68,7 @@ public class TestCommitTask
         assertTrue(stateMachine.getSession().getTransactionId().isPresent());
         assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
 
-        new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine).join();
+        new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()).join();
         assertTrue(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId());
         assertFalse(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
 
@@ -86,7 +87,7 @@ public class TestCommitTask
 
         try {
             try {
-                new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine).join();
+                new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()).join();
                 fail();
             }
             catch (CompletionException e) {
@@ -115,7 +116,7 @@ public class TestCommitTask
 
         try {
             try {
-                new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine).join();
+                new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()).join();
                 fail();
             }
             catch (CompletionException e) {

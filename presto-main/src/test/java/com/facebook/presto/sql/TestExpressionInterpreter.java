@@ -45,6 +45,7 @@ import org.testng.annotations.Test;
 
 import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
@@ -67,6 +68,7 @@ import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOp
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -1243,7 +1245,7 @@ public class TestExpressionInterpreter
 
         Expression parsedExpression = FunctionAssertions.createExpression(expression, METADATA, SYMBOL_TYPES);
 
-        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, SYMBOL_TYPES, parsedExpression);
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, SYMBOL_TYPES, parsedExpression, emptyList());
         ExpressionInterpreter interpreter = expressionOptimizer(parsedExpression, METADATA, TEST_SESSION, expressionTypes);
         return interpreter.optimize(symbol -> {
             switch (symbol.getName().toLowerCase(ENGLISH)) {
@@ -1285,12 +1287,12 @@ public class TestExpressionInterpreter
     private static void assertRoundTrip(String expression)
     {
         assertEquals(SQL_PARSER.createExpression(expression),
-                SQL_PARSER.createExpression(formatExpression(SQL_PARSER.createExpression(expression))));
+                SQL_PARSER.createExpression(formatExpression(SQL_PARSER.createExpression(expression), Optional.empty())));
     }
 
     private static Object evaluate(Expression expression)
     {
-        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, SYMBOL_TYPES, expression);
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, SYMBOL_TYPES, expression, emptyList());
         ExpressionInterpreter interpreter = expressionInterpreter(expression, METADATA, TEST_SESSION, expressionTypes);
 
         return interpreter.evaluate((RecordCursor) null);

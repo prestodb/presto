@@ -19,10 +19,12 @@ import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainOption;
 import com.facebook.presto.sql.tree.ExplainType;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Statement;
 
@@ -30,16 +32,18 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.execution.SqlQueryManager.unwrapExecuteStatement;
+import static com.facebook.presto.execution.SqlQueryManager.validateParameters;
 import static com.facebook.presto.sql.QueryUtil.singleValueQuery;
 import static com.facebook.presto.sql.tree.ExplainFormat.Type.TEXT;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 final class ExplainRewrite
         implements StatementRewrite.Rewrite
 {
     @Override
-    public Statement rewrite(Session session, Metadata metadata, SqlParser parser, Optional<QueryExplainer> queryExplainer, Statement node)
+    public Statement rewrite(Session session, Metadata metadata, SqlParser parser, Optional<QueryExplainer> queryExplainer, Statement node, List<Expression> parameters)
     {
         return (Statement) new Visitor(session, parser, queryExplainer).process(node, null);
     }
@@ -96,12 +100,15 @@ final class ExplainRewrite
         private String getQueryPlan(Explain node, ExplainType.Type planType, ExplainFormat.Type planFormat)
                 throws IllegalArgumentException
         {
-            Statement statement = unwrapExecuteStatement(node.getStatement(), parser, session);
+            Statement wrappedStatement = node.getStatement();
+            Statement statement = unwrapExecuteStatement(wrappedStatement, parser, session);
+            List<Expression> parameters = wrappedStatement instanceof Execute ? ((Execute) wrappedStatement).getParameters() : emptyList();
+            validateParameters(statement, parameters);
             switch (planFormat) {
                 case GRAPHVIZ:
-                    return queryExplainer.get().getGraphvizPlan(session, statement, planType);
+                    return queryExplainer.get().getGraphvizPlan(session, statement, planType, parameters);
                 case TEXT:
-                    return queryExplainer.get().getPlan(session, statement, planType);
+                    return queryExplainer.get().getPlan(session, statement, planType, parameters);
             }
             throw new IllegalArgumentException("Invalid Explain Format: " + planFormat.toString());
         }

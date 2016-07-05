@@ -19,6 +19,7 @@ import com.google.common.io.Resources;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.util.Optional;
 
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.google.common.base.Strings.repeat;
@@ -259,7 +260,7 @@ public class TestStatementBuilder
         println(statement.toString());
         println("");
 
-        println(SqlFormatter.formatSql(statement));
+        println(SqlFormatter.formatSql(statement, Optional.empty()));
         println("");
         assertFormattedSql(SQL_PARSER, statement);
 
