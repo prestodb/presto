@@ -108,7 +108,7 @@ class TranslationMap
                     return expressionToSymbols.get(node).toSymbolReference();
                 }
                 else if (expressionToExpressions.containsKey(node)) {
-                    Expression mapping = expressionToExpressions.get(node);
+                    Expression mapping = getMapping(node);
                     mapping = translateNamesToSymbols(mapping);
                     return treeRewriter.defaultRewrite(mapping, context);
                 }
@@ -117,6 +117,21 @@ class TranslationMap
                 }
             }
         }, mapped);
+    }
+
+    private Expression getMapping(Expression expression)
+    {
+        if (!expressionToExpressions.containsKey(expression)) {
+            return expression;
+        }
+
+        Expression mapped = expressionToExpressions.get(expression);
+        Expression translated = translateNamesToSymbols(mapped);
+        if (!translated.equals(expression) && expressionToExpressions.containsKey(translated)) {
+            mapped = getMapping(translated);
+        }
+
+        return mapped;
     }
 
     public void put(Expression expression, Symbol symbol)
@@ -155,13 +170,36 @@ class TranslationMap
         }
 
         Expression translated = translateNamesToSymbols(expression);
-        checkArgument(expressionToSymbols.containsKey(translated), "No mapping for expression: %s", expression);
+        if (!expressionToSymbols.containsKey(translated)) {
+            checkArgument(expressionToExpressions.containsKey(translated), "No mapping for expression: %s", expression);
+            return get(expressionToExpressions.get(translated));
+        }
+
         return expressionToSymbols.get(translated);
     }
 
     public void put(Expression expression, Expression rewritten)
     {
         expressionToExpressions.put(translateNamesToSymbols(expression), rewritten);
+    }
+
+    public void addIntermediateMapping(Expression expression, Expression rewritten)
+    {
+        if (rewritten.equals(expression)) {
+            return;
+        }
+
+        Expression translated = translateNamesToSymbols(expression);
+        if (expressionToExpressions.containsKey(translated)) {
+            Expression previousMapping = expressionToExpressions.get(translated);
+            if (!previousMapping.equals(rewritten)) {
+                put(expression, rewritten);
+                addIntermediateMapping(rewritten, previousMapping);
+            }
+        }
+        else {
+            put(expression, rewritten);
+        }
     }
 
     private Expression translateNamesToSymbols(Expression expression)

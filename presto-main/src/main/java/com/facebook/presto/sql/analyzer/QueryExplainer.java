@@ -26,6 +26,7 @@ import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.ExplainType.Type;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableMap;
 
@@ -79,52 +80,52 @@ public class QueryExplainer
         this.dataDefinitionTask = ImmutableMap.copyOf(requireNonNull(dataDefinitionTask, "dataDefinitionTask is null"));
     }
 
-    public String getPlan(Session session, Statement statement, Type planType)
+    public String getPlan(Session session, Statement statement, Type planType, List<Expression> parameters)
     {
         DataDefinitionTask<?> task = dataDefinitionTask.get(statement.getClass());
         if (task != null) {
-            return explainTask(statement, task);
+            return explainTask(statement, task, parameters);
         }
 
         switch (planType) {
             case LOGICAL:
-                Plan plan = getLogicalPlan(session, statement);
+                Plan plan = getLogicalPlan(session, statement, parameters);
                 return PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, session);
             case DISTRIBUTED:
-                SubPlan subPlan = getDistributedPlan(session, statement);
+                SubPlan subPlan = getDistributedPlan(session, statement, parameters);
                 return PlanPrinter.textDistributedPlan(subPlan, metadata, session);
         }
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }
 
-    private static <T extends Statement> String explainTask(Statement statement, DataDefinitionTask<T> task)
+    private static <T extends Statement> String explainTask(Statement statement, DataDefinitionTask<T> task, List<Expression> parameters)
     {
-        return task.explain((T) statement);
+        return task.explain((T) statement, parameters);
     }
 
-    public String getGraphvizPlan(Session session, Statement statement, Type planType)
+    public String getGraphvizPlan(Session session, Statement statement, Type planType, List<Expression> parameters)
     {
         DataDefinitionTask<?> task = dataDefinitionTask.get(statement.getClass());
         if (task != null) {
             // todo format as graphviz
-            return explainTask(statement, task);
+            return explainTask(statement, task, parameters);
         }
 
         switch (planType) {
             case LOGICAL:
-                Plan plan = getLogicalPlan(session, statement);
+                Plan plan = getLogicalPlan(session, statement, parameters);
                 return PlanPrinter.graphvizLogicalPlan(plan.getRoot(), plan.getTypes());
             case DISTRIBUTED:
-                SubPlan subPlan = getDistributedPlan(session, statement);
+                SubPlan subPlan = getDistributedPlan(session, statement, parameters);
                 return PlanPrinter.graphvizDistributedPlan(subPlan);
         }
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }
 
-    private Plan getLogicalPlan(Session session, Statement statement)
+    private Plan getLogicalPlan(Session session, Statement statement, List<Expression> parameters)
     {
         // analyze statement
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(this), experimentalSyntaxEnabled);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(this), experimentalSyntaxEnabled, parameters);
 
         Analysis analysis = analyzer.analyze(statement);
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
@@ -134,10 +135,10 @@ public class QueryExplainer
         return logicalPlanner.plan(analysis);
     }
 
-    private SubPlan getDistributedPlan(Session session, Statement statement)
+    private SubPlan getDistributedPlan(Session session, Statement statement, List<Expression> parameters)
     {
         // analyze statement
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(this), experimentalSyntaxEnabled);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(this), experimentalSyntaxEnabled, parameters);
 
         Analysis analysis = analyzer.analyze(statement);
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();

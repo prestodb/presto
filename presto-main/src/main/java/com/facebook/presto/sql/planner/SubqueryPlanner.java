@@ -27,6 +27,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -39,6 +40,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -59,20 +61,23 @@ class SubqueryPlanner
     private final PlanNodeIdAllocator idAllocator;
     private final Metadata metadata;
     private final Session session;
+    private final List<Expression> parameters;
 
-    SubqueryPlanner(Analysis analysis, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Metadata metadata, Session session)
+    SubqueryPlanner(Analysis analysis, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Metadata metadata, Session session, List<Expression> parameters)
     {
         requireNonNull(analysis, "analysis is null");
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
         requireNonNull(metadata, "metadata is null");
         requireNonNull(session, "session is null");
+        requireNonNull(parameters, "parameters is null");
 
         this.analysis = analysis;
         this.symbolAllocator = symbolAllocator;
         this.idAllocator = idAllocator;
         this.metadata = metadata;
         this.session = session;
+        this.parameters = parameters;
     }
 
     public PlanBuilder handleSubqueries(PlanBuilder builder, Collection<Expression> expressions, Node node)
@@ -123,8 +128,10 @@ class SubqueryPlanner
         RelationPlan valueListRelation = createRelationPlan(subqueryExpression.getQuery());
 
         TranslationMap translationMap = subPlan.copyTranslations();
+        InPredicate parametersReplaced = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters, analysis), inPredicate);
+        translationMap.addIntermediateMapping(inPredicate, parametersReplaced);
         SymbolReference valueList = getOnlyElement(valueListRelation.getOutputSymbols()).toSymbolReference();
-        translationMap.put(inPredicate, new InPredicate(inPredicate.getValue(), valueList));
+        translationMap.addIntermediateMapping(parametersReplaced, new InPredicate(parametersReplaced.getValue(), valueList));
 
         return new PlanBuilder(translationMap,
                 // TODO handle correlation
@@ -132,7 +139,8 @@ class SubqueryPlanner
                         subPlan.getRoot(),
                         valueListRelation.getRoot(),
                         ImmutableList.of()),
-                subPlan.getSampleWeight());
+                subPlan.getSampleWeight(),
+                analysis.getParameters());
     }
 
     private PlanBuilder appendScalarSubqueryApplyNodes(PlanBuilder builder, Set<SubqueryExpression> scalarSubqueries)
@@ -219,7 +227,7 @@ class SubqueryPlanner
         PlanNode root = subPlan.getRoot();
         if (root.getOutputSymbols().isEmpty()) {
             // there is nothing to join with - e.g. SELECT (SELECT 1)
-            return new PlanBuilder(translations, subqueryNode, subPlan.getSampleWeight());
+            return new PlanBuilder(translations, subqueryNode, subPlan.getSampleWeight(), analysis.getParameters());
         }
         else {
             return new PlanBuilder(translations,
@@ -228,7 +236,8 @@ class SubqueryPlanner
                             root,
                             subqueryNode,
                             ImmutableList.of()),
-                    subPlan.getSampleWeight());
+                    subPlan.getSampleWeight(),
+                    analysis.getParameters());
         }
     }
 

@@ -25,9 +25,11 @@ import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.planner.ParameterRewriter;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.CallArgument;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.transaction.TransactionManager;
 
 import java.lang.invoke.MethodType;
@@ -62,7 +64,7 @@ public class CallTask
     }
 
     @Override
-    public CompletableFuture<?> execute(Call call, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
+    public CompletableFuture<?> execute(Call call, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         if (!stateMachine.isAutoCommit()) {
             throw new PrestoException(NOT_SUPPORTED, "Procedures cannot be called within a transaction (use autocommit mode)");
@@ -119,10 +121,10 @@ public class CallTask
             int index = positions.get(entry.getKey());
             Argument argument = procedure.getArguments().get(index);
 
-            Expression expression = callArgument.getValue();
+            Expression expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), callArgument.getValue());
             Type type = argument.getType();
 
-            Object value = evaluateConstantExpression(expression, type, metadata, session);
+            Object value = evaluateConstantExpression(expression, type, metadata, session, parameters);
 
             values[index] = toTypeObjectValue(session, type, value);
         }

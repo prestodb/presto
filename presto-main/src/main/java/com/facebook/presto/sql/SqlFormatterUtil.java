@@ -17,7 +17,11 @@ package com.facebook.presto.sql;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
+
+import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
@@ -25,9 +29,9 @@ public final class SqlFormatterUtil
 {
     private SqlFormatterUtil() {}
 
-    public static String getFormattedSql(Statement statement, SqlParser sqlParser)
+    public static String getFormattedSql(Statement statement, SqlParser sqlParser, Optional<List<Expression>> parameters)
     {
-        String sql = SqlFormatter.formatSql(statement);
+        String sql = SqlFormatter.formatSql(statement, parameters);
 
         // verify round-trip
         Statement parsed;

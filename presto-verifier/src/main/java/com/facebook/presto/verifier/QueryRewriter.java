@@ -118,7 +118,7 @@ public class QueryRewriter
         parts.set(parts.size() - 1, createTemporaryTableName());
         QualifiedName temporaryTableName = QualifiedName.of(parts);
         Statement rewritten = new CreateTableAsSelect(temporaryTableName, statement.getQuery(), statement.isNotExists(), statement.getProperties(), statement.isWithData());
-        String createTableAsSql = formatSql(rewritten);
+        String createTableAsSql = formatSql(rewritten, Optional.empty());
         String checksumSql = checksumSql(getColumns(connection, statement), temporaryTableName);
         String dropTableSql = dropTableSql(temporaryTableName);
         return new Query(query.getCatalog(), query.getSchema(), ImmutableList.of(createTableAsSql), checksumSql, ImmutableList.of(dropTableSql), query.getUsername(), query.getPassword(), query.getSessionProperties());
@@ -173,7 +173,7 @@ public class QueryRewriter
         try (java.sql.Statement jdbcStatement = connection.createStatement()) {
             TimeLimiter limiter = new SimpleTimeLimiter();
             java.sql.Statement limitedStatement = limiter.newProxy(jdbcStatement, java.sql.Statement.class, timeout.toMillis(), TimeUnit.MILLISECONDS);
-            try (ResultSet resultSet = limitedStatement.executeQuery(formatSql(zeroRowsQuery))) {
+            try (ResultSet resultSet = limitedStatement.executeQuery(formatSql(zeroRowsQuery, Optional.empty()))) {
                 ResultSetMetaData metaData = resultSet.getMetaData();
                 for (int i = 1; i <= metaData.getColumnCount(); i++) {
                     String name = metaData.getColumnName(i);
@@ -199,12 +199,12 @@ public class QueryRewriter
         }
 
         Select select = new Select(false, selectItems.build());
-        return formatSql(new QuerySpecification(select, Optional.of(new Table(table)), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), Optional.empty()));
+        return formatSql(new QuerySpecification(select, Optional.of(new Table(table)), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), Optional.empty()), Optional.empty());
     }
 
     private static String dropTableSql(QualifiedName table)
     {
-        return formatSql(new DropTable(table, true));
+        return formatSql(new DropTable(table, true), Optional.empty());
     }
 
     public static class QueryRewriteException

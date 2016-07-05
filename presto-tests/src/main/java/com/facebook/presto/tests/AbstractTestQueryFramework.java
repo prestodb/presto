@@ -32,12 +32,14 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -262,7 +264,7 @@ public abstract class AbstractTestQueryFramework
 
     protected String formatSqlText(String sql)
     {
-        return formatSql(sqlParser.createStatement(sql));
+        return formatSql(sqlParser.createStatement(sql), Optional.empty());
     }
 
     public String getExplainPlan(String query, ExplainType.Type planType)
@@ -271,7 +273,7 @@ public abstract class AbstractTestQueryFramework
         return transaction(queryRunner.getTransactionManager())
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), session -> {
-                    return explainer.getPlan(session, sqlParser.createStatement(query), planType);
+                    return explainer.getPlan(session, sqlParser.createStatement(query), planType, emptyList());
                 });
     }
 
@@ -281,7 +283,7 @@ public abstract class AbstractTestQueryFramework
         return transaction(queryRunner.getTransactionManager())
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), session -> {
-                    return explainer.getGraphvizPlan(session, sqlParser.createStatement(query), planType);
+                    return explainer.getGraphvizPlan(session, sqlParser.createStatement(query), planType, emptyList());
                 });
     }
 

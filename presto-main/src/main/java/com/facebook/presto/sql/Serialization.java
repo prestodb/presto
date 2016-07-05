@@ -26,6 +26,7 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.util.Optional;
 
 import static com.facebook.presto.sql.ExpressionUtils.rewriteQualifiedNamesToSymbolReferences;
 
@@ -40,7 +41,7 @@ public final class Serialization
         public void serialize(Expression expression, JsonGenerator jsonGenerator, SerializerProvider serializerProvider)
                 throws IOException
         {
-            jsonGenerator.writeString(ExpressionFormatter.formatExpression(expression, false));
+            jsonGenerator.writeString(ExpressionFormatter.formatExpression(expression, false, Optional.empty()));
         }
     }
 
