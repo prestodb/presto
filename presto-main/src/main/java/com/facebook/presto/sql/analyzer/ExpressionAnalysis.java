@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.SubqueryExpression;
@@ -29,24 +30,27 @@ public class ExpressionAnalysis
     private final IdentityHashMap<Expression, Type> expressionTypes;
     private final IdentityHashMap<Expression, Type> expressionCoercions;
     private final Set<Expression> typeOnlyCoercions;
-    private final Set<InPredicate> subqueryInPredicates;
     private final Set<Expression> columnReferences;
+    private final Set<InPredicate> subqueryInPredicates;
     private final Set<SubqueryExpression> scalarSubqueries;
+    private final Set<ExistsPredicate> existsSubqueries;
 
     public ExpressionAnalysis(
             IdentityHashMap<Expression, Type> expressionTypes,
             IdentityHashMap<Expression, Type> expressionCoercions,
             Set<InPredicate> subqueryInPredicates,
             Set<SubqueryExpression> scalarSubqueries,
+            Set<ExistsPredicate> existsSubqueries,
             Set<Expression> columnReferences,
             Set<Expression> typeOnlyCoercions)
     {
         this.expressionTypes = requireNonNull(expressionTypes, "expressionTypes is null");
         this.expressionCoercions = requireNonNull(expressionCoercions, "expressionCoercions is null");
         this.typeOnlyCoercions = requireNonNull(typeOnlyCoercions, "typeOnlyCoercions is null");
+        this.columnReferences = ImmutableSet.copyOf(requireNonNull(columnReferences, "columnReferences is null"));
         this.subqueryInPredicates = requireNonNull(subqueryInPredicates, "subqueryInPredicates is null");
         this.scalarSubqueries = requireNonNull(scalarSubqueries, "subqueryInPredicates is null");
-        this.columnReferences = ImmutableSet.copyOf(requireNonNull(columnReferences, "columnReferences is null"));
+        this.existsSubqueries = requireNonNull(existsSubqueries, "existsSubqueries is null");
     }
 
     public Type getType(Expression expression)
@@ -69,6 +73,11 @@ public class ExpressionAnalysis
         return typeOnlyCoercions.contains(expression);
     }
 
+    public Set<Expression> getColumnReferences()
+    {
+        return columnReferences;
+    }
+
     public Set<InPredicate> getSubqueryInPredicates()
     {
         return subqueryInPredicates;
@@ -79,8 +88,8 @@ public class ExpressionAnalysis
         return scalarSubqueries;
     }
 
-    public Set<Expression> getColumnReferences()
+    public Set<ExistsPredicate> getExistsSubqueries()
     {
-        return columnReferences;
+        return existsSubqueries;
     }
 }

@@ -515,12 +515,12 @@ public abstract class AbstractTestDistributedQueries
 
         assertUpdate("DROP TABLE test_delete");
 
-        // delete using a scalar subquery
-
+        // delete using a scalar and EXISTS subquery
         assertUpdate("CREATE TABLE test_delete AS SELECT * FROM orders", "SELECT count(*) FROM orders");
         assertUpdate("DELETE FROM test_delete WHERE orderkey = (SELECT orderkey FROM orders ORDER BY orderkey LIMIT 1)", 1);
         assertUpdate("DELETE FROM test_delete WHERE orderkey = (SELECT orderkey FROM orders WHERE false)", 0);
-        assertUpdate("DELETE FROM test_delete WHERE (SELECT true)", "SELECT count(*) - 1 FROM orders");
+        assertUpdate("DELETE FROM test_delete WHERE EXISTS(SELECT 1 WHERE false)", 0);
+        assertUpdate("DELETE FROM test_delete WHERE EXISTS(SELECT 1)", "SELECT count(*) - 1 FROM orders");
         assertUpdate("DROP TABLE test_delete");
 
         // test EXPLAIN ANALYZE with CTAS
