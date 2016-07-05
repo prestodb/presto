@@ -991,7 +991,7 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("TRY(ABS(-2))", "2");
         assertOptimizedEquals("42 + TRY(ABS(-9223372036854775807 - 1))", "null");
 
-        assertOptimizedEquals("JSON_FORMAT(TRY(JSON '[]')) || unbound_string", "'[]' || unbound_string");
+        assertOptimizedEquals("JSON_FORMAT(TRY(JSON '[]')) || unbound_string", "CAST('[]' AS VARCHAR) || unbound_string");
         assertOptimizedEquals("JSON_FORMAT(TRY(JSON 'INVALID')) || unbound_string", "null");
     }
 

@@ -29,12 +29,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.metadata.DefaultSignatureBinder.bindVariables;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.metadata.Signature.longVariableExpression;
 import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.metadata.Signature.withVariadicBound;
-import static com.facebook.presto.metadata.SignatureBinder.bindVariables;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
@@ -887,12 +887,12 @@ public class TestSignatureBinder
         private Optional<BoundVariables> bindVariables()
         {
             assertNotNull(argumentTypes);
-            SignatureBinder signatureBinder = new SignatureBinder(typeRegistry, function, allowCoercion);
+            DefaultSignatureBinder defaultSignatureBinder = new DefaultSignatureBinder(typeRegistry, function, allowCoercion);
             if (returnType == null) {
-                return signatureBinder.bindVariables(argumentTypes);
+                return defaultSignatureBinder.bindVariables(argumentTypes);
             }
             else {
-                return signatureBinder.bindVariables(argumentTypes, returnType);
+                return defaultSignatureBinder.bindVariables(argumentTypes, returnType);
             }
         }
     }

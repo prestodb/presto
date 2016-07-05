@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.type.TypeManager;
+
 public interface SqlFunction
 {
     Signature getSignature();
@@ -22,4 +24,6 @@ public interface SqlFunction
     boolean isDeterministic();
 
     String getDescription();
+
+    SignatureBinder getSignatureBinder(TypeManager typeManager, boolean allowCoercion);
 }

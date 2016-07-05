@@ -26,17 +26,26 @@ import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.SignatureBinder;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.ParameterKind;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
@@ -54,6 +63,8 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMEN
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Reflection.methodHandle;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterators.getOnlyElement;
 import static java.lang.Math.addExact;
 
 public final class ConcatFunction
@@ -90,6 +101,12 @@ public final class ConcatFunction
     public String getDescription()
     {
         return "concatenates given strings";
+    }
+
+    @Override
+    public SignatureBinder getSignatureBinder(TypeManager typeManager, boolean allowCoercion)
+    {
+        return new ConcatSignatureBinder(typeManager, getSignature(), allowCoercion);
     }
 
     @Override
@@ -161,6 +178,74 @@ public final class ConcatFunction
         }
         catch (ArithmeticException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Concatenated string is too large");
+        }
+    }
+
+    private static class ConcatSignatureBinder
+            extends SignatureBinder
+    {
+        public ConcatSignatureBinder(TypeManager typeManager, Signature signature, boolean allowCoercion)
+        {
+            super(typeManager, signature, allowCoercion);
+        }
+
+        @Override
+        public Optional<Signature> bind(List<? extends Type> actualArgumentTypes)
+        {
+            ImmutableList.Builder<TypeSignature> boundTypesSignatures = ImmutableList.builder();
+
+            long lengthAccumulator = 0;
+            for (Type type : actualArgumentTypes) {
+                if (!isTypeValid(type)) {
+                    return Optional.empty();
+                }
+
+                int paramLength = varcharLength(type);
+                lengthAccumulator = Ints.saturatedCast(lengthAccumulator + paramLength);
+                boundTypesSignatures.add(VarcharType.createVarcharType(paramLength).getTypeSignature());
+            }
+
+            return Optional.of(
+                    new Signature(
+                            declaredSignature.getName(),
+                            declaredSignature.getKind(),
+                            VarcharType.createVarcharType(Ints.saturatedCast(lengthAccumulator)).getTypeSignature(),
+                            boundTypesSignatures.build()));
+        }
+
+        @Override
+        public Optional<BoundVariables> bindVariables(List<? extends Type> actualArgumentTypes, Type actualReturnType)
+        {
+            // We don't need any bound variables in ConcatFunction.specialize, but we do need to sygnalize external
+            // code that binding operation was successful. This is why we return empty BoundVariables.
+            return Optional.of(BoundVariables.builder().build());
+        }
+
+        private boolean isTypeValid(Type type)
+        {
+            if (allowCoercion && typeManager.coerceTypeBase(type, StandardTypes.VARCHAR).isPresent()) {
+                return true;
+            }
+
+            if (type.getTypeSignature().getBase() != StandardTypes.VARCHAR) {
+                return false;
+            }
+
+            TypeSignatureParameter param = getOnlyElement(type.getTypeSignature().getParameters().iterator());
+            checkArgument(param.getKind() == ParameterKind.LONG);
+            return true;
+        }
+
+        private int varcharLength(Type type)
+        {
+            TypeSignature targetVacharType = type.getTypeSignature();
+            if (allowCoercion) {
+                Optional<Type> optType = typeManager.coerceTypeBase(type, StandardTypes.VARCHAR);
+                checkArgument(optType.isPresent());
+                targetVacharType = optType.get().getTypeSignature();
+            }
+            checkArgument(targetVacharType.getBase() == StandardTypes.VARCHAR);
+            return Ints.saturatedCast(getOnlyElement(targetVacharType.getParameters().iterator()).getLongLiteral());
         }
     }
 }
