@@ -240,7 +240,7 @@ var StageDetail = React.createClass({
             return task.outputBuffers.totalBufferedBytes;
         }).reduce(function(previousValue, currentValue) {
             return previousValue + currentValue;
-        });
+        }, 0);
 
         return (
             <tr>
