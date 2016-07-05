@@ -30,7 +30,7 @@ import javax.annotation.Nullable;
 import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.metadata.OperatorType.EQUAL;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
 @Description("Returns the position of the first occurrence of the given value in array (or 0 if not found)")
 @ScalarFunction("array_position")
@@ -57,7 +57,7 @@ public final class ArrayPositionFunction
                 catch (Throwable t) {
                     Throwables.propagateIfInstanceOf(t, Error.class);
                     Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                    throw new PrestoException(INTERNAL_ERROR, t);
+                    throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
                 }
             }
         }
@@ -83,7 +83,7 @@ public final class ArrayPositionFunction
                 catch (Throwable t) {
                     Throwables.propagateIfInstanceOf(t, Error.class);
                     Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                    throw new PrestoException(INTERNAL_ERROR, t);
+                    throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
                 }
             }
         }
@@ -109,7 +109,7 @@ public final class ArrayPositionFunction
                 catch (Throwable t) {
                     Throwables.propagateIfInstanceOf(t, Error.class);
                     Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                    throw new PrestoException(INTERNAL_ERROR, t);
+                    throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
                 }
             }
         }
@@ -135,7 +135,7 @@ public final class ArrayPositionFunction
                 catch (Throwable t) {
                     Throwables.propagateIfInstanceOf(t, Error.class);
                     Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                    throw new PrestoException(INTERNAL_ERROR, t);
+                    throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
                 }
             }
         }
@@ -161,7 +161,7 @@ public final class ArrayPositionFunction
                 catch (Throwable t) {
                     Throwables.propagateIfInstanceOf(t, Error.class);
                     Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                    throw new PrestoException(INTERNAL_ERROR, t);
+                    throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
                 }
             }
         }

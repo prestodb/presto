@@ -39,7 +39,7 @@ import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.OperatorType.CAST;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.typeVariable;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -223,7 +223,7 @@ public final class ArrayJoin
             }
         }
         catch (Throwable throwable) {
-            throw new PrestoException(INTERNAL_ERROR, format("Error casting array element %s to VARCHAR", arg));
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Error casting array element %s to VARCHAR", arg));
         }
         return slice;
     }

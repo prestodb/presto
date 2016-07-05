@@ -46,7 +46,7 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
@@ -179,7 +179,7 @@ public abstract class AbstractMinMaxAggregationFunction
         catch (Throwable t) {
             Throwables.propagateIfInstanceOf(t, Error.class);
             Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(INTERNAL_ERROR, t);
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
         }
     }
 
@@ -198,7 +198,7 @@ public abstract class AbstractMinMaxAggregationFunction
         catch (Throwable t) {
             Throwables.propagateIfInstanceOf(t, Error.class);
             Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(INTERNAL_ERROR, t);
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
         }
     }
 
@@ -216,7 +216,7 @@ public abstract class AbstractMinMaxAggregationFunction
         catch (Throwable t) {
             Throwables.propagateIfInstanceOf(t, Error.class);
             Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(INTERNAL_ERROR, t);
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
         }
     }
 
@@ -235,7 +235,7 @@ public abstract class AbstractMinMaxAggregationFunction
         catch (Throwable t) {
             Throwables.propagateIfInstanceOf(t, Error.class);
             Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(INTERNAL_ERROR, t);
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
         }
     }
 
@@ -253,7 +253,7 @@ public abstract class AbstractMinMaxAggregationFunction
         catch (Throwable t) {
             Throwables.propagateIfInstanceOf(t, Error.class);
             Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(INTERNAL_ERROR, t);
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
         }
     }
 }

@@ -26,7 +26,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.StandardErrorCode.INSUFFICIENT_RESOURCES;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.type.TypeUtils.NULL_HASH_CODE;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -241,7 +241,7 @@ public class BigintGroupByHash
     {
         long newCapacityLong = hashCapacity * 2L;
         if (newCapacityLong > Integer.MAX_VALUE) {
-            throw new PrestoException(INSUFFICIENT_RESOURCES, "Size of hash table cannot exceed 1 billion entries");
+            throw new PrestoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of hash table cannot exceed 1 billion entries");
         }
         int newCapacity = (int) newCapacityLong;
 

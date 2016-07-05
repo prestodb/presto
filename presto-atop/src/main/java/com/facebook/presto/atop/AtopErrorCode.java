@@ -15,18 +15,21 @@ package com.facebook.presto.atop;
 
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorCodeSupplier;
+import com.facebook.presto.spi.ErrorType;
+
+import static com.facebook.presto.spi.ErrorType.EXTERNAL;
 
 public enum AtopErrorCode
         implements ErrorCodeSupplier
 {
-    ATOP_CANNOT_START_PROCESS_ERROR(0),
-    ATOP_READ_TIMEOUT(1);
+    ATOP_CANNOT_START_PROCESS_ERROR(0, EXTERNAL),
+    ATOP_READ_TIMEOUT(1, EXTERNAL);
 
     private final ErrorCode errorCode;
 
-    AtopErrorCode(int code)
+    AtopErrorCode(int code, ErrorType type)
     {
-        errorCode = new ErrorCode(code + 0x0500_0000, name());
+        errorCode = new ErrorCode(code + 0x0500_0000, name(), type);
     }
 
     @Override

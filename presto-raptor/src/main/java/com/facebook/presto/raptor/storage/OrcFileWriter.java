@@ -62,7 +62,7 @@ import static com.facebook.presto.raptor.storage.StorageType.arrayOf;
 import static com.facebook.presto.raptor.storage.StorageType.mapOf;
 import static com.facebook.presto.raptor.util.Types.isArrayType;
 import static com.facebook.presto.raptor.util.Types.isMapType;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Functions.toStringFunction;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -281,7 +281,7 @@ public class OrcFileWriter
                     getJavaObjectInspector(mapTypeInfo.getMapKeyTypeInfo()),
                     getJavaObjectInspector(mapTypeInfo.getMapValueTypeInfo()));
         }
-        throw new PrestoException(INTERNAL_ERROR, "Unhandled storage type: " + category);
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled storage type: " + category);
     }
 
     private static <T> boolean isUnique(Collection<T> items)

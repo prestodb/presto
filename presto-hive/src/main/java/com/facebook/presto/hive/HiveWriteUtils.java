@@ -278,7 +278,7 @@ public final class HiveWriteUtils
             Block rowBlock = block.getObject(position, Block.class);
 
             List<Type> fieldTypes = type.getTypeParameters();
-            checkCondition(fieldTypes.size() == rowBlock.getPositionCount(), StandardErrorCode.INTERNAL_ERROR, "Expected row value field count does not match type field count");
+            checkCondition(fieldTypes.size() == rowBlock.getPositionCount(), StandardErrorCode.GENERIC_INTERNAL_ERROR, "Expected row value field count does not match type field count");
 
             List<Object> row = new ArrayList<>(rowBlock.getPositionCount());
             for (int i = 0; i < rowBlock.getPositionCount(); i++) {

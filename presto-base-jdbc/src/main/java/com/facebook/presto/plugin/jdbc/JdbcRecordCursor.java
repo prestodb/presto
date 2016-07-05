@@ -41,7 +41,7 @@ import java.sql.Timestamp;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -167,7 +167,7 @@ public class JdbcRecordCursor
                 Timestamp timestamp = resultSet.getTimestamp(field + 1);
                 return timestamp.getTime();
             }
-            throw new PrestoException(INTERNAL_ERROR, "Unhandled type for long: " + type.getTypeSignature());
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type for long: " + type.getTypeSignature());
         }
         catch (SQLException e) {
             throw handleSqlException(e);
@@ -198,7 +198,7 @@ public class JdbcRecordCursor
             if (type.equals(VarbinaryType.VARBINARY)) {
                 return wrappedBuffer(resultSet.getBytes(field + 1));
             }
-            throw new PrestoException(INTERNAL_ERROR, "Unhandled type for slice: " + type.getTypeSignature());
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type for slice: " + type.getTypeSignature());
         }
         catch (SQLException e) {
             throw handleSqlException(e);

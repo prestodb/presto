@@ -37,6 +37,6 @@ public final class FailureFunction
     {
         FailureInfo failureInfo = JSON_CODEC.fromJson(failureInfoSlice.getBytes());
         // wrap the failure in a new exception to append the current stack trace
-        throw new PrestoException(StandardErrorCode.USER_ERROR, failureInfo.toException());
+        throw new PrestoException(StandardErrorCode.GENERIC_USER_ERROR, failureInfo.toException());
     }
 }

@@ -43,7 +43,7 @@ import static com.facebook.presto.metadata.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.metadata.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.metadata.SqlScalarFunctionBuilder.concat;
 import static com.facebook.presto.metadata.SqlScalarFunctionBuilder.constant;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.Decimals.bigIntegerTenToNth;
 import static com.facebook.presto.spi.type.Decimals.longTenToNth;
 import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
@@ -213,7 +213,7 @@ public class DecimalInequalityOperators
         catch (Throwable t) {
             Throwables.propagateIfInstanceOf(t, Error.class);
             Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(INTERNAL_ERROR, t);
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
         }
     }
 

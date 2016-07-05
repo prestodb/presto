@@ -18,7 +18,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
@@ -70,7 +70,7 @@ public final class FloatType
             Math.toIntExact(value);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(INTERNAL_ERROR, format("Value (%sb) is not a valid single-precision float", Long.toBinaryString(value).replace(' ', '0')));
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Value (%sb) is not a valid single-precision float", Long.toBinaryString(value).replace(' ', '0')));
         }
         blockBuilder.writeInt((int) value).closeEntry();
     }

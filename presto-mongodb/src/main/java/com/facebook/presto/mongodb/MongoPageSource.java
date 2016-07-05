@@ -43,7 +43,7 @@ import static com.facebook.presto.mongodb.ObjectIdType.OBJECT_ID;
 import static com.facebook.presto.mongodb.TypeUtils.isArrayType;
 import static com.facebook.presto.mongodb.TypeUtils.isMapType;
 import static com.facebook.presto.mongodb.TypeUtils.isRowType;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -166,7 +166,7 @@ public class MongoPageSource
                     type.writeLong(output, ((Date) value).getTime());
                 }
                 else {
-                    throw new PrestoException(INTERNAL_ERROR, "Unhandled type for " + javaType.getSimpleName() + ":" + type.getTypeSignature());
+                    throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type for " + javaType.getSimpleName() + ":" + type.getTypeSignature());
                 }
             }
             else if (javaType == double.class) {
@@ -179,7 +179,7 @@ public class MongoPageSource
                 writeBlock(output, type, value);
             }
             else {
-                throw new PrestoException(INTERNAL_ERROR, "Unhandled type for " + javaType.getSimpleName() + ":" + type.getTypeSignature());
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type for " + javaType.getSimpleName() + ":" + type.getTypeSignature());
             }
         }
         catch (ClassCastException ignore) {
@@ -206,7 +206,7 @@ public class MongoPageSource
             }
         }
         else {
-            throw new PrestoException(INTERNAL_ERROR, "Unhandled type for Slice: " + type.getTypeSignature());
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Slice: " + type.getTypeSignature());
         }
     }
 
@@ -273,7 +273,7 @@ public class MongoPageSource
             }
         }
         else {
-            throw new PrestoException(INTERNAL_ERROR, "Unhandled type for Block: " + type.getTypeSignature());
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Block: " + type.getTypeSignature());
         }
 
         // not a convertible value
