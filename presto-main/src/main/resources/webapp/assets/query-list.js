@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
- var Query = React.createClass({
+ var QueryListItem = React.createClass({
     render: function()
     {
         var query = this.props.query;
@@ -171,12 +171,12 @@
     }
 });
 
-var DisplayedQueries = React.createClass({
+var DisplayedQueriesList = React.createClass({
     render: function()
     {
         var queryNodes = this.props.queries.map(function (query) {
             return (
-                    <Query key={ query.queryId } query={query} />
+                    <QueryListItem key={ query.queryId } query={query} />
             );
         }.bind(this));
         return (
@@ -422,7 +422,7 @@ var QueryList = React.createClass({
         });
     },
     render: function() {
-        var queryList = <DisplayedQueries queries={ this.state.displayedQueries } />;
+        var queryList = <DisplayedQueriesList queries={ this.state.displayedQueries } />;
         if (this.state.displayedQueries == null || this.state.displayedQueries.length == 0) {
             var label = (<div className="loader">Loading...</div>);
             if (this.state.initialized) {
