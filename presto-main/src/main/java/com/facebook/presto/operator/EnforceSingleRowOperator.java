@@ -36,20 +36,20 @@ public class EnforceSingleRowOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final Type type;
+        private final List<Type> types;
         private boolean closed;
 
-        public EnforceSingleRowOperatorFactory(int operatorId, PlanNodeId planNodeId, Type type)
+        public EnforceSingleRowOperatorFactory(int operatorId, PlanNodeId planNodeId, List<Type> types)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.type = requireNonNull(type, "type is null");
+            this.types = ImmutableList.copyOf(requireNonNull(types, "type is null"));
         }
 
         @Override
         public List<Type> getTypes()
         {
-            return ImmutableList.of(type);
+            return types;
         }
 
         @Override
@@ -57,7 +57,7 @@ public class EnforceSingleRowOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, EnforceSingleRowOperator.class.getSimpleName());
-            return new EnforceSingleRowOperator(operatorContext, type);
+            return new EnforceSingleRowOperator(operatorContext, types);
         }
 
         @Override
@@ -69,21 +69,21 @@ public class EnforceSingleRowOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new EnforceSingleRowOperatorFactory(operatorId, planNodeId, type);
+            return new EnforceSingleRowOperatorFactory(operatorId, planNodeId, types);
         }
     }
 
     private static final Page SINGLE_NULL_VALUE_PAGE = new Page(1, new FixedWidthBlock(0, 1, EMPTY_SLICE, Slices.wrappedBooleanArray(true)));
 
     private final OperatorContext operatorContext;
-    private final Type type;
+    private final List<Type> types;
     private boolean finishing;
     private Page page;
 
-    public EnforceSingleRowOperator(OperatorContext operatorContext, Type type)
+    public EnforceSingleRowOperator(OperatorContext operatorContext, List<Type> types)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.type = requireNonNull(type, "types is null");
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
     }
 
     @Override
@@ -95,7 +95,7 @@ public class EnforceSingleRowOperator
     @Override
     public List<Type> getTypes()
     {
-        return ImmutableList.of(type);
+        return types;
     }
 
     @Override
