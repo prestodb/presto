@@ -5712,6 +5712,17 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testOutputInEnforceSingleRow()
+            throws Exception
+    {
+        assertQuery("SELECT count(*) FROM (SELECT (SELECT 1))");
+        assertQuery("SELECT * FROM (SELECT (SELECT 1))");
+        assertQueryFails(
+                "SELECT * FROM (SELECT (SELECT 1, 2))",
+                "line 1:23: Multiple columns returned by subquery are not yet supported. Found 2");
+    }
+
+    @Test
     public void testCorrelatedScalarSubqueries()
             throws Exception
     {
