@@ -14,14 +14,18 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.operator.Description;
+import com.facebook.presto.operator.aggregation.TypedSet;
 import com.facebook.presto.operator.scalar.annotations.ScalarFunction;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.SqlType;
 import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
+
+import javax.annotation.Nullable;
 
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -35,6 +39,8 @@ import static java.lang.String.format;
 
 public final class MathFunctions
 {
+    private static final String MAP_STRING_DOUBLE = "map(varchar,double)";
+
     private MathFunctions() {}
 
     @Description("absolute value")
@@ -692,5 +698,59 @@ public final class MathFunctions
         }
 
         return lower;
+    }
+
+    @Description("cosine similarity between map(varchar, double)")
+    @ScalarFunction
+    @Nullable
+    @SqlType(StandardTypes.DOUBLE)
+    public static Double cosineSimilarity(@SqlType(MAP_STRING_DOUBLE) Block leftMap, @SqlType(MAP_STRING_DOUBLE) Block rightMap)
+    {
+        Double normLeftMap = mapL2Norm(leftMap);
+        Double normRightMap = mapL2Norm(rightMap);
+
+        if (normLeftMap == null || normRightMap == null) {
+            return null;
+        }
+
+        double dotProduct = mapDotProduct(leftMap, rightMap);
+
+        return dotProduct / (normLeftMap * normRightMap);
+    }
+
+    private static double mapDotProduct(Block leftMap, Block rightMap)
+    {
+        TypedSet rightMapKeys = new TypedSet(VarcharType.VARCHAR, rightMap.getPositionCount());
+
+        for (int i = 0; i < rightMap.getPositionCount(); i += 2) {
+            rightMapKeys.add(rightMap, i);
+        }
+
+        double result = 0.0;
+
+        for (int i = 0; i < leftMap.getPositionCount(); i += 2) {
+            int position = rightMapKeys.positionOf(leftMap, i);
+
+            if (position != -1) {
+                result += DoubleType.DOUBLE.getDouble(leftMap, i + 1) *
+                        DoubleType.DOUBLE.getDouble(rightMap, 2 * position + 1);
+            }
+        }
+
+        return result;
+    }
+
+    private static Double mapL2Norm(Block map)
+    {
+        double norm = 0.0;
+
+        for (int i = 1; i < map.getPositionCount(); i += 2) {
+            if (map.isNull(i)) {
+                return null;
+            }
+            norm += DoubleType.DOUBLE.getDouble(map, i) * DoubleType.DOUBLE.getDouble(map, i);
+        }
+
+        return Math.sqrt(norm);
     }
 }
