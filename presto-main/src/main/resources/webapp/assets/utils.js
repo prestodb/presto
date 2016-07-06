@@ -21,6 +21,7 @@ var GLYPHICON_HIGHLIGHT = {color: '#999999'};
 var QUERY_STATE_COLOR_MAP = {
     QUEUED: '#1b8f72',
     RUNNING: '#19874e',
+    PLANNING: '#824b98',
     FINISHED: '#1a4629',
     BLOCKED: '#685b72',
     USER_ERROR: '#a67559',
@@ -54,6 +55,7 @@ function getQueryStateColor(state, errorType, errorCode)
         case "QUEUED":
             return QUERY_STATE_COLOR_MAP.QUEUED;
         case "PLANNING":
+            return QUERY_STATE_COLOR_MAP.PLANNING;
         case "STARTING":
         case "RUNNING":
         case "FINISHING":
