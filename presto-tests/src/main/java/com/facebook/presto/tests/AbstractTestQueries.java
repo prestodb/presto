@@ -4291,13 +4291,13 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery("" +
-                "WITH a AS (SELECT custkey FROM orders), " +
+                "WITH a AS (SELECT 1), " +
                 "     b AS (" +
-                "         WITH a AS (SELECT orderkey FROM orders)" +
-                "         SELECT * FROM a" + // should refer to inner 'a'
+                "         WITH a AS (SELECT 2)" +
+                "         SELECT * FROM a" +
                 "    )" +
                 "SELECT * FROM b",
-                "SELECT orderkey FROM orders"
+                "SELECT 2"
         );
     }
 
