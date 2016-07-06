@@ -98,12 +98,12 @@ public class ServerInfoResource
     @Produces(TEXT_PLAIN)
     public Response getServerCoordinator()
     {
-        if (this.serverInfo.isCoordinator()) {
-            return Response.ok(Boolean.TRUE).build();
+        if (serverInfo.isCoordinator()) {
+            return Response.status(Response.Status.OK).build();
         }
         else {
-            // Return SERVICE_UNAVAILABLE to allow load balancers to only send traffic to the coordinator
-            return Response.status(Response.Status.SERVICE_UNAVAILABLE).build();
+            // Return NOT_FOUND to allow load balancers to only send traffic to the coordinator
+            return Response.status(Response.Status.NOT_FOUND).build();
         }
     }
 }
