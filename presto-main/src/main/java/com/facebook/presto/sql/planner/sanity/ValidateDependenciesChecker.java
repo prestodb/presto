@@ -79,25 +79,25 @@ public final class ValidateDependenciesChecker
     @Override
     public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, Map<Symbol, Type> types)
     {
-        plan.accept(new Visitor(), null);
+        plan.accept(new Visitor(), ImmutableSet.of());
     }
 
     private static class Visitor
-            extends PlanVisitor<Void, Void>
+            extends PlanVisitor<Set<Symbol>, Void>
     {
         private final Map<PlanNodeId, PlanNode> nodesById = new HashMap<>();
 
         @Override
-        protected Void visitPlan(PlanNode node, Void context)
+        protected Void visitPlan(PlanNode node, Set<Symbol> boundSymbols)
         {
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }
 
         @Override
-        public Void visitExplainAnalyze(ExplainAnalyzeNode node, Void context)
+        public Void visitExplainAnalyze(ExplainAnalyzeNode node, Set<Symbol> boundSymbols)
         {
             PlanNode source = node.getSource();
-            source.accept(this, context); // visit child
+            source.accept(this, boundSymbols); // visit child
 
             verifyUniqueId(node);
 
@@ -105,14 +105,14 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitAggregation(AggregationNode node, Void context)
+        public Void visitAggregation(AggregationNode node, Set<Symbol> boundSymbols)
         {
             PlanNode source = node.getSource();
-            source.accept(this, context); // visit child
+            source.accept(this, boundSymbols); // visit child
 
             verifyUniqueId(node);
 
-            Set<Symbol> inputs = ImmutableSet.copyOf(source.getOutputSymbols());
+            Set<Symbol> inputs = createInputs(source, boundSymbols);
             checkDependencies(inputs, node.getGroupBy(), "Invalid node. Group by symbols (%s) not in source plan output (%s)", node.getGroupBy(), node.getSource().getOutputSymbols());
 
             if (node.getSampleWeight().isPresent()) {
@@ -128,10 +128,10 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitGroupId(GroupIdNode node, Void context)
+        public Void visitGroupId(GroupIdNode node, Set<Symbol> boundSymbols)
         {
             PlanNode source = node.getSource();
-            source.accept(this, context); // visit child
+            source.accept(this, boundSymbols); // visit child
 
             verifyUniqueId(node);
 
@@ -141,10 +141,10 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitMarkDistinct(MarkDistinctNode node, Void context)
+        public Void visitMarkDistinct(MarkDistinctNode node, Set<Symbol> boundSymbols)
         {
             PlanNode source = node.getSource();
-            source.accept(this, context); // visit child
+            source.accept(this, boundSymbols); // visit child
 
             verifyUniqueId(node);
 
@@ -154,14 +154,14 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitWindow(WindowNode node, Void context)
+        public Void visitWindow(WindowNode node, Set<Symbol> boundSymbols)
         {
             PlanNode source = node.getSource();
-            source.accept(this, context); // visit child
+            source.accept(this, boundSymbols); // visit child
 
             verifyUniqueId(node);
 
-            Set<Symbol> inputs = ImmutableSet.copyOf(source.getOutputSymbols());
+            Set<Symbol> inputs = createInputs(source, boundSymbols);
 
             checkDependencies(inputs, node.getPartitionBy(), "Invalid node. Partition by symbols (%s) not in source plan output (%s)", node.getPartitionBy(), node.getSource().getOutputSymbols());
             checkDependencies(inputs, node.getOrderBy(), "Invalid node. Order by symbols (%s) not in source plan output (%s)", node.getOrderBy(), node.getSource().getOutputSymbols());
@@ -184,14 +184,14 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitTopNRowNumber(TopNRowNumberNode node, Void context)
+        public Void visitTopNRowNumber(TopNRowNumberNode node, Set<Symbol> boundSymbols)
         {
             PlanNode source = node.getSource();
-            source.accept(this, context); // visit child
+            source.accept(this, boundSymbols); // visit child
 
             verifyUniqueId(node);
 
-            Set<Symbol> inputs = ImmutableSet.copyOf(source.getOutputSymbols());
+            Set<Symbol> inputs = createInputs(source, boundSymbols);
             checkDependencies(inputs, node.getPartitionBy(), "Invalid node. Partition by symbols (%s) not in source plan output (%s)", node.getPartitionBy(), node.getSource().getOutputSymbols());
             checkDependencies(inputs, node.getOrderBy(), "Invalid node. Order by symbols (%s) not in source plan output (%s)", node.getOrderBy(), node.getSource().getOutputSymbols());
 
@@ -199,10 +199,10 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitRowNumber(RowNumberNode node, Void context)
+        public Void visitRowNumber(RowNumberNode node, Set<Symbol> boundSymbols)
         {
             PlanNode source = node.getSource();
-            source.accept(this, context); // visit child
+            source.accept(this, boundSymbols); // visit child
 
             verifyUniqueId(node);
 
@@ -212,14 +212,14 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitFilter(FilterNode node, Void context)
+        public Void visitFilter(FilterNode node, Set<Symbol> boundSymbols)
         {
             PlanNode source = node.getSource();
-            source.accept(this, context); // visit child
+            source.accept(this, boundSymbols); // visit child
 
             verifyUniqueId(node);
 
-            Set<Symbol> inputs = ImmutableSet.copyOf(source.getOutputSymbols());
+            Set<Symbol> inputs = createInputs(source, boundSymbols);
             checkDependencies(inputs, node.getOutputSymbols(), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
 
             Set<Symbol> dependencies = DependencyExtractor.extractUnique(node.getPredicate());
@@ -229,10 +229,10 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitSample(SampleNode node, Void context)
+        public Void visitSample(SampleNode node, Set<Symbol> boundSymbols)
         {
             PlanNode source = node.getSource();
-            source.accept(this, context); // visit child
+            source.accept(this, boundSymbols); // visit child
 
             verifyUniqueId(node);
 
@@ -240,14 +240,14 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitProject(ProjectNode node, Void context)
+        public Void visitProject(ProjectNode node, Set<Symbol> boundSymbols)
         {
             PlanNode source = node.getSource();
-            source.accept(this, context); // visit child
+            source.accept(this, boundSymbols); // visit child
 
             verifyUniqueId(node);
 
-            Set<Symbol> inputs = ImmutableSet.copyOf(source.getOutputSymbols());
+            Set<Symbol> inputs = createInputs(source, boundSymbols);
             for (Expression expression : node.getAssignments().values()) {
                 Set<Symbol> dependencies = DependencyExtractor.extractUnique(expression);
                 checkDependencies(inputs, dependencies, "Invalid node. Expression dependencies (%s) not in source plan output (%s)", dependencies, inputs);
@@ -257,14 +257,14 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitTopN(TopNNode node, Void context)
+        public Void visitTopN(TopNNode node, Set<Symbol> boundSymbols)
         {
             PlanNode source = node.getSource();
-            source.accept(this, context); // visit child
+            source.accept(this, boundSymbols); // visit child
 
             verifyUniqueId(node);
 
-            Set<Symbol> inputs = ImmutableSet.copyOf(source.getOutputSymbols());
+            Set<Symbol> inputs = createInputs(source, boundSymbols);
             checkDependencies(inputs, node.getOutputSymbols(), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
             checkDependencies(inputs, node.getOrderBy(),
                     "Invalid node. Order by dependencies (%s) not in source plan output (%s)",
@@ -275,14 +275,14 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitSort(SortNode node, Void context)
+        public Void visitSort(SortNode node, Set<Symbol> boundSymbols)
         {
             PlanNode source = node.getSource();
-            source.accept(this, context); // visit child
+            source.accept(this, boundSymbols); // visit child
 
             verifyUniqueId(node);
 
-            Set<Symbol> inputs = ImmutableSet.copyOf(source.getOutputSymbols());
+            Set<Symbol> inputs = createInputs(source, boundSymbols);
             checkDependencies(inputs, node.getOutputSymbols(), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
             checkDependencies(inputs, node.getOrderBy(), "Invalid node. Order by dependencies (%s) not in source plan output (%s)", node.getOrderBy(), node.getSource().getOutputSymbols());
 
@@ -290,10 +290,10 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitOutput(OutputNode node, Void context)
+        public Void visitOutput(OutputNode node, Set<Symbol> boundSymbols)
         {
             PlanNode source = node.getSource();
-            source.accept(this, context); // visit child
+            source.accept(this, boundSymbols); // visit child
 
             verifyUniqueId(node);
 
@@ -303,10 +303,10 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitLimit(LimitNode node, Void context)
+        public Void visitLimit(LimitNode node, Set<Symbol> boundSymbols)
         {
             PlanNode source = node.getSource();
-            source.accept(this, context); // visit child
+            source.accept(this, boundSymbols); // visit child
 
             verifyUniqueId(node);
 
@@ -314,25 +314,25 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitDistinctLimit(DistinctLimitNode node, Void context)
+        public Void visitDistinctLimit(DistinctLimitNode node, Set<Symbol> boundSymbols)
         {
             PlanNode source = node.getSource();
-            source.accept(this, context); // visit child
+            source.accept(this, boundSymbols); // visit child
 
             verifyUniqueId(node);
             return null;
         }
 
         @Override
-        public Void visitJoin(JoinNode node, Void context)
+        public Void visitJoin(JoinNode node, Set<Symbol> boundSymbols)
         {
-            node.getLeft().accept(this, context);
-            node.getRight().accept(this, context);
+            node.getLeft().accept(this, boundSymbols);
+            node.getRight().accept(this, boundSymbols);
 
             verifyUniqueId(node);
 
-            Set<Symbol> leftInputs = ImmutableSet.copyOf(node.getLeft().getOutputSymbols());
-            Set<Symbol> rightInputs = ImmutableSet.copyOf(node.getRight().getOutputSymbols());
+            Set<Symbol> leftInputs = createInputs(node.getLeft(), boundSymbols);
+            Set<Symbol> rightInputs = createInputs(node.getRight(), boundSymbols);
 
             for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
                 checkArgument(leftInputs.contains(clause.getLeft()), "Symbol from join clause (%s) not in left source (%s)", clause.getLeft(), node.getLeft().getOutputSymbols());
@@ -343,17 +343,17 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitSemiJoin(SemiJoinNode node, Void context)
+        public Void visitSemiJoin(SemiJoinNode node, Set<Symbol> boundSymbols)
         {
-            node.getSource().accept(this, context);
-            node.getFilteringSource().accept(this, context);
+            node.getSource().accept(this, boundSymbols);
+            node.getFilteringSource().accept(this, boundSymbols);
 
             verifyUniqueId(node);
 
             checkArgument(node.getSource().getOutputSymbols().contains(node.getSourceJoinSymbol()), "Symbol from semi join clause (%s) not in source (%s)", node.getSourceJoinSymbol(), node.getSource().getOutputSymbols());
             checkArgument(node.getFilteringSource().getOutputSymbols().contains(node.getFilteringSourceJoinSymbol()), "Symbol from semi join clause (%s) not in filtering source (%s)", node.getSourceJoinSymbol(), node.getFilteringSource().getOutputSymbols());
 
-            Set<Symbol> outputs = ImmutableSet.copyOf(node.getOutputSymbols());
+            Set<Symbol> outputs = createInputs(node, boundSymbols);
             checkArgument(outputs.containsAll(node.getSource().getOutputSymbols()), "Semi join output symbols (%s) must contain all of the source symbols (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
             checkArgument(outputs.contains(node.getSemiJoinOutput()),
                     "Semi join output symbols (%s) must contain join result (%s)",
@@ -364,15 +364,15 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitIndexJoin(IndexJoinNode node, Void context)
+        public Void visitIndexJoin(IndexJoinNode node, Set<Symbol> boundSymbols)
         {
-            node.getProbeSource().accept(this, context);
-            node.getIndexSource().accept(this, context);
+            node.getProbeSource().accept(this, boundSymbols);
+            node.getIndexSource().accept(this, boundSymbols);
 
             verifyUniqueId(node);
 
-            Set<Symbol> probeInputs = ImmutableSet.copyOf(node.getProbeSource().getOutputSymbols());
-            Set<Symbol> indexSourceInputs = ImmutableSet.copyOf(node.getIndexSource().getOutputSymbols());
+            Set<Symbol> probeInputs = createInputs(node.getProbeSource(), boundSymbols);
+            Set<Symbol> indexSourceInputs = createInputs(node.getIndexSource(), boundSymbols);
             for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
                 checkArgument(probeInputs.contains(clause.getProbe()), "Probe symbol from index join clause (%s) not in probe source (%s)", clause.getProbe(), node.getProbeSource().getOutputSymbols());
                 checkArgument(indexSourceInputs.contains(clause.getIndex()), "Index symbol from index join clause (%s) not in index source (%s)", clause.getIndex(), node.getIndexSource().getOutputSymbols());
@@ -390,7 +390,7 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitIndexSource(IndexSourceNode node, Void context)
+        public Void visitIndexSource(IndexSourceNode node, Set<Symbol> boundSymbols)
         {
             verifyUniqueId(node);
 
@@ -401,7 +401,7 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitTableScan(TableScanNode node, Void context)
+        public Void visitTableScan(TableScanNode node, Set<Symbol> boundSymbols)
         {
             verifyUniqueId(node);
 
@@ -411,17 +411,17 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitValues(ValuesNode node, Void context)
+        public Void visitValues(ValuesNode node, Set<Symbol> boundSymbols)
         {
             verifyUniqueId(node);
             return null;
         }
 
         @Override
-        public Void visitUnnest(UnnestNode node, Void context)
+        public Void visitUnnest(UnnestNode node, Set<Symbol> boundSymbols)
         {
             PlanNode source = node.getSource();
-            source.accept(this, context);
+            source.accept(this, boundSymbols);
 
             verifyUniqueId(node);
 
@@ -436,7 +436,7 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitRemoteSource(RemoteSourceNode node, Void context)
+        public Void visitRemoteSource(RemoteSourceNode node, Set<Symbol> boundSymbols)
         {
             verifyUniqueId(node);
 
@@ -444,13 +444,13 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitExchange(ExchangeNode node, Void context)
+        public Void visitExchange(ExchangeNode node, Set<Symbol> boundSymbols)
         {
             for (int i = 0; i < node.getSources().size(); i++) {
                 PlanNode subplan = node.getSources().get(i);
                 checkDependencies(subplan.getOutputSymbols(), node.getInputs().get(i), "EXCHANGE subplan must provide all of the necessary symbols");
                 checkDependencies(subplan.getOutputSymbols(), node.getInputs().get(i), "EXCHANGE subplan must provide all of the necessary symbols");
-                subplan.accept(this, context); // visit child
+                subplan.accept(this, boundSymbols); // visit child
             }
 
             checkDependencies(node.getOutputSymbols(), node.getPartitioningScheme().getOutputLayout(), "EXCHANGE must provide all of the necessary symbols for partition function");
@@ -461,10 +461,10 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitTableWriter(TableWriterNode node, Void context)
+        public Void visitTableWriter(TableWriterNode node, Set<Symbol> boundSymbols)
         {
             PlanNode source = node.getSource();
-            source.accept(this, context); // visit child
+            source.accept(this, boundSymbols); // visit child
 
             verifyUniqueId(node);
 
@@ -476,10 +476,10 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitDelete(DeleteNode node, Void context)
+        public Void visitDelete(DeleteNode node, Set<Symbol> boundSymbols)
         {
             PlanNode source = node.getSource();
-            source.accept(this, context); // visit child
+            source.accept(this, boundSymbols); // visit child
 
             verifyUniqueId(node);
 
@@ -489,7 +489,7 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitMetadataDelete(MetadataDeleteNode node, Void context)
+        public Void visitMetadataDelete(MetadataDeleteNode node, Set<Symbol> boundSymbols)
         {
             verifyUniqueId(node);
 
@@ -497,9 +497,9 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitTableFinish(TableFinishNode node, Void context)
+        public Void visitTableFinish(TableFinishNode node, Set<Symbol> boundSymbols)
         {
-            node.getSource().accept(this, context); // visit child
+            node.getSource().accept(this, boundSymbols); // visit child
 
             verifyUniqueId(node);
 
@@ -507,17 +507,17 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitUnion(UnionNode node, Void context)
+        public Void visitUnion(UnionNode node, Set<Symbol> boundSymbols)
         {
-            return visitSetOperation(node, context);
+            return visitSetOperation(node, boundSymbols);
         }
 
-        private Void visitSetOperation(SetOperationNode node, Void context)
+        private Void visitSetOperation(SetOperationNode node, Set<Symbol> boundSymbols)
         {
             for (int i = 0; i < node.getSources().size(); i++) {
                 PlanNode subplan = node.getSources().get(i);
                 checkDependencies(subplan.getOutputSymbols(), node.sourceOutputLayout(i), "%s subplan must provide all of the necessary symbols", node.getClass().getSimpleName());
-                subplan.accept(this, context); // visit child
+                subplan.accept(this, boundSymbols); // visit child
             }
 
             verifyUniqueId(node);
@@ -526,21 +526,21 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitIntersect(IntersectNode node, Void context)
+        public Void visitIntersect(IntersectNode node, Set<Symbol> boundSymbols)
         {
-            return visitSetOperation(node, context);
+            return visitSetOperation(node, boundSymbols);
         }
 
         @Override
-        public Void visitExcept(ExceptNode node, Void context)
+        public Void visitExcept(ExceptNode node, Set<Symbol> boundSymbols)
         {
-            return visitSetOperation(node, context);
+            return visitSetOperation(node, boundSymbols);
         }
 
         @Override
-        public Void visitEnforceSingleRow(EnforceSingleRowNode node, Void context)
+        public Void visitEnforceSingleRow(EnforceSingleRowNode node, Set<Symbol> boundSymbols)
         {
-            node.getSource().accept(this, context); // visit child
+            node.getSource().accept(this, boundSymbols); // visit child
 
             verifyUniqueId(node);
 
@@ -548,13 +548,18 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitApply(ApplyNode node, Void context)
+        public Void visitApply(ApplyNode node, Set<Symbol> boundSymbols)
         {
-            node.getInput().accept(this, context); // visit child
-            node.getSubquery().accept(this, context); // visit child
+            Set<Symbol> subqueryCorrelation = ImmutableSet.<Symbol>builder()
+                    .addAll(boundSymbols)
+                    .addAll(node.getCorrelation())
+                    .build();
+
+            node.getInput().accept(this, boundSymbols); // visit child
+            node.getSubquery().accept(this, subqueryCorrelation); // visit child
 
             checkDependencies(node.getInput().getOutputSymbols(), node.getCorrelation(), "APPLY input must provide all the necessary correlation symbols for subquery");
-            checkDependencies(DependencyExtractor.extractUnique(node.getSubquery()), node.getCorrelation(), "not all APPLY correlation symbols are not used in subquery");
+            checkDependencies(DependencyExtractor.extractUnique(node.getSubquery()), node.getCorrelation(), "not all APPLY correlation symbols are used in subquery");
 
             verifyUniqueId(node);
 
@@ -567,6 +572,14 @@ public final class ValidateDependenciesChecker
             checkArgument(!nodesById.containsKey(id), "Duplicate node id found %s between %s and %s", node.getId(), node, nodesById.get(id));
 
             nodesById.put(id, node);
+        }
+
+        private ImmutableSet<Symbol> createInputs(PlanNode source, Set<Symbol> boundSymbols)
+        {
+            return ImmutableSet.<Symbol>builder()
+                    .addAll(source.getOutputSymbols())
+                    .addAll(boundSymbols)
+                    .build();
         }
     }
 
