@@ -34,7 +34,7 @@ public class ServerInfo
     public ServerInfo(
             @JsonProperty("nodeVersion") NodeVersion nodeVersion,
             @JsonProperty("environment") String environment,
-            @JsonProperty("coordinator") Boolean coordinator)
+            @JsonProperty("coordinator") boolean coordinator)
     {
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.environment = requireNonNull(environment, "environment is null");
@@ -54,7 +54,7 @@ public class ServerInfo
     }
 
     @JsonProperty
-    public Boolean isCoordinator()
+    public boolean isCoordinator()
     {
         return coordinator;
     }
