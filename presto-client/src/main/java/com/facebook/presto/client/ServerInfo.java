@@ -28,7 +28,7 @@ public class ServerInfo
 {
     private final NodeVersion nodeVersion;
     private final String environment;
-    private final Boolean coordinator;
+    private final boolean coordinator;
 
     @JsonCreator
     public ServerInfo(
