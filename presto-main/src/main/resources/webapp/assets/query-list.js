@@ -302,6 +302,8 @@ var QueryList = React.createClass({
     },
     refreshLoop: function() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
+        clearTimeout(this.searchTimeoutId);
+
         $.get('/v1/query', function (queryList) {
             var queryMap = queryList.reduce(function(map, query) {
                 map[query.queryId] = query;
@@ -363,8 +365,22 @@ var QueryList = React.createClass({
     },
     handleSearchStringChange: function(event) {
         var newSearchString = event.target.value;
+        clearTimeout(this.searchTimeoutId);
+
         this.setState({
             searchString: newSearchString
+        });
+
+        this.searchTimeoutId = setTimeout(this.executeSearch, 200);
+    },
+    executeSearch: function() {
+        clearTimeout(this.searchTimeoutId);
+
+        var newDisplayedQueries = this.filterQueries(this.state.allQueries, this.state.filters, this.state.searchString);
+        this.sortAndLimitQueries(newDisplayedQueries, this.state.currentSortType, this.state.currentSortOrder, this.state.maxQueries);
+
+        this.setState({
+            displayedQueries: newDisplayedQueries
         });
     },
     renderMaxQueriesListItem: function(maxQueries, maxQueriesText) {
