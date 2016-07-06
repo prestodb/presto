@@ -30,6 +30,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Keeps track of fields and expressions and their mapping to symbols in the current plan
@@ -49,8 +50,8 @@ class TranslationMap
 
     public TranslationMap(RelationPlan rewriteBase, Analysis analysis)
     {
-        this.rewriteBase = rewriteBase;
-        this.analysis = analysis;
+        this.rewriteBase = requireNonNull(rewriteBase, "rewriteBase is null");
+        this.analysis = requireNonNull(analysis, "analysis is null");
 
         fieldSymbols = new Symbol[rewriteBase.getOutputSymbols().size()];
     }
@@ -130,7 +131,7 @@ class TranslationMap
         expressionToSymbols.put(translated, symbol);
 
         // also update the field mappings if this expression is a field reference
-        analysis.getFieldIndex(expression).ifPresent(index -> fieldSymbols[index] = symbol);
+        rewriteBase.getScope().tryResolveField(expression).ifPresent(resolvedField -> fieldSymbols[rewriteBase.getDescriptor().indexOf(resolvedField.getField())] = symbol);
     }
 
     public boolean containsSymbol(Expression expression)
@@ -189,12 +190,9 @@ class TranslationMap
 
             private Expression rewriteExpressionWithResolvedName(Expression node)
             {
-                Optional<Integer> fieldIndex = analysis.getFieldIndex(node);
-                checkState(fieldIndex.isPresent(), "No field mapping for node '%s'", node);
-
-                Symbol symbol = rewriteBase.getSymbol(fieldIndex.get());
-                checkState(symbol != null, "No symbol mapping for node '%s' (%s)", node, fieldIndex.get());
-                Expression rewrittenExpression = symbol.toSymbolReference();
+                Optional<Symbol> symbol = rewriteBase.getSymbol(node);
+                checkState(symbol.isPresent(), "No symbol mapping for node '%s'", node);
+                Expression rewrittenExpression = symbol.get().toSymbolReference();
 
                 return coerceIfNecessary(node, rewrittenExpression);
             }
