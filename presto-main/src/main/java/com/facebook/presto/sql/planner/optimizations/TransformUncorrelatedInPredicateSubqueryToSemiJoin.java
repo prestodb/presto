@@ -110,14 +110,6 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
                     replaceInPredicates(node.getPredicate()));
         }
 
-        private Expression replaceInPredicates(Expression expression)
-        {
-            for (Map<InPredicate, Expression> inPredicateMapping : inPredicateMappings) {
-                expression = replaceExpression(expression, inPredicateMapping);
-            }
-            return expression;
-        }
-
         @Override
         public PlanNode visitProject(ProjectNode node, RewriteContext<Void> context)
         {
@@ -165,6 +157,14 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
                 assignmentsBuilder.put(symbol, replaceInPredicates(assignments.get(symbol)));
             }
             return assignmentsBuilder.build();
+        }
+
+        private Expression replaceInPredicates(Expression expression)
+        {
+            for (Map<InPredicate, Expression> inPredicateMapping : inPredicateMappings) {
+                expression = replaceExpression(expression, inPredicateMapping);
+            }
+            return expression;
         }
 
         private List<InPredicate> extractInPredicates(Collection<Expression> expressions)
