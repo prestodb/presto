@@ -21,8 +21,6 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.type.ParametricType;
 import com.google.common.collect.ImmutableList;
 
-import javax.inject.Inject;
-
 import java.util.List;
 
 import static com.facebook.presto.ml.type.ModelType.MODEL;
@@ -34,7 +32,7 @@ public class MLPlugin
 {
     private TypeManager typeManager;
 
-    @Inject
+    @Override
     public void setTypeManager(TypeManager typeManager)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
