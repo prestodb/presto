@@ -101,8 +101,7 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
         {
             PlanNode rewrittenNode = rewriteInPredicates(
                     context.defaultRewrite(node, context.get()),
-                    ImmutableList.of(node.getPredicate()));
-            inPredicateMappings.add(inPredicateRewriteResult.inPredicateMapping);
+                    node.getPredicate());
 
             return new FilterNode(
                     rewrittenNode.getId(),
@@ -122,7 +121,12 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
                     replaceInPredicateInAssignments(node));
         }
 
-        private InPredicateRewriteResult rewriteInPredicates(PlanNode node, Collection<Expression> expressions)
+        private PlanNode rewriteInPredicates(PlanNode node, Expression expressions)
+        {
+            return rewriteInPredicates(node, ImmutableList.of(expressions));
+        }
+
+        private PlanNode rewriteInPredicates(PlanNode node, Collection<Expression> expressions)
         {
             List<InPredicate> inPredicates = extractInPredicates(expressions);
             ImmutableMap.Builder<InPredicate, Expression> inPredicateMapping = ImmutableMap.builder();

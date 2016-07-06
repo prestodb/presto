@@ -45,6 +45,7 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -79,6 +80,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static com.facebook.presto.sql.tree.Join.Type.INNER;
+import static com.facebook.presto.sql.util.AstUtils.nodeContains;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -278,10 +280,10 @@ class RelationPlanner
             rightPlanBuilder = rightPlanBuilder.appendProjections(rightComparisonExpressions, symbolAllocator, idAllocator);
 
             for (int i = 0; i < leftComparisonExpressions.size(); i++) {
-                Symbol leftSymbol = leftPlanBuilder.translate(leftComparisonExpressions.get(i));
-                Symbol rightSymbol = rightPlanBuilder.translate(rightComparisonExpressions.get(i));
-
                 if (joinConditionComparisonTypes.get(i) == ComparisonExpression.Type.EQUAL) {
+                    Symbol leftSymbol = leftPlanBuilder.translate(leftComparisonExpressions.get(i));
+                    Symbol rightSymbol = rightPlanBuilder.translate(rightComparisonExpressions.get(i));
+
                     equiClauses.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
                 }
                 else {
@@ -300,6 +302,23 @@ class RelationPlanner
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
+
+        if (node.getType() != INNER) {
+            List<InPredicate> inPredicateSubqueries = analysis.getInPredicateSubqueries(node);
+            for (Expression complexExpression : complexJoinExpressions) {
+                for (InPredicate inPredicate :  inPredicateSubqueries) {
+                   if (nodeContains(complexExpression, inPredicate)) {
+                       throw new SemanticException(
+                               NOT_SUPPORTED,
+                               inPredicate,
+                               "IN with subquery predicate in join condition not supported");
+                   }
+                }
+            }
+
+            // non inner join subqueries can be applied only to one side of join
+            leftPlanBuilder = subqueryPlanner.handleSubqueries(leftPlanBuilder, complexJoinExpressions, node);
+        }
 
         Optional<Symbol> sampleWeight = Optional.empty();
         RelationPlan intermediateRootRelationPlan = new RelationPlan(root, outputDescriptor, outputSymbols, sampleWeight);
