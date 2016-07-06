@@ -476,7 +476,12 @@ public class TestSharedBuffer
         sharedBuffer.get(FIRST, 3, sizeOfPages(10)).cancel(true);
 
         // attempt to get the three elements again
-        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, FIRST, 0, sizeOfPages(10), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, false));
+        try {
+            getBufferResult(sharedBuffer, FIRST, 0, sizeOfPages(10), NO_WAIT);
+            fail("Expected IllegalArgumentException: startingSequenceId is before the beginning of the buffer");
+        }
+        catch (IllegalArgumentException ignored) {
+        }
         // pages not acknowledged yet so state is the same
         assertQueueState(sharedBuffer, FIRST, DEFAULT_PARTITION, 0, 3, 3, 3);
     }
