@@ -112,6 +112,14 @@ function addExponentiallyWeightedToHistory (value, valuesArray) {
 // Utility functions
 // =================
 
+function truncateString(inputString, length) {
+    if (inputString.length > length) {
+        return inputString.substring(0, length) + "...";
+    }
+
+    return inputString;
+}
+
 function getTaskIdSuffix(taskId) {
     return taskId.slice(taskId.indexOf('.') + 1, taskId.length)
 }

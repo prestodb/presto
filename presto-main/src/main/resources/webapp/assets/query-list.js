@@ -47,11 +47,7 @@
             }
         }
 
-        if (formattedQueryText.length > 300) {
-            return formattedQueryText.substring(0, 300) + "...";
-        }
-
-        return formattedQueryText;
+        return truncateString(formattedQueryText, 300);
     },
     render: function()
     {
@@ -162,7 +158,7 @@
                             <div className="col-xs-12">
                                 <span data-toggle="tooltip" data-placement="right" title="User">
                                     <span className="glyphicon glyphicon-user" style={ GLYPHICON_DEFAULT }></span>&nbsp;&nbsp;
-                                    <span>{ user }</span>
+                                    <span>{ truncateString(user, 35) }</span>
                                 </span>
                             </div>
                         </div>
@@ -170,7 +166,7 @@
                             <div className="col-xs-12">
                                 <span data-toggle="tooltip" data-placement="right" title="Source">
                                     <span className="glyphicon glyphicon-log-in" style={ GLYPHICON_DEFAULT }></span>&nbsp;&nbsp;
-                                    <span>{ query.session.source }</span>
+                                    <span>{ truncateString(query.session.source, 35) }</span>
                                 </span>
                             </div>
                         </div>
