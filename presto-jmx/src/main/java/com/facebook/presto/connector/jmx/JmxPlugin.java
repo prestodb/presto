@@ -18,7 +18,6 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.common.collect.ImmutableList;
 
-import javax.inject.Inject;
 import javax.management.MBeanServer;
 
 import java.util.List;
@@ -42,7 +41,7 @@ public class JmxPlugin
         this.mBeanServer = requireNonNull(mBeanServer, "mBeanServer is null");
     }
 
-    @Inject
+    @Override
     public synchronized void setNodeManager(NodeManager nodeManager)
     {
         this.nodeManager = nodeManager;
