@@ -46,6 +46,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -2383,111 +2384,220 @@ public abstract class AbstractTestQueries
     public void testJoinWithMultipleInSubqueryClauses()
             throws Exception
     {
-        String queryPrefix = "SELECT * " +
+        Function<String, String> queryPrefix = (String joinType) -> "SELECT * " +
                 "FROM " +
-                "    (VALUES 1,2,3) t(x) " +
-                "  JOIN " +
-                "    (VALUES 1,2,3) t2(y) " +
+                "    (VALUES 1,2,3,4) t(x) " +
+                joinType + " JOIN " +
+                "    (VALUES 1,2,3,5) t2(y) " +
                 "  ON ";
 
+        String twoDuplicatedInSubqueriesCondition = "(x in (VALUES 1,2,3)) = (y in (VALUES 1,2,3)) AND (x in (VALUES 1,2,4)) = (y in (VALUES 1,2,4))";
         assertQuery(
-                queryPrefix + "(x in (VALUES 1,2,3)) = (y in (VALUES 1,2,3)) AND (x in (VALUES 1,2)) = (y in (VALUES 1,2))",
+                queryPrefix.apply("") + twoDuplicatedInSubqueriesCondition,
                 "VALUES (1,1), (1,2), (2,2), (2,1), (3,3)");
         assertQuery(
-                queryPrefix + "(x in (VALUES 1,2)) = (y in (VALUES 1,2)) AND (x in (VALUES 1)) = (y in (VALUES 3))",
-                "VALUES (2,2), (2,1)");
+                queryPrefix.apply("")
+                        + "(x in (VALUES 1,2)) = (y in (VALUES 1,2)) AND (x in (VALUES 1)) = (y in (VALUES 3))",
+                "VALUES (2,2), (2,1), (3,5), (4,5)");
         assertQuery(
-                queryPrefix + "(x in (VALUES 1,2)) = (y in (VALUES 1,2)) AND (x in (VALUES 1)) != (y in (VALUES 3))",
-                "VALUES (1,2), (1,1), (3, 3)");
+                queryPrefix.apply("")
+                        + "(x in (VALUES 1,2)) = (y in (VALUES 1,2)) AND (x in (VALUES 1)) != (y in (VALUES 3))",
+                "VALUES (1,2), (1,1), (3, 3), (4,3)");
         assertQuery(
-                queryPrefix + "(x in (VALUES 1)) = (y in (VALUES 1)) AND (x in (SELECT 2)) != (y in (SELECT 2))",
-                "VALUES (2,3), (3, 2)");
+                queryPrefix.apply("")
+                        + "(x in (VALUES 1)) = (y in (VALUES 1)) AND (x in (SELECT 2)) != (y in (SELECT 2))",
+                "VALUES (2,3), (2,5), (3, 2), (4,2)");
+
+        assertQueryFails(
+                queryPrefix.apply("left") + "x in (VALUES 1)",
+                ".*IN with subquery predicate in join condition not supported");
+        assertQueryFails(
+                queryPrefix.apply("left") + "y in (VALUES 1)",
+                ".*IN with subquery predicate in join condition not supported");
+        assertQuery(
+                queryPrefix.apply("left") + twoDuplicatedInSubqueriesCondition,
+                "VALUES (1,1), (1,2), (2,2), (2,1), (3,3), (4, null)");
+        assertQueryFails(
+                queryPrefix.apply("right") + "x in (VALUES 1)",
+                ".*IN with subquery predicate in join condition not supported");
+        assertQueryFails(
+                queryPrefix.apply("right") + "y in (VALUES 1)",
+                ".*IN with subquery predicate in join condition not supported");
+        assertQuery(
+                queryPrefix.apply("right") + twoDuplicatedInSubqueriesCondition,
+                "VALUES (1,1), (1,2), (2,2), (2,1), (3,3), (null, 5)");
+        assertQueryFails(
+                queryPrefix.apply("full") + "x in (VALUES 1)",
+                ".*IN with subquery predicate in join condition not supported");
+        assertQueryFails(
+                queryPrefix.apply("full") + "y in (VALUES 1)",
+                ".*IN with subquery predicate in join condition not supported");
+        assertQuery(
+                queryPrefix.apply("full") + twoDuplicatedInSubqueriesCondition,
+                "VALUES (1,1), (1,2), (2,2), (2,1), (3,3), (4, null), (null, 5)");
     }
 
     @Test
     public void testJoinWithInSubqueryToBeExecutedAsPostJoinFilter()
             throws Exception
     {
-        String queryPrefix = "SELECT * " +
+        Function<String, String> queryPrefix = (String joinType) -> "SELECT * " +
                 "FROM " +
-                "    (VALUES 1,2,3) t(x) " +
-                "  JOIN " +
-                "    (VALUES 1,2,3) t2(y) " +
+                "    (VALUES 1,2,3,4) t(x) " +
+                joinType + " JOIN " +
+                "    (VALUES 1,2,3,5) t2(y) " +
                 "  ON ";
 
         assertQuery(
-                queryPrefix + " (x+y in (VALUES 4, 5))",
-                "VALUES (1,3), (2,2), (2,3), (3,1), (3,2)");
+                queryPrefix.apply("")
+                        + " (x+y in (VALUES 4))",
+                "VALUES (1,3), (2,2), (3,1)");
         assertQuery(
-                queryPrefix + " (x+y in (VALUES 4, 5)) AND (x*y in (VALUES 4))",
+                queryPrefix.apply("")
+                        + " (x+y in (VALUES 4)) AND (x*y in (VALUES 4,5))",
                 "VALUES (2,2)");
         assertQuery(
-                queryPrefix + " (x+y in (VALUES 4, 5)) = (x*y IN (VALUES 4,5))",
-                "VALUES (1,1), (1,2), (2,1), (2,2), (3,3)");
+                queryPrefix.apply("")
+                        + " (x+y in (VALUES 4,5)) AND (x*y IN (VALUES 4,5))",
+                "VALUES (4,1), (2,2)");
         assertQuery(
-                queryPrefix + "(x+y in (VALUES (4),(5))) " +
-                        "AND " +
-                        "(x in (VALUES 1)) != (y in (VALUES 3))",
-                "VALUES (2,3)");
-        assertQuery(
-                queryPrefix + "(x+y in (VALUES (4),(5))) " +
-                        "AND " +
-                        "(x in (VALUES 1)) = (y in (VALUES 3))",
-                "VALUES (1,3), (2,2), (3,2), (3,1)");
+                queryPrefix.apply("")
+                        + "(x+y in (VALUES 4,5)) AND (x in (VALUES 4,5)) != (y in (VALUES 4,5))",
+                "VALUES (4,1)");
+
+        assertQueryFails(
+                queryPrefix.apply("left")
+                        + "(x+y in (VALUES 4,5)) AND (x in (VALUES 4,5)) != (y in (VALUES 4,5))",
+                ".*IN with subquery predicate in join condition not supported");
+        assertQueryFails(
+                queryPrefix.apply("right")
+                        + "(x+y in (VALUES 4,5)) AND (x in (VALUES 4,5)) != (y in (VALUES 4,5))",
+                ".*IN with subquery predicate in join condition not supported");
+        assertQueryFails(
+                queryPrefix.apply("full")
+                        + "(x+y in (VALUES 4,5)) AND (x in (VALUES 4,5)) != (y in (VALUES 4,5))",
+                ".*IN with subquery predicate in join condition not supported");
     }
 
     @Test
     public void testJoinWithMultipleScalarSubqueryClauses()
             throws Exception
     {
-        String queryPrefix = "SELECT * " +
+        Function<String, String> queryPrefix = (String joinType) -> "SELECT * " +
                 "FROM " +
-                "    (VALUES 1,2,3) t(x) " +
-                "  JOIN " +
-                "    (VALUES 1,2,3) t2(y) " +
+                "    (VALUES 1,2,3,4) t(x) " +
+                joinType + " JOIN " +
+                "    (VALUES 1,2,3,5) t2(y) " +
                 "  ON ";
 
         assertQuery(
-                queryPrefix + "(x = (VALUES 1)) = (y = (VALUES 2)) AND (x in (VALUES 2)) = (y in (VALUES 1))",
-                "VALUES (1,2), (2,1), (3, 3)");
+                queryPrefix.apply("")
+                        + "(x = (VALUES 1)) AND (y = (VALUES 2)) AND (x in (VALUES 2)) = (y in (VALUES 1))",
+                "VALUES (1,2)");
         assertQuery(
-                queryPrefix + "(x = (VALUES 2)) = (y > (VALUES 0)) AND (x > (VALUES 1)) = (y < (VALUES 3))",
+                queryPrefix.apply("")
+                        + "(x = (VALUES 2)) = (y > (VALUES 0)) AND (x > (VALUES 1)) = (y < (VALUES 3))",
                 "VALUES (2,2), (2,1)");
         assertQuery(
-                queryPrefix + "(x = (VALUES 1)) = (y = (VALUES 1)) AND (x = (SELECT 2)) != (y = (SELECT 3))",
-                "VALUES (2,2), (3,3)");
+                queryPrefix.apply("")
+                        + "(x = (VALUES 1)) = (y = (VALUES 1)) AND (x = (SELECT 2)) != (y = (SELECT 3))",
+                "VALUES (2,5), (2,2), (3,3), (4,3)");
+
+        assertQuery(
+                queryPrefix.apply("left")
+                        + "(x = (VALUES 1)) AND (y = (VALUES 2)) AND (x in (VALUES 2)) = (y in (VALUES 1))",
+                "VALUES (1,2), (2,null), (3, null), (4, null)");
+        assertQuery(
+                queryPrefix.apply("right")
+                        + "(x = (VALUES 1)) AND (y = (VALUES 2)) AND (x in (VALUES 2)) = (y in (VALUES 1))",
+                "VALUES (1,2), (null,1), (null, 3), (null, 5)");
+        assertQuery(
+                queryPrefix.apply("full")
+                        + "(x = (VALUES 1)) AND (y = (VALUES 2)) AND (x in (VALUES 2)) = (y in (VALUES 1))",
+                "VALUES (1,2), (2,null), (3, null), (4, null), (null,1), (null, 3), (null, 5)");
     }
 
     @Test
     public void testJoinWithScalarSubqueryToBeExecutedAsPostJoinFilter()
             throws Exception
     {
-        String queryPrefix = "SELECT * " +
+        Function<String, String> queryPrefix = (String joinType) -> "SELECT * " +
                 "FROM " +
-                "    (VALUES 1,2,3) t(x) " +
-                "  JOIN " +
-                "    (VALUES 1,2,3) t2(y) " +
+                "    (VALUES 1,2,3,4) t(x) " +
+                joinType + " JOIN " +
+                "    (VALUES 1,2,3,5) t2(y) " +
                 "  ON ";
 
         assertQuery(
-                queryPrefix + " (x+y = (SELECT 4))",
+                queryPrefix.apply("") + " (x+y = (SELECT 4))",
                 "VALUES (1,3), (2,2), (3,1)");
         assertQuery(
-                queryPrefix + "(x+y = (VALUES 4)) AND (x*y = (VALUES 4))",
+                queryPrefix.apply("") + "(x+y = (VALUES 4)) AND (x*y = (VALUES 4))",
                 "VALUES (2,2)");
+
+        // all combination of duplicated subquery
         assertQuery(
-                queryPrefix + "(x+y > (VALUES 2)) = (x*y  > (VALUES 8))",
-                "VALUES (1,1), (3,3)");
+                queryPrefix.apply("")
+                        + "x+y > (VALUES 3) AND (x = (VALUES 3)) != (y = (VALUES 3))",
+                "VALUES (3,1), (3,2), (1,3), (2,3), (4,3), (3,5)");
         assertQuery(
-                queryPrefix + "x+y >= (VALUES 4) " +
-                        "AND " +
-                        "(x = (VALUES 2)) != (y = (VALUES 2))",
-                "VALUES (3,2), (2,3)");
+                queryPrefix.apply("")
+                        + "x+y >= (VALUES 5) AND (x = (VALUES 3)) != (y = (VALUES 3))",
+                "VALUES (3,2), (2,3), (4,3), (3,5)");
         assertQuery(
-                queryPrefix + "(x+y >= (VALUES 4)) " +
-                        "AND " +
-                        "(x = (VALUES 3)) = (y = (VALUES 3))",
-                "VALUES (2, 2), (3, 3)");
+                queryPrefix.apply("")
+                        + "x+y >= (VALUES 3) AND (x = (VALUES 5)) != (y = (VALUES 3))",
+                "VALUES (1,3), (2,3), (3,3), (4,3)");
+        assertQuery(
+                queryPrefix.apply("")
+                        + "x+y >= (VALUES 3) AND (x = (VALUES 3)) != (y = (VALUES 5))",
+                "VALUES (3,1), (3,2), (3,3), (1,5), (2,5), (4,5)");
+        assertQuery(
+                queryPrefix.apply("")
+                        + "x+y >= (VALUES 4) AND (x = (VALUES 3)) != (y = (VALUES 5))",
+                "VALUES (3,1), (3,2), (3,3), (1,5), (2,5), (4,5)");
+
+        // non inner joins
+        assertQuery(
+                queryPrefix.apply("left") + " (x+y = (SELECT 4))",
+                "VALUES (1,3), (2,2), (3,1), (4, null)");
+        assertQuery(
+                queryPrefix.apply("right") + " (x+y = (SELECT 4))",
+                "VALUES (1,3), (2,2), (3,1), (null, 5)");
+        assertQuery(
+                queryPrefix.apply("full") + " (x+y = (SELECT 4))",
+                "VALUES (1,3), (2,2), (3,1), (4, null), (null, 5)");
+    }
+
+    @Test
+    public void testJoinWithScalarSubqueryToBeExecutedAsPostJoinFilterWithEmptyInnerTable()
+            throws Exception
+    {
+        String noOutputQuery = "SELECT 1 WHERE false";
+        Function<String, String> queryPrefix = (String joinType) -> "SELECT * " +
+                "FROM " +
+                "    (" + noOutputQuery + ") t(x) " +
+                joinType + " JOIN " +
+                "    (VALUES 1) t2(y) " +
+                "  ON ";
+
+        assertQuery(
+                queryPrefix.apply("") + " (x+y = (SELECT 4))",
+                noOutputQuery);
+        assertQuery(
+                queryPrefix.apply("") + "(x+y = (VALUES 4)) AND (x*y = (VALUES 4))",
+                noOutputQuery);
+
+        // non inner joins
+        assertQuery(
+                queryPrefix.apply("left") + " (x+y = (SELECT 4))",
+                noOutputQuery);
+        assertQuery(
+                queryPrefix.apply("right") + " (x+y = (SELECT 4))",
+                "VALUES (null,1)");
+        assertQuery(
+                queryPrefix.apply("full") + " (x+y = (SELECT 4))",
+                "VALUES (null,1)");
     }
 
     @Test
