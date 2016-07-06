@@ -14,19 +14,23 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.operator.Description;
+import com.facebook.presto.operator.aggregation.TypedSet;
 import com.facebook.presto.operator.scalar.annotations.ScalarFunction;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
 
+import javax.annotation.Nullable;
+
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Character.MAX_RADIX;
@@ -751,12 +755,12 @@ public final class MathFunctions
         double bin;
 
         while (lower < upper) {
-            if (DoubleType.DOUBLE.getDouble(bins, lower) > DoubleType.DOUBLE.getDouble(bins, upper - 1)) {
+            if (DOUBLE.getDouble(bins, lower) > DOUBLE.getDouble(bins, upper - 1)) {
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Bin values are not sorted in ascending order");
             }
 
             index = (lower + upper) / 2;
-            bin = DoubleType.DOUBLE.getDouble(bins, index);
+            bin = DOUBLE.getDouble(bins, index);
 
             checkCondition(isFinite(bin), INVALID_FUNCTION_ARGUMENT, format("Bin value must be finite, got %s", bin));
 
@@ -769,5 +773,59 @@ public final class MathFunctions
         }
 
         return lower;
+    }
+
+    @Description("cosine similarity between the given sparse vectors")
+    @ScalarFunction
+    @Nullable
+    @SqlType(StandardTypes.DOUBLE)
+    public static Double cosineSimilarity(@SqlType("map(varchar,double)") Block leftMap, @SqlType("map(varchar,double)") Block rightMap)
+    {
+        Double normLeftMap = mapL2Norm(leftMap);
+        Double normRightMap = mapL2Norm(rightMap);
+
+        if (normLeftMap == null || normRightMap == null) {
+            return null;
+        }
+
+        double dotProduct = mapDotProduct(leftMap, rightMap);
+
+        return dotProduct / (normLeftMap * normRightMap);
+    }
+
+    private static double mapDotProduct(Block leftMap, Block rightMap)
+    {
+        TypedSet rightMapKeys = new TypedSet(VARCHAR, rightMap.getPositionCount());
+
+        for (int i = 0; i < rightMap.getPositionCount(); i += 2) {
+            rightMapKeys.add(rightMap, i);
+        }
+
+        double result = 0.0;
+
+        for (int i = 0; i < leftMap.getPositionCount(); i += 2) {
+            int position = rightMapKeys.positionOf(leftMap, i);
+
+            if (position != -1) {
+                result += DOUBLE.getDouble(leftMap, i + 1) *
+                        DOUBLE.getDouble(rightMap, 2 * position + 1);
+            }
+        }
+
+        return result;
+    }
+
+    private static Double mapL2Norm(Block map)
+    {
+        double norm = 0.0;
+
+        for (int i = 1; i < map.getPositionCount(); i += 2) {
+            if (map.isNull(i)) {
+                return null;
+            }
+            norm += DOUBLE.getDouble(map, i) * DOUBLE.getDouble(map, i);
+        }
+
+        return Math.sqrt(norm);
     }
 }
