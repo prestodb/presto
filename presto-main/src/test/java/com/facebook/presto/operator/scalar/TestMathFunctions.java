@@ -778,11 +778,11 @@ public class TestMathFunctions
     {
         assertFunction("cosine_similarity( map(array ['a', 'b'], array [1.0, 2.0]), map(array ['c', 'b'], array [1.0, 3.0]) )",
                 DOUBLE,
-                2 * 3 / (Math.sqrt(5) * Math.sqrt(10) ) );
+                2 * 3 / (Math.sqrt(5) * Math.sqrt(10)));
 
         assertFunction("cosine_similarity( map(array ['a', 'b', 'c'], array [1.0, 2.0, -1.0]), map(array ['c', 'b'], array [1.0, 3.0]) )",
                 DOUBLE,
-                (2 * 3 + (-1) * 1 ) / (Math.sqrt(1+4+1) * Math.sqrt(1 + 9) ) );
+                (2 * 3 + (-1) * 1) / (Math.sqrt(1 + 4 + 1) * Math.sqrt(1 + 9)));
 
         assertFunction("cosine_similarity( map(array ['a', 'b', 'c'], array [1.0, 2.0, -1.0]), map(array ['d', 'e'], array [1.0, 3.0]) )",
                 DOUBLE,
@@ -791,6 +791,5 @@ public class TestMathFunctions
         assertFunction("cosine_similarity( null, map(array ['c', 'b'], array [1.0, 3.0]) )",
                 DOUBLE,
                 null);
-
     }
 }

@@ -22,10 +22,6 @@ import com.facebook.presto.type.SqlType;
 import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
 import it.unimi.dsi.fastutil.objects.Object2DoubleArrayMap;
-import it.unimi.dsi.fastutil.objects.Object2DoubleMap;
-
-import javax.annotation.Nullable;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -709,21 +705,19 @@ public final class MathFunctions
         Map<Slice, Double> m = toSliceDoubleMap(map1);
         Map<Slice, Double> n = toSliceDoubleMap(map2);
 
-        double norm_m = Math.sqrt(dotProduct(m, m));
-        double norm_n = Math.sqrt(dotProduct(n, n));
+        double normM = Math.sqrt(dotProduct(m, m));
+        double normN = Math.sqrt(dotProduct(n, n));
 
         double dotProduct = dotProduct(m, n);
 
-        return dotProduct/(norm_m * norm_n);
-
+        return dotProduct / (normM * normN);
     }
 
     private static Map<Slice, Double> toSliceDoubleMap(Block map)
     {
         Map<Slice, Double> hashMap = new Object2DoubleArrayMap<>();
 
-        for (int position = 0; position < map.getPositionCount(); position += 2)
-        {
+        for (int position = 0; position < map.getPositionCount(); position += 2) {
             Slice key = VARCHAR.getSlice(map, position);
             double value = DOUBLE.getDouble(map, position + 1);
             hashMap.put(key, value);
@@ -736,14 +730,12 @@ public final class MathFunctions
     {
         double result = 0;
 
-        for(Slice key : m.keySet())
-        {
-            if(n.containsKey(key)) {
+        for (Slice key : m.keySet()) {
+            if (n.containsKey(key)) {
                 result += m.get(key) * n.get(key);
             }
         }
 
         return result;
     }
-
 }
