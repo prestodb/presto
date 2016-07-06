@@ -132,7 +132,9 @@ class TranslationMap
         expressionToSymbols.put(translated, symbol);
 
         // also update the field mappings if this expression is a field reference
-        rewriteBase.getScope().tryResolveField(expression).ifPresent(resolvedField -> fieldSymbols[rewriteBase.getDescriptor().indexOf(resolvedField.getField())] = symbol);
+        rewriteBase.getScope().tryResolveField(expression)
+                .filter(ResolvedField::isLocal)
+                .ifPresent(field -> fieldSymbols[rewriteBase.getDescriptor().indexOf(field.getField())] = symbol);
     }
 
     public boolean containsSymbol(Expression expression)
@@ -191,11 +193,9 @@ class TranslationMap
 
             private Expression rewriteExpressionWithResolvedName(Expression node)
             {
-                Optional<Symbol> symbol = rewriteBase.getSymbol(node);
-                checkState(symbol.isPresent(), "No symbol mapping for node '%s'", node);
-                Expression rewrittenExpression = symbol.get().toSymbolReference();
-
-                return coerceIfNecessary(node, rewrittenExpression);
+                return rewriteBase.getSymbol(node)
+                        .map(symbol -> coerceIfNecessary(node, symbol.toSymbolReference()))
+                        .orElse(node);
             }
 
             @Override
@@ -203,7 +203,13 @@ class TranslationMap
             {
                 Optional<ResolvedField> resolvedField = rewriteBase.getScope().tryResolveField(node);
                 if (resolvedField.isPresent()) {
-                    return rewriteExpressionWithResolvedName(node);
+                    if (resolvedField.get().isLocal()) {
+                        return rewriteBase.getSymbol(node)
+                                .map(symbol -> coerceIfNecessary(node, symbol.toSymbolReference()))
+                                .orElseThrow(() -> new IllegalStateException("No symbol mapping for node " + node));
+                    }
+                    // do not rewrite outer references, it will be handled in outer scope planner
+                    return node;
                 }
                 return rewriteExpression(node, context, treeRewriter);
             }
