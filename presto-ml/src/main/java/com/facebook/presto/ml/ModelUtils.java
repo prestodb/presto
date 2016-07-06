@@ -24,6 +24,7 @@ import com.google.common.hash.Hashing;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import javax.print.DocFlavor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -33,6 +34,9 @@ import java.util.Map;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.FloatType.FLOAT;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;

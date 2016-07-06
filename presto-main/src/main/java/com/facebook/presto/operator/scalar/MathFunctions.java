@@ -22,10 +22,15 @@ import com.facebook.presto.type.SqlType;
 import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
 
+import javax.annotation.Nullable;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Character.MAX_RADIX;
@@ -34,6 +39,8 @@ import static java.lang.String.format;
 
 public final class MathFunctions
 {
+    private static final String MAP_STRING_DOUBLE = "map(varchar,double)";
+
     private MathFunctions() {}
 
     @Description("absolute value")
@@ -692,4 +699,63 @@ public final class MathFunctions
 
         return lower;
     }
+
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double cosineSimilarity(@Nullable @SqlType(MAP_STRING_DOUBLE) Block map1, @Nullable @SqlType(MAP_STRING_DOUBLE) Block map2)
+    {
+        Map<String, Double> m = toStringDoubleMap(map1);
+        Map<String, Double> n = toStringDoubleMap(map2);
+
+        double norm_m = Math.sqrt(dotProduct(m, m));
+        double norm_n = Math.sqrt(dotProduct(n, n));
+
+        if(norm_m == 0 || norm_n == 0)
+        {
+            return 0;
+        }
+
+        double dotProduct = dotProduct(m, n);
+
+        return dotProduct/(norm_m * norm_n);
+
+    }
+
+    public static Map<String, Double> toStringDoubleMap(Block map)
+    {
+        Map<String, Double> hashmap = new HashMap<>();
+
+        if (map != null) {
+            for (int position = 0; position < map.getPositionCount(); position += 2)
+            {
+                Slice slice = VARCHAR.getSlice(map, position);
+                String key = slice.toStringUtf8();
+                double value = DOUBLE.getDouble(map, position + 1);
+                hashmap.put(key, value);
+            }
+        }
+
+        return hashmap;
+    }
+
+    public static double dotProduct(Map<String, Double> m, Map<String, Double> n)
+    {
+        double result = 0;
+
+        if(m == null || n == null)
+        {
+            System.err.println("Null map");
+            return result;
+        }
+
+        for(String key : m.keySet())
+        {
+            if(n.containsKey(key)) {
+                result += m.get(key) * n.get(key);
+            }
+        }
+
+        return result;
+    }
+
 }
