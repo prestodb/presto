@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.type.TypeManager;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -23,6 +26,16 @@ import static java.util.Collections.emptySet;
 public interface Plugin
 {
     default void setOptionalConfig(Map<String, String> optionalConfig) {}
+
+    default void setTypeManager(TypeManager typeManager) {}
+
+    default void setNodeManager(NodeManager nodeManager) {}
+
+    default void setBlockEncodingSerde(BlockEncodingSerde blockEncodingSerde) {}
+
+    default void setPageSorter(PageSorter pageSorter) {}
+
+    default void setPageIndexerFactory(PageIndexerFactory pageIndexerFactory) {}
 
     default Set<Class<?>> getFunctions()
     {

@@ -17,6 +17,9 @@ import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControlManager;
+import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.PageIndexerFactory;
+import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
@@ -28,7 +31,6 @@ import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
-import com.google.inject.Injector;
 import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.log.Logger;
@@ -77,12 +79,14 @@ public class PluginManager
 
     private static final Logger log = Logger.get(PluginManager.class);
 
-    private final Injector injector;
     private final ConnectorManager connectorManager;
     private final Metadata metadata;
     private final AccessControlManager accessControlManager;
     private final BlockEncodingManager blockEncodingManager;
     private final TypeRegistry typeRegistry;
+    private final NodeManager nodeManager;
+    private final PageSorter pageSorter;
+    private final PageIndexerFactory pageIndexerFactory;
     private final ArtifactResolver resolver;
     private final File installedPluginsDir;
     private final List<String> plugins;
@@ -91,7 +95,7 @@ public class PluginManager
     private final AtomicBoolean pluginsLoaded = new AtomicBoolean();
 
     @Inject
-    public PluginManager(Injector injector,
+    public PluginManager(
             NodeInfo nodeInfo,
             HttpServerInfo httpServerInfo,
             PluginManagerConfig config,
@@ -100,15 +104,16 @@ public class PluginManager
             Metadata metadata,
             AccessControlManager accessControlManager,
             BlockEncodingManager blockEncodingManager,
-            TypeRegistry typeRegistry)
+            TypeRegistry typeRegistry,
+            NodeManager nodeManager,
+            PageSorter pageSorter,
+            PageIndexerFactory pageIndexerFactory)
     {
-        requireNonNull(injector, "injector is null");
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(httpServerInfo, "httpServerInfo is null");
         requireNonNull(config, "config is null");
         requireNonNull(configurationFactory, "configurationFactory is null");
 
-        this.injector = injector;
         installedPluginsDir = config.getInstalledPluginsDir();
         if (config.getPlugins() == null) {
             this.plugins = ImmutableList.of();
@@ -129,6 +134,9 @@ public class PluginManager
         this.accessControlManager = requireNonNull(accessControlManager, "accessControlManager is null");
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
+        this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
     }
 
     public boolean arePluginsLoaded()
@@ -187,7 +195,11 @@ public class PluginManager
 
     public void installPlugin(Plugin plugin)
     {
-        injector.injectMembers(plugin);
+        plugin.setNodeManager(nodeManager);
+        plugin.setTypeManager(typeRegistry);
+        plugin.setBlockEncodingSerde(blockEncodingManager);
+        plugin.setPageSorter(pageSorter);
+        plugin.setPageIndexerFactory(pageIndexerFactory);
 
         plugin.setOptionalConfig(optionalConfig);
 

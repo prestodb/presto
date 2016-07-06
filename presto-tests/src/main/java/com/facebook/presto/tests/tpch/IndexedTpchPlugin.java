@@ -18,8 +18,6 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.common.collect.ImmutableList;
 
-import javax.inject.Inject;
-
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -40,7 +38,7 @@ public class IndexedTpchPlugin
         this(TpchIndexSpec.NO_INDEXES);
     }
 
-    @Inject
+    @Override
     public void setNodeManager(NodeManager nodeManager)
     {
         this.nodeManager = nodeManager;

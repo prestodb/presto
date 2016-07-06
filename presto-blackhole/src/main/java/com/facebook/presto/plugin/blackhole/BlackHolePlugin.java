@@ -20,8 +20,6 @@ import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 
-import javax.inject.Inject;
-
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -33,13 +31,13 @@ public final class BlackHolePlugin
     private NodeManager nodeManager;
     private TypeManager typeManager;
 
-    @Inject
+    @Override
     public void setNodeManager(NodeManager nodeManager)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
 
-    @Inject
+    @Override
     public void setTypeManager(TypeManager typeManager)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");

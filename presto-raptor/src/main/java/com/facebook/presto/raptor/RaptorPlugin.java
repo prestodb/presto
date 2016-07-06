@@ -22,8 +22,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
 
-import javax.inject.Inject;
-
 import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
@@ -70,19 +68,19 @@ public class RaptorPlugin
         this.optionalConfig = ImmutableMap.copyOf(requireNonNull(optionalConfig, "optionalConfig is null"));
     }
 
-    @Inject
+    @Override
     public void setNodeManager(NodeManager nodeManager)
     {
         this.nodeManager = nodeManager;
     }
 
-    @Inject
+    @Override
     public void setPageSorter(PageSorter pageSorter)
     {
         this.pageSorter = pageSorter;
     }
 
-    @Inject
+    @Override
     public void setTypeManager(TypeManager typeManager)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");

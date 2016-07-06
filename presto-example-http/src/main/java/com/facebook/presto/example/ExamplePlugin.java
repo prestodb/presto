@@ -19,8 +19,6 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-import javax.inject.Inject;
-
 import java.util.List;
 import java.util.Map;
 
@@ -38,7 +36,7 @@ public class ExamplePlugin
         this.optionalConfig = ImmutableMap.copyOf(requireNonNull(optionalConfig, "optionalConfig is null"));
     }
 
-    @Inject
+    @Override
     public synchronized void setTypeManager(TypeManager typeManager)
     {
         this.typeManager = typeManager;

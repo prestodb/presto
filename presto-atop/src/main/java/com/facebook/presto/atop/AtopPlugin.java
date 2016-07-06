@@ -22,8 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.node.NodeConfig;
 
-import javax.inject.Inject;
-
 import java.util.List;
 import java.util.Map;
 
@@ -43,13 +41,13 @@ public class AtopPlugin
         this.optionalConfig = ImmutableMap.copyOf(requireNonNull(optionalConfig, "optionalConfig is null"));
     }
 
-    @Inject
+    @Override
     public void setTypeManager(TypeManager typeManager)
     {
         this.typeManager = typeManager;
     }
 
-    @Inject
+    @Override
     public void setNodeManager(NodeManager nodeManager)
     {
         this.nodeManager = nodeManager;

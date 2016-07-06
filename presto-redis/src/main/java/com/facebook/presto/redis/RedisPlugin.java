@@ -23,8 +23,6 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-import javax.inject.Inject;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -48,13 +46,13 @@ public class RedisPlugin
         this.optionalConfig = ImmutableMap.copyOf(requireNonNull(optionalConfig, "optionalConfig is null"));
     }
 
-    @Inject
+    @Override
     public synchronized void setTypeManager(TypeManager typeManager)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
-    @Inject
+    @Override
     public synchronized void setNodeManager(NodeManager nodeManager)
     {
         this.nodeManager = requireNonNull(nodeManager, "node is null");
