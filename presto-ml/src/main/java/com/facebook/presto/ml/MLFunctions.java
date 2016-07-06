@@ -31,7 +31,6 @@ import com.google.common.hash.HashCode;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
-import java.util.Map;
 
 import static com.facebook.presto.ml.type.ClassifierType.BIGINT_CLASSIFIER;
 import static com.facebook.presto.ml.type.ClassifierType.VARCHAR_CLASSIFIER;
@@ -79,13 +78,6 @@ public final class MLFunctions
         checkArgument(model.getType().equals(REGRESSOR), "model is not a regressor");
         Regressor regressor = checkType(model, Regressor.class, "model");
         return regressor.regress(features);
-    }
-
-    @ScalarFunction
-    @SqlType(StandardTypes.DOUBLE)
-    public static double printone()
-    {
-        return (double) 1;
     }
 
     private static Model getOrLoadModel(Slice slice)
