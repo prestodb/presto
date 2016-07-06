@@ -500,6 +500,26 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testGroupByExpressionOnOutputColumn()
+            throws Exception
+    {
+        assertFails(MISSING_ATTRIBUTE, "SELECT a x FROM t1 GROUP BY x + 1");
+    }
+
+    @Test
+    public void testGroupByExpressionOnOutputColumn2()
+            throws Exception
+    {
+        // TODO: validate output
+        analyze("SELECT a x FROM t1 GROUP BY x");
+        analyze("SELECT a AS x FROM t1 GROUP BY x");
+        analyze("SELECT a AS x FROM (SELECT b AS a FROM t1 GROUP BY a) t2 GROUP BY x");
+        analyze("SELECT (a + 1) AS x FROM (SELECT b AS a FROM t1 GROUP BY a) t2 GROUP BY x");
+        analyze("SELECT (a + 1) AS x FROM (SELECT (b + 1) AS a FROM t1 GROUP BY a) t2 GROUP BY x");
+        analyze("SELECT (a + 1) AS x, c AS y, d FROM (SELECT (b + 1) AS a, c, d FROM t1 GROUP BY a, 2, 3) t2 GROUP BY x, y, 3");
+    }
+
+    @Test
     public void testHaving()
             throws Exception
     {

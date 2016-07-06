@@ -1723,11 +1723,37 @@ class StatementAnalyzer
     private List<Expression> analyzeGroupingColumns(Set<Expression> groupingColumns, QuerySpecification node, RelationType tupleDescriptor, AnalysisContext context, List<Expression> outputExpressions)
     {
         ImmutableList.Builder<Expression> groupingColumnsBuilder = ImmutableList.builder();
+
+        // Compute aliased output terms so we can resolve group by expressions against them first
+        ImmutableMultimap.Builder<QualifiedName, Expression> byAliasBuilder = ImmutableMultimap.builder();
+        for (SelectItem item : node.getSelect().getSelectItems()) {
+            if (item instanceof SingleColumn) {
+                Optional<String> alias = ((SingleColumn) item).getAlias();
+                if (alias.isPresent()) {
+                    byAliasBuilder.put(QualifiedName.of(alias.get()), ((SingleColumn) item).getExpression()); // TODO: need to know if alias was quoted
+                }
+            }
+        }
+        Multimap<QualifiedName, Expression> byAlias = byAliasBuilder.build();
+
         for (Expression groupingColumn : groupingColumns) {
             // first, see if this is an ordinal
-            Expression groupByExpression;
+            Expression groupByExpression = null;
+            if (groupingColumn instanceof QualifiedNameReference && !((QualifiedNameReference) groupingColumn).getName().getPrefix().isPresent()) {
+                // if this is a simple name reference, try to resolve against output columns
 
-            if (groupingColumn instanceof LongLiteral) {
+                QualifiedName name = ((QualifiedNameReference) groupingColumn).getName();
+                Collection<Expression> expressions = byAlias.get(name);
+                if (expressions.size() > 1) {
+                    throw new SemanticException(AMBIGUOUS_ATTRIBUTE, groupingColumn, "'%s' in GROUP BY is ambiguous", name.getSuffix());
+                }
+                if (expressions.size() == 1) {
+                    groupByExpression = Iterables.getOnlyElement(expressions);
+                }
+
+                // otherwise, couldn't resolve name against output aliases, so fall through...
+            }
+            else if (groupingColumn instanceof LongLiteral) {
                 long ordinal = ((LongLiteral) groupingColumn).getValue();
                 if (ordinal < 1 || ordinal > outputExpressions.size()) {
                     throw new SemanticException(INVALID_ORDINAL, groupingColumn, "GROUP BY position %s is not in select list", ordinal);
@@ -1735,11 +1761,14 @@ class StatementAnalyzer
 
                 groupByExpression = outputExpressions.get(Ints.checkedCast(ordinal - 1));
             }
-            else {
-                ExpressionAnalysis expressionAnalysis = analyzeExpression(groupingColumn, tupleDescriptor, context);
-                analysis.recordSubqueries(node, expressionAnalysis);
+
+            // otherwise, just use the expression as is
+            if (groupByExpression == null) {
                 groupByExpression = groupingColumn;
             }
+
+            ExpressionAnalysis expressionAnalysis = analyzeExpression(groupByExpression, tupleDescriptor, context);
+            analysis.recordSubqueries(node, expressionAnalysis);
 
             Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, groupByExpression, "GROUP BY");
             Type type = analysis.getType(groupByExpression);
