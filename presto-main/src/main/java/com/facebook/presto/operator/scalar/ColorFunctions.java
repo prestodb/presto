@@ -16,7 +16,6 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.operator.scalar.annotations.ScalarFunction;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.type.ColorType;
 import com.facebook.presto.type.SqlType;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
@@ -81,7 +80,7 @@ public final class ColorFunctions
     private ColorFunctions() {}
 
     @ScalarFunction
-    @SqlType(ColorType.NAME)
+    @SqlType(StandardTypes.COLOR)
     public static long color(@SqlType(StandardTypes.VARCHAR) Slice color)
     {
         int rgb = parseRgb(color);
@@ -102,7 +101,7 @@ public final class ColorFunctions
     }
 
     @ScalarFunction
-    @SqlType(ColorType.NAME)
+    @SqlType(StandardTypes.COLOR)
     public static long rgb(@SqlType(StandardTypes.BIGINT) long red, @SqlType(StandardTypes.BIGINT) long green, @SqlType(StandardTypes.BIGINT) long blue)
     {
         checkCondition(red >= 0 && red <= 255, INVALID_FUNCTION_ARGUMENT, "red must be between 0 and 255");
@@ -119,13 +118,13 @@ public final class ColorFunctions
      * Color must be a valid rgb value of the form #rgb
      */
     @ScalarFunction
-    @SqlType(ColorType.NAME)
+    @SqlType(StandardTypes.COLOR)
     public static long color(
             @SqlType(StandardTypes.DOUBLE) double value,
             @SqlType(StandardTypes.DOUBLE) double low,
             @SqlType(StandardTypes.DOUBLE) double high,
-            @SqlType(ColorType.NAME) long lowColor,
-            @SqlType(ColorType.NAME) long highColor)
+            @SqlType(StandardTypes.COLOR) long lowColor,
+            @SqlType(StandardTypes.COLOR) long highColor)
     {
         return color((value - low) * 1.0 / (high - low), lowColor, highColor);
     }
@@ -137,8 +136,8 @@ public final class ColorFunctions
      * Color must be a valid rgb value of the form #rgb
      */
     @ScalarFunction
-    @SqlType(ColorType.NAME)
-    public static long color(@SqlType(StandardTypes.DOUBLE) double fraction, @SqlType(ColorType.NAME) long lowColor, @SqlType(ColorType.NAME) long highColor)
+    @SqlType(StandardTypes.COLOR)
+    public static long color(@SqlType(StandardTypes.DOUBLE) double fraction, @SqlType(StandardTypes.COLOR) long lowColor, @SqlType(StandardTypes.COLOR) long highColor)
     {
         checkCondition(lowColor >= 0, INVALID_FUNCTION_ARGUMENT, "lowColor not a valid RGB color");
         checkCondition(highColor >= 0, INVALID_FUNCTION_ARGUMENT, "highColor not a valid RGB color");
@@ -151,7 +150,7 @@ public final class ColorFunctions
 
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice render(@SqlType(StandardTypes.VARCHAR) Slice value, @SqlType(ColorType.NAME) long color)
+    public static Slice render(@SqlType(StandardTypes.VARCHAR) Slice value, @SqlType(StandardTypes.COLOR) long color)
     {
         StringBuilder builder = new StringBuilder(value.length());
 
@@ -165,14 +164,14 @@ public final class ColorFunctions
 
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice render(@SqlType(StandardTypes.BIGINT) long value, @SqlType(ColorType.NAME) long color)
+    public static Slice render(@SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.COLOR) long color)
     {
         return render(utf8Slice(Long.toString(value)), color);
     }
 
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice render(@SqlType(StandardTypes.DOUBLE) double value, @SqlType(ColorType.NAME) long color)
+    public static Slice render(@SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.COLOR) long color)
     {
         return render(utf8Slice(Double.toString(value)), color);
     }
@@ -196,8 +195,8 @@ public final class ColorFunctions
     public static Slice bar(
             @SqlType(StandardTypes.DOUBLE) double percent,
             @SqlType(StandardTypes.BIGINT) long width,
-            @SqlType(ColorType.NAME) long lowColor,
-            @SqlType(ColorType.NAME) long highColor)
+            @SqlType(StandardTypes.COLOR) long lowColor,
+            @SqlType(StandardTypes.COLOR) long highColor)
     {
         long count = (int) (percent * width);
         count = Math.min(width, count);

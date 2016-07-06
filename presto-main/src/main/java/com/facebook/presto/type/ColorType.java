@@ -17,6 +17,7 @@ import com.facebook.presto.operator.scalar.ColorFunctions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.AbstractIntType;
+import com.facebook.presto.spi.type.StandardTypes;
 
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 
@@ -24,11 +25,10 @@ public class ColorType
         extends AbstractIntType
 {
     public static final ColorType COLOR = new ColorType();
-    public static final String NAME = "color";
 
     private ColorType()
     {
-        super(parameterizedTypeName(NAME));
+        super(parameterizedTypeName(StandardTypes.COLOR));
     }
 
     @Override

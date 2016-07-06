@@ -28,21 +28,21 @@ public final class ColorOperators
 
     @ScalarOperator(EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean equal(@SqlType(ColorType.NAME) long left, @SqlType(ColorType.NAME) long right)
+    public static boolean equal(@SqlType(StandardTypes.COLOR) long left, @SqlType(StandardTypes.COLOR) long right)
     {
         return left == right;
     }
 
     @ScalarOperator(NOT_EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean notEqual(@SqlType(ColorType.NAME) long left, @SqlType(ColorType.NAME) long right)
+    public static boolean notEqual(@SqlType(StandardTypes.COLOR) long left, @SqlType(StandardTypes.COLOR) long right)
     {
         return left != right;
     }
 
     @ScalarOperator(HASH_CODE)
     @SqlType(StandardTypes.BIGINT)
-    public static long hashCode(@SqlType(ColorType.NAME) long value)
+    public static long hashCode(@SqlType(StandardTypes.COLOR) long value)
     {
         return (int) value;
     }

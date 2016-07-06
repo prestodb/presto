@@ -346,7 +346,7 @@ public final class TypeRegistry
                     case JoniRegexpType.NAME:
                     case LikePatternType.NAME:
                     case JsonPathType.NAME:
-                    case ColorType.NAME:
+                    case StandardTypes.COLOR:
                     case CodePointsType.NAME:
                         return Optional.of(getType(new TypeSignature(resultTypeBase)));
                     case StandardTypes.VARCHAR:
