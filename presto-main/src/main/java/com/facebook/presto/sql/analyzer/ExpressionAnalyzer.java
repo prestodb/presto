@@ -300,9 +300,6 @@ public class ExpressionAnalyzer
 
         private Type handleResolvedField(Expression node, ResolvedField resolvedField)
         {
-            if (scope != resolvedField.getScope()) {
-                throw new SemanticException(NOT_SUPPORTED, node, "Correlated queries not yet supported. Invalid column reference: '%s'", qualifiedName);
-            }
             columnReferences.add(node);
             expressionTypes.put(node, resolvedField.getType());
             return resolvedField.getType();

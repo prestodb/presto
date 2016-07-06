@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
+import com.facebook.presto.sql.analyzer.ResolvedField;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
@@ -131,7 +132,11 @@ class TranslationMap
         expressionToSymbols.put(translated, symbol);
 
         // also update the field mappings if this expression is a field reference
-        rewriteBase.getScope().tryResolveField(expression).ifPresent(resolvedField -> fieldSymbols[rewriteBase.getDescriptor().indexOf(resolvedField.getField())] = symbol);
+        Optional<ResolvedField> resolvedField = rewriteBase.getScope().tryResolveField(expression);
+        if (resolvedField.isPresent() && resolvedField.get().isLocal()) {
+            int index = rewriteBase.getDescriptor().indexOf(resolvedField.get().getField());
+            fieldSymbols[index] = symbol;
+        }
     }
 
     public boolean containsSymbol(Expression expression)
@@ -191,17 +196,22 @@ class TranslationMap
             private Expression rewriteExpressionWithResolvedName(Expression node)
             {
                 Optional<Symbol> symbol = rewriteBase.getSymbol(node);
-                checkState(symbol.isPresent(), "No symbol mapping for node '%s'", node);
-                Expression rewrittenExpression = symbol.get().toSymbolReference();
-
-                return coerceIfNecessary(node, rewrittenExpression);
+                if (symbol.isPresent()) {
+                    return coerceIfNecessary(node, symbol.get().toSymbolReference());
+                }
+                return node;
             }
 
             @Override
             public Expression rewriteDereferenceExpression(DereferenceExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                if (analysis.getFieldIndex(node).isPresent()) {
-                    return rewriteExpressionWithResolvedName(node);
+                Optional<ResolvedField> resolvedField = rewriteBase.getScope().tryResolveField(node);
+                if (resolvedField.isPresent()) {
+                    if (resolvedField.get().isLocal()) {
+                        return rewriteExpressionWithResolvedName(node);
+                    }
+                    // do not rewrite outer references, it will be handled in outer scope planner
+                    return node;
                 }
                 return rewriteExpression(node, context, treeRewriter);
             }

@@ -57,13 +57,12 @@ class RelationPlan
     public Optional<Symbol> getSymbol(Expression expression)
     {
         Optional<ResolvedField> resolvedField = scope.tryResolveField(expression);
-        if (!resolvedField.isPresent()) {
-            return Optional.empty();
+
+        if (resolvedField.isPresent() && resolvedField.get().isLocal()) {
+            return resolvedField.map(field -> outputSymbols.get(field.getFieldIndex()));
         }
 
-        checkState(resolvedField.isPresent() && resolvedField.get().isLocal(), "Unable to get symbol for field in outer scope: '%s'", expression);
-
-        return resolvedField.map(field -> outputSymbols.get(field.getFieldIndex()));
+        return Optional.empty();
     }
 
     public Symbol getSymbol(int fieldIndex)
