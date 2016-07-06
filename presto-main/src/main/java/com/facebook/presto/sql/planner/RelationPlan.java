@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 class RelationPlan
@@ -57,14 +56,9 @@ class RelationPlan
 
     public Optional<Symbol> getSymbol(Expression expression)
     {
-        Optional<ResolvedField> resolvedField = scope.tryResolveField(expression);
-        if (!resolvedField.isPresent()) {
-            return Optional.empty();
-        }
-
-        checkState(resolvedField.isPresent() && resolvedField.get().isLocal(), "Unable to get symbol for field in outer scope: '%s'", expression);
-
-        return resolvedField.map(field -> outputSymbols.get(field.getFieldIndex()));
+        return scope.tryResolveField(expression)
+                .filter(ResolvedField::isLocal)
+                .map(field -> outputSymbols.get(field.getFieldIndex()));
     }
 
     public Symbol getSymbol(int fieldIndex)

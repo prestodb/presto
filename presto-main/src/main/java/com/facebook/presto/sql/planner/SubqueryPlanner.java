@@ -20,11 +20,16 @@ import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
+import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
+import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
+import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -33,22 +38,28 @@ import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.GREATER_THAN;
 import static com.facebook.presto.sql.util.AstUtils.nodeContains;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -124,21 +135,22 @@ class SubqueryPlanner
         subPlan = subPlan.appendProjections(ImmutableList.of(inPredicate.getValue()), symbolAllocator, idAllocator);
 
         checkState(inPredicate.getValueList() instanceof SubqueryExpression);
-        SubqueryExpression subqueryExpression = (SubqueryExpression) inPredicate.getValueList();
-        RelationPlan valueListRelation = createRelationPlan(subqueryExpression.getQuery());
+        PlanNode subquery = createRelationPlan(((SubqueryExpression) inPredicate.getValueList()).getQuery()).getRoot();
+        Map<Expression, Symbol> correlation = extractCorrelation(subPlan, subquery);
+        subPlan = subPlan.appendProjections(correlation.keySet(), symbolAllocator, idAllocator);
+        subquery = replaceExpressionsWithSymbols(subquery, correlation);
 
         TranslationMap translationMap = subPlan.copyTranslations();
         InPredicate parametersReplaced = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters, analysis), inPredicate);
         translationMap.addIntermediateMapping(inPredicate, parametersReplaced);
-        SymbolReference valueList = getOnlyElement(valueListRelation.getOutputSymbols()).toSymbolReference();
+        SymbolReference valueList = getOnlyElement(subquery.getOutputSymbols()).toSymbolReference();
         translationMap.addIntermediateMapping(parametersReplaced, new InPredicate(parametersReplaced.getValue(), valueList));
 
         return new PlanBuilder(translationMap,
-                // TODO handle correlation
                 new ApplyNode(idAllocator.getNextId(),
                         subPlan.getRoot(),
-                        valueListRelation.getRoot(),
-                        ImmutableList.of()),
+                        subquery,
+                        ImmutableList.copyOf(correlation.values())),
                 subPlan.getSampleWeight(),
                 analysis.getParameters());
     }
@@ -221,6 +233,10 @@ class SubqueryPlanner
 
         PlanNode subqueryNode = subqueryPlanner.apply(subquery);
 
+        Map<Expression, Symbol> correlation = extractCorrelation(subPlan, subqueryNode);
+        subPlan = subPlan.appendProjections(correlation.keySet(), symbolAllocator, idAllocator);
+        subqueryNode = replaceExpressionsWithSymbols(subqueryNode, correlation);
+
         TranslationMap translations = subPlan.copyTranslations();
         translations.put(subqueryExpression, getOnlyElement(subqueryNode.getOutputSymbols()));
 
@@ -231,19 +247,155 @@ class SubqueryPlanner
         }
         else {
             return new PlanBuilder(translations,
-                    // TODO handle parameter list
                     new ApplyNode(idAllocator.getNextId(),
                             root,
                             subqueryNode,
-                            ImmutableList.of()),
+                            ImmutableList.copyOf(correlation.values())),
                     subPlan.getSampleWeight(),
                     analysis.getParameters());
         }
+    }
+
+    private Map<Expression, Symbol> extractCorrelation(PlanBuilder subPlan, PlanNode subquery)
+    {
+        Set<Expression> missingReferences = extractOuterColumnReferences(subquery);
+        ImmutableMap.Builder<Expression, Symbol> correlation = ImmutableMap.builder();
+        for (Expression missingReference : missingReferences) {
+            // missing reference expression can be solved within current subPlan,
+            // or within outer plans in case of multiple nesting levels of subqueries.
+            tryResolveMissingExpression(subPlan, missingReference)
+                    .ifPresent(symbolReference -> correlation.put(missingReference, Symbol.from(symbolReference)));
+        }
+        return correlation.build();
+    }
+
+    /**
+     * Checks if give reference expression can resolved within given plan.
+     */
+    private Optional<Expression> tryResolveMissingExpression(PlanBuilder subPlan, Expression expression)
+    {
+        Expression rewritten = subPlan.rewrite(expression);
+        if (rewritten instanceof SymbolReference) {
+            return Optional.of(rewritten);
+        }
+        return Optional.empty();
     }
 
     private RelationPlan createRelationPlan(Query subquery)
     {
         return new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session)
                 .process(subquery, null);
+    }
+
+    /**
+     * @return a set of reference expressions which cannot be resolved within this plan. For plan representing:
+     * SELECT a, b FROM (VALUES 1) T(a). It will return a set containing single expression reference to 'b'.
+     */
+    private Set<Expression> extractOuterColumnReferences(PlanNode planNode)
+    {
+        // at this point all the column references are already rewritten to SymbolReference
+        // when reference expression is not rewritten that means it cannot be satisfied within given PlaNode
+        // see that TranslationMap only resolves (local) fields in current scope
+        return ExpressionExtractor.extractExpressions(planNode).stream()
+                .flatMap(expression -> extractColumnReferences(expression, analysis.getColumnReferences()).stream())
+                .collect(toImmutableSet());
+    }
+
+    private static Set<Expression> extractColumnReferences(Expression expression, Set<Expression> columnReferences)
+    {
+        ImmutableSet.Builder<Expression> expressionColumnReferences = ImmutableSet.builder();
+        new ColumnReferencesExtractor(columnReferences).process(expression, expressionColumnReferences);
+        return expressionColumnReferences.build();
+    }
+
+    private PlanNode replaceExpressionsWithSymbols(PlanNode planNode, Map<Expression, Symbol> mapping)
+    {
+        if (mapping.isEmpty()) {
+            return planNode;
+        }
+
+        Map<Expression, Expression> expressionMapping = mapping.entrySet().stream()
+                .collect(toImmutableMap(Map.Entry::getKey, e -> e.getValue().toSymbolReference()));
+        return SimplePlanRewriter.rewriteWith(new ExpressionReplacer(idAllocator, expressionMapping), planNode, null);
+    }
+
+    private static class ColumnReferencesExtractor
+            extends DefaultExpressionTraversalVisitor<Void, ImmutableSet.Builder<Expression>>
+    {
+        private final Set<Expression> columnReferences;
+
+        private ColumnReferencesExtractor(Set<Expression> columnReferences)
+        {
+            this.columnReferences = requireNonNull(columnReferences, "columnReferences is null");
+        }
+
+        @Override
+        protected Void visitDereferenceExpression(DereferenceExpression node, ImmutableSet.Builder<Expression> builder)
+        {
+            if (columnReferences.contains(node)) {
+                builder.add(node);
+            }
+            else {
+                process(node.getBase(), builder);
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitQualifiedNameReference(QualifiedNameReference node, ImmutableSet.Builder<Expression> builder)
+        {
+            builder.add(node);
+            return null;
+        }
+    }
+
+    private static class ExpressionReplacer
+            extends SimplePlanRewriter<Void>
+    {
+        private final PlanNodeIdAllocator idAllocator;
+        private final Map<Expression, Expression> mapping;
+
+        public ExpressionReplacer(PlanNodeIdAllocator idAllocator, Map<Expression, Expression> mapping)
+        {
+            this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
+            this.mapping = requireNonNull(mapping, "mapping is null");
+        }
+
+        @Override
+        public PlanNode visitProject(ProjectNode node, RewriteContext<Void> context)
+        {
+            ProjectNode rewrittenNode = (ProjectNode) context.defaultRewrite(node);
+
+            ImmutableMap.Builder<Symbol, Expression> assignments = ImmutableMap.builder();
+            for (Map.Entry<Symbol, Expression> assignment : rewrittenNode.getAssignments().entrySet()) {
+                Expression expression = assignment.getValue();
+                Expression rewritten = replaceExpression(expression, mapping);
+                assignments.put(assignment.getKey(), rewritten);
+            }
+
+            return new ProjectNode(idAllocator.getNextId(), rewrittenNode.getSource(), assignments.build());
+        }
+
+        @Override
+        public PlanNode visitFilter(FilterNode node, RewriteContext<Void> context)
+        {
+            FilterNode rewrittenNode = (FilterNode) context.defaultRewrite(node);
+            return new FilterNode(idAllocator.getNextId(), rewrittenNode.getSource(), replaceExpression(rewrittenNode.getPredicate(), mapping));
+        }
+
+        @Override
+        public PlanNode visitValues(ValuesNode node, RewriteContext<Void> context)
+        {
+            ValuesNode rewrittenNode = (ValuesNode) context.defaultRewrite(node);
+            List<List<Expression>> rewrittenRows = rewrittenNode.getRows().stream()
+                    .map(row -> row.stream()
+                            .map(column -> replaceExpression(column, mapping))
+                            .collect(toImmutableList()))
+                    .collect(toImmutableList());
+            return new ValuesNode(
+                    idAllocator.getNextId(),
+                    rewrittenNode.getOutputSymbols(),
+                    rewrittenRows);
+        }
     }
 }
