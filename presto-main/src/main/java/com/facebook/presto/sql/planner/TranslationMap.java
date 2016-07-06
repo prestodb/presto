@@ -132,7 +132,11 @@ class TranslationMap
         expressionToSymbols.put(translated, symbol);
 
         // also update the field mappings if this expression is a field reference
-        rewriteBase.getScope().tryResolveField(expression).ifPresent(resolvedField -> fieldSymbols[rewriteBase.getDescriptor().indexOf(resolvedField.getField())] = symbol);
+        Optional<ResolvedField> resolvedField = rewriteBase.getScope().tryResolveField(expression);
+        if (resolvedField.isPresent() && resolvedField.get().isLocal()) {
+            int index = rewriteBase.getDescriptor().indexOf(resolvedField.get().getField());
+            fieldSymbols[index] = symbol;
+        }
     }
 
     public boolean containsSymbol(Expression expression)
@@ -192,10 +196,10 @@ class TranslationMap
             private Expression rewriteExpressionWithResolvedName(Expression node)
             {
                 Optional<Symbol> symbol = rewriteBase.getSymbol(node);
-                checkState(symbol.isPresent(), "No symbol mapping for node '%s'", node);
-                Expression rewrittenExpression = symbol.get().toSymbolReference();
-
-                return coerceIfNecessary(node, rewrittenExpression);
+                if (symbol.isPresent()) {
+                    return coerceIfNecessary(node, symbol.get().toSymbolReference());
+                }
+                return node;
             }
 
             @Override
@@ -203,7 +207,11 @@ class TranslationMap
             {
                 Optional<ResolvedField> resolvedField = rewriteBase.getScope().tryResolveField(node);
                 if (resolvedField.isPresent()) {
-                    return rewriteExpressionWithResolvedName(node);
+                    if (resolvedField.get().isLocal()) {
+                        return rewriteExpressionWithResolvedName(node);
+                    }
+                    // do not rewrite outer references, it will be handled in outer scope planner
+                    return node;
                 }
                 return rewriteExpression(node, context, treeRewriter);
             }
