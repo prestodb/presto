@@ -16,6 +16,7 @@ package com.facebook.presto.tpch.testing;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
@@ -60,7 +61,7 @@ public class SampledTpchConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> properties)
+    public Connector create(String connectorId, Map<String, String> properties, ConnectorContext context)
     {
         requireNonNull(properties, "properties is null");
         int splitsPerNode = getSplitsPerNode(properties);

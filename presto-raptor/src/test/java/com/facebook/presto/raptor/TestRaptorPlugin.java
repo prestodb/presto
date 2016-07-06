@@ -16,6 +16,7 @@ package com.facebook.presto.raptor;
 import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableMap;
@@ -58,7 +59,7 @@ public class TestRaptorPlugin
                     .put("storage.data-directory", tmpDir.getAbsolutePath())
                     .build();
 
-            factory.create("test", config);
+            factory.create("test", config, new ConnectorContext() {});
         }
         finally {
             FileUtils.deleteRecursively(tmpDir);

@@ -15,6 +15,7 @@ package com.facebook.presto.mongodb;
 
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -56,7 +57,7 @@ public class TestMongoPlugin
         MongoPlugin plugin = new MongoPlugin();
         plugin.setTypeManager(new TestingTypeManager());
         ConnectorFactory factory = getOnlyElement(plugin.getServices(ConnectorFactory.class));
-        Connector connector = factory.create("test", ImmutableMap.of("mongodb.seeds", seed));
+        Connector connector = factory.create("test", ImmutableMap.of("mongodb.seeds", seed), new ConnectorContext() {});
 
         Type type = getOnlyElement(plugin.getServices(Type.class));
         assertEquals(type, OBJECT_ID);

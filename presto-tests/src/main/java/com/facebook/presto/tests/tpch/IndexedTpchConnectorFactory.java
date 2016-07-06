@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorIndexProvider;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
@@ -64,7 +65,7 @@ public class IndexedTpchConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> properties)
+    public Connector create(String connectorId, Map<String, String> properties, ConnectorContext context)
     {
         int splitsPerNode = getSplitsPerNode(properties);
         TpchIndexedData indexedData = new TpchIndexedData(connectorId, indexSpec);
