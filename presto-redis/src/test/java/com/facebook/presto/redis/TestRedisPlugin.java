@@ -19,6 +19,7 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.NodeState;
+import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -59,10 +60,13 @@ public class TestRedisPlugin
     public void testStartup()
     {
         ConnectorFactory factory = testConnectorExists();
-        Connector c = factory.create("test-connector", ImmutableMap.<String, String>builder()
-                .put("redis.table-names", "test")
-                .put("redis.nodes", "localhost:6379")
-                .build());
+        Connector c = factory.create(
+                "test-connector",
+                ImmutableMap.<String, String>builder()
+                        .put("redis.table-names", "test")
+                        .put("redis.nodes", "localhost:6379")
+                        .build(),
+                new ConnectorContext() {});
         assertNotNull(c);
     }
 

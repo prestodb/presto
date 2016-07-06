@@ -16,6 +16,7 @@ package com.facebook.presto.mongodb;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
 import com.google.inject.Injector;
@@ -56,7 +57,7 @@ public class MongoConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> config)
+    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
     {
         requireNonNull(config, "config is null");
 

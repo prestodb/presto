@@ -17,6 +17,7 @@ package com.facebook.presto.plugin.blackhole;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.type.TypeManager;
 
@@ -49,7 +50,7 @@ public class BlackHoleConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> requiredConfig)
+    public Connector create(String connectorId, Map<String, String> requiredConfig, ConnectorContext context)
     {
         return new BlackHoleConnector(
                 new BlackHoleMetadata(),

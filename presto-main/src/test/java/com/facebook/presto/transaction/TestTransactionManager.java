@@ -16,6 +16,7 @@ package com.facebook.presto.transaction;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableList;
@@ -58,7 +59,7 @@ public class TestTransactionManager
         try (IdleCheckExecutor executor = new IdleCheckExecutor()) {
             TransactionManager transactionManager = TransactionManager.create(new TransactionManagerConfig(), executor.getExecutor(), finishingExecutor);
 
-            Connector c1 = new TpchConnectorFactory(new InMemoryNodeManager()).create("c1", ImmutableMap.of());
+            Connector c1 = new TpchConnectorFactory(new InMemoryNodeManager()).create("c1", ImmutableMap.of(), new ConnectorContext() {});
             transactionManager.addConnector("c1", c1);
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
@@ -88,7 +89,7 @@ public class TestTransactionManager
         try (IdleCheckExecutor executor = new IdleCheckExecutor()) {
             TransactionManager transactionManager = TransactionManager.create(new TransactionManagerConfig(), executor.getExecutor(), finishingExecutor);
 
-            Connector c1 = new TpchConnectorFactory(new InMemoryNodeManager()).create("c1", ImmutableMap.of());
+            Connector c1 = new TpchConnectorFactory(new InMemoryNodeManager()).create("c1", ImmutableMap.of(), new ConnectorContext() {});
             transactionManager.addConnector("c1", c1);
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
@@ -118,7 +119,7 @@ public class TestTransactionManager
         try (IdleCheckExecutor executor = new IdleCheckExecutor()) {
             TransactionManager transactionManager = TransactionManager.create(new TransactionManagerConfig(), executor.getExecutor(), finishingExecutor);
 
-            Connector c1 = new TpchConnectorFactory(new InMemoryNodeManager()).create("c1", ImmutableMap.of());
+            Connector c1 = new TpchConnectorFactory(new InMemoryNodeManager()).create("c1", ImmutableMap.of(), new ConnectorContext() {});
             transactionManager.addConnector("c1", c1);
 
             TransactionId transactionId = transactionManager.beginTransaction(false);

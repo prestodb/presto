@@ -18,6 +18,7 @@ import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.NodeState;
 import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -59,10 +60,13 @@ public class TestKafkaPlugin
     public void testSpinup()
     {
         ConnectorFactory factory = testConnectorExists();
-        Connector c = factory.create("test-connector", ImmutableMap.<String, String>builder()
-                .put("kafka.table-names", "test")
-                .put("kafka.nodes", "localhost:9092")
-                .build());
+        Connector c = factory.create(
+                "test-connector",
+                ImmutableMap.<String, String>builder()
+                        .put("kafka.table-names", "test")
+                        .put("kafka.nodes", "localhost:9092")
+                        .build(),
+                new ConnectorContext() {});
         assertNotNull(c);
     }
 
