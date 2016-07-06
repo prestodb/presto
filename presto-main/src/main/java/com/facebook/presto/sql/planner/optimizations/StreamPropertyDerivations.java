@@ -23,6 +23,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -434,6 +435,12 @@ final class StreamPropertyDerivations
 
         @Override
         public StreamProperties visitSemiJoin(SemiJoinNode node, List<StreamProperties> inputProperties)
+        {
+            return inputProperties.get(0);
+        }
+
+        @Override
+        public StreamProperties visitApply(ApplyNode node, List<StreamProperties> inputProperties)
         {
             return inputProperties.get(0);
         }
