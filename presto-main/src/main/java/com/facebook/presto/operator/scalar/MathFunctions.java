@@ -22,11 +22,15 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
+import it.unimi.dsi.fastutil.objects.Object2DoubleArrayMap;
 
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Character.MAX_RADIX;
@@ -35,6 +39,8 @@ import static java.lang.String.format;
 
 public final class MathFunctions
 {
+    private static final String MAP_STRING_DOUBLE = "map(varchar,double)";
+
     private MathFunctions() {}
 
     @Description("absolute value")
@@ -692,5 +698,46 @@ public final class MathFunctions
         }
 
         return lower;
+    }
+
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double cosineSimilarity(@SqlType(MAP_STRING_DOUBLE) Block map1, @SqlType(MAP_STRING_DOUBLE) Block map2)
+    {
+        Map<Slice, Double> m = toSliceDoubleMap(map1);
+        Map<Slice, Double> n = toSliceDoubleMap(map2);
+
+        double normM = Math.sqrt(dotProduct(m, m));
+        double normN = Math.sqrt(dotProduct(n, n));
+
+        double dotProduct = dotProduct(m, n);
+
+        return dotProduct / (normM * normN);
+    }
+
+    private static Map<Slice, Double> toSliceDoubleMap(Block map)
+    {
+        Map<Slice, Double> hashMap = new Object2DoubleArrayMap<>();
+
+        for (int position = 0; position < map.getPositionCount(); position += 2) {
+            Slice key = VARCHAR.getSlice(map, position);
+            double value = DOUBLE.getDouble(map, position + 1);
+            hashMap.put(key, value);
+        }
+
+        return hashMap;
+    }
+
+    private static double dotProduct(Map<Slice, Double> m, Map<Slice, Double> n)
+    {
+        double result = 0;
+
+        for (Slice key : m.keySet()) {
+            if (n.containsKey(key)) {
+                result += m.get(key) * n.get(key);
+            }
+        }
+
+        return result;
     }
 }
