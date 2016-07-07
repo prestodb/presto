@@ -110,10 +110,10 @@ class TranslationMap
                 else if (expressionToExpressions.containsKey(node)) {
                     Expression mapping = expressionToExpressions.get(node);
                     mapping = translateNamesToSymbols(mapping);
-                    return treeRewriter.defaultRewrite(mapping, context);
+                    return treeRewriter.defaultRewrite(mapping, null);
                 }
                 else {
-                    return treeRewriter.defaultRewrite(node, context);
+                    return treeRewriter.defaultRewrite(node, null);
                 }
             }
         }, mapped);
@@ -202,18 +202,27 @@ class TranslationMap
                 return node;
             }
 
-            @Override
-            public Expression rewriteDereferenceExpression(DereferenceExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            private Expression rewriteReferenceExpression(Expression node, ExpressionTreeRewriter<Void> treeRewriter)
             {
                 Optional<ResolvedField> resolvedField = rewriteBase.getScope().tryResolveField(node);
                 if (resolvedField.isPresent()) {
                     if (resolvedField.get().isLocal()) {
-                        return rewriteExpressionWithResolvedName(node);
+                        Optional<Symbol> symbol = rewriteBase.getSymbol(node);
+                        checkState(symbol.isPresent(), "No symbol mapping for node '%s'", node);
+                        Expression rewrittenExpression = symbol.get().toSymbolReference();
+
+                        return coerceIfNecessary(node, rewrittenExpression);
                     }
                     // do not rewrite outer references, it will be handled in outer scope planner
                     return node;
                 }
-                return rewriteExpression(node, context, treeRewriter);
+                return rewriteExpression(node, null, treeRewriter);
+            }
+
+            @Override
+            public Expression rewriteDereferenceExpression(DereferenceExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                return rewriteReferenceExpression(node, treeRewriter);
             }
 
             private Expression coerceIfNecessary(Expression original, Expression rewritten)

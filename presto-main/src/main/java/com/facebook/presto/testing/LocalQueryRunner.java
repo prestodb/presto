@@ -585,6 +585,11 @@ public class LocalQueryRunner
 
     public Plan createPlan(Session session, @Language("SQL") String sql)
     {
+        return createPlan(session, sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED);
+    }
+
+    public Plan createPlan(Session session, @Language("SQL") String sql, LogicalPlanner.Stage stage)
+    {
         Statement statement = unwrapExecuteStatement(sqlParser.createStatement(sql), sqlParser, session);
 
         assertFormattedSql(sqlParser, statement);
@@ -603,10 +608,12 @@ public class LocalQueryRunner
                 sqlParser,
                 dataDefinitionTask,
                 featuresConfig.isExperimentalSyntaxEnabled());
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), featuresConfig.isExperimentalSyntaxEnabled());
 
+        LogicalPlanner logicalPlanner = new LogicalPlanner(session, planOptimizersFactory.get(), idAllocator, metadata, sqlParser);
+
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), featuresConfig.isExperimentalSyntaxEnabled());
         Analysis analysis = analyzer.analyze(statement);
-        return new LogicalPlanner(session, planOptimizersFactory.get(), idAllocator, metadata, sqlParser).plan(analysis);
+        return logicalPlanner.plan(analysis, stage);
     }
 
     public OperatorFactory createTableScanOperator(int operatorId, PlanNodeId planNodeId, String tableName, String... columnNames)

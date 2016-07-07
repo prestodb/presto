@@ -180,7 +180,7 @@ public class ExpressionInterpreter
             @Override
             public Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                Expression rewrittenExpression = treeRewriter.defaultRewrite(node, context);
+                Expression rewrittenExpression = treeRewriter.defaultRewrite(node, null);
 
                 // cast expression if coercion is registered
                 Type coerceToType = coercions.get(node);
