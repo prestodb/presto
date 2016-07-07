@@ -110,10 +110,10 @@ class TranslationMap
                 else if (expressionToExpressions.containsKey(node)) {
                     Expression mapping = expressionToExpressions.get(node);
                     mapping = translateNamesToSymbols(mapping);
-                    return treeRewriter.defaultRewrite(mapping, context);
+                    return treeRewriter.defaultRewrite(mapping, null);
                 }
                 else {
-                    return treeRewriter.defaultRewrite(node, context);
+                    return treeRewriter.defaultRewrite(node, null);
                 }
             }
         }, mapped);
