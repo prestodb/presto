@@ -22,7 +22,6 @@ import com.teradata.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
-import static com.facebook.presto.tests.TestGroups.QUARANTINE;
 import static com.facebook.presto.tests.TestGroups.SMOKE;
 import static com.teradata.tempto.Requirements.compose;
 import static com.teradata.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
@@ -79,7 +78,7 @@ public class TestTablePartitioningInsertInto
                 MutableTableRequirement.builder(TARGET_NATION).build());
     }
 
-    @Test(groups = {HIVE_CONNECTOR, QUARANTINE, SMOKE})
+    @Test(groups = {HIVE_CONNECTOR, SMOKE})
     public void selectFromPartitionedNation()
             throws Exception
     {
