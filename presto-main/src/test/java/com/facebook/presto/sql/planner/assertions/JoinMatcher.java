@@ -37,7 +37,7 @@ final class JoinMatcher
     }
 
     @Override
-    public boolean matches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public boolean matches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
     {
         if (node instanceof JoinNode) {
             JoinNode joinNode = (JoinNode) node;
@@ -48,8 +48,8 @@ final class JoinMatcher
                 int i = 0;
                 for (JoinNode.EquiJoinClause equiJoinClause : joinNode.getCriteria()) {
                     AliasPair expectedEquiClause = equiCriteria.get(i++);
-                    symbolAliases.put(expectedEquiClause.left, equiJoinClause.getLeft());
-                    symbolAliases.put(expectedEquiClause.right, equiJoinClause.getRight());
+                    expressionAliases.put(expectedEquiClause.left, equiJoinClause.getLeft().toSymbolReference());
+                    expressionAliases.put(expectedEquiClause.right, equiJoinClause.getRight().toSymbolReference());
                 }
                 return true;
             }

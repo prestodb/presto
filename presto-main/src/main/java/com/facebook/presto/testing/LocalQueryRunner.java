@@ -588,15 +588,24 @@ public class LocalQueryRunner
 
     public Plan createPlan(Session session, @Language("SQL") String sql)
     {
+        return createPlan(session, sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED);
+    }
+
+    public Plan createPlan(Session session, @Language("SQL") String sql, LogicalPlanner.Stage stage)
+    {
+        Statement statement = unwrapExecuteStatement(sqlParser.createStatement(sql), sqlParser, session);
+
+        assertFormattedSql(sqlParser, statement);
+
         FeaturesConfig featuresConfig = new FeaturesConfig()
                 .setExperimentalSyntaxEnabled(true)
                 .setDistributedIndexJoinsEnabled(false)
                 .setOptimizeHashGeneration(true);
         PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata, sqlParser, featuresConfig, true);
-        return createPlan(session, sql, featuresConfig, planOptimizersFactory);
+        return createPlan(session, sql, featuresConfig, planOptimizersFactory, stage);
     }
 
-    public Plan createPlan(Session session, @Language("SQL") String sql, FeaturesConfig featuresConfig, Provider<List<PlanOptimizer>> optimizerProvider)
+    public Plan createPlan(Session session, @Language("SQL") String sql, FeaturesConfig featuresConfig, Provider<List<PlanOptimizer>> optimizerProvider, LogicalPlanner.Stage stage)
     {
         Statement statement = unwrapExecuteStatement(sqlParser.createStatement(sql), sqlParser, session);
 
@@ -611,10 +620,12 @@ public class LocalQueryRunner
                 sqlParser,
                 dataDefinitionTask,
                 featuresConfig.isExperimentalSyntaxEnabled());
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), featuresConfig.isExperimentalSyntaxEnabled());
 
+        LogicalPlanner logicalPlanner = new LogicalPlanner(session, optimizerProvider.get(), idAllocator, metadata, sqlParser);
+
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), featuresConfig.isExperimentalSyntaxEnabled());
         Analysis analysis = analyzer.analyze(statement);
-        return new LogicalPlanner(session, optimizerProvider.get(), idAllocator, metadata, sqlParser).plan(analysis);
+        return logicalPlanner.plan(analysis, stage);
     }
 
     public OperatorFactory createTableScanOperator(int operatorId, PlanNodeId planNodeId, String tableName, String... columnNames)
