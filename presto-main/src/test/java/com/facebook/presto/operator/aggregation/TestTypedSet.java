@@ -15,6 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -27,7 +28,10 @@ import static com.facebook.presto.block.BlockAssertions.createEmptyLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.fail;
 
 public class TestTypedSet
@@ -71,6 +75,32 @@ public class TestTypedSet
         for (int j = 0; j < blockBuilder.getPositionCount(); j++) {
             assertEquals(typedSet.positionOf(blockBuilder, j), j);
         }
+    }
+
+    @Test
+    public void testGetElementPositionRandom()
+            throws Exception
+    {
+        BlockBuilder keys = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 5);
+        VARCHAR.writeSlice(keys, utf8Slice("hello"));
+        VARCHAR.writeSlice(keys, utf8Slice("bye"));
+        VARCHAR.writeSlice(keys, utf8Slice("abc"));
+
+        TypedSet set = new TypedSet(VARCHAR, keys.getPositionCount());
+        for (int i = 0; i < keys.getPositionCount(); i++) {
+            set.add(keys, i);
+        }
+
+        BlockBuilder values = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 5);
+        VARCHAR.writeSlice(values, utf8Slice("bye"));
+        VARCHAR.writeSlice(values, utf8Slice("abc"));
+        VARCHAR.writeSlice(values, utf8Slice("hello"));
+        VARCHAR.writeSlice(values, utf8Slice("bad"));
+
+        assertEquals(set.positionOf(values, 2), 0);
+        assertEquals(set.positionOf(values, 1), 2);
+        assertEquals(set.positionOf(values, 0), 1);
+        assertFalse(set.contains(values, 3));
     }
 
     @Test
