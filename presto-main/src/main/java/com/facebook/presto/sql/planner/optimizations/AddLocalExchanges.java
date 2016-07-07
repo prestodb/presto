@@ -627,7 +627,7 @@ public class AddLocalExchanges
                         LOCAL,
                         planWithProperties.getNode(),
                         new PartitioningScheme(
-                                fixedRandomPartitioning(getTaskConcurrency(session)),
+                                fixedRandomPartitioning(requiredProperties.getStreamCount().orElse(getTaskConcurrency(session))),
                                 planWithProperties.getNode().getOutputSymbols()));
 
                 return deriveProperties(exchangeNode, planWithProperties.getProperties());
