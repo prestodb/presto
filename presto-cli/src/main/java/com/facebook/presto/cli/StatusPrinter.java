@@ -17,14 +17,18 @@ import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StageStats;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.client.StatementStats;
+import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.io.PrintStream;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.cli.FormatUtils.formatCount;
 import static com.facebook.presto.cli.FormatUtils.formatCountRate;
@@ -34,6 +38,7 @@ import static com.facebook.presto.cli.FormatUtils.formatProgressBar;
 import static com.facebook.presto.cli.FormatUtils.formatTime;
 import static com.facebook.presto.cli.FormatUtils.pluralize;
 import static com.facebook.presto.cli.KeyReader.readKey;
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.Character.toUpperCase;
@@ -324,19 +329,32 @@ Parallelism: 2.5
             reprintLine("");
 
             // STAGE  S    ROWS    RPS  BYTES    BPS   QUEUED    RUN   DONE
-            String stagesHeader = String.format("%10s%1s  %5s  %6s  %5s  %7s  %6s  %5s  %5s",
-                    "STAGE",
-                    "S",
-                    "ROWS",
-                    "ROWS/s",
-                    "BYTES",
-                    "BYTES/s",
-                    "QUEUED",
-                    "RUN",
-                    "DONE");
-            reprintLine(stagesHeader);
+            ImmutableList<ColumnAligner> columns = ImmutableList.<ColumnAligner>builder()
+                    .add(new ColumnAligner("STAGE", 10, 0))
+                    .add(new ColumnAligner("S", 1, 0))
+                    .add(new ColumnAligner("ROWS", 5, 2))
+                    .add(new ColumnAligner("ROWS/s", 6, 2))
+                    .add(new ColumnAligner("BYTES", 5, 2))
+                    .add(new ColumnAligner("BYTES/s", 7, 2))
+                    .add(new ColumnAligner("QUEUED", 6, 2))
+                    .add(new ColumnAligner("RUN", 5, 2))
+                    .add(new ColumnAligner("DONE", 5, 2))
+                    .build();
 
-            printStageTree(stats.getRootStage(), "", new AtomicInteger());
+            printStageTree(stats.getRootStage(), "", new AtomicInteger(), columns);
+
+            List<List<String>> tableValues = columns.stream()
+                    .map(column -> column.buildColumn())
+                    .collect(Collectors.toList());
+
+            int rows = tableValues.get(0).size();
+            for (int i = 0; i < rows; i++) {
+                final int currentIndex = i;
+                List<String> row = tableValues.stream()
+                        .map(column -> column.get(currentIndex))
+                        .collect(Collectors.toList());
+                reprintLine(Joiner.on("").join(row));
+            }
         }
         else {
             // Query 31 [S] i[2.7M 67.3MB 62.7MBps] o[35 6.1KB 1KBps] splits[252/16/380]
@@ -359,8 +377,10 @@ Parallelism: 2.5
         }
     }
 
-    private void printStageTree(StageStats stage, String indent, AtomicInteger stageNumberCounter)
+    private void printStageTree(StageStats stage, String indent, AtomicInteger stageNumberCounter, List<ColumnAligner> columns)
     {
+        checkArgument(columns.size() == 9, "columns size should be 9");
+
         Duration elapsedTime = nanosSince(start);
 
         // STAGE  S    ROWS  ROWS/s  BYTES  BYTES/s  QUEUED    RUN   DONE
@@ -385,23 +405,18 @@ Parallelism: 2.5
             rowsPerSecond = formatCountRate(stage.getProcessedRows(), elapsedTime, false);
         }
 
-        String stageSummary = String.format("%10s%1s  %5s  %6s  %5s  %7s  %6s  %5s  %5s",
-                name,
-                stageStateCharacter(stage.getState()),
-
-                formatCount(stage.getProcessedRows()),
-                rowsPerSecond,
-
-                formatDataSize(bytes(stage.getProcessedBytes()), false),
-                bytesPerSecond,
-
-                stage.getQueuedSplits(),
-                stage.getRunningSplits(),
-                stage.getCompletedSplits());
-        reprintLine(stageSummary);
+        columns.get(0).feedValue(name);
+        columns.get(1).feedValue(stageStateCharacter(stage.getState()));
+        columns.get(2).feedValue(formatCount(stage.getProcessedRows()));
+        columns.get(3).feedValue(rowsPerSecond);
+        columns.get(4).feedValue(formatDataSize(bytes(stage.getProcessedBytes()), false));
+        columns.get(5).feedValue(bytesPerSecond);
+        columns.get(6).feedValue(stage.getQueuedSplits());
+        columns.get(7).feedValue(stage.getRunningSplits());
+        columns.get(8).feedValue(stage.getCompletedSplits());
 
         for (StageStats subStage : stage.getSubStages()) {
-            printStageTree(subStage, indent + "  ", stageNumberCounter);
+            printStageTree(subStage, indent + "  ", stageNumberCounter, columns);
         }
     }
 
