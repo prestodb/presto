@@ -1,3 +1,0 @@
--- delimiter: |; ignoreOrder: true; ignoreExcessRows:true; types: LONGNVARCHAR
-default|
-information_schema|
