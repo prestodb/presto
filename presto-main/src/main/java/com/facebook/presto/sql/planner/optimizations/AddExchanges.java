@@ -1140,7 +1140,7 @@ public class AddExchanges
                 return false;
             }
 
-            Optional<PreferredProperties.PartitioningProperties> parentPartitioningPreferences = parentPreferredProperties.getGlobalProperties()
+            Optional<PreferredPartitioning> parentPartitioningPreferences = parentPreferredProperties.getGlobalProperties()
                     .flatMap(PreferredProperties.Global::getPartitioningProperties);
 
             // Disable repartitioning if it would disrupt a parent's partitioning preference when streaming is enabled
@@ -1176,7 +1176,7 @@ public class AddExchanges
             return symbol -> Optional.of(node.getSymbolMapping().get(symbol).get(sourceIndex));
         }
 
-        private Partitioning selectUnionPartitioning(UnionNode node, Context context, PreferredProperties.PartitioningProperties parentPreference)
+        private Partitioning selectUnionPartitioning(UnionNode node, Context context, PreferredPartitioning parentPreference)
         {
             // Use the parent's requested partitioning if available
             if (parentPreference.getPartitioning().isPresent()) {
@@ -1186,7 +1186,7 @@ public class AddExchanges
             // Try planning the children to see if any of them naturally produce a partitioning (for now, just select the first)
             boolean nullsReplicated = parentPreference.isNullsReplicated();
             for (int sourceIndex = 0; sourceIndex < node.getSources().size(); sourceIndex++) {
-                PreferredProperties.PartitioningProperties childPartitioning = parentPreference.translate(outputToInputTranslator(node, sourceIndex)).get();
+                PreferredPartitioning childPartitioning = parentPreference.translate(outputToInputTranslator(node, sourceIndex)).get();
                 PreferredProperties childPreferred = PreferredProperties.builder()
                         .global(PreferredProperties.Global.distributed(childPartitioning.withNullsReplicated(nullsReplicated)))
                         .build();
@@ -1211,7 +1211,7 @@ public class AddExchanges
             PreferredProperties parentPreference = context.getPreferredProperties();
             Optional<PreferredProperties.Global> parentGlobal = parentPreference.getGlobalProperties();
             if (parentGlobal.isPresent() && parentGlobal.get().isDistributed() && parentGlobal.get().getPartitioningProperties().isPresent()) {
-                PreferredProperties.PartitioningProperties parentPartitioningPreference = parentGlobal.get().getPartitioningProperties().get();
+                PreferredPartitioning parentPartitioningPreference = parentGlobal.get().getPartitioningProperties().get();
                 boolean nullsReplicated = parentPartitioningPreference.isNullsReplicated();
                 Partitioning desiredParentPartitioning = selectUnionPartitioning(node, context, parentPartitioningPreference);
 
@@ -1222,7 +1222,7 @@ public class AddExchanges
                     Partitioning childPartitioning = desiredParentPartitioning.translate(createDirectTranslator(createMapping(node.getOutputSymbols(), node.sourceOutputLayout(sourceIndex))));
 
                     PreferredProperties childPreferred = PreferredProperties.builder()
-                            .global(PreferredProperties.Global.distributed(PreferredProperties.PartitioningProperties.partitioned(childPartitioning)
+                            .global(PreferredProperties.Global.distributed(PreferredPartitioning.partitioned(childPartitioning)
                                     .withNullsReplicated(nullsReplicated)))
                             .build();
 
