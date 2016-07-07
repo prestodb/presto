@@ -17,9 +17,13 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -71,7 +75,7 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern tableScan(String expectedTableName)
     {
-        return any().with(new TableScanMatcher(expectedTableName));
+        return node(TableScanNode.class).with(new TableScanMatcher(expectedTableName));
     }
 
     public static PlanMatchPattern tableScan(String expectedTableName, Map<String, Domain> constraint)
@@ -89,14 +93,14 @@ public final class PlanMatchPattern
         return node(ProjectNode.class, sources);
     }
 
-    public static PlanMatchPattern semiJoin(String sourceSymbolAlias, String filteringSymbolAlias, String outputAlias, PlanMatchPattern... sources)
+    public static PlanMatchPattern semiJoin(String sourceSymbolAlias, String filteringSymbolAlias, String outputAlias, PlanMatchPattern sourcePattern, PlanMatchPattern filterPattern)
     {
-        return any(sources).with(new SemiJoinMatcher(sourceSymbolAlias, filteringSymbolAlias, outputAlias));
+        return node(SemiJoinNode.class, sourcePattern, filterPattern).with(new SemiJoinMatcher(sourceSymbolAlias, filteringSymbolAlias, outputAlias));
     }
 
-    public static PlanMatchPattern join(JoinNode.Type joinType, List<AliasPair> expectedEquiCriteria, PlanMatchPattern... sources)
+    public static PlanMatchPattern join(JoinNode.Type joinType, List<AliasPair> expectedEquiCriteria, PlanMatchPattern leftPattern, PlanMatchPattern rightPattern)
     {
-        return any(sources).with(new JoinMatcher(joinType,  expectedEquiCriteria));
+        return node(JoinNode.class, leftPattern, rightPattern).with(new JoinMatcher(joinType, expectedEquiCriteria));
     }
 
     public static AliasPair aliasPair(String left, String right)
@@ -104,10 +108,15 @@ public final class PlanMatchPattern
         return new AliasPair(left, right);
     }
 
-    public static PlanMatchPattern filter(String predicate, PlanMatchPattern... sources)
+    public static PlanMatchPattern filter(String predicate, PlanMatchPattern source)
     {
         Expression expectedPredicate = new SqlParser().createExpression(predicate);
-        return any(sources).with(new FilterMatcher(expectedPredicate));
+        return node(FilterNode.class, source).with(new FilterMatcher(expectedPredicate));
+    }
+
+    public static PlanMatchPattern apply(List<String> correlationSymbolAliases, PlanMatchPattern inputPattern, PlanMatchPattern subqueryPattern)
+    {
+        return node(ApplyNode.class, inputPattern, subqueryPattern).with(new CorrelationMatcher(correlationSymbolAliases));
     }
 
     public PlanMatchPattern(List<PlanMatchPattern> sourcePatterns)
@@ -117,20 +126,20 @@ public final class PlanMatchPattern
         this.sourcePatterns = ImmutableList.copyOf(sourcePatterns);
     }
 
-    List<PlanMatchingState> matches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    List<PlanMatchingState> matches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
     {
         ImmutableList.Builder<PlanMatchingState> states = ImmutableList.builder();
         if (anyTree) {
             int sourcesCount = node.getSources().size();
             if (sourcesCount > 1) {
-                states.add(new PlanMatchingState(nCopies(sourcesCount, this), symbolAliases));
+                states.add(new PlanMatchingState(nCopies(sourcesCount, this), expressionAliases));
             }
             else {
-                states.add(new PlanMatchingState(ImmutableList.of(this), symbolAliases));
+                states.add(new PlanMatchingState(ImmutableList.of(this), expressionAliases));
             }
         }
-        if (node.getSources().size() == sourcePatterns.size() && matchers.stream().allMatch(it -> it.matches(node, session, metadata, symbolAliases))) {
-            states.add(new PlanMatchingState(sourcePatterns, symbolAliases));
+        if (node.getSources().size() == sourcePatterns.size() && matchers.stream().allMatch(it -> it.matches(node, session, metadata, expressionAliases))) {
+            states.add(new PlanMatchingState(sourcePatterns, expressionAliases));
         }
         return states.build();
     }
