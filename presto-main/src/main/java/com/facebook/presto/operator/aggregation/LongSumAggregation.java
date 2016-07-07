@@ -20,13 +20,9 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.SqlType;
 
-import static com.facebook.presto.testing.AggregationTestUtils.generateInternalAggregationFunction;
-
 @AggregationFunction("sum")
 public final class LongSumAggregation
 {
-    public static final InternalAggregationFunction LONG_SUM = generateInternalAggregationFunction(LongSumAggregation.class);
-
     private LongSumAggregation() {}
 
     @InputFunction

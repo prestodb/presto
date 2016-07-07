@@ -52,9 +52,6 @@ import static com.facebook.presto.operator.OperatorAssertion.dropChannel;
 import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResult;
 import static com.facebook.presto.operator.OperatorAssertion.toPages;
 import static com.facebook.presto.operator.OperatorAssertion.without;
-import static com.facebook.presto.operator.aggregation.AverageAggregations.LONG_AVERAGE;
-import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
-import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
 import static com.facebook.presto.spi.block.BlockBuilderStatus.DEFAULT_MAX_BLOCK_SIZE_IN_BYTES;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -75,6 +72,15 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestHashAggregationOperator
 {
+    private static final MetadataManager metadata = MetadataManager.createTestMetadataManager();
+
+    private static final InternalAggregationFunction LONG_AVERAGE = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+            new Signature("avg", AGGREGATE, DOUBLE.getTypeSignature(), BIGINT.getTypeSignature()));
+    private static final InternalAggregationFunction LONG_SUM = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+            new Signature("sum", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
+    private static final InternalAggregationFunction COUNT = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+            new Signature("count", AGGREGATE, BIGINT.getTypeSignature()));
+
     private ExecutorService executor;
     private DriverContext driverContext;
 

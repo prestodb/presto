@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregations.LONG_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS;
+import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public class TestApproximateCountDistinctLong
         extends AbstractTestApproximateCountDistinct
@@ -26,7 +28,8 @@ public class TestApproximateCountDistinctLong
     @Override
     public InternalAggregationFunction getAggregationFunction()
     {
-        return LONG_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS;
+        return metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("approx_distinct", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), DOUBLE.getTypeSignature()));
     }
 
     @Override
