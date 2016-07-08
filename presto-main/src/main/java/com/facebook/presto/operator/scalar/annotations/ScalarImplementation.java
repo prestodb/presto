@@ -290,12 +290,15 @@ public class ScalarImplementation
             }
 
             SqlType returnType = method.getAnnotation(SqlType.class);
-            requireNonNull(returnType, format("%s is missing @SqlType annotation", method));
+            checkArgument(returnType != null, format("Method [%s] is missing @SqlType annotation", method));
             this.returnType = parseTypeSignature(returnType.value(), literalParameters);
 
             Class<?> actualReturnType = method.getReturnType();
             if (Primitives.isWrapperType(actualReturnType)) {
-                checkArgument(nullable, "Method %s has return value with type %s that is missing @Nullable", method, actualReturnType);
+                checkArgument(nullable, "Method [%s] has wrapper return type %s but is missing @Nullable", method, actualReturnType.getSimpleName());
+            }
+            else if (actualReturnType.isPrimitive()) {
+                checkArgument(!nullable, "Method [%s] annotated with @Nullable has primitive return type %s", method, actualReturnType.getSimpleName());
             }
 
             Stream.of(method.getAnnotationsByType(Constraint.class))
@@ -324,34 +327,34 @@ public class ScalarImplementation
                     continue;
                 }
                 if (containsMetaParameter(annotations)) {
-                    checkArgument(annotations.length == 1, "Meta parameters may only have a single annotation");
-                    checkArgument(argumentTypes.isEmpty(), "Meta parameter must come before parameters");
+                    checkArgument(annotations.length == 1, "Meta parameters may only have a single annotation [%s]", method);
+                    checkArgument(argumentTypes.isEmpty(), "Meta parameter must come before parameters [%s]", method);
                     Annotation annotation = annotations[0];
                     if (annotation instanceof TypeParameter) {
-                        checkArgument(typeParameters.contains(annotation), "Injected type parameters must be declared with @TypeParameter annotation on the method");
+                        checkArgument(typeParameters.contains(annotation), "Injected type parameters must be declared with @TypeParameter annotation on the method [%s]", method);
                     }
                     dependencies.add(parseDependency(annotation));
                 }
                 else {
-                    SqlType type = null;
-                    boolean nullableArgument = false;
-                    for (Annotation annotation : annotations) {
-                        if (annotation instanceof SqlType) {
-                            type = (SqlType) annotation;
-                        }
-                        if (annotation instanceof Nullable) {
-                            nullableArgument = true;
-                        }
-                    }
-                    requireNonNull(type, format("@SqlType annotation missing for argument to %s", method));
+                    SqlType type = Stream.of(annotations)
+                            .filter(SqlType.class::isInstance)
+                            .map(SqlType.class::cast)
+                            .findFirst()
+                            .orElseThrow(() -> new IllegalArgumentException(format("Method [%s] is missing @SqlType annotation for parameter", method)));
+                    boolean nullableArgument = Stream.of(annotations).anyMatch(Nullable.class::isInstance);
+
                     if (Primitives.isWrapperType(parameterType)) {
-                        checkArgument(nullableArgument, "Method %s has parameter with type %s that is missing @Nullable", method, parameterType);
+                        checkArgument(nullableArgument, "Method [%s] has parameter with wrapper type %s that is missing @Nullable", method, parameterType.getSimpleName());
                     }
+                    else if (parameterType.isPrimitive()) {
+                        checkArgument(!nullableArgument, "Method [%s] has parameter with primitive type %s annotated with @Nullable", method, parameterType.getSimpleName());
+                    }
+
                     if (typeParameterNames.contains(type.value()) && !(parameterType == Object.class && nullableArgument)) {
                         // Infer specialization on this type parameter. We don't do this for @Nullable Object because it could match a type like BIGINT
                         Class<?> specialization = specializedTypeParameters.get(type.value());
                         Class<?> nativeParameterType = Primitives.unwrap(parameterType);
-                        checkArgument(specialization == null || specialization.equals(nativeParameterType), "%s has conflicting specializations %s and %s", type.value(), specialization, nativeParameterType);
+                        checkArgument(specialization == null || specialization.equals(nativeParameterType), "Method [%s] type %s has conflicting specializations %s and %s", method, type.value(), specialization, nativeParameterType);
                         specializedTypeParameters.put(type.value(), nativeParameterType);
                     }
                     argumentNativeContainerTypes.add(parameterType);
@@ -369,14 +372,14 @@ public class ScalarImplementation
             }
 
             Constructor<?> constructor = constructors.get(typeParameters);
-            requireNonNull(constructor, format("%s is an instance method and requires a public constructor to be declared with %s type parameters", method.getName(), typeParameters));
+            checkArgument(constructor != null, "Method [%s] is an instance method and requires a public constructor to be declared with %s type parameters", method, typeParameters);
             for (int i = 0; i < constructor.getParameterCount(); i++) {
                 Annotation[] annotations = constructor.getParameterAnnotations()[i];
-                checkArgument(containsMetaParameter(annotations), "Constructors may only have meta parameters");
-                checkArgument(annotations.length == 1, "Meta parameters may only have a single annotation");
+                checkArgument(containsMetaParameter(annotations), "Constructors may only have meta parameters [%s]", constructor);
+                checkArgument(annotations.length == 1, "Meta parameters may only have a single annotation [%s]", constructor);
                 Annotation annotation = annotations[0];
                 if (annotation instanceof TypeParameter) {
-                    checkArgument(typeParameters.contains(annotation), "Injected type parameters must be declared with @TypeParameter annotation on the constructor");
+                    checkArgument(typeParameters.contains(annotation), "Injected type parameters must be declared with @TypeParameter annotation on the constructor [%s]", constructor);
                 }
                 constructorDependencies.add(parseDependency(annotation));
             }
@@ -396,9 +399,10 @@ public class ScalarImplementation
                     .map(TypeParameter::value)
                     .collect(toImmutableSet());
             for (TypeParameterSpecialization specialization : typeParameterSpecializations) {
-                checkArgument(typeParameterNames.contains(specialization.name()), "%s does not match any declared type parameters (%s)", specialization.name(), typeParameters);
+                checkArgument(typeParameterNames.contains(specialization.name()), "%s does not match any declared type parameters (%s) [%s]", specialization.name(), typeParameters, method);
                 Class<?> existingSpecialization = specializedTypeParameters.get(specialization.name());
-                checkArgument(existingSpecialization == null || existingSpecialization.equals(specialization.nativeContainerType()), "%s has conflicting specializations %s and %s", specialization.name(), existingSpecialization, specialization.nativeContainerType());
+                checkArgument(existingSpecialization == null || existingSpecialization.equals(specialization.nativeContainerType()),
+                        "%s has conflicting specializations %s and %s [%s]", specialization.name(), existingSpecialization, specialization.nativeContainerType(), method);
                 specializedTypeParameters.put(specialization.name(), specialization.nativeContainerType());
             }
             return specializedTypeParameters;

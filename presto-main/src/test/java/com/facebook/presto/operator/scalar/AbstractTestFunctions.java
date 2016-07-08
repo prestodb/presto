@@ -144,6 +144,15 @@ public abstract class AbstractTestFunctions
         metadata.getFunctionRegistry().addFunctions(functions);
     }
 
+    protected void registerParametricScalar(Class<?> clazz)
+    {
+        Metadata metadata = functionAssertions.getMetadata();
+        List<SqlFunction> functions = new FunctionListBuilder()
+                .scalar(clazz)
+                .getFunctions();
+        metadata.getFunctionRegistry().addFunctions(functions);
+    }
+
     protected SqlDecimal decimal(String decimalString)
     {
         DecimalParseResult parseResult = Decimals.parseIncludeLeadingZerosInPrecision(decimalString);
