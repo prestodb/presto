@@ -2,6 +2,12 @@
 Release 0.150
 =============
 
+.. warning::
+
+    The Hive bucketing changes are broken in this release. You should
+    disable them by adding ``hive.bucket-execution=false`` and
+    ``hive.bucket-writing=false`` to your Hive catalog properties.
+
 General Changes
 ---------------
 
