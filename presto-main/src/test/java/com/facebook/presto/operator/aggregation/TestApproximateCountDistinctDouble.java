@@ -17,12 +17,20 @@ import com.facebook.presto.spi.type.Type;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregations.DOUBLE_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS;
+import com.google.common.collect.ImmutableList;
+
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.testing.AggregationTestUtils.generateInternalAggregationFunction;
 
 public class TestApproximateCountDistinctDouble
         extends AbstractTestApproximateCountDistinct
 {
+    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS =
+            generateInternalAggregationFunction(
+                    ApproximateCountDistinctAggregations.class,
+                    BIGINT.getTypeSignature(),
+                    ImmutableList.of(DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
     @Override
     public InternalAggregationFunction getAggregationFunction()
     {

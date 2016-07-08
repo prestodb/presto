@@ -13,17 +13,30 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.type.TypeRegistry;
+import com.google.common.collect.ImmutableList;
+
 import io.airlift.slice.Slices;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregations.VARBINARY_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.testing.AggregationTestUtils.generateInternalAggregationFunction;
 
 public class TestApproximateCountDistinctVarBinary
         extends AbstractTestApproximateCountDistinct
 {
+    public static final InternalAggregationFunction VARBINARY_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS =
+      generateInternalAggregationFunction(
+              ApproximateCountDistinctAggregations.class,
+              BIGINT.getTypeSignature(),
+              ImmutableList.of(VarcharType.getParametrizedVarcharSignature("x"), DOUBLE.getTypeSignature()),
+              new TypeRegistry(), BoundVariables.builder().setLongVariable("x", (long) Integer.MAX_VALUE).build(), 1);
+
     @Override
     public InternalAggregationFunction getAggregationFunction()
     {
