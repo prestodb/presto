@@ -13,16 +13,14 @@
  */
 package com.facebook.presto.atop;
 
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.node.NodeConfig;
 
-import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -31,8 +29,6 @@ import static java.util.Objects.requireNonNull;
 public class AtopPlugin
         implements Plugin
 {
-    private TypeManager typeManager;
-    private NodeManager nodeManager;
     private Map<String, String> optionalConfig = ImmutableMap.of();
 
     @Override
@@ -42,25 +38,15 @@ public class AtopPlugin
     }
 
     @Override
-    public void setTypeManager(TypeManager typeManager)
+    public Iterable<ConnectorFactory> getConnectorFactories(ConnectorFactoryContext context)
     {
-        this.typeManager = typeManager;
-    }
-
-    @Override
-    public void setNodeManager(NodeManager nodeManager)
-    {
-        this.nodeManager = nodeManager;
-    }
-
-    @Override
-    public <T> List<T> getServices(Class<T> type)
-    {
-        NodeConfig nodeConfig = new ConfigurationFactory(optionalConfig).build(NodeConfig.class);
-        if (type == ConnectorFactory.class) {
-            return ImmutableList.of(type.cast(new AtopConnectorFactory(AtopProcessFactory.class, optionalConfig, getClassLoader(), typeManager, nodeManager, nodeConfig)));
-        }
-        return ImmutableList.of();
+        return ImmutableList.of(new AtopConnectorFactory(
+                AtopProcessFactory.class,
+                optionalConfig,
+                getClassLoader(),
+                context.getTypeManager(),
+                context.getNodeManager(),
+                new ConfigurationFactory(optionalConfig).build(NodeConfig.class)));
     }
 
     private static ClassLoader getClassLoader()

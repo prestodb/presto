@@ -17,13 +17,11 @@ import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControlManager;
-import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.PageIndexerFactory;
-import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.Type;
@@ -84,9 +82,7 @@ public class PluginManager
     private final AccessControlManager accessControlManager;
     private final BlockEncodingManager blockEncodingManager;
     private final TypeRegistry typeRegistry;
-    private final NodeManager nodeManager;
-    private final PageSorter pageSorter;
-    private final PageIndexerFactory pageIndexerFactory;
+    private final ConnectorFactoryContext connectorFactoryContext;
     private final ArtifactResolver resolver;
     private final File installedPluginsDir;
     private final List<String> plugins;
@@ -105,9 +101,7 @@ public class PluginManager
             AccessControlManager accessControlManager,
             BlockEncodingManager blockEncodingManager,
             TypeRegistry typeRegistry,
-            NodeManager nodeManager,
-            PageSorter pageSorter,
-            PageIndexerFactory pageIndexerFactory)
+            ConnectorFactoryContext connectorFactoryContext)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(httpServerInfo, "httpServerInfo is null");
@@ -134,9 +128,7 @@ public class PluginManager
         this.accessControlManager = requireNonNull(accessControlManager, "accessControlManager is null");
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
-        this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
+        this.connectorFactoryContext = requireNonNull(connectorFactoryContext, "connectorFactoryContext is null");
     }
 
     public boolean arePluginsLoaded()
@@ -195,12 +187,6 @@ public class PluginManager
 
     public void installPlugin(Plugin plugin)
     {
-        plugin.setNodeManager(nodeManager);
-        plugin.setTypeManager(typeRegistry);
-        plugin.setBlockEncodingSerde(blockEncodingManager);
-        plugin.setPageSorter(pageSorter);
-        plugin.setPageIndexerFactory(pageIndexerFactory);
-
         plugin.setOptionalConfig(optionalConfig);
 
         for (BlockEncodingFactory<?> blockEncodingFactory : plugin.getServices(BlockEncodingFactory.class)) {
@@ -218,12 +204,12 @@ public class PluginManager
             typeRegistry.addParametricType(parametricType);
         }
 
-        for (com.facebook.presto.spi.ConnectorFactory connectorFactory : plugin.getServices(com.facebook.presto.spi.ConnectorFactory.class)) {
+        for (com.facebook.presto.spi.ConnectorFactory connectorFactory : plugin.getLegacyConnectorFactories(connectorFactoryContext)) {
             log.info("Registering legacy connector %s", connectorFactory.getName());
             connectorManager.addConnectorFactory(connectorFactory);
         }
 
-        for (ConnectorFactory connectorFactory : plugin.getServices(ConnectorFactory.class)) {
+        for (ConnectorFactory connectorFactory : plugin.getConnectorFactories(connectorFactoryContext)) {
             log.info("Registering connector %s", connectorFactory.getName());
             connectorManager.addConnectorFactory(connectorFactory);
         }

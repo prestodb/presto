@@ -13,11 +13,9 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
@@ -27,7 +25,6 @@ import java.util.Map;
 import java.util.ServiceLoader;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
@@ -40,9 +37,6 @@ public class RaptorPlugin
     private final Map<String, Module> backupProviders;
 
     private Map<String, String> optionalConfig = ImmutableMap.of();
-    private NodeManager nodeManager;
-    private PageSorter pageSorter;
-    private TypeManager typeManager;
 
     public RaptorPlugin()
     {
@@ -69,40 +63,16 @@ public class RaptorPlugin
     }
 
     @Override
-    public void setNodeManager(NodeManager nodeManager)
+    public Iterable<ConnectorFactory> getConnectorFactories(ConnectorFactoryContext context)
     {
-        this.nodeManager = nodeManager;
-    }
-
-    @Override
-    public void setPageSorter(PageSorter pageSorter)
-    {
-        this.pageSorter = pageSorter;
-    }
-
-    @Override
-    public void setTypeManager(TypeManager typeManager)
-    {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-    }
-
-    @Override
-    public <T> List<T> getServices(Class<T> type)
-    {
-        checkState(nodeManager != null, "NodeManager has not been set");
-        checkState(typeManager != null, "TypeManager has not been set");
-
-        if (type == ConnectorFactory.class) {
-            return ImmutableList.of(type.cast(new RaptorConnectorFactory(
-                    name,
-                    metadataModule,
-                    backupProviders,
-                    optionalConfig,
-                    nodeManager,
-                    pageSorter,
-                    typeManager)));
-        }
-        return ImmutableList.of();
+        return ImmutableList.of(new RaptorConnectorFactory(
+                name,
+                metadataModule,
+                backupProviders,
+                optionalConfig,
+                context.getNodeManager(),
+                context.getPageSorter(),
+                context.getTypeManager()));
     }
 
     private static PluginInfo getPluginInfo()
