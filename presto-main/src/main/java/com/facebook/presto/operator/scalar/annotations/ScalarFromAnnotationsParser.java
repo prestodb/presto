@@ -20,6 +20,7 @@ import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.SqlType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
@@ -66,7 +67,13 @@ public final class ScalarFromAnnotationsParser
         checkArgument(!classHeaders.isEmpty(), "Class that defines function must be annotated with @ScalarFunction or @ScalarOperator.");
 
         for (ScalarImplementationHeader header : classHeaders) {
-            builder.add(new ScalarHeaderAndMethods(header, findPublicMethodsWithAnnotation(annotated, SqlType.class)));
+            Set<Method> methods = findPublicMethodsWithAnnotation(annotated, SqlType.class, ScalarFunction.class, ScalarOperator.class);
+            checkArgument(!methods.isEmpty(), "Parametric class %s does not have any annotated methods", annotated.getName());
+            for (Method method : methods) {
+                checkArgument(method.getAnnotation(ScalarFunction.class) == null, "Parametric class method [%s] is annotated with @ScalarFunction", method);
+                checkArgument(method.getAnnotation(ScalarOperator.class) == null, "Parametric class method [%s] is annotated with @ScalarOperator", method);
+            }
+            builder.add(new ScalarHeaderAndMethods(header, methods));
         }
 
         return builder.build();
@@ -75,9 +82,11 @@ public final class ScalarFromAnnotationsParser
     private static List<ScalarHeaderAndMethods> findScalarsInFunctionSetClass(Class<?> annotated)
     {
         ImmutableList.Builder<ScalarHeaderAndMethods> builder = ImmutableList.builder();
-        for (Method method : findPublicMethodsWithAnnotation(annotated, SqlType.class)) {
+        for (Method method : findPublicMethodsWithAnnotation(annotated, SqlType.class, ScalarFunction.class, ScalarOperator.class)) {
+            checkArgument((method.getAnnotation(ScalarFunction.class) != null) || (method.getAnnotation(ScalarOperator.class) != null),
+                    "Method [%s] annotated with @SqlType is missing @ScalarFunction or @ScalarOperator", method);
             for (ScalarImplementationHeader header : ScalarImplementationHeader.fromAnnotatedElement(method)) {
-                builder.add(new ScalarHeaderAndMethods(header, ImmutableList.of(method)));
+                builder.add(new ScalarHeaderAndMethods(header, ImmutableSet.of(method)));
             }
         }
         return builder.build();
@@ -142,14 +151,17 @@ public final class ScalarFromAnnotationsParser
         return builder.build();
     }
 
-    private static List<Method> findPublicMethodsWithAnnotation(Class<?> clazz, Class<?> annotationClass)
+    @SafeVarargs
+    private static Set<Method> findPublicMethodsWithAnnotation(Class<?> clazz, Class<? extends Annotation>... annotationClasses)
     {
-        ImmutableList.Builder<Method> methods = ImmutableList.builder();
-        for (Method method : clazz.getMethods()) {
+        ImmutableSet.Builder<Method> methods = ImmutableSet.builder();
+        for (Method method : clazz.getDeclaredMethods()) {
             for (Annotation annotation : method.getAnnotations()) {
-                if (annotationClass.isInstance(annotation)) {
-                    checkArgument(Modifier.isPublic(method.getModifiers()), "%s annotated with %s must be public", method.getName(), annotationClass.getSimpleName());
-                    methods.add(method);
+                for (Class<?> annotationClass : annotationClasses) {
+                    if (annotationClass.isInstance(annotation)) {
+                        checkArgument(Modifier.isPublic(method.getModifiers()), "Method [%s] annotated with @%s must be public", method, annotationClass.getSimpleName());
+                        methods.add(method);
+                    }
                 }
             }
         }
@@ -159,9 +171,9 @@ public final class ScalarFromAnnotationsParser
     private static class ScalarHeaderAndMethods
     {
         private final ScalarImplementationHeader header;
-        private final List<Method> methods;
+        private final Set<Method> methods;
 
-        public ScalarHeaderAndMethods(ScalarImplementationHeader header, List<Method> methods)
+        public ScalarHeaderAndMethods(ScalarImplementationHeader header, Set<Method> methods)
         {
             this.header = requireNonNull(header);
             this.methods = requireNonNull(methods);
@@ -172,7 +184,7 @@ public final class ScalarFromAnnotationsParser
             return header;
         }
 
-        public List<Method> getMethods()
+        public Set<Method> getMethods()
         {
             return methods;
         }
