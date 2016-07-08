@@ -32,7 +32,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.metadata.OperatorType.validateOperator;
+import static com.facebook.presto.operator.scalar.annotations.OperatorValidator.validateOperator;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
