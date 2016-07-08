@@ -14,9 +14,9 @@ Concatenation Operator: ||
 
 The ``||`` operator is used to concatenate an array with an array or an element of the same type::
 
-    SELECT ARRAY [1] || ARRAY [2]; => [1, 2]
-    SELECT ARRAY [1] || 2; => [1, 2]
-    SELECT 2 || ARRAY [1]; => [2, 1]
+    SELECT ARRAY [1] || ARRAY [2]; -- [1, 2]
+    SELECT ARRAY [1] || 2; -- [1, 2]
+    SELECT 2 || ARRAY [1]; -- [2, 1]
 
 Array Functions
 ---------------
@@ -102,4 +102,4 @@ Array Functions
     the N-th argument will be the N-th field of the M-th output element.
     If the arguments have an uneven length, missing values are filled with ``NULL``. ::
 
-        SELECT zip(ARRAY[1, 2], ARRAY['1b', null, '3b']); => [ROW(1, '1b'), ROW(2, null), ROW(null, '3b')]
+        SELECT zip(ARRAY[1, 2], ARRAY['1b', null, '3b']); -- [ROW(1, '1b'), ROW(2, null), ROW(null, '3b')]
