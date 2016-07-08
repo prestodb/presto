@@ -299,9 +299,8 @@ public class ScalarImplementation
             }
 
             Stream.of(method.getAnnotationsByType(Constraint.class))
-                    .forEach(
-                            annotation -> longVariableConstraints.add(new LongVariableConstraint(annotation.variable(), annotation.expression()))
-                    );
+                    .map(annotation -> new LongVariableConstraint(annotation.variable(), annotation.expression()))
+                    .forEach(longVariableConstraints::add);
 
             this.specializedTypeParameters = getDeclaredSpecializedTypeParameters(method);
 
