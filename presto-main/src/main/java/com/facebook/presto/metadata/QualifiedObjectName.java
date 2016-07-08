@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
@@ -72,6 +73,11 @@ public class QualifiedObjectName
     public SchemaTableName asSchemaTableName()
     {
         return new SchemaTableName(schemaName, objectName);
+    }
+
+    public CatalogSchemaTableName asCatalogSchemaTableName()
+    {
+        return new CatalogSchemaTableName(catalogName, schemaName, objectName);
     }
 
     @Override

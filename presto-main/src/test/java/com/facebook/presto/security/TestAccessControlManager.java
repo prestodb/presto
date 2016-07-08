@@ -14,6 +14,7 @@
 package com.facebook.presto.security;
 
 import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.Connector;
@@ -84,7 +85,10 @@ public class TestAccessControlManager
     {
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
-        accessControlManager.setSystemAccessControl(ALLOW_ALL_ACCESS_CONTROL, ImmutableMap.<String, String>of());
+
+        TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
+        accessControlManager.addSystemAccessControlFactory(accessControlFactory);
+        accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
 
         transaction(transactionManager)
                 .execute(transactionId -> {
@@ -98,7 +102,10 @@ public class TestAccessControlManager
     {
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
-        accessControlManager.setSystemAccessControl(ALLOW_ALL_ACCESS_CONTROL, ImmutableMap.<String, String>of());
+
+        TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
+        accessControlManager.addSystemAccessControlFactory(accessControlFactory);
+        accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
 
         registerBogusConnector(transactionManager, "connector");
         accessControlManager.addCatalogAccessControl("connector", "catalog", new DenyConnectorAccessControl());
@@ -106,6 +113,26 @@ public class TestAccessControlManager
         transaction(transactionManager)
                 .execute(transactionId -> {
                     accessControlManager.checkCanSelectFromTable(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)), new QualifiedObjectName("catalog", "schema", "table"));
+                });
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Access Denied: Cannot select from table secured_catalog.schema.table")
+    public void testDenySystemAccessControl()
+            throws Exception
+    {
+        TransactionManager transactionManager = createTestTransactionManager();
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
+
+        TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
+        accessControlManager.addSystemAccessControlFactory(accessControlFactory);
+        accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
+
+        registerBogusConnector(transactionManager, "connector");
+        accessControlManager.addCatalogAccessControl("connector", "secured_catalog", new DenyConnectorAccessControl());
+
+        transaction(transactionManager)
+                .execute(transactionId -> {
+                    accessControlManager.checkCanSelectFromTable(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)), new QualifiedObjectName("secured_catalog", "schema", "table"));
                 });
     }
 
@@ -186,6 +213,14 @@ public class TestAccessControlManager
                 public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
                 {
                     throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public void checkCanSelectFromTable(Identity identity, CatalogSchemaTableName table)
+                {
+                    if (table.getCatalogName().equals("secured_catalog")) {
+                        denySelectTable(table.toString());
+                    }
                 }
             };
         }
