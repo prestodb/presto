@@ -14,15 +14,23 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregations.LONG_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.testing.AggregationTestUtils.generateInternalAggregationFunction;
 
 public class TestApproximateCountDistinctLong
         extends AbstractTestApproximateCountDistinct
 {
+    public static final InternalAggregationFunction LONG_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS =
+      generateInternalAggregationFunction(
+              ApproximateCountDistinctAggregations.class,
+              BIGINT.getTypeSignature(),
+              ImmutableList.of(BIGINT.getTypeSignature(), DOUBLE.getTypeSignature()));
+
     @Override
     public InternalAggregationFunction getAggregationFunction()
     {
