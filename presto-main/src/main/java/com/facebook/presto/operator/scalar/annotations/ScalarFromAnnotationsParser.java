@@ -36,17 +36,15 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
-public class ScalarFromAnnotationsParser
+public final class ScalarFromAnnotationsParser
 {
-    private ScalarFromAnnotationsParser()
-    {
-    }
+    private ScalarFromAnnotationsParser() {}
 
     public static List<SqlScalarFunction> parseFunctionDefinition(Class<?> clazz)
     {
         ImmutableList.Builder<SqlScalarFunction> builder = ImmutableList.builder();
         for (ScalarHeaderAndMethods scalar : findScalarsInFunctionDefinitionClass(clazz)) {
-            builder.add(parseParametricScalar(scalar, findConstructors(clazz), clazz.getSimpleName()));
+            builder.add(parseParametricScalar(scalar, findConstructors(clazz)));
         }
         return builder.build();
     }
@@ -55,12 +53,12 @@ public class ScalarFromAnnotationsParser
     {
         ImmutableList.Builder<SqlScalarFunction> builder = ImmutableList.builder();
         for (ScalarHeaderAndMethods methods : findScalarsInFunctionSetClass(clazz)) {
-            builder.add(parseParametricScalar(methods, findConstructors(clazz), clazz.getSimpleName()));
+            builder.add(parseParametricScalar(methods, findConstructors(clazz)));
         }
         return builder.build();
     }
 
-    private static List<ScalarHeaderAndMethods> findScalarsInFunctionDefinitionClass(Class annotated)
+    private static List<ScalarHeaderAndMethods> findScalarsInFunctionDefinitionClass(Class<?> annotated)
     {
         ImmutableList.Builder<ScalarHeaderAndMethods> builder = ImmutableList.builder();
         List<ScalarImplementationHeader> classHeaders = ScalarImplementationHeader.fromAnnotatedElement(annotated);
@@ -73,7 +71,7 @@ public class ScalarFromAnnotationsParser
         return builder.build();
     }
 
-    private static List<ScalarHeaderAndMethods> findScalarsInFunctionSetClass(Class annotated)
+    private static List<ScalarHeaderAndMethods> findScalarsInFunctionSetClass(Class<?> annotated)
     {
         ImmutableList.Builder<ScalarHeaderAndMethods> builder = ImmutableList.builder();
         for (Method method : findPublicMethodsWithAnnotation(annotated, SqlType.class)) {
@@ -84,7 +82,7 @@ public class ScalarFromAnnotationsParser
         return builder.build();
     }
 
-    private static SqlScalarFunction parseParametricScalar(ScalarHeaderAndMethods scalar, Map<Set<TypeParameter>, Constructor<?>> constructors, String objectName)
+    private static SqlScalarFunction parseParametricScalar(ScalarHeaderAndMethods scalar, Map<Set<TypeParameter>, Constructor<?>> constructors)
     {
         ImmutableMap.Builder<Signature, ScalarImplementation> exactImplementations = ImmutableMap.builder();
         ImmutableList.Builder<ScalarImplementation> specializedImplementations = ImmutableList.builder();
@@ -101,7 +99,8 @@ public class ScalarFromAnnotationsParser
                 exactImplementations.put(implementation.getSignature(), implementation);
                 continue;
             }
-            else if (implementation.hasSpecializedTypeParameters()) {
+
+            if (implementation.hasSpecializedTypeParameters()) {
                 specializedImplementations.add(implementation);
             }
             else {
