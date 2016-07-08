@@ -41,14 +41,14 @@ The statement shown above is equivalent to the following statement::
 The presence of NULL in a ``BETWEEN`` or ``NOT BETWEEN`` statement
 will result in the statement evaluating to NULL::
 
-    SELECT NULL BETWEEN 2 AND 4; => null
+    SELECT NULL BETWEEN 2 AND 4; -- null
 
-    SELECT 2 BETWEEN NULL AND 6; => null
+    SELECT 2 BETWEEN NULL AND 6; -- null
 
 The ``BETWEEN`` and ``NOT BETWEEN`` operators can also be used to
 evaluate string arguments::
 
-    SELECT 'Paul' BETWEEN 'John' AND 'Ringo'; => true
+    SELECT 'Paul' BETWEEN 'John' AND 'Ringo'; -- true
 
 Not that the value, min, and max parameters to ``BETWEEN`` and ``NOT
 BETWEEN`` must be the same type.  For example, Presto will produce an
@@ -61,11 +61,11 @@ is null (undefined).  Both operators work for all data types.
 
 Using ``NULL`` with ``IS NULL`` evaluates to true::
 
-    select NULL IS NULL; => true
+    select NULL IS NULL; -- true
 
 But any other constant does not::
 
-    SELECT 3.0 IS NULL; => false
+    SELECT 3.0 IS NULL; -- false
 
 IS DISTINCT FROM and IS NOT DISTINCT FROM
 -----------------------------------------
@@ -76,9 +76,9 @@ and ``IS NOT DISTINCT FROM`` operators treat ``NULL`` as a known value
 and both operators guarantee either a true or false outcome even in
 the presence of ``NULL`` input::
 
-    SELECT NULL IS DISTINCT FROM NULL; => false
+    SELECT NULL IS DISTINCT FROM NULL; -- false
 
-    SELECT NULL IS NOT DISTINCT FROM NULL; => true
+    SELECT NULL IS NOT DISTINCT FROM NULL; -- true
 
 In the example shown above, a ``NULL`` value is not considered
 distinct from ``NULL``.  When you are comparing values which may

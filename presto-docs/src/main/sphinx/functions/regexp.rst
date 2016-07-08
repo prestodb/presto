@@ -46,28 +46,28 @@ with a few notable exceptions:
     Returns the substring(s) matched by the regular expression ``pattern``
     in ``string``::
 
-        SELECT regexp_extract_all('1a 2b 14m', '\d+'); => [1, 2, 14]
+        SELECT regexp_extract_all('1a 2b 14m', '\d+'); -- [1, 2, 14]
 
 .. function:: regexp_extract_all(string, pattern, group) -> array<varchar>
 
     Finds all occurrences of the regular expression ``pattern`` in ``string``
     and returns the `capturing group number`_ ``group``::
 
-        SELECT regexp_extract_all('1a 2b 14m', '(\d+)([a-z]+)', 2); => ['a', 'b', 'm']
+        SELECT regexp_extract_all('1a 2b 14m', '(\d+)([a-z]+)', 2); -- ['a', 'b', 'm']
 
 .. function:: regexp_extract(string, pattern) -> varchar
 
     Returns the first substring matched by the regular expression ``pattern``
     in ``string``::
 
-        SELECT regexp_extract('1a 2b 14m', '\d+'); => 1
+        SELECT regexp_extract('1a 2b 14m', '\d+'); -- 1
 
 .. function:: regexp_extract(string, pattern, group) -> varchar
 
     Finds the first occurrence of the regular expression ``pattern`` in
     ``string`` and returns the `capturing group number`_ ``group``::
 
-        SELECT regexp_extract('1a 2b 14m', '(\d+)([a-z]+)', 2); => 'a'
+        SELECT regexp_extract('1a 2b 14m', '(\d+)([a-z]+)', 2); -- 'a'
 
 .. function:: regexp_like(string, pattern) -> boolean
 
@@ -80,14 +80,14 @@ with a few notable exceptions:
     *contains* operation rather than a *match* operation. You can match
     the entire string by anchoring the pattern using ``^`` and ``$``::
 
-        SELECT regexp_like('1a 2b 14m', '\d+b'); => true
+        SELECT regexp_like('1a 2b 14m', '\d+b'); -- true
 
 .. function:: regexp_replace(string, pattern) -> varchar
 
     Removes every instance of the substring matched by the regular expression
     ``pattern`` from ``string``::
 
-        SELECT regexp_replace('1a 2b 14m', '\d+[ab] '); => '14m'
+        SELECT regexp_replace('1a 2b 14m', '\d+[ab] '); -- '14m'
 
 .. function:: regexp_replace(string, pattern, replacement) -> varchar
 
@@ -97,11 +97,11 @@ with a few notable exceptions:
     ``${name}`` for a named group. A dollar sign (``$``) may be included in the
     replacement by escaping it with a backslash (``\$``)::
 
-        SELECT regexp_replace('1a 2b 14m', '(\d+)([ab]) ', '3c$2 '); => '3ca 3cb 14m'
+        SELECT regexp_replace('1a 2b 14m', '(\d+)([ab]) ', '3c$2 '); -- '3ca 3cb 14m'
 
 .. function:: regexp_split(string, pattern) -> array<varchar>
 
     Splits ``string`` using the regular expression ``pattern`` and returns an
     array. Trailing empty strings are preserved::
 
-        SELECT regexp_split('1a 2b 14m', '\s*[a-z]+\s*'); => [1, 2, 14, ]
+        SELECT regexp_split('1a 2b 14m', '\s*[a-z]+\s*'); -- [1, 2, 14, ]
