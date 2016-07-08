@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar.annotations;
 
+import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.operator.scalar.ScalarHeader;
 import com.google.common.collect.ImmutableList;
@@ -31,11 +32,20 @@ import static java.util.Objects.requireNonNull;
 public class ScalarImplementationHeader
 {
     private final String name;
+    private final Optional<OperatorType> operatorType;
     private final ScalarHeader header;
 
     private ScalarImplementationHeader(String name, ScalarHeader header)
     {
         this.name = requireNonNull(name);
+        this.operatorType = Optional.empty();
+        this.header = requireNonNull(header);
+    }
+
+    private ScalarImplementationHeader(OperatorType operatorType, ScalarHeader header)
+    {
+        this.name = mangleOperatorName(operatorType);
+        this.operatorType = Optional.of(operatorType);
         this.header = requireNonNull(header);
     }
 
@@ -80,7 +90,7 @@ public class ScalarImplementationHeader
         }
 
         if (scalarOperator != null) {
-            builder.add(new ScalarImplementationHeader(mangleOperatorName(scalarOperator.value()), new ScalarHeader(description, true, true)));
+            builder.add(new ScalarImplementationHeader(scalarOperator.value(), new ScalarHeader(description, true, true)));
         }
 
         List<ScalarImplementationHeader> result = builder.build();
@@ -91,6 +101,11 @@ public class ScalarImplementationHeader
     public String getName()
     {
         return name;
+    }
+
+    public Optional<OperatorType> getOperatorType()
+    {
+        return operatorType;
     }
 
     public Optional<String> getDescription()

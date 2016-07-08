@@ -201,6 +201,11 @@ public enum OperatorType
 
     abstract void validateSignature(TypeSignature returnType, List<TypeSignature> argumentTypes);
 
+    public static void validateOperator(OperatorType operatorType, TypeSignature returnType, List<TypeSignature> argumentTypes)
+    {
+        operatorType.validateSignature(returnType, argumentTypes);
+    }
+
     private static void validateOperatorSignature(OperatorType operatorType, TypeSignature returnType, List<TypeSignature> argumentTypes, int expectedArgumentCount)
     {
         String signature = formatSignature(operatorType, returnType, argumentTypes);
