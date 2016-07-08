@@ -32,6 +32,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.metadata.OperatorType.validateOperator;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
@@ -111,14 +112,14 @@ public final class ScalarFromAnnotationsParser
             validateSignature(signature, implementation.getSignature());
         }
 
-        Map<Signature, ScalarImplementation> exactImplementationsMap = exactImplementations.build();
-        if (!signature.isPresent()) {
-            signature = Optional.of(getOnlyElement(exactImplementationsMap.entrySet()).getKey());
-        }
+        Signature scalarSignature = signature.orElseGet(() -> getOnlyElement(exactImplementations.build().keySet()));
+
+        header.getOperatorType().ifPresent(operatorType ->
+                validateOperator(operatorType, scalarSignature.getReturnType(), scalarSignature.getArgumentTypes()));
 
         ScalarImplementations implementations = new ScalarImplementations(exactImplementations.build(), specializedImplementations.build(), genericImplementations.build());
 
-        return new ParametricScalar(signature.get(), header.getHeader(), implementations);
+        return new ParametricScalar(scalarSignature, header.getHeader(), implementations);
     }
 
     private static void validateSignature(Optional<Signature> signatureOld, Signature signatureNew)
