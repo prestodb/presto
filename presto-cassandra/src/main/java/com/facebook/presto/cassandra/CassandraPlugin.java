@@ -15,10 +15,10 @@ package com.facebook.presto.cassandra;
 
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-import java.util.List;
 import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
@@ -35,11 +35,8 @@ public class CassandraPlugin
     }
 
     @Override
-    public <T> List<T> getServices(Class<T> type)
+    public Iterable<ConnectorFactory> getConnectorFactories(ConnectorFactoryContext context)
     {
-        if (type == ConnectorFactory.class) {
-            return ImmutableList.of(type.cast(new CassandraConnectorFactory("cassandra", optionalConfig)));
-        }
-        return ImmutableList.of();
+        return ImmutableList.of(new CassandraConnectorFactory("cassandra", optionalConfig));
     }
 }

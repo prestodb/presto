@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.spi;
 
-import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 
 import java.util.List;
 import java.util.Map;
@@ -27,15 +27,15 @@ public interface Plugin
 {
     default void setOptionalConfig(Map<String, String> optionalConfig) {}
 
-    default void setTypeManager(TypeManager typeManager) {}
+    default Iterable<com.facebook.presto.spi.ConnectorFactory> getLegacyConnectorFactories(ConnectorFactoryContext context)
+    {
+        return emptyList();
+    }
 
-    default void setNodeManager(NodeManager nodeManager) {}
-
-    default void setBlockEncodingSerde(BlockEncodingSerde blockEncodingSerde) {}
-
-    default void setPageSorter(PageSorter pageSorter) {}
-
-    default void setPageIndexerFactory(PageIndexerFactory pageIndexerFactory) {}
+    default Iterable<ConnectorFactory> getConnectorFactories(ConnectorFactoryContext context)
+    {
+        return emptyList();
+    }
 
     default Set<Class<?>> getFunctions()
     {

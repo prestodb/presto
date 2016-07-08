@@ -13,33 +13,17 @@
  */
 package com.facebook.presto.localfile;
 
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 import com.google.common.collect.ImmutableList;
-
-import java.util.List;
-
-import static java.util.Objects.requireNonNull;
 
 public class LocalFilePlugin
         implements Plugin
 {
-    private NodeManager nodeManager;
-
     @Override
-    public void setNodeManager(NodeManager nodeManager)
+    public Iterable<ConnectorFactory> getConnectorFactories(ConnectorFactoryContext context)
     {
-        this.nodeManager = nodeManager;
-    }
-
-    @Override
-    public <T> List<T> getServices(Class<T> type)
-    {
-        if (type == ConnectorFactory.class) {
-            requireNonNull(nodeManager, "nodeManager is null");
-            return ImmutableList.of(type.cast(new LocalFileConnectorFactory(nodeManager)));
-        }
-        return ImmutableList.of();
+        return ImmutableList.of(new LocalFileConnectorFactory(context.getNodeManager()));
     }
 }

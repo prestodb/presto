@@ -15,8 +15,8 @@ package com.facebook.presto.mongodb;
 
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -32,18 +32,11 @@ public class MongoPlugin
         implements Plugin
 {
     private Map<String, String> optionalConfig = ImmutableMap.of();
-    private TypeManager typeManager;
 
     @Override
     public void setOptionalConfig(Map<String, String> optionalConfig)
     {
         this.optionalConfig = ImmutableMap.copyOf(requireNonNull(optionalConfig, "optionalConfig is null"));
-    }
-
-    @Override
-    public synchronized void setTypeManager(TypeManager typeManager)
-    {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
@@ -53,11 +46,14 @@ public class MongoPlugin
     }
 
     @Override
+    public Iterable<ConnectorFactory> getLegacyConnectorFactories(ConnectorFactoryContext context)
+    {
+        return ImmutableList.of(new MongoConnectorFactory("mongodb", context.getTypeManager(), optionalConfig));
+    }
+
+    @Override
     public <T> List<T> getServices(Class<T> type)
     {
-        if (type == ConnectorFactory.class) {
-            return ImmutableList.of(type.cast(new MongoConnectorFactory("mongodb", typeManager, optionalConfig)));
-        }
         if (type == Type.class) {
             return ImmutableList.of(type.cast(OBJECT_ID));
         }
