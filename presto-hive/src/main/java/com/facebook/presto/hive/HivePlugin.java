@@ -22,8 +22,6 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-import javax.inject.Inject;
-
 import java.util.List;
 import java.util.Map;
 
@@ -53,19 +51,19 @@ public class HivePlugin
         this.metastore = metastore;
     }
 
-    @Inject
+    @Override
     public void setTypeManager(TypeManager typeManager)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
-    @Inject
+    @Override
     public void setPageIndexerFactory(PageIndexerFactory pageIndexerFactory)
     {
         this.pageIndexerFactory = pageIndexerFactory;
     }
 
-    @Inject
+    @Override
     public void setNodeManager(NodeManager nodeManager)
     {
         this.nodeManager = nodeManager;
