@@ -472,6 +472,13 @@ public class PredicatePushDown
                     joinConjuncts.add(conjunct);
                 }
             }
+
+            // Push outer and join equalities into the inner side. For example:
+            // SELECT * FROM nation LEFT OUTER JOIN region ON nation.regionkey = region.regionkey and nation.name = region.name WHERE nation.name = 'blah'
+
+            EqualityInference potentialNullSymbolInferenceWithoutInnerInferred = createEqualityInference(outerOnlyInheritedEqualities, outerEffectivePredicate, joinPredicate);
+            innerPushdownConjuncts.addAll(potentialNullSymbolInferenceWithoutInnerInferred.generateEqualitiesPartitionedBy(not(in(outerSymbols))).getScopeEqualities());
+
             // TODO: we can further improve simplifying the equalities by considering other relationships from the outer side
             EqualityInference.EqualityPartition joinEqualityPartition = createEqualityInference(joinPredicate).generateEqualitiesPartitionedBy(not(in(outerSymbols)));
             innerPushdownConjuncts.addAll(joinEqualityPartition.getScopeEqualities());
