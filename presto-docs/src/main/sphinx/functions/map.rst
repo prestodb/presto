@@ -7,7 +7,7 @@ Subscript Operator: []
 
 The ``[]`` operator is used to retrieve the value corresponding to a given key from a map::
 
-    SELECT name_to_age_map['Bob'] AS bob_age
+    SELECT name_to_age_map['Bob'] AS bob_age;
 
 Map Functions
 -------------
@@ -20,7 +20,7 @@ Map Functions
 .. function:: element_at(map<K,V>, key) -> V
     :noindex:
 
-        Returns value for given ``key``, or ``NULL`` if the key is not contained in the map.
+    Returns value for given ``key``, or ``NULL`` if the key is not contained in the map.
 
 .. function:: map(array<K>, array<V>) -> map<K,V>
 
