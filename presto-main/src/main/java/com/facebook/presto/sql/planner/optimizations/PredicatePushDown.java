@@ -472,6 +472,17 @@ public class PredicatePushDown
                     joinConjuncts.add(conjunct);
                 }
             }
+
+            // also add equality conjuncts to inner side based  on join condition and outer side symbol equalities
+            // from inherited predicate and outer side predicat to handle queries like:
+            //
+            // SELECT * FROM nation LEFT OUTER JOIN region ON nation.regionkey = region.regionkey and nation.name = region.name WHERE nation.name = 'blah'
+            //
+            // without that region.name = 'blah' was not pushed to inner side
+
+            EqualityInference potentialNullSymbolInferenceWithoutInnerInferred = createEqualityInference(outerOnlyInheritedEqualities, outerEffectivePredicate, joinPredicate);
+            innerPushdownConjuncts.addAll(potentialNullSymbolInferenceWithoutInnerInferred.generateEqualitiesPartitionedBy(not(in(outerSymbols))).getScopeEqualities());
+
             // TODO: we can further improve simplifying the equalities by considering other relationships from the outer side
             EqualityInference.EqualityPartition joinEqualityPartition = createEqualityInference(joinPredicate).generateEqualitiesPartitionedBy(not(in(outerSymbols)));
             innerPushdownConjuncts.addAll(joinEqualityPartition.getScopeEqualities());
