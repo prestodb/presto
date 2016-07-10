@@ -26,6 +26,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.singlePartition;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -216,7 +217,7 @@ class PreferredProperties
 
         public static Global undistributed()
         {
-            return new Global(false, Optional.of(PreferredPartitioning.singlePartition()));
+            return new Global(false, Optional.of(PreferredPartitioning.partitioned(singlePartition())));
         }
 
         public static Global distributed(Optional<PreferredPartitioning> partitioningProperties)

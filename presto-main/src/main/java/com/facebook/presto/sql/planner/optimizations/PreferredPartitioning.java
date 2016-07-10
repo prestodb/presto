@@ -20,6 +20,7 @@ import com.google.common.collect.Sets;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Collection;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -37,7 +38,7 @@ public final class PreferredPartitioning
     private final Optional<Partitioning> partitioning; // Specific partitioning requested
     private final boolean nullsReplicated;
 
-    private PreferredPartitioning(Set<Symbol> partitioningColumns, Optional<Partitioning> partitioning, boolean nullsReplicated)
+    private PreferredPartitioning(Collection<Symbol> partitioningColumns, Optional<Partitioning> partitioning, boolean nullsReplicated)
     {
         this.partitioningColumns = ImmutableSet.copyOf(requireNonNull(partitioningColumns, "partitioningColumns is null"));
         this.partitioning = requireNonNull(partitioning, "function is null");
@@ -56,14 +57,9 @@ public final class PreferredPartitioning
         return new PreferredPartitioning(partitioning.getColumns(), Optional.of(partitioning), false);
     }
 
-    public static PreferredPartitioning partitioned(Set<Symbol> columns)
+    public static PreferredPartitioning partitioned(Collection<Symbol> columns)
     {
         return new PreferredPartitioning(columns, Optional.empty(), false);
-    }
-
-    public static PreferredPartitioning singlePartition()
-    {
-        return partitioned(ImmutableSet.of());
     }
 
     public Set<Symbol> getPartitioningColumns()
@@ -74,6 +70,11 @@ public final class PreferredPartitioning
     public Optional<Partitioning> getPartitioning()
     {
         return partitioning;
+    }
+
+    public boolean isSinglePreferred()
+    {
+        return partitioningColumns.isEmpty() && partitioning.isPresent() && partitioning.get().getHandle().isSingleNode();
     }
 
     public boolean isNullsReplicated()
