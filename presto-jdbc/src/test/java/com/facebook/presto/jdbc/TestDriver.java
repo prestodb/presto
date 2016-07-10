@@ -15,6 +15,21 @@ package com.facebook.presto.jdbc;
 
 import com.facebook.presto.plugin.blackhole.BlackHolePlugin;
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.IntegerType;
+import com.facebook.presto.spi.type.SmallintType;
+import com.facebook.presto.spi.type.TimeType;
+import com.facebook.presto.spi.type.TimeWithTimeZoneType;
+import com.facebook.presto.spi.type.TimestampType;
+import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
+import com.facebook.presto.spi.type.TinyintType;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarbinaryType;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
@@ -741,33 +756,34 @@ public class TestDriver
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getColumns("blackhole", "blackhole", "test_get_columns_table", null)) {
                 assertColumnMetadata(rs);
-                assertColumnSpec(rs, null,          null,   0L);    // boolean
-                assertColumnSpec(rs, 19L,           null,   0L);    // bigint
-                assertColumnSpec(rs, 10L,           null,   0L);    // integer
-                assertColumnSpec(rs, 5L,            null,   0L);    // smallint
-                assertColumnSpec(rs, 3L,            null,   0L);    // tinyint
-                assertColumnSpec(rs, null,          null,   0L);    // double
-                assertColumnSpec(rs, 1234L,         null,   1234L); // varchar(1234)
-                assertColumnSpec(rs, 2147483647L,   null,   0L);    // varbinary
-                assertColumnSpec(rs, 8L,            null,   0L);    // time
-                assertColumnSpec(rs, 14L,           null,   0L);    // time with time zone
-                assertColumnSpec(rs, 23L,           null,   0L);    // timestamp
-                assertColumnSpec(rs, 29L,           null,   0L);    // timestamp with time zone
-                assertColumnSpec(rs, 15L,           null,   0L);    // date
-                assertColumnSpec(rs, 8L,            2L,     0L);    // decimal
-                assertColumnSpec(rs, 38L,           0L,     0L);    // decimal
+                assertColumnSpec(rs, null, null, 0L, BooleanType.BOOLEAN);
+                assertColumnSpec(rs, 19L, null, 0L, BigintType.BIGINT);
+                assertColumnSpec(rs, 10L, null, 0L, IntegerType.INTEGER);
+                assertColumnSpec(rs, 5L, null, 0L, SmallintType.SMALLINT);
+                assertColumnSpec(rs, 3L, null, 0L, TinyintType.TINYINT);
+                assertColumnSpec(rs, null, null, 0L, DoubleType.DOUBLE);
+                assertColumnSpec(rs, 1234L, null, 1234L, VarcharType.createVarcharType(1234));
+                assertColumnSpec(rs, 2147483647L, null, 0L, VarbinaryType.VARBINARY);
+                assertColumnSpec(rs, 8L, null, 0L, TimeType.TIME);
+                assertColumnSpec(rs, 14L, null, 0L, TimeWithTimeZoneType.TIME_WITH_TIME_ZONE);
+                assertColumnSpec(rs, 23L, null, 0L, TimestampType.TIMESTAMP);
+                assertColumnSpec(rs, 29L, null, 0L, TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE);
+                assertColumnSpec(rs, 15L, null, 0L, DateType.DATE);
+                assertColumnSpec(rs, 8L, 2L, 0L, DecimalType.createDecimalType(8, 2));
+                assertColumnSpec(rs, 38L, 0L, 0L, DecimalType.createDecimalType(38, 0));
                 assertFalse(rs.next());
             }
         }
     }
 
-    private static void assertColumnSpec(ResultSet rs, Long columnSize, Long decimalDigits, Long charOctetLength)
+    private static void assertColumnSpec(ResultSet rs, Long columnSize, Long decimalDigits, Long charOctetLength, Type type)
             throws SQLException
     {
+        String message = type.getDisplayName();
         assertTrue(rs.next());
-        assertEquals(rs.getObject("COLUMN_SIZE"), columnSize);
-        assertEquals(rs.getObject("DECIMAL_DIGITS"), decimalDigits);
-        assertEquals(rs.getObject("CHAR_OCTET_LENGTH"), charOctetLength);
+        assertEquals(rs.getObject("COLUMN_SIZE"), columnSize, "COLUMN_SIZE of " + message);
+        assertEquals(rs.getObject("DECIMAL_DIGITS"), decimalDigits, "DECIMAL_DIGITS of " + message);
+        assertEquals(rs.getObject("CHAR_OCTET_LENGTH"), charOctetLength, "CHAR_OCTET_LENGTH of " + message);
     }
 
     private static void assertColumnMetadata(ResultSet rs)
