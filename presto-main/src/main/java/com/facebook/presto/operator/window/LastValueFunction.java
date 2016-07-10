@@ -19,6 +19,7 @@ import java.util.List;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 
+@WindowFunctionSignature(name = "last_value", typeVariable = "T", returnType = "T", argumentTypes = "T")
 public class LastValueFunction
         extends ValueWindowFunction
 {

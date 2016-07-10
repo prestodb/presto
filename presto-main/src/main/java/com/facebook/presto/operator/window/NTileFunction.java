@@ -21,6 +21,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMEN
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.util.Failures.checkCondition;
 
+@WindowFunctionSignature(name = "ntile", returnType = "bigint", argumentTypes = "bigint")
 public class NTileFunction
         extends RankingWindowFunction
 {
