@@ -42,7 +42,7 @@ public class PlanFragment
     private final PlanFragmentId id;
     private final PlanNode root;
     private final Map<Symbol, Type> symbols;
-    private final PartitioningHandle partitioning;
+    private final Optional<PartitioningHandle> partitioning;
     private final List<PlanNodeId> partitionedSources;
     private final Set<PlanNodeId> partitionedSourcesSet;
     private final List<Type> types;
@@ -55,7 +55,7 @@ public class PlanFragment
             @JsonProperty("id") PlanFragmentId id,
             @JsonProperty("root") PlanNode root,
             @JsonProperty("symbols") Map<Symbol, Type> symbols,
-            @JsonProperty("partitioning") PartitioningHandle partitioning,
+            @JsonProperty("partitioning") Optional<PartitioningHandle> partitioning,
             @JsonProperty("partitionedSources") List<PlanNodeId> partitionedSources,
             @JsonProperty("outputPartitioningScheme") PartitioningScheme outputPartitioningScheme)
     {
@@ -102,7 +102,7 @@ public class PlanFragment
     }
 
     @JsonProperty
-    public PartitioningHandle getPartitioning()
+    public Optional<PartitioningHandle> getPartitioning()
     {
         return partitioning;
     }

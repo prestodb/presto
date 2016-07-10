@@ -73,7 +73,6 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.singlePartition;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.unknownPartitioning;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.Integer.min;
@@ -440,7 +439,7 @@ public class TestSourcePartitionedScheduler
                         Optional.<Symbol>empty(),
                         Optional.<Symbol>empty()),
                 ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),
-                unknownPartitioning().getHandle(),
+                Optional.empty(),
                 ImmutableList.of(tableScanNodeId),
                 new PartitioningScheme(singlePartition(), ImmutableList.of(symbol)));
 

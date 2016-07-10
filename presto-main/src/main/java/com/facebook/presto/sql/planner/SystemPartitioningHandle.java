@@ -115,11 +115,6 @@ public final class SystemPartitioningHandle
         return isSystemPartitioning(partitioningHandle.getConnectorHandle(), SystemPartitionFunction.BROADCAST);
     }
 
-    public static Partitioning unknownPartitioning()
-    {
-        return createSystemPartitioning(SystemPartitioning.UNKNOWN, SystemPartitionFunction.UNKNOWN, OptionalInt.empty());
-    }
-
     public static Partitioning unknownPartitioning(List<Symbol> columns)
     {
         // unknown on no columns the same a single
@@ -127,11 +122,6 @@ public final class SystemPartitioningHandle
             return singlePartition();
         }
         return createSystemPartitioning(SystemPartitioning.UNKNOWN, SystemPartitionFunction.UNKNOWN, OptionalInt.empty(), columns, ImmutableList.of());
-    }
-
-    public static boolean isUnknownPartitioning(PartitioningHandle partitioningHandle)
-    {
-        return isSystemPartitioning(partitioningHandle.getConnectorHandle(), SystemPartitionFunction.UNKNOWN);
     }
 
     private static boolean isSystemPartitioning(Partitioning partitioning, SystemPartitionFunction systemPartitionFunction)

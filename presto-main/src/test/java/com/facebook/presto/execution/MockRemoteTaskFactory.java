@@ -69,7 +69,6 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.StateMachine.StateChangeListener;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.singlePartition;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.unknownPartitioning;
 import static com.facebook.presto.util.Failures.toFailures;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
@@ -102,7 +101,7 @@ public class MockRemoteTaskFactory
                         TupleDomain.all(),
                         null),
                 ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),
-                unknownPartitioning().getHandle(),
+                Optional.empty(),
                 ImmutableList.of(sourceId),
                 new PartitioningScheme(singlePartition(), ImmutableList.of(symbol)));
 

@@ -51,7 +51,6 @@ import java.util.function.Consumer;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.coordinatorOnlyPartition;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isSinglePartitioning;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.singlePartition;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.unknownPartitioning;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -156,11 +155,10 @@ public class PlanFragmenter
         @Override
         public PlanNode visitTableScan(TableScanNode node, RewriteContext<FragmentProperties> context)
         {
-            PartitioningHandle partitioning = node.getLayout()
+            Optional<PartitioningHandle> partitioning = node.getLayout()
                     .map(layout -> metadata.getLayout(session, layout))
                     .flatMap(TableLayout::getNodePartitioning)
-                    .map(NodePartitioning::getPartitioningHandle)
-                    .orElse(unknownPartitioning().getHandle());
+                    .map(NodePartitioning::getPartitioningHandle);
 
             context.get().addSourceDistribution(node.getId(), partitioning);
             return context.defaultRewrite(node, context.get());
@@ -289,7 +287,7 @@ public class PlanFragmenter
             return this;
         }
 
-        public FragmentProperties addSourceDistribution(PlanNodeId source, PartitioningHandle distribution)
+        public FragmentProperties addSourceDistribution(PlanNodeId source, Optional<PartitioningHandle> distribution)
         {
             requireNonNull(source, "source is null");
             requireNonNull(distribution, "distribution is null");
@@ -297,9 +295,9 @@ public class PlanFragmenter
             partitionedSources.add(source);
 
             if (partitioningHandle.isPresent()) {
-                PartitioningHandle currentPartitioning = partitioningHandle.get();
-                if (!currentPartitioning.equals(distribution)) {
+                if (!partitioningHandle.equals(distribution)) {
                     // If already a system single node partitioning, leave it as is (this is for single-node execution)
+                    PartitioningHandle currentPartitioning = partitioningHandle.get();
                     checkState(
                             isSinglePartitioning(currentPartitioning),
                             "Cannot overwrite distribution with %s (currently set to %s)",
@@ -308,7 +306,7 @@ public class PlanFragmenter
                     return this;
                 }
             }
-            partitioningHandle = Optional.of(distribution);
+            partitioningHandle = distribution;
 
             return this;
         }
@@ -325,9 +323,9 @@ public class PlanFragmenter
             return outputPartitioningScheme;
         }
 
-        public PartitioningHandle getPartitioningHandle()
+        public Optional<PartitioningHandle> getPartitioningHandle()
         {
-            return partitioningHandle.get();
+            return partitioningHandle;
         }
 
         public Set<PlanNodeId> getPartitionedSources()

@@ -263,9 +263,9 @@ public class PlanPrinter
     private static String formatFragment(Metadata metadata, Session session, PlanFragment fragment, Optional<StageStats> stageStats, Optional<Map<PlanNodeId, PlanNodeStats>> planNodeStats)
     {
         StringBuilder builder = new StringBuilder();
-        builder.append(format("Fragment %s [%s]\n",
+        builder.append(format("Fragment %s\n",
                 fragment.getId(),
-                fragment.getPartitioning()));
+                fragment.getPartitioning().map(partitioning -> " [" + partitioning + "]")));
 
         if (stageStats.isPresent()) {
             builder.append(indentString(1))
@@ -323,7 +323,7 @@ public class PlanPrinter
                 new PlanFragmentId("graphviz_plan"),
                 plan,
                 types,
-                singlePartition().getHandle(),
+                Optional.of(singlePartition().getHandle()),
                 ImmutableList.of(plan.getId()),
                 new PartitioningScheme(singlePartition(), plan.getOutputSymbols()));
         return GraphvizPrinter.printLogical(ImmutableList.of(fragment));
