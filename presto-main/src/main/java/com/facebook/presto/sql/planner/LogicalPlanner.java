@@ -262,8 +262,6 @@ public class LogicalPlanner
                     .mapToInt(columnNames::indexOf)
                     .mapToObj(symbols::get)
                     .forEach(partitionFunctionArguments::add);
-            plan.getSampleWeight()
-                    .ifPresent(partitionFunctionArguments::add);
 
             List<Symbol> outputLayout = new ArrayList<>(symbols);
             plan.getSampleWeight()
