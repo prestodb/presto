@@ -118,6 +118,9 @@ public class ExchangeNode
             boolean nullsReplicated,
             int partitionCount)
     {
+        if (partitionCount == 1 || partitioningColumns.isEmpty()) {
+            return gatheringExchange(id, scope, child);
+        }
         return partitionedExchange(
                 id,
                 scope,
