@@ -29,12 +29,12 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.net.URI;
 import java.sql.SQLException;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.singlePartition;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.unknownPartitioning;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -325,7 +325,7 @@ public class TestStageStateMachine
                         ImmutableList.of(symbol),
                         ImmutableList.of(ImmutableList.of(new StringLiteral("foo")))),
                 ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),
-                unknownPartitioning().getHandle(),
+                Optional.empty(),
                 ImmutableList.of(valuesNodeId),
                 new PartitioningScheme(singlePartition(), ImmutableList.of(symbol)));
 

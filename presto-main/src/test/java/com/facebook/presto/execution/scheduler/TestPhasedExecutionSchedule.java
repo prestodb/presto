@@ -42,7 +42,6 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.singlePartition;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.unknownPartitioning;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
@@ -240,7 +239,7 @@ public class TestPhasedExecutionSchedule
                 new PlanFragmentId(planNode.getId() + "_fragment_id"),
                 planNode,
                 types.build(),
-                unknownPartitioning().getHandle(),
+                Optional.empty(),
                 ImmutableList.of(planNode.getId()),
                 new PartitioningScheme(singlePartition(), planNode.getOutputSymbols()));
     }
