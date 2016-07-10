@@ -19,6 +19,7 @@ import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DomainTranslator.ExtractionResult;
@@ -49,7 +50,6 @@ import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -64,11 +64,13 @@ import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.or;
+import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
@@ -78,11 +80,15 @@ import static com.facebook.presto.sql.tree.ComparisonExpressionType.IS_DISTINCT_
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.NOT_EQUAL;
+import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.type.ColorType.COLOR;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.String.format;
 import static java.util.Collections.nCopies;
+import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestDomainTranslator
 {
@@ -936,7 +942,7 @@ public class TestDomainTranslator
     public void testFromUnprocessableInPredicate()
             throws Exception
     {
-        Expression originalExpression = new InPredicate(unprocessableExpression1(C_BIGINT), new InListExpression(ImmutableList.<Expression>of(TRUE_LITERAL)));
+        Expression originalExpression = new InPredicate(unprocessableExpression1(C_BIGINT), new InListExpression(ImmutableList.of(TRUE_LITERAL)));
         ExtractionResult result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), originalExpression);
         assertTrue(result.getTupleDomain().isAll());
@@ -1155,173 +1161,106 @@ public class TestDomainTranslator
     }
 
     @Test
-    public void testBigintComparedToDoubleExpression()
+    public void testNumericTypeTranslation()
             throws Exception
     {
-        // greater than or equal
-        testSimpleComparison(greaterThanOrEqual(C_BIGINT, doubleLiteral(2.5)), C_BIGINT, Range.greaterThan(BIGINT, 2L));
-        testSimpleComparison(greaterThanOrEqual(C_BIGINT, doubleLiteral(2.0)), C_BIGINT, Range.greaterThanOrEqual(BIGINT, 2L));
-        testSimpleComparison(greaterThanOrEqual(C_BIGINT, doubleLiteral(-2.5)), C_BIGINT, Range.greaterThan(BIGINT, -3L));
-        testSimpleComparison(greaterThanOrEqual(C_BIGINT, doubleLiteral(-2.0)), C_BIGINT, Range.greaterThanOrEqual(BIGINT, -2L));
-        testSimpleComparison(greaterThanOrEqual(C_BIGINT, doubleLiteral(0x1p64)), C_BIGINT, Range.greaterThan(BIGINT, Long.MAX_VALUE));
-        testSimpleComparison(greaterThanOrEqual(C_BIGINT, doubleLiteral(-0x1p64)), C_BIGINT, Range.greaterThanOrEqual(BIGINT, Long.MIN_VALUE));
+        List<NumericValues> translationChain = ImmutableList.of(
+                new NumericValues<>(C_DOUBLE, -1.0 * Double.MAX_VALUE, -22.0, -44.555678, 23.0, 44.555678, Double.MAX_VALUE),
+                new NumericValues<>(C_BIGINT, Long.MIN_VALUE, -22L, -45L, 23L, 44L, Long.MAX_VALUE),
+                new NumericValues<>(C_INTEGER, (long) Integer.MIN_VALUE, -22L, -45L, 23L, 44L, (long) Integer.MAX_VALUE)
+        );
 
-        // greater than
-        testSimpleComparison(greaterThan(C_BIGINT, doubleLiteral(2.5)), C_BIGINT, Range.greaterThan(BIGINT, 2L));
-        testSimpleComparison(greaterThan(C_BIGINT, doubleLiteral(2.0)), C_BIGINT, Range.greaterThan(BIGINT, 2L));
-        testSimpleComparison(greaterThan(C_BIGINT, doubleLiteral(-2.5)), C_BIGINT, Range.greaterThan(BIGINT, -3L));
-        testSimpleComparison(greaterThan(C_BIGINT, doubleLiteral(-2.0)), C_BIGINT, Range.greaterThan(BIGINT, -2L));
-        testSimpleComparison(greaterThan(C_BIGINT, doubleLiteral(0x1p64)), C_BIGINT, Range.greaterThan(BIGINT, Long.MAX_VALUE));
-        testSimpleComparison(greaterThan(C_BIGINT, doubleLiteral(-0x1p64)), C_BIGINT, Range.greaterThanOrEqual(BIGINT, Long.MIN_VALUE));
-
-        // less than or equal
-        testSimpleComparison(lessThanOrEqual(C_BIGINT, doubleLiteral(2.5)), C_BIGINT, Range.lessThanOrEqual(BIGINT, 2L));
-        testSimpleComparison(lessThanOrEqual(C_BIGINT, doubleLiteral(2.0)), C_BIGINT, Range.lessThanOrEqual(BIGINT, 2L));
-        testSimpleComparison(lessThanOrEqual(C_BIGINT, doubleLiteral(-2.5)), C_BIGINT, Range.lessThanOrEqual(BIGINT, -3L));
-        testSimpleComparison(lessThanOrEqual(C_BIGINT, doubleLiteral(-2.0)), C_BIGINT, Range.lessThanOrEqual(BIGINT, -2L));
-        testSimpleComparison(lessThanOrEqual(C_BIGINT, doubleLiteral(0x1p64)), C_BIGINT, Range.lessThanOrEqual(BIGINT, Long.MAX_VALUE));
-        testSimpleComparison(lessThanOrEqual(C_BIGINT, doubleLiteral(-0x1p64)), C_BIGINT, Range.lessThan(BIGINT, Long.MIN_VALUE));
-
-        // less than
-        testSimpleComparison(lessThan(C_BIGINT, doubleLiteral(2.5)), C_BIGINT, Range.lessThanOrEqual(BIGINT, 2L));
-        testSimpleComparison(lessThan(C_BIGINT, doubleLiteral(2.0)), C_BIGINT, Range.lessThan(BIGINT, 2L));
-        testSimpleComparison(lessThan(C_BIGINT, doubleLiteral(-2.5)), C_BIGINT, Range.lessThanOrEqual(BIGINT, -3L));
-        testSimpleComparison(lessThan(C_BIGINT, doubleLiteral(-2.0)), C_BIGINT, Range.lessThan(BIGINT, -2L));
-        testSimpleComparison(lessThan(C_BIGINT, doubleLiteral(0x1p64)), C_BIGINT, Range.lessThanOrEqual(BIGINT, Long.MAX_VALUE));
-        testSimpleComparison(lessThan(C_BIGINT, doubleLiteral(-0x1p64)), C_BIGINT, Range.lessThan(BIGINT, Long.MIN_VALUE));
-
-        // equal
-        testSimpleComparison(equal(C_BIGINT, doubleLiteral(2.5)), C_BIGINT, Domain.none(BIGINT));
-        testSimpleComparison(equal(C_BIGINT, doubleLiteral(2.0)), C_BIGINT, Range.equal(BIGINT, 2L));
-        testSimpleComparison(equal(C_BIGINT, doubleLiteral(-2.5)), C_BIGINT, Domain.none(BIGINT));
-        testSimpleComparison(equal(C_BIGINT, doubleLiteral(-2.0)), C_BIGINT, Range.equal(BIGINT, -2L));
-        testSimpleComparison(equal(C_BIGINT, doubleLiteral(0x1p64)), C_BIGINT, Domain.none(BIGINT));
-        testSimpleComparison(equal(C_BIGINT, doubleLiteral(-0x1p64)), C_BIGINT, Domain.none(BIGINT));
-
-        // not equal
-        testSimpleComparison(notEqual(C_BIGINT, doubleLiteral(2.5)), C_BIGINT, Domain.notNull(BIGINT));
-        testSimpleComparison(notEqual(C_BIGINT, doubleLiteral(2.0)), C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L), Range.greaterThan(BIGINT, 2L)), false));
-        testSimpleComparison(notEqual(C_BIGINT, doubleLiteral(-2.5)), C_BIGINT, Domain.notNull(BIGINT));
-        testSimpleComparison(notEqual(C_BIGINT, doubleLiteral(-2.0)), C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, -2L), Range.greaterThan(BIGINT, -2L)), false));
-        testSimpleComparison(notEqual(C_BIGINT, doubleLiteral(0x1p64)), C_BIGINT, Domain.notNull(BIGINT));
-        testSimpleComparison(notEqual(C_BIGINT, doubleLiteral(-0x1p64)), C_BIGINT, Domain.notNull(BIGINT));
-
-        // is distinct from
-        testSimpleComparison(isDistinctFrom(C_BIGINT, doubleLiteral(2.5)), C_BIGINT, Domain.all(BIGINT));
-        testSimpleComparison(isDistinctFrom(C_BIGINT, doubleLiteral(2.0)), C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L), Range.greaterThan(BIGINT, 2L)), true));
-        testSimpleComparison(isDistinctFrom(C_BIGINT, doubleLiteral(-2.5)), C_BIGINT, Domain.all(BIGINT));
-        testSimpleComparison(isDistinctFrom(C_BIGINT, doubleLiteral(-2.0)), C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, -2L), Range.greaterThan(BIGINT, -2L)), true));
-        testSimpleComparison(isDistinctFrom(C_BIGINT, doubleLiteral(0x1p64)), C_BIGINT, Domain.all(BIGINT));
-        testSimpleComparison(isDistinctFrom(C_BIGINT, doubleLiteral(-0x1p64)), C_BIGINT, Domain.all(BIGINT));
+        for (int literalIndex = 0; literalIndex < translationChain.size(); literalIndex++) {
+            for (int columnIndex = literalIndex + 1; columnIndex < translationChain.size(); columnIndex++) {
+                NumericValues literal = translationChain.get(literalIndex);
+                NumericValues column = translationChain.get(columnIndex);
+                testNumericTypeTranslation(column, literal);
+            }
+        }
     }
 
-    @Test
-    public void testIntegerComparedToDoubleExpression()
-            throws Exception
+    private void testNumericTypeTranslation(NumericValues columnValues, NumericValues literalValues)
     {
+        Symbol columnSymbol = columnValues.getColumn();
+        Type columnType = columnValues.getType();
+        Type literalType = literalValues.getType();
+
+        Expression max = toExpression(literalValues.getMax(), literalType);
+        Expression min = toExpression(literalValues.getMin(), literalType);
+        Expression integerPositive = toExpression(literalValues.getIntegerPositive(), literalType);
+        Expression integerNegative = toExpression(literalValues.getIntegerNegative(), literalType);
+        Expression fractionalPositive = toExpression(literalValues.getFractionalPositive(), literalType);
+        Expression fractionalNegative = toExpression(literalValues.getFractionalNegative(), literalType);
+
         // greater than or equal
-        testSimpleComparison(greaterThanOrEqual(C_INTEGER, doubleLiteral(2.5)), C_INTEGER, Range.greaterThan(INTEGER, 2L));
-        testSimpleComparison(greaterThanOrEqual(C_INTEGER, doubleLiteral(2.0)), C_INTEGER, Range.greaterThanOrEqual(INTEGER, 2L));
-        testSimpleComparison(greaterThanOrEqual(C_INTEGER, doubleLiteral(0x1p32)), C_INTEGER, Range.greaterThan(INTEGER, (long) Integer.MAX_VALUE));
+        testSimpleComparison(greaterThanOrEqual(columnSymbol, integerPositive), columnSymbol, Range.greaterThanOrEqual(columnType, columnValues.getIntegerPositive()));
+        testSimpleComparison(greaterThanOrEqual(columnSymbol, integerNegative), columnSymbol, Range.greaterThanOrEqual(columnType, columnValues.getIntegerNegative()));
+        testSimpleComparison(greaterThanOrEqual(columnSymbol, max), columnSymbol, Range.greaterThan(columnType, columnValues.getMax()));
+        testSimpleComparison(greaterThanOrEqual(columnSymbol, min), columnSymbol, Range.greaterThanOrEqual(columnType, columnValues.getMin()));
+        if (literalValues.isFractional()) {
+            testSimpleComparison(greaterThanOrEqual(columnSymbol, fractionalPositive), columnSymbol, Range.greaterThan(columnType, columnValues.getFractionalPositive()));
+            testSimpleComparison(greaterThanOrEqual(columnSymbol, fractionalNegative), columnSymbol, Range.greaterThan(columnType, columnValues.getFractionalNegative()));
+        }
 
         // greater than
-        testSimpleComparison(greaterThan(C_INTEGER, doubleLiteral(2.5)), C_INTEGER, Range.greaterThan(INTEGER, 2L));
-        testSimpleComparison(greaterThan(C_INTEGER, doubleLiteral(2.0)), C_INTEGER, Range.greaterThan(INTEGER, 2L));
-        testSimpleComparison(greaterThan(C_INTEGER, doubleLiteral(0x1p32)), C_INTEGER, Range.greaterThan(INTEGER, (long) Integer.MAX_VALUE));
+        testSimpleComparison(greaterThan(columnSymbol, integerPositive), columnSymbol, Range.greaterThan(columnType, columnValues.getIntegerPositive()));
+        testSimpleComparison(greaterThan(columnSymbol, integerNegative), columnSymbol, Range.greaterThan(columnType, columnValues.getIntegerNegative()));
+        testSimpleComparison(greaterThan(columnSymbol, max), columnSymbol, Range.greaterThan(columnType, columnValues.getMax()));
+        testSimpleComparison(greaterThan(columnSymbol, min), columnSymbol, Range.greaterThanOrEqual(columnType, columnValues.getMin()));
+        if (literalValues.isFractional()) {
+            testSimpleComparison(greaterThan(columnSymbol, fractionalPositive), columnSymbol, Range.greaterThan(columnType, columnValues.getFractionalPositive()));
+            testSimpleComparison(greaterThan(columnSymbol, fractionalNegative), columnSymbol, Range.greaterThan(columnType, columnValues.getFractionalNegative()));
+        }
 
         // less than or equal
-        testSimpleComparison(lessThanOrEqual(C_INTEGER, doubleLiteral(-2.5)), C_INTEGER, Range.lessThanOrEqual(INTEGER, -3L));
-        testSimpleComparison(lessThanOrEqual(C_INTEGER, doubleLiteral(-2.0)), C_INTEGER, Range.lessThanOrEqual(INTEGER, -2L));
-        testSimpleComparison(lessThanOrEqual(C_INTEGER, doubleLiteral(-0x1p32)), C_INTEGER, Range.lessThan(INTEGER, (long) Integer.MIN_VALUE));
+        testSimpleComparison(lessThanOrEqual(columnSymbol, integerPositive), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getIntegerPositive()));
+        testSimpleComparison(lessThanOrEqual(columnSymbol, integerNegative), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getIntegerNegative()));
+        testSimpleComparison(lessThanOrEqual(columnSymbol, max), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getMax()));
+        testSimpleComparison(lessThanOrEqual(columnSymbol, min), columnSymbol, Range.lessThan(columnType, columnValues.getMin()));
+        if (literalValues.isFractional()) {
+            testSimpleComparison(lessThanOrEqual(columnSymbol, fractionalPositive), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getFractionalPositive()));
+            testSimpleComparison(lessThanOrEqual(columnSymbol, fractionalNegative), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getFractionalNegative()));
+        }
 
         // less than
-        testSimpleComparison(lessThan(C_INTEGER, doubleLiteral(-2.5)), C_INTEGER, Range.lessThanOrEqual(INTEGER, -3L));
-        testSimpleComparison(lessThan(C_INTEGER, doubleLiteral(-2.0)), C_INTEGER, Range.lessThan(INTEGER, -2L));
-        testSimpleComparison(lessThan(C_INTEGER, doubleLiteral(-0x1p32)), C_INTEGER, Range.lessThan(INTEGER, (long) Integer.MIN_VALUE));
+        testSimpleComparison(lessThan(columnSymbol, integerPositive), columnSymbol, Range.lessThan(columnType, columnValues.getIntegerPositive()));
+        testSimpleComparison(lessThan(columnSymbol, integerNegative), columnSymbol, Range.lessThan(columnType, columnValues.getIntegerNegative()));
+        testSimpleComparison(lessThan(columnSymbol, max), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getMax()));
+        testSimpleComparison(lessThan(columnSymbol, min), columnSymbol, Range.lessThan(columnType, columnValues.getMin()));
+        if (literalValues.isFractional()) {
+            testSimpleComparison(lessThan(columnSymbol, fractionalPositive), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getFractionalPositive()));
+            testSimpleComparison(lessThan(columnSymbol, fractionalNegative), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getFractionalNegative()));
+        }
 
         // equal
-        testSimpleComparison(equal(C_INTEGER, doubleLiteral(2.5)), C_INTEGER, Domain.none(INTEGER));
-        testSimpleComparison(equal(C_INTEGER, doubleLiteral(2.0)), C_INTEGER, Range.equal(INTEGER, 2L));
+        testSimpleComparison(equal(columnSymbol, integerPositive), columnSymbol, Range.equal(columnType, columnValues.getIntegerPositive()));
+        testSimpleComparison(equal(columnSymbol, integerNegative), columnSymbol, Range.equal(columnType, columnValues.getIntegerNegative()));
+        testSimpleComparison(equal(columnSymbol, max), columnSymbol, Domain.none(columnType));
+        testSimpleComparison(equal(columnSymbol, min), columnSymbol, Domain.none(columnType));
+        if (literalValues.isFractional()) {
+            testSimpleComparison(equal(columnSymbol, fractionalPositive), columnSymbol, Domain.none(columnType));
+            testSimpleComparison(equal(columnSymbol, fractionalNegative), columnSymbol, Domain.none(columnType));
+        }
 
         // not equal
-        testSimpleComparison(notEqual(C_INTEGER, doubleLiteral(2.5)), C_INTEGER, Domain.notNull(INTEGER));
-        testSimpleComparison(notEqual(C_INTEGER, doubleLiteral(2.0)), C_INTEGER, Domain.create(ValueSet.ofRanges(Range.lessThan(INTEGER, 2L), Range.greaterThan(INTEGER, 2L)), false));
+        testSimpleComparison(notEqual(columnSymbol, integerPositive), columnSymbol, Domain.create(ValueSet.ofRanges(Range.lessThan(columnType, columnValues.getIntegerPositive()), Range.greaterThan(columnType, columnValues.getIntegerPositive())), false));
+        testSimpleComparison(notEqual(columnSymbol, integerNegative), columnSymbol, Domain.create(ValueSet.ofRanges(Range.lessThan(columnType, columnValues.getIntegerNegative()), Range.greaterThan(columnType, columnValues.getIntegerNegative())), false));
+        testSimpleComparison(notEqual(columnSymbol, max), columnSymbol, Domain.notNull(columnType));
+        testSimpleComparison(notEqual(columnSymbol, min), columnSymbol, Domain.notNull(columnType));
+        if (literalValues.isFractional()) {
+            testSimpleComparison(notEqual(columnSymbol, fractionalPositive), columnSymbol, Domain.notNull(columnType));
+            testSimpleComparison(notEqual(columnSymbol, fractionalNegative), columnSymbol, Domain.notNull(columnType));
+        }
 
         // is distinct from
-        testSimpleComparison(isDistinctFrom(C_INTEGER, doubleLiteral(2.5)), C_INTEGER, Domain.all(INTEGER));
-        testSimpleComparison(isDistinctFrom(C_INTEGER, doubleLiteral(2.0)), C_INTEGER, Domain.create(ValueSet.ofRanges(Range.lessThan(INTEGER, 2L), Range.greaterThan(INTEGER, 2L)), true));
-    }
-
-    @Test
-    public void testIntegerComparedToBigintExpression()
-            throws Exception
-    {
-        // greater than or equal
-        testSimpleComparison(greaterThanOrEqual(C_INTEGER, bigintLiteral(2L)), C_INTEGER, Range.greaterThanOrEqual(INTEGER, 2L));
-        testSimpleComparison(greaterThanOrEqual(C_INTEGER, bigintLiteral(Integer.MAX_VALUE + 1L)), C_INTEGER, Range.greaterThan(INTEGER, (long) Integer.MAX_VALUE));
-
-        // greater than
-        testSimpleComparison(greaterThan(C_INTEGER, bigintLiteral(2L)), C_INTEGER, Range.greaterThan(INTEGER, 2L));
-        testSimpleComparison(greaterThan(C_INTEGER, bigintLiteral(Integer.MAX_VALUE + 1L)), C_INTEGER, Range.greaterThan(INTEGER, (long) Integer.MAX_VALUE));
-
-        // less than or equal
-        testSimpleComparison(lessThanOrEqual(C_INTEGER, bigintLiteral(-2L)), C_INTEGER, Range.lessThanOrEqual(INTEGER, -2L));
-        testSimpleComparison(lessThanOrEqual(C_INTEGER, bigintLiteral(Integer.MIN_VALUE - 1L)), C_INTEGER, Range.lessThan(INTEGER, (long) Integer.MIN_VALUE));
-
-        // less than
-        testSimpleComparison(lessThan(C_INTEGER, bigintLiteral(-2L)), C_INTEGER, Range.lessThan(INTEGER, -2L));
-        testSimpleComparison(lessThan(C_INTEGER, bigintLiteral(Integer.MIN_VALUE - 1L)), C_INTEGER, Range.lessThan(INTEGER, (long) Integer.MIN_VALUE));
-
-        // equal
-        testSimpleComparison(equal(C_INTEGER, bigintLiteral(Integer.MIN_VALUE - 1L)), C_INTEGER, Domain.none(INTEGER));
-        testSimpleComparison(equal(C_INTEGER, bigintLiteral(-2L)), C_INTEGER, Range.equal(INTEGER, -2L));
-
-        // not equal
-        testSimpleComparison(notEqual(C_INTEGER, bigintLiteral(Integer.MAX_VALUE + 1L)), C_INTEGER, Domain.notNull(INTEGER));
-        testSimpleComparison(notEqual(C_INTEGER, bigintLiteral(2L)), C_INTEGER, Domain.create(ValueSet.ofRanges(Range.lessThan(INTEGER, 2L), Range.greaterThan(INTEGER, 2L)), false));
-
-        // is distinct from
-        testSimpleComparison(isDistinctFrom(C_INTEGER, bigintLiteral(Integer.MAX_VALUE + 1L)), C_INTEGER, Domain.all(INTEGER));
-        testSimpleComparison(isDistinctFrom(C_INTEGER, bigintLiteral(2L)), C_INTEGER, Domain.create(ValueSet.ofRanges(Range.lessThan(INTEGER, 2L), Range.greaterThan(INTEGER, 2L)), true));
-    }
-
-    @Test
-    public void testDecimalComparedToWiderDecimal()
-            throws Exception
-    {
-        // greater than or equal
-        testSimpleComparison(greaterThanOrEqual(C_DECIMAL_4_2, decimalLiteral("44.555678")), C_DECIMAL_4_2, Range.greaterThan(createDecimalType(4, 2), shortDecimal("44.55")));
-        testSimpleComparison(greaterThanOrEqual(C_DECIMAL_4_2, decimalLiteral("99.99")), C_DECIMAL_4_2, Range.greaterThanOrEqual(createDecimalType(4, 2), shortDecimal("99.99")));
-        testSimpleComparison(greaterThanOrEqual(C_DECIMAL_4_2, decimalLiteral("9999.999")), C_DECIMAL_4_2, Range.greaterThan(createDecimalType(4, 2), shortDecimal("99.99")));
-
-        // greater than
-        testSimpleComparison(greaterThan(C_DECIMAL_4_2, decimalLiteral("44.555678")), C_DECIMAL_4_2, Range.greaterThan(createDecimalType(4, 2), shortDecimal("44.55")));
-        testSimpleComparison(greaterThan(C_DECIMAL_4_2, decimalLiteral("44.55")), C_DECIMAL_4_2, Range.greaterThan(createDecimalType(4, 2), shortDecimal("44.55")));
-        testSimpleComparison(greaterThan(C_DECIMAL_4_2, decimalLiteral("9999.999")), C_DECIMAL_4_2, Range.greaterThan(createDecimalType(4, 2), shortDecimal("99.99")));
-
-        // less than or equal
-        testSimpleComparison(lessThanOrEqual(C_DECIMAL_4_2, decimalLiteral("-44.555678")), C_DECIMAL_4_2, Range.lessThanOrEqual(createDecimalType(4, 2), shortDecimal("-44.56")));
-        testSimpleComparison(lessThanOrEqual(C_DECIMAL_4_2, decimalLiteral("-99.99")), C_DECIMAL_4_2, Range.lessThanOrEqual(createDecimalType(4, 2), shortDecimal("-99.99")));
-        testSimpleComparison(lessThanOrEqual(C_DECIMAL_4_2, decimalLiteral("-9999.999")), C_DECIMAL_4_2, Range.lessThan(createDecimalType(4, 2), shortDecimal("-99.99")));
-
-        // less than
-        testSimpleComparison(lessThan(C_DECIMAL_4_2, decimalLiteral("-44.555678")), C_DECIMAL_4_2, Range.lessThanOrEqual(createDecimalType(4, 2), shortDecimal("-44.56")));
-        testSimpleComparison(lessThan(C_DECIMAL_4_2, decimalLiteral("-99.99")), C_DECIMAL_4_2, Range.lessThan(createDecimalType(4, 2), shortDecimal("-99.99")));
-        testSimpleComparison(lessThan(C_DECIMAL_4_2, decimalLiteral("-9999.999")), C_DECIMAL_4_2, Range.lessThan(createDecimalType(4, 2), shortDecimal("-99.99")));
-
-        // equal
-        testSimpleComparison(equal(C_DECIMAL_4_2, decimalLiteral("-44.555678")), C_DECIMAL_4_2, Domain.none(createDecimalType(4, 2)));
-        testSimpleComparison(equal(C_DECIMAL_4_2, decimalLiteral("99.99")), C_DECIMAL_4_2, Range.equal(createDecimalType(4, 2), shortDecimal("99.99")));
-
-        // not equal
-        testSimpleComparison(notEqual(C_DECIMAL_4_2, decimalLiteral("-44.555678")), C_DECIMAL_4_2, Domain.notNull(createDecimalType(4, 2)));
-        testSimpleComparison(notEqual(C_DECIMAL_4_2, decimalLiteral("99.99")), C_DECIMAL_4_2, Domain.create(ValueSet.ofRanges(
-                Range.lessThan(createDecimalType(4, 2), shortDecimal("99.99")), Range.greaterThan(createDecimalType(4, 2), shortDecimal("99.99"))), false));
-
-        // is distinct from
-        testSimpleComparison(isDistinctFrom(C_DECIMAL_4_2, decimalLiteral("-44.555678")), C_DECIMAL_4_2, Domain.all(createDecimalType(4, 2)));
-        testSimpleComparison(isDistinctFrom(C_DECIMAL_4_2, decimalLiteral("99.99")), C_DECIMAL_4_2, Domain.create(ValueSet.ofRanges(
-                Range.lessThan(createDecimalType(4, 2), shortDecimal("99.99")), Range.greaterThan(createDecimalType(4, 2), shortDecimal("99.99"))), true));
+        testSimpleComparison(isDistinctFrom(columnSymbol, integerPositive), columnSymbol, Domain.create(ValueSet.ofRanges(Range.lessThan(columnType, columnValues.getIntegerPositive()), Range.greaterThan(columnType, columnValues.getIntegerPositive())), true));
+        testSimpleComparison(isDistinctFrom(columnSymbol, integerNegative), columnSymbol, Domain.create(ValueSet.ofRanges(Range.lessThan(columnType, columnValues.getIntegerNegative()), Range.greaterThan(columnType, columnValues.getIntegerNegative())), true));
+        testSimpleComparison(isDistinctFrom(columnSymbol, max), columnSymbol, Domain.all(columnType));
+        testSimpleComparison(isDistinctFrom(columnSymbol, min), columnSymbol, Domain.all(columnType));
+        if (literalValues.isFractional()) {
+            testSimpleComparison(isDistinctFrom(columnSymbol, fractionalPositive), columnSymbol, Domain.all(columnType));
+            testSimpleComparison(isDistinctFrom(columnSymbol, fractionalNegative), columnSymbol, Domain.all(columnType));
+        }
     }
 
     @Test
@@ -1388,7 +1327,7 @@ public class TestDomainTranslator
 
     private static Expression randPredicate(Symbol symbol)
     {
-        return comparison(GREATER_THAN, symbol.toSymbolReference(), new FunctionCall(QualifiedName.of("rand"), ImmutableList.<Expression>of()));
+        return comparison(GREATER_THAN, symbol.toSymbolReference(), new FunctionCall(QualifiedName.of("rand"), ImmutableList.of()));
     }
 
     private static NotExpression not(Expression expression)
@@ -1488,22 +1427,17 @@ public class TestDomainTranslator
 
     private static FunctionCall colorLiteral(long value)
     {
-        return new FunctionCall(QualifiedName.of(getMagicLiteralFunctionSignature(COLOR).getName()), ImmutableList.<Expression>of(bigintLiteral(value)));
+        return new FunctionCall(QualifiedName.of(getMagicLiteralFunctionSignature(COLOR).getName()), ImmutableList.of(bigintLiteral(value)));
     }
 
     private static Expression varbinaryLiteral(Slice value)
     {
-        return LiteralInterpreter.toExpression(value, VARBINARY);
+        return toExpression(value, VARBINARY);
     }
 
     private static FunctionCall function(String functionName, Expression... args)
     {
         return new FunctionCall(QualifiedName.of(functionName), ImmutableList.copyOf(args));
-    }
-
-    private static Long shortDecimal(String value)
-    {
-        return new BigDecimal(value).unscaledValue().longValueExact();
     }
 
     private static void testSimpleComparison(Expression expression, Symbol symbol, Range expectedDomainRange)
@@ -1515,6 +1449,79 @@ public class TestDomainTranslator
     {
         ExtractionResult result = fromPredicate(expression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(symbol, domain)));
+        TupleDomain<Symbol> actual = result.getTupleDomain();
+        TupleDomain<Symbol> expected = withColumnDomains(ImmutableMap.of(symbol, domain));
+        if (!actual.equals(expected)) {
+            fail(format("for comparison [%s] expected %s but found %s", expression.toString(), expected.toString(SESSION), actual.toString(SESSION)));
+        }
+    }
+
+    private static class NumericValues<T>
+    {
+        private final Symbol column;
+        private final Type type;
+        private final T min;
+        private final T integerNegative;
+        private final T fractionalNegative;
+        private final T integerPositive;
+        private final T fractionalPositive;
+        private final T max;
+
+        private NumericValues(Symbol column, T min, T integerNegative, T fractionalNegative, T integerPositive, T fractionalPositive, T max)
+        {
+            this.column = requireNonNull(column, "column is null");
+            this.type = requireNonNull(TYPES.get(column), "type for column not found: " + column);
+            this.min = requireNonNull(min, "min is null");
+            this.integerNegative = requireNonNull(integerNegative, "integerNegative is null");
+            this.fractionalNegative = requireNonNull(fractionalNegative, "fractionalNegative is null");
+            this.integerPositive = requireNonNull(integerPositive, "integerPositive is null");
+            this.fractionalPositive = requireNonNull(fractionalPositive, "fractionalPositive is null");
+            this.max = requireNonNull(max, "max is null");
+        }
+
+        public Symbol getColumn()
+        {
+            return column;
+        }
+
+        public Type getType()
+        {
+            return type;
+        }
+
+        public T getMin()
+        {
+            return min;
+        }
+
+        public T getIntegerNegative()
+        {
+            return integerNegative;
+        }
+
+        public T getFractionalNegative()
+        {
+            return fractionalNegative;
+        }
+
+        public T getIntegerPositive()
+        {
+            return integerPositive;
+        }
+
+        public T getFractionalPositive()
+        {
+            return fractionalPositive;
+        }
+
+        public T getMax()
+        {
+            return max;
+        }
+
+        public boolean isFractional()
+        {
+            return type == DOUBLE || type == REAL || (type instanceof DecimalType && ((DecimalType) type).getScale() > 0);
+        }
     }
 }
