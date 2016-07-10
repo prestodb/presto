@@ -30,6 +30,7 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
+import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -74,16 +75,14 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.fixedRand
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.singlePartition;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.any;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.defaultParallelism;
-import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.exactlyPartitionedOn;
-import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.fixedParallelism;
+import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.partitionedOn;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.singleStream;
-import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchange;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -156,6 +155,13 @@ public class AddLocalExchanges
         //
         // Nodes that always require a single stream
         //
+
+        @Override
+        public PlanWithProperties visitDelete(DeleteNode node, StreamPreferredProperties context)
+        {
+            // delete source does not support local parallel
+            return new PlanWithProperties(node, derivePropertiesRecursively(node));
+        }
 
         @Override
         public PlanWithProperties visitSort(SortNode node, StreamPreferredProperties parentPreferences)
@@ -263,7 +269,7 @@ public class AddLocalExchanges
 
             // plan child with the preferred
             PlanWithProperties child = node.getSource().accept(this, preferredChildProperties);
-            if (requiredProperties.isSatisfiedBy(child.getProperties())) {
+            if (requiredProperties.isSatisfiedBy(session, child.getProperties())) {
                 return rebaseAndDeriveProperties(node, ImmutableList.of(child));
             }
 
@@ -278,7 +284,7 @@ public class AddLocalExchanges
                     .allMatch(InternalAggregationFunction::isDecomposable);
             if (decomposable && node.getStep() == Step.SINGLE && !requiredProperties.isParallelPreferred()) {
                 // If child property is single, `child` should have satisfied `requiredProperty` (which prefers single)
-                verify(child.getProperties().getDistribution() != SINGLE);
+                verify(!child.getProperties().isSingleStream());
                 return splitAggregation(node, child, source -> gatheringExchange(idAllocator.getNextId(), LOCAL, source));
             }
 
@@ -430,10 +436,11 @@ public class AddLocalExchanges
         {
             StreamPreferredProperties requiredProperties;
             StreamPreferredProperties preferredProperties;
+            int taskWriterCount = getTaskWriterCount(session);
             // Force single writer when partition function exists
             if (getTaskWriterCount(session) > 1 && !node.getPartitioningScheme().isPresent()) {
-                requiredProperties = fixedParallelism(getTaskWriterCount(session));
-                preferredProperties = fixedParallelism(getTaskWriterCount(session));
+                requiredProperties = partitionedOn(fixedRandomPartitioning(taskWriterCount));
+                preferredProperties = partitionedOn(fixedRandomPartitioning(taskWriterCount));
             }
             else {
                 requiredProperties = singleStream();
@@ -475,45 +482,14 @@ public class AddLocalExchanges
                 inputLayouts.add(node.sourceOutputLayout(i));
             }
 
-            if (preferredProperties.isSingleStreamPreferred()) {
-                ExchangeNode exchangeNode = new ExchangeNode(
-                        idAllocator.getNextId(),
-                        GATHER,
-                        LOCAL,
-                        new PartitioningScheme(singlePartition(), node.getOutputSymbols()),
-                        sources,
-                        inputLayouts);
-                return deriveProperties(exchangeNode, inputProperties);
-            }
-
-            Optional<List<Symbol>> preferredPartitionColumns = preferredProperties.getPartitioningColumns();
-            if (preferredPartitionColumns.isPresent()) {
-                List<Symbol> partitioningColumns = preferredPartitionColumns.get();
-                List<Type> partitioningColumnTypes = partitioningColumns.stream()
-                        .map(column -> symbolAllocator.getTypes().get(column))
-                        .collect(toImmutableList());
-                ExchangeNode exchangeNode = new ExchangeNode(
-                        idAllocator.getNextId(),
-                        REPARTITION,
-                        LOCAL,
-                        new PartitioningScheme(
-                                fixedHashPartitioning(getTaskConcurrency(session), partitioningColumns, partitioningColumnTypes),
-                                node.getOutputSymbols(),
-                                Optional.empty()),
-                        sources,
-                        inputLayouts);
-                return deriveProperties(exchangeNode, inputProperties);
-            }
-
-            // multiple streams preferred
-            ExchangeNode result = new ExchangeNode(
+            PartitioningScheme partitioningScheme = createRequiredPartitioningScheme(preferredProperties, node.getOutputSymbols());
+            ExchangeNode exchangeNode = new ExchangeNode(
                     idAllocator.getNextId(),
                     REPARTITION,
                     LOCAL,
-                    new PartitioningScheme(fixedRandomPartitioning(getTaskConcurrency(session)), node.getOutputSymbols()),
+                    partitioningScheme,
                     sources,
                     inputLayouts);
-            ExchangeNode exchangeNode = result;
 
             return deriveProperties(exchangeNode, inputProperties);
         }
@@ -533,8 +509,13 @@ public class AddLocalExchanges
             // this build consumes the input completely, so we do not pass through parent preferences
             List<Symbol> buildHashSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getRight);
             StreamPreferredProperties buildPreference;
-            if (getTaskConcurrency(session) > 1) {
-                buildPreference = exactlyPartitionedOn(buildHashSymbols);
+            if (isParallelBuildSupported(node) && getTaskConcurrency(session) > 1) {
+                buildPreference = partitionedOn(fixedHashPartitioning(
+                        getTaskConcurrency(session),
+                        buildHashSymbols,
+                        buildHashSymbols.stream()
+                                .map(column -> symbolAllocator.getTypes().get(column))
+                                .collect(toImmutableList())));
             }
             else {
                 buildPreference = singleStream();
@@ -542,6 +523,21 @@ public class AddLocalExchanges
             PlanWithProperties build = planAndEnforce(node.getRight(), buildPreference, buildPreference);
 
             return rebaseAndDeriveProperties(node, ImmutableList.of(probe, build));
+        }
+
+        private boolean isParallelBuildSupported(JoinNode node)
+        {
+            List<JoinNode.EquiJoinClause> clauses = node.getCriteria();
+
+            // is this a nested loop join?
+            if (clauses.isEmpty() && !node.getFilter().isPresent() && node.getType() == INNER) {
+                return false;
+            }
+
+            // there must be hash symbols to preform a parallel hash build
+            // todo why is this not a nested loop join?
+            List<Symbol> rightSymbols = Lists.transform(clauses, JoinNode.EquiJoinClause::getRight);
+            return !rightSymbols.isEmpty();
         }
 
         @Override
@@ -568,7 +564,7 @@ public class AddLocalExchanges
 
             // index source does not support local parallel and must produce a single stream
             StreamProperties indexStreamProperties = derivePropertiesRecursively(node.getIndexSource());
-            checkArgument(indexStreamProperties.getDistribution() == SINGLE, "index source must be single stream");
+            checkArgument(indexStreamProperties.isSingleStream(), "index source must be single stream");
             PlanWithProperties index = new PlanWithProperties(node.getIndexSource(), indexStreamProperties);
 
             return rebaseAndDeriveProperties(node, ImmutableList.of(probe, index));
@@ -610,50 +606,48 @@ public class AddLocalExchanges
 
         private PlanWithProperties enforce(PlanWithProperties planWithProperties, StreamPreferredProperties requiredProperties)
         {
-            if (requiredProperties.isSatisfiedBy(planWithProperties.getProperties())) {
+            StreamProperties actualProperties = planWithProperties.getProperties();
+            if (requiredProperties.isSatisfiedBy(session, actualProperties)) {
                 return planWithProperties;
             }
 
-            if (requiredProperties.isSingleStreamPreferred()) {
-                ExchangeNode exchangeNode = gatheringExchange(idAllocator.getNextId(), LOCAL, planWithProperties.getNode());
-                return deriveProperties(exchangeNode, planWithProperties.getProperties());
-            }
+            List<Symbol> outputSymbols = planWithProperties.getNode().getOutputSymbols();
+            PartitioningScheme partitioningScheme = createRequiredPartitioningScheme(requiredProperties, outputSymbols);
 
-            Optional<List<Symbol>> requiredPartitionColumns = requiredProperties.getPartitioningColumns();
-            if (!requiredPartitionColumns.isPresent()) {
-                // unpartitioned parallel streams required
-                ExchangeNode exchangeNode = partitionedExchange(
-                        idAllocator.getNextId(),
-                        LOCAL,
-                        planWithProperties.getNode(),
-                        new PartitioningScheme(
-                                fixedRandomPartitioning(requiredProperties.getStreamCount().orElse(getTaskConcurrency(session))),
-                                planWithProperties.getNode().getOutputSymbols()));
-
-                return deriveProperties(exchangeNode, planWithProperties.getProperties());
-            }
-
-            if (requiredProperties.isParallelPreferred()) {
-                // partitioned parallel streams required
-                ExchangeNode exchangeNode = partitionedExchange(
-                        idAllocator.getNextId(),
-                        LOCAL,
-                        planWithProperties.getNode(),
-                        requiredPartitionColumns.get(),
-                        requiredPartitionColumns.get().stream()
-                                .map(column -> symbolAllocator.getTypes().get(column))
-                                .collect(toImmutableList()),
-                        Optional.empty(),
-                        requiredProperties.getStreamCount().orElse(getTaskConcurrency(session)));
-                return deriveProperties(exchangeNode, planWithProperties.getProperties());
-            }
-
-            // no explicit parallel requirement, so gather to a single stream
-            ExchangeNode exchangeNode = gatheringExchange(
+            ExchangeNode exchangeNode = partitionedExchange(
                     idAllocator.getNextId(),
                     LOCAL,
-                    planWithProperties.getNode());
-            return deriveProperties(exchangeNode, planWithProperties.getProperties());
+                    planWithProperties.getNode(),
+                    partitioningScheme);
+
+            return deriveProperties(exchangeNode, actualProperties);
+        }
+
+        private PartitioningScheme createRequiredPartitioningScheme(StreamPreferredProperties requiredProperties, List<Symbol> outputSymbols)
+        {
+            // is there a specific requirement for single
+            if (requiredProperties.isSingleStreamPreferred()) {
+                return new PartitioningScheme(singlePartition(), outputSymbols);
+            }
+
+            // if this is a not a specific parallel requirement, use arbitrary partitioning
+            if (!requiredProperties.getPartitioning().isPresent()) {
+                return new PartitioningScheme(fixedRandomPartitioning(getTaskConcurrency(session)), outputSymbols);
+            }
+
+            PreferredPartitioning partitioning = requiredProperties.getPartitioning().get();
+
+            // if there is not a specific partition function, use system hash partitioning
+            if (!partitioning.getPartitioning().isPresent()) {
+                List<Symbol> partitioningColumns = ImmutableList.copyOf(partitioning.getPartitioningColumns());
+                List<Type> partitioningColumnTypes = partitioningColumns.stream()
+                        .map(column -> symbolAllocator.getTypes().get(column))
+                        .collect(toImmutableList());
+                return new PartitioningScheme(fixedHashPartitioning(getTaskConcurrency(session), partitioningColumns, partitioningColumnTypes), outputSymbols);
+            }
+
+            // use the specific required partitioning scheme
+            return new PartitioningScheme(partitioning.getPartitioning().get(), outputSymbols);
         }
 
         private PlanWithProperties rebaseAndDeriveProperties(PlanNode node, List<PlanWithProperties> children)
