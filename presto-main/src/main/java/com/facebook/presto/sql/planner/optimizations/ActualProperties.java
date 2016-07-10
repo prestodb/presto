@@ -298,12 +298,12 @@ class ActualProperties
 
         public static Global coordinatorSingleStreamPartition()
         {
-            return partitionedOn(coordinatorOnlyPartition(), Optional.of(unknownPartitioning()));
+            return partitionedOn(coordinatorOnlyPartition(), Optional.of(singlePartition()));
         }
 
         public static Global singleStreamPartition()
         {
-            return partitionedOn(singlePartition(), Optional.of(unknownPartitioning()));
+            return partitionedOn(singlePartition(), Optional.of(singlePartition()));
         }
 
         public static Global arbitraryPartition()
