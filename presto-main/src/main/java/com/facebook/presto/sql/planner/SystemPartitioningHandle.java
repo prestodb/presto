@@ -66,9 +66,14 @@ public final class SystemPartitioningHandle
 
     public static Partitioning fixedHashPartitioning(int partitionCount, List<Symbol> columns, List<Type> columnTypes)
     {
+        checkArgument(partitionCount >= 1, "Partition count must be at least 1");
         requireNonNull(columns, "columns is null");
         requireNonNull(columnTypes, "columnTypes is null");
         checkArgument(columns.size() == columnTypes.size(), "columns and columnTypes must be the same size");
+        // hash on no columns the same a single
+        if (partitionCount == 1 || columns.isEmpty()) {
+            return singlePartition();
+        }
         return createSystemPartitioning(SystemPartitioning.FIXED, SystemPartitionFunction.HASH, OptionalInt.of(partitionCount), columns, columnTypes);
     }
 
@@ -79,6 +84,10 @@ public final class SystemPartitioningHandle
 
     public static Partitioning fixedRandomPartitioning(int partitionCount)
     {
+        checkArgument(partitionCount >= 1, "Partition count must be at least 1");
+        if (partitionCount == 1) {
+            return singlePartition();
+        }
         return createSystemPartitioning(SystemPartitioning.FIXED, SystemPartitionFunction.ROUND_ROBIN, OptionalInt.of(partitionCount));
     }
 
@@ -89,6 +98,10 @@ public final class SystemPartitioningHandle
 
     public static Partitioning fixedBroadcastPartitioning(int partitionCount)
     {
+        checkArgument(partitionCount >= 1, "Partition count must be at least 1");
+        if (partitionCount == 1) {
+            return singlePartition();
+        }
         return createSystemPartitioning(SystemPartitioning.FIXED, SystemPartitionFunction.BROADCAST, OptionalInt.of(partitionCount));
     }
 
@@ -109,6 +122,10 @@ public final class SystemPartitioningHandle
 
     public static Partitioning unknownPartitioning(List<Symbol> columns)
     {
+        // unknown on no columns the same a single
+        if (columns.isEmpty()) {
+            return singlePartition();
+        }
         return createSystemPartitioning(SystemPartitioning.UNKNOWN, SystemPartitionFunction.UNKNOWN, OptionalInt.empty(), columns, ImmutableList.of());
     }
 
