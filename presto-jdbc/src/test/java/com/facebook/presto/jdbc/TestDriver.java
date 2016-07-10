@@ -20,6 +20,7 @@ import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.FloatType;
 import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.SmallintType;
 import com.facebook.presto.spi.type.TimeType;
@@ -740,6 +741,7 @@ public class TestDriver
                         "c_integer integer, " +
                         "c_smallint smallint, " +
                         "c_tinyint tinyint, " +
+                        "c_float float, " +
                         "c_double double, " +
                         "c_varchar_1234 varchar(1234), " +
                         "c_varchar varchar, " +
@@ -752,37 +754,37 @@ public class TestDriver
                         "c_decimal_8_2 decimal(8,2), " +
                         "c_decimal_38_0 decimal(38,0)" +
                         ")"), 0);
-        }
 
-        try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getColumns("blackhole", "blackhole", "test_get_columns_table", null)) {
                 assertColumnMetadata(rs);
-                assertColumnSpec(rs, null, null, 0L, BooleanType.BOOLEAN);
-                assertColumnSpec(rs, 19L, null, 0L, BigintType.BIGINT);
-                assertColumnSpec(rs, 10L, null, 0L, IntegerType.INTEGER);
-                assertColumnSpec(rs, 5L, null, 0L, SmallintType.SMALLINT);
-                assertColumnSpec(rs, 3L, null, 0L, TinyintType.TINYINT);
-                assertColumnSpec(rs, null, null, 0L, DoubleType.DOUBLE);
-                assertColumnSpec(rs, 1234L, null, 1234L, VarcharType.createVarcharType(1234));
-                assertColumnSpec(rs, (long) Integer.MAX_VALUE, null, (long) Integer.MAX_VALUE, VarcharType.createUnboundedVarcharType());
-                assertColumnSpec(rs, 2147483647L, null, 0L, VarbinaryType.VARBINARY);
-                assertColumnSpec(rs, 8L, null, 0L, TimeType.TIME);
-                assertColumnSpec(rs, 14L, null, 0L, TimeWithTimeZoneType.TIME_WITH_TIME_ZONE);
-                assertColumnSpec(rs, 23L, null, 0L, TimestampType.TIMESTAMP);
-                assertColumnSpec(rs, 29L, null, 0L, TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE);
-                assertColumnSpec(rs, 15L, null, 0L, DateType.DATE);
-                assertColumnSpec(rs, 8L, 2L, 0L, DecimalType.createDecimalType(8, 2));
-                assertColumnSpec(rs, 38L, 0L, 0L, DecimalType.createDecimalType(38, 0));
+                assertColumnSpec(rs, Types.BOOLEAN, null, null, 0L, BooleanType.BOOLEAN);
+                assertColumnSpec(rs, Types.BIGINT, 19L, null, 0L, BigintType.BIGINT);
+                assertColumnSpec(rs, Types.INTEGER, 10L, null, 0L, IntegerType.INTEGER);
+                assertColumnSpec(rs, Types.SMALLINT, 5L, null, 0L, SmallintType.SMALLINT);
+                assertColumnSpec(rs, Types.TINYINT, 3L, null, 0L, TinyintType.TINYINT);
+                assertColumnSpec(rs, Types.FLOAT, null, null, 0L, FloatType.FLOAT);
+                assertColumnSpec(rs, Types.DOUBLE, null, null, 0L, DoubleType.DOUBLE);
+                assertColumnSpec(rs, Types.LONGNVARCHAR, 1234L, null, 1234L, VarcharType.createVarcharType(1234));
+                assertColumnSpec(rs, Types.LONGNVARCHAR, (long) Integer.MAX_VALUE, null, (long) Integer.MAX_VALUE, VarcharType.createUnboundedVarcharType());
+                assertColumnSpec(rs, Types.LONGVARBINARY, 2147483647L, null, 0L, VarbinaryType.VARBINARY);
+                assertColumnSpec(rs, Types.TIME, 8L, null, 0L, TimeType.TIME);
+                assertColumnSpec(rs, Types.TIME_WITH_TIMEZONE, 14L, null, 0L, TimeWithTimeZoneType.TIME_WITH_TIME_ZONE);
+                assertColumnSpec(rs, Types.TIMESTAMP, 23L, null, 0L, TimestampType.TIMESTAMP);
+                assertColumnSpec(rs, Types.TIMESTAMP_WITH_TIMEZONE, 29L, null, 0L, TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE);
+                assertColumnSpec(rs, Types.DATE, 15L, null, 0L, DateType.DATE);
+                assertColumnSpec(rs, Types.DECIMAL, 8L, 2L, 0L, DecimalType.createDecimalType(8, 2));
+                assertColumnSpec(rs, Types.DECIMAL, 38L, 0L, 0L, DecimalType.createDecimalType(38, 0));
                 assertFalse(rs.next());
             }
         }
     }
 
-    private static void assertColumnSpec(ResultSet rs, Long columnSize, Long decimalDigits, Long charOctetLength, Type type)
+    private static void assertColumnSpec(ResultSet rs, int jdbcType, Long columnSize, Long decimalDigits, Long charOctetLength, Type type)
             throws SQLException
     {
         String message = type.getDisplayName();
         assertTrue(rs.next());
+        assertEquals(rs.getObject("DATA_TYPE"), Long.valueOf(jdbcType), "DATA_TYPE of " + message);
         assertEquals(rs.getObject("COLUMN_SIZE"), columnSize, "COLUMN_SIZE of " + message);
         assertEquals(rs.getObject("DECIMAL_DIGITS"), decimalDigits, "DECIMAL_DIGITS of " + message);
         assertEquals(rs.getObject("CHAR_OCTET_LENGTH"), charOctetLength, "CHAR_OCTET_LENGTH of " + message);
