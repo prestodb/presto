@@ -33,6 +33,8 @@ import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchPlugin;
+import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.type.ColorType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logging;
@@ -752,28 +754,32 @@ public class TestDriver
                         "c_timestamp_with_time_zone \"timestamp with time zone\", " +
                         "c_date date, " +
                         "c_decimal_8_2 decimal(8,2), " +
-                        "c_decimal_38_0 decimal(38,0)" +
+                        "c_decimal_38_0 decimal(38,0), " +
+                        "c_array array<bigint>, " +
+                        "c_color color" +
                         ")"), 0);
 
             try (ResultSet rs = connection.getMetaData().getColumns("blackhole", "blackhole", "test_get_columns_table", null)) {
                 assertColumnMetadata(rs);
-                assertColumnSpec(rs, Types.BOOLEAN, null, null, 0L, BooleanType.BOOLEAN);
-                assertColumnSpec(rs, Types.BIGINT, 19L, null, 0L, BigintType.BIGINT);
-                assertColumnSpec(rs, Types.INTEGER, 10L, null, 0L, IntegerType.INTEGER);
-                assertColumnSpec(rs, Types.SMALLINT, 5L, null, 0L, SmallintType.SMALLINT);
-                assertColumnSpec(rs, Types.TINYINT, 3L, null, 0L, TinyintType.TINYINT);
-                assertColumnSpec(rs, Types.FLOAT, null, null, 0L, FloatType.FLOAT);
-                assertColumnSpec(rs, Types.DOUBLE, null, null, 0L, DoubleType.DOUBLE);
+                assertColumnSpec(rs, Types.BOOLEAN, null, null, null, BooleanType.BOOLEAN);
+                assertColumnSpec(rs, Types.BIGINT, 19L, null, null, BigintType.BIGINT);
+                assertColumnSpec(rs, Types.INTEGER, 10L, null, null, IntegerType.INTEGER);
+                assertColumnSpec(rs, Types.SMALLINT, 5L, null, null, SmallintType.SMALLINT);
+                assertColumnSpec(rs, Types.TINYINT, 3L, null, null, TinyintType.TINYINT);
+                assertColumnSpec(rs, Types.FLOAT, null, null, null, FloatType.FLOAT);
+                assertColumnSpec(rs, Types.DOUBLE, null, null, null, DoubleType.DOUBLE);
                 assertColumnSpec(rs, Types.LONGNVARCHAR, 1234L, null, 1234L, VarcharType.createVarcharType(1234));
                 assertColumnSpec(rs, Types.LONGNVARCHAR, (long) Integer.MAX_VALUE, null, (long) Integer.MAX_VALUE, VarcharType.createUnboundedVarcharType());
-                assertColumnSpec(rs, Types.LONGVARBINARY, 2147483647L, null, 0L, VarbinaryType.VARBINARY);
-                assertColumnSpec(rs, Types.TIME, 8L, null, 0L, TimeType.TIME);
-                assertColumnSpec(rs, Types.TIME_WITH_TIMEZONE, 14L, null, 0L, TimeWithTimeZoneType.TIME_WITH_TIME_ZONE);
-                assertColumnSpec(rs, Types.TIMESTAMP, 23L, null, 0L, TimestampType.TIMESTAMP);
-                assertColumnSpec(rs, Types.TIMESTAMP_WITH_TIMEZONE, 29L, null, 0L, TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE);
-                assertColumnSpec(rs, Types.DATE, 15L, null, 0L, DateType.DATE);
-                assertColumnSpec(rs, Types.DECIMAL, 8L, 2L, 0L, DecimalType.createDecimalType(8, 2));
-                assertColumnSpec(rs, Types.DECIMAL, 38L, 0L, 0L, DecimalType.createDecimalType(38, 0));
+                assertColumnSpec(rs, Types.LONGVARBINARY, (long) Integer.MAX_VALUE, null, (long) Integer.MAX_VALUE, VarbinaryType.VARBINARY);
+                assertColumnSpec(rs, Types.TIME, 8L, null, null, TimeType.TIME);
+                assertColumnSpec(rs, Types.TIME_WITH_TIMEZONE, 14L, null, null, TimeWithTimeZoneType.TIME_WITH_TIME_ZONE);
+                assertColumnSpec(rs, Types.TIMESTAMP, 23L, null, null, TimestampType.TIMESTAMP);
+                assertColumnSpec(rs, Types.TIMESTAMP_WITH_TIMEZONE, 29L, null, null, TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE);
+                assertColumnSpec(rs, Types.DATE, 15L, null, null, DateType.DATE);
+                assertColumnSpec(rs, Types.DECIMAL, 8L, 2L, null, DecimalType.createDecimalType(8, 2));
+                assertColumnSpec(rs, Types.DECIMAL, 38L, 0L, null, DecimalType.createDecimalType(38, 0));
+                assertColumnSpec(rs, Types.ARRAY, null, null, null, new ArrayType(BigintType.BIGINT));
+                assertColumnSpec(rs, Types.JAVA_OBJECT, null, null, null, ColorType.COLOR);
                 assertFalse(rs.next());
             }
         }

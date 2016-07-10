@@ -271,6 +271,9 @@ public class ColumnJdbcTable
         if (type instanceof VarcharType) {
             return ((VarcharType) type).getLength();
         }
-        return 0;
+        if (type.equals(VARBINARY)) {
+            return Integer.MAX_VALUE;
+        }
+        return null;
     }
 }
