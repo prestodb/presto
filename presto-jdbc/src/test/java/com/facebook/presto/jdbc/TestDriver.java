@@ -735,21 +735,22 @@ public class TestDriver
             Statement statement = connection.createStatement()) {
                 assertEquals(statement.executeUpdate(
                     "CREATE TABLE test_get_columns_table (" +
-                        "c1 boolean, " +
-                        "c2 bigint, " +
-                        "c3 integer, " +
-                        "c4 smallint, " +
-                        "c5 tinyint, " +
-                        "c6 double, " +
-                        "c7 varchar(1234), " +
-                        "c8 varbinary, " +
-                        "c9 time, " +
-                        "c10 \"time with time zone\", " +
-                        "c11 timestamp, " +
-                        "c12 \"timestamp with time zone\", " +
-                        "c13 date, " +
-                        "c14 decimal(8,2), " +
-                        "c15 decimal(38,0)" +
+                        "c_boolean boolean, " +
+                        "c_bigint bigint, " +
+                        "c_integer integer, " +
+                        "c_smallint smallint, " +
+                        "c_tinyint tinyint, " +
+                        "c_double double, " +
+                        "c_varchar_1234 varchar(1234), " +
+                        "c_varchar varchar, " +
+                        "c_varbinary varbinary, " +
+                        "c_time time, " +
+                        "c_time_with_time_zone \"time with time zone\", " +
+                        "c_timestamp timestamp, " +
+                        "c_timestamp_with_time_zone \"timestamp with time zone\", " +
+                        "c_date date, " +
+                        "c_decimal_8_2 decimal(8,2), " +
+                        "c_decimal_38_0 decimal(38,0)" +
                         ")"), 0);
         }
 
@@ -763,6 +764,7 @@ public class TestDriver
                 assertColumnSpec(rs, 3L, null, 0L, TinyintType.TINYINT);
                 assertColumnSpec(rs, null, null, 0L, DoubleType.DOUBLE);
                 assertColumnSpec(rs, 1234L, null, 1234L, VarcharType.createVarcharType(1234));
+                assertColumnSpec(rs, (long) Integer.MAX_VALUE, null, (long) Integer.MAX_VALUE, VarcharType.createUnboundedVarcharType());
                 assertColumnSpec(rs, 2147483647L, null, 0L, VarbinaryType.VARBINARY);
                 assertColumnSpec(rs, 8L, null, 0L, TimeType.TIME);
                 assertColumnSpec(rs, 14L, null, 0L, TimeWithTimeZoneType.TIME_WITH_TIME_ZONE);
