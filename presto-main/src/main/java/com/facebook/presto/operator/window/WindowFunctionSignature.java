@@ -13,17 +13,23 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.spi.block.BlockBuilder;
+import java.lang.annotation.Repeatable;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static java.lang.annotation.ElementType.TYPE;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
-@WindowFunctionSignature(name = "row_number", returnType = "bigint")
-public class RowNumberFunction
-        extends RankingWindowFunction
+@Retention(RUNTIME)
+@Target(TYPE)
+@Repeatable(WindowFunctionSignatures.class)
+public @interface WindowFunctionSignature
 {
-    @Override
-    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount, int currentPosition)
-    {
-        BIGINT.writeLong(output, currentPosition + 1);
-    }
+    String name();
+
+    String returnType() default "";
+
+    String typeVariable() default "";
+
+    String[] argumentTypes() default {};
 }

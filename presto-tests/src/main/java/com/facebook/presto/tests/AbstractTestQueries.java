@@ -18,7 +18,6 @@ import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.TimeZoneKey;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
@@ -86,7 +85,7 @@ public abstract class AbstractTestQueries
     // We can just use the default type registry, since we don't use any parametric types
     protected static final List<SqlFunction> CUSTOM_FUNCTIONS = new FunctionListBuilder()
             .aggregate(CustomSum.class)
-            .window("custom_rank", BIGINT, ImmutableList.<Type>of(), CustomRank.class)
+            .window(CustomRank.class)
             .scalars(CustomAdd.class)
             .scalars(CreateHll.class)
             .getFunctions();

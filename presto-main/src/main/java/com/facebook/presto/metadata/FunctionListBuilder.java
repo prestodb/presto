@@ -17,6 +17,7 @@ import com.facebook.presto.operator.scalar.annotations.ScalarFromAnnotationsPars
 import com.facebook.presto.operator.window.ReflectionWindowFunctionSupplier;
 import com.facebook.presto.operator.window.SqlWindowFunction;
 import com.facebook.presto.operator.window.ValueWindowFunction;
+import com.facebook.presto.operator.window.WindowAnnotationsParser;
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.type.Type;
@@ -59,6 +60,12 @@ public class FunctionListBuilder
                 Arrays.asList(argumentTypes).stream().map(TypeSignature::parseTypeSignature).collect(toImmutableList()),
                 false);
         functions.add(new SqlWindowFunction(new ReflectionWindowFunctionSupplier<>(signature, clazz)));
+        return this;
+    }
+
+    public FunctionListBuilder window(Class<? extends WindowFunction> clazz)
+    {
+        functions.addAll(WindowAnnotationsParser.parseFunctionDefinition(clazz));
         return this;
     }
 
