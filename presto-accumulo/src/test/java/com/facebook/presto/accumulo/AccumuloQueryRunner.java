@@ -50,7 +50,7 @@ public final class AccumuloQueryRunner
             throws Exception
     {
         DistributedQueryRunner queryRunner =
-                new DistributedQueryRunner(createSession(), 2, extraProperties);
+                new DistributedQueryRunner(createSession(), 4, extraProperties);
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");

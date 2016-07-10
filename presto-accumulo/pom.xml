@@ -6,7 +6,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.149-SNAPSHOT</version>
+        <version>0.151-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-accumulo</artifactId>
@@ -79,12 +79,6 @@
                             <expectedVersion>1.2.17</expectedVersion>
                             <resolvedVersion>1.2.16</resolvedVersion>
                         </exception>
-                        <exception>
-                            <groupId>org.eclipse.jetty</groupId>
-                            <artifactId>jetty-continuation</artifactId>
-                            <expectedVersion>9.3.7.RC0</expectedVersion>
-                            <resolvedVersion>8.1.15.v20140411</resolvedVersion>
-                        </exception>
                     </exceptions>
                 </configuration>
             </plugin>
@@ -153,6 +147,10 @@
                 <exclusion>
                     <groupId>org.codehaus.plexus</groupId>
                     <artifactId>plexus-utils</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.accumulo</groupId>
+                    <artifactId>accumulo-monitor</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>

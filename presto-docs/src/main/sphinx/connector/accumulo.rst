@@ -49,7 +49,7 @@ server-side filtering, known as *predicate pushdown*. In order
 for the server-side iterators to work, you need to add the ``presto-accumulo``
 jar file to Accumulo's ``lib/ext`` directory on each TabletServer node.
 
-.. code:: bash
+.. code-block:: bash
 
     # For each TabletServer node:
     scp $PRESTO_HOME/plugins/accumulo/presto-accumulo-*.jar [tabletserver_address]:$ACCUMULO_HOME/lib/ext
@@ -72,7 +72,7 @@ below.
 Restart the Presto server, then use the presto client with the
 ``accumulo`` catalog like so:
 
-.. code:: bash
+.. code-block:: bash
 
     presto --server localhost:8080 --catalog accumulo --schema default
 
@@ -108,7 +108,6 @@ Of the available Presto DDL/DML statements and features, the Accumulo connector 
 - **Adding columns via ALTER TABLE**: While you cannot add columns via SQL, you can using a tool.
   See the below section on `Adding Columns <#adding-columns>`__ for more.
 - **DELETE**: Deleting rows are not yet implemented for the connector, but you could always use the Accumulo API
-- **Transactions** : Transaction support has not yet been implemented for the connector
 
 Usage
 ~~~~~
@@ -125,17 +124,18 @@ clause of your table definition.
 
 Simply issue a ``CREATE TABLE`` statement to create a new Presto/Accumulo table.
 
-.. code:: sql
+.. code-block:: sql
 
     CREATE TABLE myschema.scientists (recordkey VARCHAR, name VARCHAR, age BIGINT, birthday DATE);
 
     DESCRIBE myschema.scientists;
-      Column   |  Type   |                  Comment
-    -----------+---------+-------------------------------------------
+      Column   |  Type   |                      Comment
+    -----------+---------+---------------------------------------------------
      recordkey | varchar | Accumulo row ID
-     name      | varchar | Accumulo column f9eb:0905. Indexed: false
-     age       | bigint  | Accumulo column 297d:b43b. Indexed: false
-     birthday  | date    | Accumulo column 0bc4:bb7c. Indexed: false
+     name      | varchar | Accumulo column name:name. Indexed: false
+     age       | bigint  | Accumulo column age:age. Indexed: false
+     birthday  | date    | Accumulo column birthday:birthday. Indexed: false
+
 
 This command will create a new Accumulo table with the ``recordkey`` column
 as the Accumulo row ID. The name, age, and birthday columns are mapped to
@@ -157,11 +157,10 @@ For a full list of table properties, see `Table Properties <#table-properties>`_
 
 For example:
 
-.. code:: sql
+.. code-block:: sql
 
     CREATE TABLE myschema.scientists (recordkey VARCHAR, name VARCHAR, age BIGINT, birthday DATE)
-    WITH (
-      column_mapping = 'name:metadata:name,age:metadata:age,birthday:metadata:date');
+    WITH (column_mapping = 'name:metadata:name,age:metadata:age,birthday:metadata:date');
 
     DESCRIBE myschema.scientists;
       Column   |  Type   |                    Comment
@@ -178,17 +177,17 @@ this method of loading data into Accumulo is low-throughput. You'll want
 to use the Accumulo APIs to write ``Mutations`` directly to the tables.
 See the section on `Loading Data <#loading-data>`__ for more details.
 
-.. code:: sql
+.. code-block:: sql
 
     INSERT INTO myschema.scientists VALUES
     ('row1', 'Grace Hopper', 109, DATE '1906-12-09' ),
     ('row2', 'Alan Turing', 103, DATE '1912-06-23' );
 
     SELECT * FROM myschema.scientists;
-     recordkey |     name     | age |  birthday  
+     recordkey |     name     | age |  birthday
     -----------+--------------+-----+------------
-     row1      | Grace Hopper | 109 | 1906-12-09 
-     row2      | Alan Turing  | 103 | 1912-06-23 
+     row1      | Grace Hopper | 109 | 1906-12-09
+     row2      | Alan Turing  | 103 | 1912-06-23
     (2 rows)
 
 As you'd expect, rows inserted into Accumulo via the shell or
@@ -196,7 +195,7 @@ programatically will also show up when queried. (The Accumulo shell
 thinks "-5321" is an option and not a number... so we'll just make TBL a
 little younger.)
 
-::
+.. code-block:: bash
 
     $ accumulo shell -u root -p secret
     root@default> table myschema.scientists
@@ -204,14 +203,14 @@ little younger.)
     root@default myschema.scientists> insert row3 metadata age 60
     root@default myschema.scientists> insert row3 metadata date 5321
 
-.. code:: sql
+.. code-block:: sql
 
-    presto:default> SELECT * FROM myschema.scientists;
-     recordkey |      name       | age |  birthday  
+    SELECT * FROM myschema.scientists;
+     recordkey |      name       | age |  birthday
     -----------+-----------------+-----+------------
-     row1      | Grace Hopper    | 109 | 1906-12-09 
-     row2      | Alan Turing     | 103 | 1912-06-23 
-     row3      | Tim Berners-Lee |  60 | 1984-07-27 
+     row1      | Grace Hopper    | 109 | 1906-12-09
+     row2      | Alan Turing     | 103 | 1912-06-23
+     row3      | Tim Berners-Lee |  60 | 1984-07-27
     (3 rows)
 
 You can also drop tables using the DROP command. This command drops both
@@ -219,7 +218,7 @@ metadata and the tables. See the below section on `External
 Tables <#external-tables>`__ for more details on internal and external
 tables.
 
-.. code:: sql
+.. code-block:: sql
 
     DROP TABLE myschema.scientists;
 
@@ -250,9 +249,9 @@ a comma-delimited list of Presto column names you wish to index (we use the
 ``string`` serializer here to help with this example -- you
 should be using the default ``lexicoder`` serializer).
 
-.. code:: sql
+.. code-block:: sql
 
-    presto:default> CREATE TABLE myschema.scientists (recordkey VARCHAR, name VARCHAR, age BIGINT, birthday DATE)
+    CREATE TABLE myschema.scientists (recordkey VARCHAR, name VARCHAR, age BIGINT, birthday DATE)
     WITH (
       serializer = 'string',
       index_columns='name,age,birthday'
@@ -261,7 +260,7 @@ should be using the default ``lexicoder`` serializer).
 After creating the table, we see there are an additional two Accumulo
 tables to store the index and metrics.
 
-::
+.. code-block:: bash
 
     root@default> tables
     accumulo.metadata
@@ -275,11 +274,13 @@ After inserting data, we can look at the index table and see there are
 indexed values for the name, age, and birthday columns. The connector
 queries this index table
 
-.. code:: sql
+.. code-block:: sql
 
-    presto:default> INSERT INTO myschema.scientists VALUES
+    INSERT INTO myschema.scientists VALUES
     ('row1', 'Grace Hopper', 109, DATE '1906-12-09' ),
     ('row2', 'Alan Turing', 103, DATE '1912-06-23' );
+
+.. code-block:: bash
 
     root@default> scan -t myschema.scientists_idx
     -21011 metadata_date:row2 []
@@ -297,9 +298,9 @@ is controlled by the value of ``accumulo.index_rows_per_split``) and
 passed to a Presto worker to be configured in the ``BatchScanner`` which
 scans the data table.
 
-.. code:: sql
+.. code-block:: sql
 
-    presto:default> SELECT * FROM myschema.scientists WHERE age = 109;
+    SELECT * FROM myschema.scientists WHERE age = 109;
      recordkey |     name     | age |  birthday
     -----------+--------------+-----+------------
      row1      | Grace Hopper | 109 | 1906-12-09
@@ -354,9 +355,9 @@ using the ``serializer`` property of the table. See the section on
 
 Next, we create the Presto external table.
 
-.. code:: sql
+.. code-block:: sql
 
-    presto:default> CREATE TABLE external_table (a VARCHAR, b BIGINT, c DATE) 
+    CREATE TABLE external_table (a VARCHAR, b BIGINT, c DATE)
     WITH (
         column_mapping = 'a:md:a,b:md:b,c:md:c',
         external = true,
@@ -366,24 +367,22 @@ Next, we create the Presto external table.
 
 After creating the table, usage of the table continues as usual:
 
-.. code:: sql
+.. code-block:: sql
 
-    presto:default> INSERT INTO external_table VALUES ('1', 1, DATE '2015-03-06'), ('2', 2, DATE '2015-03-07');
-    INSERT: 2 rows
+    INSERT INTO external_table VALUES ('1', 1, DATE '2015-03-06'), ('2', 2, DATE '2015-03-07');
 
-    presto:default> SELECT * FROM external_table;
-     a | b |     c      
+    SELECT * FROM external_table;
+     a | b |     c
     ---+---+------------
-     1 | 1 | 2015-03-06 
-     2 | 2 | 2015-03-06 
+     1 | 1 | 2015-03-06
+     2 | 2 | 2015-03-06
     (2 rows)
 
-    presto:default> DROP TABLE external_table;
-    DROP TABLE
+    DROP TABLE external_table;
 
 After dropping the table, the table will still exist in Accumulo because it is *external*.
 
-.. code:: sql
+.. code-block:: bash
 
     root@default> tables
     accumulo.metadata
@@ -397,9 +396,9 @@ If we wanted to add a new column to the table, we can create the table again and
 Any existing rows in the table will have a value of NULL. This command will re-configure the Accumulo
 tables, setting the locality groups and iterator configuration.
 
-.. code:: sql
+.. code-block:: sql
 
-    presto:default> CREATE TABLE external_table (a VARCHAR, b BIGINT, c DATE, d INTEGER)
+    CREATE TABLE external_table (a VARCHAR, b BIGINT, c DATE, d INTEGER)
     WITH (
         column_mapping = 'a:md:a,b:md:b,c:md:c,d:md:d',
         external = true,
@@ -407,7 +406,7 @@ tables, setting the locality groups and iterator configuration.
         locality_groups = 'foo:b,c,d'
     );
 
-    presto:default> SELECT * FROM external_table;
+    SELECT * FROM external_table;
      a | b |     c      |  d
     ---+---+------------+------
      1 | 1 | 2015-03-06 | NULL
@@ -419,7 +418,7 @@ Table Properties
 
 Table property usage example:
 
-.. code:: sql
+.. code-block:: sql
 
     CREATE TABLE myschema.scientists (recordkey VARCHAR, name VARCHAR, age BIGINT, birthday DATE)
     WITH (
@@ -451,7 +450,7 @@ Session Properties
 You can change the default value of a session property by using the SET
 SESSION clause in the Presto CLI or at the top of your Presto script:
 
-.. code:: sql
+.. code-block:: sql
 
     SET SESSION accumulo.column_filter_optimizations_enabled = false;
 
@@ -511,19 +510,19 @@ you could provide your own implementation by extending
 ``AccumuloRowSerializer``, adding it to the Presto ``CLASSPATH``, and
 specifying the fully-qualified Java class name in the connector configuration.
 
-.. code:: sql
+.. code-block:: sql
 
-    presto:default> CREATE TABLE myschema.scientists (recordkey VARCHAR, name VARCHAR, age BIGINT, birthday DATE) 
+    CREATE TABLE myschema.scientists (recordkey VARCHAR, name VARCHAR, age BIGINT, birthday DATE)
     WITH (
         column_mapping = 'name:metadata:name,age:metadata:age,birthday:metadata:date',
         serializer = 'default'
     );
 
-    presto:default> INSERT INTO myschema.scientists VALUES
+    INSERT INTO myschema.scientists VALUES
     ('row1', 'Grace Hopper', 109, DATE '1906-12-09' ),
     ('row2', 'Alan Turing', 103, DATE '1912-06-23' );
 
-.. code:: bash
+.. code-block:: bash
 
     root@default> scan -t myschema.scientists
     row1 metadata:age []    \x08\x80\x00\x00\x00\x00\x00\x00m
@@ -533,19 +532,19 @@ specifying the fully-qualified Java class name in the connector configuration.
     row2 metadata:date []    \x08\x7F\xFF\xFF\xFF\xFF\xFF\xAD\xED
     row2 metadata:name []    Alan Turing
 
-.. code:: sql
+.. code-block:: sql
 
-    presto:default> CREATE TABLE myschema.stringy_scientists (recordkey VARCHAR, name VARCHAR, age BIGINT, birthday DATE) 
+    CREATE TABLE myschema.stringy_scientists (recordkey VARCHAR, name VARCHAR, age BIGINT, birthday DATE)
     WITH (
         column_mapping = 'name:metadata:name,age:metadata:age,birthday:metadata:date',
         serializer = 'string'
     );
 
-    presto:default> INSERT INTO myschema.stringy_scientists VALUES
+    INSERT INTO myschema.stringy_scientists VALUES
     ('row1', 'Grace Hopper', 109, DATE '1906-12-09' ),
     ('row2', 'Alan Turing', 103, DATE '1912-06-23' );
 
-.. code:: bash
+.. code-block:: bash
 
     root@default> scan -t myschema.stringy_scientists
     row1 metadata:age []    109
@@ -555,9 +554,9 @@ specifying the fully-qualified Java class name in the connector configuration.
     row2 metadata:date []    -21011
     row2 metadata:name []    Alan Turing
 
-.. code:: sql
+.. code-block:: sql
 
-    CREATE TABLE myschema.custom_scientists (recordkey VARCHAR, name VARCHAR, age BIGINT, birthday DATE) 
+    CREATE TABLE myschema.custom_scientists (recordkey VARCHAR, name VARCHAR, age BIGINT, birthday DATE)
     WITH (
         column_mapping = 'name:metadata:name,age:metadata:age,birthday:metadata:date',
         serializer = 'my.serializer.package.MySerializer'
@@ -576,7 +575,7 @@ the details of how it is stored. Information is power.
 A root node in ZooKeeper holds all the mappings, and the format is as
 follows:
 
-.. code:: bash
+.. code-block:: bash
 
     /metadata-root/schema/table
 

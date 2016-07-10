@@ -100,7 +100,7 @@ public class AccumuloSplitManager
         }
 
         // TODO Would this be more beneficial to return splits in batches?
-        return new FixedSplitSource(connectorId, cSplits.build());
+        return new FixedSplitSource(cSplits.build());
     }
 
     /**

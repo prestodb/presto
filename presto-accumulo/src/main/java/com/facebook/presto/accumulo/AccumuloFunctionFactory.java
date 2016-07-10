@@ -17,11 +17,8 @@ import com.facebook.presto.accumulo.udf.AccumuloStringFunctions;
 import com.facebook.presto.metadata.FunctionFactory;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.SqlFunction;
-import com.facebook.presto.spi.type.TypeManager;
 
 import java.util.List;
-
-import static java.util.Objects.requireNonNull;
 
 /**
  * An implementation of a FunctionFactory to provide additional UDF functionality for Presto
@@ -31,22 +28,11 @@ import static java.util.Objects.requireNonNull;
 public class AccumuloFunctionFactory
         implements FunctionFactory
 {
-    private final TypeManager typeManager;
-
-    /**
-     * Creates a new instance of {@link AccumuloFunctionFactory}
-     *
-     * @param typeManager Type manager
-     */
-    public AccumuloFunctionFactory(TypeManager typeManager)
-    {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-    }
-
     @Override
     public List<SqlFunction> listFunctions()
     {
-        return new FunctionListBuilder(typeManager).scalar(AccumuloStringFunctions.class)
+        return new FunctionListBuilder()
+                .scalars(AccumuloStringFunctions.class)
                 .getFunctions();
     }
 }

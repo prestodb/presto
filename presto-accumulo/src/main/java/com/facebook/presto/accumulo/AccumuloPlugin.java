@@ -64,7 +64,7 @@ public class AccumuloPlugin
         }
 
         if (type == FunctionFactory.class) {
-            return ImmutableList.of(type.cast(new AccumuloFunctionFactory(typeManager)));
+            return ImmutableList.of(type.cast(new AccumuloFunctionFactory()));
         }
 
         return ImmutableList.of();
