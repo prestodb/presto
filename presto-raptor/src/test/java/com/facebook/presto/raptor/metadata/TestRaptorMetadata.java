@@ -16,13 +16,16 @@ package com.facebook.presto.raptor.metadata;
 import com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder;
 import com.facebook.presto.raptor.NodeSupplier;
 import com.facebook.presto.raptor.RaptorColumnHandle;
+import com.facebook.presto.raptor.RaptorColumnIdentity;
 import com.facebook.presto.raptor.RaptorConnectorId;
 import com.facebook.presto.raptor.RaptorMetadata;
 import com.facebook.presto.raptor.RaptorPartitioningHandle;
 import com.facebook.presto.raptor.RaptorSessionProperties;
 import com.facebook.presto.raptor.RaptorTableHandle;
+import com.facebook.presto.raptor.RaptorTableIdentity;
 import com.facebook.presto.raptor.storage.StorageManagerConfig;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnIdentity;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
@@ -35,12 +38,14 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.TableIdentity;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.testing.TestingNodeManager;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.ByteArrayDataOutput;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import org.skife.jdbi.v2.DBI;
@@ -71,6 +76,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.google.common.base.Ticker.systemTicker;
+import static com.google.common.io.ByteStreams.newDataOutput;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -445,6 +451,52 @@ public class TestRaptorMetadata
         Map<SchemaTableName, List<ColumnMetadata>> filterTable = metadata.listTableColumns(SESSION, new SchemaTablePrefix("test", "orders"));
         assertEquals(filterCatalog, filterSchema);
         assertEquals(filterCatalog, filterTable);
+    }
+
+    @Test
+    public void testTableIdentity()
+            throws Exception
+    {
+        // Test TableIdentity round trip.
+        metadata.createTable(SESSION, getOrdersTable());
+        ConnectorTableHandle connectorTableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
+        TableIdentity tableIdentity = metadata.getTableIdentity(connectorTableHandle);
+        byte[] bytes = tableIdentity.serialize();
+        assertEquals(tableIdentity, metadata.deserializeTableIdentity(bytes));
+
+        // Test one hard coded serialized data for each version.
+        byte version = 1;
+        long tableId = 12345678L;
+        ByteArrayDataOutput dataOutput = newDataOutput();
+        dataOutput.writeByte(version);
+        dataOutput.writeLong(tableId);
+        byte[] testBytes = dataOutput.toByteArray();
+        TableIdentity testTableIdentity = metadata.deserializeTableIdentity(testBytes);
+        assertEquals(testTableIdentity, new RaptorTableIdentity(tableId));
+    }
+
+    @Test
+    public void testColumnIdentity()
+            throws Exception
+    {
+        // Test ColumnIdentity round trip.
+        metadata.createTable(SESSION, getOrdersTable());
+        ConnectorTableHandle connectorTableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
+
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(SESSION, connectorTableHandle);
+        ColumnIdentity orderKeyColumnIdentity = metadata.getColumnIdentity(columnHandles.get("orderkey"));
+        byte[] bytes = orderKeyColumnIdentity.serialize();
+        assertEquals(orderKeyColumnIdentity, metadata.deserializeColumnIdentity(bytes));
+
+        // Test one hard coded serialized data for each version.
+        byte version = 1;
+        long columnId = 123456789012L;
+        ByteArrayDataOutput dataOutput = newDataOutput();
+        dataOutput.writeByte(version);
+        dataOutput.writeLong(columnId);
+        byte[] testBytes = dataOutput.toByteArray();
+        ColumnIdentity testColumnIdentity = metadata.deserializeColumnIdentity(testBytes);
+        assertEquals(testColumnIdentity, new RaptorColumnIdentity(columnId));
     }
 
     @Test
