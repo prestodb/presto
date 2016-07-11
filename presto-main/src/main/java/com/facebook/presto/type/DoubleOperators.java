@@ -46,6 +46,7 @@ import static com.facebook.presto.spi.function.OperatorType.NEGATION;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static com.facebook.presto.spi.function.OperatorType.SUBTRACT;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Float.floatToRawIntBits;
@@ -240,6 +241,28 @@ public final class DoubleOperators
     public static long hashCode(@SqlType(StandardTypes.DOUBLE) double value)
     {
         return AbstractLongType.hash(doubleToLongBits(value));
+    }
+
+    @ScalarOperator(SATURATED_FLOOR_CAST)
+    @SqlType(StandardTypes.REAL)
+    public static strictfp long saturatedFloorCastToFloat(@SqlType(StandardTypes.DOUBLE) double value)
+    {
+        float result;
+        float minFloat = -1.0f * Float.MAX_VALUE;
+        if (value <= minFloat) {
+            result = minFloat;
+        }
+        else if (value >= Float.MAX_VALUE) {
+            result = Float.MAX_VALUE;
+        }
+        else {
+            result = (float) value;
+            if (result > value) {
+                result = Math.nextDown(result);
+            }
+            checkState(result <= value);
+        }
+        return floatToRawIntBits(result);
     }
 
     @ScalarOperator(SATURATED_FLOOR_CAST)
