@@ -16,8 +16,8 @@ package com.facebook.presto.ml;
 import com.facebook.presto.metadata.FunctionFactory;
 import com.facebook.presto.ml.type.ClassifierParametricType;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.ParametricType;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
