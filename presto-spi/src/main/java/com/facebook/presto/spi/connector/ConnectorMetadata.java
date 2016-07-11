@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.connector;
 
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnIdentity;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
@@ -30,6 +31,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.TableIdentity;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.Privilege;
 import io.airlift.slice.Slice;
@@ -353,5 +355,25 @@ public interface ConnectorMetadata
     default void revokeTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, String grantee, boolean grantOption)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support revokes");
+    }
+
+    default TableIdentity getTableIdentity(ConnectorTableHandle connectorTableHandle)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support table identity");
+    }
+
+    default TableIdentity deserializeTableIdentity(byte[] bytes)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support table identity");
+    }
+
+    default ColumnIdentity getColumnIdentity(ColumnHandle columnHandle)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support column identity");
+    }
+
+    default ColumnIdentity deserializeColumnIdentity(byte[] bytes)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support column identity");
     }
 }
