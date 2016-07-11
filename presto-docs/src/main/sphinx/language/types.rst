@@ -5,10 +5,30 @@ Data Types
 Presto currently supports a limited set of data types.
 These types can be used with the standard ``CAST`` operator.
 
+.. note:: Connectors are not required to support all types.
+
 BOOLEAN
 -------
 
     This type captures boolean values ``true`` and ``false``.
+
+TINYINT
+-------
+
+    A 8-bit signed two's complement integer with a minimum value of
+    ``-2^7`` and a maximum value of ``2^7 - 1``.
+
+SMALLINT
+--------
+
+    A 16-bit signed two's complement integer with a minimum value of
+    ``-2^15`` and a maximum value of ``2^15 - 1``.
+
+INTEGER
+-------
+
+    A 32-bit signed two's complement integer with a minimum value of
+    ``-2^31`` and a maximum value of ``2^31 - 1``.
 
 BIGINT
 ------
