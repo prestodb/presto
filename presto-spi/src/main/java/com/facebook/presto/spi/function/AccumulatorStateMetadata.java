@@ -11,17 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation.state;
+package com.facebook.presto.spi.function;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
-public interface AccumulatorStateSerializer<T>
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+public @interface AccumulatorStateMetadata
 {
-    Type getSerializedType();
+    Class<?> stateSerializerClass() default void.class;
 
-    void serialize(T state, BlockBuilder out);
-
-    void deserialize(Block block, int index, T state);
+    Class<?> stateFactoryClass() default void.class;
 }

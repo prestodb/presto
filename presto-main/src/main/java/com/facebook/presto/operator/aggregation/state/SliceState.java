@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 

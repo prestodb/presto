@@ -11,18 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation.state;
+package com.facebook.presto.spi.function;
 
-public interface AccumulatorStateFactory<T>
+public interface GroupedAccumulatorState
+        extends AccumulatorState
 {
-    T createSingleState();
+    void setGroupId(long groupId);
 
-    Class<? extends T> getSingleStateClass();
-
-    /**
-     * Return value is also guaranteed to implement GroupedAccumulatorState
-     */
-    T createGroupedState();
-
-    Class<? extends T> getGroupedStateClass();
+    void ensureCapacity(long size);
 }

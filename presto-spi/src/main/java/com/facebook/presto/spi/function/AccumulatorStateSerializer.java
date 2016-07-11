@@ -11,12 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation.state;
+package com.facebook.presto.spi.function;
 
-public interface GroupedAccumulatorState
-        extends AccumulatorState
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.Type;
+
+public interface AccumulatorStateSerializer<T>
 {
-    void setGroupId(long groupId);
+    Type getSerializedType();
 
-    void ensureCapacity(long size);
+    void serialize(T state, BlockBuilder out);
+
+    void deserialize(Block block, int index, T state);
 }

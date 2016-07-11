@@ -14,7 +14,7 @@
 package com.facebook.presto.ml;
 
 import com.facebook.presto.operator.aggregation.state.AbstractGroupedAccumulatorState;
-import com.facebook.presto.operator.aggregation.state.AccumulatorStateFactory;
+import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.util.array.ObjectBigArray;
 import com.facebook.presto.util.array.SliceBigArray;
 import com.google.common.collect.BiMap;

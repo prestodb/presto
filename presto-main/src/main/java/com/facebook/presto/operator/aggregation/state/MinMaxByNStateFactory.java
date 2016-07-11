@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.operator.aggregation.TypedKeyValueHeap;
+import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.util.array.ObjectBigArray;
 
 public class MinMaxByNStateFactory

@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.operator.aggregation.TypedKeyValueHeap;
+import com.facebook.presto.spi.function.AccumulatorState;
 
 public interface MinMaxByNState
         extends AccumulatorState
