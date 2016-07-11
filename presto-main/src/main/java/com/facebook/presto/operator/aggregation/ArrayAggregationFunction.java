@@ -37,6 +37,7 @@ import java.util.List;
 
 import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
@@ -47,19 +48,21 @@ import static com.facebook.presto.util.Reflection.methodHandle;
 public class ArrayAggregationFunction
         extends SqlAggregationFunction
 {
-    public static final ArrayAggregationFunction ARRAY_AGGREGATION = new ArrayAggregationFunction();
     private static final String NAME = "array_agg";
     private static final MethodHandle INPUT_FUNCTION = methodHandle(ArrayAggregationFunction.class, "input", Type.class, ArrayAggregationState.class, Block.class, int.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(ArrayAggregationFunction.class, "combine", Type.class, ArrayAggregationState.class, ArrayAggregationState.class);
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(ArrayAggregationFunction.class, "output", Type.class, ArrayAggregationState.class, BlockBuilder.class);
 
-    public ArrayAggregationFunction()
+    private final boolean legacyArrayAgg;
+
+    public ArrayAggregationFunction(boolean legacyArrayAgg)
     {
         super(NAME,
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
                 parseTypeSignature("array(T)"),
                 ImmutableList.of(parseTypeSignature("T")));
+        this.legacyArrayAgg = legacyArrayAgg;
     }
 
     @Override
@@ -72,10 +75,10 @@ public class ArrayAggregationFunction
     public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type type = boundVariables.getTypeVariable("T");
-        return generateAggregation(type);
+        return generateAggregation(type, legacyArrayAgg);
     }
 
-    private static InternalAggregationFunction generateAggregation(Type type)
+    private static InternalAggregationFunction generateAggregation(Type type, boolean legacyArrayAgg)
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(ArrayAggregationFunction.class.getClassLoader());
 
@@ -85,7 +88,7 @@ public class ArrayAggregationFunction
         List<Type> inputTypes = ImmutableList.of(type);
         Type outputType = new ArrayType(type);
         Type intermediateType = stateSerializer.getSerializedType();
-        List<ParameterMetadata> inputParameterMetadata = createInputParameterMetadata(type);
+        List<ParameterMetadata> inputParameterMetadata = createInputParameterMetadata(type, legacyArrayAgg);
 
         MethodHandle inputFunction = INPUT_FUNCTION.bindTo(type);
         MethodHandle combineFunction = COMBINE_FUNCTION.bindTo(type);
@@ -110,9 +113,9 @@ public class ArrayAggregationFunction
         return new InternalAggregationFunction(NAME, inputTypes, intermediateType, outputType, true, false, factory);
     }
 
-    private static List<ParameterMetadata> createInputParameterMetadata(Type value)
+    private static List<ParameterMetadata> createInputParameterMetadata(Type value, boolean legacyArrayAgg)
     {
-        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, value), new ParameterMetadata(BLOCK_INDEX));
+        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(legacyArrayAgg ? BLOCK_INPUT_CHANNEL : NULLABLE_BLOCK_INPUT_CHANNEL, value), new ParameterMetadata(BLOCK_INDEX));
     }
 
     public static void input(Type type, ArrayAggregationState state, Block value, int position)
