@@ -19,10 +19,16 @@ addons:
     packages:
       - oracle-java8-installer
 
+cache:
+  directories:
+    - $HOME/.m2/repository
+
 services:
   - docker
 
 before_install:
+  # This is needed until Travis #4629 is fixed (https://github.com/travis-ci/travis-ci/issues/4629)
+  - sed -i.bak -e 's|https://nexus.codehaus.org/snapshots/|https://oss.sonatype.org/content/repositories/codehaus-snapshots/|g' ~/.m2/settings.xml
   # This section can be removed once travis get equipped with docker 1.10 and docker-compose 1.6
   - |
     if [ -v PRODUCT_TESTS ] || [ -v INTEGRATION_TESTS ]; then
@@ -54,6 +60,10 @@ script:
   - |
     test ! -v INTEGRATION_TESTS ||
       ./mvnw install -DskipTests=true -B
+
+before_cache:
+  #make the cache stable between builds by removing build output
+  - rm -rf $HOME/.m2/repository/com/facebook
 
 notifications:
   slack:
