@@ -14,12 +14,12 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.window.FrameInfo;
-import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.operator.window.WindowPartition;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.function.WindowFunction;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
