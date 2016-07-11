@@ -22,8 +22,8 @@ import io.airlift.stats.QuantileDigest;
 
 import java.util.List;
 
-import static com.facebook.presto.operator.aggregation.LongDoubleConverterUtil.doubleToSortableLong;
-import static com.facebook.presto.operator.aggregation.LongDoubleConverterUtil.sortableLongToDouble;
+import static com.facebook.presto.operator.aggregation.FloatingPointBitsConverterUtil.doubleToSortableLong;
+import static com.facebook.presto.operator.aggregation.FloatingPointBitsConverterUtil.sortableLongToDouble;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 @AggregationFunction("approx_percentile")

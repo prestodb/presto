@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-final class LongDoubleConverterUtil
+final class FloatingPointBitsConverterUtil
 {
-    private LongDoubleConverterUtil() {}
+    private FloatingPointBitsConverterUtil() {}
 
     /**
      * Converts a double value to a sortable long. The value is converted by getting their IEEE 754
