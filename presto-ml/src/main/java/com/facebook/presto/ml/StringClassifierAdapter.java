@@ -24,8 +24,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static com.facebook.presto.ml.ModelUtils.serialize;
+import static com.facebook.presto.ml.Types.checkType;
 import static com.facebook.presto.ml.type.ClassifierType.VARCHAR_CLASSIFIER;
-import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkState;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;

@@ -18,7 +18,7 @@ import com.facebook.presto.ml.type.ModelType;
 
 import java.util.List;
 
-import static com.facebook.presto.util.Types.checkType;
+import static com.facebook.presto.ml.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
 public class ClassifierFeatureTransformer
