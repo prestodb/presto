@@ -13,27 +13,27 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.operator.Description;
-import com.facebook.presto.operator.scalar.annotations.OperatorDependency;
-import com.facebook.presto.operator.scalar.annotations.ScalarFunction;
-import com.facebook.presto.operator.scalar.annotations.TypeParameter;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.OperatorDependency;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.SqlType;
 import io.airlift.slice.Slice;
 
 import javax.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.facebook.presto.metadata.OperatorType.LESS_THAN;
 import static com.facebook.presto.operator.scalar.ArrayMinMaxUtils.booleanArrayMinMax;
 import static com.facebook.presto.operator.scalar.ArrayMinMaxUtils.doubleArrayMinMax;
 import static com.facebook.presto.operator.scalar.ArrayMinMaxUtils.longArrayMinMax;
 import static com.facebook.presto.operator.scalar.ArrayMinMaxUtils.sliceArrayMinMax;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.google.common.base.Throwables.propagateIfInstanceOf;
 
 @ScalarFunction("array_min")

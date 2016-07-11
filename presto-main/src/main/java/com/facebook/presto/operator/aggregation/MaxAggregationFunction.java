@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.metadata.OperatorType;
+import com.facebook.presto.spi.function.OperatorType;
 
 public class MaxAggregationFunction
         extends AbstractMinMaxAggregationFunction

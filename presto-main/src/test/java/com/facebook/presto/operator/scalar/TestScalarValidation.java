@@ -14,9 +14,9 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.FunctionListBuilder;
-import com.facebook.presto.operator.scalar.annotations.ScalarFunction;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.type.SqlType;
 import org.testng.annotations.Test;
 
 import javax.annotation.Nullable;

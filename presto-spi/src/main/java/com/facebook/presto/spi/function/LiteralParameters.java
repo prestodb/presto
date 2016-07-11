@@ -11,22 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.scalar.annotations;
+package com.facebook.presto.spi.function;
 
-import com.facebook.presto.metadata.OperatorType;
-
-import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-@Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.PARAMETER})
-public @interface OperatorDependency
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+@Retention(RUNTIME)
+@Target(METHOD)
+public @interface LiteralParameters
 {
-    OperatorType operator();
-
-    String returnType();
-
-    String[] argumentTypes();
+    String[] value();
 }

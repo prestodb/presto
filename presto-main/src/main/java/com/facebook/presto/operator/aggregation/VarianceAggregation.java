@@ -13,17 +13,21 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.Description;
 import com.facebook.presto.operator.aggregation.state.VarianceState;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.CombineFunction;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.InputFunction;
+import com.facebook.presto.spi.function.OutputFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.type.SqlType;
 
 import static com.facebook.presto.operator.aggregation.AggregationUtils.mergeVarianceState;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.updateVarianceState;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
-@AggregationFunction("") // Names are on output methods
+@AggregationFunction
 @Description("Returns the variance of the argument")
 public final class VarianceAggregation
 {

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.OperatorType;
+import com.facebook.presto.spi.function.OperatorType;
 
 public final class Least
         extends AbstractGreatestLeast

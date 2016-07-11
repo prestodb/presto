@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.operator.scalar.annotations.ScalarOperator;
+import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -31,11 +32,11 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.metadata.OperatorType.ADD;
-import static com.facebook.presto.metadata.OperatorType.DIVIDE;
-import static com.facebook.presto.metadata.OperatorType.MULTIPLY;
-import static com.facebook.presto.metadata.OperatorType.NEGATION;
-import static com.facebook.presto.metadata.OperatorType.SUBTRACT;
+import static com.facebook.presto.spi.function.OperatorType.ADD;
+import static com.facebook.presto.spi.function.OperatorType.DIVIDE;
+import static com.facebook.presto.spi.function.OperatorType.MULTIPLY;
+import static com.facebook.presto.spi.function.OperatorType.NEGATION;
+import static com.facebook.presto.spi.function.OperatorType.SUBTRACT;
 
 @State(Scope.Thread)
 @Fork(2)

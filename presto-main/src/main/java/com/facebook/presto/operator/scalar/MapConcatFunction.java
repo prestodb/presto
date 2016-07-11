@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.operator.Description;
 import com.facebook.presto.operator.aggregation.TypedSet;
-import com.facebook.presto.operator.scalar.annotations.ScalarFunction;
-import com.facebook.presto.operator.scalar.annotations.TypeParameter;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlockBuilder;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.SqlType;
 import com.google.common.collect.ImmutableList;
 
 @ScalarFunction("map_concat")

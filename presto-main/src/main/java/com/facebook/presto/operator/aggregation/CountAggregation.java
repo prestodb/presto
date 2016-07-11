@@ -15,6 +15,10 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.LongState;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.CombineFunction;
+import com.facebook.presto.spi.function.InputFunction;
+import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.type.StandardTypes;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;

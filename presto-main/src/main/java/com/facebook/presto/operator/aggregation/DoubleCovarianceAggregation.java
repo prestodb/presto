@@ -15,8 +15,12 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.CovarianceState;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.CombineFunction;
+import com.facebook.presto.spi.function.InputFunction;
+import com.facebook.presto.spi.function.OutputFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.type.SqlType;
 
 import static com.facebook.presto.operator.aggregation.AggregationUtils.getCovariancePopulation;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.getCovarianceSample;
@@ -24,7 +28,7 @@ import static com.facebook.presto.operator.aggregation.AggregationUtils.mergeCov
 import static com.facebook.presto.operator.aggregation.AggregationUtils.updateCovarianceState;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
-@AggregationFunction("")
+@AggregationFunction
 public class DoubleCovarianceAggregation
 {
     private DoubleCovarianceAggregation() {}
