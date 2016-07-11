@@ -21,10 +21,10 @@ final class FloatingPointBitsConverterUtil
      * Converts a double value to a sortable long. The value is converted by getting their IEEE 754
      * floating-point bit layout. Some bits are swapped to be able to compare the result as long.
      */
-    public static double sortableLongToDouble(long value)
+    public static long doubleToSortableLong(double value)
     {
-        value = value ^ (value >> 63) & Long.MAX_VALUE;
-        return Double.longBitsToDouble(value);
+        long bits = Double.doubleToRawLongBits(value);
+        return bits ^ (bits >> 63) & Long.MAX_VALUE;
     }
 
     /**
@@ -32,9 +32,9 @@ final class FloatingPointBitsConverterUtil
      *
      * @see #sortableLongToDouble(long)
      */
-    public static long doubleToSortableLong(double value)
+    public static double sortableLongToDouble(long value)
     {
-        long bits = Double.doubleToRawLongBits(value);
-        return bits ^ (bits >> 63) & Long.MAX_VALUE;
+        value = value ^ (value >> 63) & Long.MAX_VALUE;
+        return Double.longBitsToDouble(value);
     }
 }
