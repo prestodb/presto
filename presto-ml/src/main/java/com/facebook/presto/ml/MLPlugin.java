@@ -17,34 +17,22 @@ import com.facebook.presto.metadata.FunctionFactory;
 import com.facebook.presto.ml.type.ClassifierParametricType;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.type.ParametricType;
 import com.google.common.collect.ImmutableList;
-
-import javax.inject.Inject;
 
 import java.util.List;
 
 import static com.facebook.presto.ml.type.ModelType.MODEL;
 import static com.facebook.presto.ml.type.RegressorType.REGRESSOR;
-import static java.util.Objects.requireNonNull;
 
 public class MLPlugin
         implements Plugin
 {
-    private TypeManager typeManager;
-
-    @Inject
-    public void setTypeManager(TypeManager typeManager)
-    {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-    }
-
     @Override
     public <T> List<T> getServices(Class<T> type)
     {
         if (type == FunctionFactory.class) {
-            return ImmutableList.of(type.cast(new MLFunctionFactory(typeManager)));
+            return ImmutableList.of(type.cast(new MLFunctionFactory()));
         }
         else if (type == Type.class) {
             return ImmutableList.of(type.cast(MODEL), type.cast(REGRESSOR));
