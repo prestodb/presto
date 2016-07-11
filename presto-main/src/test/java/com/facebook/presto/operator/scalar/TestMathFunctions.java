@@ -21,6 +21,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RAN
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.FloatType.FLOAT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
@@ -58,6 +59,7 @@ public class TestMathFunctions
         assertFunction("abs(123.45)", DOUBLE, 123.45);
         assertFunction("abs(-123.45)", DOUBLE, 123.45);
         assertFunction("abs(CAST(NULL AS DOUBLE))", DOUBLE, null);
+        assertFunction("abs(FLOAT '-754.1985')", FLOAT, 754.1985f);
         assertInvalidFunction("abs(TINYINT'" + Byte.MIN_VALUE + "')", NUMERIC_VALUE_OUT_OF_RANGE);
         assertInvalidFunction("abs(SMALLINT'" + Short.MIN_VALUE + "')", NUMERIC_VALUE_OUT_OF_RANGE);
         assertInvalidFunction("abs(INTEGER'" + Integer.MIN_VALUE + "')", NUMERIC_VALUE_OUT_OF_RANGE);
@@ -133,6 +135,11 @@ public class TestMathFunctions
         assertFunction("ceil(123.45)", DOUBLE, 124.0);
         assertFunction("ceil(-123.45)", DOUBLE, -123.0);
         assertFunction("ceil(CAST(NULL as DOUBLE))", DOUBLE, null);
+        assertFunction("ceil(FLOAT '123.0')", FLOAT, 123.0f);
+        assertFunction("ceil(FLOAT '-123.0')", FLOAT, -123.0f);
+        assertFunction("ceil(FLOAT '123.45')", FLOAT, 124.0f);
+        assertFunction("ceil(FLOAT '-123.45')", FLOAT, -123.0f);
+
         assertFunction("ceiling(12300000000)", BIGINT, 12300000000L);
         assertFunction("ceiling(-12300000000)", BIGINT, -12300000000L);
         assertFunction("ceiling(CAST(NULL AS BIGINT))", BIGINT, null);
@@ -141,6 +148,12 @@ public class TestMathFunctions
         assertFunction("ceiling(123.45)", DOUBLE, 124.0);
         assertFunction("ceiling(-123.45)", DOUBLE, -123.0);
         assertFunction("ceiling(CAST(NULL AS DOUBLE))", DOUBLE, null);
+        assertFunction("ceiling(FLOAT '123.0')", FLOAT, 123.0f);
+        assertFunction("ceiling(FLOAT '-123.0')", FLOAT, -123.0f);
+        assertFunction("ceiling(FLOAT '123.45')", FLOAT, 124.0f);
+        assertFunction("ceiling(FLOAT '-123.45')", FLOAT, -123.0f);
+        assertFunction("ceil(CAST(NULL AS DOUBLE))", DOUBLE, null);
+        assertFunction("ceiling(CAST(NULL AS FLOAT))", FLOAT, null);
     }
 
     @Test
@@ -152,7 +165,10 @@ public class TestMathFunctions
         assertFunction("truncate(-17.18)", DOUBLE, -17.0);
         assertFunction("truncate(17.88)", DOUBLE, 17.0);
         assertFunction("truncate(-17.88)", DOUBLE, -17.0);
-        assertFunction("truncate(NULL)", DOUBLE, null);
+        assertFunction("truncate(FLOAT '17.18')", FLOAT, 17.0f);
+        assertFunction("truncate(FLOAT '-17.18')", FLOAT, -17.0f);
+        assertFunction("truncate(FLOAT '17.88')", FLOAT, 17.0f);
+        assertFunction("truncate(FLOAT '-17.88')", FLOAT, -17.0f);
         assertFunction("truncate(CAST(NULL AS DOUBLE))", DOUBLE, null);
         assertFunction("truncate(" + maxDouble + ")", DOUBLE, Double.MAX_VALUE);
         assertFunction("truncate(" + minDouble + ")", DOUBLE, -Double.MAX_VALUE);
@@ -221,7 +237,12 @@ public class TestMathFunctions
         assertFunction("floor(-123.0)", DOUBLE, -123.0);
         assertFunction("floor(123.45)", DOUBLE, 123.0);
         assertFunction("floor(-123.45)", DOUBLE, -124.0);
+        assertFunction("floor(FLOAT '123.0')", FLOAT, 123.0f);
+        assertFunction("floor(FLOAT '-123.0')", FLOAT, -123.0f);
+        assertFunction("floor(FLOAT '123.45')", FLOAT, 123.0f);
+        assertFunction("floor(FLOAT '-123.45')", FLOAT, -124.0f);
         assertFunction("floor(CAST(NULL as DOUBLE))", DOUBLE, null);
+        assertFunction("floor(CAST(NULL as FLOAT))", FLOAT, null);
     }
 
     @Test
@@ -302,6 +323,13 @@ public class TestMathFunctions
                 assertFunction("mod(" + left + ", " + right + ")", DOUBLE, left % right);
             }
         }
+
+        for (double left : doubleLefts) {
+            for (double right : doubleRights) {
+                assertFunction("mod(FLOAT '" + (float) left + "', FLOAT '" + (float) right + "')", FLOAT, (float) left % (float) right);
+            }
+        }
+
         assertFunction("mod(5.0, NULL)", DOUBLE, null);
         assertFunction("mod(NULL, 5.0)", DOUBLE, null);
     }
@@ -448,6 +476,14 @@ public class TestMathFunctions
         assertFunction("round(-3.5)", DOUBLE, -4.0);
         assertFunction("round(-3.5001)", DOUBLE, -4.0);
         assertFunction("round(-3.99)", DOUBLE, -4.0);
+        assertFunction("round(FLOAT '3.0')", FLOAT, 3.0f);
+        assertFunction("round(FLOAT '-3.0')", FLOAT, -3.0f);
+        assertFunction("round(FLOAT '3.499')", FLOAT, 3.0f);
+        assertFunction("round(FLOAT '-3.499')", FLOAT, -3.0f);
+        assertFunction("round(FLOAT '3.5')", FLOAT, 4.0f);
+        assertFunction("round(FLOAT '-3.5')", FLOAT, -4.0f);
+        assertFunction("round(FLOAT '-3.5001')", FLOAT, -4.0f);
+        assertFunction("round(FLOAT '-3.99')", FLOAT,  -4.0f);
         assertFunction("round(CAST(NULL as DOUBLE))", DOUBLE, null);
         assertFunction("round(" + GREATEST_DOUBLE_LESS_THAN_HALF + ")", DOUBLE, 0.0);
         assertFunction("round(-" + 0x1p-1 + ")", DOUBLE, -1.0); // -0.5
@@ -481,6 +517,14 @@ public class TestMathFunctions
         assertFunction("round(TINYINT '3', 1)", TINYINT, (byte) 3);
         assertFunction("round(SMALLINT '3', SMALLINT '1')", SMALLINT, (short) 3);
         assertFunction("round(SMALLINT '3', 1)", SMALLINT, (short) 3);
+        assertFunction("round(FLOAT '3.0', 0)", FLOAT, 3.0f);
+        assertFunction("round(FLOAT '-3.0', 0)", FLOAT, -3.0f);
+        assertFunction("round(FLOAT '3.499', 0)", FLOAT, 3.0f);
+        assertFunction("round(FLOAT '-3.499', 0)", FLOAT, -3.0f);
+        assertFunction("round(FLOAT '3.5', 0)", FLOAT, 4.0f);
+        assertFunction("round(FLOAT '-3.5', 0)", FLOAT, -4.0f);
+        assertFunction("round(FLOAT '-3.5001', 0)", FLOAT, -4.0f);
+        assertFunction("round(FLOAT '-3.99', 0)", FLOAT, -4.0f);
         assertFunction("round(3, 1)", INTEGER, 3);
         assertFunction("round(-3, 1)", INTEGER, -3);
         assertFunction("round(-3, BIGINT '1')", INTEGER, -3);
@@ -498,6 +542,14 @@ public class TestMathFunctions
         assertFunction("round(-3.5, 1)", DOUBLE, -3.5);
         assertFunction("round(-3.5001, 1)", DOUBLE, -3.5);
         assertFunction("round(-3.99, 1)", DOUBLE, -4.0);
+        assertFunction("round(FLOAT '3.0', 1)", FLOAT, 3.0f);
+        assertFunction("round(FLOAT '-3.0', 1)", FLOAT, -3.0f);
+        assertFunction("round(FLOAT '3.499', 1)", FLOAT, 3.5f);
+        assertFunction("round(FLOAT '-3.499', 1)", FLOAT, -3.5f);
+        assertFunction("round(FLOAT '3.5', 1)", FLOAT, 3.5f);
+        assertFunction("round(FLOAT '-3.5', 1)", FLOAT, -3.5f);
+        assertFunction("round(FLOAT '-3.5001', 1)", FLOAT, -3.5f);
+        assertFunction("round(FLOAT '-3.99', 1)", FLOAT, -4.0f);
         assertFunction("round(CAST(NULL as DOUBLE), CAST(NULL as BIGINT))", DOUBLE, null);
         assertFunction("round(-3.0, CAST(NULL as BIGINT))", DOUBLE, null);
         assertFunction("round(CAST(NULL as DOUBLE), 1)", DOUBLE, null);
@@ -541,9 +593,10 @@ public class TestMathFunctions
             assertFunction("sign(BIGINT '" + intValue + "')", BIGINT, signum.longValue());
         }
 
-        //double
+        //double and float
         for (double doubleValue : DOUBLE_VALUES) {
             assertFunction("sign(" + doubleValue + ")", DOUBLE, Math.signum(doubleValue));
+            assertFunction("sign(FLOAT '" + (float) doubleValue + "')", FLOAT, Math.signum(((float) doubleValue)));
         }
 
         //returns NaN for NaN input
