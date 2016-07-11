@@ -17,8 +17,7 @@ import com.facebook.presto.operator.scalar.ColorFunctions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.AbstractIntType;
-
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
+import com.facebook.presto.spi.type.TypeSignature;
 
 public class ColorType
         extends AbstractIntType
@@ -28,7 +27,7 @@ public class ColorType
 
     private ColorType()
     {
-        super(parameterizedTypeName(NAME));
+        super(new TypeSignature(NAME));
     }
 
     @Override
