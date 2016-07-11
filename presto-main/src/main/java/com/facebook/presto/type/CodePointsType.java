@@ -20,9 +20,9 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.AbstractType;
+import com.facebook.presto.spi.type.TypeSignature;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 
 public class CodePointsType
         extends AbstractType
@@ -32,7 +32,7 @@ public class CodePointsType
 
     protected CodePointsType()
     {
-        super(parameterizedTypeName(NAME), int[].class);
+        super(new TypeSignature(NAME), int[].class);
     }
 
     @Override

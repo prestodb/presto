@@ -17,8 +17,8 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.AbstractFixedWidthType;
+import com.facebook.presto.spi.type.TypeSignature;
 
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public final class UnknownType
@@ -29,7 +29,7 @@ public final class UnknownType
 
     private UnknownType()
     {
-        super(parameterizedTypeName(NAME), void.class, 0);
+        super(new TypeSignature(NAME), void.class, 0);
     }
 
     @Override

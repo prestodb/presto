@@ -18,10 +18,9 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.AbstractVariableWidthType;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.TypeSignature;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 
 /**
  * The stack representation for JSON objects must have the keys in natural sorted order.
@@ -33,7 +32,7 @@ public class JsonType
 
     public JsonType()
     {
-        super(parameterizedTypeName(StandardTypes.JSON), Slice.class);
+        super(new TypeSignature(StandardTypes.JSON), Slice.class);
     }
 
     @Override

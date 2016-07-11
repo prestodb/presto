@@ -20,7 +20,6 @@ import com.facebook.presto.spi.type.AbstractVariableWidthType;
 import com.facebook.presto.spi.type.TypeSignature;
 import io.airlift.slice.Slice;
 
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static java.lang.String.format;
 
 // Layout is <size>:<model>, where
@@ -33,7 +32,7 @@ public class ModelType
 
     private ModelType()
     {
-        super(parameterizedTypeName("Model"), Slice.class);
+        super(new TypeSignature("Model"), Slice.class);
     }
 
     protected ModelType(TypeSignature signature)

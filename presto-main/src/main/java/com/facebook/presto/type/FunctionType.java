@@ -20,13 +20,13 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.AbstractType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -40,22 +40,22 @@ public class FunctionType
 
     public FunctionType(List<Type> argumentTypes, Type returnType)
     {
-        super(parameterizedTypeName(NAME, typeParameters(argumentTypes, returnType)), MethodHandle.class);
+        super(new TypeSignature(NAME, typeParameters(argumentTypes, returnType)), MethodHandle.class);
         this.returnType = requireNonNull(returnType, "returnType is null");
         this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
     }
 
-    private static TypeSignature[] typeParameters(List<Type> argumentTypes, Type returnType)
+    private static List<TypeSignatureParameter> typeParameters(List<Type> argumentTypes, Type returnType)
     {
         requireNonNull(returnType, "returnType is null");
         requireNonNull(argumentTypes, "argumentTypes is null");
-        ImmutableList.Builder<TypeSignature> builder = ImmutableList.builder();
+        ImmutableList.Builder<TypeSignatureParameter> builder = ImmutableList.builder();
         argumentTypes.stream()
                 .map(Type::getTypeSignature)
+                .map(TypeSignatureParameter::of)
                 .forEach(builder::add);
-        builder.add(returnType.getTypeSignature());
-        List<TypeSignature> signatures = builder.build();
-        return signatures.toArray(new TypeSignature[signatures.size()]);
+        builder.add(TypeSignatureParameter.of(returnType.getTypeSignature()));
+        return builder.build();
     }
 
     public Type getReturnType()
