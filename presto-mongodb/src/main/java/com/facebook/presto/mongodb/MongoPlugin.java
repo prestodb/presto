@@ -13,18 +13,19 @@
  */
 package com.facebook.presto.mongodb;
 
-import com.facebook.presto.metadata.FunctionFactory;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.facebook.presto.mongodb.ObjectIdType.OBJECT_ID;
 import static java.util.Objects.requireNonNull;
@@ -48,6 +49,12 @@ public class MongoPlugin
     }
 
     @Override
+    public Set<Class<?>> getFunctions()
+    {
+        return ImmutableSet.of(ObjectIdFunctions.class);
+    }
+
+    @Override
     public <T> List<T> getServices(Class<T> type)
     {
         if (type == ConnectorFactory.class) {
@@ -55,9 +62,6 @@ public class MongoPlugin
         }
         if (type == Type.class) {
             return ImmutableList.of(type.cast(OBJECT_ID));
-        }
-        if (type == FunctionFactory.class) {
-            return ImmutableList.of(type.cast(new MongoFunctionFactory()));
         }
         return ImmutableList.of();
     }
