@@ -23,7 +23,7 @@ final class FloatingPointBitsConverterUtil
      */
     public static long doubleToSortableLong(double value)
     {
-        long bits = Double.doubleToRawLongBits(value);
+        long bits = Double.doubleToLongBits(value);
         return bits ^ (bits >> 63) & Long.MAX_VALUE;
     }
 
