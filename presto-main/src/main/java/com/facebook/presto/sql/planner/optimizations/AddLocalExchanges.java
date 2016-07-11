@@ -424,7 +424,8 @@ public class AddLocalExchanges
         {
             StreamPreferredProperties requiredProperties;
             StreamPreferredProperties preferredProperties;
-            if (getTaskWriterCount(session) > 1) {
+            // Force single writer when partition function exists
+            if (getTaskWriterCount(session) > 1 && !node.getPartitioningScheme().isPresent()) {
                 requiredProperties = fixedParallelism(getTaskWriterCount(session));
                 preferredProperties = fixedParallelism(getTaskWriterCount(session));
             }
