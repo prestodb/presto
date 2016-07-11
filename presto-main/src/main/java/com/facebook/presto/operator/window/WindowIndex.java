@@ -13,80 +13,72 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.block.BlockBuilder;
 import io.airlift.slice.Slice;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkElementIndex;
-import static com.google.common.base.Preconditions.checkPositionIndex;
-import static java.util.Objects.requireNonNull;
-
-public class WindowIndex
+/**
+ * A window index contains the sorted values for a window partition.
+ * Each window function argument is available as a separate channel.
+ */
+public interface WindowIndex
 {
-    private final PagesIndex pagesIndex;
-    private final int start;
-    private final int size;
+    /**
+     * Gets the number of rows in the partition
+     */
+    int size();
 
-    public WindowIndex(PagesIndex pagesIndex, int start, int end)
-    {
-        requireNonNull(pagesIndex, "pagesIndex is null");
-        checkPositionIndex(start, pagesIndex.getPositionCount(), "start");
-        checkPositionIndex(end, pagesIndex.getPositionCount(), "end");
-        checkArgument(start < end, "start must be before end");
+    /**
+     * Check if a value is null.
+     *
+     * @param channel argument number
+     * @param position row within the partition, starting at zero
+     * @return if the value is null
+     */
+    boolean isNull(int channel, int position);
 
-        this.pagesIndex = pagesIndex;
-        this.start = start;
-        this.size = end - start;
-    }
+    /**
+     * Gets a value as a {@code boolean}.
+     *
+     * @param channel argument number
+     * @param position row within the partition, starting at zero
+     * @return value at the specified channel and position
+     */
+    boolean getBoolean(int channel, int position);
 
-    public int size()
-    {
-        return size;
-    }
+    /**
+     * Gets a value as a {@code long}.
+     *
+     * @param channel argument number
+     * @param position row within the partition, starting at zero
+     * @return value at the specified channel and position
+     */
+    long getLong(int channel, int position);
 
-    public boolean isNull(int channel, int position)
-    {
-        return pagesIndex.isNull(channel, position(position));
-    }
+    /**
+     * Gets a value as a {@code double}.
+     *
+     * @param channel argument number
+     * @param position row within the partition, starting at zero
+     * @return value at the specified channel and position
+     */
+    double getDouble(int channel, int position);
 
-    public boolean getBoolean(int channel, int position)
-    {
-        return pagesIndex.getBoolean(channel, position(position));
-    }
+    /**
+     * Gets a value as a {@link Slice}.
+     *
+     * @param channel argument number
+     * @param position row within the partition, starting at zero
+     */
+    Slice getSlice(int channel, int position);
 
-    public long getLong(int channel, int position)
-    {
-        return pagesIndex.getLong(channel, position(position));
-    }
-
-    public double getDouble(int channel, int position)
-    {
-        return pagesIndex.getDouble(channel, position(position));
-    }
-
-    public Slice getSlice(int channel, int position)
-    {
-        return pagesIndex.getSlice(channel, position(position));
-    }
-
-    public void appendTo(int channel, int position, BlockBuilder output)
-    {
-        pagesIndex.appendTo(channel, position(position), output);
-    }
-
-    private int position(int position)
-    {
-        checkElementIndex(position, size, "position");
-        return position + start;
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("size", size)
-                .toString();
-    }
+    /**
+     * Outputs a value from the index. This is useful for "value"
+     * window functions such as {@code lag} that operate on arbitrary
+     * types without caring about the specific contents.
+     *
+     * @param channel argument number
+     * @param position row within the partition, starting at zero
+     * @param output the {@link BlockBuilder} to output to
+     */
+    void appendTo(int channel, int position, BlockBuilder output);
 }
