@@ -31,6 +31,8 @@ import static com.facebook.presto.util.Failures.checkCondition;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Character.MAX_RADIX;
 import static java.lang.Character.MIN_RADIX;
+import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
 
 public final class MathFunctions
@@ -79,6 +81,14 @@ public final class MathFunctions
     public static double abs(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.abs(num);
+    }
+
+    @Description("absolute value")
+    @ScalarFunction("abs")
+    @SqlType(StandardTypes.FLOAT)
+    public static long absFloat(@SqlType(StandardTypes.FLOAT) long num)
+    {
+        return floatToRawIntBits(Math.abs(intBitsToFloat((int) num)));
     }
 
     @Description("arc cosine")
@@ -161,12 +171,29 @@ public final class MathFunctions
         return Math.ceil(num);
     }
 
+    @Description("round up to nearest integer")
+    @ScalarFunction(value = "ceiling", alias = "ceil")
+    @SqlType(StandardTypes.FLOAT)
+    public static long ceilingFloat(@SqlType(StandardTypes.FLOAT) long num)
+    {
+        return floatToRawIntBits((float) ceiling(intBitsToFloat((int) num)));
+    }
+
     @Description("round to integer by dropping digits after decimal point")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
     public static double truncate(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.signum(num) * Math.floor(Math.abs(num));
+    }
+
+    @Description("round to integer by dropping digits after decimal point")
+    @ScalarFunction
+    @SqlType(StandardTypes.FLOAT)
+    public static long truncate(@SqlType(StandardTypes.FLOAT) long num)
+    {
+        float numInFloat = intBitsToFloat((int) num);
+        return floatToRawIntBits((float) (Math.signum(numInFloat) * Math.floor(Math.abs(numInFloat))));
     }
 
     @Description("cosine")
@@ -249,6 +276,14 @@ public final class MathFunctions
         return Math.floor(num);
     }
 
+    @Description("round down to nearest integer")
+    @ScalarFunction("floor")
+    @SqlType(StandardTypes.FLOAT)
+    public static long floorFloat(@SqlType(StandardTypes.FLOAT) long num)
+    {
+        return floatToRawIntBits((float) floor(intBitsToFloat((int) num)));
+    }
+
     @Description("natural logarithm")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
@@ -319,6 +354,14 @@ public final class MathFunctions
     public static double mod(@SqlType(StandardTypes.DOUBLE) double num1, @SqlType(StandardTypes.DOUBLE) double num2)
     {
         return num1 % num2;
+    }
+
+    @Description("remainder of given quotient")
+    @ScalarFunction("mod")
+    @SqlType(StandardTypes.FLOAT)
+    public static long modFloat(@SqlType(StandardTypes.FLOAT) long num1, @SqlType(StandardTypes.FLOAT) long num2)
+    {
+        return floatToRawIntBits(intBitsToFloat((int) num1) % intBitsToFloat((int) num2));
     }
 
     @Description("the constant Pi")
@@ -462,6 +505,14 @@ public final class MathFunctions
     }
 
     @Description("round to given number of decimal places")
+    @ScalarFunction("round")
+    @SqlType(StandardTypes.FLOAT)
+    public static long roundFloat(@SqlType(StandardTypes.FLOAT) long num)
+    {
+        return roundFloat(num, 0);
+    }
+
+    @Description("round to given number of decimal places")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
     public static double round(@SqlType(StandardTypes.DOUBLE) double num, @SqlType(StandardTypes.BIGINT) long decimals)
@@ -476,6 +527,24 @@ public final class MathFunctions
         }
 
         return Math.round(num * factor) / factor;
+    }
+
+    @Description("round to given number of decimal places")
+    @ScalarFunction("round")
+    @SqlType(StandardTypes.FLOAT)
+    public static long roundFloat(@SqlType(StandardTypes.FLOAT) long num, @SqlType(StandardTypes.BIGINT) long decimals)
+    {
+        float numInFloat = intBitsToFloat((int) num);
+        if (Float.isNaN(numInFloat) || Float.isInfinite(numInFloat)) {
+            return num;
+        }
+
+        double factor = Math.pow(10, decimals);
+        if (numInFloat < 0) {
+            return floatToRawIntBits((float) -(Math.round(-numInFloat * factor) / factor));
+        }
+
+        return floatToRawIntBits((float) (Math.round(numInFloat * factor) / factor));
     }
 
     @Description("signum")
@@ -516,6 +585,14 @@ public final class MathFunctions
     public static double sign(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.signum(num);
+    }
+
+    @Description("signum")
+    @ScalarFunction("sign")
+    @SqlType(StandardTypes.FLOAT)
+    public static long signFloat(@SqlType(StandardTypes.FLOAT) long num)
+    {
+        return floatToRawIntBits((Math.signum(intBitsToFloat((int) num))));
     }
 
     @Description("sine")
