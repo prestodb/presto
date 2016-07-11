@@ -16,20 +16,12 @@ package com.facebook.presto.ml;
 import com.facebook.presto.metadata.FunctionFactory;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.SqlFunction;
-import com.facebook.presto.spi.type.TypeManager;
 
 import java.util.List;
 
 public class MLFunctionFactory
         implements FunctionFactory
 {
-    private final TypeManager typeManager;
-
-    public MLFunctionFactory(TypeManager typeManager)
-    {
-        this.typeManager = typeManager;
-    }
-
     @Override
     public List<SqlFunction> listFunctions()
     {

@@ -17,9 +17,6 @@ import com.facebook.presto.RowPageBuilder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.ml.type.ClassifierParametricType;
-import com.facebook.presto.ml.type.ModelType;
-import com.facebook.presto.ml.type.RegressorType;
 import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.Page;
@@ -27,7 +24,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.type.TypeRegistry;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -50,11 +46,7 @@ public class TestEvaluateClassifierPredictions
     public void testEvaluateClassifierPredictions()
             throws Exception
     {
-        TypeRegistry typeRegistry = new TypeRegistry();
-        typeRegistry.addParametricType(new ClassifierParametricType());
-        typeRegistry.addType(RegressorType.REGRESSOR);
-        typeRegistry.addType(ModelType.MODEL);
-        metadata.addFunctions(new MLFunctionFactory(typeRegistry).listFunctions());
+        metadata.addFunctions(new MLFunctionFactory().listFunctions());
         InternalAggregationFunction aggregation = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("evaluate_classifier_predictions",
                         AGGREGATE,

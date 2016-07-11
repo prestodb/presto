@@ -68,7 +68,6 @@ public class TestMLQueries
                 ImmutableMap.<String, String>of());
 
         MLPlugin plugin = new MLPlugin();
-        plugin.setTypeManager(localQueryRunner.getTypeManager());
         for (Type type : plugin.getServices(Type.class)) {
             localQueryRunner.getTypeManager().addType(type);
         }
