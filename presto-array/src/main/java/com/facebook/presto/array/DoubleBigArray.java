@@ -11,42 +11,45 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.util.array;
+package com.facebook.presto.array;
 
 import io.airlift.slice.SizeOf;
 
 import java.util.Arrays;
 
-import static com.facebook.presto.util.array.BigArrays.INITIAL_SEGMENTS;
-import static com.facebook.presto.util.array.BigArrays.SEGMENT_SIZE;
-import static com.facebook.presto.util.array.BigArrays.offset;
-import static com.facebook.presto.util.array.BigArrays.segment;
-import static io.airlift.slice.SizeOf.sizeOfByteArray;
+import static com.facebook.presto.array.BigArrays.INITIAL_SEGMENTS;
+import static com.facebook.presto.array.BigArrays.SEGMENT_SIZE;
+import static com.facebook.presto.array.BigArrays.offset;
+import static com.facebook.presto.array.BigArrays.segment;
+import static io.airlift.slice.SizeOf.sizeOfDoubleArray;
 
 // Note: this code was forked from fastutil (http://fastutil.di.unimi.it/)
 // Copyright (C) 2010-2013 Sebastiano Vigna
-public final class ByteBigArray
+public final class DoubleBigArray
 {
-    private static final long SIZE_OF_SEGMENT = sizeOfByteArray(SEGMENT_SIZE);
+    private static final long SIZE_OF_SEGMENT = sizeOfDoubleArray(SEGMENT_SIZE);
 
-    private final byte initialValue;
+    private final double initialValue;
 
-    private byte[][] array;
+    private double[][] array;
     private int capacity;
     private int segments;
 
     /**
      * Creates a new big array containing one initial segment
      */
-    public ByteBigArray()
+    public DoubleBigArray()
     {
-        this((byte) 0);
+        this(0.0);
     }
 
-    public ByteBigArray(byte initialValue)
+    /**
+     * Creates a new big array containing one initial segment filled with the specified default value
+     */
+    public DoubleBigArray(double initialValue)
     {
         this.initialValue = initialValue;
-        array = new byte[INITIAL_SEGMENTS][];
+        array = new double[INITIAL_SEGMENTS][];
         allocateNewSegment();
     }
 
@@ -64,7 +67,7 @@ public final class ByteBigArray
      * @param index a position in this big array.
      * @return the element of this big array at the specified position.
      */
-    public byte get(long index)
+    public double get(long index)
     {
         return array[segment(index)][offset(index)];
     }
@@ -74,9 +77,20 @@ public final class ByteBigArray
      *
      * @param index a position in this big array.
      */
-    public void set(long index, byte value)
+    public void set(long index, double value)
     {
         array[segment(index)][offset(index)] = value;
+    }
+
+    /**
+     * Adds the specified value to the specified element of this big array.
+     *
+     * @param index a position in this big array.
+     * @param value the value
+     */
+    public void add(long index, double value)
+    {
+        array[segment(index)][offset(index)] += value;
     }
 
     /**
@@ -110,8 +124,8 @@ public final class ByteBigArray
 
     private void allocateNewSegment()
     {
-        byte[] newSegment = new byte[SEGMENT_SIZE];
-        if (initialValue != 0) {
+        double[] newSegment = new double[SEGMENT_SIZE];
+        if (initialValue != 0.0) {
             Arrays.fill(newSegment, initialValue);
         }
         array[segments] = newSegment;

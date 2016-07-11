@@ -11,42 +11,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.util.array;
+package com.facebook.presto.array;
 
 import io.airlift.slice.SizeOf;
 
 import java.util.Arrays;
 
-import static com.facebook.presto.util.array.BigArrays.INITIAL_SEGMENTS;
-import static com.facebook.presto.util.array.BigArrays.SEGMENT_SIZE;
-import static com.facebook.presto.util.array.BigArrays.offset;
-import static com.facebook.presto.util.array.BigArrays.segment;
-import static io.airlift.slice.SizeOf.sizeOfBooleanArray;
+import static com.facebook.presto.array.BigArrays.INITIAL_SEGMENTS;
+import static com.facebook.presto.array.BigArrays.SEGMENT_SIZE;
+import static com.facebook.presto.array.BigArrays.offset;
+import static com.facebook.presto.array.BigArrays.segment;
+import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 
 // Note: this code was forked from fastutil (http://fastutil.di.unimi.it/)
 // Copyright (C) 2010-2013 Sebastiano Vigna
-public final class BooleanBigArray
+public final class ObjectBigArray<T>
 {
-    private static final long SIZE_OF_SEGMENT = sizeOfBooleanArray(SEGMENT_SIZE);
+    private static final long SIZE_OF_SEGMENT = sizeOfObjectArray(SEGMENT_SIZE);
 
-    private final boolean initialValue;
+    private final Object initialValue;
 
-    private boolean[][] array;
+    private Object[][] array;
     private int capacity;
     private int segments;
 
     /**
      * Creates a new big array containing one initial segment
      */
-    public BooleanBigArray()
+    public ObjectBigArray()
     {
-        this(false);
+        this(null);
     }
 
-    public BooleanBigArray(boolean initialValue)
+    public ObjectBigArray(Object initialValue)
     {
         this.initialValue = initialValue;
-        array = new boolean[INITIAL_SEGMENTS][];
+        array = new Object[INITIAL_SEGMENTS][];
         allocateNewSegment();
     }
 
@@ -64,9 +64,10 @@ public final class BooleanBigArray
      * @param index a position in this big array.
      * @return the element of this big array at the specified position.
      */
-    public boolean get(long index)
+    @SuppressWarnings("unchecked")
+    public T get(long index)
     {
-        return array[segment(index)][offset(index)];
+        return (T) array[segment(index)][offset(index)];
     }
 
     /**
@@ -74,7 +75,7 @@ public final class BooleanBigArray
      *
      * @param index a position in this big array.
      */
-    public void set(long index, boolean value)
+    public void set(long index, T value)
     {
         array[segment(index)][offset(index)] = value;
     }
@@ -110,8 +111,8 @@ public final class BooleanBigArray
 
     private void allocateNewSegment()
     {
-        boolean[] newSegment = new boolean[SEGMENT_SIZE];
-        if (initialValue) {
+        Object[] newSegment = new Object[SEGMENT_SIZE];
+        if (initialValue != null) {
             Arrays.fill(newSegment, initialValue);
         }
         array[segments] = newSegment;

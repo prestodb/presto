@@ -11,45 +11,45 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.util.array;
+package com.facebook.presto.array;
 
 import io.airlift.slice.SizeOf;
 
 import java.util.Arrays;
 
-import static com.facebook.presto.util.array.BigArrays.INITIAL_SEGMENTS;
-import static com.facebook.presto.util.array.BigArrays.SEGMENT_SIZE;
-import static com.facebook.presto.util.array.BigArrays.offset;
-import static com.facebook.presto.util.array.BigArrays.segment;
+import static com.facebook.presto.array.BigArrays.INITIAL_SEGMENTS;
+import static com.facebook.presto.array.BigArrays.SEGMENT_SIZE;
+import static com.facebook.presto.array.BigArrays.offset;
+import static com.facebook.presto.array.BigArrays.segment;
 import static io.airlift.slice.SizeOf.sizeOfLongArray;
 
 // Note: this code was forked from fastutil (http://fastutil.di.unimi.it/)
 // Copyright (C) 2010-2013 Sebastiano Vigna
-public final class LongBigArray
+public final class IntBigArray
 {
     private static final long SIZE_OF_SEGMENT = sizeOfLongArray(SEGMENT_SIZE);
 
-    private final long initialValue;
+    private final int initialValue;
 
-    private long[][] array;
+    private int[][] array;
     private int capacity;
     private int segments;
 
     /**
      * Creates a new big array containing one initial segment
      */
-    public LongBigArray()
+    public IntBigArray()
     {
-        this(0L);
+        this(0);
     }
 
     /**
      * Creates a new big array containing one initial segment filled with the specified default value
      */
-    public LongBigArray(long initialValue)
+    public IntBigArray(int initialValue)
     {
         this.initialValue = initialValue;
-        array = new long[INITIAL_SEGMENTS][];
+        array = new int[INITIAL_SEGMENTS][];
         allocateNewSegment();
     }
 
@@ -67,7 +67,7 @@ public final class LongBigArray
      * @param index a position in this big array.
      * @return the element of this big array at the specified position.
      */
-    public long get(long index)
+    public int get(long index)
     {
         return array[segment(index)][offset(index)];
     }
@@ -77,7 +77,7 @@ public final class LongBigArray
      *
      * @param index a position in this big array.
      */
-    public void set(long index, long value)
+    public void set(long index, int value)
     {
         array[segment(index)][offset(index)] = value;
     }
@@ -98,7 +98,7 @@ public final class LongBigArray
      * @param index a position in this big array.
      * @param value the value
      */
-    public void add(long index, long value)
+    public void add(long index, int value)
     {
         array[segment(index)][offset(index)] += value;
     }
@@ -134,7 +134,7 @@ public final class LongBigArray
 
     private void allocateNewSegment()
     {
-        long[] newSegment = new long[SEGMENT_SIZE];
+        int[] newSegment = new int[SEGMENT_SIZE];
         if (initialValue != 0) {
             Arrays.fill(newSegment, initialValue);
         }
