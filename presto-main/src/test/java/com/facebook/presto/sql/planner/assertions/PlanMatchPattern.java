@@ -15,7 +15,9 @@ package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
@@ -24,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
@@ -60,6 +63,11 @@ public final class PlanMatchPattern
         return any().with(new TableScanMatcher(expectedTableName));
     }
 
+    public static PlanMatchPattern tableScan(String expectedTableName, Map<String, Domain> constraint)
+    {
+        return any().with(new TableScanMatcher(expectedTableName, constraint));
+    }
+
     public static PlanMatchPattern project(PlanMatchPattern... sources)
     {
         return node(ProjectNode.class, sources);
@@ -70,9 +78,9 @@ public final class PlanMatchPattern
         return any(sources).with(new SemiJoinMatcher(sourceSymbolAlias, filteringSymbolAlias, outputAlias));
     }
 
-    public static PlanMatchPattern join(List<AliasPair> expectedEquiCriteria, PlanMatchPattern... sources)
+    public static PlanMatchPattern join(JoinNode.Type joinType, List<AliasPair> expectedEquiCriteria, PlanMatchPattern... sources)
     {
-        return any(sources).with(new JoinMatcher(expectedEquiCriteria));
+        return any(sources).with(new JoinMatcher(joinType,  expectedEquiCriteria));
     }
 
     public static AliasPair aliasPair(String left, String right)

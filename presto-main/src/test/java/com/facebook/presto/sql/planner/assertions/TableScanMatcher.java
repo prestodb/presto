@@ -16,9 +16,15 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.google.common.base.MoreObjects;
+
+import java.util.Map;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -26,10 +32,18 @@ final class TableScanMatcher
         implements Matcher
 {
     private final String expectedTableName;
+    private final Optional<Map<String, Domain>> expectedConstraint;
 
     TableScanMatcher(String expectedTableName)
     {
         this.expectedTableName = requireNonNull(expectedTableName, "expectedTableName is null");
+        expectedConstraint = Optional.empty();
+    }
+
+    public TableScanMatcher(String expectedTableName, Map<String, Domain> expectedConstraint)
+    {
+        this.expectedTableName = requireNonNull(expectedTableName, "expectedTableName is null");
+        this.expectedConstraint = Optional.of(requireNonNull(expectedConstraint, "expectedConstraint is null"));
     }
 
     @Override
@@ -39,18 +53,46 @@ final class TableScanMatcher
             TableScanNode tableScanNode = (TableScanNode) node;
             TableMetadata tableMetadata = metadata.getTableMetadata(session, tableScanNode.getTable());
             String actualTableName = tableMetadata.getTable().getTableName();
-            if (expectedTableName.equalsIgnoreCase(actualTableName)) {
-                return true;
-            }
+            return expectedTableName.equalsIgnoreCase(actualTableName) && domainMatches(tableScanNode, session, metadata);
         }
         return false;
+    }
+
+    private boolean domainMatches(TableScanNode tableScanNode, Session session, Metadata metadata)
+    {
+        if (!expectedConstraint.isPresent()) {
+            return true;
+        }
+
+        TupleDomain<ColumnHandle> actualConstraint = tableScanNode.getCurrentConstraint();
+        if (expectedConstraint.isPresent() && !actualConstraint.getDomains().isPresent()) {
+            return false;
+        }
+
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableScanNode.getTable());
+        for (Map.Entry<String, Domain> expectedColumnConstraint : expectedConstraint.get().entrySet()) {
+            if (!columnHandles.containsKey(expectedColumnConstraint.getKey())) {
+                return false;
+            }
+            ColumnHandle columnHandle = columnHandles.get(expectedColumnConstraint.getKey());
+            if (!actualConstraint.getDomains().get().containsKey(columnHandle)) {
+                return false;
+            }
+            if (!expectedColumnConstraint.getValue().contains(actualConstraint.getDomains().get().get(columnHandle))) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     @Override
     public String toString()
     {
         return MoreObjects.toStringHelper(this)
+                .omitNullValues()
                 .add("expectedTableName", expectedTableName)
+                .add("expectedConstraint", expectedConstraint.orElse(null))
                 .toString();
     }
 }
