@@ -19,8 +19,8 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 import io.airlift.stats.QuantileDigest;
 
-import static com.facebook.presto.operator.aggregation.LongDoubleConverterUtil.doubleToSortableLong;
-import static com.facebook.presto.operator.aggregation.LongDoubleConverterUtil.sortableLongToDouble;
+import static com.facebook.presto.operator.aggregation.FloatingPointBitsConverterUtil.doubleToSortableLong;
+import static com.facebook.presto.operator.aggregation.FloatingPointBitsConverterUtil.sortableLongToDouble;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.util.Failures.checkCondition;
