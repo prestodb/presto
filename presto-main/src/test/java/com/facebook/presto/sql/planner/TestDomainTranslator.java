@@ -120,6 +120,7 @@ public class TestDomainTranslator
     private static final Symbol C_DECIMAL_2_0 = new Symbol("c_decimal_2_0");
     private static final Symbol C_SMALLINT = new Symbol("c_smallint");
     private static final Symbol C_TINYINT = new Symbol("c_tinyint");
+    private static final Symbol C_REAL = new Symbol("c_real");
 
     private static final Map<Symbol, Type> TYPES = ImmutableMap.<Symbol, Type>builder()
             .put(C_BIGINT, BIGINT)
@@ -145,6 +146,7 @@ public class TestDomainTranslator
             .put(C_DECIMAL_2_0, createDecimalType(2, 0))
             .put(C_SMALLINT, SMALLINT)
             .put(C_TINYINT, TINYINT)
+            .put(C_REAL, REAL)
             .build();
 
     private static final long TIMESTAMP_VALUE = new DateTime(2013, 3, 30, 1, 5, 0, 0, DateTimeZone.UTC).getMillis();
@@ -1173,6 +1175,7 @@ public class TestDomainTranslator
     {
         List<NumericValues> translationChain = ImmutableList.of(
                 new NumericValues<>(C_DOUBLE, -1.0 * Double.MAX_VALUE, -22.0, -44.5556836, 23.0, 44.5556789, Double.MAX_VALUE),
+                new NumericValues<>(C_REAL, realValue(-1.0f * Float.MAX_VALUE), realValue(-22.0f), realValue(-44.555687f), realValue(23.0f), realValue(44.555676f), realValue(Float.MAX_VALUE)),
                 new NumericValues<>(C_DECIMAL_26_5, longDecimal("-999999999999999999999.99999"), longDecimal("-22.00000"), longDecimal("-44.55569"), longDecimal("23.00000"), longDecimal("44.55567"), longDecimal("999999999999999999999.99999")),
                 new NumericValues<>(C_DECIMAL_23_4, longDecimal("-9999999999999999999.9999"), longDecimal("-22.0000"), longDecimal("-44.5557"), longDecimal("23.0000"), longDecimal("44.5556"), longDecimal("9999999999999999999.9999")),
                 new NumericValues<>(C_BIGINT, Long.MIN_VALUE, -22L, -45L, 23L, 44L, Long.MAX_VALUE),
@@ -1459,6 +1462,11 @@ public class TestDomainTranslator
     private static Slice longDecimal(String value)
     {
         return encodeScaledValue(new BigDecimal(value));
+    }
+
+    private static Long realValue(float value)
+    {
+        return (long) Float.floatToIntBits(value);
     }
 
     private static void testSimpleComparison(Expression expression, Symbol symbol, Range expectedDomainRange)
