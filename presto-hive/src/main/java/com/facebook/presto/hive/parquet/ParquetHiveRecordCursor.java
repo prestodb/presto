@@ -461,13 +461,6 @@ public class ParquetHiveRecordCursor
             });
         }
         catch (Exception e) {
-            if (dataSource != null) {
-                try {
-                    dataSource.close();
-                }
-                catch (IOException ignored) {
-                }
-            }
             if (e instanceof PrestoException) {
                 throw (PrestoException) e;
             }
@@ -480,6 +473,15 @@ public class ParquetHiveRecordCursor
                 throw new PrestoException(HIVE_MISSING_DATA, message, e);
             }
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
+        }
+        finally {
+            if (dataSource != null) {
+                try {
+                    dataSource.close();
+                }
+                catch (IOException ignored) {
+                }
+            }
         }
     }
 
