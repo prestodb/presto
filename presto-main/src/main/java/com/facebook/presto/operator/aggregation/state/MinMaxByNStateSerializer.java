@@ -17,6 +17,7 @@ import com.facebook.presto.operator.aggregation.BlockComparator;
 import com.facebook.presto.operator.aggregation.TypedKeyValueHeap;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.type.Type;
 
 public class MinMaxByNStateSerializer

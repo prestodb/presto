@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.state.AccumulatorStateFactory;
-import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AccumulatorStateFactory;
+import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;

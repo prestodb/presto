@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
+import com.facebook.presto.spi.function.GroupedAccumulatorState;
+
 public abstract class AbstractGroupedAccumulatorState
         implements GroupedAccumulatorState
 {

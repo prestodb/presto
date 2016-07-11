@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.ml;
 
-import com.facebook.presto.operator.aggregation.state.AccumulatorState;
-import com.facebook.presto.operator.aggregation.state.AccumulatorStateMetadata;
+import com.facebook.presto.spi.function.AccumulatorState;
+import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 
 import java.util.Map;
 

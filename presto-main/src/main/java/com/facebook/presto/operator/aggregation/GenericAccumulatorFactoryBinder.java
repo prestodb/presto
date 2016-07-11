@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.state.AccumulatorStateFactory;
-import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
+import com.facebook.presto.spi.function.AccumulatorStateFactory;
+import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.google.common.base.Throwables;
 
 import java.lang.reflect.Constructor;

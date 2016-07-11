@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
 import com.facebook.presto.operator.aggregation.state.HyperLogLogState;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.function.AggregationFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.IntermediateInputFunction;

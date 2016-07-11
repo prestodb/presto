@@ -15,6 +15,7 @@ package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.type.Type;
 
 public class BlockStateSerializer

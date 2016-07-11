@@ -11,18 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation.state;
+package com.facebook.presto.spi.function;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-
-@Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.TYPE)
-public @interface AccumulatorStateMetadata
+public interface AccumulatorStateFactory<T>
 {
-    Class<?> stateSerializerClass() default void.class;
+    T createSingleState();
 
-    Class<?> stateFactoryClass() default void.class;
+    Class<? extends T> getSingleStateClass();
+
+    /**
+     * Return value is also guaranteed to implement GroupedAccumulatorState
+     */
+    T createGroupedState();
+
+    Class<? extends T> getGroupedStateClass();
 }
