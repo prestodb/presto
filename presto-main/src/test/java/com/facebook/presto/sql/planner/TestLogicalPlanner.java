@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.sql.planner.assertions.PlanAssert;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -28,8 +29,11 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.function.Predicate;
 
+import static com.facebook.presto.spi.predicate.Domain.singleValue;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aliasPair;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -39,7 +43,10 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 
@@ -88,7 +95,7 @@ public class TestLogicalPlanner
 
         assertPlan("SELECT * FROM orders WHERE orderkey = (SELECT orderkey FROM lineitem ORDER BY orderkey LIMIT 1)",
                 anyTree(
-                        join(ImmutableList.of(aliasPair("X", "Y")),
+                        join(INNER, ImmutableList.of(aliasPair("X", "Y")),
                                 project(
                                         tableScan("orders").withSymbol("orderkey", "X")),
                                 project(
@@ -115,6 +122,24 @@ public class TestLogicalPlanner
                                                         tableScan("orders").withSymbol("orderkey", "X")),
                                                 anyTree(
                                                         tableScan("lineitem").withSymbol("orderkey", "Y")))))));
+    }
+
+    @Test
+    public void testPushDownJoinConditionConjunctsToInnerSideBasedOnInheritedPredicate()
+    {
+        Map<String, Domain> tableScanConstraint = ImmutableMap.<String, Domain>builder()
+                .put("name", singleValue(createVarcharType(25), utf8Slice("blah")))
+                .build();
+
+        assertPlan(
+                "SELECT nationkey FROM nation LEFT OUTER JOIN region " +
+                        "ON nation.regionkey = region.regionkey and nation.name = region.name WHERE nation.name = 'blah'",
+                anyTree(
+                        join(LEFT, ImmutableList.of(aliasPair("name", "name_1"), aliasPair("regionkey", "regionkey_0")),
+                                anyTree(
+                                        tableScan("nation", tableScanConstraint)),
+                                anyTree(
+                                        tableScan("region", tableScanConstraint)))));
     }
 
     @Test
