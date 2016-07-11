@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.operator.scalar.annotations.ScalarFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.SqlType;
 
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.scalar.annotations;
 
-import com.facebook.presto.metadata.OperatorType;
+import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.UnknownType;

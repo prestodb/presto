@@ -11,18 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.scalar.annotations;
+package com.facebook.presto.spi.function;
 
-import java.lang.annotation.ElementType;
 import java.lang.annotation.Repeatable;
 import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-@Retention(RetentionPolicy.RUNTIME)
-@Repeatable(TypeParameterContainer.class)
-@Target({ElementType.PARAMETER, ElementType.METHOD, ElementType.CONSTRUCTOR})
-public @interface TypeParameter
+import static java.lang.annotation.ElementType.TYPE;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+@Retention(RUNTIME)
+@Target(TYPE)
+@Repeatable(WindowFunctionSignatures.class)
+public @interface WindowFunctionSignature
 {
-    String value();
+    String name();
+
+    String returnType() default "";
+
+    String typeVariable() default "";
+
+    String[] argumentTypes() default {};
 }

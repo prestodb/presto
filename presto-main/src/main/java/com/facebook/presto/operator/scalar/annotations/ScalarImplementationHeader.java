@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.operator.scalar.annotations;
 
-import com.facebook.presto.metadata.OperatorType;
-import com.facebook.presto.operator.Description;
 import com.facebook.presto.operator.scalar.ScalarHeader;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.ScalarOperator;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.reflect.AnnotatedElement;

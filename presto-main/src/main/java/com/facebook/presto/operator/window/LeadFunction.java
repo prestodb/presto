@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.window;
 
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.WindowFunctionSignature;
 import com.google.common.primitives.Ints;
 
 import java.util.List;

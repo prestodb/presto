@@ -11,25 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.window;
+package com.facebook.presto.spi.function;
 
-import java.lang.annotation.Repeatable;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
-import static java.lang.annotation.ElementType.TYPE;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 @Retention(RUNTIME)
-@Target(TYPE)
-@Repeatable(WindowFunctionSignatures.class)
-public @interface WindowFunctionSignature
+@Target({METHOD, PARAMETER})
+public @interface SqlType
 {
-    String name();
-
-    String returnType() default "";
-
-    String typeVariable() default "";
-
-    String[] argumentTypes() default {};
+    String value() default "";
 }
