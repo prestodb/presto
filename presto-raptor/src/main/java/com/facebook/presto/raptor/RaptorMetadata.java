@@ -23,6 +23,7 @@ import com.facebook.presto.raptor.metadata.Table;
 import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.raptor.metadata.ViewResult;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnIdentity;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
@@ -821,6 +822,34 @@ public class RaptorMetadata
     private boolean viewExists(ConnectorSession session, SchemaTableName viewName)
     {
         return !getViews(session, viewName.toSchemaTablePrefix()).isEmpty();
+    }
+
+    @Override
+    public RaptorTableIdentity getTableIdentity(ConnectorTableHandle connectorTableHandle)
+    {
+        requireNonNull(connectorTableHandle, "connectorTableHandle is null");
+        RaptorTableHandle handle = checkType(connectorTableHandle, RaptorTableHandle.class, "connectorTableHandle");
+        return new RaptorTableIdentity(handle.getTableId());
+    }
+
+    @Override
+    public RaptorTableIdentity deserializeTableIdentity(byte[] bytes)
+    {
+        return RaptorTableIdentity.deserialize(bytes);
+    }
+
+    @Override
+    public ColumnIdentity getColumnIdentity(ColumnHandle columnHandle)
+    {
+        requireNonNull(columnHandle, "columnHandle is null");
+        RaptorColumnHandle handle = checkType(columnHandle, RaptorColumnHandle.class, "columnHandle");
+        return new RaptorColumnIdentity(handle.getColumnId());
+    }
+
+    @Override
+    public RaptorColumnIdentity deserializeColumnIdentity(byte[] bytes)
+    {
+        return RaptorColumnIdentity.deserialize(bytes);
     }
 
     private RaptorColumnHandle getRaptorColumnHandle(TableColumn tableColumn)
