@@ -55,6 +55,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.server.PluginDiscovery.discoverPlugins;
 import static com.facebook.presto.server.PluginDiscovery.writePluginServices;
 import static java.util.Objects.requireNonNull;
@@ -219,6 +220,11 @@ public class PluginManager
         for (FunctionFactory functionFactory : plugin.getServices(FunctionFactory.class)) {
             log.info("Registering functions from %s", functionFactory.getClass().getName());
             metadata.addFunctions(functionFactory.listFunctions());
+        }
+
+        for (Class<?> functionClass : plugin.getFunctions()) {
+            log.info("Registering functions from %s", functionClass.getName());
+            metadata.addFunctions(extractFunctions(functionClass));
         }
 
         for (SystemAccessControlFactory accessControlFactory : plugin.getServices(SystemAccessControlFactory.class)) {

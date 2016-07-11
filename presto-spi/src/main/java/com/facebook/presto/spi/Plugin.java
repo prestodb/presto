@@ -15,10 +15,22 @@ package com.facebook.presto.spi;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+
+import static java.util.Collections.emptyList;
+import static java.util.Collections.emptySet;
 
 public interface Plugin
 {
     default void setOptionalConfig(Map<String, String> optionalConfig) {}
 
-    <T> List<T> getServices(Class<T> type);
+    default Set<Class<?>> getFunctions()
+    {
+        return emptySet();
+    }
+
+    default <T> List<T> getServices(Class<T> type)
+    {
+        return emptyList();
+    }
 }
