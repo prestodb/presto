@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.array.IntBigArray;
+import com.facebook.presto.array.LongBigArray;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeUtils;
-import com.facebook.presto.util.array.IntBigArray;
-import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 

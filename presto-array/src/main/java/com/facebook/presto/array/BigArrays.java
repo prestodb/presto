@@ -11,15 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.util.array;
+package com.facebook.presto.array;
 
 // Note: this code was forked from fastutil (http://fastutil.di.unimi.it/)
 // Copyright (C) 2010-2013 Sebastiano Vigna
-public final class BigArrays
+final class BigArrays
 {
-    private BigArrays()
-    {
-    }
+    private BigArrays() {}
 
     /**
      * Initial number of segments to support in array.
@@ -47,6 +45,7 @@ public final class BigArrays
      * @param index an index into a big array.
      * @return the associated segment.
      */
+    @SuppressWarnings("NumericCastThatLosesPrecision")
     public static int segment(long index)
     {
         return (int) (index >>> SEGMENT_SHIFT);
@@ -58,6 +57,7 @@ public final class BigArrays
      * @param index an index into a big array.
      * @return the associated offset (in the associated {@linkplain #segment(long) segment}).
      */
+    @SuppressWarnings("NumericCastThatLosesPrecision")
     public static int offset(long index)
     {
         return (int) (index & SEGMENT_MASK);
