@@ -17,9 +17,11 @@ import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnIdentity;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.TableIdentity;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.Privilege;
@@ -135,6 +137,26 @@ public interface Metadata
      * @throws RuntimeException if the table can not be dropped or table handle is no longer valid
      */
     void dropTable(Session session, TableHandle tableHandle);
+
+    /**
+     * Gets the TableIdentity for the specified table.
+     */
+    TableIdentity getTableIdentity(Session session, TableHandle tableHandle);
+
+    /**
+     * Deserialize the bytes to TableIdentity
+     */
+    TableIdentity deserializeTableIdentity(Session session, String catalogName, byte[] bytes);
+
+    /**
+     * Gets the ColumnIdentity for the specified column.
+     */
+    ColumnIdentity getColumnIdentity(Session session, TableHandle tableHandle, ColumnHandle columnHandle);
+
+    /**
+     * Deserialize the bytes to ColumnIdentity
+     */
+    ColumnIdentity deserializeColumnIdentity(Session session, String catalogName, byte[] bytes);
 
     Optional<NewTableLayout> getNewTableLayout(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
 
