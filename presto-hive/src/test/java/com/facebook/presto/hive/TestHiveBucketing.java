@@ -218,7 +218,7 @@ public class TestHiveBucketing
         ImmutableList.Builder<Block> blockListBuilder = ImmutableList.builder();
         for (int i = 0; i < hiveTypeStrings.size(); i++) {
             Object javaValue = javaValues.get(i);
-            Type type = hiveTypes.get(i).getType(typeRegistry);
+            Type type = hiveTypes.get(i).getType(typeRegistry, false);
 
             BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 3);
             // prepend 2 nulls to make sure position is respected when HiveBucketing function
@@ -229,7 +229,7 @@ public class TestHiveBucketing
             blockListBuilder.add(block);
         }
         ImmutableList<Block> blockList = blockListBuilder.build();
-        return HiveBucketing.getHiveBucket(hiveTypeInfos, new Page(blockList.toArray(new Block[blockList.size()])), 2, bucketCount);
+        return HiveBucketing.getHiveBucket(hiveTypeInfos, new Page(blockList.toArray(new Block[blockList.size()])), 2, bucketCount, false);
     }
 
     public static int getHiveBucket(List<Entry<ObjectInspector, Object>> columnBindings, int bucketCount)

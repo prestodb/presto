@@ -651,20 +651,20 @@ public final class HiveUtil
         return checkType(tableHandle, HiveTableHandle.class, "tableHandle").getSchemaTableName();
     }
 
-    public static List<HiveColumnHandle> hiveColumnHandles(String connectorId, Table table)
+    public static List<HiveColumnHandle> hiveColumnHandles(String connectorId, Table table, boolean forceIntegralToBigint)
     {
         ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
 
         // add the data fields first
-        columns.addAll(getNonPartitionKeyColumnHandles(connectorId, table));
+        columns.addAll(getNonPartitionKeyColumnHandles(connectorId, table, forceIntegralToBigint));
 
         // add the partition keys last (like Hive does)
-        columns.addAll(getPartitionKeyColumnHandles(connectorId, table));
+        columns.addAll(getPartitionKeyColumnHandles(connectorId, table, forceIntegralToBigint));
 
         return columns.build();
     }
 
-    public static List<HiveColumnHandle> getNonPartitionKeyColumnHandles(String connectorId, Table table)
+    public static List<HiveColumnHandle> getNonPartitionKeyColumnHandles(String connectorId, Table table, boolean forceIntegralToBigint)
     {
         ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
 
@@ -673,7 +673,7 @@ public final class HiveUtil
             // ignore unsupported types rather than failing
             HiveType hiveType = field.getType();
             if (hiveType.isSupportedType()) {
-                columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveType, hiveType.getTypeSignature(), hiveColumnIndex, false));
+                columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveType, hiveType.getTypeSignature(forceIntegralToBigint), hiveColumnIndex, false));
             }
             hiveColumnIndex++;
         }
@@ -681,7 +681,7 @@ public final class HiveUtil
         return columns.build();
     }
 
-    public static List<HiveColumnHandle> getPartitionKeyColumnHandles(String connectorId, Table table)
+    public static List<HiveColumnHandle> getPartitionKeyColumnHandles(String connectorId, Table table, boolean forceIntegralToBigint)
     {
         ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
 
@@ -691,7 +691,7 @@ public final class HiveUtil
             if (!hiveType.isSupportedType()) {
                 throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type %s found in partition keys of table %s.%s", hiveType, table.getDatabaseName(), table.getTableName()));
             }
-            columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveType, hiveType.getTypeSignature(), -1, true));
+            columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveType, hiveType.getTypeSignature(forceIntegralToBigint), -1, true));
         }
 
         return columns.build();

@@ -365,7 +365,7 @@ public class TestOrcPageSourceMemoryTracking
 
                 ObjectInspector inspector = testColumn.getObjectInspector();
                 HiveType hiveType = HiveType.valueOf(inspector.getTypeName());
-                Type type = hiveType.getType(TYPE_MANAGER);
+                Type type = hiveType.getType(TYPE_MANAGER, false);
 
                 columnsBuilder.add(new HiveColumnHandle("client_id", testColumn.getName(), hiveType, type.getTypeSignature(), columnIndex, testColumn.isPartitionKey()));
                 typesBuilder.add(type);

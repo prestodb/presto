@@ -467,6 +467,7 @@ public abstract class AbstractTestHiveClient
                 true,
                 true,
                 true,
+                false,
                 HiveStorageFormat.RCBINARY,
                 typeManager,
                 locationService,
