@@ -217,7 +217,7 @@ public class HashAggregationOperator
     @Override
     public boolean needsInput()
     {
-        return !finishing && outputIterator == null && (aggregationBuilder == null || !aggregationBuilder.isFull());
+        return !finishing && outputIterator == null && (aggregationBuilder == null || !aggregationBuilder.checkFullAndUpdateMemory());
     }
 
     @Override
@@ -240,7 +240,7 @@ public class HashAggregationOperator
             // assume initial aggregationBuilder is not full
         }
         else {
-            checkState(!aggregationBuilder.isFull(), "Aggregation buffer is full");
+            checkState(!aggregationBuilder.checkFullAndUpdateMemory(), "Aggregation buffer is full");
         }
         aggregationBuilder.processPage(page);
     }
@@ -270,7 +270,7 @@ public class HashAggregationOperator
             }
 
             // only flush if we are finishing or the aggregation builder is full
-            if (!finishing && (aggregationBuilder == null || !aggregationBuilder.isFull())) {
+            if (!finishing && (aggregationBuilder == null || !aggregationBuilder.checkFullAndUpdateMemory())) {
                 return null;
             }
 
@@ -377,7 +377,7 @@ public class HashAggregationOperator
             }
         }
 
-        public boolean isFull()
+        public boolean checkFullAndUpdateMemory()
         {
             long memorySize = groupByHash.getEstimatedSize();
             for (Aggregator aggregator : aggregators) {
