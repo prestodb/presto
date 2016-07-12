@@ -257,4 +257,30 @@ public final class DoubleOperators
         }
         return DoubleMath.roundToInt(value, FLOOR);
     }
+
+    @ScalarOperator(SATURATED_FLOOR_CAST)
+    @SqlType(StandardTypes.SMALLINT)
+    public static long saturatedFloorCastToSmallint(@SqlType(StandardTypes.DOUBLE) double value)
+    {
+        if (value <= Short.MIN_VALUE) {
+            return Short.MIN_VALUE;
+        }
+        if (value >= Short.MAX_VALUE) {
+            return Short.MAX_VALUE;
+        }
+        return DoubleMath.roundToInt(value, FLOOR);
+    }
+
+    @ScalarOperator(SATURATED_FLOOR_CAST)
+    @SqlType(StandardTypes.TINYINT)
+    public static long saturatedFloorCastToTinyint(@SqlType(StandardTypes.DOUBLE) double value)
+    {
+        if (value <= Byte.MIN_VALUE) {
+            return Byte.MIN_VALUE;
+        }
+        if (value >= Byte.MAX_VALUE) {
+            return Byte.MAX_VALUE;
+        }
+        return DoubleMath.roundToInt(value, FLOOR);
+    }
 }
