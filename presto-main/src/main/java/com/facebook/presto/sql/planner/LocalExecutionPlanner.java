@@ -1120,6 +1120,9 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitValues(ValuesNode node, LocalExecutionPlanContext context)
         {
+            // a values node must have a single driver
+            context.setDriverInstanceCount(1);
+
             List<Type> outputTypes = new ArrayList<>();
 
             for (Symbol symbol : node.getOutputSymbols()) {
