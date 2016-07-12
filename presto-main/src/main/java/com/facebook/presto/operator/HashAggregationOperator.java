@@ -343,6 +343,8 @@ public class HashAggregationOperator
         private final OperatorContext operatorContext;
         private final boolean partial;
 
+        private boolean full;
+
         private GroupByHashAggregationBuilder(
                 List<AccumulatorFactory> accumulatorFactories,
                 Step step,
@@ -378,9 +380,10 @@ public class HashAggregationOperator
             for (Aggregator aggregator : aggregators) {
                 aggregator.processPage(groupIds, page);
             }
+            updateMemory();
         }
 
-        public boolean isFull()
+        private void updateMemory()
         {
             long memorySize = groupByHash.getEstimatedSize();
             for (Aggregator aggregator : aggregators) {
@@ -391,12 +394,16 @@ public class HashAggregationOperator
                 memorySize = 0;
             }
             if (partial) {
-                return !operatorContext.trySetMemoryReservation(memorySize);
+                full = !operatorContext.trySetMemoryReservation(memorySize);
             }
             else {
                 operatorContext.setMemoryReservation(memorySize);
-                return false;
             }
+        }
+
+        public boolean isFull()
+        {
+            return full;
         }
 
         public Iterator<Page> build()
