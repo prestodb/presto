@@ -92,6 +92,7 @@ public class BackgroundHiveSplitLoader
     private final DataSize maxSplitSize;
     private final int maxPartitionBatchSize;
     private final DataSize maxInitialSplitSize;
+    private final boolean forceIntegralToBigint;
     private final boolean recursiveDirWalkerEnabled;
     private final Executor executor;
     private final ConnectorSession session;
@@ -128,6 +129,7 @@ public class BackgroundHiveSplitLoader
             Executor executor,
             int maxPartitionBatchSize,
             int maxInitialSplits,
+            boolean forceIntegralToBigint,
             boolean recursiveDirWalkerEnabled)
     {
         this.connectorId = connectorId;
@@ -142,6 +144,7 @@ public class BackgroundHiveSplitLoader
         this.directoryLister = directoryLister;
         this.maxInitialSplitSize = getMaxInitialSplitSize(session);
         this.remainingInitialSplits = new AtomicInteger(maxInitialSplits);
+        this.forceIntegralToBigint = forceIntegralToBigint;
         this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
         this.executor = executor;
         this.partitions = new ConcurrentLazyQueue<>(partitions);
@@ -272,7 +275,7 @@ public class BackgroundHiveSplitLoader
     {
         String partitionName = partition.getHivePartition().getPartitionId();
         Properties schema = getPartitionSchema(table, partition.getPartition());
-        List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition.getPartition());
+        List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition.getPartition(), forceIntegralToBigint);
         TupleDomain<HiveColumnHandle> effectivePredicate = partition.getHivePartition().getEffectivePredicate();
 
         Path path = new Path(getPartitionLocation(table, partition.getPartition()));
@@ -523,7 +526,7 @@ public class BackgroundHiveSplitLoader
         return builder.build();
     }
 
-    private static List<HivePartitionKey> getPartitionKeys(Table table, Partition partition)
+    private static List<HivePartitionKey> getPartitionKeys(Table table, Partition partition, boolean forceIntegralToBigint)
     {
         if (isUnpartitioned(partition)) {
             return ImmutableList.of();
@@ -535,7 +538,7 @@ public class BackgroundHiveSplitLoader
         for (int i = 0; i < keys.size(); i++) {
             String name = keys.get(i).getName();
             HiveType hiveType = HiveType.valueOf(keys.get(i).getType());
-            if (!hiveType.isSupportedType()) {
+            if (!hiveType.isSupportedType(forceIntegralToBigint)) {
                 throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type %s found in partition keys of table %s.%s", hiveType, table.getDbName(), table.getTableName()));
             }
             String value = values.get(i);

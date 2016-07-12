@@ -192,7 +192,8 @@ public class HiveFileFormatBenchmark
                 HDFS_ENVIRONMENT,
                 dataFile,
                 columnNames,
-                fileFormat.supportsDate() ? columnTypes : noDateColumnTypes)) {
+                fileFormat.supportsDate() ? columnTypes : noDateColumnTypes,
+                false)) {
             while (!pageSource.isFinished()) {
                 Page page = pageSource.getNextPage();
                 if (page != null) {
@@ -224,7 +225,8 @@ public class HiveFileFormatBenchmark
                 targetFile,
                 columnNames,
                 fileFormat.supportsDate() ? columnTypes : noDateColumnTypes,
-                compression
+                compression,
+                false
         )) {
             for (Page page : inputPages) {
                 formatWriter.writePage(page);
