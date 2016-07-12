@@ -41,6 +41,18 @@ public final class VarianceAggregation
         updateVarianceState(state, (double) value);
     }
 
+    @InputFunction
+    public static void intervalDayToSecondInput(VarianceState state, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long value)
+    {
+        updateVarianceState(state, (double) value);
+    }
+
+    @InputFunction
+    public static void intervalYearToMonthInput(VarianceState state, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long value)
+    {
+        updateVarianceState(state, (double) value);
+    }
+
     @CombineFunction
     public static void combine(VarianceState state, VarianceState otherState)
     {
