@@ -92,4 +92,18 @@ public class ServerInfoResource
             return ACTIVE;
         }
     }
+
+    @GET
+    @Path("coordinator")
+    @Produces(TEXT_PLAIN)
+    public Response getServerCoordinator()
+    {
+        if (serverInfo.isCoordinator()) {
+            return Response.status(Response.Status.OK).build();
+        }
+        else {
+            // Return NOT_FOUND to allow load balancers to only send traffic to the coordinator
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+    }
 }
