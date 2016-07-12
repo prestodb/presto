@@ -233,13 +233,13 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    public void checkCanCreateViewWithSelectFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName viewName, QualifiedObjectName tableName)
     {
         if (shouldDenyPrivilege(identity.getUser(), tableName.getObjectName(), CREATE_VIEW_WITH_SELECT_TABLE)) {
             denySelectTable(tableName.toString());
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanCreateViewWithSelectFromTable(transactionId, identity, tableName);
+            super.checkCanCreateViewWithSelectFromTable(transactionId, identity, viewName, tableName);
         }
     }
 

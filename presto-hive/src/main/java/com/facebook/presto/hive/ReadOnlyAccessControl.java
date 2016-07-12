@@ -101,7 +101,7 @@ public class ReadOnlyAccessControl
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName, SchemaTableName tableName)
     {
         // allow
     }
