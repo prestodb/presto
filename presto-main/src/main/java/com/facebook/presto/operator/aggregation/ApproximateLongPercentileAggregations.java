@@ -118,6 +118,9 @@ public final class ApproximateLongPercentileAggregations
     public static void combine(DigestAndPercentileState state, DigestAndPercentileState otherState)
     {
         QuantileDigest input = otherState.getDigest();
+        if (input == null) {
+            return;
+        }
 
         QuantileDigest previous = state.getDigest();
         if (previous == null) {

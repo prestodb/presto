@@ -74,8 +74,11 @@ public final class ApproximateLongPercentileArrayAggregations
     public static void combine(DigestAndPercentileArrayState state, DigestAndPercentileArrayState otherState)
     {
         QuantileDigest otherDigest = otherState.getDigest();
-        QuantileDigest digest = state.getDigest();
+        if (otherDigest == null) {
+            return;
+        }
 
+        QuantileDigest digest = state.getDigest();
         if (digest == null) {
             state.setDigest(otherDigest);
             state.addMemoryUsage(otherDigest.estimatedInMemorySizeInBytes());

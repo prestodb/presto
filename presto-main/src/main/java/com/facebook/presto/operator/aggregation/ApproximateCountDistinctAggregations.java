@@ -143,6 +143,9 @@ public final class ApproximateCountDistinctAggregations
     public static void combineState(HyperLogLogState state, HyperLogLogState otherState)
     {
         HyperLogLog input = otherState.getHyperLogLog();
+        if (input == null) {
+            return;
+        }
 
         HyperLogLog previous = state.getHyperLogLog();
         if (previous == null) {
