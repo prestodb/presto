@@ -81,6 +81,27 @@ public final class SystemPartitioningHandle
         return isSystemPartitioning(partitioning, SystemPartitionFunction.HASH);
     }
 
+    public static Partitioning fixedCustomPartitioning(int partitionCount, PartitioningHandle partitioningHandle, List<Symbol> columns)
+    {
+        checkArgument(partitionCount >= 1, "Partition count must be at least 1");
+        if (partitionCount == 1 || columns.isEmpty()) {
+            return singlePartition();
+        }
+
+        SystemPartitioningHandle connectorHandle = new SystemPartitioningHandle(
+                SystemPartitioning.FIXED,
+                SystemPartitionFunction.CUSTOM,
+                OptionalInt.of(partitionCount),
+                ImmutableList.of(),
+                Optional.of(partitioningHandle));
+        return Partitioning.create(new PartitioningHandle(Optional.empty(), Optional.empty(), connectorHandle), columns);
+    }
+
+    public static boolean isFixedCustomPartitioning(Partitioning partitioning)
+    {
+        return isSystemPartitioning(partitioning, SystemPartitionFunction.CUSTOM);
+    }
+
     public static Partitioning fixedRandomPartitioning(int partitionCount)
     {
         checkArgument(partitionCount >= 1, "Partition count must be at least 1");
@@ -155,12 +176,13 @@ public final class SystemPartitioningHandle
             List<Symbol> columns,
             List<Type> columnTypes)
     {
-        SystemPartitioningHandle handle = new SystemPartitioningHandle(partitioning, function, partitionCount, columnTypes);
+        SystemPartitioningHandle handle = new SystemPartitioningHandle(partitioning, function, partitionCount, columnTypes, Optional.empty());
         return Partitioning.create(new PartitioningHandle(Optional.empty(), Optional.empty(), handle), columns);
     }
 
     private final SystemPartitioning partitioning;
     private final SystemPartitionFunction function;
+    private final Optional<PartitioningHandle> customPartitioning;
     private final OptionalInt partitionCount;
     private final List<Type> partitioningTypes;
 
@@ -169,13 +191,19 @@ public final class SystemPartitioningHandle
             @JsonProperty("partitioning") SystemPartitioning partitioning,
             @JsonProperty("function") SystemPartitionFunction function,
             @JsonProperty("partitionCount") OptionalInt partitionCount,
-            @JsonProperty("partitioningTypes") List<Type> partitioningTypes)
+            @JsonProperty("partitioningTypes") List<Type> partitioningTypes,
+            @JsonProperty("customPartitioning") Optional<PartitioningHandle> customPartitioning)
     {
         this.partitioning = requireNonNull(partitioning, "partitioning is null");
         this.function = requireNonNull(function, "function is null");
         this.partitionCount = requireNonNull(partitionCount, "partitionCount is null");
         checkArgument(!partitionCount.isPresent() || partitionCount.getAsInt() > 0);
         this.partitioningTypes = ImmutableList.copyOf(requireNonNull(partitioningTypes, "partitioningTypes is null"));
+        this.customPartitioning = requireNonNull(customPartitioning, "customPartitioning is null");
+        if (customPartitioning.isPresent()) {
+            checkArgument(!(customPartitioning.get().getConnectorHandle() instanceof SystemPartitioningHandle), "System partitioning can not wrap a system partitioning");
+            checkArgument(partitioning == SystemPartitioning.FIXED && function == SystemPartitionFunction.CUSTOM, "Custom partitioning must be use FIXED CUSTOM");
+        }
     }
 
     @JsonProperty
@@ -188,6 +216,12 @@ public final class SystemPartitioningHandle
     public SystemPartitionFunction getFunction()
     {
         return function;
+    }
+
+    @JsonProperty
+    public Optional<PartitioningHandle> getCustomPartitioning()
+    {
+        return customPartitioning;
     }
 
     @JsonProperty
@@ -227,20 +261,21 @@ public final class SystemPartitioningHandle
         return partitioning == that.partitioning &&
                 function == that.function &&
                 partitioningTypes.equals(that.partitioningTypes) &&
+                Objects.equals(customPartitioning, that.customPartitioning) &&
                 partitionCount.equals(that.partitionCount);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(partitioning, function, partitioningTypes, partitionCount);
+        return Objects.hash(partitioning, function, partitioningTypes, customPartitioning, partitionCount);
     }
 
     @Override
     public String toString()
     {
         if (partitioning == SystemPartitioning.FIXED) {
-            String functionName = function.toString();
+            String functionName = customPartitioning.map(Object::toString).orElseGet(function::toString);
             if (function != SystemPartitionFunction.SINGLE && partitionCount.isPresent()) {
                 functionName += "_" + partitionCount.getAsInt();
             }
@@ -273,7 +308,11 @@ public final class SystemPartitioningHandle
             Node node = nodes.get(i);
             partitionToNode.put(i, node);
         }
-        return new NodePartitionMap(partitionToNode.build(), split -> {
+        int[] bucketToPartition = new int[partitionCount.getAsInt()];
+        for (int bucket = 0; bucket < bucketToPartition.length; bucket++) {
+            bucketToPartition[bucket] = bucket % nodes.size();
+        }
+        return new NodePartitionMap(partitionToNode.build(), bucketToPartition, split -> {
             throw new UnsupportedOperationException("System distribution does not support source splits");
         });
     }
@@ -281,6 +320,11 @@ public final class SystemPartitioningHandle
     public BucketFunction getBucketFunction(boolean isHashPrecomputed, int partitionCount)
     {
         checkArgument(partitionCount >= 1, "partitionCount must be atleast 1");
+
+        if (customPartitioning.isPresent()) {
+            throw new IllegalStateException("Bucket function not supported for system custom partitioning");
+        }
+
         return function.createBucketFunction(partitioningTypes, isHashPrecomputed, partitionCount);
     }
 
@@ -319,6 +363,13 @@ public final class SystemPartitioningHandle
             }
         },
         BROADCAST {
+            @Override
+            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, boolean isHashPrecomputed, int bucketCount)
+            {
+                throw new UnsupportedOperationException();
+            }
+        },
+        CUSTOM {
             @Override
             public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, boolean isHashPrecomputed, int bucketCount)
             {

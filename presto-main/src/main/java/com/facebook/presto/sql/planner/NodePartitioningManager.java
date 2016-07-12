@@ -23,6 +23,7 @@ import com.facebook.presto.operator.exchange.SystemHashPartitionFunction;
 import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.type.Type;
@@ -30,8 +31,12 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 
+import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.NotThreadSafe;
+import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -41,8 +46,10 @@ import java.util.function.Supplier;
 import java.util.function.ToIntFunction;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isFixedCustomPartitioning;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isFixedHashPartitioning;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class NodePartitioningManager
@@ -96,6 +103,11 @@ public class NodePartitioningManager
             }
             List<Type> partitionChannelTypes = systemHandle.getPartitioningTypes();
             return new LocalHashPartitionFunctionSupplier(partitionCount, partitionChannelTypes);
+        }
+
+        if (isFixedCustomPartitioning(partitioningScheme.getPartitioning())) {
+            PartitioningHandle customPartitioningHandle = systemHandle.getCustomPartitioning().get();
+            return new LocalCustomPartitionFunctionSupplier(partitionCount, () -> getBucketFunction(session, customPartitioningHandle));
         }
 
         throw new IllegalArgumentException("Unsupported local partitioning " + handle);
@@ -221,6 +233,100 @@ public class NodePartitioningManager
         public PartitionFunction get()
         {
             return new SystemHashPartitionFunction(new InterpretedHashGenerator(partitionChannelTypes, channels), partitionCount);
+        }
+    }
+
+    private static class LocalCustomPartitionFunctionSupplier
+            implements Supplier<PartitionFunction>
+    {
+        private final Supplier<BucketFunction> customBucketFunctionSupplier;
+        private final DynamicPartitionAssignment partitionAssignment;
+
+        public LocalCustomPartitionFunctionSupplier(int partitionCount, Supplier<BucketFunction> customBucketFunctionSupplier)
+        {
+            this.customBucketFunctionSupplier = requireNonNull(customBucketFunctionSupplier, "customBucketFunctionSupplier is null");
+            this.partitionAssignment = new DynamicPartitionAssignment(partitionCount, customBucketFunctionSupplier.get().getBucketCount());
+        }
+
+        @Override
+        public PartitionFunction get()
+        {
+            BucketFunction bucketFunction = customBucketFunctionSupplier.get();
+            return new DynamicBucketToPartitionFunction(bucketFunction, partitionAssignment);
+        }
+    }
+
+    @NotThreadSafe
+    private static class DynamicBucketToPartitionFunction
+            implements PartitionFunction
+    {
+        private final BucketFunction bucketFunction;
+        private final DynamicPartitionAssignment partitionAssignment;
+        private int[] snapshot;
+
+        public DynamicBucketToPartitionFunction(BucketFunction bucketFunction, DynamicPartitionAssignment partitionAssignment)
+        {
+            this.bucketFunction = bucketFunction;
+            this.partitionAssignment = partitionAssignment;
+            snapshot = partitionAssignment.getSnapshot();
+        }
+
+        @Override
+        public int getPartitionCount()
+        {
+            return partitionAssignment.getPartitionCount();
+        }
+
+        @Override
+        public int getPartition(Page page, int position)
+        {
+            int bucket = bucketFunction.getBucket(page, position);
+            int partition = snapshot[bucket];
+            if (partition == -1) {
+                snapshot = partitionAssignment.assignBucket(bucket);
+                partition = snapshot[bucket];
+                checkState(partition != -1);
+            }
+            return partition;
+        }
+    }
+
+    @ThreadSafe
+    private static class DynamicPartitionAssignment
+    {
+        private final int partitionCount;
+        @GuardedBy("this")
+        private final int[] partitionAssignments;
+        @GuardedBy("this")
+        private int nextPartition;
+
+        public DynamicPartitionAssignment(int partitionCount, int bucketCount)
+        {
+            this.partitionAssignments = new int[bucketCount];
+            this.partitionCount = partitionCount;
+            Arrays.fill(partitionAssignments, -1);
+        }
+
+        public int getPartitionCount()
+        {
+            return partitionCount;
+        }
+
+        public synchronized int[] getSnapshot()
+        {
+            return partitionAssignments.clone();
+        }
+
+        public synchronized int[] assignBucket(int bucket)
+        {
+            // If the bucket has not been assigned a partition, assign the bucket to the nextPartition.
+            // This creates a uniform distribution of active buckets to partitions.
+            if (partitionAssignments[bucket] == -1) {
+                int partition = nextPartition % partitionCount;
+                nextPartition++;
+                partitionAssignments[bucket] = partition;
+            }
+            return partitionAssignments.clone();
         }
     }
 }

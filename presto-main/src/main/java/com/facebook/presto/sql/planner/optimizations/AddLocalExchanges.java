@@ -23,6 +23,8 @@ import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.Partitioning;
+import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -70,6 +72,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.fixedCustomPartitioning;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.fixedHashPartitioning;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.fixedRandomPartitioning;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.singlePartition;
@@ -437,10 +440,15 @@ public class AddLocalExchanges
             StreamPreferredProperties requiredProperties;
             StreamPreferredProperties preferredProperties;
             int taskWriterCount = getTaskWriterCount(session);
-            // Force single writer when partition function exists
-            if (getTaskWriterCount(session) > 1 && !node.getNodePartitioningScheme().isPresent() && !node.getStreamPartitioningScheme().isPresent()) {
-                requiredProperties = partitionedOn(fixedRandomPartitioning(taskWriterCount));
-                preferredProperties = partitionedOn(fixedRandomPartitioning(taskWriterCount));
+            if (taskWriterCount > 1) {
+                Partitioning partitioning = node.getStreamPartitioningScheme()
+                        .map(PartitioningScheme::getPartitioning)
+                        .map(streamPartitioning -> fixedCustomPartitioning(taskWriterCount, streamPartitioning.getHandle(), streamPartitioning.getArguments().stream()
+                                .map(ArgumentBinding::getColumn)
+                                .collect(toList())))
+                        .orElseGet(() -> fixedRandomPartitioning(taskWriterCount));
+                requiredProperties = partitionedOn(partitioning);
+                preferredProperties = partitionedOn(partitioning);
             }
             else {
                 requiredProperties = singleStream();
