@@ -23,16 +23,18 @@ public class ViewAccessControl
         extends DenyAllAccessControl
 {
     private final AccessControl delegate;
+    private final QualifiedObjectName viewName;
 
-    public ViewAccessControl(AccessControl delegate)
+    public ViewAccessControl(AccessControl delegate, QualifiedObjectName viewName)
     {
+        this.viewName = requireNonNull(viewName, "viewName is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
     }
 
     @Override
     public void checkCanSelectFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
-        delegate.checkCanCreateViewWithSelectFromTable(transactionId, identity, tableName);
+        delegate.checkCanCreateViewWithSelectFromTable(transactionId, identity, viewName, tableName);
     }
 
     @Override
@@ -42,9 +44,9 @@ public class ViewAccessControl
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    public void checkCanCreateViewWithSelectFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName viewName, QualifiedObjectName tableName)
     {
-        delegate.checkCanCreateViewWithSelectFromTable(transactionId, identity, tableName);
+        delegate.checkCanCreateViewWithSelectFromTable(transactionId, identity, viewName, tableName);
     }
 
     @Override

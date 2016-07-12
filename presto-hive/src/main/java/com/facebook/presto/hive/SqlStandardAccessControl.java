@@ -160,18 +160,24 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName, SchemaTableName tableName)
     {
-        if (!checkTablePermission(identity, tableName, SELECT) || !getGrantOptionForPrivilege(identity, Privilege.SELECT, tableName)) {
+        if (!checkTablePermission(identity, tableName, SELECT)) {
             denySelectTable(tableName.toString());
+        }
+        else if (!getGrantOptionForPrivilege(identity, Privilege.SELECT, tableName)) {
+            denyCreateView(viewName.toString());
         }
     }
 
     @Override
     public void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
     {
-        if (!checkTablePermission(identity, viewName, SELECT) || !getGrantOptionForPrivilege(identity, Privilege.SELECT, viewName)) {
+        if (!checkTablePermission(identity, viewName, SELECT)) {
             denySelectView(viewName.toString());
+        }
+        if (!getGrantOptionForPrivilege(identity, Privilege.SELECT, viewName)) {
+            denyCreateView(viewName.toString());
         }
     }
 
