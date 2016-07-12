@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnIdentity;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
@@ -32,6 +33,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.TableIdentity;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -453,6 +455,41 @@ public class MetadataManager
             }
         }
         return ImmutableMap.copyOf(tableColumns);
+    }
+
+    @Override
+    public TableIdentity getTableIdentity(Session session, TableHandle tableHandle)
+    {
+        requireNonNull(tableHandle, "tableHandle is null");
+        return lookupConnectorFor(tableHandle).getMetadata(session).getTableIdentity(tableHandle.getConnectorHandle());
+    }
+
+    @Override
+    public TableIdentity deserializeTableIdentity(Session session, String catalogName, byte[] bytes)
+    {
+        requireNonNull(bytes, "bytes for TableIdentity is null");
+        return getConnectorMetadata(session, catalogName).deserializeTableIdentity(bytes);
+    }
+
+    @Override
+    public ColumnIdentity getColumnIdentity(Session session, TableHandle tableHandle, ColumnHandle columnHandle)
+    {
+        requireNonNull(columnHandle, "columnHandle is null");
+        return lookupConnectorFor(tableHandle).getMetadata(session).getColumnIdentity(columnHandle);
+    }
+
+    @Override
+    public ColumnIdentity deserializeColumnIdentity(Session session, String catalogName, byte[] bytes)
+    {
+        requireNonNull(bytes, "bytes is null");
+        return getConnectorMetadata(session, catalogName).deserializeColumnIdentity(bytes);
+    }
+
+    private ConnectorMetadata getConnectorMetadata(Session session, String catalogName)
+    {
+        ConnectorEntry entry = connectorsByCatalog.get(catalogName);
+        checkArgument(entry != null, "Catalog %s does not exist", catalogName);
+        return entry.getMetadata(session);
     }
 
     @Override

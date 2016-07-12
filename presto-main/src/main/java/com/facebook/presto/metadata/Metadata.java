@@ -16,9 +16,11 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnIdentity;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.TableIdentity;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.Privilege;
@@ -119,6 +121,29 @@ public interface Metadata
      */
     @NotNull
     Map<QualifiedObjectName, List<ColumnMetadata>> listTableColumns(Session session, QualifiedTablePrefix prefix);
+
+    /**
+     * Gets the TableIdentity for the specified table.
+     */
+    @NotNull
+    TableIdentity getTableIdentity(Session session, TableHandle tableHandle);
+
+    /**
+     * Deserialize the bytes to TableIdentity
+     */
+    TableIdentity deserializeTableIdentity(Session session, String catalogName, byte[] bytes);
+
+    /**
+     * Gets the ColumnIdentity for the specified column.
+     */
+    @NotNull
+    ColumnIdentity getColumnIdentity(Session session, TableHandle tableHandle, ColumnHandle columnHandle);
+
+    /**
+     * Deserialize the bytes to ColumnIdentity
+     */
+    @NotNull
+    ColumnIdentity deserializeColumnIdentity(Session session, String catalogName, byte[] bytes);
 
     /**
      * Creates a table using the specified table metadata.
