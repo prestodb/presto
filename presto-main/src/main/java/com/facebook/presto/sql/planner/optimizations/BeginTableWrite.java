@@ -44,7 +44,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.sql.planner.optimizations.ScalarQueryUtil.isScalar;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -197,9 +196,13 @@ public class BeginTableWrite
                 PlanNode source = rewriteDeleteTableScan(((SemiJoinNode) node).getSource(), handle, context);
                 return replaceChildren(node, ImmutableList.of(source, ((SemiJoinNode) node).getFilteringSource()));
             }
-            if (node instanceof JoinNode && (((JoinNode) node).getType() == JoinNode.Type.INNER) && isScalar(((JoinNode) node).getRight())) {
-                PlanNode source = rewriteDeleteTableScan(((JoinNode) node).getLeft(), handle, context);
-                return replaceChildren(node, ImmutableList.of(source, ((JoinNode) node).getRight()));
+            if (node instanceof JoinNode) {
+                JoinNode joinNode = (JoinNode) node;
+                boolean broadcast = JoinUtil.isJoinEligibleToBroadcast(joinNode, session);
+                if (joinNode.getType() == JoinNode.Type.INNER && broadcast) {
+                    PlanNode source = rewriteDeleteTableScan(((JoinNode) node).getLeft(), handle, context);
+                    return replaceChildren(node, ImmutableList.of(source, ((JoinNode) node).getRight()));
+                }
             }
             throw new IllegalArgumentException("Invalid descendant for DeleteNode: " + node.getClass().getName());
         }

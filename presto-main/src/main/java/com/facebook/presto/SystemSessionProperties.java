@@ -61,6 +61,7 @@ public final class SystemSessionProperties
     public static final String SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL = "split_concurrency_adjustment_interval";
     public static final String OPTIMIZE_METADATA_QUERIES = "optimize_metadata_queries";
     public static final String QUERY_PRIORITY = "query_priority";
+    public static final String BROADCAST_JOIN_CARDINALITY = "broadcast_join_cardinality";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -219,7 +220,12 @@ public final class SystemSessionProperties
                         COLOCATED_JOIN,
                         "Experimental: Use a colocated join when possible",
                         featuresConfig.isColocatedJoinsEnabled(),
-                        false));
+                        false),
+                integerSessionProperty(
+                        BROADCAST_JOIN_CARDINALITY,
+                        "Right side join cardinality for which (if it is known) broadcast join will be used",
+                        1_000_000,
+                        true));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -342,5 +348,12 @@ public final class SystemSessionProperties
     public static Duration getQueryMaxCpuTime(Session session)
     {
         return session.getProperty(QUERY_MAX_CPU_TIME, Duration.class);
+    }
+
+    public static int getBroadcastJoinCardinality(Session session)
+    {
+        Integer cardinality = session.getProperty(BROADCAST_JOIN_CARDINALITY, Integer.class);
+        checkArgument(cardinality > 0, "Cardinality must be positive");
+        return cardinality;
     }
 }

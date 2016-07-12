@@ -19,6 +19,7 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.DEFAULT_BROADCAST_JOIN_CARDINALITY;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.FILE_BASED_RESOURCE_GROUP_MANAGER;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.ProcessingOptimization.COLUMNAR_DICTIONARY;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.ProcessingOptimization.DISABLED;
@@ -49,7 +50,8 @@ public class TestFeaturesConfig
                 .setRegexLibrary(JONI)
                 .setRe2JDfaStatesLimit(Integer.MAX_VALUE)
                 .setRe2JDfaRetries(5)
-                .setResourceGroupManager(FILE_BASED_RESOURCE_GROUP_MANAGER));
+                .setResourceGroupManager(FILE_BASED_RESOURCE_GROUP_MANAGER)
+                .setBroadcastJoinCardinality(DEFAULT_BROADCAST_JOIN_CARDINALITY));
     }
 
     @Test
@@ -72,6 +74,7 @@ public class TestFeaturesConfig
                 .put("re2j.dfa-states-limit", "42")
                 .put("re2j.dfa-retries", "42")
                 .put("resource-group-manager", "test")
+                .put("optimizer.broadcast-join-cardinality", "10")
                 .build();
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("experimental-syntax-enabled", "true")
@@ -90,6 +93,7 @@ public class TestFeaturesConfig
                 .put("re2j.dfa-states-limit", "42")
                 .put("re2j.dfa-retries", "42")
                 .put("resource-group-manager", "test")
+                .put("optimizer.broadcast-join-cardinality", "10")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -108,7 +112,8 @@ public class TestFeaturesConfig
                 .setRegexLibrary(RE2J)
                 .setRe2JDfaStatesLimit(42)
                 .setRe2JDfaRetries(42)
-                .setResourceGroupManager("test");
+                .setResourceGroupManager("test")
+                .setBroadcastJoinCardinality(10);
 
         assertFullMapping(properties, expected);
         assertDeprecatedEquivalence(FeaturesConfig.class, properties, propertiesLegacy);
