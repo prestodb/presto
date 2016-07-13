@@ -77,6 +77,11 @@ Array Functions
 
     Flattens an ``array(array(T))`` to an ``array(T)`` by concatenating the contained arrays.
 
+.. function:: reverse(x) -> array
+    :noindex:
+
+    Returns an array which has the reversed order of array ``x``.
+
 .. function:: sequence(start, stop) -> array<bigint>
 
     Generate a sequence of integers from ``start`` to ``stop``, incrementing

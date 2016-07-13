@@ -501,6 +501,19 @@ public class TestArrayOperators
     }
 
     @Test
+    public void testReverse()
+            throws Exception
+    {
+        assertFunction("REVERSE(ARRAY[1])", new ArrayType(INTEGER), ImmutableList.of(1));
+        assertFunction("REVERSE(ARRAY[1, 2, 3, 4])", new ArrayType(INTEGER), ImmutableList.of(4, 3, 2, 1));
+        assertFunction("REVERSE(ARRAY_SORT(ARRAY[2, 3, 4, 1]))", new ArrayType(INTEGER), ImmutableList.of(4, 3, 2, 1));
+        assertFunction("REVERSE(ARRAY[2, BIGINT '3', 4, 1])", new ArrayType(BIGINT), ImmutableList.of(1L, 4L, 3L, 2L));
+        assertFunction("REVERSE(ARRAY['a', 'b', 'c', 'd'])", new ArrayType(createVarcharType(1)), ImmutableList.of("d", "c", "b", "a"));
+        assertFunction("REVERSE(ARRAY[TRUE, FALSE])", new ArrayType(BOOLEAN), ImmutableList.of(false, true));
+        assertFunction("REVERSE(ARRAY[1.1, 2.2, 3.3, 4.4])", new ArrayType(DOUBLE), ImmutableList.of(4.4, 3.3, 2.2, 1.1));
+    }
+
+    @Test
     public void testDistinct()
             throws Exception
     {
