@@ -41,6 +41,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.facebook.presto.SystemSessionProperties.getQueryPriority;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -138,7 +139,7 @@ public class ResourceGroupManager
 
     private synchronized void createGroupIfNecessary(ResourceGroupId id, Session session, Executor executor)
     {
-        SelectionContext context = new SelectionContext(session.getIdentity().getPrincipal().isPresent(), session.getUser(), session.getSource());
+        SelectionContext context = new SelectionContext(session.getIdentity().getPrincipal().isPresent(), session.getUser(), session.getSource(), getQueryPriority(session));
         if (!groups.containsKey(id)) {
             ResourceGroup group;
             if (id.getParent().isPresent()) {
@@ -175,7 +176,7 @@ public class ResourceGroupManager
 
     private ResourceGroupId selectGroup(Statement statement, Session session)
     {
-        SelectionContext context = new SelectionContext(session.getIdentity().getPrincipal().isPresent(), session.getUser(), session.getSource());
+        SelectionContext context = new SelectionContext(session.getIdentity().getPrincipal().isPresent(), session.getUser(), session.getSource(), getQueryPriority(session));
         for (ResourceGroupSelector selector : selectors) {
             Optional<ResourceGroupId> group = selector.match(statement, context);
             if (group.isPresent()) {

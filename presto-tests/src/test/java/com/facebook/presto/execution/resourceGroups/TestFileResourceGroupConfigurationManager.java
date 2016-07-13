@@ -77,7 +77,7 @@ public class TestFileResourceGroupConfigurationManager
     {
         ResourceGroupConfigurationManager manager = parse("resource_groups_config.json");
         ResourceGroup missing = new RootResourceGroup("missing", (group, export) -> { }, directExecutor());
-        manager.configure(missing, new SelectionContext(true, "user", Optional.empty()));
+        manager.configure(missing, new SelectionContext(true, "user", Optional.empty(), 1));
     }
 
     @Test
@@ -86,7 +86,7 @@ public class TestFileResourceGroupConfigurationManager
         ResourceGroupConfigurationManager manager = parse("resource_groups_config.json");
         AtomicBoolean exported = new AtomicBoolean();
         ResourceGroup global = new RootResourceGroup("global", (group, export) -> exported.set(export), directExecutor());
-        manager.configure(global, new SelectionContext(true, "user", Optional.empty()));
+        manager.configure(global, new SelectionContext(true, "user", Optional.empty(), 1));
         assertEquals(global.getSoftMemoryLimit(), new DataSize(1, MEGABYTE));
         assertEquals(global.getSoftCpuLimit(), new Duration(1, HOURS));
         assertEquals(global.getHardCpuLimit(), new Duration(1, DAYS));
@@ -99,7 +99,7 @@ public class TestFileResourceGroupConfigurationManager
         assertEquals(exported.get(), true);
         exported.set(false);
         ResourceGroup sub = global.getOrCreateSubGroup("sub");
-        manager.configure(sub, new SelectionContext(true, "user", Optional.empty()));
+        manager.configure(sub, new SelectionContext(true, "user", Optional.empty(), 1));
         assertEquals(sub.getSoftMemoryLimit(), new DataSize(2, MEGABYTE));
         assertEquals(sub.getMaxRunningQueries(), 3);
         assertEquals(sub.getMaxQueuedQueries(), 4);
