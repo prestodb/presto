@@ -74,7 +74,7 @@ public class TpchConnectorFactory
             @Override
             public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
             {
-                return new TpchMetadata(connectorId);
+                return new TpchMetadata(connectorId, nodeManager, splitsPerNode);
             }
 
             @Override
@@ -92,7 +92,7 @@ public class TpchConnectorFactory
             @Override
             public ConnectorNodePartitioningProvider getNodePartitioningProvider()
             {
-                return new TpchNodePartitioningProvider(connectorId, nodeManager, splitsPerNode);
+                return new TpchNodePartitioningProvider(connectorId, nodeManager);
             }
         };
     }

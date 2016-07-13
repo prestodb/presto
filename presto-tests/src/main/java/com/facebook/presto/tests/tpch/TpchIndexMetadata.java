@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.tpch.TpchMetadata;
@@ -42,9 +43,9 @@ public class TpchIndexMetadata
 {
     private final TpchIndexedData indexedData;
 
-    public TpchIndexMetadata(String connectorId, TpchIndexedData indexedData)
+    public TpchIndexMetadata(String connectorId, NodeManager nodeManager, int splitsPerNode, TpchIndexedData indexedData)
     {
-        super(connectorId);
+        super(connectorId, nodeManager, splitsPerNode);
         this.indexedData = requireNonNull(indexedData, "indexedData is null");
     }
 

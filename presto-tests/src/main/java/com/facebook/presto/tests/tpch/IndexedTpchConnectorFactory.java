@@ -67,7 +67,7 @@ public class IndexedTpchConnectorFactory
     public Connector create(String connectorId, Map<String, String> properties)
     {
         int splitsPerNode = getSplitsPerNode(properties);
-        TpchIndexedData indexedData = new TpchIndexedData(connectorId, indexSpec);
+        TpchIndexedData indexedData = new TpchIndexedData(connectorId, nodeManager, splitsPerNode, indexSpec);
 
         return new Connector()
         {
@@ -80,7 +80,7 @@ public class IndexedTpchConnectorFactory
             @Override
             public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
             {
-                return new TpchIndexMetadata(connectorId, indexedData);
+                return new TpchIndexMetadata(connectorId, nodeManager, splitsPerNode, indexedData);
             }
 
             @Override
@@ -110,7 +110,7 @@ public class IndexedTpchConnectorFactory
             @Override
             public ConnectorNodePartitioningProvider getNodePartitioningProvider()
             {
-                return new TpchNodePartitioningProvider(connectorId, nodeManager, splitsPerNode);
+                return new TpchNodePartitioningProvider(connectorId, nodeManager);
             }
         };
     }

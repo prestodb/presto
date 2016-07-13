@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.RecordCursor;
@@ -77,7 +78,7 @@ public class H2QueryRunner
     public H2QueryRunner()
     {
         handle = DBI.open("jdbc:h2:mem:test" + System.nanoTime());
-        TpchMetadata tpchMetadata = new TpchMetadata("");
+        TpchMetadata tpchMetadata = new TpchMetadata("", new InMemoryNodeManager(), 1);
 
         handle.execute("CREATE TABLE orders (\n" +
                 "  orderkey BIGINT PRIMARY KEY,\n" +

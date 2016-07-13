@@ -76,7 +76,7 @@ public class SampledTpchConnectorFactory
             @Override
             public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
             {
-                return new SampledTpchMetadata(connectorId);
+                return new SampledTpchMetadata(connectorId, nodeManager, splitsPerNode);
             }
 
             @Override
@@ -88,13 +88,13 @@ public class SampledTpchConnectorFactory
             @Override
             public ConnectorRecordSetProvider getRecordSetProvider()
             {
-                return new SampledTpchRecordSetProvider(connectorId, sampleWeight);
+                return new SampledTpchRecordSetProvider(connectorId, nodeManager, splitsPerNode, sampleWeight);
             }
 
             @Override
             public ConnectorNodePartitioningProvider getNodePartitioningProvider()
             {
-                return new TpchNodePartitioningProvider(connectorId, nodeManager, splitsPerNode);
+                return new TpchNodePartitioningProvider(connectorId, nodeManager);
             }
         };
     }
