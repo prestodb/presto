@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -52,6 +53,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 
 @Test(singleThreaded = true)
@@ -67,6 +69,7 @@ public class TestTypeMatchingChecker
     private Symbol columnB;
     private Symbol columnC;
     private Symbol columnD;
+    private Symbol columnE;
 
     @BeforeMethod
     public void setUp()
@@ -76,12 +79,14 @@ public class TestTypeMatchingChecker
         columnB = symbolAllocator.newSymbol("b", INTEGER);
         columnC = symbolAllocator.newSymbol("c", DOUBLE);
         columnD = symbolAllocator.newSymbol("d", DATE);
+        columnE = symbolAllocator.newSymbol("e", VarcharType.createVarcharType(3));  // varchar(3), to test type only coercion
 
         Map<Symbol, ColumnHandle> assignments = ImmutableMap.<Symbol, ColumnHandle>builder()
                 .put(columnA, new TestingColumnHandle("a"))
                 .put(columnB, new TestingColumnHandle("b"))
                 .put(columnC, new TestingColumnHandle("c"))
                 .put(columnD, new TestingColumnHandle("d"))
+                .put(columnE, new TestingColumnHandle("e"))
                 .build();
 
         baseTableScan = new TableScanNode(
@@ -195,6 +200,20 @@ public class TestTypeMatchingChecker
                 Optional.empty(),
                 0,
                 Optional.empty());
+
+        assertTypesValid(node);
+    }
+
+    @Test
+    public void testValidTypeOnlyCoercion()
+            throws Exception
+    {
+        Expression expression = new Cast(columnB.toSymbolReference(), StandardTypes.BIGINT);
+        Map<Symbol, Expression> assignments = ImmutableMap.<Symbol, Expression>builder()
+                .put(symbolAllocator.newSymbol(expression, BIGINT), expression)
+                .put(symbolAllocator.newSymbol(columnE.toSymbolReference(), VARCHAR), columnE.toSymbolReference()) // implicit coercion from varchar(3) to varchar
+                .build();
+        PlanNode node = new ProjectNode(newId(), baseTableScan, assignments);
 
         assertTypesValid(node);
     }

@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.SimplePlanVisitor;
@@ -154,10 +155,11 @@ public final class TypeValidator
             }
         }
 
-        private static void verifyTypeSignature(Symbol symbol, TypeSignature expected, TypeSignature actual)
+        private void verifyTypeSignature(Symbol symbol, TypeSignature expected, TypeSignature actual)
         {
             // UNKNOWN should be considered as a wildcard type, which matches all the other types
-            if (!actual.equals(UNKNOWN.getTypeSignature())) {
+            TypeManager typeManager = metadata.getTypeManager();
+            if (!actual.equals(UNKNOWN.getTypeSignature()) && !typeManager.isTypeOnlyCoercion(typeManager.getType(actual), typeManager.getType(expected))) {
                 checkArgument(expected.equals(actual), "type of symbol '%s' is expected to be %s, but the actual type is %s", symbol, expected, actual);
             }
         }
