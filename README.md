@@ -8,6 +8,7 @@ See the [User Manual](https://prestodb.io/docs/current/) for deployment instruct
 
 * Mac OS X or Linux
 * Java 8 Update 60 or higher (8u60+), 64-bit
+  * Presto supports only Oracle Java
 * Maven 3.3.9+ (for building)
 * Python 2.4+ (for running with the launcher script)
 
