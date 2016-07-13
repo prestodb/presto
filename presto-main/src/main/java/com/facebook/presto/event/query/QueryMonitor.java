@@ -73,8 +73,9 @@ public class QueryMonitor
 
     private final EventListenerManager eventListenerManager;
     private final ObjectMapper objectMapper;
-    private final String environment;
     private final String serverVersion;
+    private final String serverAddress;
+    private final String environment;
     private final QueryMonitorConfig config;
 
     @Inject
@@ -82,8 +83,9 @@ public class QueryMonitor
     {
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
-        this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
         this.serverVersion = requireNonNull(nodeVersion, "nodeVersion is null").toString();
+        this.serverAddress = requireNonNull(nodeInfo, "nodeInfo is null").getExternalAddress();
+        this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
         this.config = requireNonNull(config, "config is null");
     }
 
@@ -102,6 +104,7 @@ public class QueryMonitor
                                 queryInfo.getSession().getSchema(),
                                 mergeSessionAndCatalogProperties(queryInfo),
                                 serverVersion,
+                                serverAddress,
                                 environment),
                         new QueryMetadata(
                                 queryInfo.getQueryId().toString(),
@@ -180,6 +183,7 @@ public class QueryMonitor
                                     queryInfo.getSession().getSchema(),
                                     mergeSessionAndCatalogProperties(queryInfo),
                                     serverVersion,
+                                    serverAddress,
                                     environment),
                             new QueryIOMetadata(inputs.build(), output),
                             queryFailureInfo,
