@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.rewrite.StatementRewrite;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Statement;
@@ -55,9 +56,10 @@ public class Analyzer
 
     public Analysis analyze(Statement statement)
     {
-        Analysis analysis = new Analysis();
-        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, experimentalSyntaxEnabled, queryExplainer);
-        RelationType outputDescriptor = analyzer.process(statement, new AnalysisContext());
+        Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement);
+        Analysis analysis = new Analysis(rewrittenStatement);
+        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, experimentalSyntaxEnabled);
+        RelationType outputDescriptor = analyzer.process(rewrittenStatement, new AnalysisContext());
         analysis.setOutputDescriptor(outputDescriptor);
         return analysis;
     }

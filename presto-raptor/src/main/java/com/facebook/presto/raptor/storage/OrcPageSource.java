@@ -21,41 +21,40 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.block.LazyBlockLoader;
-import com.facebook.presto.spi.block.SliceArrayBlock;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import java.io.IOException;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
+import static com.facebook.presto.spi.predicate.Utils.nativeValueToBlock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.Slices.wrappedIntArray;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 
 public class OrcPageSource
         implements UpdatablePageSource
 {
-    public static final int NULL_SIZE = 0;
     public static final int NULL_COLUMN = -1;
     public static final int ROWID_COLUMN = -2;
     public static final int SHARD_UUID_COLUMN = -3;
+    public static final int BUCKET_NUMBER_COLUMN = -4;
 
     private final Optional<ShardRewriter> shardRewriter;
 
@@ -83,6 +82,7 @@ public class OrcPageSource
             List<Type> columnTypes,
             List<Integer> columnIndexes,
             UUID shardUuid,
+            OptionalInt bucketNumber,
             AggregatedMemoryContext systemMemoryContext)
     {
         this.shardRewriter = requireNonNull(shardRewriter, "shardRewriter is null");
@@ -106,10 +106,18 @@ public class OrcPageSource
         for (int i = 0; i < size; i++) {
             this.columnIndexes[i] = columnIndexes.get(i);
             if (this.columnIndexes[i] == NULL_COLUMN) {
-                constantBlocks[i] = buildNullBlock(columnTypes.get(i));
+                constantBlocks[i] = buildSingleValueBlock(columnTypes.get(i), null);
             }
             else if (this.columnIndexes[i] == SHARD_UUID_COLUMN) {
-                constantBlocks[i] = buildSingleValueBlock(Slices.utf8Slice(shardUuid.toString()));
+                constantBlocks[i] = buildSingleValueBlock(columnTypes.get(i), utf8Slice(shardUuid.toString()));
+            }
+            else if (this.columnIndexes[i] == BUCKET_NUMBER_COLUMN) {
+                if (bucketNumber.isPresent()) {
+                    constantBlocks[i] = buildSingleValueBlock(columnTypes.get(i), (long) bucketNumber.getAsInt());
+                }
+                else {
+                    constantBlocks[i] = buildSingleValueBlock(columnTypes.get(i), null);
+                }
             }
         }
 
@@ -160,9 +168,6 @@ public class OrcPageSource
                 }
                 else if (columnIndexes[fieldId] == ROWID_COLUMN) {
                     blocks[fieldId] = buildSequenceBlock(filePosition, batchSize);
-                }
-                else if (columnIndexes[fieldId] == SHARD_UUID_COLUMN) {
-                    blocks[fieldId] = constantBlocks[fieldId].getRegion(0, batchSize);
                 }
                 else {
                     blocks[fieldId] = new LazyBlock(batchSize, new OrcBlockLoader(columnIndexes[fieldId], type));
@@ -241,19 +246,10 @@ public class OrcPageSource
         return builder.build();
     }
 
-    private static Block buildNullBlock(Type type)
+    private static Block buildSingleValueBlock(Type type, Object value)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), MAX_BATCH_SIZE, NULL_SIZE);
-        for (int i = 0; i < MAX_BATCH_SIZE; i++) {
-            blockBuilder.appendNull();
-        }
-        return blockBuilder.build();
-    }
-
-    private static Block buildSingleValueBlock(Slice value)
-    {
-        SliceArrayBlock dictionary = new SliceArrayBlock(1, new Slice[] { value });
-        return new DictionaryBlock(MAX_BATCH_SIZE, dictionary, wrappedIntArray(new int[MAX_BATCH_SIZE]));
+        Block block = nativeValueToBlock(type, value);
+        return new RunLengthEncodedBlock(block, MAX_BATCH_SIZE);
     }
 
     private final class OrcBlockLoader

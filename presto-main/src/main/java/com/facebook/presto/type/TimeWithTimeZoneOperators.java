@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.operator.scalar.ScalarOperator;
+import com.facebook.presto.operator.scalar.annotations.ScalarOperator;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
@@ -118,7 +118,6 @@ public final class TimeWithTimeZoneOperators
     @SqlType(StandardTypes.BIGINT)
     public static long hashCode(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long value)
     {
-        long millis = unpackMillisUtc(value);
-        return (int) (millis ^ (millis >>> 32));
+        return unpackMillisUtc(value);
     }
 }

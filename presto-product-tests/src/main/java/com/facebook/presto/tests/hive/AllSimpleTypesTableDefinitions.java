@@ -24,6 +24,8 @@ import static com.teradata.tempto.fulfillment.table.hive.InlineDataSource.create
 
 public final class AllSimpleTypesTableDefinitions
 {
+    // TODO generate data files using hive instead using prebuilt commited files.
+
     private AllSimpleTypesTableDefinitions()
     {
     }
@@ -86,11 +88,14 @@ public final class AllSimpleTypesTableDefinitions
                         "   c_bigint             BIGINT," +
                         "   c_float              FLOAT," +
                         "   c_double             DOUBLE," +
+                        "   c_decimal            DECIMAL," +
+                        "   c_decimal_w_params   DECIMAL(10,5)," +
                         "   c_timestamp          TIMESTAMP," +
                         "   c_string             STRING," +
                         "   c_varchar            VARCHAR(10)," +
                         "   c_char               CHAR(10)," +
-                        "   c_boolean            BOOLEAN" +
+                        "   c_boolean            BOOLEAN," +
+                        "   c_binary             BINARY" +
                         ") " +
                         "STORED AS PARQUET " +
                         "LOCATION '%LOCATION%'")

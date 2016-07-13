@@ -14,6 +14,8 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.presto.client.Column;
+import com.facebook.presto.client.IntervalDayTime;
+import com.facebook.presto.client.IntervalYearMonth;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
@@ -22,14 +24,11 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.joda.time.DateTimeZone;
-import org.joda.time.Period;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
 import org.joda.time.format.DateTimeParser;
 import org.joda.time.format.ISODateTimeFormat;
-import org.joda.time.format.PeriodFormatter;
-import org.joda.time.format.PeriodFormatterBuilder;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -96,22 +95,6 @@ public class PrestoResultSet
             .toFormatter()
             .withOffsetParsed();
 
-    private static final PeriodFormatter INTERVAL_YEAR_TO_MONTH_FORMATTER = new PeriodFormatterBuilder()
-            .appendYears()
-            .appendLiteral("-")
-            .appendMonths()
-            .toFormatter();
-
-    private static final PeriodFormatter INTERVAL_DAY_TO_SECOND_FORMATTER = new PeriodFormatterBuilder()
-            .appendDays()
-            .appendLiteral(" ")
-            .appendHours()
-            .appendLiteral(":")
-            .appendMinutes()
-            .appendLiteral(":")
-            .appendSecondsWithOptionalMillis()
-            .toFormatter();
-
     private static final int YEAR_FIELD = 0;
     private static final int MONTH_FIELD = 1;
     private static final int DAY_FIELD = 3;
@@ -130,7 +113,7 @@ public class PrestoResultSet
     private final AtomicReference<List<Object>> row = new AtomicReference<>();
     private final AtomicBoolean wasNull = new AtomicBoolean();
 
-    PrestoResultSet(StatementClient client, Consumer<QueryStats> progressCallback)
+    PrestoResultSet(StatementClient client, long maxRows, Consumer<QueryStats> progressCallback)
             throws SQLException
     {
         this.client = requireNonNull(client, "client is null");
@@ -144,7 +127,7 @@ public class PrestoResultSet
         this.columnInfoList = getColumnInfo(columns);
         this.resultSetMetaData = new PrestoResultSetMetaData(columnInfoList);
 
-        this.results = flatten(new ResultsPageIterator(client, progressCallback));
+        this.results = flatten(new ResultsPageIterator(client, progressCallback), maxRows);
     }
 
     public String getQueryId()
@@ -564,10 +547,7 @@ public class PrestoResultSet
             return null;
         }
 
-        Period period = INTERVAL_YEAR_TO_MONTH_FORMATTER.parsePeriod(String.valueOf(value));
-        return new PrestoIntervalYearMonth(
-                period.getValue(YEAR_FIELD),
-                period.getValue(MONTH_FIELD));
+        return new PrestoIntervalYearMonth(IntervalYearMonth.parseMonths(String.valueOf(value)));
     }
 
     private PrestoIntervalDayTime getIntervalDayTime(int columnIndex)
@@ -578,13 +558,7 @@ public class PrestoResultSet
             return null;
         }
 
-        Period period = INTERVAL_DAY_TO_SECOND_FORMATTER.parsePeriod(String.valueOf(value));
-        return new PrestoIntervalDayTime(
-                period.getValue(DAY_FIELD),
-                period.getValue(HOUR_FIELD),
-                period.getValue(MINUTE_FIELD),
-                period.getValue(SECOND_FIELD),
-                period.getValue(MILLIS_FIELD));
+        return new PrestoIntervalDayTime(IntervalDayTime.parseMillis(String.valueOf(value)));
     }
 
     @Override
@@ -1773,9 +1747,10 @@ public class PrestoResultSet
         throw resultsException(results);
     }
 
-    private static <T> Iterator<T> flatten(Iterator<Iterable<T>> iterator)
+    private static <T> Iterator<T> flatten(Iterator<Iterable<T>> iterator, long maxRows)
     {
-        return concat(transform(iterator, Iterable::iterator));
+        Iterator<T> rowsIterator = concat(transform(iterator, Iterable::iterator));
+        return (maxRows > 0) ? new LengthLimitedIterator<>(rowsIterator, maxRows) : rowsIterator;
     }
 
     private static class ResultsPageIterator

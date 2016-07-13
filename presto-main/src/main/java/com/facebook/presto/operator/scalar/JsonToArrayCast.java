@@ -35,6 +35,7 @@ import java.util.List;
 
 import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
 import static com.facebook.presto.type.TypeJsonUtils.canCastFromJson;
 import static com.facebook.presto.type.TypeJsonUtils.stackRepresentationToObject;
@@ -50,7 +51,11 @@ public class JsonToArrayCast
 
     private JsonToArrayCast()
     {
-        super(OperatorType.CAST, ImmutableList.of(typeVariable("T")), ImmutableList.of(), "array(T)", ImmutableList.of(StandardTypes.JSON));
+        super(OperatorType.CAST,
+                ImmutableList.of(typeVariable("T")),
+                ImmutableList.of(),
+                parseTypeSignature("array(T)"),
+                ImmutableList.of(parseTypeSignature(StandardTypes.JSON)));
     }
 
     @Override

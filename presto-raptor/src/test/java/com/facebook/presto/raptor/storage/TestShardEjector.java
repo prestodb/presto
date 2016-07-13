@@ -136,7 +136,7 @@ public class TestShardEjector
 
         ejector.process();
 
-        shardManager.getShardNodes(tableId, false, false, TupleDomain.all());
+        shardManager.getShardNodes(tableId, TupleDomain.all());
 
         Set<UUID> ejectedShards = shards.subList(0, 4).stream()
                 .map(ShardInfo::getShardUuid)

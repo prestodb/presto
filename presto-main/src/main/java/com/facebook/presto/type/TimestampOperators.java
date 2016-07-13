@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.operator.scalar.ScalarFunction;
-import com.facebook.presto.operator.scalar.ScalarOperator;
+import com.facebook.presto.operator.scalar.annotations.ScalarFunction;
+import com.facebook.presto.operator.scalar.annotations.ScalarOperator;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -155,6 +155,6 @@ public final class TimestampOperators
     @SqlType(StandardTypes.BIGINT)
     public static long hashCode(@SqlType(StandardTypes.TIMESTAMP) long value)
     {
-        return (int) (value ^ (value >>> 32));
+        return value;
     }
 }

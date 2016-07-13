@@ -13,12 +13,17 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.operator.Description;
+import com.facebook.presto.operator.scalar.annotations.ScalarFunction;
+import com.facebook.presto.operator.scalar.annotations.ScalarOperator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.type.CodePointsType;
 import com.facebook.presto.type.LiteralParameters;
 import com.facebook.presto.type.SqlType;
 import com.google.common.primitives.Ints;
@@ -31,20 +36,25 @@ import io.airlift.slice.Slices;
 import javax.annotation.Nullable;
 
 import java.text.Normalizer;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.OptionalInt;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
+import static io.airlift.slice.SliceUtf8.getCodePointAt;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePointSafe;
 import static io.airlift.slice.SliceUtf8.offsetOfCodePoint;
 import static io.airlift.slice.SliceUtf8.toLowerCase;
 import static io.airlift.slice.SliceUtf8.toUpperCase;
+import static io.airlift.slice.SliceUtf8.tryGetCodePointAt;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.SURROGATE;
+import static java.lang.String.format;
 
 /**
  * Current implementation is based on code points from Unicode and does ignore grapheme cluster boundaries.
@@ -358,6 +368,66 @@ public final class StringFunctions
         return null;
     }
 
+    @Description("creates a map using entryDelimiter and keyValueDelimiter")
+    @ScalarFunction
+    @SqlType("map<varchar,varchar>")
+    public static Block splitToMap(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice entryDelimiter, @SqlType(StandardTypes.VARCHAR) Slice keyValueDelimiter)
+    {
+        checkCondition(entryDelimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "entryDelimiter is empty");
+        checkCondition(keyValueDelimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "keyValueDelimiter is empty");
+        checkCondition(!entryDelimiter.equals(keyValueDelimiter), INVALID_FUNCTION_ARGUMENT, "entryDelimiter and keyValueDelimiter must not be the same");
+
+        Map<Slice, Slice> map = new HashMap<>();
+        int entryStart = 0;
+        while (entryStart < string.length()) {
+            // Extract key-value pair based on current index
+            // then add the pair if it can be split by keyValueDelimiter
+            Slice keyValuePair;
+            int entryEnd = string.indexOf(entryDelimiter, entryStart);
+            if (entryEnd >= 0) {
+                keyValuePair = string.slice(entryStart, entryEnd - entryStart);
+            }
+            else {
+                // The rest of the string is the last possible pair.
+                keyValuePair = string.slice(entryStart, string.length() - entryStart);
+            }
+
+            int keyEnd = keyValuePair.indexOf(keyValueDelimiter);
+            if (keyEnd >= 0) {
+                int valueStart = keyEnd + keyValueDelimiter.length();
+                Slice key = keyValuePair.slice(0, keyEnd);
+                Slice value = keyValuePair.slice(valueStart, keyValuePair.length() - valueStart);
+
+                if (value.indexOf(keyValueDelimiter) >= 0) {
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key-value delimiter must appear exactly once in each entry. Bad input: '" + keyValuePair.toStringUtf8() + "'");
+                }
+                if (map.containsKey(key)) {
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Duplicate keys (%s) are not allowed", key.toStringUtf8()));
+                }
+
+                map.put(key, value);
+            }
+            else {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key-value delimiter must appear exactly once in each entry. Bad input: '" + keyValuePair.toStringUtf8() + "'");
+            }
+
+            if (entryEnd < 0) {
+                // No more pairs to add
+                break;
+            }
+            // Next possible pair is placed next to the current entryDelimiter
+            entryStart = entryEnd + entryDelimiter.length();
+        }
+
+        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), map.size());
+        for (Map.Entry<Slice, Slice> entry : map.entrySet()) {
+            VARCHAR.writeSlice(builder, entry.getKey());
+            VARCHAR.writeSlice(builder, entry.getValue());
+        }
+
+        return builder.build();
+    }
+
     @Description("removes whitespace from the beginning of a string")
     @ScalarFunction("ltrim")
     @LiteralParameters("x")
@@ -385,6 +455,60 @@ public final class StringFunctions
         return SliceUtf8.trim(slice);
     }
 
+    @Description("remove the longest string containing only given characters from the beginning of a string")
+    @ScalarFunction("ltrim")
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Slice leftTrim(@SqlType("varchar(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
+    {
+        return SliceUtf8.leftTrim(slice, codePointsToTrim);
+    }
+
+    @Description("remove the longest string containing only given characters from the end of a string")
+    @ScalarFunction("rtrim")
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Slice rightTrim(@SqlType("varchar(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
+    {
+        return SliceUtf8.rightTrim(slice, codePointsToTrim);
+    }
+
+    @Description("remove the longest string containing only given characters from the beginning and end of a string")
+    @ScalarFunction("trim")
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Slice trim(@SqlType("varchar(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
+    {
+        return SliceUtf8.trim(slice, codePointsToTrim);
+    }
+
+    @ScalarOperator(OperatorType.CAST)
+    @SqlType(CodePointsType.NAME)
+    public static int[] castToCodePoints(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    {
+        int[] codePoints = new int[safeCountCodePoints(slice)];
+        int position = 0;
+        for (int index = 0; index < codePoints.length; index++) {
+            codePoints[index] = getCodePointAt(slice, position);
+            position += lengthOfCodePoint(slice, position);
+        }
+        return codePoints;
+    }
+
+    private static int safeCountCodePoints(Slice slice)
+    {
+        int codePoints = 0;
+        for (int position = 0; position < slice.length(); ) {
+            int codePoint = tryGetCodePointAt(slice, position);
+            if (codePoint < 0) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid UTF-8 encoding in characters to trim: " + slice.toStringUtf8());
+            }
+            position += lengthOfCodePoint(codePoint);
+            codePoints++;
+        }
+        return codePoints;
+    }
+
     @Description("converts the string to lower case")
     @ScalarFunction
     @LiteralParameters("x")
@@ -406,9 +530,9 @@ public final class StringFunctions
     private static Slice pad(Slice text, long targetLength, Slice padString, int paddingOffset)
     {
         checkCondition(
-            0 <= targetLength && targetLength <= Integer.MAX_VALUE,
-            INVALID_FUNCTION_ARGUMENT,
-            "Target length must be in the range [0.." + Integer.MAX_VALUE + "]"
+                0 <= targetLength && targetLength <= Integer.MAX_VALUE,
+                INVALID_FUNCTION_ARGUMENT,
+                "Target length must be in the range [0.." + Integer.MAX_VALUE + "]"
         );
         checkCondition(padString.length() > 0, INVALID_FUNCTION_ARGUMENT, "Padding string must not be empty");
 
@@ -477,8 +601,9 @@ public final class StringFunctions
 
     @Description("transforms the string to normalized form")
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice normalize(@SqlType(StandardTypes.VARCHAR) Slice slice, @SqlType(StandardTypes.VARCHAR) Slice form)
+    @LiteralParameters({"x", "y"})
+    @SqlType(VarcharType.VARCHAR_MAX_LENGTH)
+    public static Slice normalize(@SqlType("varchar(x)") Slice slice, @SqlType("varchar(y)") Slice form)
     {
         Normalizer.Form targetForm;
         try {
@@ -511,7 +636,7 @@ public final class StringFunctions
         OptionalInt replacementCodePoint;
         if (count == 1) {
             try {
-                replacementCodePoint = OptionalInt.of(SliceUtf8.getCodePointAt(replacementCharacter, 0));
+                replacementCodePoint = OptionalInt.of(getCodePointAt(replacementCharacter, 0));
             }
             catch (InvalidUtf8Exception e) {
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid replacement character");

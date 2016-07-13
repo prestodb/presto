@@ -135,16 +135,107 @@ public class TestJdbcResultSet
         }
     }
 
+    @Test
+    public void testMaxRowsUnset()
+            throws SQLException
+    {
+        assertMaxRowsLimit(0);
+        assertMaxRowsResult(7);
+    }
+
+    @Test
+    public void testMaxRowsUnlimited()
+            throws SQLException
+    {
+        assertMaxRowsLimit(0);
+        statement.setMaxRows(0);
+        assertMaxRowsLimit(0);
+        assertMaxRowsResult(7);
+    }
+
+    @Test
+    public void testMaxRowsLimited()
+            throws SQLException
+    {
+        assertMaxRowsLimit(0);
+        statement.setMaxRows(4);
+        assertMaxRowsLimit(4);
+        assertMaxRowsResult(4);
+    }
+
+    @Test
+    public void testMaxRowsLimitLargerThanResult()
+            throws SQLException
+    {
+        assertMaxRowsLimit(0);
+        statement.setMaxRows(10);
+        assertMaxRowsLimit(10);
+        assertMaxRowsResult(7);
+    }
+
+    @Test
+    public void testLargeMaxRowsUnlimited()
+            throws SQLException
+    {
+        assertMaxRowsLimit(0);
+        statement.setLargeMaxRows(0);
+        assertMaxRowsLimit(0);
+        assertMaxRowsResult(7);
+    }
+
+    @Test
+    public void testLargeMaxRowsLimited()
+            throws SQLException
+    {
+        assertMaxRowsLimit(0);
+        statement.setLargeMaxRows(4);
+        assertMaxRowsLimit(4);
+        assertMaxRowsResult(4);
+    }
+
+    @Test
+    public void testLargeMaxRowsLimitLargerThanResult()
+            throws SQLException
+    {
+        long limit = Integer.MAX_VALUE * 10L;
+        statement.setLargeMaxRows(limit);
+        assertEquals(statement.getLargeMaxRows(), limit);
+        assertMaxRowsResult(7);
+    }
+
+    private void assertMaxRowsLimit(int expectedLimit)
+            throws SQLException
+    {
+        assertEquals(statement.getMaxRows(), expectedLimit);
+        assertEquals(statement.getLargeMaxRows(), expectedLimit);
+    }
+
+    private void assertMaxRowsResult(long expectedCount)
+            throws SQLException
+    {
+        try (ResultSet rs = statement.executeQuery("SELECT * FROM (VALUES (1), (2), (3), (4), (5), (6), (7)) AS x (a)")) {
+            assertEquals(countRows(rs), expectedCount);
+        }
+    }
+
+    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Max rows exceeds limit of 2147483647")
+    public void testMaxRowsExceedsLimit()
+            throws SQLException
+    {
+        statement.setLargeMaxRows(Integer.MAX_VALUE * 10L);
+        statement.getMaxRows();
+    }
+
     @Test(expectedExceptions = SQLFeatureNotSupportedException.class, expectedExceptionsMessageRegExp = "SET/RESET SESSION .*")
     public void testSetSession()
-        throws Exception
+            throws Exception
     {
         statement.execute("SET SESSION hash_partition_count = 16");
     }
 
     @Test(expectedExceptions = SQLFeatureNotSupportedException.class, expectedExceptionsMessageRegExp = "SET/RESET SESSION .*")
     public void testResetSession()
-        throws Exception
+            throws Exception
     {
         statement.execute("RESET SESSION hash_partition_count");
     }
@@ -154,5 +245,15 @@ public class TestJdbcResultSet
     {
         String url = format("jdbc:presto://%s", server.getAddress());
         return DriverManager.getConnection(url, "test", null);
+    }
+
+    private static long countRows(ResultSet rs)
+            throws SQLException
+    {
+        long count = 0;
+        while (rs.next()) {
+            count++;
+        }
+        return count;
     }
 }

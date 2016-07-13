@@ -46,8 +46,11 @@ public final class TestingBlockEncodingSerde
         // always add the built-in BlockEncodingFactories
         addBlockEncodingFactory(VariableWidthBlockEncoding.FACTORY);
         addBlockEncodingFactory(FixedWidthBlockEncoding.FACTORY);
+        addBlockEncodingFactory(ByteArrayBlockEncoding.FACTORY);
+        addBlockEncodingFactory(ShortArrayBlockEncoding.FACTORY);
+        addBlockEncodingFactory(IntArrayBlockEncoding.FACTORY);
+        addBlockEncodingFactory(LongArrayBlockEncoding.FACTORY);
         addBlockEncodingFactory(SliceArrayBlockEncoding.FACTORY);
-        addBlockEncodingFactory(LazySliceArrayBlockEncoding.FACTORY);
         addBlockEncodingFactory(DictionaryBlockEncoding.FACTORY);
         addBlockEncodingFactory(ArrayBlockEncoding.FACTORY);
         addBlockEncodingFactory(InterleavedBlockEncoding.FACTORY);

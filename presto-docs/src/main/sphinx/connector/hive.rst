@@ -70,20 +70,19 @@ any Presto nodes that are not running Hadoop.
 Accessing Hadoop clusters protected with Kerberos authentication
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Kerberos authentication is currently supported for both HDFS and Hive metastore.
+Kerberos authentication is currently supported for both HDFS and the Hive
+metastore.
 
-However there are still few limitations:
+However there are still a few limitations:
 
-* Kerberos authentication is supported only for ``hive-hadoop2`` and `hive-cdh5` connectors.
+* Kerberos authentication is only supported for the ``hive-hadoop2`` and
+  ``hive-cdh5`` connectors.
 * Kerberos authentication by ticket cache is not yet supported.
 
-Please refer to  `Configuration Properties`_ section for configuration details.
-
-.. note::
-
-    If your ``krb5.conf`` location is different than ``/etc/krb5.conf`` you must set it
-    explicitly using the ``java.security.krb5.conf`` JVM property in ``jvm.config`` file.
-    Example: ``-Djava.security.krb5.conf=/example/path/krb5.conf``.
+The properties that apply to Hive connector security are listed in the
+`Configuration Properties`_ table. Please see the
+:doc:`/connector/hive-security` section for a more detailed discussion of the
+security options in the Hive connector.
 
 Configuration Properties
 ------------------------
@@ -129,72 +128,22 @@ Property Name                                      Description                  
 ``hive.metastore.authentication.type``             Hive metastore authentication type.                          ``NONE``
                                                    Possible values are ``NONE`` or ``KERBEROS``.
 
-``hive.metastore.service.principal``               Hive metastore service principal.
-                                                   The ``_HOST`` placeholder is allowed here and it is
-                                                   substituted with the actual metastore host. Use ``_HOST``
-                                                   placeholder for configurations with more that
-                                                   one Hive metastore server.
-                                                   Example: ``hive/hive-server-host@EXAMPLE.COM`` or
-                                                   ``hive/_HOST@EXAMPLE.COM``.
+``hive.metastore.service.principal``               The Kerberos principal of the Hive metastore service.
 
-``hive.metastore.client.principal``                Hive metastore client principal.
-                                                   The ``_HOST`` placeholder is allowed here and it is
-                                                   substituted with the actual Presto server host. Use
-                                                   ``_HOST`` placeholder for the principal per server
-                                                   configurations.
-                                                   Example: ``presto/presto-server-node@EXAMPLE.COM`` or
-                                                   ``presto/_HOST@EXAMPLE.COM``.
+``hive.metastore.client.principal``                The Kerberos principal that Presto will use when connecting
+                                                   to the Hive metastore service.
 
-                                                   .. warning::
-
-                                                        The principal specified by
-                                                        ``hive.metastore.client.principal``
-                                                        must have sufficient privileges to remove files
-                                                        and directories within the ``hive/warehouse``
-                                                        directory. If the principal does not, only the
-                                                        metadata will be removed, and the data will
-                                                        continue to consume disk space.
-
-                                                        This occurs because the Hive metastore is
-                                                        responsible for deleting the internal table data.
-                                                        When the metastore is configured to use Kerberos
-                                                        authentication, all of the HDFS operations performed
-                                                        by the metastore are impersonated. Errors
-                                                        deleting data are silently ignored.
-
-``hive.metastore.client.keytab``                   Hive metastore client keytab location. Must be accessible
-                                                   for the user running Presto and must contain the
-                                                   credentials for the  ``hive.metastore.client.principal``.
+``hive.metastore.client.keytab``                   Hive metastore client keytab location.
 
 ``hive.hdfs.authentication.type``                  HDFS authentication type.                                    ``NONE``
                                                    Possible values are ``NONE`` or ``KERBEROS``.
 
-``hive.hdfs.impersonation.enabled``                Enable HDFS calls impersonation.                             ``false``
+``hive.hdfs.impersonation.enabled``                Enable HDFS end user impersonation.                          ``false``
 
-                                                   When set to the default of ``false``, Presto accesses
-                                                   HDFS as the Unix user the presto process is running as,
-                                                   or as the Kerberos principal specified in
-                                                   ``hive.hdfs.presto.principal``
+``hive.hdfs.presto.principal``                     The Kerberos principal that Presto will use when connecting
+                                                   to HDFS.
 
-                                                   When set to ``true``, Presto accesses HDFS as the Presto
-                                                   user or Kerberos principal specified by ``--user`` or
-                                                   ``--krb5-principal`` passed to the CLI, or as the user
-                                                   in the JDBC credentials.
-
-``hive.hdfs.presto.principal``                     HDFS client principal. The ``_HOST`` placeholder
-                                                   is allowed here and it is substituted with the actual
-                                                   Presto server host. Use ``_HOST`` placeholder for the
-                                                   principal per server configurations.
-                                                   When impersonation is enabled make sure that provided
-                                                   user is configured to be a super user and has the
-                                                   impersonation allowed.
-                                                   Example:
-                                                   ``presto-hdfs-superuser/presto-server-node@EXAMPLE.COM`` or
-                                                   ``presto-hdfs-superuser/_HOST@EXAMPLE.COM``.
-
-``hive.hdfs.presto.keytab``                        HDFS client keytab location. Must be accessible
-                                                   for the user running Presto and must contain the
-                                                   credentials for the  ``hive.hdfs.presto.principal``.
+``hive.hdfs.presto.keytab``                        HDFS client keytab location.
 ================================================== ============================================================ ==========
 
 Querying Hive Tables

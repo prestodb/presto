@@ -17,7 +17,6 @@ import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetRecordCursorProvider;
-import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -129,16 +128,6 @@ public class TestHiveFileFormats
                 .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
     }
 
-    @Test(enabled = false, dataProvider = "rowCount")
-    public void testRcTextPageSource(int rowCount)
-            throws Exception
-    {
-        assertThatFileFormat(RCTEXT)
-                .withColumns(TEST_COLUMNS)
-                .withRowsCount(rowCount)
-                .isReadableByPageSource(new RcFilePageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT));
-    }
-
     @Test(dataProvider = "rowCount")
     public void testRCBinary(int rowCount)
             throws Exception
@@ -154,16 +143,6 @@ public class TestHiveFileFormats
                 .withRowsCount(rowCount)
                 .isReadableByRecordCursor(new ColumnarBinaryHiveRecordCursorProvider(HDFS_ENVIRONMENT))
                 .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
-    }
-
-    @Test(enabled = false, dataProvider = "rowCount")
-    public void testRcBinaryPageSource(int rowCount)
-            throws Exception
-    {
-        assertThatFileFormat(RCBINARY)
-                .withColumns(TEST_COLUMNS)
-                .withRowsCount(rowCount)
-                .isReadableByPageSource(new RcFilePageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT));
     }
 
     @Test(dataProvider = "rowCount")
@@ -248,9 +227,14 @@ public class TestHiveFileFormats
     {
         // Write of complex hive data to Parquet is broken
         // TODO: empty arrays or maps with null keys don't seem to work
+        // Parquet does not support DATE
         return TEST_COLUMNS.stream()
                 .filter(column -> !ImmutableSet.of("t_array_empty", "t_map_null_key", "t_map_null_key_complex_value", "t_map_null_key_complex_key_value")
                         .contains(column.getName()))
+                .filter(column -> column.isPartitionKey() || (
+                        !hasType(column.getObjectInspector(), PrimitiveCategory.DATE)) &&
+                        !hasType(column.getObjectInspector(), PrimitiveCategory.SHORT) &&
+                        !hasType(column.getObjectInspector(), PrimitiveCategory.BYTE))
                 .collect(toList());
     }
 

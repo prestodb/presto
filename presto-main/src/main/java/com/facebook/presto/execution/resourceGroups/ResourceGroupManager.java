@@ -16,7 +16,6 @@ package com.facebook.presto.execution.resourceGroups;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryQueueManager;
-import com.facebook.presto.execution.SqlQueryManagerStats;
 import com.facebook.presto.execution.resourceGroups.ResourceGroup.RootResourceGroup;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.tree.Statement;
@@ -37,28 +36,32 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
 public class ResourceGroupManager
         implements QueryQueueManager
 {
     private static final Logger log = Logger.get(ResourceGroupManager.class);
-    private final ScheduledExecutorService refreshExecutor = Executors.newSingleThreadScheduledExecutor();
+    private final ScheduledExecutorService refreshExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("ResourceGroupManager"));
     private final List<RootResourceGroup> rootGroups = new CopyOnWriteArrayList<>();
     private final ConcurrentMap<ResourceGroupId, ResourceGroup> groups = new ConcurrentHashMap<>();
     private final List<ResourceGroupSelector> selectors;
     private final ResourceGroupConfigurationManager configurationManager;
     private final MBeanExporter exporter;
     private final AtomicBoolean started = new AtomicBoolean();
+    private final AtomicLong lastCpuQuotaGenerationNanos = new AtomicLong(System.nanoTime());
 
     @Inject
     public ResourceGroupManager(List<? extends ResourceGroupSelector> selectors, ResourceGroupConfigurationManager configurationManager, MBeanExporter exporter)
@@ -75,11 +78,18 @@ public class ResourceGroupManager
     }
 
     @Override
-    public boolean submit(Statement statement, QueryExecution queryExecution, Executor executor, SqlQueryManagerStats stats)
+    public void submit(Statement statement, QueryExecution queryExecution, Executor executor)
     {
-        ResourceGroupId group = selectGroup(statement, queryExecution.getSession());
+        ResourceGroupId group;
+        try {
+            group = selectGroup(statement, queryExecution.getSession());
+        }
+        catch (PrestoException e) {
+            queryExecution.fail(e);
+            return;
+        }
         createGroupIfNecessary(group, queryExecution.getSession(), executor);
-        return groups.get(group).add(queryExecution);
+        groups.get(group).run(queryExecution);
     }
 
     @PreDestroy
@@ -98,7 +108,25 @@ public class ResourceGroupManager
 
     private void refreshAndStartQueries()
     {
+        long nanoTime = System.nanoTime();
+        long elapsedSeconds = NANOSECONDS.toSeconds(nanoTime - lastCpuQuotaGenerationNanos.get());
+        if (elapsedSeconds > 0) {
+            // Only advance our clock on second boundaries to avoid calling generateCpuQuota() too frequently, and because it would be a no-op for zero seconds.
+            lastCpuQuotaGenerationNanos.addAndGet(elapsedSeconds * 1_000_000_000L);
+        }
+        else if (elapsedSeconds < 0) {
+            // nano time has overflowed
+            lastCpuQuotaGenerationNanos.set(nanoTime);
+        }
         for (RootResourceGroup group : rootGroups) {
+            try {
+                if (elapsedSeconds > 0) {
+                    group.generateCpuQuota(elapsedSeconds);
+                }
+            }
+            catch (RuntimeException e) {
+                log.error(e, "Exception while generation cpu quota for %s", group);
+            }
             try {
                 group.processQueuedQueries();
             }

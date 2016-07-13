@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.148-SNAPSHOT</version>
+        <version>0.151-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-cassandra</artifactId>
@@ -23,26 +23,26 @@
             <artifactId>cassandra-driver-core</artifactId>
             <version>${datastax.version}</version>
             <exclusions>
-              <exclusion>
-                <groupId>io.netty</groupId>
-                <artifactId>netty</artifactId>
-              </exclusion>
-              <exclusion>
-                <groupId>io.netty</groupId>
-                <artifactId>netty-buffer</artifactId>
-              </exclusion>
-              <exclusion>
-                <groupId>io.netty</groupId>
-                <artifactId>netty-codec</artifactId>
-              </exclusion>
-              <exclusion>
-                <groupId>io.netty</groupId>
-                <artifactId>netty-handler</artifactId>
-              </exclusion>
-              <exclusion>
-                <groupId>io.netty</groupId>
-                <artifactId>netty-transport</artifactId>
-              </exclusion>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-buffer</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-codec</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-handler</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-transport</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 
@@ -100,16 +100,16 @@
                     <artifactId>commons-cli</artifactId>
                 </exclusion>
                 <exclusion>
-                  <groupId>ch.qos.logback</groupId>
-                  <artifactId>logback-classic</artifactId>
+                    <groupId>ch.qos.logback</groupId>
+                    <artifactId>logback-classic</artifactId>
                 </exclusion>
                 <exclusion>
-                  <groupId>ch.qos.logback</groupId>
-                  <artifactId>logback-core</artifactId>
+                    <groupId>ch.qos.logback</groupId>
+                    <artifactId>logback-core</artifactId>
                 </exclusion>
                 <exclusion>
-                  <groupId>io.netty</groupId>
-                  <artifactId>netty</artifactId>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -314,13 +314,6 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <!--Integrations tests fail when parallel, due-->
-                    <!--to a bug or configuration error in the embedded-->
-                    <!--cassandra instance.  This problem results in either-->
-                    <!--a hang in Thrift calls or broken sockets.-->
-                    <parallel />
-                    <threadCount>1</threadCount>
-
                     <!-- integration tests take a very long time so only run them in the CI server -->
                     <excludes>
                         <exclude>**/TestCassandraDistributed.java</exclude>

@@ -14,7 +14,6 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import com.facebook.presto.operator.scalar.TestingRowConstructor;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
@@ -46,6 +45,7 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.type.JsonType.JSON;
@@ -63,10 +63,7 @@ import static org.testng.Assert.fail;
 public class TestArrayOperators
         extends AbstractTestFunctions
 {
-    public TestArrayOperators()
-    {
-        registerScalar(TestingRowConstructor.class);
-    }
+    public TestArrayOperators() {}
 
     @Test
     public void testStackRepresentation()
@@ -87,6 +84,14 @@ public class TestArrayOperators
         writeBlock(expectedSliceOutput, expectedBlock);
 
         assertEquals(actualSliceOutput.slice(), expectedSliceOutput.slice());
+    }
+
+    @Test
+    public void testTypeConstructor()
+            throws Exception
+    {
+        assertFunction("ARRAY[7]", new ArrayType(INTEGER), ImmutableList.of(7));
+        assertFunction("ARRAY[12.34, 56.78]", new ArrayType(DOUBLE), ImmutableList.of(12.34, 56.78));
     }
 
     @Test
@@ -208,7 +213,7 @@ public class TestArrayOperators
         assertInvalidFunction("ARRAY [ARRAY[1]] || ARRAY[ARRAY[true], ARRAY[false]]", FUNCTION_NOT_FOUND);
 
         // This query is ambiguous. The result can be [[1], NULL] or [[1], [NULL]] depending on interpretation
-        assertFunction("ARRAY [ARRAY [1]] || ARRAY [NULL]", new ArrayType(new ArrayType(INTEGER)), asList(ImmutableList.of(1), null));
+        assertInvalidFunction("ARRAY [ARRAY [1]] || ARRAY [NULL]", AMBIGUOUS_FUNCTION_CALL);
 
         try {
             assertFunction("ARRAY [ARRAY [1]] || ARRAY [ARRAY ['x']]", new ArrayType(new ArrayType(INTEGER)), null);
@@ -301,7 +306,7 @@ public class TestArrayOperators
 
         assertInvalidFunction("ARRAY_JOIN(ARRAY [ARRAY [1], ARRAY [2]], '-')", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("ARRAY_JOIN(ARRAY [MAP(ARRAY [1], ARRAY [2])], '-')", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("ARRAY_JOIN(ARRAY [test_row(1, 2)], '-')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("ARRAY_JOIN(ARRAY [cast(row(1, 2) AS row(col0 bigint, col1 bigint))], '-')", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test

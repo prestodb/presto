@@ -23,6 +23,8 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.TimeZoneNotSupportedException;
+import com.facebook.presto.sql.parser.ParsingException;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.transaction.TransactionId;
 import com.google.common.base.Splitter;
 import com.google.common.collect.HashMultimap;
@@ -36,10 +38,14 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.security.Principal;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -48,6 +54,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
@@ -138,6 +145,11 @@ final class ResourceUtil
             }
         }
 
+        Map<String, String> preparedStatements = new HashMap<>();
+        for (String preparedStatementsHeader : splitSessionHeader(servletRequest.getHeaders(PRESTO_PREPARED_STATEMENT))) {
+            parsePreparedStatementsHeader(preparedStatementsHeader, preparedStatements);
+        }
+        sessionBuilder.setPreparedStatements(preparedStatements);
         return sessionBuilder.build();
     }
 
@@ -203,6 +215,33 @@ final class ResourceUtil
         }
     }
 
+    private static void parsePreparedStatementsHeader(String header, Map<String, String> preparedStatements)
+    {
+        List<String> nameValue = Splitter.on('=').limit(2).trimResults().splitToList(header);
+        assertRequest(nameValue.size() == 2, "Invalid %s header", PRESTO_PREPARED_STATEMENT);
+
+        String statementName;
+        String sqlString;
+        try {
+            statementName = urlDecode(nameValue.get(0));
+            sqlString = urlDecode(nameValue.get(1));
+        }
+        catch (IllegalArgumentException e) {
+            throw badRequest(format("Invalid %s header: %s", PRESTO_PREPARED_STATEMENT, e.getMessage()));
+        }
+
+        // Validate statement
+        SqlParser sqlParser = new SqlParser();
+        try {
+            sqlParser.createStatement(sqlString);
+        }
+        catch (ParsingException e) {
+            throw badRequest(format("Invalid %s header: %s", PRESTO_PREPARED_STATEMENT, e.getMessage()));
+        }
+
+        preparedStatements.put(statementName, sqlString);
+    }
+
     private static TimeZoneKey getTimeZoneKey(String timeZoneId)
     {
         try {
@@ -238,5 +277,25 @@ final class ResourceUtil
     private static String trimEmptyToNull(String value)
     {
         return emptyToNull(nullToEmpty(value).trim());
+    }
+
+    public static String urlEncode(String value)
+    {
+        try {
+            return URLEncoder.encode(value, "UTF-8");
+        }
+        catch (UnsupportedEncodingException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    public static String urlDecode(String value)
+    {
+        try {
+            return URLDecoder.decode(value, "UTF-8");
+        }
+        catch (UnsupportedEncodingException e) {
+            throw new AssertionError(e);
+        }
     }
 }

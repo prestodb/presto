@@ -16,6 +16,7 @@ package com.facebook.presto.execution.scheduler;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
+import io.airlift.configuration.LegacyConfig;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -23,13 +24,19 @@ import javax.validation.constraints.NotNull;
 @DefunctConfig("node-scheduler.location-aware-scheduling-enabled")
 public class NodeSchedulerConfig
 {
-    public static final String LEGACY_NETWORK_TOPOLOGY = "legacy";
+    public static class NetworkTopologyType
+    {
+        public static final String LEGACY = "legacy";
+        public static final String FLAT = "flat";
+        public static final String BENCHMARK = "benchmark";
+    };
+
     private int minCandidates = 10;
     private boolean includeCoordinator = true;
     private boolean multipleTasksPerNode;
     private int maxSplitsPerNode = 100;
-    private int maxPendingSplitsPerNodePerTask = 10;
-    private String networkTopology = LEGACY_NETWORK_TOPOLOGY;
+    private int maxPendingSplitsPerNodePerStage = 10;
+    private String networkTopology = NetworkTopologyType.LEGACY;
 
     @NotNull
     public String getNetworkTopology()
@@ -82,16 +89,17 @@ public class NodeSchedulerConfig
         return this;
     }
 
-    @Config("node-scheduler.max-pending-splits-per-node-per-task")
-    public NodeSchedulerConfig setMaxPendingSplitsPerNodePerTask(int maxPendingSplitsPerNodePerTask)
+    @Config("node-scheduler.max-pending-splits-per-node-per-stage")
+    @LegacyConfig("node-scheduler.max-pending-splits-per-node-per-task")
+    public NodeSchedulerConfig setMaxPendingSplitsPerNodePerStage(int maxPendingSplitsPerNodePerStage)
     {
-        this.maxPendingSplitsPerNodePerTask = maxPendingSplitsPerNodePerTask;
+        this.maxPendingSplitsPerNodePerStage = maxPendingSplitsPerNodePerStage;
         return this;
     }
 
-    public int getMaxPendingSplitsPerNodePerTask()
+    public int getMaxPendingSplitsPerNodePerStage()
     {
-        return maxPendingSplitsPerNodePerTask;
+        return maxPendingSplitsPerNodePerStage;
     }
 
     public int getMaxSplitsPerNode()

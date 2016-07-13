@@ -24,7 +24,9 @@ import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.metadata.BoundVariables;
+import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -56,6 +58,7 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.equal;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
 import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -68,7 +71,13 @@ public final class ArrayConstructor
 
     public ArrayConstructor()
     {
-        super("array_constructor", ImmutableList.of(typeVariable("E")), ImmutableList.of(), "array(E)", ImmutableList.of("E", "E"), true);
+        super(new Signature("array_constructor",
+                FunctionKind.SCALAR,
+                ImmutableList.of(typeVariable("E")),
+                ImmutableList.of(),
+                parseTypeSignature("array(E)"),
+                ImmutableList.of(parseTypeSignature("E"), parseTypeSignature("E")),
+                true));
     }
 
     @Override

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.util;
 
-import com.facebook.presto.sql.planner.PartitionFunctionBinding.PartitionFunctionArgumentBinding;
+import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.Symbol;
@@ -51,7 +51,7 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
@@ -91,7 +91,7 @@ public final class GraphvizPrinter
         SAMPLE,
         MARK_DISTINCT,
         TABLE_WRITER,
-        TABLE_COMMIT,
+        TABLE_FINISH,
         INDEX_SOURCE,
         UNNEST
     }
@@ -113,7 +113,7 @@ public final class GraphvizPrinter
             .put(NodeType.UNION, "turquoise4")
             .put(NodeType.MARK_DISTINCT, "violet")
             .put(NodeType.TABLE_WRITER, "cyan")
-            .put(NodeType.TABLE_COMMIT, "hotpink")
+            .put(NodeType.TABLE_FINISH, "hotpink")
             .put(NodeType.INDEX_SOURCE, "dodgerblue3")
             .put(NodeType.UNNEST, "crimson")
             .put(NodeType.SAMPLE, "goldenrod4")
@@ -224,7 +224,7 @@ public final class GraphvizPrinter
         @Override
         public Void visitTableFinish(TableFinishNode node, Void context)
         {
-            printNode(node, format("TableCommit[%s]", Joiner.on(", ").join(node.getOutputSymbols())), NODE_COLORS.get(NodeType.TABLE_COMMIT));
+            printNode(node, format("TableFinish[%s]", Joiner.on(", ").join(node.getOutputSymbols())), NODE_COLORS.get(NodeType.TABLE_FINISH));
             return node.getSource().accept(this, context);
         }
 
@@ -298,11 +298,11 @@ public final class GraphvizPrinter
         @Override
         public Void visitExchange(ExchangeNode node, Void context)
         {
-            List<PartitionFunctionArgumentBinding> symbols = node.getOutputSymbols().stream()
-                    .map(PartitionFunctionArgumentBinding::new)
+            List<ArgumentBinding> symbols = node.getOutputSymbols().stream()
+                    .map(ArgumentBinding::columnBinding)
                     .collect(toImmutableList());
             if (node.getType() == REPARTITION) {
-                symbols = node.getPartitionFunction().getPartitionFunctionArguments();
+                symbols = node.getPartitioningScheme().getPartitioning().getArguments();
             }
             String columns = Joiner.on(", ").join(symbols);
             printNode(node, format("ExchangeNode[%s]", node.getType()), columns, NODE_COLORS.get(NodeType.EXCHANGE));
@@ -352,8 +352,8 @@ public final class GraphvizPrinter
         {
             StringBuilder builder = new StringBuilder();
             for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
-                if ((entry.getValue() instanceof QualifiedNameReference) &&
-                        ((QualifiedNameReference) entry.getValue()).getName().equals(entry.getKey().toQualifiedName())) {
+                if ((entry.getValue() instanceof SymbolReference) &&
+                        ((SymbolReference) entry.getValue()).getName().equals(entry.getKey().getName())) {
                     // skip identity assignments
                     continue;
                 }
@@ -433,8 +433,8 @@ public final class GraphvizPrinter
             List<Expression> joinExpressions = new ArrayList<>();
             for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
                 joinExpressions.add(new ComparisonExpression(ComparisonExpression.Type.EQUAL,
-                        new QualifiedNameReference(clause.getLeft().toQualifiedName()),
-                        new QualifiedNameReference(clause.getRight().toQualifiedName())));
+                        clause.getLeft().toSymbolReference(),
+                        clause.getRight().toSymbolReference()));
             }
 
             String criteria = Joiner.on(" AND ").join(joinExpressions);
@@ -482,8 +482,8 @@ public final class GraphvizPrinter
             List<Expression> joinExpressions = new ArrayList<>();
             for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
                 joinExpressions.add(new ComparisonExpression(ComparisonExpression.Type.EQUAL,
-                        new QualifiedNameReference(clause.getProbe().toQualifiedName()),
-                        new QualifiedNameReference(clause.getIndex().toQualifiedName())));
+                        clause.getProbe().toSymbolReference(),
+                        clause.getIndex().toSymbolReference()));
             }
 
             String criteria = Joiner.on(" AND ").join(joinExpressions);

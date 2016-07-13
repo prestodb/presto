@@ -16,7 +16,6 @@ package com.facebook.presto.raptor;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
@@ -45,7 +44,6 @@ public class RaptorPlugin
     private Map<String, String> optionalConfig = ImmutableMap.of();
     private NodeManager nodeManager;
     private PageSorter pageSorter;
-    private BlockEncodingSerde blockEncodingSerde;
     private TypeManager typeManager;
 
     public RaptorPlugin()
@@ -85,12 +83,6 @@ public class RaptorPlugin
     }
 
     @Inject
-    public void setBlockEncodingSerde(BlockEncodingSerde blockEncodingSerde)
-    {
-        this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
-    }
-
-    @Inject
     public void setTypeManager(TypeManager typeManager)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -100,7 +92,6 @@ public class RaptorPlugin
     public <T> List<T> getServices(Class<T> type)
     {
         checkState(nodeManager != null, "NodeManager has not been set");
-        checkState(blockEncodingSerde != null, "BlockEncodingSerde has not been set");
         checkState(typeManager != null, "TypeManager has not been set");
 
         if (type == ConnectorFactory.class) {
@@ -111,7 +102,6 @@ public class RaptorPlugin
                     optionalConfig,
                     nodeManager,
                     pageSorter,
-                    blockEncodingSerde,
                     typeManager)));
         }
         return ImmutableList.of();

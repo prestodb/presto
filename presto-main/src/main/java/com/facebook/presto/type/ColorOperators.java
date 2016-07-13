@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.operator.scalar.ScalarOperator;
+import com.facebook.presto.operator.scalar.annotations.ScalarOperator;
 import com.facebook.presto.spi.type.StandardTypes;
 
 import static com.facebook.presto.metadata.OperatorType.EQUAL;

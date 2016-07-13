@@ -37,13 +37,14 @@ public class TaskManagerConfig
     private DataSize operatorPreAllocatedMemory = new DataSize(16, Unit.MEGABYTE);
     private DataSize maxIndexMemoryUsage = new DataSize(64, Unit.MEGABYTE);
     private boolean shareIndexLoading;
-    private int maxWorkerThreads = Runtime.getRuntime().availableProcessors() * 4;
+    private int maxWorkerThreads = Runtime.getRuntime().availableProcessors() * 2;
     private Integer minDrivers;
     private Integer initialSplitsPerNode;
     private Duration splitConcurrencyAdjustmentInterval = new Duration(100, TimeUnit.MILLISECONDS);
 
     private DataSize sinkMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
     private DataSize maxPagePartitioningBufferSize = new DataSize(32, Unit.MEGABYTE);
+    private boolean newSinkBufferImplementation;
 
     private Duration clientTimeout = new Duration(2, TimeUnit.MINUTES);
     private Duration infoMaxAge = new Duration(15, TimeUnit.MINUTES);
@@ -247,6 +248,19 @@ public class TaskManagerConfig
     public TaskManagerConfig setMaxPagePartitioningBufferSize(DataSize size)
     {
         this.maxPagePartitioningBufferSize = size;
+        return this;
+    }
+
+    public boolean isNewSinkBufferImplementation()
+    {
+        return newSinkBufferImplementation;
+    }
+
+    @Config("sink.new-implementation")
+    @ConfigDescription("Experimental: use new output buffer implementations")
+    public TaskManagerConfig setNewSinkBufferImplementation(boolean newSinkBufferImplementation)
+    {
+        this.newSinkBufferImplementation = newSinkBufferImplementation;
         return this;
     }
 

@@ -14,7 +14,10 @@
 package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.presto.execution.QueryExecution;
+import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.spi.PrestoException;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -36,11 +39,15 @@ import static com.facebook.presto.SystemSessionProperties.getQueryPriority;
 import static com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy.FAIR;
 import static com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy.QUERY_PRIORITY;
 import static com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy.WEIGHTED;
+import static com.facebook.presto.spi.ErrorType.USER_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.QUERY_QUEUE_FULL;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @ThreadSafe
 public class ResourceGroup
@@ -68,6 +75,14 @@ public class ResourceGroup
     private int maxRunningQueries;
     @GuardedBy("root")
     private int maxQueuedQueries;
+    @GuardedBy("root")
+    private long softCpuLimitMillis = Long.MAX_VALUE;
+    @GuardedBy("root")
+    private long hardCpuLimitMillis = Long.MAX_VALUE;
+    @GuardedBy("root")
+    private long cpuUsageMillis;
+    @GuardedBy("root")
+    private long cpuQuotaGenerationMillisPerSecond = Long.MAX_VALUE;
     @GuardedBy("root")
     private int descendantRunningQueries;
     @GuardedBy("root")
@@ -158,6 +173,69 @@ public class ResourceGroup
             if (canRunMore() != oldCanRun) {
                 updateEligiblility();
             }
+        }
+    }
+
+    @Override
+    public Duration getSoftCpuLimit()
+    {
+        synchronized (root) {
+            return new Duration(softCpuLimitMillis, MILLISECONDS);
+        }
+    }
+
+    @Override
+    public void setSoftCpuLimit(Duration limit)
+    {
+        synchronized (root) {
+            if (limit.toMillis() > hardCpuLimitMillis) {
+                setHardCpuLimit(limit);
+            }
+            boolean oldCanRun = canRunMore();
+            this.softCpuLimitMillis = limit.toMillis();
+            if (canRunMore() != oldCanRun) {
+                updateEligiblility();
+            }
+        }
+    }
+
+    @Override
+    public Duration getHardCpuLimit()
+    {
+        synchronized (root) {
+            return new Duration(hardCpuLimitMillis, MILLISECONDS);
+        }
+    }
+
+    @Override
+    public void setHardCpuLimit(Duration limit)
+    {
+        synchronized (root) {
+            if (limit.toMillis() < softCpuLimitMillis) {
+                setSoftCpuLimit(limit);
+            }
+            boolean oldCanRun = canRunMore();
+            this.hardCpuLimitMillis = limit.toMillis();
+            if (canRunMore() != oldCanRun) {
+                updateEligiblility();
+            }
+        }
+    }
+
+    @Override
+    public long getCpuQuotaGenerationMillisPerSecond()
+    {
+        synchronized (root) {
+            return cpuQuotaGenerationMillisPerSecond;
+        }
+    }
+
+    @Override
+    public void setCpuQuotaGenerationMillisPerSecond(long rate)
+    {
+        checkArgument(rate > 0, "Cpu quota generation must be positive");
+        synchronized (root) {
+            cpuQuotaGenerationMillisPerSecond = rate;
         }
     }
 
@@ -314,7 +392,7 @@ public class ResourceGroup
         }
     }
 
-    public boolean add(QueryExecution query)
+    public void run(QueryExecution query)
     {
         synchronized (root) {
             checkState(subGroups.isEmpty(), "Cannot add queries to %s. It is not a leaf group.", id);
@@ -331,7 +409,8 @@ public class ResourceGroup
                 group = group.parent.get();
             }
             if (!canQueue && !canRun) {
-                return false;
+                query.fail(new PrestoException(QUERY_QUEUE_FULL, format("Too many queued queries for \"%s\"!", id)));
+                return;
             }
             if (canRun) {
                 startInBackground(query);
@@ -347,7 +426,6 @@ public class ResourceGroup
             if (query.getState().isDone()) {
                 queryFinished(query);
             }
-            return true;
         }
     }
 
@@ -405,6 +483,19 @@ public class ResourceGroup
                 // Query has already been cleaned up
                 return;
             }
+            // Only count the CPU time if the query succeeded, or the failure was the fault of the user
+            if (query.getState() == QueryState.FINISHED || query.getQueryInfo().getErrorType() == USER_ERROR) {
+                ResourceGroup group = this;
+                while (group != null) {
+                    try {
+                        group.cpuUsageMillis = Math.addExact(group.cpuUsageMillis, query.getTotalCpuTime().toMillis());
+                    }
+                    catch (ArithmeticException e) {
+                        group.cpuUsageMillis = Long.MAX_VALUE;
+                    }
+                    group = group.parent.orElse(null);
+                }
+            }
             if (runningQueries.contains(query)) {
                 runningQueries.remove(query);
                 ResourceGroup group = this;
@@ -445,6 +536,30 @@ public class ResourceGroup
                         iterator.remove();
                     }
                 }
+            }
+        }
+    }
+
+    protected void internalGenerateCpuQuota(long elapsedSeconds)
+    {
+        checkState(Thread.holdsLock(root), "Must hold lock to generate cpu quota");
+        synchronized (root) {
+            long newQuota;
+            try {
+                newQuota = Math.multiplyExact(elapsedSeconds, cpuQuotaGenerationMillisPerSecond);
+            }
+            catch (ArithmeticException e) {
+                newQuota = Long.MAX_VALUE;
+            }
+            try {
+                cpuUsageMillis = Math.subtractExact(cpuUsageMillis, newQuota);
+            }
+            catch (ArithmeticException e) {
+                cpuUsageMillis = 0;
+            }
+            cpuUsageMillis = Math.max(0, cpuUsageMillis);
+            for (ResourceGroup group : subGroups.values()) {
+                group.internalGenerateCpuQuota(elapsedSeconds);
             }
         }
     }
@@ -531,7 +646,21 @@ public class ResourceGroup
     {
         checkState(Thread.holdsLock(root), "Must hold lock");
         synchronized (root) {
-            return runningQueries.size() + descendantRunningQueries < maxRunningQueries &&
+            if (cpuUsageMillis >= hardCpuLimitMillis) {
+                return false;
+            }
+
+            int maxRunning = maxRunningQueries;
+            if (cpuUsageMillis >= softCpuLimitMillis) {
+                // Linear penalty between soft and hard limit
+                double penalty = (cpuUsageMillis - softCpuLimitMillis) / (double) (hardCpuLimitMillis - softCpuLimitMillis);
+                maxRunning = (int) Math.floor(maxRunning * (1 - penalty));
+                // Always penalize by at least one
+                maxRunning = Math.min(maxRunningQueries - 1, maxRunning);
+                // Always allow at least one running query
+                maxRunning = Math.max(1, maxRunning);
+            }
+            return runningQueries.size() + descendantRunningQueries < maxRunning &&
                     cachedMemoryUsageBytes < softMemoryLimitBytes;
         }
     }
@@ -577,6 +706,13 @@ public class ResourceGroup
             internalRefreshStats();
             while (internalStartNext()) {
                 // start all the queries we can
+            }
+        }
+
+        public synchronized void generateCpuQuota(long elapsedSeconds)
+        {
+            if (elapsedSeconds > 0) {
+                internalGenerateCpuQuota(elapsedSeconds);
             }
         }
     }

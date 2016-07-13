@@ -103,6 +103,7 @@ import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Iterators.advance;
 import static com.google.common.io.Files.createTempDir;
 import static io.airlift.testing.FileUtils.deleteRecursively;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
@@ -518,7 +519,7 @@ public class OrcTester
         }
 
         recordWriter.close(false);
-        return new DataSize(outputFile.length(), Unit.BYTE).convertToMostSuccinctDataSize();
+        return succinctBytes(outputFile.length());
     }
 
     public static DataSize writeOrcFileColumnOld(File outputFile, Format format, RecordWriter recordWriter, ObjectInspector columnObjectInspector, Iterator<?> values)
@@ -551,7 +552,7 @@ public class OrcTester
         }
 
         recordWriter.close(false);
-        return new DataSize(outputFile.length(), Unit.BYTE).convertToMostSuccinctDataSize();
+        return succinctBytes(outputFile.length());
     }
 
     private static Object preprocessWriteValueOld(TypeInfo typeInfo, Object value)

@@ -15,6 +15,7 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.BoundVariables;
+import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
@@ -25,6 +26,7 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.type.UnknownType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
@@ -38,10 +40,11 @@ import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.OperatorType.CAST;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.typeVariable;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static java.lang.String.format;
 
@@ -63,7 +66,13 @@ public final class ArrayJoin
 
         public ArrayJoinWithNullReplacement()
         {
-            super(FUNCTION_NAME, ImmutableList.of(typeVariable("T")), ImmutableList.of(), StandardTypes.VARCHAR, ImmutableList.of("array(T)", StandardTypes.VARCHAR, StandardTypes.VARCHAR));
+            super(new Signature(FUNCTION_NAME,
+                    FunctionKind.SCALAR,
+                    ImmutableList.of(typeVariable("T")),
+                    ImmutableList.of(),
+                    parseTypeSignature(StandardTypes.VARCHAR),
+                    ImmutableList.of(parseTypeSignature("array(T)"), parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR)),
+                    false));
         }
 
         @Override
@@ -88,7 +97,7 @@ public final class ArrayJoin
         public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
         {
             Type type = boundVariables.getTypeVariable("T");
-            TypeSignature arrayType = parameterizedTypeName(StandardTypes.ARRAY, type.getTypeSignature());
+            TypeSignature arrayType = new TypeSignature(ARRAY, TypeSignatureParameter.of(type.getTypeSignature()));
             Signature signature = new Signature(FUNCTION_NAME, SCALAR, VARCHAR_TYPE_SIGNATURE, arrayType, VARCHAR_TYPE_SIGNATURE, VARCHAR_TYPE_SIGNATURE);
             return specializeArrayJoin(boundVariables.getTypeVariables(), functionRegistry, ImmutableList.of(false, false, false), signature, METHOD_HANDLE);
         }
@@ -96,7 +105,13 @@ public final class ArrayJoin
 
     public ArrayJoin()
     {
-        super(FUNCTION_NAME, ImmutableList.of(typeVariable("T")), ImmutableList.of(), StandardTypes.VARCHAR, ImmutableList.of("array(T)", StandardTypes.VARCHAR));
+        super(new Signature(FUNCTION_NAME,
+                FunctionKind.SCALAR,
+                ImmutableList.of(typeVariable("T")),
+                ImmutableList.of(),
+                parseTypeSignature(StandardTypes.VARCHAR),
+                ImmutableList.of(parseTypeSignature("array(T)"), parseTypeSignature(StandardTypes.VARCHAR)),
+                false));
     }
 
     @Override
@@ -121,7 +136,7 @@ public final class ArrayJoin
     public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type type = boundVariables.getTypeVariable("T");
-        TypeSignature arrayType = parameterizedTypeName(StandardTypes.ARRAY, type.getTypeSignature());
+        TypeSignature arrayType = new TypeSignature(ARRAY, TypeSignatureParameter.of(type.getTypeSignature()));
         Signature signature = new Signature(FUNCTION_NAME, SCALAR, VARCHAR_TYPE_SIGNATURE, arrayType, VARCHAR_TYPE_SIGNATURE);
         return specializeArrayJoin(boundVariables.getTypeVariables(), functionRegistry, ImmutableList.of(false, false), signature, METHOD_HANDLE);
     }
@@ -209,7 +224,7 @@ public final class ArrayJoin
             }
         }
         catch (Throwable throwable) {
-            throw new PrestoException(INTERNAL_ERROR, format("Error casting array element %s to VARCHAR", arg));
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Error casting array element %s to VARCHAR", arg));
         }
         return slice;
     }

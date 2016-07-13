@@ -28,9 +28,11 @@ import com.facebook.presto.execution.CommitTask;
 import com.facebook.presto.execution.CreateTableTask;
 import com.facebook.presto.execution.CreateViewTask;
 import com.facebook.presto.execution.DataDefinitionTask;
+import com.facebook.presto.execution.DeallocateTask;
 import com.facebook.presto.execution.DropTableTask;
 import com.facebook.presto.execution.DropViewTask;
 import com.facebook.presto.execution.NodeTaskMap;
+import com.facebook.presto.execution.PrepareTask;
 import com.facebook.presto.execution.RenameColumnTask;
 import com.facebook.presto.execution.RenameTableTask;
 import com.facebook.presto.execution.ResetSessionTask;
@@ -109,8 +111,10 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateView;
+import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
+import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
@@ -144,12 +148,15 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Function;
 
+import static com.facebook.presto.execution.SqlQueryManager.unwrapExecuteStatement;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -189,10 +196,15 @@ public class LocalQueryRunner
 
     public LocalQueryRunner(Session defaultSession)
     {
-        this(defaultSession, false);
+        this(defaultSession, new FeaturesConfig().setExperimentalSyntaxEnabled(true), false);
     }
 
-    private LocalQueryRunner(Session defaultSession, boolean withInitialTransaction)
+    public LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig)
+    {
+        this(defaultSession, featuresConfig, false);
+    }
+
+    private LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig, boolean withInitialTransaction)
     {
         requireNonNull(defaultSession, "defaultSession is null");
         checkArgument(!defaultSession.getTransactionId().isPresent() || !withInitialTransaction, "Already in transaction");
@@ -221,7 +233,7 @@ public class LocalQueryRunner
         this.splitManager = new SplitManager();
         this.blockEncodingSerde = new BlockEncodingManager(typeRegistry);
         this.metadata = new MetadataManager(
-                new FeaturesConfig().setExperimentalSyntaxEnabled(true),
+                featuresConfig,
                 typeRegistry,
                 blockEncodingSerde,
                 new SessionPropertyManager(),
@@ -270,7 +282,8 @@ public class LocalQueryRunner
                 defaultSession.getStartTime(),
                 defaultSession.getSystemProperties(),
                 defaultSession.getCatalogProperties(),
-                metadata.getSessionPropertyManager());
+                metadata.getSessionPropertyManager(),
+                defaultSession.getPreparedStatements());
 
         dataDefinitionTask = ImmutableMap.<Class<? extends Statement>, DataDefinitionTask<?>>builder()
                 .put(CreateTable.class, new CreateTableTask())
@@ -281,6 +294,8 @@ public class LocalQueryRunner
                 .put(RenameTable.class, new RenameTableTask())
                 .put(ResetSession.class, new ResetSessionTask())
                 .put(SetSession.class, new SetSessionTask())
+                .put(Prepare.class, new PrepareTask(sqlParser))
+                .put(Deallocate.class, new DeallocateTask())
                 .put(StartTransaction.class, new StartTransactionTask())
                 .put(Commit.class, new CommitTask())
                 .put(Rollback.class, new RollbackTask())
@@ -290,7 +305,7 @@ public class LocalQueryRunner
     public static LocalQueryRunner queryRunnerWithInitialTransaction(Session defaultSession)
     {
         checkArgument(!defaultSession.getTransactionId().isPresent(), "Already in transaction!");
-        return new LocalQueryRunner(defaultSession, true);
+        return new LocalQueryRunner(defaultSession, new FeaturesConfig().setExperimentalSyntaxEnabled(true), true);
     }
 
     @Override
@@ -421,11 +436,19 @@ public class LocalQueryRunner
     @Override
     public MaterializedResult execute(Session session, @Language("SQL") String sql)
     {
+        return inTransaction(session, transactionSession -> executeInternal(transactionSession, sql));
+    }
+
+    public <T> T inTransaction(Function<Session, T> transactionSessionConsumer)
+    {
+        return inTransaction(defaultSession, transactionSessionConsumer);
+    }
+
+    public <T> T inTransaction(Session session, Function<Session, T> transactionSessionConsumer)
+    {
         return transaction(transactionManager)
                 .singleStatement()
-                .execute(session, transactionSession -> {
-                    return executeInternal(transactionSession, sql);
-                });
+                .execute(session, transactionSessionConsumer);
     }
 
     private MaterializedResult executeInternal(Session session, @Language("SQL") String sql)
@@ -474,28 +497,7 @@ public class LocalQueryRunner
 
     public List<Driver> createDrivers(Session session, @Language("SQL") String sql, OutputFactory outputFactory, TaskContext taskContext)
     {
-        Statement statement = sqlParser.createStatement(sql);
-
-        assertFormattedSql(sqlParser, statement);
-
-        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-        FeaturesConfig featuresConfig = new FeaturesConfig()
-                .setExperimentalSyntaxEnabled(true)
-                .setDistributedIndexJoinsEnabled(false)
-                .setOptimizeHashGeneration(true);
-        PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata, sqlParser, featuresConfig, true);
-
-        QueryExplainer queryExplainer = new QueryExplainer(
-                planOptimizersFactory.get(),
-                metadata,
-                accessControl,
-                sqlParser,
-                dataDefinitionTask,
-                featuresConfig.isExperimentalSyntaxEnabled());
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), featuresConfig.isExperimentalSyntaxEnabled());
-
-        Analysis analysis = analyzer.analyze(statement);
-        Plan plan = new LogicalPlanner(session, planOptimizersFactory.get(), idAllocator, metadata).plan(analysis);
+        Plan plan = createPlan(session, sql);
 
         if (printPlan) {
             System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, session));
@@ -524,7 +526,7 @@ public class LocalQueryRunner
         LocalExecutionPlan localExecutionPlan = executionPlanner.plan(
                 session,
                 subplan.getFragment().getRoot(),
-                subplan.getFragment().getPartitionFunction().getOutputLayout(),
+                subplan.getFragment().getPartitioningScheme().getOutputLayout(),
                 plan.getTypes(),
                 outputFactory);
 
@@ -548,25 +550,63 @@ public class LocalQueryRunner
 
         // create drivers
         List<Driver> drivers = new ArrayList<>();
-        Map<PlanNodeId, Driver> driversBySource = new HashMap<>();
+        Map<PlanNodeId, DriverFactory> driverFactoriesBySource = new HashMap<>();
         for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
             for (int i = 0; i < driverFactory.getDriverInstances().orElse(1); i++) {
-                DriverContext driverContext = taskContext.addPipelineContext(driverFactory.isInputDriver(), driverFactory.isOutputDriver()).addDriverContext();
-                Driver driver = driverFactory.createDriver(driverContext);
-                drivers.add(driver);
-                driver.getSourceId().ifPresent(sourceId -> driversBySource.put(sourceId, driver));
+                if (driverFactory.getSourceId().isPresent()) {
+                    checkState(driverFactoriesBySource.put(driverFactory.getSourceId().get(), driverFactory) == null);
+                }
+                else {
+                    DriverContext driverContext = taskContext.addPipelineContext(driverFactory.isInputDriver(), driverFactory.isOutputDriver()).addDriverContext();
+                    Driver driver = driverFactory.createDriver(driverContext);
+                    drivers.add(driver);
+                }
             }
-            driverFactory.close();
         }
 
         // add sources to the drivers
         for (TaskSource source : sources) {
-            for (Driver driver : driversBySource.values()) {
-                driver.updateSource(source);
+            DriverFactory driverFactory = driverFactoriesBySource.get(source.getPlanNodeId());
+            checkState(driverFactory != null);
+            for (ScheduledSplit split : source.getSplits()) {
+                DriverContext driverContext = taskContext.addPipelineContext(driverFactory.isInputDriver(), driverFactory.isOutputDriver()).addDriverContext();
+                Driver driver = driverFactory.createDriver(driverContext);
+                driver.updateSource(new TaskSource(split.getPlanNodeId(), ImmutableSet.of(split), true));
+                drivers.add(driver);
             }
         }
 
+        for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
+            driverFactory.close();
+        }
+
         return ImmutableList.copyOf(drivers);
+    }
+
+    public Plan createPlan(Session session, @Language("SQL") String sql)
+    {
+        Statement statement = unwrapExecuteStatement(sqlParser.createStatement(sql), sqlParser, session);
+
+        assertFormattedSql(sqlParser, statement);
+
+        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+        FeaturesConfig featuresConfig = new FeaturesConfig()
+                .setExperimentalSyntaxEnabled(true)
+                .setDistributedIndexJoinsEnabled(false)
+                .setOptimizeHashGeneration(true);
+        PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata, sqlParser, featuresConfig, true);
+
+        QueryExplainer queryExplainer = new QueryExplainer(
+                planOptimizersFactory.get(),
+                metadata,
+                accessControl,
+                sqlParser,
+                dataDefinitionTask,
+                featuresConfig.isExperimentalSyntaxEnabled());
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), featuresConfig.isExperimentalSyntaxEnabled());
+
+        Analysis analysis = analyzer.analyze(statement);
+        return new LogicalPlanner(session, planOptimizersFactory.get(), idAllocator, metadata, sqlParser).plan(analysis);
     }
 
     public OperatorFactory createTableScanOperator(int operatorId, PlanNodeId planNodeId, String tableName, String... columnNames)

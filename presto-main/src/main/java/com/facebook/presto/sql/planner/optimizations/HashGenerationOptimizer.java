@@ -17,8 +17,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.PartitionFunctionBinding;
-import com.facebook.presto.sql.planner.PartitionFunctionBinding.PartitionFunctionArgumentBinding;
+import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
+import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -46,8 +46,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.BiMap;
@@ -289,6 +288,7 @@ public class HashGenerationOptimizer
                                 left.getNode(),
                                 right.getNode(),
                                 node.getCriteria(),
+                                node.getFilter(),
                                 Optional.empty(),
                                 Optional.empty()),
                         allHashSymbols);
@@ -322,6 +322,7 @@ public class HashGenerationOptimizer
                             left.getNode(),
                             right.getNode(),
                             node.getCriteria(),
+                            node.getFilter(),
                             Optional.of(leftHashSymbol),
                             Optional.of(rightHashSymbol)),
                     allHashSymbols);
@@ -415,10 +416,7 @@ public class HashGenerationOptimizer
                     new WindowNode(
                             idAllocator.getNextId(),
                             child.getNode(),
-                            node.getPartitionBy(),
-                            node.getOrderBy(),
-                            node.getOrderings(),
-                            node.getFrame(),
+                            node.getSpecification(),
                             node.getWindowFunctions(),
                             node.getSignatures(),
                             Optional.of(hashSymbol),
@@ -435,12 +433,12 @@ public class HashGenerationOptimizer
 
             // Currently, precomputed hash values are only supported for system hash distributions without constants
             Optional<HashComputation> partitionSymbols = Optional.empty();
-            PartitionFunctionBinding partitionFunction = node.getPartitionFunction();
-            if (partitionFunction.getPartitioningHandle().equals(FIXED_HASH_DISTRIBUTION) &&
-                    partitionFunction.getPartitionFunctionArguments().stream().allMatch(PartitionFunctionArgumentBinding::isVariable)) {
+            PartitioningScheme partitioningScheme = node.getPartitioningScheme();
+            if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_HASH_DISTRIBUTION) &&
+                    partitioningScheme.getPartitioning().getArguments().stream().allMatch(ArgumentBinding::isVariable)) {
                 // add precomputed hash for exchange
-                partitionSymbols = computeHash(partitionFunction.getPartitionFunctionArguments().stream()
-                        .map(PartitionFunctionArgumentBinding::getColumn)
+                partitionSymbols = computeHash(partitioningScheme.getPartitioning().getArguments().stream()
+                        .map(ArgumentBinding::getColumn)
                         .collect(toImmutableList()));
                 preference = preference.withHashComputation(partitionSymbols);
             }
@@ -453,18 +451,17 @@ public class HashGenerationOptimizer
             }
 
             // rewrite partition function to include new symbols (and precomputed hash
-            partitionFunction = new PartitionFunctionBinding(
-                    partitionFunction.getPartitioningHandle(),
+            partitioningScheme = new PartitioningScheme(
+                    partitioningScheme.getPartitioning(),
                     ImmutableList.<Symbol>builder()
-                            .addAll(partitionFunction.getOutputLayout())
+                            .addAll(partitioningScheme.getOutputLayout())
                             .addAll(hashSymbolOrder.stream()
                                     .map(newHashSymbols::get)
                                     .collect(toImmutableList()))
                             .build(),
-                    partitionFunction.getPartitionFunctionArguments(),
                     partitionSymbols.map(newHashSymbols::get),
-                    partitionFunction.isReplicateNulls(),
-                    partitionFunction.getBucketToPartition());
+                    partitioningScheme.isReplicateNulls(),
+                    partitioningScheme.getBucketToPartition());
 
             // add hash symbols to sources
             ImmutableList.Builder<List<Symbol>> newInputs = ImmutableList.builder();
@@ -499,7 +496,7 @@ public class HashGenerationOptimizer
                             idAllocator.getNextId(),
                             node.getType(),
                             node.getScope(),
-                            partitionFunction,
+                            partitioningScheme,
                             newSources.build(),
                             newInputs.build()),
                     newHashSymbols);
@@ -570,7 +567,7 @@ public class HashGenerationOptimizer
                     hashExpression = hashComputation.getHashExpression();
                 }
                 else {
-                    hashExpression = new QualifiedNameReference(hashSymbol.toQualifiedName());
+                    hashExpression = hashSymbol.toSymbolReference();
                 }
                 newAssignments.put(hashSymbol, hashExpression);
                 allHashSymbols.put(hashComputation, hashSymbol);
@@ -660,7 +657,7 @@ public class HashGenerationOptimizer
             for (Symbol symbol : planWithProperties.getNode().getOutputSymbols()) {
                 HashComputation partitionSymbols = resultHashSymbols.get(symbol);
                 if (partitionSymbols == null || requiredHashes.getHashes().contains(partitionSymbols)) {
-                    assignments.put(symbol, new QualifiedNameReference(symbol.toQualifiedName()));
+                    assignments.put(symbol, symbol.toSymbolReference());
 
                     if (partitionSymbols != null) {
                         outputHashSymbols.put(partitionSymbols, symbol);
@@ -823,9 +820,9 @@ public class HashGenerationOptimizer
         {
             FunctionCall functionCall = new FunctionCall(
                     QualifiedName.of(HASH_CODE),
-                    Optional.<Window>empty(),
+                    Optional.empty(),
                     false,
-                    ImmutableList.<Expression>of(new QualifiedNameReference(symbol.toQualifiedName())));
+                    ImmutableList.of(symbol.toSymbolReference()));
             List<Expression> arguments = ImmutableList.of(previousHashValue, orNullHashCode(functionCall));
             return new FunctionCall(QualifiedName.of("combine_hash"), arguments);
         }
@@ -896,8 +893,8 @@ public class HashGenerationOptimizer
     {
         Map<Symbol, Symbol> outputToInput = new HashMap<>();
         for (Map.Entry<Symbol, Expression> assignment : assignments.entrySet()) {
-            if (assignment.getValue() instanceof QualifiedNameReference) {
-                outputToInput.put(assignment.getKey(), Symbol.fromQualifiedName(((QualifiedNameReference) assignment.getValue()).getName()));
+            if (assignment.getValue() instanceof SymbolReference) {
+                outputToInput.put(assignment.getKey(), Symbol.from(assignment.getValue()));
             }
         }
         return outputToInput;

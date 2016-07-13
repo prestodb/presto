@@ -94,18 +94,10 @@ public class PageBuilder
         }
         pageBuilderStatus = new PageBuilderStatus(pageBuilderStatus.getMaxPageSizeInBytes(), pageBuilderStatus.getMaxBlockSizeInBytes());
 
-        int expectedEntries;
-        if (declaredPositions > 0) {
-            expectedEntries = declaredPositions;
-        }
-        else {
-            expectedEntries = initialExpectedEntries;
-        }
         declaredPositions = 0;
 
         for (int i = 0; i < types.size(); i++) {
-            int expectedEntrySize = (int) Math.ceil(blockBuilders[i].getSizeInBytes() / (double) expectedEntries);
-            blockBuilders[i] = types.get(i).createBlockBuilder(pageBuilderStatus.createBlockBuilderStatus(), expectedEntries, expectedEntrySize);
+            blockBuilders[i].reset(pageBuilderStatus.createBlockBuilderStatus());
         }
     }
 

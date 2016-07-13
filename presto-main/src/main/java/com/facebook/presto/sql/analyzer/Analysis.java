@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -34,7 +35,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 
 import javax.annotation.concurrent.Immutable;
@@ -42,7 +42,6 @@ import javax.annotation.concurrent.Immutable;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -52,7 +51,7 @@ import static java.util.Objects.requireNonNull;
 
 public class Analysis
 {
-    private Statement statement;
+    private final Statement statement;
     private String updateType;
 
     private final IdentityHashMap<Table, Query> namedQueries = new IdentityHashMap<>();
@@ -72,7 +71,7 @@ public class Analysis
     private final IdentityHashMap<Join, Expression> joins = new IdentityHashMap<>();
     private final ListMultimap<Node, InPredicate> inPredicatesSubqueries = ArrayListMultimap.create();
     private final ListMultimap<Node, SubqueryExpression> scalarSubqueries = ArrayListMultimap.create();
-    private final IdentityHashMap<Join, JoinInPredicates> joinInPredicates = new IdentityHashMap<>();
+    private final ListMultimap<Node, ExistsPredicate> existsSubqueries = ArrayListMultimap.create();
 
     private final IdentityHashMap<Table, TableHandle> tables = new IdentityHashMap<>();
 
@@ -94,14 +93,14 @@ public class Analysis
 
     private Optional<Insert> insert = Optional.empty();
 
+    public Analysis(Statement statement)
+    {
+        this.statement = statement;
+    }
+
     public Statement getStatement()
     {
         return statement;
-    }
-
-    public void setStatement(Statement statement)
-    {
-        this.statement = statement;
     }
 
     public String getUpdateType()
@@ -258,6 +257,7 @@ public class Analysis
     {
         this.inPredicatesSubqueries.putAll(node, expressionAnalysis.getSubqueryInPredicates());
         this.scalarSubqueries.putAll(node, expressionAnalysis.getScalarSubqueries());
+        this.existsSubqueries.putAll(node, expressionAnalysis.getExistsSubqueries());
     }
 
     public List<InPredicate> getInPredicateSubqueries(Node node)
@@ -276,14 +276,12 @@ public class Analysis
         return ImmutableList.of();
     }
 
-    public void addJoinInPredicates(Join node, JoinInPredicates joinInPredicates)
+    public List<ExistsPredicate> getExistsSubqueries(Node node)
     {
-        this.joinInPredicates.put(node, joinInPredicates);
-    }
-
-    public JoinInPredicates getJoinInPredicates(Join node)
-    {
-        return joinInPredicates.get(node);
+        if (existsSubqueries.containsKey(node)) {
+            return existsSubqueries.get(node);
+        }
+        return ImmutableList.of();
     }
 
     public void setWindowFunctions(QuerySpecification node, List<FunctionCall> functions)
@@ -433,48 +431,6 @@ public class Analysis
     {
         Preconditions.checkState(sampleRatios.containsKey(relation), "Sample ratio missing for %s. Broken analysis?", relation);
         return sampleRatios.get(relation);
-    }
-
-    public static class JoinInPredicates
-    {
-        private final Set<InPredicate> leftInPredicates;
-        private final Set<InPredicate> rightInPredicates;
-
-        public JoinInPredicates(Set<InPredicate> leftInPredicates, Set<InPredicate> rightInPredicates)
-        {
-            this.leftInPredicates = ImmutableSet.copyOf(requireNonNull(leftInPredicates, "leftInPredicates is null"));
-            this.rightInPredicates = ImmutableSet.copyOf(requireNonNull(rightInPredicates, "rightInPredicates is null"));
-        }
-
-        public Set<InPredicate> getLeftInPredicates()
-        {
-            return leftInPredicates;
-        }
-
-        public Set<InPredicate> getRightInPredicates()
-        {
-            return rightInPredicates;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(leftInPredicates, rightInPredicates);
-        }
-
-        @Override
-        public boolean equals(Object obj)
-        {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null || getClass() != obj.getClass()) {
-                return false;
-            }
-            final JoinInPredicates other = (JoinInPredicates) obj;
-            return Objects.equals(this.leftInPredicates, other.leftInPredicates) &&
-                    Objects.equals(this.rightInPredicates, other.rightInPredicates);
-        }
     }
 
     @Immutable

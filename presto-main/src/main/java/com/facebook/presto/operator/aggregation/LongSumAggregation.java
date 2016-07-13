@@ -23,8 +23,6 @@ import com.facebook.presto.type.SqlType;
 @AggregationFunction("sum")
 public final class LongSumAggregation
 {
-    public static final InternalAggregationFunction LONG_SUM = new AggregationCompiler().generateAggregationFunction(LongSumAggregation.class);
-
     private LongSumAggregation() {}
 
     @InputFunction

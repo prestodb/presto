@@ -105,6 +105,6 @@ public class RedisSplitManager
 
             builder.add(split);
         }
-        return new FixedSplitSource(connectorId, builder.build());
+        return new FixedSplitSource(builder.build());
     }
 }

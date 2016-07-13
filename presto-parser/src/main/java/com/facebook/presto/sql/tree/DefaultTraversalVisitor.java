@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Set;
+
 public abstract class DefaultTraversalVisitor<R, C>
         extends AstVisitor<R, C>
 {
@@ -352,9 +354,7 @@ public abstract class DefaultTraversalVisitor<R, C>
             process(node.getWhere().get(), context);
         }
         if (node.getGroupBy().isPresent()) {
-            for (GroupingElement groupingElement : node.getGroupBy().get().getGroupingElements()) {
-                process(groupingElement, context);
-            }
+            process(node.getGroupBy().get(), context);
         }
         if (node.getHaving().isPresent()) {
             process(node.getHaving().get(), context);
@@ -436,6 +436,65 @@ public abstract class DefaultTraversalVisitor<R, C>
         for (Expression expression : node.getExpressions()) {
             process(expression, context);
         }
+
+        return null;
+    }
+
+    @Override
+    protected R visitGroupBy(GroupBy node, C context)
+    {
+        for (GroupingElement groupingElement : node.getGroupingElements()) {
+            process(groupingElement, context);
+        }
+
+        return null;
+    }
+
+    @Override
+    protected R visitGroupingElement(GroupingElement node, C context)
+    {
+        for (Set<Expression> expressions : node.enumerateGroupingSets()) {
+            for (Expression expression : expressions) {
+                process(expression, context);
+            }
+        }
+        return null;
+    }
+
+    @Override
+    protected R visitSimpleGroupBy(SimpleGroupBy node, C context)
+    {
+        visitGroupingElement(node, context);
+
+        for (Expression expression : node.getColumnExpressions()) {
+           process(expression, context);
+        }
+
+        return null;
+    }
+
+    @Override
+    protected R visitInsert(Insert node, C context)
+    {
+        process(node.getQuery(), context);
+
+        return null;
+    }
+
+    @Override
+    protected R visitDelete(Delete node, C context)
+    {
+        process(node.getTable(), context);
+        node.getWhere().ifPresent(where -> process(where, context));
+
+        return null;
+    }
+
+    @Override
+    protected R visitCreateTableAsSelect(CreateTableAsSelect node, C context)
+    {
+        process(node.getQuery(), context);
+        node.getProperties().values().forEach(expression -> process(expression, context));
 
         return null;
     }

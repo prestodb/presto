@@ -14,6 +14,7 @@
 
 package com.facebook.presto.type;
 
+import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
@@ -21,7 +22,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RAN
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 
 public class TestDecimalOperators
-        extends AbstractTestDecimalFunctions
+        extends AbstractTestFunctions
 {
     @Test
     public void testAdd()
@@ -587,5 +588,83 @@ public class TestDecimalOperators
         assertFunction("DECIMAL '1.00000000000000000000' BETWEEN DECIMAL '-5.00000000000000000000'  AND DECIMAL '5.00000000000000000000'", BOOLEAN, true);
         assertFunction("DECIMAL '-6.00000000000000000000' BETWEEN DECIMAL '-5.00000000000000000000'  AND DECIMAL '5.00000000000000000000'", BOOLEAN, false);
         assertFunction("DECIMAL '6.00000000000000000000' BETWEEN DECIMAL '-5.00000000000000000000'  AND DECIMAL '5.00000000000000000000'", BOOLEAN, false);
+    }
+
+    @Test
+    public void testAddDecimalBigint()
+            throws Exception
+    {
+        // decimal + bigint
+        assertDecimalFunction("DECIMAL '123456789012345678' + 123456789012345678", decimal("00246913578024691356"));
+        assertDecimalFunction("DECIMAL '.123456789012345678' + 123456789012345678", decimal("00123456789012345678.123456789012345678"));
+        assertDecimalFunction("DECIMAL '-1234567890123456789' + 1234567890123456789", decimal("00000000000000000000"));
+
+        // bigint + decimal
+        assertDecimalFunction("123456789012345678 + DECIMAL '123456789012345678'", decimal("00246913578024691356"));
+        assertDecimalFunction("123456789012345678 + DECIMAL '.123456789012345678'", decimal("00123456789012345678.123456789012345678"));
+        assertDecimalFunction("1234567890123456789 + DECIMAL '-1234567890123456789'", decimal("00000000000000000000"));
+    }
+
+    @Test
+    public void testSubtractDecimalBigint()
+            throws Exception
+    {
+        // decimal - bigint
+        assertDecimalFunction("DECIMAL '1234567890123456789' - 1234567890123456789", decimal("00000000000000000000"));
+        assertDecimalFunction("DECIMAL '.1234567890123456789' - 1234567890123456789", decimal("-1234567890123456788.8765432109876543211"));
+        assertDecimalFunction("DECIMAL '-1234567890123456789' - 1234567890123456789", decimal("-02469135780246913578"));
+
+        // bigint - decimal
+        assertDecimalFunction("1234567890123456789 - DECIMAL '1234567890123456789'", decimal("00000000000000000000"));
+        assertDecimalFunction("1234567890123456789 - DECIMAL '.1234567890123456789'", decimal("1234567890123456788.8765432109876543211"));
+        assertDecimalFunction("-1234567890123456789 - DECIMAL '1234567890123456789'", decimal("-02469135780246913578"));
+    }
+
+    @Test
+    public void testMultiplyDecimalBigint()
+            throws Exception
+    {
+        // decimal bigint
+        assertDecimalFunction("DECIMAL '12345678901234567' * 12345678901234567", decimal("000152415787532388345526596755677489"));
+        assertDecimalFunction("DECIMAL '-12345678901234567' * 12345678901234567", decimal("-000152415787532388345526596755677489"));
+        assertDecimalFunction("DECIMAL '-12345678901234567' * -12345678901234567", decimal("000152415787532388345526596755677489"));
+        assertDecimalFunction("DECIMAL '.1234567890' * BIGINT '3'", decimal("0000000000000000000.3703703670"));
+
+        // bigint decimal
+        assertDecimalFunction("12345678901234567 * DECIMAL '12345678901234567'", decimal("000152415787532388345526596755677489"));
+        assertDecimalFunction("12345678901234567 * DECIMAL '-12345678901234567'", decimal("-000152415787532388345526596755677489"));
+        assertDecimalFunction("-12345678901234567 * DECIMAL '-12345678901234567'", decimal("000152415787532388345526596755677489"));
+        assertDecimalFunction("BIGINT '3' * DECIMAL '.1234567890'", decimal("0000000000000000000.3703703670"));
+    }
+
+    @Test
+    public void testDivideDecimalBigint()
+            throws Exception
+    {
+        // bigint / decimal
+        assertDecimalFunction("BIGINT '9' / DECIMAL '3.0'", decimal("00000000000000000003.0"));
+        assertDecimalFunction("BIGINT '9' / DECIMAL '000000000000000003.0'", decimal("00000000000000000003.0"));
+        assertDecimalFunction("BIGINT '18' / DECIMAL '0.01'", decimal("000000000000000001800.00"));
+        assertDecimalFunction("BIGINT '9' / DECIMAL '00000000000000000.1'", decimal("00000000000000000090.0"));
+
+        // decimal / bigint
+        assertDecimalFunction("DECIMAL '9.0' / BIGINT '3'", decimal("3.0"));
+        assertDecimalFunction("DECIMAL '0.018' / BIGINT '9'", decimal(".002"));
+        assertDecimalFunction("DECIMAL '.999' / BIGINT '9'", decimal(".111"));
+    }
+
+    @Test
+    public void testModulusDecimalBigint()
+            throws Exception
+    {
+        // bigint % decimal
+        assertDecimalFunction("BIGINT '13' % DECIMAL '9.0'", decimal("4.0"));
+        assertDecimalFunction("BIGINT '18' % DECIMAL '0.01'", decimal(".00"));
+        assertDecimalFunction("BIGINT '9' % DECIMAL '.1'", decimal(".0"));
+
+        // decimal % bigint
+        assertDecimalFunction("DECIMAL '9.0' / BIGINT '3'", decimal("3.0"));
+        assertDecimalFunction("DECIMAL '0.018' / BIGINT '9'", decimal(".002"));
+        assertDecimalFunction("DECIMAL '.999' / BIGINT '9'", decimal(".111"));
     }
 }

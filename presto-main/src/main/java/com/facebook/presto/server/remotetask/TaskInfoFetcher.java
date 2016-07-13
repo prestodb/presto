@@ -22,6 +22,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.http.client.FullJsonResponseHandler;
 import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
@@ -29,11 +30,13 @@ import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
 
+import java.net.URI;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
@@ -63,11 +66,13 @@ public class TaskInfoFetcher
     private final HttpClient httpClient;
     private final RequestErrorTracker errorTracker;
 
+    private final boolean summarizeTaskInfo;
+
     @GuardedBy("this")
     private final AtomicLong currentRequestStartNanos = new AtomicLong();
 
     @GuardedBy("this")
-    private final AtomicBoolean taskStatusDone = new AtomicBoolean();
+    private final AtomicReference<TaskStatus> taskStatusDone = new AtomicReference();
 
     @GuardedBy("this")
     private final AtomicBoolean lastRequest = new AtomicBoolean();
@@ -90,6 +95,7 @@ public class TaskInfoFetcher
             Duration updateInterval,
             JsonCodec<TaskInfo> taskInfoCodec,
             Duration minErrorDuration,
+            boolean summarizeTaskInfo,
             Executor executor,
             ScheduledExecutorService updateScheduledExecutor,
             ScheduledExecutorService errorScheduledExecutor,
@@ -107,6 +113,8 @@ public class TaskInfoFetcher
         this.updateIntervalMillis = requireNonNull(updateInterval, "updateInterval is null").toMillis();
         this.updateScheduledExecutor = requireNonNull(updateScheduledExecutor, "updateScheduledExecutor is null");
         this.errorTracker = new RequestErrorTracker(taskId, initialTask.getTaskStatus().getSelf(), minErrorDuration, errorScheduledExecutor, "getting info for task");
+
+        this.summarizeTaskInfo = summarizeTaskInfo;
 
         this.executor = requireNonNull(executor, "executor is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
@@ -128,9 +136,22 @@ public class TaskInfoFetcher
         scheduleUpdate();
     }
 
-    public synchronized void taskStatusDone()
+    public synchronized void abort(TaskStatus taskStatus)
     {
-        taskStatusDone.set(true);
+        updateTaskInfo(taskInfo.get().withTaskStatus(taskStatus));
+        // For aborted tasks we do not care about the final task info, so stop the info fetcher
+        stop();
+    }
+
+    public synchronized void taskStatusDone(TaskStatus taskStatus)
+    {
+        if (running && !isDone(getTaskInfo())) {
+            // try to get the last task status from the remote task
+            taskStatusDone.set(taskStatus);
+        }
+        else {
+            getTaskInfo().withTaskStatus(taskStatus);
+        }
     }
 
     private synchronized void stop()
@@ -140,7 +161,9 @@ public class TaskInfoFetcher
             future.cancel(true);
             future = null;
         }
-        scheduledFuture.cancel(true);
+        if (scheduledFuture != null) {
+            scheduledFuture.cancel(true);
+        }
     }
 
     private synchronized void scheduleUpdate()
@@ -177,7 +200,7 @@ public class TaskInfoFetcher
             return;
         }
 
-        if (taskStatusDone.get()) {
+        if (taskStatusDone.get() != null) {
             lastRequest.set(true);
         }
 
@@ -188,8 +211,15 @@ public class TaskInfoFetcher
             return;
         }
 
+        HttpUriBuilder httpUriBuilder = uriBuilderFrom(taskStatus.getSelf());
+        // if this is the last request, don't summarize, get the complete taskInfo
+        URI uri = lastRequest.get() ? httpUriBuilder.build() : httpUriBuilder.addParameter("summarize").build();
+
+        if (summarizeTaskInfo) {
+            httpUriBuilder.addParameter("summarize");
+        }
         Request request = prepareGet()
-                .setUri(uriBuilderFrom(taskStatus.getSelf()).addParameter("summarize").build())
+                .setUri(uri)
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .build();
 
@@ -227,6 +257,9 @@ public class TaskInfoFetcher
             // we have the final task info so we can stop
             if (lastRequest.get() && !newValue.getTaskStatus().getState().isDone()) {
                 log.error("%s taskStatus done but taskInfo is not", taskId);
+
+                // Since the task is already done, update the task status
+                updateTaskInfo(taskInfo.get().withTaskStatus(taskStatusDone.get()));
             }
 
             if (lastRequest.get()) {
@@ -249,8 +282,9 @@ public class TaskInfoFetcher
                 }
             }
             catch (Error e) {
-                // if task status is already done, ignore this failure, and stop fetching
-                if (taskStatusDone.get()) {
+                // if task status is already done, ignore this failure, update the task status and stop fetching
+                if (taskStatusDone.get() != null) {
+                    updateTaskInfo(taskInfo.get().withTaskStatus(taskStatusDone.get()));
                     stop();
                 }
                 onFail.accept(e);
@@ -266,8 +300,9 @@ public class TaskInfoFetcher
     public void fatal(Throwable cause)
     {
         try (SetThreadName ignored = new SetThreadName("TaskInfoFetcher-%s", taskId)) {
-            // if task status is already done, ignore this failure, and stop fetching
-            if (taskStatusDone.get()) {
+            // if task status is already done, ignore this failure, update the task status and stop fetching
+            if (taskStatusDone.get() != null) {
+                updateTaskInfo(taskInfo.get().withTaskStatus(taskStatusDone.get()));
                 stop();
             }
             updateStats(currentRequestStartNanos.get());

@@ -17,6 +17,8 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 
+import java.util.Optional;
+
 public interface PagesHashStrategy
 {
     /**
@@ -41,25 +43,35 @@ public interface PagesHashStrategy
     long hashPosition(int blockIndex, int position);
 
     /**
-     * Calculates the hash code at {@code position} in {@code blocks}. Blocks must have the same number of
-     * entries as the hashed columns and each entry is expected to be the same type.
+     * Calculates the hash code at {@code position} in {@code page}. Page must have the same number of
+     * Blocks as the hashed columns and each entry is expected to be the same type.
      */
-    long hashRow(int position, Block... blocks);
+    long hashRow(int position, Page page);
 
     /**
-     * Compares the values in the specified blocks.  The values are compared positionally, so {@code leftBlocks}
-     * and {@code rightBlocks} must have the same number of entries as the hashed columns and each entry
+     * Compares the values in the specified pages. The values are compared positionally, so {@code leftPage}
+     * and {@code rightPage} must have the same number of entries as the hashed columns and each entry
      * is expected to be the same type.
      */
-    boolean rowEqualsRow(int leftPosition, Block[] leftBlocks, int rightPosition, Block[] rightBlocks);
+    boolean rowEqualsRow(int leftPosition, Page leftPage, int rightPosition, Page rightPage);
 
     /**
-     * Compares the hashed columns in this PagesHashStrategy to the values in the specified blocks.  The
-     * values are compared positionally, so {@code rightBlocks} must have the same number of entries as
+     * Compares the hashed columns in this PagesHashStrategy to the values in the specified page. The
+     * values are compared positionally, so {@code rightPage} must have the same number of entries as
      * the hashed columns and each entry is expected to be the same type.
+     * {@code rightPage} is used if join uses filter function and must contain all columns from probe side of join.
      */
-    @Deprecated
-    boolean positionEqualsRow(int leftBlockIndex, int leftPosition, int rightPosition, Block... rightBlocks);
+    boolean positionEqualsRow(int leftBlockIndex, int leftPosition, int rightPosition, Page rightPage);
+
+    /**
+     * Compares the hashed columns in this PagesHashStrategy to the values in the specified page. The
+     * values are compared positionally, so {@code rightPage} must have the same number of entries as
+     * the hashed columns and each entry is expected to be the same type.
+     * {@code rightPage} is used if join uses filter function and must contain all columns from probe side of join.
+     *
+     * This method does not perform any null checks.
+     */
+    boolean positionEqualsRowIgnoreNulls(int leftBlockIndex, int leftPosition, int rightPosition, Page rightPage);
 
     /**
      * Compares the hashed columns in this PagesHashStrategy to the hashed columns in the Page. The
@@ -72,4 +84,26 @@ public interface PagesHashStrategy
      * Compares the hashed columns in this PagesHashStrategy at the specified positions.
      */
     boolean positionEqualsPosition(int leftBlockIndex, int leftPosition, int rightBlockIndex, int rightPosition);
+
+    /**
+     * Compares the hashed columns in this PagesHashStrategy at the specified positions.
+     *
+     * This method does not perform any null checks.
+     */
+    boolean positionEqualsPositionIgnoreNulls(int leftBlockIndex, int leftPosition, int rightBlockIndex, int rightPosition);
+
+    /**
+     * Returns filter function assigned to this PagesHashStrategy.
+     */
+    Optional<JoinFilterFunction> getFilterFunction();
+
+    /**
+     * Checks result of filter function for given row.
+     */
+    boolean applyFilterFunction(int leftBlockIndex, int leftPosition, int rightPosition, Block[] allRightBlocks);
+
+    /**
+     * Checks if any of the hashed columns is null
+     */
+    boolean isPositionNull(int blockIndex, int blockPosition);
 }

@@ -74,7 +74,8 @@ public class HiveClientConfig
     private HostAndPort metastoreSocksProxy;
     private Duration metastoreTimeout = new Duration(10, TimeUnit.SECONDS);
 
-    private Duration dfsTimeout = new Duration(10, TimeUnit.SECONDS);
+    private Duration ipcPingInterval = new Duration(10, TimeUnit.SECONDS);
+    private Duration dfsTimeout = new Duration(60, TimeUnit.SECONDS);
     private Duration dfsConnectTimeout = new Duration(500, TimeUnit.MILLISECONDS);
     private int dfsConnectMaxRetries = 5;
     private boolean verifyChecksum = true;
@@ -126,6 +127,9 @@ public class HiveClientConfig
     private boolean hdfsImpersonationEnabled;
     private String hdfsPrestoPrincipal;
     private String hdfsPrestoKeytab;
+
+    private boolean bucketExecutionEnabled = true;
+    private boolean bucketWritingEnabled = true;
 
     public int getMaxInitialSplits()
     {
@@ -434,6 +438,20 @@ public class HiveClientConfig
     public HiveClientConfig setResourceConfigFiles(List<String> files)
     {
         this.resourceConfigFiles = (files == null) ? null : ImmutableList.copyOf(files);
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("1ms")
+    public Duration getIpcPingInterval()
+    {
+        return ipcPingInterval;
+    }
+
+    @Config("hive.dfs.ipc-ping-interval")
+    public HiveClientConfig setIpcPingInterval(Duration pingInterval)
+    {
+        this.ipcPingInterval = pingInterval;
         return this;
     }
 
@@ -998,6 +1016,32 @@ public class HiveClientConfig
     public HiveClientConfig setHdfsPrestoKeytab(String hdfsPrestoKeytab)
     {
         this.hdfsPrestoKeytab = hdfsPrestoKeytab;
+        return this;
+    }
+
+    public boolean isBucketExecutionEnabled()
+    {
+        return bucketExecutionEnabled;
+    }
+
+    @Config("hive.bucket-execution")
+    @ConfigDescription("Use bucketing to speed up execution")
+    public HiveClientConfig setBucketExecutionEnabled(boolean bucketExecutionEnabled)
+    {
+        this.bucketExecutionEnabled = bucketExecutionEnabled;
+        return this;
+    }
+
+    public boolean isBucketWritingEnabled()
+    {
+        return bucketWritingEnabled;
+    }
+
+    @Config("hive.bucket-writing")
+    @ConfigDescription("Enable writing to bucketed tables")
+    public HiveClientConfig setBucketWritingEnabled(boolean bucketWritingEnabled)
+    {
+        this.bucketWritingEnabled = bucketWritingEnabled;
         return this;
     }
 }

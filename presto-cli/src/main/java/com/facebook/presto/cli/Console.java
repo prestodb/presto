@@ -53,8 +53,8 @@ import static com.facebook.presto.cli.Completion.lowerCaseCommandCompleter;
 import static com.facebook.presto.cli.Help.getHelpText;
 import static com.facebook.presto.client.ClientSession.stripTransactionId;
 import static com.facebook.presto.client.ClientSession.withCatalogAndSchema;
+import static com.facebook.presto.client.ClientSession.withPreparedStatements;
 import static com.facebook.presto.client.ClientSession.withProperties;
-import static com.facebook.presto.client.ClientSession.withSessionProperties;
 import static com.facebook.presto.client.ClientSession.withTransactionId;
 import static com.facebook.presto.sql.parser.StatementSplitter.Statement;
 import static com.facebook.presto.sql.parser.StatementSplitter.isEmptyStatement;
@@ -220,7 +220,8 @@ public class Console
                     Optional<Object> statement = getParsedStatement(split.statement());
                     if (statement.isPresent() && isSessionParameterChange(statement.get())) {
                         Map<String, String> properties = queryRunner.getSession().getProperties();
-                        session = processSessionParameterChange(statement.get(), session, properties);
+                        Map<String, String> preparedStatements = queryRunner.getSession().getPreparedStatements();
+                        session = processSessionParameterChange(statement.get(), session, properties, preparedStatements);
                         queryRunner.setSession(session);
                         tableNameCompleter.populateCache();
                     }
@@ -258,12 +259,13 @@ public class Console
         }
     }
 
-    static ClientSession processSessionParameterChange(Object parsedStatement, ClientSession session, Map<String, String> existingProperties)
+    static ClientSession processSessionParameterChange(Object parsedStatement, ClientSession session, Map<String, String> existingProperties, Map<String, String> existingPreparedStatements)
     {
         if (parsedStatement instanceof Use) {
             Use use = (Use) parsedStatement;
             session = withCatalogAndSchema(session, use.getCatalog().orElse(session.getCatalog()), use.getSchema());
-            session = withSessionProperties(session, existingProperties);
+            session = withProperties(session, existingProperties);
+            session = withPreparedStatements(session, existingPreparedStatements);
         }
         return session;
     }
@@ -299,6 +301,14 @@ public class Console
                 sessionProperties.putAll(query.getSetSessionProperties());
                 sessionProperties.keySet().removeAll(query.getResetSessionProperties());
                 session = withProperties(session, sessionProperties);
+            }
+
+            // update prepared statements if present
+            if (!query.getAddedPreparedStatements().isEmpty() || !query.getDeallocatedPreparedStatements().isEmpty()) {
+                Map<String, String> preparedStatements = new HashMap<>(session.getPreparedStatements());
+                preparedStatements.putAll(query.getAddedPreparedStatements());
+                preparedStatements.keySet().removeAll(query.getDeallocatedPreparedStatements());
+                session = withPreparedStatements(session, preparedStatements);
             }
 
             // update transaction ID if necessary

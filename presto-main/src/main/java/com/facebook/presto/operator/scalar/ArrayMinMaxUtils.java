@@ -21,7 +21,7 @@ import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Throwables.propagateIfInstanceOf;
 
 public final class ArrayMinMaxUtils
@@ -52,7 +52,7 @@ public final class ArrayMinMaxUtils
         catch (Throwable t) {
             propagateIfInstanceOf(t, Error.class);
             propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(INTERNAL_ERROR, t);
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
         }
     }
 
@@ -80,7 +80,7 @@ public final class ArrayMinMaxUtils
         catch (Throwable t) {
             propagateIfInstanceOf(t, Error.class);
             propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(INTERNAL_ERROR, t);
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
         }
     }
 
@@ -108,7 +108,7 @@ public final class ArrayMinMaxUtils
         catch (Throwable t) {
             propagateIfInstanceOf(t, Error.class);
             propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(INTERNAL_ERROR, t);
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
         }
     }
 
@@ -136,7 +136,7 @@ public final class ArrayMinMaxUtils
         catch (Throwable t) {
             propagateIfInstanceOf(t, Error.class);
             propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(INTERNAL_ERROR, t);
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
         }
     }
 }

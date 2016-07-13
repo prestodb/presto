@@ -20,6 +20,9 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.operator.PageProcessor;
+import com.facebook.presto.operator.scalar.annotations.OperatorDependency;
+import com.facebook.presto.operator.scalar.annotations.ScalarFunction;
+import com.facebook.presto.operator.scalar.annotations.TypeParameter;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
@@ -112,8 +115,8 @@ public class BenchmarkArrayHashCodeOperator
         public void setup()
         {
             MetadataManager metadata = MetadataManager.createTestMetadataManager();
-            metadata.addFunctions(new FunctionListBuilder(metadata.getTypeManager()).scalar(BenchmarkOldArrayHash.class).getFunctions());
-            metadata.addFunctions(new FunctionListBuilder(metadata.getTypeManager()).scalar(BenchmarkAnotherArrayHash.class).getFunctions());
+            metadata.addFunctions(new FunctionListBuilder().scalar(BenchmarkOldArrayHash.class).getFunctions());
+            metadata.addFunctions(new FunctionListBuilder().scalar(BenchmarkAnotherArrayHash.class).getFunctions());
             ExpressionCompiler compiler = new ExpressionCompiler(metadata);
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             Block[] blocks = new Block[1];

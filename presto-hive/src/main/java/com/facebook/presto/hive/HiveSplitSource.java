@@ -33,15 +33,13 @@ import static io.airlift.concurrent.MoreFutures.failedFuture;
 class HiveSplitSource
         implements ConnectorSplitSource
 {
-    private final String connectorId;
     private final AsyncQueue<ConnectorSplit> queue;
     private final AtomicReference<Throwable> throwable = new AtomicReference<>();
     private final HiveSplitLoader splitLoader;
     private volatile boolean closed;
 
-    HiveSplitSource(String connectorId, int maxOutstandingSplits, HiveSplitLoader splitLoader, Executor executor)
+    HiveSplitSource(int maxOutstandingSplits, HiveSplitLoader splitLoader, Executor executor)
     {
-        this.connectorId = connectorId;
         this.queue = new AsyncQueue<>(maxOutstandingSplits, executor);
         this.splitLoader = splitLoader;
     }
@@ -87,12 +85,6 @@ class HiveSplitSource
             // no need to process any more jobs
             splitLoader.stop();
         }
-    }
-
-    @Override
-    public String getDataSourceName()
-    {
-        return connectorId;
     }
 
     @Override

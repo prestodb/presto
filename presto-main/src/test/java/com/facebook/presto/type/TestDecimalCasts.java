@@ -13,15 +13,17 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.FloatType.FLOAT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class TestDecimalCasts
-        extends AbstractTestDecimalFunctions
+        extends AbstractTestFunctions
 {
     @Test
     public void testBooleanToDecimalCasts()
@@ -122,6 +124,41 @@ public class TestDecimalCasts
 
         assertFunction("CAST(DECIMAL '1234567890.1234567890' AS DOUBLE)", DOUBLE, 1234567890.1234567890);
         assertFunction("CAST(DECIMAL '-1234567890.1234567890' AS DOUBLE)", DOUBLE, -1234567890.1234567890);
+    }
+
+    @Test
+    public void testFloatToDecimalCasts()
+    {
+        assertDecimalFunction("CAST(FLOAT '234.0' AS DECIMAL(4,1))", decimal("234.0"));
+        assertDecimalFunction("CAST(FLOAT '.01' AS DECIMAL(3,3))", decimal(".010"));
+        assertDecimalFunction("CAST(FLOAT '.0' AS DECIMAL(3,3))", decimal(".000"));
+        assertDecimalFunction("CAST(FLOAT '0' AS DECIMAL(1,0))", decimal("0"));
+        assertDecimalFunction("CAST(FLOAT '0' AS DECIMAL(4,0))", decimal("0000"));
+        assertDecimalFunction("CAST(FLOAT '1000' AS DECIMAL(4,0))", decimal("1000"));
+        assertDecimalFunction("CAST(FLOAT '1000.01' AS DECIMAL(7,2))", decimal("01000.01"));
+        assertDecimalFunction("CAST(FLOAT '-234.0' AS DECIMAL(3,0))", decimal("-234"));
+        assertDecimalFunction("CAST(FLOAT '12345678407663616' AS DECIMAL(17,0))", decimal("12345678407663616"));
+        assertDecimalFunction("CAST(FLOAT '-12345678407663616' AS DECIMAL(17,0))", decimal("-12345678407663616"));
+        assertDecimalFunction("CAST(FLOAT '1234567936' AS DECIMAL(20,10))", decimal("1234567936.0000000000"));
+        assertDecimalFunction("CAST(FLOAT '-1234567936' AS DECIMAL(20,10))", decimal("-1234567936.0000000000"));
+
+        assertInvalidCast("CAST(FLOAT '234.0' AS DECIMAL(2,0))", "Cannot cast FLOAT '234.0' to DECIMAL(2, 0)");
+        assertInvalidCast("CAST(FLOAT '1000.01' AS DECIMAL(5,2))", "Cannot cast FLOAT '1000.01' to DECIMAL(5, 2)");
+        assertInvalidCast("CAST(FLOAT '-234.0' AS DECIMAL(2,0))", "Cannot cast FLOAT '-234.0' to DECIMAL(2, 0)");
+        assertInvalidCast("CAST(FLOAT '98765430784.0' AS DECIMAL(20, 10))", "Cannot cast FLOAT '9.8765431E10' to DECIMAL(20, 10)");
+    }
+
+    @Test
+    public void testDecimalToFloatCasts()
+    {
+        assertFunction("CAST(DECIMAL '2.34' AS FLOAT)", FLOAT, 2.34f);
+        assertFunction("CAST(DECIMAL '0' AS FLOAT)", FLOAT, 0.0f);
+        assertFunction("CAST(DECIMAL '-0' AS FLOAT)", FLOAT, 0.0f);
+        assertFunction("CAST(DECIMAL '1' AS FLOAT)", FLOAT, 1.0f);
+        assertFunction("CAST(DECIMAL '-2.49' AS FLOAT)", FLOAT, -2.49f);
+
+        assertFunction("CAST(DECIMAL '1234567890.1234567890' AS FLOAT)", FLOAT, 1234567890.1234567890f);
+        assertFunction("CAST(DECIMAL '-1234567890.1234567890' AS FLOAT)", FLOAT, -1234567890.1234567890f);
     }
 
     @Test

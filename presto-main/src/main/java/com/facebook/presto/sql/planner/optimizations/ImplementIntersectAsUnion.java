@@ -35,7 +35,7 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -48,6 +48,7 @@ import java.util.function.Function;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.GREATER_THAN_OR_EQUAL;
@@ -96,7 +97,7 @@ public class ImplementIntersectAsUnion
             extends SimplePlanRewriter<Void>
     {
         private static final String INTERSECT_MARKER = "intersect_marker";
-        private static final Signature COUNT_AGGREGATION = new Signature("count", AGGREGATE, "bigint", "boolean");
+        private static final Signature COUNT_AGGREGATION = new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BOOLEAN));
         private final PlanNodeIdAllocator idAllocator;
         private final SymbolAllocator symbolAllocator;
 
@@ -148,11 +149,11 @@ public class ImplementIntersectAsUnion
             return result.build();
         }
 
-        private PlanNode appendMarkers(PlanNode source, int markerIndex, List<Symbol> markers, Map<Symbol, QualifiedNameReference> projections)
+        private PlanNode appendMarkers(PlanNode source, int markerIndex, List<Symbol> markers, Map<Symbol, SymbolReference> projections)
         {
             ImmutableMap.Builder<Symbol, Expression> assignments = ImmutableMap.builder();
             // add existing intersect symbols to projection
-            for (Map.Entry<Symbol, QualifiedNameReference> entry : projections.entrySet()) {
+            for (Map.Entry<Symbol, SymbolReference> entry : projections.entrySet()) {
                 Symbol symbol = symbolAllocator.newSymbol(entry.getKey().getName(), symbolAllocator.getTypes().get(entry.getKey()));
                 assignments.put(symbol, entry.getValue());
             }
@@ -185,7 +186,7 @@ public class ImplementIntersectAsUnion
 
             for (Symbol marker : markers) {
                 Symbol output = symbolAllocator.newSymbol("count", BIGINT);
-                aggregations.put(output, new FunctionCall(QualifiedName.of("count"), ImmutableList.of(marker.toQualifiedNameReference())));
+                aggregations.put(output, new FunctionCall(QualifiedName.of("count"), ImmutableList.of(marker.toSymbolReference())));
                 signatures.put(output, COUNT_AGGREGATION);
             }
 
@@ -205,7 +206,7 @@ public class ImplementIntersectAsUnion
         private FilterNode addFilter(AggregationNode aggregation)
         {
             ImmutableList<Expression> predicates = aggregation.getAggregations().keySet().stream()
-                    .map(column -> new ComparisonExpression(GREATER_THAN_OR_EQUAL, column.toQualifiedNameReference(), new GenericLiteral("BIGINT", "1")))
+                    .map(column -> new ComparisonExpression(GREATER_THAN_OR_EQUAL, column.toSymbolReference(), new GenericLiteral("BIGINT", "1")))
                     .collect(toImmutableList());
             return new FilterNode(idAllocator.getNextId(), aggregation, ExpressionUtils.and(predicates));
         }
@@ -215,7 +216,7 @@ public class ImplementIntersectAsUnion
             return new ProjectNode(
                     idAllocator.getNextId(),
                     node,
-                    columns.stream().collect(toMap(Function.identity(), Symbol::toQualifiedNameReference)));
+                    columns.stream().collect(toMap(Function.identity(), Symbol::toSymbolReference)));
         }
     }
 }

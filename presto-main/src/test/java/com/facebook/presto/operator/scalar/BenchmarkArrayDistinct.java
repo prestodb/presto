@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.operator.aggregation.TypedSet;
+import com.facebook.presto.operator.scalar.annotations.ScalarFunction;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
@@ -110,7 +111,7 @@ public class BenchmarkArrayDistinct
         public void setup()
         {
             MetadataManager metadata = MetadataManager.createTestMetadataManager();
-            metadata.addFunctions(new FunctionListBuilder(metadata.getTypeManager()).scalar(BenchmarkArrayDistinct.class).getFunctions());
+            metadata.addFunctions(new FunctionListBuilder().scalar(BenchmarkArrayDistinct.class).getFunctions());
             ExpressionCompiler compiler = new ExpressionCompiler(metadata);
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             Block[] blocks = new Block[TYPES.size()];

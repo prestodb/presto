@@ -19,6 +19,7 @@ import com.facebook.presto.tests.DistributedQueryRunner;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -34,6 +35,8 @@ import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.HOURS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -49,7 +52,7 @@ public class TestFileResourceGroupConfigurationManager
         builder.put("resource-groups.config-file", getResourceFilePath("resource_groups_memory_percentage.json"));
         Map<String, String> properties = builder.build();
 
-        try (DistributedQueryRunner queryRunner = createQueryRunner(properties)) {
+        try (DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of(), properties)) {
             queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
             while (true) {
                 TimeUnit.SECONDS.sleep(1);
@@ -85,6 +88,9 @@ public class TestFileResourceGroupConfigurationManager
         ResourceGroup global = new RootResourceGroup("global", (group, export) -> exported.set(export), directExecutor());
         manager.configure(global, new SelectionContext(true, "user", Optional.empty()));
         assertEquals(global.getSoftMemoryLimit(), new DataSize(1, MEGABYTE));
+        assertEquals(global.getSoftCpuLimit(), new Duration(1, HOURS));
+        assertEquals(global.getHardCpuLimit(), new Duration(1, DAYS));
+        assertEquals(global.getCpuQuotaGenerationMillisPerSecond(), 1000 * 24);
         assertEquals(global.getMaxQueuedQueries(), 1000);
         assertEquals(global.getMaxRunningQueries(), 100);
         assertEquals(global.getSchedulingPolicy(), WEIGHTED);
@@ -105,7 +111,7 @@ public class TestFileResourceGroupConfigurationManager
 
     private FileResourceGroupConfigurationManager parse(String fileName)
     {
-        ResourceGroupConfig config = new ResourceGroupConfig();
+        FileResourceGroupConfig config = new FileResourceGroupConfig();
         config.setConfigFile(getResourceFilePath(fileName));
         return new FileResourceGroupConfigurationManager(
                 (poolId, listener) -> { },

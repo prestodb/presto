@@ -87,16 +87,20 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Lists.transform;
+import static java.lang.Byte.parseByte;
 import static java.lang.Double.parseDouble;
 import static java.lang.Integer.parseInt;
 import static java.lang.Long.parseLong;
+import static java.lang.Short.parseShort;
 import static java.lang.String.format;
 import static java.math.BigDecimal.ROUND_UNNECESSARY;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -387,6 +391,26 @@ public final class HiveUtil
             return NullableValue.of(BOOLEAN, booleanPartitionKey(value, partitionName));
         }
 
+        if (TINYINT.equals(type)) {
+            if (isNull) {
+                return NullableValue.asNull(TINYINT);
+            }
+            if (value.isEmpty()) {
+                return NullableValue.of(TINYINT, 0L);
+            }
+            return NullableValue.of(TINYINT, tinyintPartitionKey(value, partitionName));
+        }
+
+        if (SMALLINT.equals(type)) {
+            if (isNull) {
+                return NullableValue.asNull(SMALLINT);
+            }
+            if (value.isEmpty()) {
+                return NullableValue.of(SMALLINT, 0L);
+            }
+            return NullableValue.of(SMALLINT, smallintPartitionKey(value, partitionName));
+        }
+
         if (INTEGER.equals(type)) {
             if (isNull) {
                 return NullableValue.asNull(INTEGER);
@@ -532,6 +556,26 @@ public final class HiveUtil
         }
         catch (NumberFormatException e) {
             throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for INTEGER partition key: %s", value, name));
+        }
+    }
+
+    public static long smallintPartitionKey(String value, String name)
+    {
+        try {
+            return parseShort(value);
+        }
+        catch (NumberFormatException e) {
+            throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for SMALLINT partition key: %s", value, name));
+        }
+    }
+
+    public static long tinyintPartitionKey(String value, String name)
+    {
+        try {
+            return parseByte(value);
+        }
+        catch (NumberFormatException e) {
+            throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for TINYINT partition key: %s", value, name));
         }
     }
 

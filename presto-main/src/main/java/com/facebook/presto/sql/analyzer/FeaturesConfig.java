@@ -13,14 +13,29 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.LegacyConfig;
 
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
+
+import java.util.List;
+
+import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 
 public class FeaturesConfig
 {
+    public static class ProcessingOptimization
+    {
+        public static final String DISABLED = "disabled";
+        public static final String COLUMNAR = "columnar";
+        public static final String COLUMNAR_DICTIONARY = "columnar_dictionary";
+
+        public static final List<String> AVAILABLE_OPTIONS = ImmutableList.of(DISABLED, COLUMNAR, COLUMNAR_DICTIONARY);
+    }
+
     public static final String FILE_BASED_RESOURCE_GROUP_MANAGER = "file";
     private boolean experimentalSyntaxEnabled;
     private boolean distributedIndexJoinsEnabled;
@@ -31,13 +46,17 @@ public class FeaturesConfig
     private boolean optimizeHashGeneration = true;
     private boolean optimizeSingleDistinct = true;
     private boolean pushTableWriteThroughUnion = true;
+    private boolean legacyArrayAgg;
 
-    private boolean columnarProcessing;
-    private boolean columnarProcessingDictionary;
+    private String processingOptimization = ProcessingOptimization.DISABLED;
     private boolean dictionaryAggregation;
     private boolean resourceGroups;
 
     private String resourceGroupManager = FILE_BASED_RESOURCE_GROUP_MANAGER;
+
+    private int re2JDfaStatesLimit = Integer.MAX_VALUE;
+    private int re2JDfaRetries = 5;
+    private RegexLibrary regexLibrary = JONI;
 
     @NotNull
     public String getResourceGroupManager()
@@ -92,6 +111,18 @@ public class FeaturesConfig
     public boolean isDistributedJoinsEnabled()
     {
         return distributedJoinsEnabled;
+    }
+
+    @Config("experimental.legacy-array-agg")
+    public FeaturesConfig setLegacyArrayAgg(boolean legacyArrayAgg)
+    {
+        this.legacyArrayAgg = legacyArrayAgg;
+        return this;
+    }
+
+    public boolean isLegacyArrayAgg()
+    {
+        return legacyArrayAgg;
     }
 
     @Config("distributed-joins-enabled")
@@ -174,27 +205,18 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isColumnarProcessing()
+    public String getProcessingOptimization()
     {
-        return columnarProcessing;
+        return processingOptimization;
     }
 
-    @Config("optimizer.columnar-processing")
-    public FeaturesConfig setColumnarProcessing(boolean columnarProcessing)
+    @Config("optimizer.processing-optimization")
+    public FeaturesConfig setProcessingOptimization(String processingOptimization)
     {
-        this.columnarProcessing = columnarProcessing;
-        return this;
-    }
-
-    public boolean isColumnarProcessingDictionary()
-    {
-        return columnarProcessingDictionary;
-    }
-
-    @Config("optimizer.columnar-processing-dictionary")
-    public FeaturesConfig setColumnarProcessingDictionary(boolean columnarProcessingDictionary)
-    {
-        this.columnarProcessingDictionary = columnarProcessingDictionary;
+        if (!ProcessingOptimization.AVAILABLE_OPTIONS.contains(processingOptimization)) {
+            throw new IllegalStateException(String.format("Value %s is not valid for processingOptimization.", processingOptimization));
+        }
+        this.processingOptimization = processingOptimization;
         return this;
     }
 
@@ -207,6 +229,44 @@ public class FeaturesConfig
     public FeaturesConfig setDictionaryAggregation(boolean dictionaryAggregation)
     {
         this.dictionaryAggregation = dictionaryAggregation;
+        return this;
+    }
+
+    @Min(2)
+    public int getRe2JDfaStatesLimit()
+    {
+        return re2JDfaStatesLimit;
+    }
+
+    @Config("re2j.dfa-states-limit")
+    public FeaturesConfig setRe2JDfaStatesLimit(int re2JDfaStatesLimit)
+    {
+        this.re2JDfaStatesLimit = re2JDfaStatesLimit;
+        return this;
+    }
+
+    @Min(0)
+    public int getRe2JDfaRetries()
+    {
+        return re2JDfaRetries;
+    }
+
+    @Config("re2j.dfa-retries")
+    public FeaturesConfig setRe2JDfaRetries(int re2JDfaRetries)
+    {
+        this.re2JDfaRetries = re2JDfaRetries;
+        return this;
+    }
+
+    public RegexLibrary getRegexLibrary()
+    {
+        return regexLibrary;
+    }
+
+    @Config("regex-library")
+    public FeaturesConfig setRegexLibrary(RegexLibrary regexLibrary)
+    {
+        this.regexLibrary = regexLibrary;
         return this;
     }
 }

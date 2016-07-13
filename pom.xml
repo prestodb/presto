@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>54</version>
+        <version>55</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.148-SNAPSHOT</version>
+    <version>0.151-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -46,9 +46,9 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.5.1</dep.antlr.version>
-        <dep.airlift.version>0.128</dep.airlift.version>
+        <dep.airlift.version>0.131</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
-        <dep.slice.version>0.19</dep.slice.version>
+        <dep.slice.version>0.22</dep.slice.version>
         <dep.aws-sdk.version>1.9.40</dep.aws-sdk.version>
         <dep.tempto.version>1.8</dep.tempto.version>
 
@@ -72,6 +72,7 @@
     </properties>
 
     <modules>
+        <module>presto-atop</module>
         <module>presto-spi</module>
         <module>presto-jmx</module>
         <module>presto-record-decoder</module>
@@ -163,6 +164,12 @@
                 <artifactId>presto-hive</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.teradata</groupId>
+                <artifactId>re2j-td</artifactId>
+                <version>1.4</version>
             </dependency>
 
             <dependency>
@@ -463,7 +470,7 @@
             <dependency>
                 <groupId>io.airlift.tpch</groupId>
                 <artifactId>tpch</artifactId>
-                <version>0.6</version>
+                <version>0.8</version>
             </dependency>
 
             <dependency>
@@ -651,7 +658,7 @@
             <dependency>
                 <groupId>org.apache.kafka</groupId>
                 <artifactId>kafka_2.10</artifactId>
-                <version>0.8.1.1</version>
+                <version>0.8.2.2</version>
                 <exclusions>
                     <exclusion>
                         <groupId>log4j</groupId>
@@ -659,7 +666,7 @@
                     </exclusion>
                     <exclusion>
                         <groupId>org.slf4j</groupId>
-                        <artifactId>slf4j-jdk14</artifactId>
+                        <artifactId>slf4j-log4j12</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -667,13 +674,13 @@
             <dependency>
                 <groupId>org.xerial.snappy</groupId>
                 <artifactId>snappy-java</artifactId>
-                <version>1.1.1.3</version>
+                <version>1.1.1.7</version>
             </dependency>
 
             <dependency>
                 <groupId>org.apache.zookeeper</groupId>
                 <artifactId>zookeeper</artifactId>
-                <version>3.3.6</version>
+                <version>3.4.6</version>
                 <exclusions>
                     <exclusion>
                         <artifactId>junit</artifactId>
@@ -683,17 +690,25 @@
                         <artifactId>log4j</artifactId>
                         <groupId>log4j</groupId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-log4j12</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>com.101tec</groupId>
                 <artifactId>zkclient</artifactId>
-                <version>0.4</version>
+                <version>0.8</version>
                 <exclusions>
                     <exclusion>
                         <artifactId>log4j</artifactId>
                         <groupId>log4j</groupId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-log4j12</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -771,7 +786,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-shade-plugin</artifactId>
-                    <version>2.3</version>
+                    <version>2.4.3</version>
                 </plugin>
 
                 <plugin>
@@ -787,9 +802,9 @@
                 </plugin>
 
                 <plugin>
-                    <groupId>org.tomdz.maven</groupId>
+                    <groupId>kr.motd.maven</groupId>
                     <artifactId>sphinx-maven-plugin</artifactId>
-                    <version>1.0.3</version>
+                    <version>1.3.1.Final</version>
                 </plugin>
 
                 <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
@@ -955,7 +970,12 @@
                             <consoleOutput>true</consoleOutput>
                             <includeTestSourceDirectory>true</includeTestSourceDirectory>
                             <configLocation>${air.main.basedir}/src/checkstyle/checks.xml</configLocation>
-                            <excludes>**/com/facebook/presto/operator/PagesIndexOrdering.java</excludes>
+                            <sourceDirectories>
+                                <directory>${project.build.sourceDirectory}</directory>
+                            </sourceDirectories>
+                            <testSourceDirectories>
+                                <directory>${project.build.testSourceDirectory}</directory>
+                            </testSourceDirectories>
                         </configuration>
                     </execution>
                 </executions>

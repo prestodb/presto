@@ -13,21 +13,15 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
 import com.facebook.presto.operator.aggregation.state.CorrelationState;
 import com.facebook.presto.operator.aggregation.state.CovarianceState;
 import com.facebook.presto.operator.aggregation.state.RegressionState;
 import com.facebook.presto.operator.aggregation.state.VarianceState;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.CaseFormat;
 
-import javax.annotation.Nullable;
-
-import java.lang.reflect.Method;
 import java.util.List;
 import java.util.function.Function;
 
@@ -56,6 +50,16 @@ public final class AggregationUtils
         state.setSumY(state.getSumY() + y);
     }
 
+    public static double getCovarianceSample(CovarianceState state)
+    {
+        return (state.getSumXY() - state.getSumX() * state.getSumY() / state.getCount()) / (state.getCount() - 1);
+    }
+
+    public static double getCovariancePopulation(CovarianceState state)
+    {
+        return (state.getSumXY() - state.getSumX() * state.getSumY() / state.getCount()) / state.getCount();
+    }
+
     public static void updateCorrelationState(CorrelationState state, double x, double y)
     {
         updateCovarianceState(state, x, y);
@@ -63,10 +67,42 @@ public final class AggregationUtils
         state.setSumYSquare(state.getSumYSquare() + y * y);
     }
 
+    public static double getCorrelation(CorrelationState state)
+    {
+        // Math comes from ISO9075-2:2011(E) 10.9 General Rules 7 c x
+        double dividend = state.getCount() * state.getSumXY() - state.getSumX() * state.getSumY();
+        dividend = dividend * dividend;
+        double divisor1 = state.getCount() * state.getSumXSquare() - state.getSumX() * state.getSumX();
+        double divisor2 = state.getCount() * state.getSumYSquare() - state.getSumY() * state.getSumY();
+
+        // divisor1 and divisor2 deliberately not checked for zero because the result can be Infty or NaN even if they are both not zero
+        return dividend / divisor1 / divisor2; // When the left expression yields a finite value, dividend / (divisor1 * divisor2) can yield Infty or NaN.
+    }
+
     public static void updateRegressionState(RegressionState state, double x, double y)
     {
         updateCovarianceState(state, x, y);
         state.setSumXSquare(state.getSumXSquare() + x * x);
+    }
+
+    public static double getRegressionSlope(RegressionState state)
+    {
+        // Math comes from ISO9075-2:2011(E) 10.9 General Rules 7 c xii
+        double dividend = state.getCount() * state.getSumXY() - state.getSumX() * state.getSumY();
+        double divisor = state.getCount() * state.getSumXSquare() - state.getSumX() * state.getSumX();
+
+        // divisor deliberately not checked for zero because the result can be Infty or NaN even if it is not zero
+        return dividend / divisor;
+    }
+
+    public static double getRegressionIntercept(RegressionState state)
+    {
+        // Math comes from ISO9075-2:2011(E) 10.9 General Rules 7 c xiii
+        double dividend = state.getSumY() * state.getSumXSquare() - state.getSumX() * state.getSumXY();
+        double divisor = state.getCount() * state.getSumXSquare() - state.getSumX() * state.getSumX();
+
+        // divisor deliberately not checked for zero because the result can be Infty or NaN even if it is not zero
+        return dividend / divisor;
     }
 
     public static void mergeVarianceState(VarianceState state, VarianceState otherState)
@@ -126,22 +162,12 @@ public final class AggregationUtils
         state.setSumXSquare(state.getSumXSquare() + otherState.getSumXSquare());
     }
 
-    public static Type getOutputType(@Nullable Method outputFunction, AccumulatorStateSerializer<?> serializer, TypeManager typeManager)
-    {
-        if (outputFunction == null) {
-            return serializer.getSerializedType();
-        }
-        else {
-            return typeManager.getType(TypeSignature.parseTypeSignature(outputFunction.getAnnotation(OutputFunction.class).value()));
-        }
-    }
-
-    public static String generateAggregationName(String baseName, Type outputType, List<Type> inputTypes)
+    public static String generateAggregationName(String baseName, TypeSignature outputType, List<TypeSignature> inputTypes)
     {
         StringBuilder sb = new StringBuilder();
-        sb.append(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, outputType.getTypeSignature().toString()));
-        for (Type inputType : inputTypes) {
-            sb.append(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, inputType.getTypeSignature().toString()));
+        sb.append(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, outputType.toString()));
+        for (TypeSignature inputType : inputTypes) {
+            sb.append(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, inputType.toString()));
         }
         sb.append(CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, baseName.toLowerCase(ENGLISH)));
 

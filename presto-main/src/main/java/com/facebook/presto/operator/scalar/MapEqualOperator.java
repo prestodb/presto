@@ -13,6 +13,9 @@ package com.facebook.presto.operator.scalar;
  * limitations under the License.
  */
 
+import com.facebook.presto.operator.scalar.annotations.OperatorDependency;
+import com.facebook.presto.operator.scalar.annotations.ScalarOperator;
+import com.facebook.presto.operator.scalar.annotations.TypeParameter;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -28,7 +31,7 @@ import java.util.Map;
 
 import static com.facebook.presto.metadata.OperatorType.EQUAL;
 import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 
 @ScalarOperator(EQUAL)
@@ -93,7 +96,7 @@ public final class MapEqualOperator
                 Throwables.propagateIfInstanceOf(t, Error.class);
                 Throwables.propagateIfInstanceOf(t, PrestoException.class);
 
-                throw new PrestoException(INTERNAL_ERROR, t);
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
         return true;
@@ -122,7 +125,7 @@ public final class MapEqualOperator
                 Throwables.propagateIfInstanceOf(t, Error.class);
                 Throwables.propagateIfInstanceOf(t, PrestoException.class);
 
-                throw new PrestoException(INTERNAL_ERROR, t);
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
 
@@ -140,7 +143,7 @@ public final class MapEqualOperator
                 Throwables.propagateIfInstanceOf(t, Error.class);
                 Throwables.propagateIfInstanceOf(t, PrestoException.class);
 
-                throw new PrestoException(INTERNAL_ERROR, t);
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
     }

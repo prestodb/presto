@@ -34,13 +34,11 @@ import static java.util.Objects.requireNonNull;
 public class LocalFileSplitManager
         implements ConnectorSplitManager
 {
-    private final LocalFileConnectorId connectorId;
     private final NodeManager nodeManager;
 
     @Inject
-    public LocalFileSplitManager(LocalFileConnectorId connectorId, NodeManager nodeManager)
+    public LocalFileSplitManager(NodeManager nodeManager)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
 
@@ -58,6 +56,6 @@ public class LocalFileSplitManager
                 .map(node -> new LocalFileSplit(node.getHostAndPort(), tableHandle.getSchemaTableName(), effectivePredicate))
                 .collect(Collectors.toList());
 
-        return new FixedSplitSource(connectorId.toString(), splits);
+        return new FixedSplitSource(splits);
     }
 }

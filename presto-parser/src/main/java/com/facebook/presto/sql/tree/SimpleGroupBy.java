@@ -57,6 +57,12 @@ public class SimpleGroupBy
     }
 
     @Override
+    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitSimpleGroupBy(this, context);
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {

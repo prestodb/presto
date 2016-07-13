@@ -14,59 +14,55 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.OutputBuffers.OutputBufferId;
+import com.google.common.collect.ImmutableMap;
 
-import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
-import static java.util.Objects.requireNonNull;
+import static com.facebook.presto.OutputBuffers.BufferType.PARTITIONED;
+import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
+import static com.google.common.base.Preconditions.checkArgument;
 
 @ThreadSafe
 public class PartitionedOutputBufferManager
         implements OutputBufferManager
 {
-    private final Consumer<OutputBuffers> outputBufferTarget;
-    @GuardedBy("this")
-    private final Map<TaskId, Integer> partitions = new LinkedHashMap<>();
-    @GuardedBy("this")
-    private boolean noMoreBufferIds;
+    private final Map<OutputBufferId, Integer> outputBuffers;
 
-    public PartitionedOutputBufferManager(Consumer<OutputBuffers> outputBufferTarget)
+    public PartitionedOutputBufferManager(int partitionCount, Consumer<OutputBuffers> outputBufferTarget)
     {
-        this.outputBufferTarget = requireNonNull(outputBufferTarget, "outputBufferTarget is null");
+        checkArgument(partitionCount >= 1, "partitionCount must be at least 1");
+
+        ImmutableMap.Builder<OutputBufferId, Integer> partitions = ImmutableMap.builder();
+        for (int partition = 0; partition < partitionCount; partition++) {
+            partitions.put(new OutputBufferId(partition), partition);
+        }
+
+        OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(PARTITIONED)
+                .withBuffers(partitions.build())
+                .withNoMoreBufferIds();
+        outputBufferTarget.accept(outputBuffers);
+
+        this.outputBuffers = outputBuffers.getBuffers();
     }
 
     @Override
-    public void addOutputBuffers(List<OutputBuffer> newBuffers, boolean noMoreBuffers)
+    public void addOutputBuffers(List<OutputBufferId> newBuffers, boolean noMoreBuffers)
     {
-        synchronized (this) {
-            if (noMoreBufferIds) {
-                // a stage can move to a final state (e.g., failed) while scheduling, so ignore
-                // the new buffers
-                return;
+        // All buffers are created in the constructor, so just validate that this isn't
+        // a request to add a new buffer
+        for (OutputBufferId newBuffer : newBuffers) {
+            Integer existingBufferId = outputBuffers.get(newBuffer);
+            if (existingBufferId == null) {
+                throw new IllegalStateException("Unexpected new output buffer " + newBuffer);
             }
-
-            for (OutputBuffer newBuffer : newBuffers) {
-                partitions.put(newBuffer.getBufferId(), newBuffer.getPartition());
+            if (newBuffer.getId() != existingBufferId) {
+                throw new IllegalStateException("newOutputBuffers has changed the assignment for task " + newBuffer);
             }
-
-            // only update target when all buffers have been created
-            if (!noMoreBuffers) {
-                return;
-            }
-            noMoreBufferIds = true;
         }
-
-        OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS
-                .withBuffers(partitions)
-                .withNoMoreBufferIds();
-
-        outputBufferTarget.accept(outputBuffers);
     }
 }

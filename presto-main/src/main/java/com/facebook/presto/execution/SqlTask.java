@@ -14,9 +14,14 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.execution.buffer.BufferResult;
+import com.facebook.presto.execution.buffer.LazyOutputBuffer;
+import com.facebook.presto.execution.buffer.OutputBuffer;
+import com.facebook.presto.execution.buffer.SharedOutputBuffer;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
@@ -57,7 +62,7 @@ public class SqlTask
     private final String taskInstanceId;
     private final URI location;
     private final TaskStateMachine taskStateMachine;
-    private final SharedBuffer sharedBuffer;
+    private final OutputBuffer outputBuffer;
     private final QueryContext queryContext;
 
     private final SqlTaskExecutionFactory sqlTaskExecutionFactory;
@@ -75,7 +80,8 @@ public class SqlTask
             SqlTaskExecutionFactory sqlTaskExecutionFactory,
             ExecutorService taskNotificationExecutor,
             final Function<SqlTask, ?> onDone,
-            DataSize maxBufferSize)
+            DataSize maxBufferSize,
+            boolean newSinkBufferImplementation)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = UUID.randomUUID().toString();
@@ -86,7 +92,12 @@ public class SqlTask
         requireNonNull(onDone, "onDone is null");
         requireNonNull(maxBufferSize, "maxBufferSize is null");
 
-        sharedBuffer = new SharedBuffer(taskId, taskInstanceId, taskNotificationExecutor, maxBufferSize, new UpdateSystemMemory(queryContext));
+        if (newSinkBufferImplementation) {
+            outputBuffer = new LazyOutputBuffer(taskId, taskInstanceId, taskNotificationExecutor, maxBufferSize, new UpdateSystemMemory(queryContext));
+        }
+        else {
+            outputBuffer = new SharedOutputBuffer(taskId, taskInstanceId, taskNotificationExecutor, maxBufferSize, new UpdateSystemMemory(queryContext));
+        }
         taskStateMachine = new TaskStateMachine(taskId, taskNotificationExecutor);
         taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
         {
@@ -114,10 +125,10 @@ public class SqlTask
                 if (newState == TaskState.FAILED || newState == TaskState.ABORTED) {
                     // don't close buffers for a failed query
                     // closed buffers signal to upstream tasks that everything finished cleanly
-                    sharedBuffer.fail();
+                    outputBuffer.fail();
                 }
                 else {
-                    sharedBuffer.destroy();
+                    outputBuffer.destroy();
                 }
 
                 try {
@@ -179,7 +190,14 @@ public class SqlTask
         }
     }
 
-    private TaskInfo createTaskInfo(TaskHolder taskHolder)
+    public TaskStatus getTaskStatus()
+    {
+        try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
+            return createTaskStatus(taskHolderReference.get());
+        }
+    }
+
+    private TaskStatus createTaskStatus(TaskHolder taskHolder)
     {
         // Always return a new TaskInfo with a larger version number;
         // otherwise a client will not accept the update
@@ -191,40 +209,55 @@ public class SqlTask
             failures = toFailures(taskStateMachine.getFailureCauses());
         }
 
-        TaskStats taskStats;
-        Set<PlanNodeId> noMoreSplits;
+        TaskStats taskStats = getTaskStats(taskHolder);
+        return new TaskStatus(taskStateMachine.getTaskId(),
+                taskInstanceId,
+                versionNumber,
+                state,
+                location,
+                failures,
+                taskStats.getQueuedPartitionedDrivers(),
+                taskStats.getRunningPartitionedDrivers(),
+                taskStats.getMemoryReservation());
+    }
 
+    private TaskStats getTaskStats(TaskHolder taskHolder)
+    {
         TaskInfo finalTaskInfo = taskHolder.getFinalTaskInfo();
         if (finalTaskInfo != null) {
-            taskStats = finalTaskInfo.getStats();
-            noMoreSplits = finalTaskInfo.getNoMoreSplits();
+            return finalTaskInfo.getStats();
         }
-        else {
-            SqlTaskExecution taskExecution = taskHolder.getTaskExecution();
-            if (taskExecution != null) {
-                taskStats = taskExecution.getTaskContext().getTaskStats();
-                noMoreSplits = taskExecution.getNoMoreSplits();
-            }
-            else {
-                // if the task completed without creation, set end time
-                DateTime endTime = state.isDone() ? DateTime.now() : null;
-                taskStats = new TaskStats(taskStateMachine.getCreatedTime(), endTime);
-                noMoreSplits = ImmutableSet.of();
-            }
+        SqlTaskExecution taskExecution = taskHolder.getTaskExecution();
+        if (taskExecution != null) {
+            return taskExecution.getTaskContext().getTaskStats();
         }
+        // if the task completed without creation, set end time
+        DateTime endTime = taskStateMachine.getState().isDone() ? DateTime.now() : null;
+        return new TaskStats(taskStateMachine.getCreatedTime(), endTime);
+    }
+
+    private static Set<PlanNodeId> getNoMoreSplits(TaskHolder taskHolder)
+    {
+        TaskInfo finalTaskInfo = taskHolder.getFinalTaskInfo();
+        if (finalTaskInfo != null) {
+            return finalTaskInfo.getNoMoreSplits();
+        }
+        SqlTaskExecution taskExecution = taskHolder.getTaskExecution();
+        if (taskExecution != null) {
+            return taskExecution.getNoMoreSplits();
+        }
+        return ImmutableSet.of();
+    }
+
+    private TaskInfo createTaskInfo(TaskHolder taskHolder)
+    {
+        TaskStats taskStats = getTaskStats(taskHolder);
+        Set<PlanNodeId> noMoreSplits = getNoMoreSplits(taskHolder);
 
         return new TaskInfo(
-                new TaskStatus(taskStateMachine.getTaskId(),
-                        taskInstanceId,
-                        versionNumber,
-                        state,
-                        location,
-                        failures,
-                        taskStats.getQueuedPartitionedDrivers(),
-                        taskStats.getRunningPartitionedDrivers(),
-                        taskStats.getMemoryReservation()),
+                createTaskStatus(taskHolder),
                 lastHeartbeat.get(),
-                sharedBuffer.getInfo(),
+                outputBuffer.getInfo(),
                 noMoreSplits,
                 taskStats,
                 needsPlan.get());
@@ -261,6 +294,11 @@ public class SqlTask
     public TaskInfo updateTask(Session session, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers)
     {
         try {
+            // The LazyOutput buffer does not support write methods, so the actual
+            // output buffer must be established before drivers are created (e.g.
+            // a VALUES query).
+            outputBuffer.setOutputBuffers(outputBuffers);
+
             // assure the task execution is only created once
             SqlTaskExecution taskExecution;
             synchronized (this) {
@@ -272,15 +310,13 @@ public class SqlTask
                 taskExecution = taskHolder.getTaskExecution();
                 if (taskExecution == null) {
                     checkState(fragment.isPresent(), "fragment must be present");
-                    taskExecution = sqlTaskExecutionFactory.create(session, queryContext, taskStateMachine, sharedBuffer, fragment.get(), sources);
+                    taskExecution = sqlTaskExecutionFactory.create(session, queryContext, taskStateMachine, outputBuffer, fragment.get(), sources);
                     taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
                     needsPlan.set(false);
                 }
             }
 
             if (taskExecution != null) {
-                // addSources checks for task completion, so update the buffers first and the task might complete earlier
-                sharedBuffer.setOutputBuffers(outputBuffers);
                 taskExecution.addSources(sources);
             }
         }
@@ -295,20 +331,20 @@ public class SqlTask
         return getTaskInfo();
     }
 
-    public CompletableFuture<BufferResult> getTaskResults(TaskId outputName, long startingSequenceId, DataSize maxSize)
+    public CompletableFuture<BufferResult> getTaskResults(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
     {
-        requireNonNull(outputName, "outputName is null");
+        requireNonNull(bufferId, "bufferId is null");
         checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
 
-        return sharedBuffer.get(outputName, startingSequenceId, maxSize);
+        return outputBuffer.get(bufferId, startingSequenceId, maxSize);
     }
 
-    public TaskInfo abortTaskResults(TaskId outputId)
+    public TaskInfo abortTaskResults(OutputBufferId bufferId)
     {
-        requireNonNull(outputId, "outputId is null");
+        requireNonNull(bufferId, "bufferId is null");
 
-        log.debug("Aborting task %s output %s", taskId, outputId);
-        sharedBuffer.abort(outputId);
+        log.debug("Aborting task %s output %s", taskId, bufferId);
+        outputBuffer.abort(bufferId);
 
         return getTaskInfo();
     }

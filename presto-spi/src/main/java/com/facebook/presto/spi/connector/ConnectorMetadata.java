@@ -40,11 +40,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.stream.Collectors;
 
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
+import static java.util.stream.Collectors.toList;
 
 public interface ConnectorMetadata
 {
@@ -171,6 +173,36 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Get the physical layout for a inserting into an existing table.
+     */
+    default Optional<ConnectorNewTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        List<ConnectorTableLayout> layouts = getTableLayouts(session, tableHandle, new Constraint<>(TupleDomain.all(), map -> true), Optional.empty())
+                .stream()
+                .map(ConnectorTableLayoutResult::getTableLayout)
+                .filter(layout -> layout.getNodePartitioning().isPresent())
+                .collect(toList());
+
+        if (layouts.isEmpty()) {
+            return Optional.empty();
+        }
+
+        if (layouts.size() > 1) {
+            throw new PrestoException(NOT_SUPPORTED, "Tables with multiple layouts can not be written");
+        }
+
+        ConnectorTableLayout layout = layouts.get(0);
+        ConnectorPartitioningHandle partitioningHandle = layout.getNodePartitioning().get().getPartitioningHandle();
+        Map<ColumnHandle, String> columnNamesByHandle = getColumnHandles(session, tableHandle).entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
+        List<String> partitionColumns = layout.getNodePartitioning().get().getPartitioningColumns().stream()
+                .map(columnNamesByHandle::get)
+                .collect(toList());
+
+        return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitionColumns));
+    }
+
+    /**
      * Begin the atomic creation of a table with data.
      */
     default ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
@@ -183,7 +215,7 @@ public interface ConnectorMetadata
      */
     default void finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
-        throw new PrestoException(INTERNAL_ERROR, "ConnectorMetadata beginCreateTable() is implemented without finishCreateTable()");
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginCreateTable() is implemented without finishCreateTable()");
     }
 
     /**
@@ -199,7 +231,7 @@ public interface ConnectorMetadata
      */
     default void finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
     {
-        throw new PrestoException(INTERNAL_ERROR, "ConnectorMetadata beginInsert() is implemented without finishInsert()");
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginInsert() is implemented without finishInsert()");
     }
 
     /**

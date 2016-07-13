@@ -165,7 +165,7 @@ this data must be mapped into columns to allow queries against the data.
 A table definition file consists of a JSON definition for a table. The
 name of the file can be arbitrary but must end in ``.json``.
 
-.. code-block:: json
+.. code-block:: none
 
     {
         "tableName": ...,
@@ -214,7 +214,7 @@ Field           Required  Type           Description
 
 Each field definition is a JSON object:
 
-.. code-block:: json
+.. code-block:: none
 
     {
         "name": ...,

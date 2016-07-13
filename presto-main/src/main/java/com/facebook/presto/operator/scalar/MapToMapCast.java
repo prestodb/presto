@@ -14,6 +14,9 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.operator.aggregation.TypedSet;
+import com.facebook.presto.operator.scalar.annotations.OperatorDependency;
+import com.facebook.presto.operator.scalar.annotations.ScalarOperator;
+import com.facebook.presto.operator.scalar.annotations.TypeParameter;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
@@ -87,7 +90,7 @@ public final class MapToMapCast
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
                 Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(StandardErrorCode.INTERNAL_ERROR, t);
+                throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
             }
         }
         Block keyBlock = keyBlockBuilder.build();
@@ -104,7 +107,7 @@ public final class MapToMapCast
                 catch (Throwable t) {
                     Throwables.propagateIfInstanceOf(t, Error.class);
                     Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                    throw new PrestoException(StandardErrorCode.INTERNAL_ERROR, t);
+                    throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
                 }
             }
             else {

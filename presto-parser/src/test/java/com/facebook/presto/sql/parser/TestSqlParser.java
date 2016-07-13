@@ -32,12 +32,15 @@ import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.CurrentTime;
+import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
+import com.facebook.presto.sql.tree.Execute;
+import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainType;
@@ -63,6 +66,7 @@ import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
@@ -73,6 +77,7 @@ import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.Rollup;
+import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowPartitions;
@@ -117,6 +122,8 @@ import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.positive;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestSqlParser
@@ -146,6 +153,18 @@ public class TestSqlParser
     }
 
     @Test
+    public void testQualifiedName()
+    {
+        assertEquals(QualifiedName.of("a", "b", "c", "d").toString(), "a.b.c.d");
+        assertEquals(QualifiedName.of("A", "b", "C", "d").toString(), "a.b.c.d");
+        assertTrue(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("b", "c", "d")));
+        assertTrue(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("a", "b", "c", "d")));
+        assertFalse(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("a", "c", "d")));
+        assertFalse(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("z", "a", "b", "c", "d")));
+        assertEquals(QualifiedName.of("a", "b", "c", "d"), QualifiedName.of("a", "b", "c", "d"));
+    }
+
+    @Test
     public void testGenericLiteral()
             throws Exception
     {
@@ -159,7 +178,7 @@ public class TestSqlParser
 
     @Test
     public void testBinaryLiteral()
-        throws Exception
+            throws Exception
     {
         assertExpression("x' '", new BinaryLiteral(""));
         assertExpression("x''", new BinaryLiteral(""));
@@ -204,8 +223,8 @@ public class TestSqlParser
             throws Exception
     {
         assertExpression("ARRAY [1, 2][1]", new SubscriptExpression(
-                        new ArrayConstructor(ImmutableList.<Expression>of(new LongLiteral("1"), new LongLiteral("2"))),
-                        new LongLiteral("1"))
+                new ArrayConstructor(ImmutableList.<Expression>of(new LongLiteral("1"), new LongLiteral("2"))),
+                new LongLiteral("1"))
         );
         try {
             assertExpression("CASE WHEN TRUE THEN ARRAY[1,2] END[1]", null);
@@ -899,12 +918,12 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty()));
 
-        assertStatement("SELECT test_row(11, 12).col0",
+        assertStatement("SELECT CAST(ROW(11, 12) AS ROW(COL0 INTEGER, COL1 INTEGER)).col0",
                 new Query(
                         Optional.empty(),
                         new QuerySpecification(
                                 selectList(
-                                        new DereferenceExpression(new FunctionCall(QualifiedName.of("test_row"), Lists.newArrayList(new LongLiteral("11"), new LongLiteral("12"))), "col0")
+                                        new DereferenceExpression(new Cast(new Row(Lists.newArrayList(new LongLiteral("11"), new LongLiteral("12"))), "ROW(COL0 INTEGER,COL1 INTEGER)"), "col0")
                                 ),
                                 Optional.empty(),
                                 Optional.empty(),
@@ -919,7 +938,7 @@ public class TestSqlParser
 
     @Test
     public void testSelectWithGroupBy()
-        throws Exception
+            throws Exception
     {
         assertStatement("SELECT * FROM table1 GROUP BY a",
                 new Query(
@@ -993,8 +1012,8 @@ public class TestSqlParser
                                 Optional.of(new GroupBy(false, ImmutableList.of(
                                         new GroupingSets(
                                                 ImmutableList.of(ImmutableList.of(QualifiedName.of("a"), QualifiedName.of("b")),
-                                                ImmutableList.of(QualifiedName.of("a")),
-                                                ImmutableList.of())),
+                                                        ImmutableList.of(QualifiedName.of("a")),
+                                                        ImmutableList.of())),
                                         new Cube(ImmutableList.of(QualifiedName.of("c"))),
                                         new Rollup(ImmutableList.of(QualifiedName.of("d")))))),
                                 Optional.empty(),
@@ -1438,10 +1457,64 @@ public class TestSqlParser
     {
         assertStatement("CALL foo()", new Call(QualifiedName.of("foo"), ImmutableList.of()));
         assertStatement("CALL foo(123, a => 1, b => 'go', 456)", new Call(QualifiedName.of("foo"), ImmutableList.of(
-                        new CallArgument(new LongLiteral("123")),
-                        new CallArgument("a", new LongLiteral("1")),
-                        new CallArgument("b", new StringLiteral("go")),
-                        new CallArgument(new LongLiteral("456")))));
+                new CallArgument(new LongLiteral("123")),
+                new CallArgument("a", new LongLiteral("1")),
+                new CallArgument("b", new StringLiteral("go")),
+                new CallArgument(new LongLiteral("456")))));
+    }
+
+    @Test
+    public void testPrepare()
+    {
+        assertStatement("PREPARE myquery FROM select * from foo",
+                new Prepare("myquery", simpleQuery(
+                        selectList(new AllColumns()),
+                        table(QualifiedName.of("foo")))));
+    }
+
+    @Test
+    public void testDeallocatePrepare()
+    {
+        assertStatement("DEALLOCATE PREPARE myquery", new Deallocate("myquery"));
+    }
+
+    @Test
+    public void testExecute()
+    {
+        assertStatement("EXECUTE myquery", new Execute("myquery"));
+    }
+
+    @Test
+    public void testExists()
+    {
+        assertStatement("SELECT EXISTS(SELECT 1)", simpleQuery(selectList(new ExistsPredicate(simpleQuery(selectList(new LongLiteral("1")))))));
+
+        assertStatement(
+                "SELECT EXISTS(SELECT 1) = EXISTS(SELECT 2)",
+                simpleQuery(
+                        selectList(new ComparisonExpression(
+                                ComparisonExpression.Type.EQUAL,
+                                new ExistsPredicate(simpleQuery(selectList(new LongLiteral("1")))),
+                                new ExistsPredicate(simpleQuery(selectList(new LongLiteral("2"))))))));
+
+        assertStatement(
+                "SELECT NOT EXISTS(SELECT 1) = EXISTS(SELECT 2)",
+                simpleQuery(
+                        selectList(
+                                new NotExpression(
+                                        new ComparisonExpression(
+                                                ComparisonExpression.Type.EQUAL,
+                                                new ExistsPredicate(simpleQuery(selectList(new LongLiteral("1")))),
+                                                new ExistsPredicate(simpleQuery(selectList(new LongLiteral("2")))))))));
+
+        assertStatement(
+                "SELECT (NOT EXISTS(SELECT 1)) = EXISTS(SELECT 2)",
+                simpleQuery(
+                        selectList(
+                                new ComparisonExpression(
+                                        ComparisonExpression.Type.EQUAL,
+                                        new NotExpression(new ExistsPredicate(simpleQuery(selectList(new LongLiteral("1"))))),
+                                        new ExistsPredicate(simpleQuery(selectList(new LongLiteral("2"))))))));
     }
 
     private static void assertCast(String type)

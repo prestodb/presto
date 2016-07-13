@@ -69,8 +69,12 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 
+import static com.facebook.presto.raptor.RaptorColumnHandle.BUCKET_NUMBER_COLUMN_NAME;
 import static com.facebook.presto.raptor.RaptorColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.raptor.RaptorColumnHandle.SHARD_UUID_COLUMN_NAME;
+import static com.facebook.presto.raptor.RaptorColumnHandle.SHARD_UUID_COLUMN_TYPE;
+import static com.facebook.presto.raptor.RaptorColumnHandle.bucketNumberColumnHandle;
+import static com.facebook.presto.raptor.RaptorColumnHandle.isHiddenColumn;
 import static com.facebook.presto.raptor.RaptorColumnHandle.shardRowIdHandle;
 import static com.facebook.presto.raptor.RaptorColumnHandle.shardUuidColumnHandle;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
@@ -95,8 +99,8 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
@@ -188,7 +192,8 @@ public class RaptorMetadata
             throw new PrestoException(RAPTOR_ERROR, "Table does not have any columns: " + tableName);
         }
 
-        columns.add(hiddenColumn(SHARD_UUID_COLUMN_NAME, VARCHAR));
+        columns.add(hiddenColumn(SHARD_UUID_COLUMN_NAME, SHARD_UUID_COLUMN_TYPE));
+        columns.add(hiddenColumn(BUCKET_NUMBER_COLUMN_NAME, INTEGER));
         return new ConnectorTableMetadata(tableName, columns);
     }
 
@@ -209,8 +214,13 @@ public class RaptorMetadata
             }
             builder.put(tableColumn.getColumnName(), getRaptorColumnHandle(tableColumn));
         }
+
         RaptorColumnHandle uuidColumn = shardUuidColumnHandle(connectorId);
         builder.put(uuidColumn.getColumnName(), uuidColumn);
+
+        RaptorColumnHandle bucketNumberColumn = bucketNumberColumnHandle(connectorId);
+        builder.put(bucketNumberColumn.getColumnName(), bucketNumberColumn);
+
         return builder.build();
     }
 
@@ -232,7 +242,7 @@ public class RaptorMetadata
         long tableId = checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getTableId();
         RaptorColumnHandle column = checkType(columnHandle, RaptorColumnHandle.class, "columnHandle");
 
-        if (column.isShardRowId() || column.isShardUuid()) {
+        if (isHiddenColumn(column.getColumnId())) {
             return hiddenColumn(column.getColumnName(), column.getColumnType());
         }
 

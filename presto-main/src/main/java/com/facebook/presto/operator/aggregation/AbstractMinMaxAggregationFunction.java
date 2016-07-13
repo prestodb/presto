@@ -46,8 +46,10 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
 
@@ -72,7 +74,11 @@ public abstract class AbstractMinMaxAggregationFunction
 
     protected AbstractMinMaxAggregationFunction(String name, OperatorType operatorType)
     {
-        super(name, ImmutableList.of(orderableTypeParameter("E")), ImmutableList.of(), "E", ImmutableList.of("E"));
+        super(name,
+                ImmutableList.of(orderableTypeParameter("E")),
+                ImmutableList.of(),
+                parseTypeSignature("E"),
+                ImmutableList.of(parseTypeSignature("E")));
         requireNonNull(operatorType);
         this.operatorType = operatorType;
     }
@@ -133,12 +139,11 @@ public abstract class AbstractMinMaxAggregationFunction
         AccumulatorStateFactory<?> stateFactory = compiler.generateStateFactory(stateInterface, classLoader);
 
         Type intermediateType = stateSerializer.getSerializedType();
-        List<ParameterMetadata> inputParameterMetadata = createInputParameterMetadata(type);
         AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(getSignature().getName(), type, inputTypes),
-                inputParameterMetadata,
+                generateAggregationName(getSignature().getName(), type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
+                createParameterMetadata(type),
                 inputFunction,
-                inputParameterMetadata,
+                createParameterMetadata(intermediateType),
                 inputFunction,
                 null,
                 outputFunction,
@@ -152,7 +157,7 @@ public abstract class AbstractMinMaxAggregationFunction
         return new InternalAggregationFunction(getSignature().getName(), inputTypes, intermediateType, type, true, false, factory);
     }
 
-    private static List<ParameterMetadata> createInputParameterMetadata(Type type)
+    private static List<ParameterMetadata> createParameterMetadata(Type type)
     {
         return ImmutableList.of(
                 new ParameterMetadata(STATE),
@@ -174,7 +179,7 @@ public abstract class AbstractMinMaxAggregationFunction
         catch (Throwable t) {
             Throwables.propagateIfInstanceOf(t, Error.class);
             Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(INTERNAL_ERROR, t);
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
         }
     }
 
@@ -193,7 +198,7 @@ public abstract class AbstractMinMaxAggregationFunction
         catch (Throwable t) {
             Throwables.propagateIfInstanceOf(t, Error.class);
             Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(INTERNAL_ERROR, t);
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
         }
     }
 
@@ -211,7 +216,7 @@ public abstract class AbstractMinMaxAggregationFunction
         catch (Throwable t) {
             Throwables.propagateIfInstanceOf(t, Error.class);
             Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(INTERNAL_ERROR, t);
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
         }
     }
 
@@ -230,7 +235,7 @@ public abstract class AbstractMinMaxAggregationFunction
         catch (Throwable t) {
             Throwables.propagateIfInstanceOf(t, Error.class);
             Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(INTERNAL_ERROR, t);
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
         }
     }
 
@@ -248,7 +253,7 @@ public abstract class AbstractMinMaxAggregationFunction
         catch (Throwable t) {
             Throwables.propagateIfInstanceOf(t, Error.class);
             Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(INTERNAL_ERROR, t);
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
         }
     }
 }

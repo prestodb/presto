@@ -20,6 +20,10 @@ import org.testng.annotations.Test;
 import java.util.Map;
 
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.FILE_BASED_RESOURCE_GROUP_MANAGER;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.ProcessingOptimization.COLUMNAR_DICTIONARY;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.ProcessingOptimization.DISABLED;
+import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
+import static com.facebook.presto.sql.analyzer.RegexLibrary.RE2J;
 import static io.airlift.configuration.testing.ConfigAssertions.assertDeprecatedEquivalence;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
@@ -40,9 +44,12 @@ public class TestFeaturesConfig
                 .setOptimizeHashGeneration(true)
                 .setOptimizeSingleDistinct(true)
                 .setPushTableWriteThroughUnion(true)
-                .setColumnarProcessing(false)
-                .setColumnarProcessingDictionary(false)
+                .setProcessingOptimization(DISABLED)
                 .setDictionaryAggregation(false)
+                .setLegacyArrayAgg(false)
+                .setRegexLibrary(JONI)
+                .setRe2JDfaStatesLimit(Integer.MAX_VALUE)
+                .setRe2JDfaRetries(5)
                 .setResourceGroupManager(FILE_BASED_RESOURCE_GROUP_MANAGER));
     }
 
@@ -52,6 +59,7 @@ public class TestFeaturesConfig
         Map<String, String> propertiesLegacy = new ImmutableMap.Builder<String, String>()
                 .put("analyzer.experimental-syntax-enabled", "true")
                 .put("experimental.resource-groups-enabled", "true")
+                .put("experimental.legacy-array-agg", "true")
                 .put("distributed-index-joins-enabled", "true")
                 .put("distributed-joins-enabled", "false")
                 .put("colocated-joins-enabled", "true")
@@ -60,14 +68,17 @@ public class TestFeaturesConfig
                 .put("optimizer.optimize-hash-generation", "false")
                 .put("optimizer.optimize-single-distinct", "false")
                 .put("optimizer.push-table-write-through-union", "false")
-                .put("optimizer.columnar-processing", "true")
-                .put("optimizer.columnar-processing-dictionary", "true")
+                .put("optimizer.processing-optimization", "columnar_dictionary")
                 .put("optimizer.dictionary-aggregation", "true")
+                .put("regex-library", "RE2J")
+                .put("re2j.dfa-states-limit", "42")
+                .put("re2j.dfa-retries", "42")
                 .put("resource-group-manager", "test")
                 .build();
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("experimental-syntax-enabled", "true")
                 .put("experimental.resource-groups-enabled", "true")
+                .put("experimental.legacy-array-agg", "true")
                 .put("distributed-index-joins-enabled", "true")
                 .put("distributed-joins-enabled", "false")
                 .put("colocated-joins-enabled", "true")
@@ -76,9 +87,11 @@ public class TestFeaturesConfig
                 .put("optimizer.optimize-hash-generation", "false")
                 .put("optimizer.optimize-single-distinct", "false")
                 .put("optimizer.push-table-write-through-union", "false")
-                .put("optimizer.columnar-processing", "true")
-                .put("optimizer.columnar-processing-dictionary", "true")
+                .put("optimizer.processing-optimization", "columnar_dictionary")
                 .put("optimizer.dictionary-aggregation", "true")
+                .put("regex-library", "RE2J")
+                .put("re2j.dfa-states-limit", "42")
+                .put("re2j.dfa-retries", "42")
                 .put("resource-group-manager", "test")
                 .build();
 
@@ -93,9 +106,12 @@ public class TestFeaturesConfig
                 .setOptimizeHashGeneration(false)
                 .setOptimizeSingleDistinct(false)
                 .setPushTableWriteThroughUnion(false)
-                .setColumnarProcessing(true)
-                .setColumnarProcessingDictionary(true)
+                .setProcessingOptimization(COLUMNAR_DICTIONARY)
                 .setDictionaryAggregation(true)
+                .setLegacyArrayAgg(true)
+                .setRegexLibrary(RE2J)
+                .setRe2JDfaStatesLimit(42)
+                .setRe2JDfaRetries(42)
                 .setResourceGroupManager("test");
 
         assertFullMapping(properties, expected);

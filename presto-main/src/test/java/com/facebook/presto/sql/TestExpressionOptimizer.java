@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
@@ -41,7 +42,7 @@ public class TestExpressionOptimizer
     public void testPossibleExponentialOptimizationTime()
     {
         TypeRegistry typeManager = new TypeRegistry();
-        ExpressionOptimizer optimizer = new ExpressionOptimizer(new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), false), typeManager, TEST_SESSION);
+        ExpressionOptimizer optimizer = new ExpressionOptimizer(new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig()), typeManager, TEST_SESSION);
         RowExpression expression = new ConstantExpression(1L, BIGINT);
         for (int i = 0; i < 100; i++) {
             Signature signature = internalOperator(OperatorType.ADD.name(), parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BIGINT));
@@ -54,7 +55,7 @@ public class TestExpressionOptimizer
     public void testTryOptimization()
     {
         TypeRegistry typeManager = new TypeRegistry();
-        ExpressionOptimizer optimizer = new ExpressionOptimizer(new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), false), typeManager, TEST_SESSION);
+        ExpressionOptimizer optimizer = new ExpressionOptimizer(new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig()), typeManager, TEST_SESSION);
         Signature signature = new Signature("TRY", SCALAR, BIGINT.getTypeSignature());
 
         RowExpression tryExpression =  new CallExpression(signature, BIGINT, ImmutableList.of(new ConstantExpression(1L, BIGINT)));
@@ -68,7 +69,7 @@ public class TestExpressionOptimizer
     public void testIfConstantOptimization()
     {
         TypeRegistry typeManager = new TypeRegistry();
-        ExpressionOptimizer optimizer = new ExpressionOptimizer(new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), false), typeManager, TEST_SESSION);
+        ExpressionOptimizer optimizer = new ExpressionOptimizer(new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig()), typeManager, TEST_SESSION);
 
         assertEquals(optimizer.optimize(ifExpression(new ConstantExpression(true, BOOLEAN), 1L, 2L)), new ConstantExpression(1L, BIGINT));
         assertEquals(optimizer.optimize(ifExpression(new ConstantExpression(false, BOOLEAN), 1L, 2L)), new ConstantExpression(2L, BIGINT));

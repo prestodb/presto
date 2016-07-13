@@ -35,6 +35,7 @@ import java.util.TimeZone;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.US_ASCII;
+import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -95,10 +96,10 @@ public class ClientOptions
     @Option(name = "--execute", title = "execute", description = "Execute specified statements and exit")
     public String execute;
 
-    @Option(name = "--output-format", title = "output-format", description = "Output format for batch mode (default: CSV)")
+    @Option(name = "--output-format", title = "output-format", description = "Output format for batch mode [ALIGNED, VERTICAL, CSV, TSV, CSV_HEADER, TSV_HEADER, NULL] (default: CSV)")
     public OutputFormat outputFormat = OutputFormat.CSV;
 
-    @Option(name = "--session", title = "session", description = "Session property (property can be used multiple times; format is key=value)")
+    @Option(name = "--session", title = "session", description = "Session property (property can be used multiple times; format is key=value; use 'SHOW SESSION' to see available properties)")
     public final List<ClientSessionProperty> sessionProperties = new ArrayList<>();
 
     @Option(name = "--socks-proxy", title = "socks-proxy", description = "SOCKS proxy to use for server connections")
@@ -129,6 +130,7 @@ public class ClientOptions
                 TimeZone.getDefault().getID(),
                 Locale.getDefault(),
                 toProperties(sessionProperties),
+                emptyMap(),
                 null,
                 debug,
                 clientRequestTimeout);

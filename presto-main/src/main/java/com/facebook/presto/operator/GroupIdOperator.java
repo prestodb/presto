@@ -41,25 +41,27 @@ public class GroupIdOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final List<Type> inputTypes;
         private final List<Type> outputTypes;
         private final List<List<Integer>> groupingSetChannels;
+        private final List<Integer> groupingChannels;
+        private final List<Integer> copyChannels;
 
         private boolean closed;
 
         public GroupIdOperatorFactory(
                 int operatorId,
                 PlanNodeId planNodeId,
-                List<? extends Type> inputTypes,
-                List<List<Integer>> groupingSetChannels)
+                List<? extends Type> outputTypes,
+                List<List<Integer>> groupingSetChannels,
+                List<Integer> groupingChannels,
+                List<Integer> copyChannels)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
+            this.outputTypes = ImmutableList.copyOf(requireNonNull(outputTypes));
             this.groupingSetChannels = ImmutableList.copyOf(requireNonNull(groupingSetChannels));
-            this.inputTypes = ImmutableList.copyOf(requireNonNull(inputTypes));
-
-            // add the groupId channel to the output types
-            this.outputTypes = ImmutableList.<Type>builder().addAll(inputTypes).add(BIGINT).build();
+            this.groupingChannels = ImmutableList.copyOf(requireNonNull(groupingChannels));
+            this.copyChannels = ImmutableList.copyOf(requireNonNull(copyChannels));
         }
 
         @Override
@@ -78,10 +80,11 @@ public class GroupIdOperator
                     .flatMap(Collection::stream)
                     .collect(toImmutableSet());
 
+            // create an array of bitset for fast lookup of which columns are part of a given grouping set
             // will have a 'true' for every channel that should be set to null for each grouping set
             BitSet[] groupingSetNullChannels = new BitSet[groupingSetChannels.size()];
             for (int i = 0; i < groupingSetChannels.size(); i++) {
-                groupingSetNullChannels[i] = new BitSet(inputTypes.size());
+                groupingSetNullChannels[i] = new BitSet(groupingChannels.size() + copyChannels.size());
                 // first set all grouping columns to true
                 for (int groupingColumn : allGroupingColumns) {
                     groupingSetNullChannels[i].set(groupingColumn, true);
@@ -92,13 +95,15 @@ public class GroupIdOperator
                 }
             }
 
-            Block[] nullBlocks = new Block[inputTypes.size()];
-            for (int i = 0; i < nullBlocks.length; i++) {
-                nullBlocks[i] = inputTypes.get(i).createBlockBuilder(new BlockBuilderStatus(), 1)
+            // create null blocks for every grouping channel
+            Block[] nullBlocks = new Block[groupingChannels.size()];
+            for (int i = 0; i < groupingChannels.size(); i++) {
+                nullBlocks[i] = outputTypes.get(i).createBlockBuilder(new BlockBuilderStatus(), 1)
                         .appendNull()
                         .build();
             }
 
+            // create groupid blocks for every group
             Block[] groupIdBlocks = new Block[groupingSetNullChannels.length];
             for (int i = 0; i < groupingSetNullChannels.length; i++) {
                 BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 1);
@@ -106,7 +111,13 @@ public class GroupIdOperator
                 groupIdBlocks[i] = builder.build();
             }
 
-            return new GroupIdOperator(operatorContext, outputTypes, groupingSetNullChannels, nullBlocks, groupIdBlocks);
+            // create array of input channels for every grouping channel
+            int[] groupInputs = groupingChannels.stream().mapToInt(Integer::intValue).toArray();
+
+            // create array of input channels for every copy channel
+            int[] copyInputs = copyChannels.stream().mapToInt(Integer::intValue).toArray();
+
+            return new GroupIdOperator(operatorContext, outputTypes, groupingSetNullChannels, nullBlocks, groupIdBlocks, groupInputs, copyInputs);
         }
 
         @Override
@@ -118,7 +129,7 @@ public class GroupIdOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new GroupIdOperatorFactory(operatorId, planNodeId, inputTypes, groupingSetChannels);
+            return new GroupIdOperatorFactory(operatorId, planNodeId, outputTypes, groupingSetChannels, groupingChannels, copyChannels);
         }
     }
 
@@ -127,6 +138,8 @@ public class GroupIdOperator
     private final BitSet[] groupingSetNullChannels;
     private final Block[] nullBlocks;
     private final Block[] groupIdBlocks;
+    private final int[] groupInputs;
+    private final int[] copyInputs;
 
     private Page currentPage = null;
     private int currentGroupingSet = 0;
@@ -137,15 +150,18 @@ public class GroupIdOperator
             List<Type> types,
             BitSet[] groupingSetNullChannels,
             Block[] nullBlocks,
-            Block[] groupIdBlocks)
+            Block[] groupIdBlocks,
+            int[] groupInputs,
+            int[] copyInputs)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.types = requireNonNull(types, "inputTypes is null");
+        this.types = requireNonNull(types, "types is null");
         this.groupingSetNullChannels =  requireNonNull(groupingSetNullChannels, "groupingSetNullChannels is null");
         this.nullBlocks = requireNonNull(nullBlocks);
-        checkArgument(nullBlocks.length == (types.size() - 1), "length of nullBlocks must be one plus length of types");
         this.groupIdBlocks = requireNonNull(groupIdBlocks);
         checkArgument(groupIdBlocks.length == groupingSetNullChannels.length, "groupIdBlocks and groupingSetNullChannels must have the same length");
+        this.groupInputs = requireNonNull(groupInputs);
+        this.copyInputs = requireNonNull(copyInputs);
     }
 
     @Override
@@ -200,16 +216,19 @@ public class GroupIdOperator
     private Page generateNextPage()
     {
         // generate 'n' pages for every input page, where n is the number of grouping sets
-        Block[] inputBlocks = currentPage.getBlocks();
-        Block[] outputBlocks = new Block[currentPage.getChannelCount() + 1];
+        Block[] outputBlocks = new Block[types.size()];
 
-        for (int channel = 0; channel < currentPage.getChannelCount(); channel++) {
-            if (groupingSetNullChannels[currentGroupingSet].get(channel)) {
-                outputBlocks[channel] = new RunLengthEncodedBlock(nullBlocks[channel], currentPage.getPositionCount());
+        for (int i = 0; i < groupInputs.length; i++) {
+            if (groupingSetNullChannels[currentGroupingSet].get(groupInputs[i])) {
+                outputBlocks[i] = new RunLengthEncodedBlock(nullBlocks[i], currentPage.getPositionCount());
             }
             else {
-                outputBlocks[channel] = inputBlocks[channel];
+                outputBlocks[i] = currentPage.getBlock(groupInputs[i]);
             }
+        }
+
+        for (int i = 0; i < copyInputs.length; i++) {
+            outputBlocks[groupInputs.length + i] = currentPage.getBlock(copyInputs[i]);
         }
 
         outputBlocks[outputBlocks.length - 1] = new RunLengthEncodedBlock(groupIdBlocks[currentGroupingSet], currentPage.getPositionCount());

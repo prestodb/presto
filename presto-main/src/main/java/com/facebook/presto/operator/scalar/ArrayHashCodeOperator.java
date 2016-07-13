@@ -13,6 +13,10 @@ package com.facebook.presto.operator.scalar;
  * limitations under the License.
  */
 
+import com.facebook.presto.operator.scalar.annotations.OperatorDependency;
+import com.facebook.presto.operator.scalar.annotations.ScalarOperator;
+import com.facebook.presto.operator.scalar.annotations.TypeParameter;
+import com.facebook.presto.operator.scalar.annotations.TypeParameterSpecialization;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.Block;
@@ -51,7 +55,7 @@ public final class ArrayHashCodeOperator
                 Throwables.propagateIfInstanceOf(t, Error.class);
                 Throwables.propagateIfInstanceOf(t, PrestoException.class);
 
-                throw new PrestoException(StandardErrorCode.INTERNAL_ERROR, t);
+                throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
             }
         }
         return hash;
@@ -75,7 +79,7 @@ public final class ArrayHashCodeOperator
                 Throwables.propagateIfInstanceOf(t, Error.class);
                 Throwables.propagateIfInstanceOf(t, PrestoException.class);
 
-                throw new PrestoException(StandardErrorCode.INTERNAL_ERROR, t);
+                throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
             }
         }
         return hash;
@@ -99,7 +103,7 @@ public final class ArrayHashCodeOperator
                 Throwables.propagateIfInstanceOf(t, Error.class);
                 Throwables.propagateIfInstanceOf(t, PrestoException.class);
 
-                throw new PrestoException(StandardErrorCode.INTERNAL_ERROR, t);
+                throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
             }
         }
         return hash;
@@ -123,7 +127,7 @@ public final class ArrayHashCodeOperator
                 Throwables.propagateIfInstanceOf(t, Error.class);
                 Throwables.propagateIfInstanceOf(t, PrestoException.class);
 
-                throw new PrestoException(StandardErrorCode.INTERNAL_ERROR, t);
+                throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
             }
         }
         return hash;
@@ -147,7 +151,7 @@ public final class ArrayHashCodeOperator
                 Throwables.propagateIfInstanceOf(t, Error.class);
                 Throwables.propagateIfInstanceOf(t, PrestoException.class);
 
-                throw new PrestoException(StandardErrorCode.INTERNAL_ERROR, t);
+                throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
             }
         }
         return hash;

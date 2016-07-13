@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ClientTypeSignature;
 import com.facebook.presto.client.Column;
@@ -21,18 +22,17 @@ import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StageStats;
 import com.facebook.presto.client.StatementStats;
-import com.facebook.presto.execution.BufferInfo;
 import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStats;
-import com.facebook.presto.execution.SharedBufferInfo;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
-import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.execution.buffer.BufferInfo;
+import com.facebook.presto.execution.buffer.OutputBufferInfo;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientSupplier;
@@ -83,6 +83,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -90,14 +91,16 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_ADDED_PREPARE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_TRANSACTION_ID;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_DEALLOCATED_PREPARE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
 import static com.facebook.presto.server.ResourceUtil.assertRequest;
 import static com.facebook.presto.server.ResourceUtil.createSessionForRequest;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.toErrorType;
+import static com.facebook.presto.server.ResourceUtil.urlEncode;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -210,6 +213,18 @@ public class StatementResource
         query.getResetSessionProperties().stream()
                 .forEach(name -> response.header(PRESTO_CLEAR_SESSION, name));
 
+        // add added prepare statements
+        for (Entry<String, String> entry : query.getAddedPreparedStatements().entrySet()) {
+            String encodedKey = urlEncode(entry.getKey());
+            String encodedValue = urlEncode(entry.getValue());
+            response.header(PRESTO_ADDED_PREPARE, encodedKey + '=' + encodedValue);
+        }
+
+        // add deallocated prepare statements
+        for (String name : query.getDeallocatedPreparedStatements()) {
+            response.header(PRESTO_DEALLOCATED_PREPARE, urlEncode(name));
+        }
+
         // add new transaction ID
         query.getStartedTransactionId()
                 .ifPresent(transactionId -> response.header(PRESTO_STARTED_TRANSACTION_ID, transactionId));
@@ -262,6 +277,12 @@ public class StatementResource
         private Set<String> resetSessionProperties;
 
         @GuardedBy("this")
+        private Map<String, String> addedPreparedStatements;
+
+        @GuardedBy("this")
+        private Set<String> deallocatedPreparedStatements;
+
+        @GuardedBy("this")
         private Optional<TransactionId> startedTransactionId;
 
         @GuardedBy("this")
@@ -312,6 +333,16 @@ public class StatementResource
         public synchronized Set<String> getResetSessionProperties()
         {
             return resetSessionProperties;
+        }
+
+        public synchronized Map<String, String> getAddedPreparedStatements()
+        {
+            return addedPreparedStatements;
+        }
+
+        public synchronized Set<String> getDeallocatedPreparedStatements()
+        {
+            return deallocatedPreparedStatements;
         }
 
         public synchronized Optional<TransactionId> getStartedTransactionId()
@@ -396,13 +427,17 @@ public class StatementResource
 
             // only return a next if the query is not done or there is more data to send (due to buffering)
             URI nextResultsUri = null;
-            if ((!queryInfo.getState().isDone()) || (!exchangeClient.isClosed())) {
+            if ((!queryInfo.isFinalQueryInfo()) || (!exchangeClient.isClosed())) {
                 nextResultsUri = createNextResultsUri(uriInfo);
             }
 
             // update setSessionProperties
             setSessionProperties = queryInfo.getSetSessionProperties();
             resetSessionProperties = queryInfo.getResetSessionProperties();
+
+            // update preparedStatements
+            addedPreparedStatements = queryInfo.getAddedPreparedStatements();
+            deallocatedPreparedStatements = queryInfo.getDeallocatedPreparedStatements();
 
             // update startedTransactionId
             startedTransactionId = queryInfo.getStartedTransactionId();
@@ -490,7 +525,7 @@ public class StatementResource
             // add any additional output locations
             if (!outputStage.getState().isDone()) {
                 for (TaskInfo taskInfo : outputStage.getTasks()) {
-                    SharedBufferInfo outputBuffers = taskInfo.getOutputBuffers();
+                    OutputBufferInfo outputBuffers = taskInfo.getOutputBuffers();
                     List<BufferInfo> buffers = outputBuffers.getBuffers();
                     if (buffers.isEmpty() || outputBuffers.getState().canAddBuffers()) {
                         // output buffer has not been created yet
@@ -501,7 +536,7 @@ public class StatementResource
                             taskInfo.getTaskStatus().getTaskId(),
                             buffers);
 
-                    TaskId bufferId = Iterables.getOnlyElement(buffers).getBufferId();
+                    OutputBufferId bufferId = Iterables.getOnlyElement(buffers).getBufferId();
                     URI uri = uriBuilderFrom(taskInfo.getTaskStatus().getSelf()).appendPath("results").appendPath(bufferId.toString()).build();
                     exchangeClient.addLocation(uri);
                 }
@@ -563,6 +598,7 @@ public class StatementResource
 
             return StatementStats.builder()
                     .setState(queryInfo.getState().toString())
+                    .setQueued(queryInfo.getState() == QueryState.QUEUED)
                     .setScheduled(queryInfo.isScheduled())
                     .setNodes(globalUniqueNodes(outputStage).size())
                     .setTotalSplits(queryStats.getTotalDrivers())
@@ -677,7 +713,7 @@ public class StatementResource
                 errorCode = queryInfo.getErrorCode();
             }
             else {
-                errorCode = INTERNAL_ERROR.toErrorCode();
+                errorCode = GENERIC_INTERNAL_ERROR.toErrorCode();
                 log.warn("Failed query %s has no error code", queryInfo.getQueryId());
             }
             return new QueryError(
@@ -685,7 +721,7 @@ public class StatementResource
                     null,
                     errorCode.getCode(),
                     errorCode.getName(),
-                    toErrorType(errorCode.getCode()).toString(),
+                    errorCode.getType().toString(),
                     failure.getErrorLocation(),
                     failure);
         }

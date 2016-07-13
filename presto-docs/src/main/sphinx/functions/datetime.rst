@@ -167,7 +167,7 @@ Specifier Description
 ``%D``    Day of the month with English suffix (``0th``, ``1st``, ``2nd``, ``3rd``, ...)
 ``%d``    Day of the month, numeric (``00`` .. ``31``)
 ``%e``    Day of the month, numeric (``0`` .. ``31``)
-``%f``    Microseconds (``000000`` .. ``999999``)
+``%f``    Fraction of second (6 digits for printing: ``000000`` .. ``999000``; 1 - 9 digits for parsing: ``0`` .. ``999999999`` [#f]_)
 ``%H``    Hour (``00`` .. ``23``)
 ``%h``    Hour (``01`` .. ``12``)
 ``%I``    Hour (``01`` .. ``12``)
@@ -191,10 +191,13 @@ Specifier Description
 ``%X``    Year for the week where Sunday is the first day of the week, numeric, four digits; used with ``%V``
 ``%x``    Year for the week, where Monday is the first day of the week, numeric, four digits; used with ``%v``
 ``%Y``    Year, numeric, four digits
-``%y``    Year, numeric (two digits)
+``%y``    Year, numeric (two digits) [#y]_
 ``%%``    A literal ``%`` character
 ``%x``    ``x``, for any ``x`` not listed above
 ========= ===========
+
+.. [#f] Timestamp is truncated to milliseconds.
+.. [#y] When parsing, two-digit year format assumes range ``1970`` .. ``2069``, so "70" will result in year ``1970`` but "69" will produce ``2069``.
 
 .. warning:: The following specifiers are not currently supported: ``%D %U %u %V %X``
 

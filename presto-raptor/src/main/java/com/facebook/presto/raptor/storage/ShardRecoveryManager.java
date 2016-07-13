@@ -23,6 +23,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
@@ -51,12 +53,15 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_ERROR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.succinctBytes;
+import static io.airlift.units.DataSize.succinctDataSize;
 import static io.airlift.units.Duration.nanosSince;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static java.util.Objects.requireNonNull;
@@ -140,7 +145,9 @@ public class ShardRecoveryManager
                 SECONDS.sleep(ThreadLocalRandom.current().nextInt(1, 30));
                 for (ShardMetadata shard : getMissingShards()) {
                     stats.incrementBackgroundShardRecovery();
-                    shardQueue.submit(MissingShard.createBackgroundMissingShard(shard.getShardUuid(), shard.getCompressedSize()));
+                    Futures.addCallback(
+                            shardQueue.submit(MissingShard.createBackgroundMissingShard(shard.getShardUuid(), shard.getCompressedSize())),
+                            failureCallback(t -> log.warn(t, "Error recovering shard: %s", shard.getShardUuid())));
                 }
             }
             catch (InterruptedException e) {
@@ -209,7 +216,7 @@ public class ShardRecoveryManager
         }
 
         Duration duration = nanosSince(start);
-        DataSize size = new DataSize(stagingFile.length(), BYTE);
+        DataSize size = succinctBytes(stagingFile.length());
         DataSize rate = dataRate(size, duration).convertToMostSuccinctDataSize();
         stats.addShardRecoveryDataRate(rate, size, duration);
 
@@ -359,15 +366,15 @@ public class ShardRecoveryManager
 
     private class MissingShardsQueue
     {
-        private final LoadingCache<MissingShard, Future<?>> queuedMissingShards;
+        private final LoadingCache<MissingShard, ListenableFuture<?>> queuedMissingShards;
 
         public MissingShardsQueue(PrioritizedFifoExecutor<MissingShardRunnable> shardRecoveryExecutor)
         {
             requireNonNull(shardRecoveryExecutor, "shardRecoveryExecutor is null");
-            this.queuedMissingShards = CacheBuilder.newBuilder().build(new CacheLoader<MissingShard, Future<?>>()
+            this.queuedMissingShards = CacheBuilder.newBuilder().build(new CacheLoader<MissingShard, ListenableFuture<?>>()
             {
                 @Override
-                public Future<?> load(MissingShard missingShard)
+                public ListenableFuture<?> load(MissingShard missingShard)
                 {
                     MissingShardRecovery task = new MissingShardRecovery(
                             missingShard.getShardUuid(),
@@ -380,7 +387,7 @@ public class ShardRecoveryManager
             });
         }
 
-        public Future<?> submit(MissingShard shard)
+        public ListenableFuture<?> submit(MissingShard shard)
                 throws ExecutionException
         {
             return queuedMissingShards.get(shard);
@@ -393,7 +400,7 @@ public class ShardRecoveryManager
         if (Double.isNaN(rate) || Double.isInfinite(rate)) {
             rate = 0;
         }
-        return new DataSize(rate, BYTE).convertToMostSuccinctDataSize();
+        return succinctDataSize(rate, BYTE);
     }
 
     private static File temporarySuffix(File file)
@@ -406,5 +413,20 @@ public class ShardRecoveryManager
     public ShardRecoveryStats getStats()
     {
         return stats;
+    }
+
+    private static <T> FutureCallback<T> failureCallback(Consumer<Throwable> callback)
+    {
+        return new FutureCallback<T>()
+        {
+            @Override
+            public void onSuccess(T result) {}
+
+            @Override
+            public void onFailure(Throwable throwable)
+            {
+                callback.accept(throwable);
+            }
+        };
     }
 }

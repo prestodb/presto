@@ -26,4 +26,10 @@ public abstract class GroupingElement
     }
 
     public abstract List<Set<Expression>> enumerateGroupingSets();
+
+    @Override
+    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitGroupingElement(this, context);
+    }
 }

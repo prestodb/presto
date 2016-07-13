@@ -113,7 +113,7 @@ public final class QueryUtil
 
     public static Expression functionCall(String name, Expression... arguments)
     {
-        return new FunctionCall(new QualifiedName(name), ImmutableList.copyOf(arguments));
+        return new FunctionCall(QualifiedName.of(name), ImmutableList.copyOf(arguments));
     }
 
     public static Values values(Row... row)
@@ -139,6 +139,18 @@ public final class QueryUtil
     public static List<SortItem> ordering(SortItem... items)
     {
         return ImmutableList.copyOf(items);
+    }
+
+    public static Query simpleQuery(Select select)
+    {
+        return query(new QuerySpecification(
+                select,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(),
+                Optional.empty()));
     }
 
     public static Query simpleQuery(Select select, Relation from)

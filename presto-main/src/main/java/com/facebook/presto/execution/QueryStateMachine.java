@@ -28,7 +28,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
@@ -56,10 +55,11 @@ import static com.facebook.presto.execution.QueryState.STARTING;
 import static com.facebook.presto.execution.QueryState.TERMINAL_QUERY_STATES;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -101,6 +101,9 @@ public class QueryStateMachine
 
     private final Map<String, String> setSessionProperties = new ConcurrentHashMap<>();
     private final Set<String> resetSessionProperties = Sets.newConcurrentHashSet();
+
+    private final Map<String, String> addedPreparedStatements = new ConcurrentHashMap<>();
+    private final Set<String> deallocatedPreparedStatements = Sets.newConcurrentHashSet();
 
     private final AtomicReference<TransactionId> startedTransactionId = new AtomicReference<>();
     private final AtomicBoolean clearTransactionId = new AtomicBoolean();
@@ -317,8 +320,8 @@ public class QueryStateMachine
                 completedDrivers,
 
                 cumulativeMemory,
-                new DataSize(totalMemoryReservation, BYTE).convertToMostSuccinctDataSize(),
-                new DataSize(peakMemoryReservation, BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(totalMemoryReservation),
+                succinctBytes(peakMemoryReservation),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
@@ -326,11 +329,11 @@ public class QueryStateMachine
                 fullyBlocked,
                 blockedReasons,
 
-                new DataSize(rawInputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(rawInputDataSize),
                 rawInputPositions,
-                new DataSize(processedInputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(processedInputDataSize),
                 processedInputPositions,
-                new DataSize(outputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(outputDataSize),
                 outputPositions);
 
         return new QueryInfo(queryId,
@@ -344,6 +347,8 @@ public class QueryStateMachine
                 queryStats,
                 setSessionProperties,
                 resetSessionProperties,
+                addedPreparedStatements,
+                deallocatedPreparedStatements,
                 Optional.ofNullable(startedTransactionId.get()),
                 clearTransactionId.get(),
                 updateType.get(),
@@ -393,6 +398,34 @@ public class QueryStateMachine
     public void addResetSessionProperties(String name)
     {
         resetSessionProperties.add(requireNonNull(name, "name is null"));
+    }
+
+    public Map<String, String> getAddedPreparedStatements()
+    {
+        return addedPreparedStatements;
+    }
+
+    public Set<String> getDeallocatedPreparedStatements()
+    {
+        return deallocatedPreparedStatements;
+    }
+
+    public void addPreparedStatement(String key, String value)
+    {
+        requireNonNull(key, "key is null");
+        requireNonNull(value, "value is null");
+
+        addedPreparedStatements.put(key, value);
+    }
+
+    public void removePreparedStatement(String key)
+    {
+        requireNonNull(key, "key is null");
+
+        if (!session.getPreparedStatements().containsKey(key)) {
+            throw new PrestoException(NOT_FOUND, "Prepared statement not found: " + key);
+        }
+        deallocatedPreparedStatements.add(key);
     }
 
     public void setStartedTransactionId(TransactionId startedTransactionId)

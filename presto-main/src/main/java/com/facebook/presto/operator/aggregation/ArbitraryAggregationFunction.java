@@ -42,6 +42,8 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class ArbitraryAggregationFunction
@@ -66,7 +68,11 @@ public class ArbitraryAggregationFunction
 
     protected ArbitraryAggregationFunction()
     {
-        super(NAME, ImmutableList.of(typeVariable("T")), ImmutableList.of(), "T", ImmutableList.of("T"));
+        super(NAME,
+                ImmutableList.of(typeVariable("T")),
+                ImmutableList.of(),
+                parseTypeSignature("T"),
+                ImmutableList.of(parseTypeSignature("T")));
     }
 
     @Override
@@ -128,7 +134,7 @@ public class ArbitraryAggregationFunction
         Type intermediateType = stateSerializer.getSerializedType();
         List<ParameterMetadata> inputParameterMetadata = createInputParameterMetadata(type);
         AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(NAME, type, inputTypes),
+                generateAggregationName(NAME, type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 inputParameterMetadata,
                 inputFunction,
                 inputParameterMetadata,

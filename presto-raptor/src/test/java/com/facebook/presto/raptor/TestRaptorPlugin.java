@@ -14,7 +14,6 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.PagesIndexPageSorter;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
@@ -44,7 +43,6 @@ public class TestRaptorPlugin
 
         TypeRegistry typeRegistry = new TypeRegistry();
         plugin.setTypeManager(typeRegistry);
-        plugin.setBlockEncodingSerde(new BlockEncodingManager(typeRegistry));
 
         plugin.setPageSorter(new PagesIndexPageSorter());
 

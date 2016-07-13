@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.148-SNAPSHOT</version>
+        <version>0.151-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-main</artifactId>
@@ -144,6 +144,11 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>joni</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.teradata</groupId>
+            <artifactId>re2j-td</artifactId>
         </dependency>
 
         <dependency>

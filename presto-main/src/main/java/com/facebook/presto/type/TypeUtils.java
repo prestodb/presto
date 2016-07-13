@@ -23,7 +23,6 @@ import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -36,8 +35,6 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public final class TypeUtils
 {
@@ -105,7 +102,9 @@ public final class TypeUtils
 
     public static Type resolveType(TypeSignature typeName, TypeManager typeManager)
     {
-        return requireNonNull(typeManager.getType(typeName), format("Type '%s' not found", typeName));
+        Type type = typeManager.getType(typeName);
+        checkArgument(type != null, "Type '%s' not found", typeName);
+        return type;
     }
 
     public static List<Type> resolveTypes(List<TypeSignature> typeNames, TypeManager typeManager)
@@ -113,15 +112,6 @@ public final class TypeUtils
         return typeNames.stream()
                 .map((TypeSignature type) -> resolveType(type, typeManager))
                 .collect(toImmutableList());
-    }
-
-    public static TypeSignature parameterizedTypeName(String base, TypeSignature... argumentNames)
-    {
-        ImmutableList.Builder<TypeSignatureParameter> parameters = ImmutableList.builder();
-        for (TypeSignature signature : argumentNames) {
-            parameters.add(TypeSignatureParameter.of(signature));
-        }
-        return new TypeSignature(base, parameters.build());
     }
 
     public static long getHashPosition(List<? extends Type> hashTypes, Block[] hashBlocks, int position)

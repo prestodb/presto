@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.operator.scalar.ScalarOperator;
+import com.facebook.presto.operator.scalar.annotations.ScalarOperator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
@@ -150,6 +150,19 @@ public final class VarcharOperators
 
     @LiteralParameters("x")
     @ScalarOperator(CAST)
+    @SqlType(StandardTypes.FLOAT)
+    public static long castToFloat(@SqlType("varchar(x)") Slice slice)
+    {
+        try {
+            return Float.floatToIntBits(Float.parseFloat(slice.toStringUtf8()));
+        }
+        catch (Exception e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Can not cast '%s' to FLOAT", slice.toStringUtf8()));
+        }
+    }
+
+    @LiteralParameters("x")
+    @ScalarOperator(CAST)
     @SqlType(StandardTypes.BIGINT)
     public static long castToBigint(@SqlType("varchar(x)") Slice slice)
     {
@@ -171,6 +184,32 @@ public final class VarcharOperators
         }
         catch (Exception e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, format("Can not cast '%s' to INT", slice.toStringUtf8()));
+        }
+    }
+
+    @LiteralParameters("x")
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.SMALLINT)
+    public static long castToSmallint(@SqlType("varchar(x)") Slice slice)
+    {
+        try {
+            return Short.parseShort(slice.toStringUtf8());
+        }
+        catch (Exception e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Can not cast '%s' to SMALLINT", slice.toStringUtf8()));
+        }
+    }
+
+    @LiteralParameters("x")
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.TINYINT)
+    public static long castToTinyint(@SqlType("varchar(x)") Slice slice)
+    {
+        try {
+            return Byte.parseByte(slice.toStringUtf8());
+        }
+        catch (Exception e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Can not cast '%s' to TINYINT", slice.toStringUtf8()));
         }
     }
 

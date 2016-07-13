@@ -33,8 +33,6 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.util.Numbers.isFloatingNumber;
-import static com.facebook.presto.util.Numbers.isNan;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -171,10 +169,11 @@ public final class AggregationTestUtils
         BiConsumer<Object, Object> equalAssertion = (actual, expected) -> {
             assertEquals(actual, expected);
         };
-        if (isFloatingNumber(expectedValue) && !isNan(expectedValue)) {
-            equalAssertion = (actual, expected) -> {
-                assertEquals((double) actual, (double) expected, 1e-10);
-            };
+        if (expectedValue instanceof Double && !expectedValue.equals(Double.NaN)) {
+            equalAssertion = (actual, expected) -> assertEquals((double) actual, (double) expected, 1e-10);
+        }
+        if (expectedValue instanceof Float && !expectedValue.equals(Float.NaN)) {
+            equalAssertion = (actual, expected) -> assertEquals((float) actual, (float) expected, 1e-10f);
         }
 
         // This assertAggregation does not try to split up the page to test the correctness of combine function.
@@ -439,7 +438,7 @@ public final class AggregationTestUtils
                 newBlocks[channel] = createNullRLEBlock(page.getPositionCount());
             }
             for (int channel = 0; channel < page.getBlocks().length; channel++) {
-                newBlocks[channel + offset] = page.getBlocks()[channel];
+                newBlocks[channel + offset] = page.getBlock(channel);
             }
             newPages[i] = new Page(page.getPositionCount(), newBlocks);
         }

@@ -66,6 +66,15 @@ public class PushTableWriteThroughUnion
         {
             PlanNode sourceNode = context.rewrite(node.getSource());
 
+            if (node.getPartitioningScheme().isPresent()) {
+                // The primary incentive of this optimizer is to increase the parallelism for table
+                // write. For a table with partitioning scheme, parallelism for table writing is
+                // guaranteed regardless of this optimizer. The level of local parallelism will be
+                // determined by LocalExecutionPlanner separately, and shouldn't be a concern of
+                // this optimizer.
+                return node;
+            }
+
             // if sourceNode is not a UNION ALL, don't perform this optimization. A UNION DISTINCT would have an aggregationNode as source
             if (!(sourceNode instanceof UnionNode)) {
                 return node;
@@ -91,7 +100,7 @@ public class PushTableWriteThroughUnion
                         node.getColumnNames(),
                         newSymbols.build(),
                         node.getSampleWeightSymbol(),
-                        node.getPartitionFunction()));
+                        node.getPartitioningScheme()));
             }
 
             return new UnionNode(idAllocator.getNextId(), rewrittenSources.build(), mappings.build(), ImmutableList.copyOf(mappings.build().keySet()));

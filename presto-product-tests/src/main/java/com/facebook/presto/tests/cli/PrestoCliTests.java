@@ -88,6 +88,10 @@ public class PrestoCliTests
     @Named("databases.presto.cli_kerberos_use_canonical_hostname")
     private boolean kerberosUseCanonicalHostname;
 
+    @Inject
+    @Named("databases.presto.jdbc_user")
+    private String jdbcUser;
+
     private PrestoCliProcess presto;
 
     public PrestoCliTests()
@@ -164,7 +168,12 @@ public class PrestoCliTests
             throws IOException, InterruptedException
     {
         if (!authentication) {
-            launchPrestoCli(ImmutableList.<String>builder().add("--server", serverAddress).add(arguments).build());
+            ImmutableList.Builder<String> prestoClientOptions = ImmutableList.builder();
+            prestoClientOptions.add(
+                    "--server", serverAddress,
+                    "--user", jdbcUser);
+            prestoClientOptions.add(arguments);
+            launchPrestoCli(prestoClientOptions.build());
         }
         else {
             requireNonNull(kerberosPrincipal, "databases.presto.cli_kerberos_principal is null");
@@ -177,6 +186,7 @@ public class PrestoCliTests
             ImmutableList.Builder<String> prestoClientOptions = ImmutableList.builder();
             prestoClientOptions.add(
                     "--server", serverAddress,
+                    "--user", jdbcUser,
                     "--enable-authentication",
                     "--krb5-principal", kerberosPrincipal,
                     "--krb5-keytab-path", kerberosKeytab,

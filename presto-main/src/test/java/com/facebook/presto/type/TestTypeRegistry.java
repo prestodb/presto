@@ -25,17 +25,21 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.type.JoniRegexpType.JONI_REGEXP;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
-import static com.facebook.presto.type.RegexpType.REGEXP;
+import static com.facebook.presto.type.Re2JRegexpType.RE2J_REGEXP;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -87,7 +91,8 @@ public class TestTypeRegistry
         assertTrue(typeRegistry.canCoerce(DATE, TIMESTAMP_WITH_TIME_ZONE));
         assertTrue(typeRegistry.canCoerce(TIME, TIME_WITH_TIME_ZONE));
         assertTrue(typeRegistry.canCoerce(TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE));
-        assertTrue(typeRegistry.canCoerce(VARCHAR, REGEXP));
+        assertTrue(typeRegistry.canCoerce(VARCHAR, JONI_REGEXP));
+        assertTrue(typeRegistry.canCoerce(VARCHAR, RE2J_REGEXP));
         assertTrue(typeRegistry.canCoerce(VARCHAR, LIKE_PATTERN));
         assertTrue(typeRegistry.canCoerce(VARCHAR, JSON_PATH));
 
@@ -107,6 +112,29 @@ public class TestTypeRegistry
         assertTrue(canCoerce("varchar(42)", "varchar(42)"));
         assertTrue(canCoerce("varchar(42)", "varchar(44)"));
         assertFalse(canCoerce("varchar(44)", "varchar(42)"));
+
+        assertTrue(canCoerce("decimal(22,1)", "decimal(23,1)"));
+        assertFalse(canCoerce("decimal(23,1)", "decimal(22,1)"));
+        assertFalse(canCoerce("bigint", "decimal(18,0)"));
+        assertTrue(canCoerce("bigint", "decimal(19,0)"));
+        assertTrue(canCoerce("bigint", "decimal(37,1)"));
+        assertTrue(canCoerce("array(bigint)", "array(decimal(20,1))"));
+        assertFalse(canCoerce("array(bigint)", "array(decimal(2,1))"));
+
+        assertTrue(canCoerce("decimal(3,2)", "double"));
+        assertTrue(canCoerce("decimal(22,1)", "double"));
+
+        assertFalse(canCoerce("integer", "decimal(9,0)"));
+        assertTrue(canCoerce("integer", "decimal(10,0)"));
+        assertTrue(canCoerce("integer", "decimal(37,1)"));
+
+        assertFalse(canCoerce("tinyint", "decimal(2,0)"));
+        assertTrue(canCoerce("tinyint", "decimal(3,0)"));
+        assertTrue(canCoerce("tinyint", "decimal(37,1)"));
+
+        assertFalse(canCoerce("smallint", "decimal(4,0)"));
+        assertTrue(canCoerce("smallint", "decimal(5,0)"));
+        assertTrue(canCoerce("smallint", "decimal(37,1)"));
     }
 
     @Test
@@ -121,7 +149,8 @@ public class TestTypeRegistry
         assertCommonSuperType(DATE, TIMESTAMP_WITH_TIME_ZONE, TIMESTAMP_WITH_TIME_ZONE);
         assertCommonSuperType(TIME, TIME_WITH_TIME_ZONE, TIME_WITH_TIME_ZONE);
         assertCommonSuperType(TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE, TIMESTAMP_WITH_TIME_ZONE);
-        assertCommonSuperType(VARCHAR, REGEXP, REGEXP);
+        assertCommonSuperType(VARCHAR, JONI_REGEXP, JONI_REGEXP);
+        assertCommonSuperType(VARCHAR, RE2J_REGEXP, RE2J_REGEXP);
         assertCommonSuperType(VARCHAR, LIKE_PATTERN, LIKE_PATTERN);
         assertCommonSuperType(VARCHAR, JSON_PATH, JSON_PATH);
 
@@ -135,7 +164,40 @@ public class TestTypeRegistry
         assertCommonSuperType("map(bigint,double)", "map(double,double)", "map(double,double)");
         assertCommonSuperType("row(a bigint,b double,c varchar)", "row(a bigint,b double,c varchar)", "row(a bigint,b double,c varchar)");
 
-        assertCommonSuperType("varchar(42)", "varchar(44)", "varchar(44)");
+        assertCommonSuperType("decimal(22,1)", "decimal(23,1)", "decimal(23,1)");
+        assertCommonSuperType("bigint", "decimal(23,1)", "decimal(23,1)");
+        assertCommonSuperType("bigint", "decimal(18,0)", "decimal(19,0)");
+        assertCommonSuperType("bigint", "decimal(19,0)", "decimal(19,0)");
+        assertCommonSuperType("bigint", "decimal(37,1)", "decimal(37,1)");
+        assertCommonSuperType("array(decimal(23,1))", "array(decimal(22,1))", "array(decimal(23,1))");
+        assertCommonSuperType("array(bigint)", "array(decimal(2,1))", "array(decimal(20,1))");
+
+        assertCommonSuperType("decimal(3,2)", "double", "double");
+        assertCommonSuperType("decimal(22,1)", "double", "double");
+
+        assertCommonSuperType("integer", "decimal(23,1)", "decimal(23,1)");
+        assertCommonSuperType("integer", "decimal(9,0)", "decimal(10,0)");
+        assertCommonSuperType("integer", "decimal(10,0)", "decimal(10,0)");
+        assertCommonSuperType("integer", "decimal(37,1)", "decimal(37,1)");
+
+        assertCommonSuperType("tinyint", "decimal(2,0)", "decimal(3,0)");
+        assertCommonSuperType("tinyint", "decimal(9,0)", "decimal(9,0)");
+        assertCommonSuperType("tinyint", "decimal(2,1)", "decimal(4,1)");
+
+        assertCommonSuperType("smallint", "decimal(2,0)", "decimal(5,0)");
+        assertCommonSuperType("smallint", "decimal(9,0)", "decimal(9,0)");
+        assertCommonSuperType("smallint", "decimal(2,1)", "decimal(6,1)");
+    }
+
+    @Test
+    public void testCoerceTypeBase()
+            throws Exception
+    {
+        assertEquals(typeRegistry.coerceTypeBase(createDecimalType(21, 1), "decimal"), Optional.of(createDecimalType(21, 1)));
+        assertEquals(typeRegistry.coerceTypeBase(BIGINT, "decimal"), Optional.of(createDecimalType(19, 0)));
+        assertEquals(typeRegistry.coerceTypeBase(INTEGER, "decimal"), Optional.of(createDecimalType(10, 0)));
+        assertEquals(typeRegistry.coerceTypeBase(TINYINT, "decimal"), Optional.of(createDecimalType(3, 0)));
+        assertEquals(typeRegistry.coerceTypeBase(SMALLINT, "decimal"), Optional.of(createDecimalType(5, 0)));
     }
 
     @Test

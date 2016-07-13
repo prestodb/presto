@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.operator.scalar.ScalarFunction;
-import com.facebook.presto.operator.scalar.ScalarOperator;
+import com.facebook.presto.operator.scalar.annotations.ScalarFunction;
+import com.facebook.presto.operator.scalar.annotations.ScalarOperator;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -105,6 +105,20 @@ public final class BooleanOperators
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.INTEGER)
     public static long castToInteger(@SqlType(StandardTypes.BOOLEAN) boolean value)
+    {
+        return value ? 1 : 0;
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.SMALLINT)
+    public static long castToSmallint(@SqlType(StandardTypes.BOOLEAN) boolean value)
+    {
+        return value ? 1 : 0;
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.TINYINT)
+    public static long castToTinyint(@SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         return value ? 1 : 0;
     }

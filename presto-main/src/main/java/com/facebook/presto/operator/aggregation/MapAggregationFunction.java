@@ -41,6 +41,8 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static java.lang.String.format;
 
@@ -55,7 +57,11 @@ public class MapAggregationFunction
 
     public MapAggregationFunction()
     {
-        super(NAME, ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")), ImmutableList.of(), "map(K,V)", ImmutableList.of("K", "V"));
+        super(NAME,
+                ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
+                ImmutableList.of(),
+                parseTypeSignature("map(K,V)"),
+                ImmutableList.of(parseTypeSignature("K"), parseTypeSignature("V")));
     }
 
     @Override
@@ -81,7 +87,7 @@ public class MapAggregationFunction
         Type intermediateType = stateSerializer.getSerializedType();
 
         AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(NAME, outputType, inputTypes),
+                generateAggregationName(NAME, outputType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(keyType, valueType),
                 INPUT_FUNCTION.bindTo(keyType).bindTo(valueType),
                 null,

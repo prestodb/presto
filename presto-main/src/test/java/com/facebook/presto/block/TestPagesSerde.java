@@ -70,7 +70,7 @@ public class TestPagesSerde
         // empty page
         Page page = new Page(builder.build());
         int pageSize = serializedSize(ImmutableList.of(BIGINT), page);
-        assertEquals(pageSize, 35); // page overhead
+        assertEquals(pageSize, 26); // page overhead
 
         // page with one value
         BIGINT.writeLong(builder, 123);

@@ -43,7 +43,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.LEGACY_NETWORK_TOPOLOGY;
+import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
@@ -59,7 +59,7 @@ public class NodeScheduler
     private final int minCandidates;
     private final boolean includeCoordinator;
     private final int maxSplitsPerNode;
-    private final int maxSplitsPerNodePerTaskWhenFull;
+    private final int maxPendingSplitsPerNodePerStageWhenFull;
     private final NodeTaskMap nodeTaskMap;
     private final boolean doubleScheduling;
     private final boolean useNetworkTopology;
@@ -83,10 +83,10 @@ public class NodeScheduler
         this.includeCoordinator = config.isIncludeCoordinator();
         this.doubleScheduling = config.isMultipleTasksPerNodeEnabled();
         this.maxSplitsPerNode = config.getMaxSplitsPerNode();
-        this.maxSplitsPerNodePerTaskWhenFull = config.getMaxPendingSplitsPerNodePerTask();
+        this.maxPendingSplitsPerNodePerStageWhenFull = config.getMaxPendingSplitsPerNodePerStage();
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
-        checkArgument(maxSplitsPerNode > maxSplitsPerNodePerTaskWhenFull, "maxSplitsPerNode must be > maxSplitsPerNodePerTaskWhenFull");
-        this.useNetworkTopology = !config.getNetworkTopology().equals(LEGACY_NETWORK_TOPOLOGY);
+        checkArgument(maxSplitsPerNode > maxPendingSplitsPerNodePerStageWhenFull, "maxSplitsPerNode must be > maxPendingSplitsPerNodePerStageWhenFull");
+        this.useNetworkTopology = !config.getNetworkTopology().equals(NetworkTopologyType.LEGACY);
 
         ImmutableList.Builder<CounterStat> builder = ImmutableList.builder();
         if (useNetworkTopology) {
@@ -167,13 +167,13 @@ public class NodeScheduler
                     nodeMap,
                     minCandidates,
                     maxSplitsPerNode,
-                    maxSplitsPerNodePerTaskWhenFull,
+                    maxPendingSplitsPerNodePerStageWhenFull,
                     topologicalSplitCounters,
                     networkLocationSegmentNames,
                     networkLocationCache);
         }
         else {
-            return new SimpleNodeSelector(nodeManager, nodeTaskMap, includeCoordinator, doubleScheduling, nodeMap, minCandidates, maxSplitsPerNode, maxSplitsPerNodePerTaskWhenFull);
+            return new SimpleNodeSelector(nodeManager, nodeTaskMap, includeCoordinator, doubleScheduling, nodeMap, minCandidates, maxSplitsPerNode, maxPendingSplitsPerNodePerStageWhenFull);
         }
     }
 
@@ -270,6 +270,7 @@ public class NodeScheduler
             NodeMap nodeMap,
             NodeTaskMap nodeTaskMap,
             int maxSplitsPerNode,
+            int maxPendingSplitsPerNodePerStageWhenFull,
             Set<Split> splits,
             List<RemoteTask> existingTasks,
             NodePartitionMap partitioning)
@@ -282,8 +283,10 @@ public class NodeScheduler
             Node node = partitioning.getNode(split);
 
             // if node is full, don't schedule now, which will push back on the scheduling of splits
-            if (assignmentStats.getTotalSplitCount(node) < maxSplitsPerNode) {
+            if (assignmentStats.getTotalSplitCount(node) < maxSplitsPerNode ||
+                    assignmentStats.getQueuedSplitCountForStage(node) < maxPendingSplitsPerNodePerStageWhenFull) {
                 assignments.put(node, split);
+                assignmentStats.addAssignedSplit(node);
             }
         }
         return ImmutableMultimap.copyOf(assignments);

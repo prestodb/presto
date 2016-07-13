@@ -5,7 +5,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.148-SNAPSHOT</version>
+        <version>0.151-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-product-tests</artifactId>
@@ -85,6 +85,16 @@
         <dependency>
             <groupId>com.facebook.presto.hive</groupId>
             <artifactId>hive-apache-jdbc</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
             <scope>runtime</scope>
         </dependency>
     </dependencies>

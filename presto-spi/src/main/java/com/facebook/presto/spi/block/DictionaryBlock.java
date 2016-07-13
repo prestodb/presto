@@ -21,7 +21,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.spi.block.BlockValidationUtil.checkValidPositions;
+import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.Slices.copyOf;
@@ -127,18 +127,6 @@ public class DictionaryBlock
     public long getLong(int position, int offset)
     {
         return dictionary.getLong(getIndex(position), offset);
-    }
-
-    @Override
-    public float getFloat(int position, int offset)
-    {
-        return dictionary.getFloat(getIndex(position), offset);
-    }
-
-    @Override
-    public double getDouble(int position, int offset)
-    {
-        return dictionary.getDouble(getIndex(position), offset);
     }
 
     @Override
@@ -269,11 +257,6 @@ public class DictionaryBlock
     public boolean isNull(int position)
     {
         return dictionary.isNull(getIndex(position));
-    }
-
-    @Override
-    public void assureLoaded()
-    {
     }
 
     public Block getDictionary()

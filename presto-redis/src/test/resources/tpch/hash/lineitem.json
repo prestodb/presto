@@ -67,19 +67,19 @@
             {
                 "name": "shipdate",
                 "mapping": "shipdate",
-                "type": "DATE",
+                "type": "VARCHAR(10)",
                 "dataFormat": "iso8601"
             },
             {
                 "name": "commitdate",
                 "mapping": "commitdate",
-                "type": "DATE",
+                "type": "VARCHAR(10)",
                 "dataFormat": "iso8601"
             },
             {
                 "name": "receiptdate",
                 "mapping": "receiptdate",
-                "type": "DATE",
+                "type": "VARCHAR(10)",
                 "dataFormat": "iso8601"
             },
             {
@@ -90,7 +90,7 @@
             {
                 "name": "shipmode",
                 "mapping": "shipmode",
-                "type": "VARCHAR(1)"
+                "type": "VARCHAR(7)"
             },
             {
                 "name": "comment",

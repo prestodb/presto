@@ -47,6 +47,7 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
+import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -69,7 +70,9 @@ import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.type.ArrayType;
@@ -226,7 +229,13 @@ public class ExpressionInterpreter
     public Object evaluate(int position, Block... inputs)
     {
         checkState(!optimize, "evaluate(int, Block...) not allowed for optimizer");
-        return visitor.process(expression, new PagePositionContext(position, inputs));
+        return visitor.process(expression, new SinglePagePositionContext(position, inputs));
+    }
+
+    public Object evaluate(int leftPosition, Block[] leftBlocks, int rightPosition, Block[] rightBlocks)
+    {
+        checkState(!optimize, "evaluate(int, Block[], int, Block[]) not allowed for optimizer");
+        return visitor.process(expression, new TwoPagesPositionContext(leftPosition, leftBlocks, rightPosition, rightBlocks));
     }
 
     public Object optimize(SymbolResolver inputs)
@@ -283,7 +292,7 @@ public class ExpressionInterpreter
             int channel = node.getFieldIndex();
             if (context instanceof PagePositionContext) {
                 PagePositionContext pagePositionContext = (PagePositionContext) context;
-                int position = pagePositionContext.getPosition();
+                int position = pagePositionContext.getPosition(channel);
                 Block block = pagePositionContext.getBlock(channel);
 
                 if (block.isNull(position)) {
@@ -385,13 +394,13 @@ public class ExpressionInterpreter
         @Override
         protected Object visitQualifiedNameReference(QualifiedNameReference node, Object context)
         {
-            if (node.getName().getPrefix().isPresent()) {
-                // not a symbol
-                return node;
-            }
+            return node;
+        }
 
-            Symbol symbol = Symbol.fromQualifiedName(node.getName());
-            return ((SymbolResolver) context).getValue(symbol);
+        @Override
+        protected Object visitSymbolReference(SymbolReference node, Object context)
+        {
+            return ((SymbolResolver) context).getValue(Symbol.from(node));
         }
 
         @Override
@@ -627,6 +636,24 @@ public class ExpressionInterpreter
                 return null;
             }
             return false;
+        }
+
+        @Override
+        protected Object visitExists(ExistsPredicate node, Object context)
+        {
+            if (!optimize) {
+                throw new UnsupportedOperationException("Exists subquery not yet implemented");
+            }
+            return node;
+        }
+
+        @Override
+        protected Object visitSubqueryExpression(SubqueryExpression node, Object context)
+        {
+            if (!optimize) {
+                throw new UnsupportedOperationException("Subquery not yet implemented");
+            }
+            return node;
         }
 
         @Override
@@ -1114,12 +1141,20 @@ public class ExpressionInterpreter
         }
     }
 
-    private static class PagePositionContext
+    private interface PagePositionContext
+    {
+        public Block getBlock(int channel);
+
+        public int getPosition(int channel);
+    }
+
+    private static class SinglePagePositionContext
+            implements PagePositionContext
     {
         private final int position;
         private final Block[] blocks;
 
-        private PagePositionContext(int position, Block[] blocks)
+        private SinglePagePositionContext(int position, Block[] blocks)
         {
             this.position = position;
             this.blocks = blocks;
@@ -1130,9 +1165,48 @@ public class ExpressionInterpreter
             return blocks[channel];
         }
 
-        public int getPosition()
+        public int getPosition(int channel)
         {
             return position;
+        }
+    }
+
+    private static class TwoPagesPositionContext
+            implements PagePositionContext
+    {
+        private final int leftPosition;
+        private final int rightPosition;
+        private final Block[] leftBlocks;
+        private final Block[] rightBlocks;
+
+        private TwoPagesPositionContext(int leftPosition, Block[] leftBlocks, int rightPosition, Block[] rightBlocks)
+        {
+            this.leftPosition = leftPosition;
+            this.rightPosition = rightPosition;
+            this.leftBlocks = leftBlocks;
+            this.rightBlocks = rightBlocks;
+        }
+
+        @Override
+        public Block getBlock(int channel)
+        {
+            if (channel < leftBlocks.length) {
+                return leftBlocks[channel];
+            }
+            else {
+                return rightBlocks[channel - leftBlocks.length];
+            }
+        }
+
+        @Override
+        public int getPosition(int channel)
+        {
+            if (channel < leftBlocks.length) {
+                return leftPosition;
+            }
+            else {
+                return rightPosition;
+            }
         }
     }
 

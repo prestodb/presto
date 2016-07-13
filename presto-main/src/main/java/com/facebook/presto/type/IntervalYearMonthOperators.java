@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.operator.scalar.ScalarOperator;
-import com.facebook.presto.spi.type.SqlIntervalYearMonth;
+import com.facebook.presto.client.IntervalYearMonth;
+import com.facebook.presto.operator.scalar.annotations.ScalarOperator;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 
@@ -152,13 +152,13 @@ public final class IntervalYearMonthOperators
     @SqlType(StandardTypes.VARCHAR)
     public static Slice castToSlice(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long value)
     {
-        return utf8Slice(SqlIntervalYearMonth.formatMonths(value));
+        return utf8Slice(IntervalYearMonth.formatMonths(value));
     }
 
     @ScalarOperator(HASH_CODE)
     @SqlType(StandardTypes.BIGINT)
     public static long hashCode(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long value)
     {
-        return (int) (value ^ (value >>> 32));
+        return value;
     }
 }

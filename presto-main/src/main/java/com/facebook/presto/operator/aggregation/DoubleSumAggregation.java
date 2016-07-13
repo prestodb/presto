@@ -22,8 +22,6 @@ import com.facebook.presto.type.SqlType;
 @AggregationFunction("sum")
 public final class DoubleSumAggregation
 {
-    public static final InternalAggregationFunction DOUBLE_SUM = new AggregationCompiler().generateAggregationFunction(DoubleSumAggregation.class);
-
     private DoubleSumAggregation() {}
 
     @InputFunction

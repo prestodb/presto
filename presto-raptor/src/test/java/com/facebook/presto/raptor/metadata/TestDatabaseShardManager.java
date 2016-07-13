@@ -70,7 +70,7 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.google.common.base.Strings.repeat;
 import static com.google.common.base.Ticker.systemTicker;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -299,7 +299,7 @@ public class TestDatabaseShardManager
         expectedAllUuids.addAll(expectedUuids);
 
         // check that shards are replaced in index table as well
-        Set<BucketShards> shardNodes = ImmutableSet.copyOf(shardManager.getShardNodes(tableId, false, false, TupleDomain.all()));
+        Set<BucketShards> shardNodes = ImmutableSet.copyOf(shardManager.getShardNodes(tableId, TupleDomain.all()));
         Set<UUID> actualAllUuids = shardNodes.stream()
                 .map(BucketShards::getShards)
                 .flatMap(Collection::stream)
@@ -391,7 +391,7 @@ public class TestDatabaseShardManager
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
         shardManager.createTable(tableId, columns, false);
 
-        try (ResultIterator<BucketShards> iterator = shardManager.getShardNodes(tableId, false, false, TupleDomain.all())) {
+        try (ResultIterator<BucketShards> iterator = shardManager.getShardNodes(tableId, TupleDomain.all())) {
             assertFalse(iterator.hasNext());
         }
     }
@@ -403,7 +403,7 @@ public class TestDatabaseShardManager
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
         shardManager.createTable(tableId, columns, true);
 
-        try (ResultIterator<BucketShards> iterator = shardManager.getShardNodes(tableId, true, true, TupleDomain.all())) {
+        try (ResultIterator<BucketShards> iterator = shardManager.getShardNodesBucketed(tableId, true, ImmutableMap.of(), TupleDomain.all())) {
             assertFalse(iterator.hasNext());
         }
     }
@@ -459,7 +459,7 @@ public class TestDatabaseShardManager
                 .add(new ColumnInfo(2, DOUBLE))
                 .add(new ColumnInfo(3, DATE))
                 .add(new ColumnInfo(4, TIMESTAMP))
-                .add(new ColumnInfo(5, VARCHAR))
+                .add(new ColumnInfo(5, createVarcharType(10)))
                 .add(new ColumnInfo(6, BOOLEAN))
                 .add(new ColumnInfo(7, VARBINARY))
                 .build();
@@ -468,7 +468,7 @@ public class TestDatabaseShardManager
         RaptorColumnHandle c2 = new RaptorColumnHandle("raptor", "c2", 2, DOUBLE);
         RaptorColumnHandle c3 = new RaptorColumnHandle("raptor", "c3", 3, DATE);
         RaptorColumnHandle c4 = new RaptorColumnHandle("raptor", "c4", 4, TIMESTAMP);
-        RaptorColumnHandle c5 = new RaptorColumnHandle("raptor", "c5", 5, VARCHAR);
+        RaptorColumnHandle c5 = new RaptorColumnHandle("raptor", "c5", 5, createVarcharType(10));
         RaptorColumnHandle c6 = new RaptorColumnHandle("raptor", "c6", 6, BOOLEAN);
 
         long tableId = createTable("test");
@@ -504,7 +504,7 @@ public class TestDatabaseShardManager
                 .between(c2, DOUBLE, -1000.0, 1000.0)
                 .between(c3, BIGINT, 0L, 50000L)
                 .between(c4, TIMESTAMP, 0L, timestamp(2015, 1, 2, 3, 4, 5))
-                .between(c5, VARCHAR, utf8Slice("a"), utf8Slice("zzzzz"))
+                .between(c5, createVarcharType(10), utf8Slice("a"), utf8Slice("zzzzz"))
                 .between(c6, BOOLEAN, false, true)
                 .expected(shards);
 
@@ -520,12 +520,12 @@ public class TestDatabaseShardManager
 
         shardAssertion(tableId).range(c4, greaterThan(TIMESTAMP, timestamp(2013, 1, 1, 0, 0, 0))).expected(shard1, shard3);
 
-        shardAssertion(tableId).between(c5, VARCHAR, utf8Slice("cow"), utf8Slice("milk")).expected(shards);
-        shardAssertion(tableId).equal(c5, VARCHAR, utf8Slice("fruit")).expected();
-        shardAssertion(tableId).equal(c5, VARCHAR, utf8Slice("pear")).expected(shard1);
-        shardAssertion(tableId).equal(c5, VARCHAR, utf8Slice("cat")).expected(shard2);
-        shardAssertion(tableId).range(c5, greaterThan(VARCHAR, utf8Slice("gum"))).expected(shard1, shard3);
-        shardAssertion(tableId).range(c5, lessThan(VARCHAR, utf8Slice("air"))).expected();
+        shardAssertion(tableId).between(c5, createVarcharType(10), utf8Slice("cow"), utf8Slice("milk")).expected(shards);
+        shardAssertion(tableId).equal(c5, createVarcharType(10), utf8Slice("fruit")).expected();
+        shardAssertion(tableId).equal(c5, createVarcharType(10), utf8Slice("pear")).expected(shard1);
+        shardAssertion(tableId).equal(c5, createVarcharType(10), utf8Slice("cat")).expected(shard2);
+        shardAssertion(tableId).range(c5, greaterThan(createVarcharType(10), utf8Slice("gum"))).expected(shard1, shard3);
+        shardAssertion(tableId).range(c5, lessThan(createVarcharType(10), utf8Slice("air"))).expected();
 
         shardAssertion(tableId).equal(c6, BOOLEAN, true).expected(shard1, shard2);
         shardAssertion(tableId).equal(c6, BOOLEAN, false).expected(shard1, shard3);
@@ -550,8 +550,8 @@ public class TestDatabaseShardManager
 
         List<ShardInfo> shards = ImmutableList.of(shard);
 
-        List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, VARCHAR));
-        RaptorColumnHandle c1 = new RaptorColumnHandle("raptor", "c1", 1, VARCHAR);
+        List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, createVarcharType(10)));
+        RaptorColumnHandle c1 = new RaptorColumnHandle("raptor", "c1", 1, createVarcharType(10));
 
         long tableId = createTable("test");
         shardManager.createTable(tableId, columns, false);
@@ -560,23 +560,23 @@ public class TestDatabaseShardManager
         shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty());
 
         shardAssertion(tableId).expected(shards);
-        shardAssertion(tableId).equal(c1, VARCHAR, utf8Slice(prefix)).expected(shards);
-        shardAssertion(tableId).equal(c1, VARCHAR, utf8Slice(prefix + "c")).expected(shards);
-        shardAssertion(tableId).range(c1, lessThan(VARCHAR, utf8Slice(prefix + "c"))).expected(shards);
-        shardAssertion(tableId).range(c1, greaterThan(VARCHAR, utf8Slice(prefix + "zzz"))).expected(shards);
+        shardAssertion(tableId).equal(c1, createVarcharType(10), utf8Slice(prefix)).expected(shards);
+        shardAssertion(tableId).equal(c1, createVarcharType(10), utf8Slice(prefix + "c")).expected(shards);
+        shardAssertion(tableId).range(c1, lessThan(createVarcharType(10), utf8Slice(prefix + "c"))).expected(shards);
+        shardAssertion(tableId).range(c1, greaterThan(createVarcharType(10), utf8Slice(prefix + "zzz"))).expected(shards);
 
-        shardAssertion(tableId).between(c1, VARCHAR, utf8Slice("w"), utf8Slice("y")).expected(shards);
-        shardAssertion(tableId).range(c1, greaterThan(VARCHAR, utf8Slice("x"))).expected(shards);
+        shardAssertion(tableId).between(c1, createVarcharType(10), utf8Slice("w"), utf8Slice("y")).expected(shards);
+        shardAssertion(tableId).range(c1, greaterThan(createVarcharType(10), utf8Slice("x"))).expected(shards);
 
-        shardAssertion(tableId).between(c1, VARCHAR, utf8Slice("x"), utf8Slice("x")).expected();
-        shardAssertion(tableId).range(c1, lessThan(VARCHAR, utf8Slice("w"))).expected();
-        shardAssertion(tableId).range(c1, lessThan(VARCHAR, utf8Slice("x"))).expected();
-        shardAssertion(tableId).range(c1, greaterThan(VARCHAR, utf8Slice("y"))).expected();
+        shardAssertion(tableId).between(c1, createVarcharType(10), utf8Slice("x"), utf8Slice("x")).expected();
+        shardAssertion(tableId).range(c1, lessThan(createVarcharType(10), utf8Slice("w"))).expected();
+        shardAssertion(tableId).range(c1, lessThan(createVarcharType(10), utf8Slice("x"))).expected();
+        shardAssertion(tableId).range(c1, greaterThan(createVarcharType(10), utf8Slice("y"))).expected();
 
         Slice shorter = utf8Slice(prefix.substring(0, prefix.length() - 1));
-        shardAssertion(tableId).equal(c1, VARCHAR, shorter).expected();
-        shardAssertion(tableId).range(c1, lessThan(VARCHAR, shorter)).expected();
-        shardAssertion(tableId).range(c1, greaterThan(VARCHAR, shorter)).expected(shards);
+        shardAssertion(tableId).equal(c1, createVarcharType(10), shorter).expected();
+        shardAssertion(tableId).range(c1, lessThan(createVarcharType(10), shorter)).expected();
+        shardAssertion(tableId).range(c1, greaterThan(createVarcharType(10), shorter)).expected(shards);
     }
 
     @Test
@@ -601,7 +601,7 @@ public class TestDatabaseShardManager
 
     private Set<ShardNodes> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> predicate)
     {
-        try (ResultIterator<BucketShards> iterator = shardManager.getShardNodes(tableId, false, false, predicate)) {
+        try (ResultIterator<BucketShards> iterator = shardManager.getShardNodes(tableId, predicate)) {
             return ImmutableSet.copyOf(concat(transform(iterator, i -> i.getShards().iterator())));
         }
     }

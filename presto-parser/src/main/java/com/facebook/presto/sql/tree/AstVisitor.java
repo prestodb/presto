@@ -82,6 +82,21 @@ public abstract class AstVisitor<R, C>
         return visitNode(node, context);
     }
 
+    protected R visitPrepare(Prepare node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitDeallocate(Deallocate node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitExecute(Execute node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitQuery(Query node, C context)
     {
         return visitStatement(node, context);
@@ -553,6 +568,41 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitAtTimeZone(AtTimeZone node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
+    protected R visitGroupBy(GroupBy node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitGroupingElement(GroupingElement node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitCube(Cube node, C context)
+    {
+        return visitGroupingElement(node, context);
+    }
+
+    protected R visitGroupingSets(GroupingSets node, C context)
+    {
+        return visitGroupingElement(node, context);
+    }
+
+    protected R visitRollup(Rollup node, C context)
+    {
+        return visitGroupingElement(node, context);
+    }
+
+    protected R visitSimpleGroupBy(SimpleGroupBy node, C context)
+    {
+        return visitGroupingElement(node, context);
+    }
+
+    protected R visitSymbolReference(SymbolReference node, C context)
     {
         return visitExpression(node, context);
     }

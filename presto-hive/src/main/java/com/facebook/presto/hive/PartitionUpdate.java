@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimaps;
+import org.apache.hadoop.fs.Path;
 
 import java.util.Collection;
 import java.util.List;
@@ -30,8 +31,8 @@ public class PartitionUpdate
 {
     private final String name;
     private final boolean isNew;
-    private final String writePath;
-    private final String targetPath;
+    private final Path writePath;
+    private final Path targetPath;
     private final List<String> fileNames;
 
     public PartitionUpdate(
@@ -40,6 +41,15 @@ public class PartitionUpdate
             @JsonProperty("writePath") String writePath,
             @JsonProperty("targetPath") String targetPath,
             @JsonProperty("fileNames") List<String> fileNames)
+    {
+        this.name = requireNonNull(name, "name is null");
+        this.isNew = isNew;
+        this.writePath = new Path(requireNonNull(writePath, "writePath is null"));
+        this.targetPath = new Path(requireNonNull(targetPath, "targetPath is null"));
+        this.fileNames = ImmutableList.copyOf(requireNonNull(fileNames, "fileNames is null"));
+    }
+
+    public PartitionUpdate(String name, boolean isNew, Path writePath, Path targetPath, List<String> fileNames)
     {
         this.name = requireNonNull(name, "name is null");
         this.isNew = isNew;
@@ -60,14 +70,12 @@ public class PartitionUpdate
         return isNew;
     }
 
-    @JsonProperty
-    public String getWritePath()
+    public Path getWritePath()
     {
         return writePath;
     }
 
-    @JsonProperty
-    public String getTargetPath()
+    public Path getTargetPath()
     {
         return targetPath;
     }
@@ -78,6 +86,18 @@ public class PartitionUpdate
         return fileNames;
     }
 
+    @JsonProperty("targetPath")
+    public String getJsonSerializableTargetPath()
+    {
+        return targetPath.toString();
+    }
+
+    @JsonProperty("writePath")
+    public String getJsonSerializableWritePath()
+    {
+        return writePath.toString();
+    }
+
     @Override
     public String toString()
     {
@@ -86,7 +106,7 @@ public class PartitionUpdate
                 .toString();
     }
 
-    public static List<PartitionUpdate> mergePartitionUpdates(List<PartitionUpdate> unMergedUpdates)
+    public static List<PartitionUpdate> mergePartitionUpdates(Iterable<PartitionUpdate> unMergedUpdates)
     {
         ImmutableList.Builder<PartitionUpdate> partitionUpdates = ImmutableList.builder();
         for (Collection<PartitionUpdate> partitionGroup : Multimaps.index(unMergedUpdates, PartitionUpdate::getName).asMap().values()) {

@@ -16,24 +16,16 @@ package com.facebook.presto.ml;
 import com.facebook.presto.metadata.FunctionFactory;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.SqlFunction;
-import com.facebook.presto.spi.type.TypeManager;
 
 import java.util.List;
 
 public class MLFunctionFactory
         implements FunctionFactory
 {
-    private final TypeManager typeManager;
-
-    public MLFunctionFactory(TypeManager typeManager)
-    {
-        this.typeManager = typeManager;
-    }
-
     @Override
     public List<SqlFunction> listFunctions()
     {
-        return new FunctionListBuilder(typeManager)
+        return new FunctionListBuilder()
                 .aggregate(LearnClassifierAggregation.class)
                 .aggregate(LearnVarcharClassifierAggregation.class)
                 .aggregate(LearnRegressorAggregation.class)
@@ -41,7 +33,7 @@ public class MLFunctionFactory
                 .aggregate(LearnLibSvmVarcharClassifierAggregation.class)
                 .aggregate(LearnLibSvmRegressorAggregation.class)
                 .aggregate(EvaluateClassifierPredictionsAggregation.class)
-                .scalar(MLFunctions.class)
+                .scalars(MLFunctions.class)
                 .getFunctions();
     }
 }

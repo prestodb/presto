@@ -20,6 +20,7 @@ import com.facebook.presto.operator.aggregation.InputFunction;
 import com.facebook.presto.operator.aggregation.OutputFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.type.LiteralParameters;
 import com.facebook.presto.type.SqlType;
 import io.airlift.slice.Slice;
 
@@ -33,11 +34,12 @@ public final class LearnLibSvmClassifierAggregation
     private LearnLibSvmClassifierAggregation() {}
 
     @InputFunction
+    @LiteralParameters("x")
     public static void input(
             LearnState state,
             @SqlType(BIGINT) long label,
             @SqlType("map(bigint,double)") Block features,
-            @SqlType(VARCHAR) Slice parameters)
+            @SqlType("varchar(x)") Slice parameters)
     {
         input(state, (double) label, features, parameters);
     }

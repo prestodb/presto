@@ -22,6 +22,7 @@ import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Decimals;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -58,6 +59,7 @@ import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.FloatType.FLOAT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -71,6 +73,7 @@ import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
 import static com.facebook.presto.util.DateTimeUtils.parseYearMonthInterval;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Float.intBitsToFloat;
 import static java.util.Objects.requireNonNull;
 
 public final class LiteralInterpreter
@@ -133,17 +136,35 @@ public final class LiteralInterpreter
             Double value = (Double) object;
             // WARNING: the ORC predicate code depends on NaN and infinity not appearing in a tuple domain, so
             // if you remove this, you will need to update the TupleDomainOrcPredicate
+            // When changing this, don't forget about similar code for FLOAT below
             if (value.isNaN()) {
-                return new FunctionCall(new QualifiedName("nan"), ImmutableList.<Expression>of());
+                return new FunctionCall(QualifiedName.of("nan"), ImmutableList.<Expression>of());
             }
             else if (value.equals(Double.NEGATIVE_INFINITY)) {
-                return ArithmeticUnaryExpression.negative(new FunctionCall(new QualifiedName("infinity"), ImmutableList.<Expression>of()));
+                return ArithmeticUnaryExpression.negative(new FunctionCall(QualifiedName.of("infinity"), ImmutableList.<Expression>of()));
             }
             else if (value.equals(Double.POSITIVE_INFINITY)) {
-                return new FunctionCall(new QualifiedName("infinity"), ImmutableList.<Expression>of());
+                return new FunctionCall(QualifiedName.of("infinity"), ImmutableList.<Expression>of());
             }
             else {
                 return new DoubleLiteral(object.toString());
+            }
+        }
+
+        if (type.equals(FLOAT)) {
+            Float value = intBitsToFloat(((Long) object).intValue());
+            // WARNING for ORC predicate code as above (for double)
+            if (value.isNaN()) {
+                return new Cast(new FunctionCall(QualifiedName.of("nan"), ImmutableList.of()), StandardTypes.FLOAT);
+            }
+            else if (value.equals(Float.NEGATIVE_INFINITY)) {
+                return ArithmeticUnaryExpression.negative(new Cast(new FunctionCall(QualifiedName.of("infinity"), ImmutableList.of()), StandardTypes.FLOAT));
+            }
+            else if (value.equals(Float.POSITIVE_INFINITY)) {
+                return new Cast(new FunctionCall(QualifiedName.of("infinity"), ImmutableList.of()), StandardTypes.FLOAT);
+            }
+            else {
+                return new GenericLiteral("FLOAT", value.toString());
             }
         }
 
@@ -181,15 +202,15 @@ public final class LiteralInterpreter
             // HACK: we need to serialize VARBINARY in a format that can be embedded in an expression to be
             // able to encode it in the plan that gets sent to workers.
             // We do this by transforming the in-memory varbinary into a call to from_base64(<base64-encoded value>)
-            FunctionCall fromBase64 = new FunctionCall(new QualifiedName("from_base64"), ImmutableList.of(new StringLiteral(VarbinaryFunctions.toBase64((Slice) object).toStringUtf8())));
+            FunctionCall fromBase64 = new FunctionCall(QualifiedName.of("from_base64"), ImmutableList.of(new StringLiteral(VarbinaryFunctions.toBase64((Slice) object).toStringUtf8())));
             Signature signature = FunctionRegistry.getMagicLiteralFunctionSignature(type);
-            return new FunctionCall(new QualifiedName(signature.getName()), ImmutableList.of(fromBase64));
+            return new FunctionCall(QualifiedName.of(signature.getName()), ImmutableList.of(fromBase64));
         }
 
         Signature signature = FunctionRegistry.getMagicLiteralFunctionSignature(type);
         Expression rawLiteral = toExpression(object, FunctionRegistry.typeForMagicLiteral(type));
 
-        return new FunctionCall(new QualifiedName(signature.getName()), ImmutableList.of(rawLiteral));
+        return new FunctionCall(QualifiedName.of(signature.getName()), ImmutableList.of(rawLiteral));
     }
 
     private static class LiteralVisitor

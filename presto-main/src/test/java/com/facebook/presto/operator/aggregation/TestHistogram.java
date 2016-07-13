@@ -37,15 +37,16 @@ import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringArraysBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
+import static com.facebook.presto.operator.OperatorAssertion.toRow;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.operator.aggregation.Histogram.NAME;
-import static com.facebook.presto.operator.scalar.TestingRowConstructor.testRowBigintBigint;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static com.facebook.presto.util.StructuralTestUtil.mapBlockOf;
@@ -61,7 +62,11 @@ public class TestHistogram
             throws Exception
     {
         MapType mapType = new MapType(VARCHAR, BIGINT);
-        InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.VARCHAR));
+        InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature(NAME,
+                        AGGREGATE,
+                        mapType.getTypeSignature(),
+                        parseTypeSignature(StandardTypes.VARCHAR)));
         assertAggregation(
                 aggregationFunction,
                 1.0,
@@ -69,7 +74,11 @@ public class TestHistogram
                 createStringsBlock("a", "b", "c"));
 
         mapType = new MapType(BIGINT, BIGINT);
-        aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.BIGINT));
+        aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature(NAME,
+                        AGGREGATE,
+                        mapType.getTypeSignature(),
+                        parseTypeSignature(StandardTypes.BIGINT)));
         assertAggregation(
                 aggregationFunction,
                 1.0,
@@ -77,7 +86,11 @@ public class TestHistogram
                 createLongsBlock(100L, 200L, 300L));
 
         mapType = new MapType(DOUBLE, BIGINT);
-        aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.DOUBLE));
+        aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature(NAME,
+                        AGGREGATE,
+                        mapType.getTypeSignature(),
+                        parseTypeSignature(StandardTypes.DOUBLE)));
         assertAggregation(
                 aggregationFunction,
                 1.0,
@@ -85,7 +98,11 @@ public class TestHistogram
                 createDoublesBlock(0.1, 0.3, 0.2));
 
         mapType = new MapType(BOOLEAN, BIGINT);
-        aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.BOOLEAN));
+        aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature(NAME,
+                        AGGREGATE,
+                        mapType.getTypeSignature(),
+                        parseTypeSignature(StandardTypes.BOOLEAN)));
         assertAggregation(
                 aggregationFunction,
                 1.0,
@@ -98,7 +115,11 @@ public class TestHistogram
             throws Exception
     {
         MapType mapType = new MapType(VARCHAR, BIGINT);
-        InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.VARCHAR));
+        InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature(NAME,
+                        AGGREGATE,
+                        mapType.getTypeSignature(),
+                        parseTypeSignature(StandardTypes.VARCHAR)));
         assertAggregation(
                 aggregationFunction,
                 1.0,
@@ -106,7 +127,11 @@ public class TestHistogram
                 createStringsBlock("a", "b", "a"));
 
         mapType = new MapType(TIMESTAMP_WITH_TIME_ZONE, BIGINT);
-        aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE));
+        aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature(NAME,
+                        AGGREGATE,
+                        mapType.getTypeSignature(),
+                        parseTypeSignature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)));
         long timestampWithTimeZone1 = packDateTimeWithZone(new DateTime(1970, 1, 1, 0, 0, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY);
         long timestampWithTimeZone2 = packDateTimeWithZone(new DateTime(2015, 1, 1, 0, 0, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY);
         assertAggregation(
@@ -121,7 +146,11 @@ public class TestHistogram
             throws Exception
     {
         MapType mapType = new MapType(BIGINT, BIGINT);
-        InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.BIGINT));
+        InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature(NAME,
+                        AGGREGATE,
+                        mapType.getTypeSignature(),
+                        parseTypeSignature(StandardTypes.BIGINT)));
         assertAggregation(
                 aggregationFunction,
                 1.0,
@@ -129,7 +158,11 @@ public class TestHistogram
                 createLongsBlock(2L, null, 1L));
 
         mapType = new MapType(BIGINT, BIGINT);
-        aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.BIGINT));
+        aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature(NAME,
+                        AGGREGATE,
+                        mapType.getTypeSignature(),
+                        parseTypeSignature(StandardTypes.BIGINT)));
         assertAggregation(
                 aggregationFunction,
                 1.0,
@@ -143,7 +176,11 @@ public class TestHistogram
     {
         ArrayType arrayType = new ArrayType(VARCHAR);
         MapType mapType = new MapType(arrayType, BIGINT);
-        InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), arrayType.getTypeSignature().toString()));
+        InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature(NAME,
+                        AGGREGATE,
+                        mapType.getTypeSignature(),
+                        arrayType.getTypeSignature()));
 
         assertAggregation(
                 aggregationFunction,
@@ -158,7 +195,11 @@ public class TestHistogram
     {
         MapType innerMapType = new MapType(VARCHAR, VARCHAR);
         MapType mapType = new MapType(innerMapType, BIGINT);
-        InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), innerMapType.getTypeSignature().toString()));
+        InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature(NAME,
+                        AGGREGATE,
+                        mapType.getTypeSignature(),
+                        innerMapType.getTypeSignature()));
 
         BlockBuilder builder = innerMapType.createBlockBuilder(new BlockBuilderStatus(), 3);
         innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("a", "b")));
@@ -178,12 +219,16 @@ public class TestHistogram
     {
         RowType innerRowType = new RowType(ImmutableList.of(BIGINT, DOUBLE), Optional.of(ImmutableList.of("f1", "f2")));
         MapType mapType = new MapType(innerRowType, BIGINT);
-        InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), innerRowType.getTypeSignature().toString()));
+        InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature(NAME,
+                        AGGREGATE,
+                        mapType.getTypeSignature(),
+                        innerRowType.getTypeSignature()));
 
         BlockBuilder builder = innerRowType.createBlockBuilder(new BlockBuilderStatus(), 3);
-        innerRowType.writeObject(builder, testRowBigintBigint(1L, 1.0));
-        innerRowType.writeObject(builder, testRowBigintBigint(2L, 2.0));
-        innerRowType.writeObject(builder, testRowBigintBigint(3L, 3.0));
+        innerRowType.writeObject(builder, toRow(ImmutableList.of(BIGINT, DOUBLE), 1L, 1.0));
+        innerRowType.writeObject(builder, toRow(ImmutableList.of(BIGINT, DOUBLE), 2L, 2.0));
+        innerRowType.writeObject(builder, toRow(ImmutableList.of(BIGINT, DOUBLE), 3L, 3.0));
 
         assertAggregation(
                 aggregationFunction,
@@ -197,7 +242,11 @@ public class TestHistogram
             throws Exception
     {
         MapType mapType = new MapType(VARCHAR, BIGINT);
-        InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.VARCHAR));
+        InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature(NAME,
+                        AGGREGATE,
+                        mapType.getTypeSignature(),
+                        parseTypeSignature(StandardTypes.VARCHAR)));
         assertAggregation(
                 aggregationFunction,
                 1.0,

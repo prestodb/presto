@@ -76,6 +76,9 @@ statement
         (WHERE booleanExpression)?
         (ORDER BY sortItem (',' sortItem)*)?
         (LIMIT limit=(INTEGER_VALUE | ALL))?                           #showPartitions
+    | PREPARE identifier FROM statement                                #prepare
+    | DEALLOCATE PREPARE identifier                                    #deallocate
+    | EXECUTE identifier                                               #execute
     ;
 
 query
@@ -225,7 +228,6 @@ booleanExpression
     | NOT booleanExpression                                        #logicalNot
     | left=booleanExpression operator=AND right=booleanExpression  #logicalBinary
     | left=booleanExpression operator=OR right=booleanExpression   #logicalBinary
-    | EXISTS '(' query ')'                                         #exists
     ;
 
 // workaround for:
@@ -270,6 +272,8 @@ primaryExpression
     | identifier '->' expression                                                     #lambda
     | '(' identifier (',' identifier)* ')' '->' expression                           #lambda
     | '(' query ')'                                                                  #subqueryExpression
+    // This is an extension to ANSI SQL, which considers EXISTS to be a <boolean expression>
+    | EXISTS '(' query ')'                                                           #exists
     | CASE valueExpression whenClause+ (ELSE elseExpression=expression)? END         #simpleCase
     | CASE whenClause+ (ELSE elseExpression=expression)? END                         #searchedCase
     | CAST '(' expression AS type ')'                                                #cast
@@ -406,7 +410,7 @@ nonReserved
     : SHOW | TABLES | COLUMNS | COLUMN | PARTITIONS | FUNCTIONS | SCHEMAS | CATALOGS | SESSION
     | ADD
     | OVER | PARTITION | RANGE | ROWS | PRECEDING | FOLLOWING | CURRENT | ROW | MAP | ARRAY
-    | INTEGER | DATE | TIME | TIMESTAMP | INTERVAL | ZONE
+    | TINYINT | SMALLINT | INTEGER | DATE | TIME | TIMESTAMP | INTERVAL | ZONE
     | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
     | EXPLAIN | ANALYZE | FORMAT | TYPE | TEXT | GRAPHVIZ | LOGICAL | DISTRIBUTED
     | TABLESAMPLE | SYSTEM | BERNOULLI | POISSONIZED | USE | TO
@@ -471,6 +475,8 @@ DESC: 'DESC';
 SUBSTRING: 'SUBSTRING';
 POSITION: 'POSITION';
 FOR: 'FOR';
+TINYINT: 'TINYINT';
+SMALLINT: 'SMALLINT';
 INTEGER: 'INTEGER';
 DATE: 'DATE';
 TIME: 'TIME';
@@ -586,6 +592,9 @@ READ: 'READ';
 WRITE: 'WRITE';
 ONLY: 'ONLY';
 CALL: 'CALL';
+PREPARE: 'PREPARE';
+DEALLOCATE: 'DEALLOCATE';
+EXECUTE: 'EXECUTE';
 
 NORMALIZE: 'NORMALIZE';
 NFD : 'NFD';

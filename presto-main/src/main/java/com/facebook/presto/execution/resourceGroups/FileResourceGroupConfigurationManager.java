@@ -21,6 +21,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
@@ -31,9 +32,11 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -50,6 +53,7 @@ public class FileResourceGroupConfigurationManager
 {
     private final List<ResourceGroupSpec> rootGroups;
     private final List<? extends ResourceGroupSelector> selectors;
+    private final Optional<Duration> cpuQuotaPeriodMillis;
 
     @GuardedBy("generalPoolMemoryFraction")
     private final Map<ConfigurableResourceGroup, Double> generalPoolMemoryFraction = new HashMap<>();
@@ -57,7 +61,7 @@ public class FileResourceGroupConfigurationManager
     private long generalPoolBytes;
 
     @Inject
-    public FileResourceGroupConfigurationManager(ClusterMemoryPoolManager memoryPoolManager, ResourceGroupConfig config, JsonCodec<ManagerSpec> codec)
+    public FileResourceGroupConfigurationManager(ClusterMemoryPoolManager memoryPoolManager, FileResourceGroupConfig config, JsonCodec<ManagerSpec> codec)
     {
         requireNonNull(config, "config is null");
         requireNonNull(codec, "codec is null");
@@ -70,6 +74,20 @@ public class FileResourceGroupConfigurationManager
             throw Throwables.propagate(e);
         }
         this.rootGroups = managerSpec.getRootGroups();
+        this.cpuQuotaPeriodMillis = managerSpec.getCpuQuotaPeriod();
+
+        Queue<ResourceGroupSpec> groups = new LinkedList<>(rootGroups);
+        while (!groups.isEmpty()) {
+            ResourceGroupSpec group = groups.poll();
+            groups.addAll(group.getSubGroups());
+            if (group.getSoftCpuLimit().isPresent() || group.getHardCpuLimit().isPresent()) {
+                checkArgument(managerSpec.getCpuQuotaPeriod().isPresent(), "cpuQuotaPeriod must be specified to use cpu limits on group: %s", group.getName());
+            }
+            if (group.getSoftCpuLimit().isPresent()) {
+                checkArgument(group.getHardCpuLimit().isPresent(), "Must specify hard CPU limit in addition to soft limit");
+                checkArgument(group.getSoftCpuLimit().get().compareTo(group.getHardCpuLimit().get()) <= 0, "Soft CPU limit cannot be greater than hard CPU limit");
+            }
+        }
 
         ImmutableList.Builder<ResourceGroupSelector> selectors = ImmutableList.builder();
         for (SelectorSpec spec : managerSpec.getSelectors()) {
@@ -141,6 +159,25 @@ public class FileResourceGroupConfigurationManager
         if (match.getJmxExport().isPresent()) {
             group.setJmxExport(match.getJmxExport().get());
         }
+        if (match.getSoftCpuLimit().isPresent() || match.getHardCpuLimit().isPresent()) {
+            checkState(cpuQuotaPeriodMillis.isPresent());
+            Duration limit;
+            if (match.getHardCpuLimit().isPresent()) {
+                limit = match.getHardCpuLimit().get();
+            }
+            else {
+                limit = match.getSoftCpuLimit().get();
+            }
+            long rate = (long) Math.min(1000.0 * limit.toMillis() / (double) cpuQuotaPeriodMillis.get().toMillis(), Long.MAX_VALUE);
+            rate = Math.max(1, rate);
+            group.setCpuQuotaGenerationMillisPerSecond(rate);
+        }
+        if (match.getSoftCpuLimit().isPresent()) {
+            group.setSoftCpuLimit(match.getSoftCpuLimit().get());
+        }
+        if (match.getHardCpuLimit().isPresent()) {
+            group.setHardCpuLimit(match.getHardCpuLimit().get());
+        }
     }
 
     @Override
@@ -153,14 +190,17 @@ public class FileResourceGroupConfigurationManager
     {
         private final List<ResourceGroupSpec> rootGroups;
         private final List<SelectorSpec> selectors;
+        private final Optional<Duration> cpuQuotaPeriod;
 
         @JsonCreator
         public ManagerSpec(
                 @JsonProperty("rootGroups") List<ResourceGroupSpec> rootGroups,
-                @JsonProperty("selectors") List<SelectorSpec> selectors)
+                @JsonProperty("selectors") List<SelectorSpec> selectors,
+                @JsonProperty("cpuQuotaPeriod") Optional<Duration> cpuQuotaPeriod)
         {
             this.rootGroups = ImmutableList.copyOf(requireNonNull(rootGroups, "rootGroups is null"));
             this.selectors = ImmutableList.copyOf(requireNonNull(selectors, "selectors is null"));
+            this.cpuQuotaPeriod = requireNonNull(cpuQuotaPeriod, "cpuQuotaPeriod is null");
             Set<ResourceGroupNameTemplate> names = new HashSet<>();
             for (ResourceGroupSpec group : rootGroups) {
                 checkArgument(!names.contains(group.getName()), "Duplicated root group: %s", group.getName());
@@ -177,6 +217,11 @@ public class FileResourceGroupConfigurationManager
         {
             return selectors;
         }
+
+        public Optional<Duration> getCpuQuotaPeriod()
+        {
+            return cpuQuotaPeriod;
+        }
     }
 
     public static class ResourceGroupSpec
@@ -192,6 +237,8 @@ public class FileResourceGroupConfigurationManager
         private final Optional<Integer> schedulingWeight;
         private final List<ResourceGroupSpec> subGroups;
         private final Optional<Boolean> jmxExport;
+        private final Optional<Duration> softCpuLimit;
+        private final Optional<Duration> hardCpuLimit;
 
         @JsonCreator
         public ResourceGroupSpec(
@@ -202,8 +249,12 @@ public class FileResourceGroupConfigurationManager
                 @JsonProperty("schedulingPolicy") Optional<String> schedulingPolicy,
                 @JsonProperty("schedulingWeight") Optional<Integer> schedulingWeight,
                 @JsonProperty("subGroups") Optional<List<ResourceGroupSpec>> subGroups,
-                @JsonProperty("jmxExport") Optional<Boolean> jmxExport)
+                @JsonProperty("jmxExport") Optional<Boolean> jmxExport,
+                @JsonProperty("softCpuLimit") Optional<Duration> softCpuLimit,
+                @JsonProperty("hardCpuLimit") Optional<Duration> hardCpuLimit)
         {
+            this.softCpuLimit = requireNonNull(softCpuLimit, "softCpuLimit is null");
+            this.hardCpuLimit = requireNonNull(hardCpuLimit, "hardCpuLimit is null");
             this.jmxExport = requireNonNull(jmxExport, "jmxExport is null");
             this.name = requireNonNull(name, "name is null");
             checkArgument(maxQueued >= 0, "maxQueued is negative");
@@ -277,6 +328,16 @@ public class FileResourceGroupConfigurationManager
         public Optional<Boolean> getJmxExport()
         {
             return jmxExport;
+        }
+
+        public Optional<Duration> getSoftCpuLimit()
+        {
+            return softCpuLimit;
+        }
+
+        public Optional<Duration> getHardCpuLimit()
+        {
+            return hardCpuLimit;
         }
     }
 

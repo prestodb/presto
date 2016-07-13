@@ -90,6 +90,7 @@ import static com.facebook.presto.hive.HiveWriteUtils.getRowColumnInspectors;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -303,11 +304,31 @@ public class HivePageSink
         }
         else {
             for (Int2ObjectMap<HiveRecordWriter> writers : bucketWriters) {
+                PartitionUpdate firstPartitionUpdate = null;
+                ImmutableList.Builder<String> fileNamesBuilder = ImmutableList.builder();
                 for (HiveRecordWriter writer : writers.values()) {
                     writer.commit();
                     PartitionUpdate partitionUpdate = writer.getPartitionUpdate();
-                    partitionUpdates.add(wrappedBuffer(partitionUpdateCodec.toJsonBytes(partitionUpdate)));
+                    if (firstPartitionUpdate == null) {
+                        firstPartitionUpdate = partitionUpdate;
+                    }
+                    else {
+                        verify(firstPartitionUpdate.getName().equals(partitionUpdate.getName()));
+                        verify(firstPartitionUpdate.isNew() == partitionUpdate.isNew());
+                        verify(firstPartitionUpdate.getTargetPath().equals(partitionUpdate.getTargetPath()));
+                        verify(firstPartitionUpdate.getWritePath().equals(partitionUpdate.getWritePath()));
+                    }
+                    fileNamesBuilder.addAll(partitionUpdate.getFileNames());
                 }
+                if (firstPartitionUpdate == null) {
+                    continue;
+                }
+                partitionUpdates.add(wrappedBuffer(partitionUpdateCodec.toJsonBytes(new PartitionUpdate(
+                        firstPartitionUpdate.getName(),
+                        firstPartitionUpdate.isNew(),
+                        firstPartitionUpdate.getWritePath(),
+                        firstPartitionUpdate.getTargetPath(),
+                        fileNamesBuilder.build()))));
             }
         }
         return partitionUpdates.build();
@@ -405,7 +426,7 @@ public class HivePageSink
                         Object value = getField(partitionColumnTypes.get(field), partitionBlocks[field], position);
                         partitionRow.set(field, value);
                     }
-                    writer = createWriter(partitionRow, filePrefix + "_bucket-" + Strings.padStart(Integer.toString(bucket), BUCKET_NUMBER_PADDING, '0'));
+                    writer = createWriter(partitionRow, computeBucketedFileName(filePrefix, bucket));
                     writers.put(bucket, writer);
                 }
 
@@ -413,6 +434,11 @@ public class HivePageSink
             }
         }
         return NOT_BLOCKED;
+    }
+
+    public static String computeBucketedFileName(String filePrefix, int bucket)
+    {
+        return filePrefix + "_bucket-" + Strings.padStart(Integer.toString(bucket), BUCKET_NUMBER_PADDING, '0');
     }
 
     private HiveRecordWriter createWriter(List<Object> partitionRow, String fileName)
@@ -539,14 +565,14 @@ public class HivePageSink
                 outputFormat,
                 serDe,
                 schema,
-                fileName + getFileExtension(outputFormat),
+                fileName + getFileExtension(conf, outputFormat),
                 write.toString(),
                 target.toString(),
                 typeManager,
                 conf);
     }
 
-    private String getFileExtension(String outputFormat)
+    static String getFileExtension(JobConf conf, String outputFormat)
     {
         // text format files must have the correct extension when compressed
         if (!HiveConf.getBoolVar(conf, COMPRESSRESULT) || !HiveIgnoreKeyTextOutputFormat.class.getName().equals(outputFormat)) {

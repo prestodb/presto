@@ -40,6 +40,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -52,7 +53,11 @@ public class ArrayToJsonCast
 
     private ArrayToJsonCast()
     {
-        super(OperatorType.CAST, ImmutableList.of(typeVariable("T")), ImmutableList.of(), StandardTypes.JSON, ImmutableList.of("array(T)"));
+        super(OperatorType.CAST,
+                ImmutableList.of(typeVariable("T")),
+                ImmutableList.of(),
+                parseTypeSignature(StandardTypes.JSON),
+                ImmutableList.of(parseTypeSignature("array(T)")));
     }
 
     @Override
@@ -71,7 +76,7 @@ public class ArrayToJsonCast
         Type elementType = arrayType.getTypeParameters().get(0);
         List<Object> objectValues = new ArrayList<>(array.getPositionCount());
         for (int i = 0; i < array.getPositionCount(); i++) {
-            objectValues.add(elementType.getObjectValue(session, array, i));
+            objectValues.add(JsonFunctions.getJsonObjectValue(elementType, session, array, i));
         }
         try {
             return Slices.utf8Slice(OBJECT_MAPPER.get().writeValueAsString(objectValues));

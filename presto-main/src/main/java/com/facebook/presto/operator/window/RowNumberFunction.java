@@ -17,6 +17,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
+@WindowFunctionSignature(name = "row_number", returnType = "bigint")
 public class RowNumberFunction
         extends RankingWindowFunction
 {

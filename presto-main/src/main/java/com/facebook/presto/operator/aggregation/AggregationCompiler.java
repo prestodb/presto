@@ -14,132 +14,100 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.facebook.presto.metadata.FunctionKind;
+import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.Description;
 import com.facebook.presto.operator.aggregation.state.AccumulatorState;
-import com.facebook.presto.operator.aggregation.state.AccumulatorStateFactory;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.type.LiteralParameters;
 import com.facebook.presto.type.SqlType;
-import com.facebook.presto.type.TypeRegistry;
-import com.google.common.base.Throwables;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nullable;
 
 import java.lang.annotation.Annotation;
-import java.lang.invoke.MethodHandle;
+import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.fromAnnotations;
-import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
 public class AggregationCompiler
 {
-    private final TypeManager typeManager;
-
-    public AggregationCompiler()
+    private AggregationCompiler()
     {
-        this(new TypeRegistry());
     }
 
-    public AggregationCompiler(TypeManager typeManager)
+    // This function should only be used for function matching for testing purposes.
+    // General purpose function matching is done through FunctionRegistry.
+    @VisibleForTesting
+    public static BindableAggregationFunction generateAggregationBindableFunction(Class<?> clazz)
     {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-    }
-
-    private static List<Method> findPublicStaticMethodsWithAnnotation(Class<?> clazz, Class<?> annotationClass)
-    {
-        ImmutableList.Builder<Method> methods = ImmutableList.builder();
-        for (Method method : clazz.getMethods()) {
-            for (Annotation annotation : method.getAnnotations()) {
-                if (annotationClass.isInstance(annotation)) {
-                    checkArgument(Modifier.isStatic(method.getModifiers()) && Modifier.isPublic(method.getModifiers()), "%s annotated with %s must be static and public", method.getName(), annotationClass.getSimpleName());
-                    methods.add(method);
-                }
-            }
-        }
-        return methods.build();
-    }
-
-    public InternalAggregationFunction generateAggregationFunction(Class<?> clazz)
-    {
-        List<InternalAggregationFunction> aggregations = generateAggregationFunctions(clazz);
+        List<BindableAggregationFunction> aggregations = generateBindableAggregationFunctions(clazz);
         checkArgument(aggregations.size() == 1, "More than one aggregation function found");
         return aggregations.get(0);
     }
 
-    public InternalAggregationFunction generateAggregationFunction(Class<?> clazz, Type returnType, List<Type> argumentTypes)
+    // This function should only be used for function matching for testing purposes.
+    // General purpose function matching is done through FunctionRegistry.
+    public static BindableAggregationFunction generateAggregationBindableFunction(Class<?> clazz, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
         requireNonNull(returnType, "returnType is null");
         requireNonNull(argumentTypes, "argumentTypes is null");
-        for (InternalAggregationFunction aggregation : generateAggregationFunctions(clazz)) {
-            if (aggregation.getFinalType().equals(returnType) && aggregation.getParameterTypes().equals(argumentTypes)) {
+        for (BindableAggregationFunction aggregation : generateBindableAggregationFunctions(clazz)) {
+            if (aggregation.getSignature().getReturnType().equals(returnType) &&
+                    aggregation.getSignature().getArgumentTypes().equals(argumentTypes)) {
                 return aggregation;
             }
         }
         throw new IllegalArgumentException(String.format("No method with return type %s and arguments %s", returnType, argumentTypes));
     }
 
-    public List<InternalAggregationFunction> generateAggregationFunctions(Class<?> clazz)
+    public static List<BindableAggregationFunction> generateBindableAggregationFunctions(Class<?> aggregationDefinition)
     {
-        AggregationFunction aggregationAnnotation = clazz.getAnnotation(AggregationFunction.class);
+        AggregationFunction aggregationAnnotation = aggregationDefinition.getAnnotation(AggregationFunction.class);
         requireNonNull(aggregationAnnotation, "aggregationAnnotation is null");
 
-        DynamicClassLoader classLoader = new DynamicClassLoader(clazz.getClassLoader());
+        DynamicClassLoader classLoader = new DynamicClassLoader(aggregationDefinition.getClassLoader());
 
-        ImmutableList.Builder<InternalAggregationFunction> builder = ImmutableList.builder();
-        for (Class<?> stateClass : getStateClasses(clazz)) {
+        ImmutableList.Builder<BindableAggregationFunction> builder = ImmutableList.builder();
+
+        for (Class<?> stateClass : getStateClasses(aggregationDefinition)) {
             AccumulatorStateSerializer<?> stateSerializer = new StateCompiler().generateStateSerializer(stateClass, classLoader);
-            Type intermediateType = stateSerializer.getSerializedType();
-            Method intermediateInputFunction = getIntermediateInputFunction(clazz, stateClass);
-            Method combineFunction = getCombineFunction(clazz, stateClass);
-            AccumulatorStateFactory<?> stateFactory = new StateCompiler().generateStateFactory(stateClass, classLoader);
 
-            for (Method outputFunction : getOutputFunctions(clazz, stateClass)) {
-                for (Method inputFunction : getInputFunctions(clazz, stateClass)) {
+            for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateClass)) {
+                for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
                     for (String name : getNames(outputFunction, aggregationAnnotation)) {
-                        List<Type> inputTypes = getInputTypes(inputFunction);
-                        Type outputType = AggregationUtils.getOutputType(outputFunction, stateSerializer, typeManager);
+                        List<TypeSignature> inputTypes = getInputTypesSignatures(inputFunction);
+                        TypeSignature outputType = TypeSignature.parseTypeSignature(outputFunction.getAnnotation(OutputFunction.class).value());
 
-                        AggregationMetadata metadata;
-                        try {
-                            MethodHandle inputHandle = lookup().unreflect(inputFunction);
-                            MethodHandle intermediateInputHandle = intermediateInputFunction == null ? null : lookup().unreflect(intermediateInputFunction);
-                            MethodHandle combineHandle = combineFunction == null ? null : lookup().unreflect(combineFunction);
-                            MethodHandle outputHandle = outputFunction == null ? null : lookup().unreflect(outputFunction);
-                            metadata = new AggregationMetadata(
-                                    generateAggregationName(name, outputType, inputTypes),
-                                    getParameterMetadata(inputFunction, aggregationAnnotation.approximate()),
-                                    inputHandle,
-                                    getParameterMetadata(intermediateInputFunction, false),
-                                    intermediateInputHandle,
-                                    combineHandle,
-                                    outputHandle,
-                                    stateClass,
-                                    stateSerializer,
-                                    stateFactory,
-                                    outputType,
-                                    aggregationAnnotation.approximate());
-                        }
-                        catch (IllegalAccessException e) {
-                            throw Throwables.propagate(e);
-                        }
-
-                        AccumulatorFactoryBinder factory = new LazyAccumulatorFactoryBinder(metadata, classLoader);
-                        builder.add(new InternalAggregationFunction(name, inputTypes, intermediateType, outputType, aggregationAnnotation.decomposable(), aggregationAnnotation.approximate(), factory));
+                        builder.add(
+                                new BindableAggregationFunction(
+                                        new Signature(
+                                                name,
+                                                aggregationAnnotation.approximate() ? FunctionKind.APPROXIMATE_AGGREGATE : FunctionKind.AGGREGATE,
+                                                ImmutableList.of(), // TODO parse constrains from annotations
+                                                ImmutableList.of(), // TODO parse constrains from annotations
+                                                outputType,
+                                                inputTypes,
+                                                false),
+                                        getDescription(aggregationDefinition, outputFunction),
+                                        aggregationAnnotation.approximate(),
+                                        aggregationAnnotation.decomposable(),
+                                        aggregationDefinition,
+                                        stateClass,
+                                        inputFunction,
+                                        outputFunction));
                     }
                 }
             }
@@ -148,21 +116,14 @@ public class AggregationCompiler
         return builder.build();
     }
 
-    private List<ParameterMetadata> getParameterMetadata(@Nullable Method method, boolean sampleWeightAllowed)
+    public static boolean isParameterNullable(Annotation[] annotations)
     {
-        if (method == null) {
-            return null;
-        }
+        return Arrays.asList(annotations).stream().anyMatch(annotation -> annotation instanceof NullablePosition);
+    }
 
-        ImmutableList.Builder<ParameterMetadata> builder = ImmutableList.builder();
-        builder.add(new ParameterMetadata(STATE));
-
-        Annotation[][] annotations = method.getParameterAnnotations();
-        // Start at 1 because 0 is the STATE
-        for (int i = 1; i < annotations.length; i++) {
-            builder.add(fromAnnotations(annotations[i], method.getDeclaringClass() + "." + method.getName(), typeManager, sampleWeightAllowed));
-        }
-        return builder.build();
+    public static boolean isParameterBlock(Annotation[] annotations)
+    {
+        return Arrays.asList(annotations).stream().anyMatch(annotation -> annotation instanceof BlockPosition);
     }
 
     private static List<String> getNames(@Nullable Method outputFunction, AggregationFunction aggregationAnnotation)
@@ -182,7 +143,7 @@ public class AggregationCompiler
         }
     }
 
-    private static Method getIntermediateInputFunction(Class<?> clazz, Class<?> stateClass)
+    public static Method getIntermediateInputFunction(Class<?> clazz, Class<?> stateClass)
     {
         for (Method method : findPublicStaticMethodsWithAnnotation(clazz, IntermediateInputFunction.class)) {
             if (method.getParameterTypes()[0] == stateClass) {
@@ -192,7 +153,7 @@ public class AggregationCompiler
         return null;
     }
 
-    private static Method getCombineFunction(Class<?> clazz, Class<?> stateClass)
+    public static Method getCombineFunction(Class<?> clazz, Class<?> stateClass)
     {
         for (Method method : findPublicStaticMethodsWithAnnotation(clazz, CombineFunction.class)) {
             if (method.getParameterTypes()[0] == stateClass) {
@@ -224,15 +185,18 @@ public class AggregationCompiler
         return inputFunctions;
     }
 
-    private List<Type> getInputTypes(Method inputFunction)
+    private static List<TypeSignature> getInputTypesSignatures(Method inputFunction)
     {
-        ImmutableList.Builder<Type> builder = ImmutableList.builder();
+        // FIXME Literal parameters should be part of class annotations.
+        ImmutableList.Builder<TypeSignature> builder = ImmutableList.builder();
+        Set<String> literalParameters = getLiteralParameter(inputFunction);
+
         Annotation[][] parameterAnnotations = inputFunction.getParameterAnnotations();
         for (Annotation[] annotations : parameterAnnotations) {
             for (Annotation annotation : annotations) {
                 if (annotation instanceof SqlType) {
                     String typeName = ((SqlType) annotation).value();
-                    builder.add(typeManager.getType(parseTypeSignature(typeName)));
+                    builder.add(parseTypeSignature(typeName, literalParameters));
                 }
             }
         }
@@ -253,5 +217,45 @@ public class AggregationCompiler
         checkArgument(!stateClasses.isEmpty(), "No input functions found");
 
         return stateClasses;
+    }
+
+    private static String getDescription(AnnotatedElement base, AnnotatedElement override)
+    {
+        Description description = override.getAnnotation(Description.class);
+        if (description != null) {
+            return description.value();
+        }
+        description = base.getAnnotation(Description.class);
+        return (description == null) ? null : description.value();
+    }
+
+    private static Set<String> getLiteralParameter(Method inputFunction)
+    {
+        ImmutableSet.Builder<String> literalParametersBuilder = ImmutableSet.builder();
+
+        Annotation[] literalParameters = inputFunction.getAnnotations();
+        for (Annotation annotation : literalParameters) {
+            if (annotation instanceof LiteralParameters) {
+                for (String literal : ((LiteralParameters) annotation).value()) {
+                   literalParametersBuilder.add(literal);
+                }
+            }
+        }
+
+        return literalParametersBuilder.build();
+    }
+
+    private static List<Method> findPublicStaticMethodsWithAnnotation(Class<?> clazz, Class<?> annotationClass)
+    {
+        ImmutableList.Builder<Method> methods = ImmutableList.builder();
+        for (Method method : clazz.getMethods()) {
+            for (Annotation annotation : method.getAnnotations()) {
+                if (annotationClass.isInstance(annotation)) {
+                    checkArgument(Modifier.isStatic(method.getModifiers()) && Modifier.isPublic(method.getModifiers()), "%s annotated with %s must be static and public", method.getName(), annotationClass.getSimpleName());
+                    methods.add(method);
+                }
+            }
+        }
+        return methods.build();
     }
 }

@@ -80,20 +80,6 @@ public class ArrayElementBlockWriter
     }
 
     @Override
-    public BlockBuilder writeFloat(float value)
-    {
-        blockBuilder.writeFloat(value);
-        return this;
-    }
-
-    @Override
-    public BlockBuilder writeDouble(double value)
-    {
-        blockBuilder.writeDouble(value);
-        return this;
-    }
-
-    @Override
     public BlockBuilder writeBytes(Slice source, int sourceIndex, int length)
     {
         blockBuilder.writeBytes(source, sourceIndex, length);
@@ -142,6 +128,12 @@ public class ArrayElementBlockWriter
 
     @Override
     public Block build()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void reset(BlockBuilderStatus blockBuilderStatus)
     {
         throw new UnsupportedOperationException();
     }

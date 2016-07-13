@@ -33,6 +33,8 @@ public class HiveMetadataFactory
     private final String connectorId;
     private final boolean allowCorruptWritesForTesting;
     private final boolean respectTableFormat;
+    private final boolean bucketExecutionEnabled;
+    private final boolean bucketWritingEnabled;
     private final HiveStorageFormat defaultStorageFormat;
     private final HiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
@@ -66,6 +68,8 @@ public class HiveMetadataFactory
                 hiveClientConfig.getMaxConcurrentFileRenames(),
                 hiveClientConfig.getAllowCorruptWritesForTesting(),
                 hiveClientConfig.isRespectTableFormat(),
+                hiveClientConfig.isBucketExecutionEnabled(),
+                hiveClientConfig.isBucketWritingEnabled(),
                 hiveClientConfig.getHiveStorageFormat(),
                 typeManager,
                 locationService,
@@ -83,6 +87,8 @@ public class HiveMetadataFactory
             int maxConcurrentFileRenames,
             boolean allowCorruptWritesForTesting,
             boolean respectTableFormat,
+            boolean bucketExecutionEnabled,
+            boolean bucketWritingEnabled,
             HiveStorageFormat defaultStorageFormat,
             TypeManager typeManager,
             LocationService locationService,
@@ -94,6 +100,8 @@ public class HiveMetadataFactory
 
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
         this.respectTableFormat = respectTableFormat;
+        this.bucketExecutionEnabled = bucketExecutionEnabled;
+        this.bucketWritingEnabled = bucketWritingEnabled;
         this.defaultStorageFormat = requireNonNull(defaultStorageFormat, "defaultStorageFormat is null");
 
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -125,6 +133,8 @@ public class HiveMetadataFactory
                 timeZone,
                 allowCorruptWritesForTesting,
                 respectTableFormat,
+                bucketExecutionEnabled,
+                bucketWritingEnabled,
                 defaultStorageFormat,
                 typeManager,
                 locationService,

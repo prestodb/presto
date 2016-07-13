@@ -15,6 +15,8 @@ package com.facebook.presto.spi.block;
 
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 public class InterleavedBlock
         extends AbstractInterleavedBlock
 {
@@ -22,51 +24,54 @@ public class InterleavedBlock
 
     private final Block[] blocks;
     private final InterleavedBlockEncoding blockEncoding;
+    private final int start;
     private final int positionCount;
-    private final int sizeInBytes;
     private final int retainedSizeInBytes;
+
+    private final AtomicInteger sizeInBytes;
 
     public InterleavedBlock(Block[] blocks)
     {
         super(blocks.length);
         this.blocks = blocks;
 
-        // Aside from calculating sizeInBytes, retainedSizeInBytes, and positionCount,
-        // the loop below verifies that the position count of sub-blocks in the InterleavedBlock
-        // * differs by at most one
-        // * is non-ascending
         int sizeInBytes = 0;
         int retainedSizeInBytes = INSTANCE_SIZE;
         int positionCount = 0;
         int firstSubBlockPositionCount = blocks[0].getPositionCount();
-        boolean subBlockHasDifferentSize = false;
         for (int i = 0; i < getBlockCount(); i++) {
             sizeInBytes += blocks[i].getSizeInBytes();
             retainedSizeInBytes += blocks[i].getRetainedSizeInBytes();
             positionCount += blocks[i].getPositionCount();
 
-            if (subBlockHasDifferentSize) {
-                if (firstSubBlockPositionCount - 1 != blocks[i].getPositionCount()) {
-                    throw new IllegalArgumentException(
-                            "length of sub blocks differ by at least 2 or is not non-ascending: block 0: " + firstSubBlockPositionCount + ", block " + i + ": " + blocks[i].getPositionCount());
-                }
-            }
-            else {
-                if (firstSubBlockPositionCount != blocks[i].getPositionCount()) {
-                    if (firstSubBlockPositionCount - 1 == blocks[i].getPositionCount()) {
-                        subBlockHasDifferentSize = true;
-                    }
-                    else {
-                        throw new IllegalArgumentException("length of sub blocks differ by at least 2: block 0: " + firstSubBlockPositionCount + ", block " + i + ": " + blocks[i].getPositionCount());
-                    }
-                }
+            if (firstSubBlockPositionCount != blocks[i].getPositionCount()) {
+                throw new IllegalArgumentException("length of sub blocks differ: block 0: " + firstSubBlockPositionCount + ", block " + i + ": " + blocks[i].getPositionCount());
             }
         }
 
         this.blockEncoding = computeBlockEncoding();
+        this.start = 0;
         this.positionCount = positionCount;
-        this.sizeInBytes = sizeInBytes;
+        this.sizeInBytes = new AtomicInteger(sizeInBytes);
         this.retainedSizeInBytes = retainedSizeInBytes;
+    }
+
+    private InterleavedBlock(Block[] blocks, int start, int positionCount, int retainedSizeInBytes, InterleavedBlockEncoding blockEncoding)
+    {
+        super(blocks.length);
+        this.blocks = blocks;
+        this.start = start;
+        this.positionCount = positionCount;
+        this.retainedSizeInBytes = retainedSizeInBytes;
+        this.blockEncoding = blockEncoding;
+        this.sizeInBytes = new AtomicInteger(-1);
+    }
+
+    @Override
+    public Block getRegion(int position, int length)
+    {
+        validateRange(position, length);
+        return new InterleavedBlock(blocks, toAbsolutePosition(position), length, retainedSizeInBytes, blockEncoding);
     }
 
     @Override
@@ -77,6 +82,12 @@ public class InterleavedBlock
         }
 
         return blocks[blockIndex];
+    }
+
+    @Override
+    protected int toAbsolutePosition(int position)
+    {
+        return position + start;
     }
 
     @Override
@@ -94,6 +105,14 @@ public class InterleavedBlock
     @Override
     public int getSizeInBytes()
     {
+        int sizeInBytes = this.sizeInBytes.get();
+        if (sizeInBytes < 0) {
+            sizeInBytes = 0;
+            for (int i = 0; i < getBlockCount(); i++) {
+                sizeInBytes += blocks[i].getSizeInBytes();
+            }
+            this.sizeInBytes.set(sizeInBytes);
+        }
         return sizeInBytes;
     }
 

@@ -39,6 +39,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.metadata.Signature.withVariadicBound;
+import static com.facebook.presto.operator.scalar.JsonFunctions.getJsonObjectValue;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -51,7 +53,11 @@ public class RowToJsonCast
 
     private RowToJsonCast()
     {
-        super(OperatorType.CAST, ImmutableList.of(withVariadicBound("T", "row")), ImmutableList.of(), StandardTypes.JSON, ImmutableList.of("T"));
+        super(OperatorType.CAST,
+                ImmutableList.of(withVariadicBound("T", "row")),
+                ImmutableList.of(),
+                parseTypeSignature(StandardTypes.JSON),
+                ImmutableList.of(parseTypeSignature("T")));
     }
 
     @Override
@@ -67,7 +73,7 @@ public class RowToJsonCast
     {
         List<Object> objectValue = new ArrayList<>(row.getPositionCount());
         for (int i = 0; i < row.getPositionCount(); i++) {
-            objectValue.add(rowType.getTypeParameters().get(i).getObjectValue(session, row, i));
+            objectValue.add(getJsonObjectValue(rowType.getTypeParameters().get(i), session, row, i));
         }
         try {
             return Slices.utf8Slice(OBJECT_MAPPER.get().writeValueAsString(objectValue));

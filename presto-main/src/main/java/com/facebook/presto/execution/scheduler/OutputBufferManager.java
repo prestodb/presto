@@ -13,68 +13,11 @@
  */
 package com.facebook.presto.execution.scheduler;
 
-import com.facebook.presto.execution.TaskId;
-import com.google.common.base.MoreObjects;
+import com.facebook.presto.OutputBuffers.OutputBufferId;
 
 import java.util.List;
-import java.util.Objects;
-
-import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Objects.requireNonNull;
 
 interface OutputBufferManager
 {
-    void addOutputBuffers(List<OutputBuffer> newBuffers, boolean noMoreBuffers);
-
-    class OutputBuffer
-    {
-        private final TaskId bufferId;
-        private final int partition;
-
-        public OutputBuffer(TaskId bufferId, int partition)
-        {
-            this.bufferId = requireNonNull(bufferId, "bufferId is null");
-            checkArgument(partition >= 0, "partition is negative");
-            this.partition = partition;
-        }
-
-        public TaskId getBufferId()
-        {
-            return bufferId;
-        }
-
-        public int getPartition()
-        {
-            return partition;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            OutputBuffer that = (OutputBuffer) o;
-            return partition == that.partition &&
-                    Objects.equals(bufferId, that.bufferId);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(bufferId, partition);
-        }
-
-        @Override
-        public String toString()
-        {
-            return MoreObjects.toStringHelper(this)
-                    .add("bufferId", bufferId)
-                    .add("partition", partition)
-                    .toString();
-        }
-    }
+    void addOutputBuffers(List<OutputBufferId> newBuffers, boolean noMoreBuffers);
 }

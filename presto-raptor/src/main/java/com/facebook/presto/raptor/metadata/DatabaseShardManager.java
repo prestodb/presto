@@ -65,7 +65,7 @@ import java.util.UUID;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
-import static com.facebook.presto.raptor.metadata.ShardPredicate.jdbcType;
+import static com.facebook.presto.raptor.storage.ColumnIndexStatsUtils.jdbcType;
 import static com.facebook.presto.raptor.storage.ShardStats.MAX_BINARY_INDEX_SIZE;
 import static com.facebook.presto.raptor.util.ArrayUtil.intArrayFromBytes;
 import static com.facebook.presto.raptor.util.ArrayUtil.intArrayToBytes;
@@ -74,7 +74,7 @@ import static com.facebook.presto.raptor.util.DatabaseUtil.metadataError;
 import static com.facebook.presto.raptor.util.DatabaseUtil.runIgnoringConstraintViolation;
 import static com.facebook.presto.raptor.util.DatabaseUtil.runTransaction;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidToBytes;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
@@ -90,6 +90,7 @@ import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 
 public class DatabaseShardManager
@@ -182,7 +183,6 @@ public class DatabaseShardManager
                     "  shard_id BIGINT NOT NULL,\n" +
                     "  shard_uuid BINARY(16) NOT NULL,\n" +
                     "  bucket_number INT NOT NULL\n," +
-                    "  node_ids VARBINARY(128) NOT NULL,\n" +
                     tableColumns +
                     "  PRIMARY KEY (bucket_number, shard_uuid),\n" +
                     "  UNIQUE (shard_id),\n" +
@@ -401,11 +401,19 @@ public class DatabaseShardManager
     private static void insertShardsAndIndex(long tableId, List<ColumnInfo> columns, Collection<ShardInfo> shards, Map<String, Integer> nodeIds, Handle handle)
             throws SQLException
     {
+        if (shards.isEmpty()) {
+            return;
+        }
+        boolean bucketed = shards.iterator().next().getBucketNumber().isPresent();
+
         Connection connection = handle.getConnection();
         try (IndexInserter indexInserter = new IndexInserter(connection, tableId, columns)) {
             for (List<ShardInfo> batch : partition(shards, batchSize(connection))) {
                 List<Long> shardIds = insertShards(connection, tableId, batch);
-                insertShardNodes(connection, nodeIds, shardIds, batch);
+
+                if (!bucketed) {
+                    insertShardNodes(connection, nodeIds, shardIds, batch);
+                }
 
                 for (int i = 0; i < batch.size(); i++) {
                     ShardInfo shard = batch.get(i);
@@ -447,9 +455,15 @@ public class DatabaseShardManager
     }
 
     @Override
-    public ResultIterator<BucketShards> getShardNodes(long tableId, boolean bucketed, boolean merged, TupleDomain<RaptorColumnHandle> effectivePredicate)
+    public ResultIterator<BucketShards> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate)
     {
-        return new ShardIterator(tableId, bucketed, merged, effectivePredicate, dbi);
+        return new ShardIterator(tableId, false, Optional.empty(), effectivePredicate, dbi);
+    }
+
+    @Override
+    public ResultIterator<BucketShards> getShardNodesBucketed(long tableId, boolean merged, Map<Integer, String> bucketToNode, TupleDomain<RaptorColumnHandle> effectivePredicate)
+    {
+        return new ShardIterator(tableId, merged, Optional.of(bucketToNode), effectivePredicate, dbi);
     }
 
     @Override
@@ -495,24 +509,8 @@ public class DatabaseShardManager
     @Override
     public Map<String, Long> getNodeBytes()
     {
-        String sql = "" +
-                "SELECT n.node_identifier, x.size\n" +
-                "FROM (\n" +
-                "  SELECT node_id, sum(compressed_size) size\n" +
-                "  FROM shards s\n" +
-                "  JOIN shard_nodes sn ON (s.shard_id = sn.shard_id)\n" +
-                "  GROUP BY node_id\n" +
-                ") x\n" +
-                "JOIN nodes n ON (x.node_id = n.node_id)";
-
-        try (Handle handle = dbi.open()) {
-            return handle.createQuery(sql)
-                    .fold(ImmutableMap.<String, Long>builder(), (map, rs, ctx) -> {
-                        map.put(rs.getString("node_identifier"), rs.getLong("size"));
-                        return map;
-                    })
-                    .build();
-        }
+        return dao.getNodeSizes().stream()
+                .collect(toMap(NodeSize::getNodeIdentifier, NodeSize::getSizeInBytes));
     }
 
     @Override
@@ -616,7 +614,7 @@ public class DatabaseShardManager
 
         id = dao.getNodeId(nodeIdentifier);
         if (id == null) {
-            throw new PrestoException(INTERNAL_ERROR, "node does not exist after insert");
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "node does not exist after insert");
         }
         return id;
     }
@@ -719,11 +717,13 @@ public class DatabaseShardManager
 
     public static String minColumn(long columnId)
     {
+        checkArgument(columnId >= 0, "invalid columnId %s", columnId);
         return format("c%s_min", columnId);
     }
 
     public static String maxColumn(long columnId)
     {
+        checkArgument(columnId >= 0, "invalid columnId %s", columnId);
         return format("c%s_max", columnId);
     }
 

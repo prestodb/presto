@@ -18,8 +18,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DependencyExtractor;
-import com.facebook.presto.sql.planner.PartitionFunctionBinding;
-import com.facebook.presto.sql.planner.PartitionFunctionBinding.PartitionFunctionArgumentBinding;
+import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -65,6 +64,7 @@ import com.google.common.collect.Sets;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -123,10 +123,8 @@ public class PruneUnreferencedOutputs
         public PlanNode visitExchange(ExchangeNode node, RewriteContext<Set<Symbol>> context)
         {
             Set<Symbol> expectedOutputSymbols = Sets.newHashSet(context.get());
-            node.getPartitionFunction().getHashColumn().ifPresent(expectedOutputSymbols::add);
-            node.getPartitionFunction().getPartitionFunctionArguments().stream()
-                    .filter(PartitionFunctionArgumentBinding::isVariable)
-                    .map(PartitionFunctionArgumentBinding::getColumn)
+            node.getPartitioningScheme().getHashColumn().ifPresent(expectedOutputSymbols::add);
+            node.getPartitioningScheme().getPartitioning().getColumns().stream()
                     .forEach(expectedOutputSymbols::add);
 
             List<List<Symbol>> inputsBySource = new ArrayList<>(node.getInputs().size());
@@ -146,13 +144,12 @@ public class PruneUnreferencedOutputs
             }
 
             // newOutputSymbols contains all partition and hash symbols so simply swap the output layout
-            PartitionFunctionBinding partitionFunctionBinding = new PartitionFunctionBinding(
-                    node.getPartitionFunction().getPartitioningHandle(),
+            PartitioningScheme partitioningScheme = new PartitioningScheme(
+                    node.getPartitioningScheme().getPartitioning(),
                     newOutputSymbols,
-                    node.getPartitionFunction().getPartitionFunctionArguments(),
-                    node.getPartitionFunction().getHashColumn(),
-                    node.getPartitionFunction().isReplicateNulls(),
-                    node.getPartitionFunction().getBucketToPartition());
+                    node.getPartitioningScheme().getHashColumn(),
+                    node.getPartitioningScheme().isReplicateNulls(),
+                    node.getPartitioningScheme().getBucketToPartition());
 
             ImmutableList.Builder<PlanNode> rewrittenSources = ImmutableList.<PlanNode>builder();
             for (int i = 0; i < node.getSources().size(); i++) {
@@ -168,7 +165,7 @@ public class PruneUnreferencedOutputs
                     node.getId(),
                     node.getType(),
                     node.getScope(),
-                    partitionFunctionBinding,
+                    partitioningScheme,
                     rewrittenSources.build(),
                     inputsBySource);
         }
@@ -176,11 +173,20 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitJoin(JoinNode node, RewriteContext<Set<Symbol>> context)
         {
+            Set<Symbol> expectedFilterInputs = new HashSet<>();
+            if (node.getFilter().isPresent()) {
+                expectedFilterInputs = ImmutableSet.<Symbol>builder()
+                        .addAll(DependencyExtractor.extractUnique(node.getFilter().get()))
+                        .addAll(context.get())
+                        .build();
+            }
+
             ImmutableSet.Builder<Symbol> leftInputsBuilder = ImmutableSet.builder();
             leftInputsBuilder.addAll(context.get()).addAll(Iterables.transform(node.getCriteria(), JoinNode.EquiJoinClause::getLeft));
             if (node.getLeftHashSymbol().isPresent()) {
                 leftInputsBuilder.add(node.getLeftHashSymbol().get());
             }
+            leftInputsBuilder.addAll(expectedFilterInputs);
             Set<Symbol> leftInputs = leftInputsBuilder.build();
 
             ImmutableSet.Builder<Symbol> rightInputsBuilder = ImmutableSet.builder();
@@ -188,13 +194,13 @@ public class PruneUnreferencedOutputs
             if (node.getRightHashSymbol().isPresent()) {
                 rightInputsBuilder.add(node.getRightHashSymbol().get());
             }
-
+            rightInputsBuilder.addAll(expectedFilterInputs);
             Set<Symbol> rightInputs = rightInputsBuilder.build();
 
             PlanNode left = context.rewrite(node.getLeft(), leftInputs);
             PlanNode right = context.rewrite(node.getRight(), rightInputs);
 
-            return new JoinNode(node.getId(), node.getType(), left, right, node.getCriteria(), node.getLeftHashSymbol(), node.getRightHashSymbol());
+            return new JoinNode(node.getId(), node.getType(), left, right, node.getCriteria(), node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol());
         }
 
         @Override
@@ -357,10 +363,7 @@ public class PruneUnreferencedOutputs
             return new WindowNode(
                     node.getId(),
                     source,
-                    node.getPartitionBy(),
-                    node.getOrderBy(),
-                    node.getOrderings(),
-                    node.getFrame(),
+                    node.getSpecification(),
                     functionCalls.build(),
                     functions.build(),
                     node.getHashSymbol(),
@@ -409,12 +412,21 @@ public class PruneUnreferencedOutputs
         {
             checkState(node.getDistinctGroupingColumns().stream().allMatch(column -> context.get().contains(column)));
 
-            PlanNode source = context.rewrite(node.getSource(), ImmutableSet.copyOf(context.get()));
-            List<Symbol> requiredSymbols = context.get().stream()
-                    .filter(symbol -> !symbol.equals(node.getGroupIdSymbol()))
-                    .collect(toImmutableList());
+            ImmutableMap.Builder<Symbol, Symbol> identityMappingBuilder = ImmutableMap.builder();
+            for (Map.Entry<Symbol, Symbol> entry : node.getIdentityMappings().entrySet()) {
+                if (context.get().contains(entry.getValue())) {
+                    identityMappingBuilder.put(entry);
+                }
+            }
 
-            return new GroupIdNode(node.getId(), source, requiredSymbols, node.getGroupingSets(), node.getGroupIdSymbol());
+            Map<Symbol, Symbol> identityMapping = identityMappingBuilder.build();
+
+            PlanNode source = context.rewrite(node.getSource(), ImmutableSet.<Symbol>builder()
+                    .addAll(identityMapping.keySet())
+                    .addAll(node.getDistinctGroupingColumns())
+                    .build());
+
+            return new GroupIdNode(node.getId(), source, node.getGroupingSets(), identityMapping, node.getGroupIdSymbol());
         }
 
         @Override
@@ -580,13 +592,11 @@ public class PruneUnreferencedOutputs
             if (node.getSampleWeightSymbol().isPresent()) {
                 expectedInputs.add(node.getSampleWeightSymbol().get());
             }
-            if (node.getPartitionFunction().isPresent()) {
-                PartitionFunctionBinding functionBinding = node.getPartitionFunction().get();
-                functionBinding.getPartitionFunctionArguments().stream()
-                        .filter(PartitionFunctionArgumentBinding::isVariable)
-                        .map(PartitionFunctionArgumentBinding::getColumn)
+            if (node.getPartitioningScheme().isPresent()) {
+                PartitioningScheme partitioningScheme = node.getPartitioningScheme().get();
+                partitioningScheme.getPartitioning().getColumns().stream()
                         .forEach(expectedInputs::add);
-                functionBinding.getHashColumn().ifPresent(expectedInputs::add);
+                partitioningScheme.getHashColumn().ifPresent(expectedInputs::add);
             }
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
@@ -598,7 +608,7 @@ public class PruneUnreferencedOutputs
                     node.getColumnNames(),
                     node.getOutputSymbols(),
                     node.getSampleWeightSymbol(),
-                    node.getPartitionFunction());
+                    node.getPartitioningScheme());
         }
 
         @Override

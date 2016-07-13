@@ -14,10 +14,12 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.MemoryPoolAssignment;
 import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
@@ -57,6 +59,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_TASK;
+import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
@@ -109,6 +112,7 @@ public class SqlTaskManager
         clientTimeout = config.getClientTimeout();
 
         DataSize maxBufferSize = config.getSinkMaxBufferSize();
+        boolean newSinkBufferImplementation = config.isNewSinkBufferImplementation();
 
         taskNotificationExecutor = newFixedThreadPool(config.getTaskNotificationThreads(), threadsNamed("task-notification-%s"));
         taskNotificationExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskNotificationExecutor);
@@ -147,7 +151,8 @@ public class SqlTaskManager
                                 finishedTaskStats.merge(sqlTask.getIoStats());
                                 return null;
                         },
-                        maxBufferSize
+                        maxBufferSize,
+                        newSinkBufferImplementation
                 );
             }
         });
@@ -202,6 +207,22 @@ public class SqlTaskManager
     @PreDestroy
     public void close()
     {
+        boolean taskCanceled = false;
+        for (SqlTask task : tasks.asMap().values()) {
+            if (task.getTaskInfo().getTaskStatus().getState().isDone()) {
+                continue;
+            }
+            task.failed(new PrestoException(SERVER_SHUTTING_DOWN, format("Server is shutting down. Task %s has been canceled", task.getTaskId())));
+            taskCanceled = true;
+        }
+        if (taskCanceled) {
+            try {
+                TimeUnit.SECONDS.sleep(5);
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
         taskNotificationExecutor.shutdownNow();
         taskManagementExecutor.shutdownNow();
     }
@@ -246,7 +267,11 @@ public class SqlTaskManager
     @Override
     public TaskStatus getTaskStatus(TaskId taskId)
     {
-        return getTaskInfo(taskId).getTaskStatus();
+        requireNonNull(taskId, "taskId is null");
+
+        SqlTask sqlTask = tasks.getUnchecked(taskId);
+        sqlTask.recordHeartbeat();
+        return sqlTask.getTaskStatus();
     }
 
     @Override
@@ -268,6 +293,7 @@ public class SqlTaskManager
         return sqlTask.getTaskInstanceId();
     }
 
+    @Override
     public CompletableFuture<TaskStatus> getTaskStatus(TaskId taskId, TaskState currentState)
     {
         requireNonNull(taskId, "taskId is null");
@@ -298,23 +324,23 @@ public class SqlTaskManager
     }
 
     @Override
-    public CompletableFuture<BufferResult> getTaskResults(TaskId taskId, TaskId outputName, long startingSequenceId, DataSize maxSize)
+    public CompletableFuture<BufferResult> getTaskResults(TaskId taskId, OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
     {
         requireNonNull(taskId, "taskId is null");
-        requireNonNull(outputName, "outputName is null");
+        requireNonNull(bufferId, "bufferId is null");
         Preconditions.checkArgument(startingSequenceId >= 0, "startingSequenceId is negative");
         requireNonNull(maxSize, "maxSize is null");
 
-        return tasks.getUnchecked(taskId).getTaskResults(outputName, startingSequenceId, maxSize);
+        return tasks.getUnchecked(taskId).getTaskResults(bufferId, startingSequenceId, maxSize);
     }
 
     @Override
-    public TaskInfo abortTaskResults(TaskId taskId, TaskId outputId)
+    public TaskInfo abortTaskResults(TaskId taskId, OutputBufferId bufferId)
     {
         requireNonNull(taskId, "taskId is null");
-        requireNonNull(outputId, "outputId is null");
+        requireNonNull(bufferId, "bufferId is null");
 
-        return tasks.getUnchecked(taskId).abortTaskResults(outputId);
+        return tasks.getUnchecked(taskId).abortTaskResults(bufferId);
     }
 
     @Override

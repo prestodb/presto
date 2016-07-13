@@ -58,7 +58,8 @@ public class TestHiveClientConfig
                 .setForceLocalScheduling(false)
                 .setMaxConcurrentFileRenames(20)
                 .setRecursiveDirWalkerEnabled(false)
-                .setDfsTimeout(new Duration(10, TimeUnit.SECONDS))
+                .setDfsTimeout(new Duration(60, TimeUnit.SECONDS))
+                .setIpcPingInterval(new Duration(10, TimeUnit.SECONDS))
                 .setDfsConnectTimeout(new Duration(500, TimeUnit.MILLISECONDS))
                 .setDfsConnectMaxRetries(5)
                 .setVerifyChecksum(true)
@@ -100,7 +101,9 @@ public class TestHiveClientConfig
                 .setHdfsAuthenticationType(HiveClientConfig.HdfsAuthenticationType.NONE)
                 .setHdfsImpersonationEnabled(false)
                 .setHdfsPrestoPrincipal(null)
-                .setHdfsPrestoKeytab(null));
+                .setHdfsPrestoKeytab(null)
+                .setBucketExecutionEnabled(true)
+                .setBucketWritingEnabled(true));
     }
 
     @Test
@@ -123,6 +126,7 @@ public class TestHiveClientConfig
                 .put("hive.metastore-timeout", "20s")
                 .put("hive.metastore.partition-batch-size.min", "1")
                 .put("hive.metastore.partition-batch-size.max", "1000")
+                .put("hive.dfs.ipc-ping-interval", "34s")
                 .put("hive.dfs-timeout", "33s")
                 .put("hive.dfs.connect.timeout", "20s")
                 .put("hive.dfs.connect.max-retries", "10")
@@ -172,6 +176,8 @@ public class TestHiveClientConfig
                 .put("hive.hdfs.impersonation.enabled", "true")
                 .put("hive.hdfs.presto.principal", "presto@EXAMPLE.COM")
                 .put("hive.hdfs.presto.keytab", "/tmp/presto.keytab")
+                .put("hive.bucket-execution", "false")
+                .put("hive.bucket-writing", "false")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -197,6 +203,7 @@ public class TestHiveClientConfig
                 .setForceLocalScheduling(true)
                 .setMaxConcurrentFileRenames(100)
                 .setRecursiveDirWalkerEnabled(true)
+                .setIpcPingInterval(new Duration(34, TimeUnit.SECONDS))
                 .setDfsTimeout(new Duration(33, TimeUnit.SECONDS))
                 .setDfsConnectTimeout(new Duration(20, TimeUnit.SECONDS))
                 .setDfsConnectMaxRetries(10)
@@ -239,7 +246,9 @@ public class TestHiveClientConfig
                 .setHdfsAuthenticationType(HiveClientConfig.HdfsAuthenticationType.KERBEROS)
                 .setHdfsImpersonationEnabled(true)
                 .setHdfsPrestoPrincipal("presto@EXAMPLE.COM")
-                .setHdfsPrestoKeytab("/tmp/presto.keytab");
+                .setHdfsPrestoKeytab("/tmp/presto.keytab")
+                .setBucketExecutionEnabled(false)
+                .setBucketWritingEnabled(false);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

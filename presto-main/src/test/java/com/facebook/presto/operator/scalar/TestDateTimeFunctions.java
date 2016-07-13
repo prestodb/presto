@@ -773,10 +773,31 @@ public class TestDateTimeFunctions
         assertFunction("date_parse('1.2006', '%s.%f')",
                 TimestampType.TIMESTAMP,
                 toTimestamp(new DateTime(1970, 1, 1, 0, 0, 1, 200, DATE_TIME_ZONE)));
+        assertFunction("date_parse('59.123456789', '%s.%f')",
+                TimestampType.TIMESTAMP,
+                toTimestamp(new DateTime(1970, 1, 1, 0, 0, 59, 123, DATE_TIME_ZONE)));
 
         assertFunction("date_parse('0', '%k')",
                 TimestampType.TIMESTAMP,
                 toTimestamp(new DateTime(1970, 1, 1, 0, 0, 0, 0, DATE_TIME_ZONE)));
+
+        assertFunction("date_parse('28-JAN-16 11.45.46.421000 PM','%d-%b-%y %l.%i.%s.%f %p')",
+                TimestampType.TIMESTAMP,
+                toTimestamp(new DateTime(2016, 1, 28, 23, 45, 46, 421, DATE_TIME_ZONE)));
+        assertFunction("date_parse('11-DEC-70 11.12.13.456000 AM','%d-%b-%y %l.%i.%s.%f %p')",
+                TimestampType.TIMESTAMP,
+                toTimestamp(new DateTime(1970, 12, 11, 11, 12, 13, 456, DATE_TIME_ZONE)));
+        assertFunction("date_parse('31-MAY-69 04.59.59.999000 AM','%d-%b-%y %l.%i.%s.%f %p')",
+                TimestampType.TIMESTAMP,
+                toTimestamp(new DateTime(2069, 5, 31, 4, 59, 59, 999, DATE_TIME_ZONE)));
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Invalid format: \"3.0123456789\" is malformed at \"9\"")
+    public void testTooManyFractionsInSeconds()
+    {
+        assertFunction("date_parse('3.0123456789', '%s.%f')",
+                TimestampType.TIMESTAMP,
+                null);
     }
 
     @Test

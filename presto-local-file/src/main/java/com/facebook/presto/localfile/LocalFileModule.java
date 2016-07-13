@@ -36,7 +36,6 @@ public class LocalFileModule
         configBinder(binder).bindConfig(LocalFileConfig.class);
 
         binder.bind(LocalFileConnector.class).in(Scopes.SINGLETON);
-        binder.bind(LocalFileConnectorId.class).toInstance(new LocalFileConnectorId(connectorId));
         binder.bind(LocalFileMetadata.class).in(Scopes.SINGLETON);
         binder.bind(LocalFileSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(LocalFileRecordSetProvider.class).in(Scopes.SINGLETON);

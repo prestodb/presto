@@ -37,7 +37,9 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static io.airlift.slice.Slices.wrappedLongArray;
 
@@ -54,7 +56,11 @@ public class ChecksumAggregationFunction
 
     public ChecksumAggregationFunction()
     {
-        super(NAME, ImmutableList.of(comparableTypeParameter("T")), ImmutableList.of(), StandardTypes.VARBINARY, ImmutableList.of("T"));
+        super(NAME,
+                ImmutableList.of(comparableTypeParameter("T")),
+                ImmutableList.of(),
+                parseTypeSignature(StandardTypes.VARBINARY),
+                ImmutableList.of(parseTypeSignature("T")));
     }
 
     @Override
@@ -77,7 +83,7 @@ public class ChecksumAggregationFunction
         List<Type> inputTypes = ImmutableList.of(type);
 
         AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(NAME, type, inputTypes),
+                generateAggregationName(NAME, type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(type),
                 INPUT_FUNCTION.bindTo(type),
                 null,

@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -81,8 +82,9 @@ public class TestJdbcRecordSetProvider
     public void testGetRecordSet()
             throws Exception
     {
+        ConnectorTransactionHandle transaction = new JdbcTransactionHandle();
         JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient);
-        RecordSet recordSet = recordSetProvider.getRecordSet(SESSION, split, ImmutableList.of(textColumn, textShortColumn, valueColumn));
+        RecordSet recordSet = recordSetProvider.getRecordSet(transaction, SESSION, split, ImmutableList.of(textColumn, textShortColumn, valueColumn));
         assertNotNull(recordSet, "recordSet is null");
 
         RecordCursor cursor = recordSet.cursor();
@@ -200,8 +202,9 @@ public class TestJdbcRecordSetProvider
         ConnectorSplitSource splits = jdbcClient.getSplits(layoutHandle);
         JdbcSplit split = (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(1000)));
 
+        ConnectorTransactionHandle transaction = new JdbcTransactionHandle();
         JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient);
-        RecordSet recordSet = recordSetProvider.getRecordSet(SESSION, split, columns);
+        RecordSet recordSet = recordSetProvider.getRecordSet(transaction, SESSION, split, columns);
 
         return recordSet.cursor();
     }

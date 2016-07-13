@@ -66,7 +66,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.LEGACY_NETWORK_TOPOLOGY;
+import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.BENCHMARK;
+import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.FLAT;
+import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -123,8 +125,10 @@ public class BenchmarkNodeScheduler
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        @Param({LEGACY_NETWORK_TOPOLOGY, "benchmark", "flat"})
-        private String topologyName = LEGACY_NETWORK_TOPOLOGY;
+        @Param({LEGACY,
+                BENCHMARK,
+                FLAT})
+        private String topologyName = LEGACY;
 
         private FinalizerService finalizerService = new FinalizerService();
         private NodeSelector nodeSelector;
@@ -152,7 +156,7 @@ public class BenchmarkNodeScheduler
                 for (int j = 0; j < MAX_SPLITS_PER_NODE + MAX_PENDING_SPLITS_PER_TASK_PER_NODE; j++) {
                     initialSplits.add(new Split("foo", transactionHandle, new TestSplitRemote(i)));
                 }
-                TaskId taskId = new TaskId(new StageId("test", "1"), String.valueOf(i));
+                TaskId taskId = new TaskId("test", "1", i);
                 MockRemoteTaskFactory.MockRemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, initialSplits.build(), nodeTaskMap.createPartitionedSplitCountTracker(node, taskId));
                 nodeTaskMap.addTask(node, remoteTask);
                 taskMap.put(node, remoteTask);
@@ -180,20 +184,20 @@ public class BenchmarkNodeScheduler
                             .setMaxSplitsPerNode(MAX_SPLITS_PER_NODE)
                             .setIncludeCoordinator(false)
                             .setNetworkTopology(topologyName)
-                            .setMaxPendingSplitsPerNodePerTask(MAX_PENDING_SPLITS_PER_TASK_PER_NODE);
+                            .setMaxPendingSplitsPerNodePerStage(MAX_PENDING_SPLITS_PER_TASK_PER_NODE);
         }
 
         private NetworkTopology getNetworkTopology()
         {
             NetworkTopology topology;
             switch (topologyName) {
-                case LEGACY_NETWORK_TOPOLOGY:
+                case LEGACY:
                     topology = new LegacyNetworkTopology();
                     break;
-                case "flat":
+                case FLAT:
                     topology = new FlatNetworkTopology();
                     break;
-                case "benchmark":
+                case BENCHMARK:
                     topology = new BenchmarkNetworkTopology();
                     break;
                 default:

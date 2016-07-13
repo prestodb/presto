@@ -17,15 +17,15 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
-import com.facebook.presto.execution.BufferInfo;
 import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
-import com.facebook.presto.execution.PageBufferInfo;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
+import com.facebook.presto.execution.buffer.BufferInfo;
+import com.facebook.presto.execution.buffer.PageBufferInfo;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.server.TaskUpdateRequest;
@@ -81,7 +81,6 @@ import static com.facebook.presto.server.remotetask.RequestErrorTracker.logError
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -98,9 +97,9 @@ public final class HttpRemoteTask
 {
     private static final Logger log = Logger.get(HttpRemoteTask.class);
     private static final Duration MAX_CLEANUP_RETRY_TIME = new Duration(2, TimeUnit.MINUTES);
+    private static final int MIN_RETRIES = 3;
 
     private final TaskId taskId;
-    private final int partition;
 
     private final Session session;
     private final String nodeId;
@@ -146,7 +145,6 @@ public final class HttpRemoteTask
     public HttpRemoteTask(Session session,
             TaskId taskId,
             String nodeId,
-            int partition,
             URI location,
             PlanFragment planFragment,
             Multimap<PlanNodeId, Split> initialSplits,
@@ -169,7 +167,6 @@ public final class HttpRemoteTask
         requireNonNull(taskId, "taskId is null");
         requireNonNull(nodeId, "nodeId is null");
         requireNonNull(location, "location is null");
-        checkArgument(partition >= 0, "partition is negative");
         requireNonNull(planFragment, "planFragment is null");
         requireNonNull(outputBuffers, "outputBuffers is null");
         requireNonNull(httpClient, "httpClient is null");
@@ -184,7 +181,6 @@ public final class HttpRemoteTask
             this.taskId = taskId;
             this.session = session;
             this.nodeId = nodeId;
-            this.partition = partition;
             this.planFragment = planFragment;
             this.outputBuffers.set(outputBuffers);
             this.httpClient = httpClient;
@@ -231,6 +227,7 @@ public final class HttpRemoteTask
                     taskInfoUpdateInterval,
                     taskInfoCodec,
                     minErrorDuration,
+                    summarizeTaskInfo,
                     executor,
                     updateScheduledExecutor,
                     errorScheduledExecutor,
@@ -246,7 +243,7 @@ public final class HttpRemoteTask
                 }
             });
 
-            long timeout = minErrorDuration.toMillis() / 3;
+            long timeout = minErrorDuration.toMillis() / MIN_RETRIES;
             this.requestTimeout = new Duration(timeout + taskStatusRefreshMaxWait.toMillis(), MILLISECONDS);
             partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
         }
@@ -262,12 +259,6 @@ public final class HttpRemoteTask
     public String getNodeId()
     {
         return nodeId;
-    }
-
-    @Override
-    public int getPartition()
-    {
-        return partition;
     }
 
     @Override
@@ -509,8 +500,6 @@ public final class HttpRemoteTask
                 return;
             }
 
-            checkState(taskStatusFetcher.isRunning(), "Cannot cancel task when it is not running");
-
             // send cancel to task and ignore response
             HttpUriBuilder uriBuilder = uriBuilderFrom(taskStatus.getSelf()).addParameter("abort", "false");
             if (summarizeTaskInfo) {
@@ -540,7 +529,7 @@ public final class HttpRemoteTask
         }
 
         taskStatusFetcher.stop();
-        taskInfoFetcher.taskStatusDone();
+        taskInfoFetcher.taskStatusDone(getTaskStatus());
     }
 
     @Override
@@ -559,6 +548,7 @@ public final class HttpRemoteTask
 
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             taskStatusFetcher.updateTaskStatus(status);
+            taskInfoFetcher.abort(status);
 
             // send abort to task and ignore response
             HttpUriBuilder uriBuilder = uriBuilderFrom(getTaskStatus().getSelf());

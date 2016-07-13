@@ -4,7 +4,7 @@
 
     <script src="/vendor/d3/d3-3.3.4.js"></script>
     <script src="/vendor/dagre-d3/dagre-d3-0.4.14.js"></script>
-    <script src="/units.js"></script>
+    <script src="/assets/utils.js"></script>
 
     <style>
         body {
@@ -101,6 +101,7 @@ function flattenNode(stages, nodeInfo, result)
         case 'delete':
         case 'metadatadelete':
         case 'tablecommit':
+        case 'groupid':
         case 'unnest':
         case 'scalar':
             sources = [nodeInfo.source];

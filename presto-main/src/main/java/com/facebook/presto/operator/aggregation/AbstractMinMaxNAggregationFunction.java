@@ -44,6 +44,8 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
 
@@ -58,7 +60,11 @@ public abstract class AbstractMinMaxNAggregationFunction
 
     protected AbstractMinMaxNAggregationFunction(String name, Function<Type, BlockComparator> typeToComparator)
     {
-        super(name, ImmutableList.of(orderableTypeParameter("E")), ImmutableList.of(), "array(E)", ImmutableList.of("E", StandardTypes.BIGINT));
+        super(name,
+                ImmutableList.of(orderableTypeParameter("E")),
+                ImmutableList.of(),
+                parseTypeSignature("array(E)"),
+                ImmutableList.of(parseTypeSignature("E"), parseTypeSignature(StandardTypes.BIGINT)));
         requireNonNull(typeToComparator);
         this.typeToComparator = typeToComparator;
     }
@@ -86,7 +92,7 @@ public abstract class AbstractMinMaxNAggregationFunction
                 new ParameterMetadata(BLOCK_INDEX));
 
         AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(getSignature().getName(), type, inputTypes),
+                generateAggregationName(getSignature().getName(), type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 inputParameterMetadata,
                 INPUT_FUNCTION.bindTo(comparator).bindTo(type),
                 null,

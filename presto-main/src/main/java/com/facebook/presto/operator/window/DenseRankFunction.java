@@ -17,6 +17,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
+@WindowFunctionSignature(name = "dense_rank", returnType = "bigint")
 public class DenseRankFunction
         extends RankingWindowFunction
 {
