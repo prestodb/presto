@@ -48,10 +48,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.coordinatorOnlyPartition;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isSinglePartitioning;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.singlePartition;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.unknownPartitioning;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -68,7 +67,7 @@ public class PlanFragmenter
     {
         Fragmenter fragmenter = new Fragmenter(session, metadata, plan.getSymbolAllocator().getTypes());
 
-        FragmentProperties properties = new FragmentProperties(new PartitioningScheme(singlePartition(), plan.getRoot().getOutputSymbols()))
+        FragmentProperties properties = new FragmentProperties(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getRoot().getOutputSymbols()))
                 .setSingleNodeDistribution();
         PlanNode root = SimplePlanRewriter.rewriteWith(fragmenter, plan.getRoot(), properties);
 
@@ -119,7 +118,7 @@ public class PlanFragmenter
                     Maps.filterKeys(types, in(dependencies)),
                     properties.getPartitioningHandle(),
                     schedulingOrder,
-                    properties.getOutputPartitioningScheme());
+                    properties.getPartitioningScheme());
 
             return new SubPlan(fragment, properties.getChildren());
         }
@@ -160,7 +159,7 @@ public class PlanFragmenter
                     .map(layout -> metadata.getLayout(session, layout))
                     .flatMap(TableLayout::getNodePartitioning)
                     .map(NodePartitioning::getPartitioningHandle)
-                    .orElse(unknownPartitioning().getHandle());
+                    .orElse(SOURCE_DISTRIBUTION);
 
             context.get().addSourceDistribution(node.getId(), partitioning);
             return context.defaultRewrite(node, context.get());
@@ -225,14 +224,14 @@ public class PlanFragmenter
     {
         private final List<SubPlan> children = new ArrayList<>();
 
-        private final PartitioningScheme outputPartitioningScheme;
+        private final PartitioningScheme partitioningScheme;
 
         private Optional<PartitioningHandle> partitioningHandle = Optional.empty();
         private final Set<PlanNodeId> partitionedSources = new HashSet<>();
 
-        public FragmentProperties(PartitioningScheme outputPartitioningScheme)
+        public FragmentProperties(PartitioningScheme partitioningScheme)
         {
-            this.outputPartitioningScheme = outputPartitioningScheme;
+            this.partitioningScheme = partitioningScheme;
         }
 
         public List<SubPlan> getChildren()
@@ -249,17 +248,17 @@ public class PlanFragmenter
 
             checkState(!partitioningHandle.isPresent(),
                     "Cannot overwrite partitioning with %s (currently set to %s)",
-                    singlePartition(),
+                    SINGLE_DISTRIBUTION,
                     partitioningHandle);
 
-            partitioningHandle = Optional.of(singlePartition().getHandle());
+            partitioningHandle = Optional.of(SINGLE_DISTRIBUTION);
 
             return this;
         }
 
         public FragmentProperties setDistribution(PartitioningHandle distribution)
         {
-            if (partitioningHandle.isPresent() && !partitioningHandle.get().equals(distribution) && !isSinglePartitioning(partitioningHandle.get())) {
+            if (partitioningHandle.isPresent() && !partitioningHandle.get().equals(distribution) && !partitioningHandle.get().equals(SOURCE_DISTRIBUTION)) {
                 checkState(partitioningHandle.get().isSingleNode(),
                         "Cannot set distribution to %s. Already set to %s",
                         distribution,
@@ -279,12 +278,12 @@ public class PlanFragmenter
             }
 
             // only system SINGLE can be upgraded to COORDINATOR_ONLY
-            checkState(!partitioningHandle.isPresent() || isSinglePartitioning(partitioningHandle.get()),
+            checkState(!partitioningHandle.isPresent() || partitioningHandle.get().equals(SINGLE_DISTRIBUTION),
                     "Cannot overwrite partitioning with %s (currently set to %s)",
-                    coordinatorOnlyPartition(),
+                    COORDINATOR_DISTRIBUTION,
                     partitioningHandle);
 
-            partitioningHandle = Optional.of(coordinatorOnlyPartition().getHandle());
+            partitioningHandle = Optional.of(COORDINATOR_DISTRIBUTION);
 
             return this;
         }
@@ -299,9 +298,9 @@ public class PlanFragmenter
             if (partitioningHandle.isPresent()) {
                 PartitioningHandle currentPartitioning = partitioningHandle.get();
                 if (!currentPartitioning.equals(distribution)) {
-                    // If already a system single node partitioning, leave it as is (this is for single-node execution)
+                    // If already system SINGLE or COORDINATOR_ONLY, leave it as is (this is for single-node execution)
                     checkState(
-                            isSinglePartitioning(currentPartitioning),
+                            currentPartitioning.equals(SINGLE_DISTRIBUTION) || currentPartitioning.equals(COORDINATOR_DISTRIBUTION),
                             "Cannot overwrite distribution with %s (currently set to %s)",
                             distribution,
                             currentPartitioning);
@@ -320,9 +319,9 @@ public class PlanFragmenter
             return this;
         }
 
-        public PartitioningScheme getOutputPartitioningScheme()
+        public PartitioningScheme getPartitioningScheme()
         {
-            return outputPartitioningScheme;
+            return partitioningScheme;
         }
 
         public PartitioningHandle getPartitioningHandle()

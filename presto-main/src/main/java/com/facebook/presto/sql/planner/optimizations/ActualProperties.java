@@ -35,9 +35,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.coordinatorOnlyPartition;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.singlePartition;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.unknownPartitioning;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.google.common.collect.Iterables.transform;
 import static java.util.Objects.requireNonNull;
 
@@ -298,12 +298,18 @@ class ActualProperties
 
         public static Global coordinatorSingleStreamPartition()
         {
-            return partitionedOn(coordinatorOnlyPartition(), Optional.of(unknownPartitioning()));
+            return partitionedOn(
+                    COORDINATOR_DISTRIBUTION,
+                    ImmutableList.of(),
+                    Optional.of(ImmutableList.of()));
         }
 
         public static Global singleStreamPartition()
         {
-            return partitionedOn(singlePartition(), Optional.of(unknownPartitioning()));
+            return partitionedOn(
+                    SINGLE_DISTRIBUTION,
+                    ImmutableList.of(),
+                    Optional.of(ImmutableList.of()));
         }
 
         public static Global arbitraryPartition()
@@ -315,7 +321,7 @@ class ActualProperties
         {
             return new Global(
                     Optional.of(Partitioning.create(nodePartitioningHandle, nodePartitioning)),
-                    streamPartitioning.map(columns -> unknownPartitioning(columns)),
+                    streamPartitioning.map(columns -> Partitioning.create(SOURCE_DISTRIBUTION, columns)),
                     false);
         }
 
@@ -331,7 +337,7 @@ class ActualProperties
         {
             return new Global(
                     Optional.empty(),
-                    Optional.of(unknownPartitioning(streamPartitioning)),
+                    Optional.of(Partitioning.create(SOURCE_DISTRIBUTION, streamPartitioning)),
                     false);
         }
 

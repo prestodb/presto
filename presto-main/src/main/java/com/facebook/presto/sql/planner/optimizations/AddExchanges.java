@@ -100,8 +100,6 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
-import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.isColocatedJoinEnabled;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
@@ -109,9 +107,9 @@ import static com.facebook.presto.sql.ExpressionUtils.stripDeterministicConjunct
 import static com.facebook.presto.sql.ExpressionUtils.stripNonDeterministicConjuncts;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.hasMultipleSources;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.fixedHashPartitioning;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.fixedRandomPartitioning;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.singlePartition;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_RANDOM_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.singleStreamPartition;
 import static com.facebook.presto.sql.planner.optimizations.LocalProperties.grouped;
@@ -312,14 +310,13 @@ public class AddExchanges
                                     REMOTE,
                                     partial,
                                     node.getGroupBy(),
-                                    node.getHashSymbol(),
-                                    getHashPartitionCount(session));
+                                    node.getHashSymbol());
                         }
                         return splitAggregation(node, child, exchanger);
                     }
                     else {
                         child = withDerivedProperties(
-                                partitionedExchange(idAllocator.getNextId(), REMOTE, child.getNode(), node.getGroupBy(), node.getHashSymbol(), getHashPartitionCount(session)),
+                                partitionedExchange(idAllocator.getNextId(), REMOTE, child.getNode(), node.getGroupBy(), node.getHashSymbol()),
                                 child.getProperties());
                         return rebaseAndDeriveProperties(node, child);
                     }
@@ -427,8 +424,7 @@ public class AddExchanges
                                 REMOTE,
                                 child.getNode(),
                                 node.getDistinctSymbols(),
-                                node.getHashSymbol(),
-                                getHashPartitionCount(session)),
+                                node.getHashSymbol()),
                         child.getProperties());
             }
 
@@ -460,7 +456,7 @@ public class AddExchanges
                 }
                 else {
                     child = withDerivedProperties(
-                            partitionedExchange(idAllocator.getNextId(), REMOTE, child.getNode(), node.getPartitionBy(), node.getHashSymbol(), getHashPartitionCount(session)),
+                            partitionedExchange(idAllocator.getNextId(), REMOTE, child.getNode(), node.getPartitionBy(), node.getHashSymbol()),
                             child.getProperties());
                 }
             }
@@ -495,8 +491,7 @@ public class AddExchanges
                                 REMOTE,
                                 child.getNode(),
                                 node.getPartitionBy(),
-                                node.getHashSymbol(),
-                                getHashPartitionCount(session)),
+                                node.getHashSymbol()),
                         child.getProperties());
             }
 
@@ -518,7 +513,7 @@ public class AddExchanges
             else {
                 preferredChildProperties = PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(node.getPartitionBy()), grouped(node.getPartitionBy()))
                         .mergeWithParent(context.getPreferredProperties());
-                addExchange = partial -> partitionedExchange(idAllocator.getNextId(), REMOTE, partial, node.getPartitionBy(), node.getHashSymbol(), getHashPartitionCount(session));
+                addExchange = partial -> partitionedExchange(idAllocator.getNextId(), REMOTE, partial, node.getPartitionBy(), node.getHashSymbol());
             }
 
             PlanWithProperties child = planChild(node, context.withPreferredProperties(preferredChildProperties));
@@ -633,7 +628,7 @@ public class AddExchanges
 
             Optional<PartitioningScheme> partitioningScheme = node.getPartitioningScheme();
             if (!partitioningScheme.isPresent() && redistributeWrites) {
-                partitioningScheme = Optional.of(new PartitioningScheme(fixedRandomPartitioning(getHashPartitionCount(session)), source.getNode().getOutputSymbols()));
+                partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(FIXED_RANDOM_DISTRIBUTION, ImmutableList.of()), source.getNode().getOutputSymbols()));
             }
 
             if (partitioningScheme.isPresent()) {
@@ -868,10 +863,10 @@ public class AddExchanges
                     }
                     else {
                         left = withDerivedProperties(
-                                partitionedExchange(idAllocator.getNextId(), REMOTE, left.getNode(), leftSymbols, Optional.empty(), getHashPartitionCount(session)),
+                                partitionedExchange(idAllocator.getNextId(), REMOTE, left.getNode(), leftSymbols, Optional.empty()),
                                 left.getProperties());
                         right = withDerivedProperties(
-                                partitionedExchange(idAllocator.getNextId(), REMOTE, right.getNode(), rightSymbols, Optional.empty(), getHashPartitionCount(session)),
+                                partitionedExchange(idAllocator.getNextId(), REMOTE, right.getNode(), rightSymbols, Optional.empty()),
                                 right.getProperties());
                     }
                 }
@@ -902,7 +897,7 @@ public class AddExchanges
                 }
                 else {
                     right = withDerivedProperties(
-                            replicatedExchange(idAllocator.getNextId(), REMOTE, right.getNode(), getHashPartitionCount(session)),
+                            replicatedExchange(idAllocator.getNextId(), REMOTE, right.getNode()),
                             right.getProperties());
                 }
             }
@@ -967,17 +962,10 @@ public class AddExchanges
                     }
                     else {
                         source = withDerivedProperties(
-                                partitionedExchange(idAllocator.getNextId(), REMOTE, source.getNode(), sourceSymbols, Optional.empty(), getHashPartitionCount(session)),
+                                partitionedExchange(idAllocator.getNextId(), REMOTE, source.getNode(), sourceSymbols, Optional.empty()),
                                 source.getProperties());
                         filteringSource = withDerivedProperties(
-                                partitionedExchange(
-                                        idAllocator.getNextId(),
-                                        REMOTE,
-                                        filteringSource.getNode(),
-                                        filteringSourceSymbols,
-                                        Optional.empty(),
-                                        true,
-                                        getHashPartitionCount(session)),
+                                partitionedExchange(idAllocator.getNextId(), REMOTE, filteringSource.getNode(), filteringSourceSymbols, Optional.empty(), true),
                                 filteringSource.getProperties());
                     }
                 }
@@ -1014,7 +1002,7 @@ public class AddExchanges
                 }
                 else {
                     filteringSource = withDerivedProperties(
-                            replicatedExchange(idAllocator.getNextId(), REMOTE, filteringSource.getNode(), getHashPartitionCount(session)),
+                            replicatedExchange(idAllocator.getNextId(), REMOTE, filteringSource.getNode()),
                             filteringSource.getProperties());
                 }
             }
@@ -1040,7 +1028,7 @@ public class AddExchanges
             // TODO: allow repartitioning if unpartitioned to increase parallelism
             if (shouldRepartitionForIndexJoin(joinColumns, context.getPreferredProperties(), probeProperties)) {
                 probeSource = withDerivedProperties(
-                        partitionedExchange(idAllocator.getNextId(), REMOTE, probeSource.getNode(), joinColumns, node.getProbeHashSymbol(), getHashPartitionCount(session)),
+                        partitionedExchange(idAllocator.getNextId(), REMOTE, probeSource.getNode(), joinColumns, node.getProbeHashSymbol()),
                         probeProperties);
             }
 
@@ -1121,7 +1109,7 @@ public class AddExchanges
             }
 
             // Otherwise, choose an arbitrary partitioning over the columns
-            return fixedHashPartitioning(getTaskConcurrency(session), ImmutableList.copyOf(parentPreference.getPartitioningColumns()));
+            return Partitioning.create(FIXED_HASH_DISTRIBUTION, ImmutableList.copyOf(parentPreference.getPartitioningColumns()));
         }
 
         @Override
@@ -1210,7 +1198,7 @@ public class AddExchanges
                         idAllocator.getNextId(),
                         GATHER,
                         REMOTE,
-                        new PartitioningScheme(singlePartition(), node.getOutputSymbols()),
+                        new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
                         partitionedChildren,
                         partitionedOutputLayouts);
 

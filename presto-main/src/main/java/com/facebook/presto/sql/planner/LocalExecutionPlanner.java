@@ -173,6 +173,8 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
+import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
 import static com.facebook.presto.operator.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
@@ -187,7 +189,9 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isFixedBroadcastPartitioning;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
@@ -200,6 +204,7 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Functions.forMap;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
@@ -264,12 +269,13 @@ public class LocalExecutionPlanner
             Session session,
             PlanNode plan,
             Map<Symbol, Type> types,
-            PartitioningScheme outputPartitioningScheme,
+            PartitioningScheme partitioningScheme,
             OutputBuffer outputBuffer)
     {
-        List<Symbol> outputLayout = outputPartitioningScheme.getOutputLayout();
-        if (isFixedBroadcastPartitioning(outputPartitioningScheme.getPartitioning()) ||
-                outputPartitioningScheme.getPartitioning().getHandle().isSingleNode()) {
+        List<Symbol> outputLayout = partitioningScheme.getOutputLayout();
+        if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_BROADCAST_DISTRIBUTION) ||
+                partitioningScheme.getPartitioning().getHandle().equals(SINGLE_DISTRIBUTION) ||
+                partitioningScheme.getPartitioning().getHandle().equals(COORDINATOR_DISTRIBUTION)) {
             return plan(session, plan, outputLayout, types, new TaskOutputFactory(outputBuffer));
         }
 
@@ -277,17 +283,17 @@ public class LocalExecutionPlanner
         List<Integer> partitionChannels;
         List<Optional<NullableValue>> partitionConstants;
         List<Type> partitionChannelTypes;
-        if (outputPartitioningScheme.getHashColumn().isPresent()) {
-            partitionChannels = ImmutableList.of(outputLayout.indexOf(outputPartitioningScheme.getHashColumn().get()));
+        if (partitioningScheme.getHashColumn().isPresent()) {
+            partitionChannels = ImmutableList.of(outputLayout.indexOf(partitioningScheme.getHashColumn().get()));
             partitionConstants = ImmutableList.of(Optional.empty());
             partitionChannelTypes = ImmutableList.of(BIGINT);
         }
         else {
-            partitionChannels = outputPartitioningScheme.getPartitioning().getArguments().stream()
+            partitionChannels = partitioningScheme.getPartitioning().getArguments().stream()
                     .map(ArgumentBinding::getColumn)
                     .map(outputLayout::indexOf)
                     .collect(toImmutableList());
-            partitionConstants = outputPartitioningScheme.getPartitioning().getArguments().stream()
+            partitionConstants = partitioningScheme.getPartitioning().getArguments().stream()
                     .map(argument -> {
                         if (argument.isConstant()) {
                             return Optional.of(argument.getConstant());
@@ -295,7 +301,7 @@ public class LocalExecutionPlanner
                         return Optional.<NullableValue>empty();
                     })
                     .collect(toImmutableList());
-            partitionChannelTypes = outputPartitioningScheme.getPartitioning().getArguments().stream()
+            partitionChannelTypes = partitioningScheme.getPartitioning().getArguments().stream()
                     .map(argument -> {
                         if (argument.isConstant()) {
                             return argument.getConstant().getType();
@@ -305,13 +311,13 @@ public class LocalExecutionPlanner
                     .collect(toImmutableList());
         }
 
-        PartitionFunction partitionFunction = nodePartitioningManager.getPartitionFunction(session, outputPartitioningScheme, partitionChannelTypes);
+        PartitionFunction partitionFunction = nodePartitioningManager.getPartitionFunction(session, partitioningScheme, partitionChannelTypes);
         OptionalInt nullChannel = OptionalInt.empty();
-        Set<Symbol> partitioningColumns = outputPartitioningScheme.getPartitioning().getColumns();
+        Set<Symbol> partitioningColumns = partitioningScheme.getPartitioning().getColumns();
 
         // partitioningColumns expected to have one column in the normal case, and zero columns when partitioning on a constant
-        checkArgument(!outputPartitioningScheme.isReplicateNulls() || partitioningColumns.size() <= 1);
-        if (outputPartitioningScheme.isReplicateNulls() && partitioningColumns.size() == 1) {
+        checkArgument(!partitioningScheme.isReplicateNulls() || partitioningColumns.size() <= 1);
+        if (partitioningScheme.isReplicateNulls() && partitioningColumns.size() == 1) {
             nullChannel = OptionalInt.of(outputLayout.indexOf(getOnlyElement(partitioningColumns)));
         }
 
@@ -1219,7 +1225,6 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitIndexSource(IndexSourceNode node, LocalExecutionPlanContext context)
         {
             checkState(context.getIndexSourceContext().isPresent(), "Must be in an index source context");
-            checkArgument(!context.getDriverInstanceCount().isPresent(), "Plan context must not have driver instance count set for index source");
             IndexSourceContext indexSourceContext = context.getIndexSourceContext().get();
 
             SetMultimap<Symbol, Integer> indexLookupToProbeInput = indexSourceContext.getIndexLookupToProbeInput();
@@ -1617,11 +1622,16 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitTableWriter(TableWriterNode node, LocalExecutionPlanContext context)
         {
+            // Set table writer count
+            if (node.getPartitioningScheme().isPresent()) {
+                context.setDriverInstanceCount(1);
+            }
+            else {
+                context.setDriverInstanceCount(getTaskWriterCount(session));
+            }
+
             // serialize writes by forcing data through a single writer
             PhysicalOperation source = node.getSource().accept(this, context);
-
-            // planning the source must establish a fixed driver count
-            checkArgument(context.getDriverInstanceCount().isPresent(), "Table writer must have a fixed partition count");
 
             Optional<Integer> sampleWeightChannel = node.getSampleWeightSymbol().map(source::symbolToChannel);
 
@@ -1703,7 +1713,19 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitExchange(ExchangeNode node, LocalExecutionPlanContext context)
         {
             checkArgument(node.getScope() == LOCAL, "Only local exchanges are supported in the local planner");
-            checkArgument(!context.getDriverInstanceCount().isPresent(), "Plan context must not have driver instance count set for local exchange");
+
+            int driverInstanceCount;
+            if (node.getType() == ExchangeNode.Type.GATHER) {
+                driverInstanceCount = 1;
+                context.setDriverInstanceCount(1);
+            }
+            else if (context.getDriverInstanceCount().isPresent()) {
+                driverInstanceCount = context.getDriverInstanceCount().getAsInt();
+            }
+            else {
+                driverInstanceCount = getTaskConcurrency(session);
+                context.setDriverInstanceCount(driverInstanceCount);
+            }
 
             List<Type> types = getSourceOperatorTypes(node, context.getTypes());
             List<Integer> channels = node.getPartitioningScheme().getPartitioning().getArguments().stream()
@@ -1712,8 +1734,7 @@ public class LocalExecutionPlanner
             Optional<Integer> hashChannel = node.getPartitioningScheme().getHashColumn()
                     .map(symbol -> node.getOutputSymbols().indexOf(symbol));
 
-            LocalExchange localExchange = new LocalExchange(node.getPartitioningScheme().getPartitioning(), types, channels, hashChannel);
-            context.setDriverInstanceCount(localExchange.getBufferCount());
+            LocalExchange localExchange = new LocalExchange(node.getPartitioningScheme().getPartitioning().getHandle(), driverInstanceCount, types, channels, hashChannel);
 
             for (int i = 0; i < node.getSources().size(); i++) {
                 PlanNode sourceNode = node.getSources().get(i);
@@ -1732,6 +1753,10 @@ public class LocalExecutionPlanner
 
             // the main driver is not an input... the exchange sources are the input for the plan
             context.setInputDriver(false);
+
+            // instance count must match the number of partitions in the exchange
+            verify(context.getDriverInstanceCount().getAsInt() == localExchange.getBufferCount(),
+                    "driver instance count must match the number of exchange partitions");
 
             return new PhysicalOperation(new LocalExchangeSourceOperatorFactory(context.getNextOperatorId(), node.getId(), localExchange), makeLayout(node));
         }
