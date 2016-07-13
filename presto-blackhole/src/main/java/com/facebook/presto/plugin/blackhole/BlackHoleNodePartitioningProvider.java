@@ -24,12 +24,15 @@ import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.ToIntFunction;
 
+import static com.facebook.presto.plugin.blackhole.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static java.util.Objects.requireNonNull;
@@ -54,14 +57,15 @@ public class BlackHoleNodePartitioningProvider
             throw new PrestoException(NO_NODES_AVAILABLE, "No black hole nodes available");
         }
 
+        BlackHolePartitioningHandle handle = checkType(partitioningHandle, BlackHolePartitioningHandle.class, "partitionHandle");
+
         // create on part per node
-        ImmutableMap.Builder<Integer, Node> distribution = ImmutableMap.builder();
-        int partNumber = 0;
-        for (Node node : nodes) {
-            distribution.put(partNumber, node);
-            partNumber++;
+        ImmutableMap.Builder<Integer, Node> bucketToNode = ImmutableMap.builder();
+        Iterator<Node> iterator = Iterables.cycle(nodes).iterator();
+        for (int bucketNumber = 0; bucketNumber < handle.getBucketCount(); bucketNumber++) {
+            bucketToNode.put(bucketNumber, iterator.next());
         }
-        return distribution.build();
+        return bucketToNode.build();
     }
 
     @Override
@@ -79,9 +83,11 @@ public class BlackHoleNodePartitioningProvider
     public BucketFunction getBucketFunction(
             ConnectorTransactionHandle transactionHandle,
             ConnectorSession session,
-            ConnectorPartitioningHandle partitioningHandle,
-            List<Type> partitionChannelTypes, int bucketCount)
+            ConnectorPartitioningHandle partitioningHandle)
     {
+        BlackHolePartitioningHandle handle = checkType(partitioningHandle, BlackHolePartitioningHandle.class, "partitionHandle");
+        int bucketCount = handle.getBucketCount();
+        List<Type> partitionChannelTypes = handle.getPartitionChannelTypes();
         return (page, position) -> {
             long hash = 13;
             for (int i = 0; i < partitionChannelTypes.size(); i++) {

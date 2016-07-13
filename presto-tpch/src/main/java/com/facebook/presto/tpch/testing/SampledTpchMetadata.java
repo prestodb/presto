@@ -16,6 +16,7 @@ package com.facebook.presto.tpch.testing;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchMetadata;
 
@@ -26,9 +27,9 @@ public class SampledTpchMetadata
 {
     public static final String SAMPLE_WEIGHT_COLUMN_NAME = "$sampleWeight";
 
-    public SampledTpchMetadata(String connectorId)
+    public SampledTpchMetadata(String connectorId, NodeManager nodeManager, int splitsPerNode)
     {
-        super(connectorId);
+        super(connectorId, nodeManager, splitsPerNode);
     }
 
     @Override

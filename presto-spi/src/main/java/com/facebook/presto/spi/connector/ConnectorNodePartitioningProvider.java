@@ -17,9 +17,7 @@ import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.type.Type;
 
-import java.util.List;
 import java.util.Map;
 import java.util.function.ToIntFunction;
 
@@ -32,7 +30,5 @@ public interface ConnectorNodePartitioningProvider
     BucketFunction getBucketFunction(
             ConnectorTransactionHandle transactionHandle,
             ConnectorSession session,
-            ConnectorPartitioningHandle partitioningHandle,
-            List<Type> partitionChannelTypes,
-            int bucketCount);
+            ConnectorPartitioningHandle partitioningHandle);
 }
