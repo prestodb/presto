@@ -1880,6 +1880,12 @@ public class LocalExecutionPlanner
                     .map(entry -> source.getTypes().get(entry))
                     .collect(toImmutableList());
 
+            if (maxEntriesBeforeSpill > 0 || memoryLimitBeforeSpill.toBytes() > 0) {
+                if (!groupByTypes.stream().allMatch(Type::isOrderable)) {
+                    throw new UnsupportedOperationException("Spilling requires all types in GROUP BY key to be orderable");
+                }
+            }
+
             Optional<Integer> hashChannel = node.getHashSymbol().map(channelGetter(source));
 
             OperatorFactory operatorFactory = new HashAggregationOperatorFactory(

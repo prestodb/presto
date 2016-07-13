@@ -20,6 +20,7 @@ import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.facebook.presto.tpch.testing.SampledTpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.Test;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -69,5 +70,37 @@ public class TestLocalBinarySpilledQueries
                 .setCatalog(TPCH_SAMPLED_SCHEMA)
                 .setSchema(TINY_SCHEMA_NAME)
                 .build();
+    }
+
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Spilling requires all types in GROUP BY key to be orderable")
+    @Override
+    public void testGroupByMap()
+            throws Exception
+    {
+        super.testGroupByMap();
+    }
+
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Spilling requires all types in GROUP BY key to be orderable")
+    @Override
+    public void testGroupByComplexMap()
+            throws Exception
+    {
+        super.testGroupByComplexMap();
+    }
+
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Spilling requires all types in GROUP BY key to be orderable")
+    @Override
+    public void testGroupByRow()
+            throws Exception
+    {
+        super.testGroupByRow();
+    }
+
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Spilling requires all types in GROUP BY key to be orderable")
+    @Override
+    public void testRowFieldAccessorInAggregate()
+            throws Exception
+    {
+        super.testRowFieldAccessorInAggregate();
     }
 }
