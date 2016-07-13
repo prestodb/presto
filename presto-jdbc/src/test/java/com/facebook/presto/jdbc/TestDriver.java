@@ -15,6 +15,7 @@ package com.facebook.presto.jdbc;
 
 import com.facebook.presto.plugin.blackhole.BlackHolePlugin;
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
@@ -43,6 +44,7 @@ import java.util.ArrayList;
 import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Set;
+import java.util.TimeZone;
 
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.lang.String.format;
@@ -1061,6 +1063,32 @@ public class TestDriver
             try (Statement statement = connection.createStatement()) {
                 assertTrue(statement.execute("SELECT 123 x, 'foo' y"));
                 statement.getMoreResults(Statement.KEEP_CURRENT_RESULT);
+            }
+        }
+    }
+
+    @Test
+    public void testSetTimeZoneId()
+            throws Exception
+    {
+        TimeZoneKey defaultZoneKey = TimeZoneKey.getTimeZoneKey(TimeZone.getDefault().getID());
+        DateTimeZone defaultZone = DateTimeZone.forTimeZone(TimeZone.getDefault());
+        String sql = "SELECT current_timezone() zone, TIMESTAMP '2001-02-03 3:04:05' ts";
+
+        try (Connection connection = createConnection()) {
+            try (Statement statement = connection.createStatement();
+                    ResultSet rs = statement.executeQuery(sql)) {
+                assertTrue(rs.next());
+                assertEquals(rs.getString("zone"), defaultZoneKey.getId());
+                assertEquals(rs.getTimestamp("ts"), new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, defaultZone).getMillis()));
+            }
+
+            connection.unwrap(PrestoConnection.class).setTimeZoneId("UTC");
+            try (Statement statement = connection.createStatement();
+                    ResultSet rs = statement.executeQuery(sql)) {
+                assertTrue(rs.next());
+                assertEquals(rs.getString("zone"), "UTC");
+                assertEquals(rs.getTimestamp("ts"), new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, DateTimeZone.UTC).getMillis()));
             }
         }
     }
