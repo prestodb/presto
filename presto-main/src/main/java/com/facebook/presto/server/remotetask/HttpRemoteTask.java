@@ -636,12 +636,8 @@ public final class HttpRemoteTask
                 try {
                     long currentRequestStartNanos;
                     synchronized (HttpRemoteTask.this) {
-                        // Needed because IntelliJ doesn't understand "this" in the context of inner classes
-                        //noinspection FieldAccessNotGuarded
                         currentRequest = null;
                         sendPlan.set(value.isNeedsPlan());
-                        // Needed because IntelliJ doesn't understand "this" in the context of inner classes
-                        //noinspection FieldAccessNotGuarded
                         currentRequestStartNanos = HttpRemoteTask.this.currentRequestStartNanos;
                     }
                     updateStats(currentRequestStartNanos);
@@ -661,11 +657,7 @@ public final class HttpRemoteTask
                 try {
                     long currentRequestStartNanos;
                     synchronized (HttpRemoteTask.this) {
-                        // Needed because IntelliJ doesn't understand "this" in the context of inner classes
-                        //noinspection FieldAccessNotGuarded
                         currentRequest = null;
-                        // Needed because IntelliJ doesn't understand "this" in the context of inner classes
-                        //noinspection FieldAccessNotGuarded
                         currentRequestStartNanos = HttpRemoteTask.this.currentRequestStartNanos;
                     }
                     updateStats(currentRequestStartNanos);
