@@ -407,6 +407,11 @@ public class TestDecimalOperators
         assertFunction("DECIMAL '00000000037.0000000000000000000000' < DECIMAL '38.0000000000000000000000'", BOOLEAN, true);
         assertFunction("DECIMAL '00000000037.0000000000000000000000' < DECIMAL '000000000037.00000000000000000000001'", BOOLEAN, true);
         assertFunction("DECIMAL '-00000000000100.000000000000' < DECIMAL '0000000020.0000000000000'", BOOLEAN, true);
+
+        // max supported value for rescaling
+        // this works because rescaling allows overflowed values that exceed 10^38 but still fit in 127 bits.
+        // 17014000000000000000000000000000000000 * 10 is an example of such number. Both arguments and result can be stored using DECIMAL(38,0) or DECIMAL(38,1)
+        assertFunction("DECIMAL '17014000000000000000000000000000000000' < DECIMAL '7014000000000000000000000000000000000.1'", BOOLEAN, false);
     }
 
     @Test
