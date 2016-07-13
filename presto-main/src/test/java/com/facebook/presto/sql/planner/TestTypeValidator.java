@@ -57,7 +57,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 
 @Test(singleThreaded = true)
-public class TestTypeMatchingChecker
+public class TestTypeValidator
 {
     private static final TableHandle TEST_TABLE_HANDLE = new TableHandle("test", new TestingTableHandle());
     private static final SqlParser SQL_PARSER = new SqlParser();
