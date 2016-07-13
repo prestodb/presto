@@ -134,6 +134,7 @@ public class PrestoS3FileSystem
     public static final String S3_PIN_CLIENT_TO_CURRENT_REGION = "presto.s3.pin-client-to-current-region";
     public static final String S3_ENCRYPTION_MATERIALS_PROVIDER = "presto.s3.encryption-materials-provider";
     public static final String S3_SSE_ENABLED = "presto.s3.sse.enabled";
+    public static final String S3_CREDENTIALS_PROVIDER = "presto.s3.credentials-provider";
 
     private static final DataSize BLOCK_SIZE = new DataSize(32, MEGABYTE);
     private static final DataSize MAX_SKIP_SIZE = new DataSize(1, MEGABYTE);
@@ -653,7 +654,26 @@ public class PrestoS3FileSystem
             return new InstanceProfileCredentialsProvider();
         }
 
+        String providerClass = conf.get(S3_CREDENTIALS_PROVIDER);
+        if (!isNullOrEmpty(providerClass)) {
+            return getCustomAWSCredentialsProvider(uri, conf, providerClass);
+        }
+
         throw new RuntimeException("S3 credentials not configured");
+    }
+
+    private static AWSCredentialsProvider getCustomAWSCredentialsProvider(URI uri, Configuration conf, String providerClass)
+    {
+        try {
+            log.debug("Using AWS credential provider %s for URI %s", providerClass, uri);
+            return conf.getClassByName(providerClass)
+                    .asSubclass(AWSCredentialsProvider.class)
+                    .getConstructor(URI.class, Configuration.class)
+                    .newInstance(uri, conf);
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(format("Error creating an instance of %s for URI %s", providerClass, uri), e);
+        }
     }
 
     private static Optional<AWSCredentials> getAwsCredentials(URI uri, Configuration conf)
