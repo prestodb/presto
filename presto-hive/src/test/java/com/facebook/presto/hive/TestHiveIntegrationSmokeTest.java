@@ -1110,6 +1110,13 @@ public class TestHiveIntegrationSmokeTest
         assertQuery(bucketedSession, "select count(*) a from orders t1 join orders t2 on t1.custkey=t2.custkey");
         assertQuery(bucketedSession, "select count(*) a from orders t1 join customer t2 on t1.custkey=t2.custkey", "SELECT count(*) from orders");
         assertQuery(bucketedSession, "select count(distinct custkey) from orders");
+
+        assertQuery(
+                bucketedSession.withSystemProperty("task_concurrency", "1"),
+                "SELECT custkey, COUNT(*) FROM orders GROUP BY custkey");
+        assertQuery(
+                bucketedSession.withSystemProperty("task_concurrency", "4"),
+                "SELECT custkey, COUNT(*) FROM orders GROUP BY custkey");
     }
 
     @Test
