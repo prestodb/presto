@@ -135,6 +135,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.FLAT;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
 import static com.facebook.presto.server.ConditionalModule.conditionalModule;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.SpillerImplementation.BINARY_FILE;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.reflect.Reflection.newProxy;
@@ -391,7 +392,10 @@ public class ServerMainModule
         binder.bind(FinalizerService.class).in(Scopes.SINGLETON);
 
         // Spiller
-        binder.bind(SpillerFactory.class).to(BinarySpillerFactory.class).in(Scopes.SINGLETON);
+        install(conditionalModule(
+                FeaturesConfig.class,
+                config -> BINARY_FILE.equalsIgnoreCase(config.getSpillerImplementation()),
+                moduleBinder -> moduleBinder.bind(SpillerFactory.class).to(BinarySpillerFactory.class).in(Scopes.SINGLETON)));
     }
 
     @Provides

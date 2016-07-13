@@ -37,6 +37,11 @@ public class FeaturesConfig
         public static final List<String> AVAILABLE_OPTIONS = ImmutableList.of(DISABLED, COLUMNAR, COLUMNAR_DICTIONARY);
     }
 
+    public static class SpillerImplementation
+    {
+        public static final String BINARY_FILE = "binary_file";
+    }
+
     public static final String FILE_BASED_RESOURCE_GROUP_MANAGER = "file";
     private boolean experimentalSyntaxEnabled;
     private boolean distributedIndexJoinsEnabled;
@@ -59,6 +64,7 @@ public class FeaturesConfig
     private int re2JDfaRetries = 5;
     private RegexLibrary regexLibrary = JONI;
     private DataSize operatorMemoryLimitBeforeSpill = new DataSize(0, DataSize.Unit.MEGABYTE);
+    private String spillerImplementation = SpillerImplementation.BINARY_FILE;
 
     @NotNull
     public String getResourceGroupManager()
@@ -281,6 +287,19 @@ public class FeaturesConfig
     public FeaturesConfig setOperatorMemoryLimitBeforeSpill(DataSize operatorMemoryLimitBeforeSpill)
     {
         this.operatorMemoryLimitBeforeSpill = operatorMemoryLimitBeforeSpill;
+        return this;
+    }
+
+    @NotNull
+    public String getSpillerImplementation()
+    {
+        return spillerImplementation;
+    }
+
+    @Config("experimental.spiller-implementation")
+    public FeaturesConfig setSpillerImplementation(String spillerImplementation)
+    {
+        this.spillerImplementation = spillerImplementation;
         return this;
     }
 }
