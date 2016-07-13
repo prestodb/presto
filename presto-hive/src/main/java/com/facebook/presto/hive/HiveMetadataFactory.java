@@ -45,6 +45,7 @@ public class HiveMetadataFactory
     private final TableParameterCodec tableParameterCodec;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final BoundedExecutor renameExecution;
+    private final TypeTranslator typeTranslator;
 
     @Inject
     @SuppressWarnings("deprecation")
@@ -58,7 +59,8 @@ public class HiveMetadataFactory
             TypeManager typeManager,
             LocationService locationService,
             TableParameterCodec tableParameterCodec,
-            JsonCodec<PartitionUpdate> partitionUpdateCodec)
+            JsonCodec<PartitionUpdate> partitionUpdateCodec,
+            TypeTranslator typeTranslator)
     {
         this(connectorId,
                 metastore,
@@ -75,7 +77,8 @@ public class HiveMetadataFactory
                 locationService,
                 tableParameterCodec,
                 partitionUpdateCodec,
-                executorService);
+                executorService,
+                typeTranslator);
     }
 
     public HiveMetadataFactory(
@@ -94,7 +97,8 @@ public class HiveMetadataFactory
             LocationService locationService,
             TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
-            ExecutorService executorService)
+            ExecutorService executorService,
+            TypeTranslator typeTranslator)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
 
@@ -112,6 +116,7 @@ public class HiveMetadataFactory
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.tableParameterCodec = requireNonNull(tableParameterCodec, "tableParameterCodec is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
+        this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
 
         if (!allowCorruptWritesForTesting && !timeZone.equals(DateTimeZone.getDefault())) {
             log.warn("Hive writes are disabled. " +
@@ -140,6 +145,7 @@ public class HiveMetadataFactory
                 locationService,
                 tableParameterCodec,
                 partitionUpdateCodec,
-                renameExecution);
+                renameExecution,
+                typeTranslator);
     }
 }

@@ -14,18 +14,14 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
-import com.facebook.presto.spi.type.VarcharType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.collect.ImmutableList;
-import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
@@ -38,9 +34,6 @@ import javax.annotation.Nonnull;
 
 import java.util.List;
 
-import static com.facebook.presto.hive.HiveUtil.isArrayType;
-import static com.facebook.presto.hive.HiveUtil.isMapType;
-import static com.facebook.presto.hive.HiveUtil.isRowType;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -65,10 +58,6 @@ import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.byteTypeInf
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.dateTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.doubleTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.floatTypeInfo;
-import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getListTypeInfo;
-import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getMapTypeInfo;
-import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getStructTypeInfo;
-import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getVarcharTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.intTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.longTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.shortTypeInfo;
@@ -207,85 +196,11 @@ public final class HiveType
     }
 
     @Nonnull
-    public static HiveType toHiveType(Type type)
+    public static HiveType toHiveType(TypeTranslator typeTranslator, Type type)
     {
+        requireNonNull(typeTranslator, "typeTranslator is null");
         requireNonNull(type, "type is null");
-        return new HiveType(toTypeInfo(type));
-    }
-
-    @Nonnull
-    private static TypeInfo toTypeInfo(Type type)
-    {
-        if (BOOLEAN.equals(type)) {
-            return HIVE_BOOLEAN.typeInfo;
-        }
-        if (BIGINT.equals(type)) {
-            return HIVE_LONG.typeInfo;
-        }
-        if (INTEGER.equals(type)) {
-            return HIVE_INT.typeInfo;
-        }
-        if (SMALLINT.equals(type)) {
-            return HIVE_SHORT.typeInfo;
-        }
-        if (TINYINT.equals(type)) {
-            return HIVE_BYTE.typeInfo;
-        }
-        if (DOUBLE.equals(type)) {
-            return HIVE_DOUBLE.typeInfo;
-        }
-        if (type instanceof VarcharType) {
-            VarcharType varcharType = (VarcharType) type;
-            int varcharLength = varcharType.getLength();
-            if (varcharLength <= HiveVarchar.MAX_VARCHAR_LENGTH) {
-                return getVarcharTypeInfo(varcharLength);
-            }
-            else if (varcharLength == VarcharType.MAX_LENGTH) {
-                return HIVE_STRING.typeInfo;
-            }
-            else {
-                throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s. Supported VARCHAR types: VARCHAR(<=%d), VARCHAR.",
-                        type, HiveVarchar.MAX_VARCHAR_LENGTH));
-            }
-        }
-        if (VARBINARY.equals(type)) {
-            return HIVE_BINARY.typeInfo;
-        }
-        if (DATE.equals(type)) {
-            return HIVE_DATE.typeInfo;
-        }
-        if (TIMESTAMP.equals(type)) {
-            return HIVE_TIMESTAMP.typeInfo;
-        }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
-            return new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale());
-        }
-        if (isArrayType(type)) {
-            TypeInfo elementType = toTypeInfo(type.getTypeParameters().get(0));
-            return getListTypeInfo(elementType);
-        }
-        if (isMapType(type)) {
-            TypeInfo keyType = toTypeInfo(type.getTypeParameters().get(0));
-            TypeInfo valueType = toTypeInfo(type.getTypeParameters().get(1));
-            return getMapTypeInfo(keyType, valueType);
-        }
-        if (isRowType(type)) {
-            ImmutableList.Builder<String> fieldNames = ImmutableList.builder();
-            for (TypeSignatureParameter parameter : type.getTypeSignature().getParameters()) {
-                if (!parameter.isNamedTypeSignature()) {
-                    throw new IllegalArgumentException(format("Expected all parameters to be named type, but got %s", parameter));
-                }
-                NamedTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
-                fieldNames.add(namedTypeSignature.getName());
-            }
-            return getStructTypeInfo(
-                    fieldNames.build(),
-                    type.getTypeParameters().stream()
-                            .map(HiveType::toTypeInfo)
-                            .collect(toList()));
-        }
-        throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type));
+        return new HiveType(typeTranslator.translate(type));
     }
 
     @Nonnull

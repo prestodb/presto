@@ -66,6 +66,7 @@ public class HiveClientModule
     public void configure(Binder binder)
     {
         binder.bind(HiveConnectorId.class).toInstance(new HiveConnectorId(connectorId));
+        binder.bind(TypeTranslator.class).toInstance(new HiveTypeTranslator());
 
         binder.bind(HdfsConfigurationUpdater.class).in(Scopes.SINGLETON);
         binder.bind(HdfsConfiguration.class).to(HiveHdfsConfiguration.class).in(Scopes.SINGLETON);
