@@ -358,7 +358,7 @@ class ColumnarTextHiveRecordCursor<K>
                 !isShortDecimal(types[fieldId])) {
             // we don't use Preconditions.checkArgument because it requires boxing fieldId, which affects inner loop performance
             throw new IllegalArgumentException(
-                    format("Expected field to be %s, %s, %s, %s, %s or %s , actual %s (field %s)", TINYINT, SMALLINT, INTEGER, BIGINT, DECIMAL, DATE, TIMESTAMP, types[fieldId], fieldId));
+                    format("Expected field to be %s, %s, %s, %s, %s, %s, or %s , actual %s (field %s)", TINYINT, SMALLINT, INTEGER, BIGINT, DECIMAL, DATE, TIMESTAMP, types[fieldId], fieldId));
         }
 
         if (!loaded[fieldId]) {
