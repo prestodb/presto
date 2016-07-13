@@ -27,14 +27,17 @@ public class TpchPartitioningHandle
 {
     private final String table;
     private final long totalRows;
+    private final int bucketCount;
 
     @JsonCreator
-    public TpchPartitioningHandle(@JsonProperty("table") String table, @JsonProperty("totalRows") long totalRows)
+    public TpchPartitioningHandle(@JsonProperty("table") String table, @JsonProperty("totalRows") long totalRows, @JsonProperty("bucketCount") int bucketCount)
     {
         this.table = requireNonNull(table, "table is null");
 
         checkArgument(totalRows > 0, "totalRows must be at least 1");
         this.totalRows = totalRows;
+        checkArgument(bucketCount > 0, "bucketCount must be at least 1");
+        this.bucketCount = bucketCount;
     }
 
     @JsonProperty
@@ -49,6 +52,12 @@ public class TpchPartitioningHandle
         return totalRows;
     }
 
+    @JsonProperty
+    public int getBucketCount()
+    {
+        return bucketCount;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -60,18 +69,19 @@ public class TpchPartitioningHandle
         }
         TpchPartitioningHandle that = (TpchPartitioningHandle) o;
         return Objects.equals(table, that.table) &&
-                totalRows == that.totalRows;
+                totalRows == that.totalRows &&
+                bucketCount == that.bucketCount;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(table, totalRows);
+        return Objects.hash(table, totalRows, bucketCount);
     }
 
     @Override
     public String toString()
     {
-        return table + ":" + totalRows;
+        return table + ":" + totalRows + ":" + bucketCount;
     }
 }

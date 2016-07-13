@@ -78,9 +78,7 @@ public class NodePartitioningManager
             bucketFunction = partitioningProvider.getBucketFunction(
                     partitioningHandle.getTransactionHandle().orElse(null),
                     session.toConnectorSession(),
-                    partitioningHandle.getConnectorHandle(),
-                    partitionChannelTypes,
-                    bucketToPartition.get().length);
+                    partitioningHandle.getConnectorHandle());
 
             checkArgument(bucketFunction != null, "No function %s", partitioningHandle);
         }

@@ -21,7 +21,6 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
@@ -57,13 +56,11 @@ public class HiveNodePartitioningProvider
     public BucketFunction getBucketFunction(
             ConnectorTransactionHandle transactionHandle,
             ConnectorSession session,
-            ConnectorPartitioningHandle partitioningHandle,
-            List<Type> partitionChannelTypes,
-            int bucketCount)
+            ConnectorPartitioningHandle partitioningHandle)
     {
         HivePartitioningHandle handle = checkType(partitioningHandle, HivePartitioningHandle.class, "partitioningHandle");
         List<HiveType> hiveTypes = handle.getHiveTypes();
-        return new HiveBucketFunction(bucketCount, hiveTypes, forceIntegralToBigint);
+        return new HiveBucketFunction(handle.getBucketCount(), hiveTypes, forceIntegralToBigint);
     }
 
     @Override

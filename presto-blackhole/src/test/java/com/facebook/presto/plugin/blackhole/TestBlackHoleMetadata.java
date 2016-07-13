@@ -14,6 +14,7 @@
 
 package com.facebook.presto.plugin.blackhole;
 
+import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
@@ -31,7 +32,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestBlackHoleMetadata
 {
-    private final BlackHoleMetadata metadata = new BlackHoleMetadata();
+    private final BlackHoleMetadata metadata = new BlackHoleMetadata("tesr", new InMemoryNodeManager());
     private final Map<String, Object> tableProperties = ImmutableMap.of(
             BlackHoleConnector.SPLIT_COUNT_PROPERTY, 0,
             BlackHoleConnector.PAGES_PER_SPLIT_PROPERTY, 0,

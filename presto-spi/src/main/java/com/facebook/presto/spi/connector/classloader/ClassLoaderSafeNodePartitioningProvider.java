@@ -21,9 +21,7 @@ import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.type.Type;
 
-import java.util.List;
 import java.util.Map;
 import java.util.function.ToIntFunction;
 
@@ -45,12 +43,10 @@ public final class ClassLoaderSafeNodePartitioningProvider
     public BucketFunction getBucketFunction(
             ConnectorTransactionHandle transactionHandle,
             ConnectorSession session,
-            ConnectorPartitioningHandle partitioningHandle,
-            List<Type> partitionChannelTypes,
-            int bucketCount)
+            ConnectorPartitioningHandle partitioningHandle)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getBucketFunction(transactionHandle, session, partitioningHandle, partitionChannelTypes, bucketCount);
+            return delegate.getBucketFunction(transactionHandle, session, partitioningHandle);
         }
     }
 

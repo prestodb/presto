@@ -26,17 +26,20 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -51,19 +54,27 @@ import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.SPLIT_COUN
 import static com.facebook.presto.plugin.blackhole.BlackHoleInsertTableHandle.BLACK_HOLE_INSERT_TABLE_HANDLE;
 import static com.facebook.presto.plugin.blackhole.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.text.MessageFormat.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
-import static java.util.stream.Collectors.toSet;
 
 public class BlackHoleMetadata
         implements ConnectorMetadata
 {
     public static final String SCHEMA_NAME = "default";
 
+    private final String connectorId;
+    private final NodeManager nodeManager;
     private final Map<String, BlackHoleTableHandle> tables = new ConcurrentHashMap<>();
+
+    public BlackHoleMetadata(String connectorId, NodeManager nodeManager)
+    {
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+    }
 
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
@@ -157,16 +168,26 @@ public class BlackHoleMetadata
             return Optional.empty();
         }
 
-        Set<String> undefinedColumns = Sets.difference(
-                ImmutableSet.copyOf(distributeColumns),
-                tableMetadata.getColumns().stream()
-                        .map(ColumnMetadata::getName)
-                        .collect(toSet()));
+        Map<String, Type> typesByName = new HashMap<>();
+        for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
+            typesByName.put(columnMetadata.getName(), columnMetadata.getType());
+        }
+
+        Set<String> undefinedColumns = Sets.difference(ImmutableSet.copyOf(distributeColumns), typesByName.keySet());
         if (!undefinedColumns.isEmpty()) {
             throw new PrestoException(INVALID_TABLE_PROPERTY, "Distribute columns not defined on table: " + undefinedColumns);
         }
 
-        return Optional.of(new ConnectorNewTableLayout(BlackHolePartitioningHandle.INSTANCE, distributeColumns));
+        List<Type> types = distributeColumns.stream()
+                .map(typesByName::get)
+                .collect(toList());
+
+        int bucketCount = nodeManager.getActiveDatasourceNodes(connectorId).size();
+        if (bucketCount == 0) {
+            throw new PrestoException(NO_NODES_AVAILABLE, "No black hole nodes available");
+        }
+
+        return Optional.of(new ConnectorNewTableLayout(new BlackHolePartitioningHandle(types, bucketCount), distributeColumns));
     }
 
     @Override

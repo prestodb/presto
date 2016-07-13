@@ -21,12 +21,10 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.ToIntFunction;
@@ -72,8 +70,11 @@ public class RaptorNodePartitioningProvider
     }
 
     @Override
-    public BucketFunction getBucketFunction(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorPartitioningHandle partitioning, List<Type> partitionChannelTypes, int bucketCount)
+    public BucketFunction getBucketFunction(ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorPartitioningHandle partitioning)
     {
-        return new RaptorBucketFunction(bucketCount);
+        RaptorPartitioningHandle handle = checkType(partitioning, RaptorPartitioningHandle.class, "partitioning");
+        return new RaptorBucketFunction(handle.getBucketToNode().size());
     }
 }

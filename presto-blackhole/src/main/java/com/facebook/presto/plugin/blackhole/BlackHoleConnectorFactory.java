@@ -53,7 +53,7 @@ public class BlackHoleConnectorFactory
     public Connector create(String connectorId, Map<String, String> requiredConfig, ConnectorContext context)
     {
         return new BlackHoleConnector(
-                new BlackHoleMetadata(),
+                new BlackHoleMetadata(connectorId, nodeManager),
                 new BlackHoleSplitManager(),
                 new BlackHolePageSourceProvider(),
                 new BlackHolePageSinkProvider(),
