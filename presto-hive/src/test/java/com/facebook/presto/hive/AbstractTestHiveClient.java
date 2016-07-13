@@ -468,7 +468,8 @@ public abstract class AbstractTestHiveClient
                 locationService,
                 new TableParameterCodec(),
                 partitionUpdateCodec,
-                newFixedThreadPool(2));
+                newFixedThreadPool(2),
+                new HiveTypeTranslator());
         splitManager = new HiveSplitManager(
                 connectorId,
                 metastoreClient,

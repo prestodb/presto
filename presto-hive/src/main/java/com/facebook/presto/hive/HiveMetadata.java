@@ -158,6 +158,7 @@ public class HiveMetadata
     private final boolean bucketExecutionEnabled;
     private final boolean bucketWritingEnabled;
     private final HiveStorageFormat defaultStorageFormat;
+    private final TypeTranslator typeTranslator;
 
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
 
@@ -176,7 +177,8 @@ public class HiveMetadata
             LocationService locationService,
             TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
-            Executor renameExecutor)
+            Executor renameExecutor,
+            TypeTranslator typeTranslator)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
 
@@ -196,6 +198,7 @@ public class HiveMetadata
         this.defaultStorageFormat = requireNonNull(defaultStorageFormat, "defaultStorageFormat is null");
 
         this.renameExecutor = requireNonNull(renameExecutor, "renameExecution is null");
+        this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
     }
 
     public HiveMetastore getMetastore()
@@ -382,7 +385,7 @@ public class HiveMetadata
         if (bucketProperty.isPresent() && !bucketWritingEnabled) {
             throw new PrestoException(NOT_SUPPORTED, "Writing to bucketed Hive table has been temporarily disabled");
         }
-        List<HiveColumnHandle> columnHandles = getColumnHandles(connectorId, tableMetadata, ImmutableSet.copyOf(partitionedBy));
+        List<HiveColumnHandle> columnHandles = getColumnHandles(connectorId, tableMetadata, ImmutableSet.copyOf(partitionedBy), typeTranslator);
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         Map<String, String> additionalTableParameters = tableParameterCodec.encode(tableMetadata.getProperties());
 
@@ -469,7 +472,7 @@ public class HiveMetadata
 
         ImmutableList.Builder<FieldSchema> columns = ImmutableList.builder();
         columns.addAll(sd.getCols());
-        columns.add(new FieldSchema(column.getName(), toHiveType(column.getType()).getHiveTypeName(), column.getComment()));
+        columns.add(new FieldSchema(column.getName(), toHiveType(typeTranslator, column.getType()).getHiveTypeName(), column.getComment()));
         sd.setCols(columns.build());
 
         table.setSd(sd);
@@ -548,7 +551,7 @@ public class HiveMetadata
         String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
 
-        List<HiveColumnHandle> columnHandles = getColumnHandles(connectorId, tableMetadata, ImmutableSet.copyOf(partitionedBy));
+        List<HiveColumnHandle> columnHandles = getColumnHandles(connectorId, tableMetadata, ImmutableSet.copyOf(partitionedBy), typeTranslator);
 
         HiveOutputTableHandle result = new HiveOutputTableHandle(
                 connectorId,
@@ -1488,7 +1491,7 @@ public class HiveMetadata
         }
         List<String> bucketedBy = bucketProperty.get().getBucketedBy();
         Map<String, HiveType> hiveTypeMap = tableMetadata.getColumns().stream()
-                .collect(toMap(ColumnMetadata::getName, column -> toHiveType(column.getType())));
+                .collect(toMap(ColumnMetadata::getName, column -> toHiveType(typeTranslator, column.getType())));
         return Optional.of(new ConnectorNewTableLayout(
                 new HivePartitioningHandle(
                         connectorId,
@@ -1584,7 +1587,7 @@ public class HiveMetadata
         }
     }
 
-    private static List<HiveColumnHandle> getColumnHandles(String connectorId, ConnectorTableMetadata tableMetadata, Set<String> partitionColumnNames)
+    private static List<HiveColumnHandle> getColumnHandles(String connectorId, ConnectorTableMetadata tableMetadata, Set<String> partitionColumnNames, TypeTranslator typeTranslator)
     {
         validatePartitionColumns(tableMetadata);
 
@@ -1594,7 +1597,7 @@ public class HiveMetadata
             columnHandles.add(new HiveColumnHandle(
                     connectorId,
                     column.getName(),
-                    toHiveType(column.getType()),
+                    toHiveType(typeTranslator, column.getType()),
                     column.getType().getTypeSignature(),
                     ordinal,
                     partitionColumnNames.contains(column.getName())));
@@ -1604,7 +1607,7 @@ public class HiveMetadata
             columnHandles.add(new HiveColumnHandle(
                     connectorId,
                     SAMPLE_WEIGHT_COLUMN_NAME,
-                    toHiveType(BIGINT),
+                    toHiveType(typeTranslator, BIGINT),
                     BIGINT.getTypeSignature(),
                     ordinal,
                     false));

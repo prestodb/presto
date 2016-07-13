@@ -27,6 +27,8 @@ import com.facebook.presto.hive.HiveRecordCursor;
 import com.facebook.presto.hive.HiveRecordCursorProvider;
 import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.HiveTypeTranslator;
+import com.facebook.presto.hive.TypeTranslator;
 import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
@@ -322,10 +324,11 @@ public enum FileFormat
             ConnectorSession session, File targetFile, List<String> columnNames, List<Type> columnTypes, HiveStorageFormat format)
     {
         List<HiveColumnHandle> columnHandles = new ArrayList<>(columnNames.size());
+        TypeTranslator typeTranslator = new HiveTypeTranslator();
         for (int i = 0; i < columnNames.size(); i++) {
             String columnName = columnNames.get(i);
             Type columnType = columnTypes.get(i);
-            columnHandles.add(new HiveColumnHandle("test", columnName, HiveType.toHiveType(columnType), columnType.getTypeSignature(), i, false));
+            columnHandles.add(new HiveColumnHandle("test", columnName, HiveType.toHiveType(typeTranslator, columnType), columnType.getTypeSignature(), i, false));
         }
 
         HiveRecordCursor recordCursor = cursorProvider
@@ -355,10 +358,11 @@ public enum FileFormat
             HiveStorageFormat format)
     {
         List<HiveColumnHandle> columnHandles = new ArrayList<>(columnNames.size());
+        TypeTranslator typeTranslator = new HiveTypeTranslator();
         for (int i = 0; i < columnNames.size(); i++) {
             String columnName = columnNames.get(i);
             Type columnType = columnTypes.get(i);
-            columnHandles.add(new HiveColumnHandle("test", columnName, HiveType.toHiveType(columnType), columnType.getTypeSignature(), i, false));
+            columnHandles.add(new HiveColumnHandle("test", columnName, HiveType.toHiveType(typeTranslator, columnType), columnType.getTypeSignature(), i, false));
         }
 
         return pageSourceFactory
@@ -389,11 +393,12 @@ public enum FileFormat
                 HiveStorageFormat format)
         {
             JobConf config = new JobConf(conf);
+            TypeTranslator typeTranslator = new HiveTypeTranslator();
             configureCompression(config, compressionCodec);
 
             List<DataColumn> dataColumns = new ArrayList<>(columnNames.size());
             for (int i = 0; i < columnNames.size(); i++) {
-                dataColumns.add(new DataColumn(columnNames.get(i), columnTypes.get(i), HiveType.toHiveType(columnTypes.get(i))));
+                dataColumns.add(new DataColumn(columnNames.get(i), columnTypes.get(i), HiveType.toHiveType(typeTranslator, columnTypes.get(i))));
             }
 
             recordWriter = new HiveRecordWriter(
@@ -432,12 +437,13 @@ public enum FileFormat
     private static Properties createSchema(HiveStorageFormat format, List<String> columnNames, List<Type> columnTypes)
     {
         Properties schema = new Properties();
+        TypeTranslator typeTranslator = new HiveTypeTranslator();
         schema.setProperty(SERIALIZATION_LIB, format.getSerDe());
         schema.setProperty(FILE_INPUT_FORMAT, format.getInputFormat());
         schema.setProperty(META_TABLE_COLUMNS, columnNames.stream()
                 .collect(joining(",")));
         schema.setProperty(META_TABLE_COLUMN_TYPES, columnTypes.stream()
-                .map(HiveType::toHiveType)
+                .map(type -> HiveType.toHiveType(typeTranslator, type))
                 .map(HiveType::getHiveTypeName)
                 .collect(joining(":")));
         return schema;
