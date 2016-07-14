@@ -16,8 +16,8 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.operator.aggregation.state.NullableLongState;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
-import com.facebook.presto.spi.function.IntermediateInputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.BigintType;
@@ -30,11 +30,22 @@ public final class LongSumAggregation
     private LongSumAggregation() {}
 
     @InputFunction
-    @IntermediateInputFunction
     public static void sum(NullableLongState state, @SqlType(StandardTypes.BIGINT) long value)
     {
         state.setNull(false);
         state.setLong(BigintOperators.add(state.getLong(), value));
+    }
+
+    @CombineFunction
+    public static void combine(NullableLongState state, NullableLongState otherState)
+    {
+        if (state.isNull()) {
+            state.setNull(false);
+            state.setLong(otherState.getLong());
+            return;
+        }
+
+        state.setLong(BigintOperators.add(state.getLong(), otherState.getLong()));
     }
 
     @OutputFunction(StandardTypes.BIGINT)
