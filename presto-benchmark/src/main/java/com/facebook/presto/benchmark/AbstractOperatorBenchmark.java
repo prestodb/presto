@@ -27,9 +27,8 @@ import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
-import com.facebook.presto.util.CpuTimer;
-import com.facebook.presto.util.CpuTimer.CpuDuration;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.stats.CpuTimer;
 import io.airlift.units.DataSize;
 
 import java.util.List;
@@ -37,6 +36,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.airlift.stats.CpuTimer.CpuDuration;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
