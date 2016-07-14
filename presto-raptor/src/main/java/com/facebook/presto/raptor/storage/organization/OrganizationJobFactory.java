@@ -23,7 +23,11 @@ import com.facebook.presto.raptor.metadata.TableMetadata;
 import com.google.common.base.Throwables;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.airlift.stats.CounterStat;
+import io.airlift.stats.CpuTimer;
 import org.skife.jdbi.v2.IDBI;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import java.io.IOException;
 import java.util.List;
@@ -36,6 +40,7 @@ import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.stream.Collectors.toList;
 
 public class OrganizationJobFactory
@@ -46,6 +51,8 @@ public class OrganizationJobFactory
     private final MetadataDao metadataDao;
     private final ShardManager shardManager;
     private final ShardCompactor compactor;
+
+    private final CounterStat cpuTimeNanos = new CounterStat();
 
     @Inject
     public OrganizationJobFactory(@ForMetadata IDBI dbi, ShardManager shardManager, ShardCompactor compactor)
@@ -98,6 +105,8 @@ public class OrganizationJobFactory
         private void runJob(long transactionId, OptionalInt bucketNumber, long tableId, Set<UUID> shardUuids)
                 throws IOException
         {
+            CpuTimer cpuTimer = new CpuTimer();
+
             TableMetadata metadata = getTableMetadata(tableId);
 
             // This job could be in the queue for quite some time, so before doing any expensive operations,
@@ -110,6 +119,9 @@ public class OrganizationJobFactory
             List<ShardInfo> newShards = performCompaction(transactionId, bucketNumber, shardUuids, metadata);
             log.info("Compacted shards %s into %s", shardUuids, newShards.stream().map(ShardInfo::getShardUuid).collect(toList()));
             shardManager.replaceShardUuids(transactionId, tableId, metadata.getColumns(), shardUuids, newShards, OptionalLong.empty());
+
+            cpuTimer.elapsedIntervalTime();
+            cpuTimeNanos.update(cpuTimer.elapsedIntervalTime().getCpu().roundTo(NANOSECONDS));
         }
 
         private TableMetadata getTableMetadata(long tableId)
@@ -140,5 +152,12 @@ public class OrganizationJobFactory
                     tableMetadata.getSortColumnIds(),
                     nCopies(tableMetadata.getSortColumnIds().size(), ASC_NULLS_FIRST));
         }
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getCpuTimeNanos()
+    {
+        return cpuTimeNanos;
     }
 }
