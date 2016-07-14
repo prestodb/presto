@@ -482,56 +482,8 @@ public final class ExpressionTreeRewriter<C>
             Optional<Window> rewrittenWindow = node.getWindow();
             if (node.getWindow().isPresent()) {
                 Window window = node.getWindow().get();
-
-                ImmutableList.Builder<Expression> partitionBy = ImmutableList.builder();
-                for (Expression expression : window.getPartitionBy()) {
-                    partitionBy.add(rewrite(expression, context.get()));
-                }
-
-                // Since SortItem is not an Expression, but contains Expressions, just process the default rewrite inline with FunctionCall
-                ImmutableList.Builder<SortItem> orderBy = ImmutableList.builder();
-                for (SortItem sortItem : window.getOrderBy()) {
-                    Expression sortKey = rewrite(sortItem.getSortKey(), context.get());
-                    if (sortItem.getSortKey() != sortKey) {
-                        orderBy.add(new SortItem(sortKey, sortItem.getOrdering(), sortItem.getNullOrdering()));
-                    }
-                    else {
-                        orderBy.add(sortItem);
-                    }
-                }
-
-                Optional<WindowFrame> rewrittenFrame = window.getFrame();
-                if (rewrittenFrame.isPresent()) {
-                    WindowFrame frame = rewrittenFrame.get();
-
-                    FrameBound start = frame.getStart();
-                    if (start.getValue().isPresent()) {
-                        Expression value = rewrite(start.getValue().get(), context.get());
-                        if (value != start.getValue().get()) {
-                            start = new FrameBound(start.getType(), value);
-                        }
-                    }
-
-                    Optional<FrameBound> rewrittenEnd = frame.getEnd();
-                    if (rewrittenEnd.isPresent()) {
-                        Optional<Expression> value = rewrittenEnd.get().getValue();
-                        if (value.isPresent()) {
-                            Expression rewrittenValue = rewrite(value.get(), context.get());
-                            if (rewrittenValue != value.get()) {
-                                rewrittenEnd = Optional.of(new FrameBound(rewrittenEnd.get().getType(), rewrittenValue));
-                            }
-                        }
-                    }
-
-                    if ((frame.getStart() != start) || !sameElements(frame.getEnd(), rewrittenEnd)) {
-                        rewrittenFrame = Optional.of(new WindowFrame(frame.getType(), start, rewrittenEnd));
-                    }
-                }
-
-                if (!sameElements(window.getPartitionBy(), partitionBy.build()) ||
-                        !sameElements(window.getOrderBy(), orderBy.build()) ||
-                        !sameElements(window.getFrame(), rewrittenFrame)) {
-                    rewrittenWindow = Optional.of(new Window(partitionBy.build(), orderBy.build(), rewrittenFrame));
+                if (window instanceof WindowInline) {
+                    rewrittenWindow = Optional.of(new WindowInline(rewriteWindowSpecification(((WindowInline) window).getSpecification(), context)));
                 }
             }
 
@@ -791,6 +743,63 @@ public final class ExpressionTreeRewriter<C>
             }
 
             return node;
+        }
+    }
+
+    private WindowSpecification rewriteWindowSpecification(WindowSpecification windowSpecification, Context<C> context)
+    {
+        ImmutableList.Builder<Expression> partitionBy = ImmutableList.builder();
+        for (Expression expression : windowSpecification.getPartitionBy()) {
+            partitionBy.add(rewrite(expression, context.get()));
+        }
+
+        // Since SortItem is not an Expression, but contains Expressions, just process the default rewrite inline with FunctionCall
+        ImmutableList.Builder<SortItem> orderBy = ImmutableList.builder();
+        for (SortItem sortItem : windowSpecification.getOrderBy()) {
+            Expression sortKey = rewrite(sortItem.getSortKey(), context.get());
+            if (sortItem.getSortKey() != sortKey) {
+                orderBy.add(new SortItem(sortKey, sortItem.getOrdering(), sortItem.getNullOrdering()));
+            }
+            else {
+                orderBy.add(sortItem);
+            }
+        }
+
+        Optional<WindowFrame> rewrittenFrame = windowSpecification.getFrame();
+        if (rewrittenFrame.isPresent()) {
+            WindowFrame frame = rewrittenFrame.get();
+
+            FrameBound start = frame.getStart();
+            if (start.getValue().isPresent()) {
+                Expression value = rewrite(start.getValue().get(), context.get());
+                if (value != start.getValue().get()) {
+                    start = new FrameBound(start.getType(), value);
+                }
+            }
+
+            Optional<FrameBound> rewrittenEnd = frame.getEnd();
+            if (rewrittenEnd.isPresent()) {
+                Optional<Expression> value = rewrittenEnd.get().getValue();
+                if (value.isPresent()) {
+                    Expression rewrittenValue = rewrite(value.get(), context.get());
+                    if (rewrittenValue != value.get()) {
+                        rewrittenEnd = Optional.of(new FrameBound(rewrittenEnd.get().getType(), rewrittenValue));
+                    }
+                }
+            }
+
+            if ((frame.getStart() != start) || !sameElements(frame.getEnd(), rewrittenEnd)) {
+                rewrittenFrame = Optional.of(new WindowFrame(frame.getType(), start, rewrittenEnd));
+            }
+        }
+
+        if (!sameElements(windowSpecification.getPartitionBy(), partitionBy.build()) ||
+                !sameElements(windowSpecification.getOrderBy(), orderBy.build()) ||
+                !sameElements(windowSpecification.getFrame(), rewrittenFrame)) {
+            return new WindowSpecification(windowSpecification.getExistingName(), partitionBy.build(), orderBy.build(), rewrittenFrame);
+        }
+        else {
+            return windowSpecification;
         }
     }
 

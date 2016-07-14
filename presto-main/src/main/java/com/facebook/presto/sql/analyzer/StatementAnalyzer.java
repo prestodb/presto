@@ -78,8 +78,8 @@ import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Use;
 import com.facebook.presto.sql.tree.Values;
-import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.sql.tree.WindowSpecification;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.facebook.presto.type.ArrayType;
@@ -139,6 +139,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_ANALYSIS_E
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_STALE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_PARSE_ERROR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
+import static com.facebook.presto.sql.analyzer.Windows.resolveWindowSpecification;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.EQUAL;
 import static com.facebook.presto.sql.tree.ExplainType.Type.DISTRIBUTED;
@@ -652,13 +653,15 @@ class StatementAnalyzer
         List<Expression> outputExpressions = analyzeSelect(node, sourceScope);
         List<List<Expression>> groupByExpressions = analyzeGroupBy(node, sourceScope, outputExpressions);
 
+        // createWindowSpecificationMap(node, node.getWindow(), scope::getWindowSpecification)
+
         Scope outputScope = computeOutputScope(node, sourceScope);
 
         List<Expression> orderByExpressions = analyzeOrderBy(node, sourceScope, outputScope, outputExpressions);
         analyzeHaving(node, sourceScope);
 
         analyzeAggregations(node, sourceScope, groupByExpressions, outputExpressions, orderByExpressions, analysis.getColumnReferences());
-        analyzeWindowFunctions(node, outputExpressions, orderByExpressions);
+        analyzeWindowFunctions(node, outputScope, outputExpressions, orderByExpressions);
 
         return outputScope;
     }
@@ -975,7 +978,7 @@ class StatementAnalyzer
         return createScope(node, scope, fields);
     }
 
-    private void analyzeWindowFunctions(QuerySpecification node, List<Expression> outputExpressions, List<Expression> orderByExpressions)
+    private void analyzeWindowFunctions(QuerySpecification node, Scope scope, List<Expression> outputExpressions, List<Expression> orderByExpressions)
     {
         WindowFunctionExtractor extractor = new WindowFunctionExtractor();
 
@@ -987,23 +990,24 @@ class StatementAnalyzer
         List<FunctionCall> windowFunctions = extractor.getWindowFunctions();
 
         for (FunctionCall windowFunction : windowFunctions) {
-            Window window = windowFunction.getWindow().get();
+            WindowSpecification windowSpecification = resolveWindowSpecification(windowFunction.getWindow().get(), scope::getWindowSpecification);
+            analysis.setWindowSpecification(windowFunction, windowSpecification);
 
             WindowFunctionExtractor nestedExtractor = new WindowFunctionExtractor();
             for (Expression argument : windowFunction.getArguments()) {
                 nestedExtractor.process(argument, null);
             }
 
-            for (Expression expression : window.getPartitionBy()) {
+            for (Expression expression : windowSpecification.getPartitionBy()) {
                 nestedExtractor.process(expression, null);
             }
 
-            for (SortItem sortItem : window.getOrderBy()) {
+            for (SortItem sortItem : windowSpecification.getOrderBy()) {
                 nestedExtractor.process(sortItem.getSortKey(), null);
             }
 
-            if (window.getFrame().isPresent()) {
-                nestedExtractor.process(window.getFrame().get(), null);
+            if (windowSpecification.getFrame().isPresent()) {
+                nestedExtractor.process(windowSpecification.getFrame().get(), null);
             }
 
             if (!nestedExtractor.getWindowFunctions().isEmpty()) {
@@ -1016,8 +1020,8 @@ class StatementAnalyzer
                 throw new SemanticException(NOT_SUPPORTED, node, "DISTINCT in window function parameters not yet supported: %s", windowFunction);
             }
 
-            if (window.getFrame().isPresent()) {
-                analyzeWindowFrame(window.getFrame().get());
+            if (windowSpecification.getFrame().isPresent()) {
+                analyzeWindowFrame(windowSpecification.getFrame().get());
             }
 
             List<TypeSignature> argumentTypes = Lists.transform(windowFunction.getArguments(), expression -> analysis.getType(expression).getTypeSignature());

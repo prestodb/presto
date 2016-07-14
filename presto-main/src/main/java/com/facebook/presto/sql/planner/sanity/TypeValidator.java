@@ -28,15 +28,23 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.sql.tree.WindowInline;
+import com.facebook.presto.sql.tree.WindowSpecification;
 import com.google.common.collect.ListMultimap;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
@@ -96,8 +104,28 @@ public final class TypeValidator
         {
             visitPlan(node, context);
 
+            WindowSpecification windowSpecification = new WindowSpecification(
+                    Optional.empty(),
+                    node.getSpecification().getPartitionBy().stream().map(Symbol::toSymbolReference).collect(toImmutableList()),
+                    node.getSpecification().getOrderBy().stream().map(
+                            symbol -> new SortItem(
+                                    symbol.toSymbolReference(),
+                                    node.getSpecification().getOrderings().get(symbol).isAscending() ? SortItem.Ordering.ASCENDING : SortItem.Ordering.DESCENDING,
+                                    node.getSpecification().getOrderings().get(symbol).isNullsFirst() ? SortItem.NullOrdering.FIRST : SortItem.NullOrdering.LAST
+                            )).collect(toImmutableList()),
+                    Optional.of(new WindowFrame(
+                            node.getFrame().getType(),
+                            new FrameBound(
+                                    node.getFrame().getStartType(),
+                                    node.getFrame().getStartValue().map(Symbol::toSymbolReference).orElse(null)),
+                            Optional.of(new FrameBound(
+                                    node.getFrame().getEndType(),
+                                    node.getFrame().getEndValue().map(Symbol::toSymbolReference).orElse(null))))));
+            Map<Symbol, FunctionCall> windowFunctions = node.getWindowFunctions().entrySet().stream()
+                    .collect(toImmutableMap(Map.Entry::getKey, e -> new FunctionCall(e.getValue().getName(), Optional.of(new WindowInline(windowSpecification)), e.getValue().isDistinct(), e.getValue().getArguments())));
+
             checkFunctionSignature(node.getSignatures());
-            checkFunctionCall(node.getWindowFunctions());
+            checkFunctionCall(windowFunctions);
 
             return null;
         }
