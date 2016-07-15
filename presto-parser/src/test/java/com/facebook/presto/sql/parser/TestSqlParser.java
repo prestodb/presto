@@ -28,6 +28,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CharLiteral;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
@@ -38,6 +39,7 @@ import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Execute;
@@ -74,6 +76,7 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.RenameColumn;
+import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Revoke;
@@ -1051,6 +1054,50 @@ public class TestSqlParser
                         ImmutableList.<SortItem>of(),
                         Optional.empty(),
                         Optional.empty()));
+    }
+
+    @Test
+    public void testCreateSchema()
+    {
+        assertStatement("CREATE SCHEMA test",
+                new CreateSchema(QualifiedName.of("test"), false, ImmutableMap.of()));
+
+        assertStatement("CREATE SCHEMA IF NOT EXISTS test",
+                new CreateSchema(QualifiedName.of("test"), true, ImmutableMap.of()));
+
+        assertStatement("CREATE SCHEMA test WITH (a = 'apple', b = 123)",
+                new CreateSchema(
+                        QualifiedName.of("test"),
+                        false,
+                        ImmutableMap.of(
+                                "a", new StringLiteral("apple"),
+                                "b", new LongLiteral("123"))));
+    }
+
+    @Test
+    public void testDropSchema()
+    {
+        assertStatement("DROP SCHEMA test",
+                new DropSchema(QualifiedName.of("test"), false, false));
+
+        assertStatement("DROP SCHEMA test CASCADE",
+                new DropSchema(QualifiedName.of("test"), false, true));
+
+        assertStatement("DROP SCHEMA IF EXISTS test",
+                new DropSchema(QualifiedName.of("test"), true, false));
+
+        assertStatement("DROP SCHEMA IF EXISTS test RESTRICT",
+                new DropSchema(QualifiedName.of("test"), true, false));
+    }
+
+    @Test
+    public void testRenameSchema()
+    {
+        assertStatement("ALTER SCHEMA foo RENAME TO bar",
+                new RenameSchema(QualifiedName.of("foo"), "bar"));
+
+        assertStatement("ALTER SCHEMA foo.bar RENAME TO baz",
+                new RenameSchema(QualifiedName.of("foo", "bar"), "baz"));
     }
 
     @Test

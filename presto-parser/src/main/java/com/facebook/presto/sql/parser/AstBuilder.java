@@ -33,6 +33,7 @@ import com.facebook.presto.sql.tree.CharLiteral;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
@@ -43,6 +44,7 @@ import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Except;
@@ -93,6 +95,7 @@ import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RenameColumn;
+import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Revoke;
@@ -180,6 +183,35 @@ class AstBuilder
     public Node visitUse(SqlBaseParser.UseContext context)
     {
         return new Use(getLocation(context), getTextIfPresent(context.catalog), context.schema.getText());
+    }
+
+    @Override
+    public Node visitCreateSchema(SqlBaseParser.CreateSchemaContext context)
+    {
+        return new CreateSchema(
+                getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                context.EXISTS() != null,
+                processTableProperties(context.tableProperties()));
+    }
+
+    @Override
+    public Node visitDropSchema(SqlBaseParser.DropSchemaContext context)
+    {
+        return new DropSchema(
+                getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                context.EXISTS() != null,
+                context.CASCADE() != null);
+    }
+
+    @Override
+    public Node visitRenameSchema(SqlBaseParser.RenameSchemaContext context)
+    {
+        return new RenameSchema(
+                getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                context.identifier().getText());
     }
 
     @Override
