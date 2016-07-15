@@ -51,6 +51,15 @@ import static java.util.stream.Collectors.toList;
 public interface ConnectorMetadata
 {
     /**
+     * Checks if a schema exists. The connector may have schemas that exist
+     * but are not enumerable via {@link #listSchemaNames}.
+     */
+    default boolean schemaExists(ConnectorSession session, String schemaName)
+    {
+        return listSchemaNames(session).contains(schemaName);
+    }
+
+    /**
      * Returns the schemas provided by this connector.
      */
     List<String> listSchemaNames(ConnectorSession session);

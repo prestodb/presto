@@ -48,6 +48,8 @@ public interface Metadata
 
     void addFunctions(List<? extends SqlFunction> functions);
 
+    boolean schemaExists(Session session, QualifiedSchemaName schema);
+
     @NotNull
     List<String> listSchemaNames(Session session, String catalogName);
 
