@@ -108,9 +108,9 @@ public class TestHashAggregationOperator
     public static Object[][] hashEnabledAndMaxEntriesBeforeSpillValuesProvider()
     {
         return new Object[][] {
-                { true, Long.MAX_VALUE },
+                { true, 0 },
                 { true, 8 },
-                { false, Long.MAX_VALUE },
+                { false, 0 },
                 { false, 8 }};
     }
 
@@ -176,8 +176,8 @@ public class TestHashAggregationOperator
         assertOperatorEqualsIgnoreOrder(operator, input, expected, hashEnabled, Optional.of(hashChannels.size()));
     }
 
-    @Test(dataProvider = "hashEnabledAndMaxEntriesBeforeSpillValues", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of 10B")
-    public void testMemoryLimit(boolean hashEnabled, long maxEntriesBeforeSpill)
+    @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of 10B")
+    public void testMemoryLimit(boolean hashEnabled)
     {
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
         InternalAggregationFunction maxVarcharColumn = metadata.getFunctionRegistry().getAggregateFunctionImplementation(

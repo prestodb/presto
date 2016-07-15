@@ -66,8 +66,10 @@ public class TestMergeSort
     {
         Page emptyPage = new Page(0, BIGINT.createFixedSizeBlockBuilder(0).build());
 
-        MergeSort mergeSort = new MergeSort(ImmutableList.of(BIGINT), ImmutableList.of(BIGINT));
-        Iterator<Page> mergedPage = mergeSort.merge(ImmutableList.of(ImmutableList.of(emptyPage).iterator()));
+        Iterator<Page> mergedPage = MergeSort.merge(
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(ImmutableList.of(emptyPage).iterator()));
 
         assertTrue(mergedPage.hasNext());
 
@@ -83,8 +85,10 @@ public class TestMergeSort
         Page emptyPage = new Page(0, BIGINT.createFixedSizeBlockBuilder(0).build());
         Page page = rowPagesBuilder(BIGINT).row(42).build().get(0);
 
-        MergeSort mergeSort = new MergeSort(ImmutableList.of(BIGINT), ImmutableList.of(BIGINT));
-        Iterator<Page> mergedPage = mergeSort.merge(ImmutableList.of(ImmutableList.of(emptyPage, page).iterator()));
+        Iterator<Page> mergedPage = MergeSort.merge(
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(ImmutableList.of(emptyPage, page).iterator()));
 
         assertTrue(mergedPage.hasNext());
 

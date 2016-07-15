@@ -27,25 +27,20 @@ import static java.util.stream.Collectors.toList;
 
 public class MergeSort
 {
-    private final List<Type> keyTypes;
-    private final List<Type> allTypes;
-
-    public MergeSort(List<Type> keyTypes, List<Type> allTypes)
+    private MergeSort()
     {
-        this.keyTypes = requireNonNull(keyTypes, "keyTypes is null");
-        this.allTypes = requireNonNull(allTypes, "allTypes is null");
     }
 
-    public Iterator<Page> merge(List<Iterator<Page>> channels)
+    public static Iterator<Page> merge(List<Type> keyTypes, List<Type> allTypes, List<Iterator<Page>> channels)
     {
         List<Iterator<PagePosition>> channelIterators = channels.stream().map(SingleChannelPagePositions::new).collect(toList());
 
-        return new PageRewriteIterator(keyTypes, allTypes, Iterators.mergeSorted(channelIterators, this::comparePages));
-    }
-
-    private int comparePages(PagePosition left, PagePosition right)
-    {
-        return comparePages(keyTypes, left, right);
+        return new PageRewriteIterator(
+                keyTypes,
+                allTypes,
+                Iterators.mergeSorted(
+                        channelIterators,
+                        (PagePosition left, PagePosition right) -> comparePages(keyTypes, left, right)));
     }
 
     private static int comparePages(List<Type> keyTypes, PagePosition left, PagePosition right)
