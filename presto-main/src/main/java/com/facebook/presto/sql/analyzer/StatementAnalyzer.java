@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.metadata.QualifiedSchemaName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.metadata.ViewDefinition;
@@ -543,7 +544,7 @@ class StatementAnalyzer
             if (!metadata.getCatalogNames().containsKey(name.getCatalogName())) {
                 throw new SemanticException(MISSING_CATALOG, table, "Catalog %s does not exist", name.getCatalogName());
             }
-            if (!metadata.listSchemaNames(session, name.getCatalogName()).contains(name.getSchemaName())) {
+            if (!metadata.schemaExists(session, new QualifiedSchemaName(name.getCatalogName(), name.getSchemaName()))) {
                 throw new SemanticException(MISSING_SCHEMA, table, "Schema %s does not exist", name.getSchemaName());
             }
             throw new SemanticException(MISSING_TABLE, table, "Table %s does not exist", name);

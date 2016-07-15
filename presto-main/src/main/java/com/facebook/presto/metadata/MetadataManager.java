@@ -262,6 +262,15 @@ public class MetadataManager
     }
 
     @Override
+    public boolean schemaExists(Session session, QualifiedSchemaName schema)
+    {
+        ConnectorSession connectorSession = session.toConnectorSession(schema.getCatalogName());
+        return allConnectorsFor(schema.getCatalogName()).stream()
+                .map(entry -> entry.getMetadata(session))
+                .anyMatch(metadata -> metadata.schemaExists(connectorSession, schema.getSchemaName()));
+    }
+
+    @Override
     public List<String> listSchemaNames(Session session, String catalogName)
     {
         checkCatalogName(catalogName);

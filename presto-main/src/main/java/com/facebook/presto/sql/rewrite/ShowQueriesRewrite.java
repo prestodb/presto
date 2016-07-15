@@ -163,7 +163,7 @@ final class ShowQueriesRewrite
         {
             QualifiedSchemaName schema = createQualifiedSchemaName(session, showTables, showTables.getSchema());
 
-            if (!metadata.listSchemaNames(session, schema.getCatalogName()).contains(schema.getSchemaName())) {
+            if (!metadata.schemaExists(session, schema)) {
                 throw new SemanticException(MISSING_SCHEMA, showTables, "Schema '%s' does not exist", schema);
             }
 
