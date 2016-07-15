@@ -20,11 +20,13 @@ import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.CallArgument;
 import com.facebook.presto.sql.tree.Commit;
+import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Delete;
+import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Except;
@@ -50,6 +52,7 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RenameColumn;
+import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Revoke;
@@ -85,6 +88,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -94,7 +98,6 @@ import static com.facebook.presto.sql.ExpressionFormatter.formatSortItems;
 import static com.facebook.presto.sql.ExpressionFormatter.formatStringLiteral;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.Iterables.transform;
 import static java.util.stream.Collectors.joining;
 
 public final class SqlFormatter
@@ -681,6 +684,45 @@ public final class SqlFormatter
         }
 
         @Override
+        protected Void visitCreateSchema(CreateSchema node, Integer context)
+        {
+            builder.append("CREATE SCHEMA ");
+            if (node.isNotExists()) {
+                builder.append("IF NOT EXISTS ");
+            }
+            builder.append(node.getSchemaName());
+
+            appendTableProperties(builder, node.getProperties());
+
+            return null;
+        }
+
+        @Override
+        protected Void visitDropSchema(DropSchema node, Integer context)
+        {
+            builder.append("DROP SCHEMA ");
+            if (node.isExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(node.getSchemaName())
+                    .append(" ")
+                    .append(node.isCascade() ? "CASCADE" : "RESTRICT");
+
+            return null;
+        }
+
+        @Override
+        protected Void visitRenameSchema(RenameSchema node, Integer context)
+        {
+            builder.append("ALTER SCHEMA ")
+                    .append(node.getSource())
+                    .append(" RENAME TO ")
+                    .append(node.getTarget());
+
+            return null;
+        }
+
+        @Override
         protected Void visitCreateTableAsSelect(CreateTableAsSelect node, Integer indent)
         {
             builder.append("CREATE TABLE ");
@@ -689,12 +731,7 @@ public final class SqlFormatter
             }
             builder.append(node.getName());
 
-            if (!node.getProperties().isEmpty()) {
-                builder.append(" WITH (");
-                Joiner.on(", ").appendTo(builder, transform(node.getProperties().entrySet(),
-                        entry -> entry.getKey() + " = " + formatExpression(entry.getValue(), parameters)));
-                builder.append(")");
-            }
+            appendTableProperties(builder, node.getProperties());
 
             builder.append(" AS ");
             process(node.getQuery(), indent);
@@ -722,17 +759,22 @@ public final class SqlFormatter
             builder.append(columnList);
             builder.append("\n").append(")");
 
-            if (!node.getProperties().isEmpty()) {
+            appendTableProperties(builder, node.getProperties());
+
+            return null;
+        }
+
+        private void appendTableProperties(StringBuilder builder, Map<String, Expression> properties)
+        {
+            if (!properties.isEmpty()) {
                 builder.append("\nWITH (\n");
                 // Always output the table properties in sorted order
-                String propertyList = ImmutableSortedMap.copyOf(node.getProperties()).entrySet().stream()
-                        .map(entry -> INDENT + formatName(entry.getKey()) + " = " + entry.getValue())
+                String propertyList = ImmutableSortedMap.copyOf(properties).entrySet().stream()
+                        .map(entry -> INDENT + formatName(entry.getKey()) + " = " + formatExpression(entry.getValue(), parameters))
                         .collect(joining(",\n"));
                 builder.append(propertyList);
                 builder.append("\n").append(")");
             }
-
-            return null;
         }
 
         private static String formatName(String name)

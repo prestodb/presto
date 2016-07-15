@@ -30,6 +30,10 @@ statement
     : query                                                            #statementDefault
     | USE schema=identifier                                            #use
     | USE catalog=identifier '.' schema=identifier                     #use
+    | CREATE SCHEMA (IF NOT EXISTS)? qualifiedName
+        (WITH tableProperties)?                                        #createSchema
+    | DROP SCHEMA (IF EXISTS)? qualifiedName (CASCADE | RESTRICT)?     #dropSchema
+    | ALTER SCHEMA qualifiedName RENAME TO identifier                  #renameSchema
     | CREATE TABLE (IF NOT EXISTS)? qualifiedName
         (WITH tableProperties)? AS query
         (WITH (NO)? DATA)?                                             #createTableAsSelect
@@ -430,6 +434,7 @@ nonReserved
     | CALL
     | GRANT | REVOKE | PRIVILEGES | PUBLIC | OPTION
     | SUBSTRING
+    | SCHEMA | CASCADE | RESTRICT
     ;
 
 normalForm
@@ -526,6 +531,7 @@ WITH: 'WITH';
 RECURSIVE: 'RECURSIVE';
 VALUES: 'VALUES';
 CREATE: 'CREATE';
+SCHEMA: 'SCHEMA';
 TABLE: 'TABLE';
 VIEW: 'VIEW';
 REPLACE: 'REPLACE';
@@ -598,6 +604,8 @@ CALL: 'CALL';
 PREPARE: 'PREPARE';
 DEALLOCATE: 'DEALLOCATE';
 EXECUTE: 'EXECUTE';
+CASCADE: 'CASCADE';
+RESTRICT: 'RESTRICT';
 
 NORMALIZE: 'NORMALIZE';
 NFD : 'NFD';
