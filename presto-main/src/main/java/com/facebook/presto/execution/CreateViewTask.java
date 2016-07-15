@@ -46,7 +46,6 @@ public class CreateViewTask
 {
     private final JsonCodec<ViewDefinition> codec;
     private final SqlParser sqlParser;
-    private final AccessControl accessControl;
     private final boolean experimentalSyntaxEnabled;
 
     @Inject
@@ -58,7 +57,6 @@ public class CreateViewTask
     {
         this.codec = requireNonNull(codec, "codec is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
-        this.accessControl = requireNonNull(accessControl, "accessControl is null");
         requireNonNull(featuresConfig, "featuresConfig is null");
         this.experimentalSyntaxEnabled = featuresConfig.isExperimentalSyntaxEnabled();
     }
@@ -85,7 +83,7 @@ public class CreateViewTask
 
         String sql = getFormattedSql(statement.getQuery(), sqlParser);
 
-        Analysis analysis = analyzeStatement(statement, session, metadata);
+        Analysis analysis = analyzeStatement(statement, session, metadata, accessControl);
 
         List<ViewColumn> columns = analysis.getOutputDescriptor()
                 .getVisibleFields().stream()
@@ -99,7 +97,7 @@ public class CreateViewTask
         return completedFuture(null);
     }
 
-    private Analysis analyzeStatement(Statement statement, Session session, Metadata metadata)
+    private Analysis analyzeStatement(Statement statement, Session session, Metadata metadata, AccessControl accessControl)
     {
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.<QueryExplainer>empty(), experimentalSyntaxEnabled);
         return analyzer.analyze(statement);
