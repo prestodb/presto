@@ -559,7 +559,7 @@ public final class ValidateDependenciesChecker
             node.getSubquery().accept(this, subqueryCorrelation); // visit child
 
             checkDependencies(node.getInput().getOutputSymbols(), node.getCorrelation(), "APPLY input must provide all the necessary correlation symbols for subquery");
-//            checkDependencies(DependencyExtractor.extractUnique(node.getSubquery()), node.getCorrelation(), "not all APPLY correlation symbols are used in subquery");
+            checkDependencies(DependencyExtractor.extractUnique(node.getSubquery()), node.getCorrelation(), "not all APPLY correlation symbols are used in subquery");
 
             verifyUniqueId(node);
 
