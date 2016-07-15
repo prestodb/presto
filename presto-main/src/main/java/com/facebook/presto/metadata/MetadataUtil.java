@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SCHEMA_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_NOT_SPECIFIED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -87,6 +88,32 @@ public final class MetadataUtil
             }
         }
         return null;
+    }
+
+    public static QualifiedSchemaName createQualifiedSchemaName(Session session, Node node, Optional<QualifiedName> schema)
+    {
+        String catalogName = session.getCatalog().orElse(null);
+        String schemaName = session.getSchema().orElse(null);
+
+        if (schema.isPresent()) {
+            List<String> parts = schema.get().getParts();
+            if (parts.size() > 2) {
+                throw new SemanticException(INVALID_SCHEMA_NAME, node, "Too many parts in schema name: %s", schema.get());
+            }
+            if (parts.size() == 2) {
+                catalogName = parts.get(0);
+            }
+            schemaName = schema.get().getSuffix();
+        }
+
+        if (catalogName == null) {
+            throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
+        }
+        if (schemaName == null) {
+            throw new SemanticException(SCHEMA_NOT_SPECIFIED, node, "Schema must be specified when session schema is not set");
+        }
+
+        return new QualifiedSchemaName(catalogName, schemaName);
     }
 
     public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name)
