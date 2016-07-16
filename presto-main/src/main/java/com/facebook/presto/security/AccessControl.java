@@ -14,6 +14,7 @@
 package com.facebook.presto.security;
 
 import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.transaction.TransactionId;
@@ -27,6 +28,24 @@ public interface AccessControl
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     void checkCanSetUser(Principal principal, String userName);
+
+    /**
+     * Check if identity is allowed to create the specified schema.
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanCreateSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName);
+
+    /**
+     * Check if identity is allowed to drop the specified schema.
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanDropSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName);
+
+    /**
+     * Check if identity is allowed to rename the specified schema.
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanRenameSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName, String newSchemaName);
 
     /**
      * Check if identity is allowed to create the specified table.

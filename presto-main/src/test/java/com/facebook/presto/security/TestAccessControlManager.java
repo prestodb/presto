@@ -237,6 +237,24 @@ public class TestAccessControlManager
         }
 
         @Override
+        public void checkCanCreateSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void checkCanDropSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void checkCanRenameSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName, String newSchemaName)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public void checkCanCreateTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
         {
             throw new UnsupportedOperationException();

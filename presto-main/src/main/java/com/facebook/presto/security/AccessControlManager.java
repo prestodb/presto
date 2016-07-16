@@ -15,6 +15,7 @@ package com.facebook.presto.security;
 
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
@@ -157,6 +158,48 @@ public class AccessControlManager
         requireNonNull(userName, "userName is null");
 
         authenticationCheck(() -> systemAccessControl.get().checkCanSetUser(principal, userName));
+    }
+
+    @Override
+    public void checkCanCreateSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(schemaName, "schemaName is null");
+
+        authorizationCheck(() -> systemAccessControl.get().checkCanCreateSchema(identity, schemaName));
+
+        CatalogAccessControlEntry entry = catalogAccessControl.get(schemaName.getCatalogName());
+        if (entry != null) {
+            authorizationCheck(() -> entry.getAccessControl().checkCanCreateSchema(entry.getTransactionHandle(transactionId), identity, schemaName.getSchemaName()));
+        }
+    }
+
+    @Override
+    public void checkCanDropSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(schemaName, "schemaName is null");
+
+        authorizationCheck(() -> systemAccessControl.get().checkCanDropSchema(identity, schemaName));
+
+        CatalogAccessControlEntry entry = catalogAccessControl.get(schemaName.getCatalogName());
+        if (entry != null) {
+            authorizationCheck(() -> entry.getAccessControl().checkCanDropSchema(entry.getTransactionHandle(transactionId), identity, schemaName.getSchemaName()));
+        }
+    }
+
+    @Override
+    public void checkCanRenameSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName, String newSchemaName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(schemaName, "schemaName is null");
+
+        authorizationCheck(() -> systemAccessControl.get().checkCanRenameSchema(identity, schemaName, newSchemaName));
+
+        CatalogAccessControlEntry entry = catalogAccessControl.get(schemaName.getCatalogName());
+        if (entry != null) {
+            authorizationCheck(() -> entry.getAccessControl().checkCanRenameSchema(entry.getTransactionHandle(transactionId), identity, schemaName.getSchemaName(), newSchemaName));
+        }
     }
 
     @Override
@@ -508,6 +551,21 @@ public class AccessControlManager
 
         @Override
         public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
+        {
+        }
+
+        @Override
+        public void checkCanCreateSchema(Identity identity, CatalogSchemaName schema)
+        {
+        }
+
+        @Override
+        public void checkCanDropSchema(Identity identity, CatalogSchemaName schema)
+        {
+        }
+
+        @Override
+        public void checkCanRenameSchema(Identity identity, CatalogSchemaName schema, String newSchemaName)
         {
         }
 
