@@ -4141,7 +4141,7 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT \"TOTALPRICE\" \"my price\" FROM \"ORDERS\"");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "line 1:39: Column '\"orderkey_1\"' cannot be resolved")
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "line 1:39: Column 'orderkey_1' cannot be resolved")
     public void testInvalidColumn()
             throws Exception
     {
@@ -4281,13 +4281,19 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery("" +
-                "WITH a AS (SELECT custkey FROM orders), " +
+                "WITH a AS (SELECT 1), " +
                 "     b AS (" +
-                "         WITH a AS (SELECT orderkey FROM orders)" +
-                "         SELECT * FROM a" + // should refer to inner 'a'
+                "         WITH a AS (SELECT 2)" +
+                "         SELECT * FROM a" +
                 "    )" +
                 "SELECT * FROM b",
-                "SELECT orderkey FROM orders"
+                "SELECT 2"
+        );
+        assertQueryFails("" +
+                        "WITH a AS (VALUES 1), " +
+                        "     a AS (VALUES 2)" +
+                        "SELECT * FROM a",
+                "line 1:28: WITH query name 'a' specified more than once"
         );
     }
 
@@ -5828,68 +5834,73 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testCorrelatedScalarSubqueries()
-            throws Exception
     {
-        String errorMsg = "line .*: Correlated queries not yet supported. Invalid column reference: .*";
+        String errorMsg = "Correlated subquery is not yet supported";
 
         assertQueryFails("SELECT (SELECT l.orderkey) FROM lineitem l", errorMsg);
-        assertQueryFails("SELECT * FROM lineitem l WHERE 1 = (SELECT l.orderkey)", errorMsg);
-        assertQueryFails("SELECT * FROM lineitem l ORDER BY (SELECT l.orderkey)", errorMsg);
+        assertQueryFails("SELECT (SELECT 2 * l.orderkey) FROM lineitem l", errorMsg);
+        assertQueryFails("SELECT * FROM lineitem l WHERE 1 = (SELECT 2 * l.orderkey)", errorMsg);
+        assertQueryFails("SELECT * FROM lineitem l ORDER BY (SELECT 2 * l.orderkey)", errorMsg);
 
         // group by
-        assertQueryFails("SELECT max(l.quantity), l.orderkey, (SELECT l.orderkey) FROM lineitem l GROUP BY l.orderkey", errorMsg);
-        assertQueryFails("SELECT max(l.quantity), l.orderkey FROM lineitem l GROUP BY l.orderkey HAVING max(l.quantity) < (SELECT l.orderkey)", errorMsg);
-        assertQueryFails("SELECT max(l.quantity), l.orderkey FROM lineitem l GROUP BY l.orderkey, (SELECT l.orderkey)", errorMsg);
+        assertQueryFails("SELECT max(l.quantity), 2 * l.orderkey, (SELECT l.orderkey) FROM lineitem l GROUP BY l.orderkey", errorMsg);
+        assertQueryFails("SELECT max(l.quantity), 2 * l.orderkey FROM lineitem l GROUP BY l.orderkey HAVING max(l.quantity) < (SELECT l.orderkey)", errorMsg);
+        assertQueryFails("SELECT max(l.quantity), 2 * l.orderkey FROM lineitem l GROUP BY l.orderkey, (SELECT l.orderkey)", errorMsg);
 
         // join
         assertQueryFails("SELECT * FROM lineitem l1 JOIN lineitem l2 ON l1.orderkey= (SELECT l2.orderkey)", errorMsg);
-        assertQueryFails("SELECT * FROM lineitem l1 WHERE 1 = (SELECT count(*) FROM lineitem l2 CROSS JOIN (SELECT l1.orderkey) l3)", errorMsg);
+        assertQueryFails("SELECT (SELECT l3.* FROM lineitem l2 CROSS JOIN (SELECT l1.orderkey) l3 LIMIT 1) FROM lineitem l1", errorMsg);
 
         // subrelation
-        assertQueryFails("SELECT * FROM lineitem l WHERE l.orderkey= (SELECT * FROM (SELECT l.orderkey))", errorMsg);
+        assertQueryFails("SELECT * FROM lineitem l WHERE 2 * l.orderkey = (SELECT * FROM (SELECT l.orderkey))", errorMsg);
+
+        // two level of nesting
+        assertQueryFails("SELECT * FROM lineitem l WHERE 1 = (SELECT (SELECT 2 * l.orderkey))", errorMsg);
     }
 
     @Test
     public void testCorrelatedInPredicateSubqueries()
     {
-        String errorMsg = "line .*: Correlated queries not yet supported. Invalid column reference: .*";
+        String errorMsg = "Correlated subquery is not yet supported";
 
         assertQueryFails("SELECT 1 IN (SELECT l.orderkey) FROM lineitem l", errorMsg);
-        assertQueryFails("SELECT * FROM lineitem l WHERE 1 IN (SELECT l.orderkey)", errorMsg);
-        assertQueryFails("SELECT * FROM lineitem l ORDER BY 1 IN (SELECT l.orderkey)", errorMsg);
+        assertQueryFails("SELECT 1 IN (SELECT 2 * l.orderkey) FROM lineitem l", errorMsg);
+        assertQueryFails("SELECT * FROM lineitem l WHERE 1 IN (SELECT 2 * l.orderkey)", errorMsg);
+        assertQueryFails("SELECT * FROM lineitem l ORDER BY 1 IN (SELECT 2 * l.orderkey)", errorMsg);
 
         // group by
-        assertQueryFails("SELECT max(l.quantity), l.orderkey, 1 IN (SELECT l.orderkey) FROM lineitem l GROUP BY l.orderkey", errorMsg);
-        assertQueryFails("SELECT max(l.quantity), l.orderkey FROM lineitem l GROUP BY l.orderkey HAVING max(l.quantity) IN (SELECT l.orderkey)", errorMsg);
-        assertQueryFails("SELECT max(l.quantity), l.orderkey FROM lineitem l GROUP BY l.orderkey, 1 IN (SELECT l.orderkey)", errorMsg);
+        assertQueryFails("SELECT max(l.quantity), 2 * l.orderkey, 1 IN (SELECT l.orderkey) FROM lineitem l GROUP BY l.orderkey", errorMsg);
+        assertQueryFails("SELECT max(l.quantity), 2 * l.orderkey FROM lineitem l GROUP BY l.orderkey HAVING max(l.quantity) IN (SELECT l.orderkey)", errorMsg);
+        assertQueryFails("SELECT max(l.quantity), 2 * l.orderkey FROM lineitem l GROUP BY l.orderkey, 1 IN (SELECT l.orderkey)", errorMsg);
 
         // join
         assertQueryFails("SELECT * FROM lineitem l1 JOIN lineitem l2 ON l1.orderkey IN (SELECT l2.orderkey)", errorMsg);
 
         // subrelation
-        assertQueryFails("SELECT * FROM lineitem l WHERE l.orderkey = (SELECT * FROM (SELECT 1 IN (SELECT l.orderkey)))", errorMsg);
+        assertQueryFails("SELECT * FROM lineitem l WHERE (SELECT * FROM (SELECT 1 IN (SELECT 2 * l.orderkey)))", errorMsg);
+
+        // two level of nesting
+        assertQueryFails("SELECT * FROM lineitem l WHERE true IN (SELECT 1 IN (SELECT 2 * l.orderkey))", errorMsg);
     }
 
     @Test
-    public void testCorrelatedExistsSubqueries()
+    public void testCorrelatedExistsSubqueriesWithPrunedCorrelationSymbols()
             throws Exception
     {
-        String errorMsg = "line .*: Correlated queries not yet supported. Invalid column reference: .*";
-
-        assertQueryFails("SELECT EXISTS(SELECT l.orderkey) FROM lineitem l", errorMsg);
-        assertQueryFails("SELECT * FROM lineitem l WHERE EXISTS(SELECT l.orderkey)", errorMsg);
-        assertQueryFails("SELECT * FROM lineitem l ORDER BY EXISTS(SELECT l.orderkey)", errorMsg);
+        assertQuery("SELECT EXISTS(SELECT l.orderkey) FROM lineitem l");
+        assertQuery("SELECT count(*) FROM lineitem l WHERE EXISTS(SELECT l.orderkey)");
+        assertQuery("SELECT * FROM lineitem l ORDER BY EXISTS(SELECT l.orderkey)");
 
         // group by
-        assertQueryFails("SELECT max(l.quantity), l.orderkey, EXISTS(SELECT l.orderkey) FROM lineitem l GROUP BY l.orderkey", errorMsg);
-        assertQueryFails("SELECT max(l.quantity), l.orderkey FROM lineitem l GROUP BY l.orderkey HAVING EXISTS (SELECT l.orderkey)", errorMsg);
-        assertQueryFails("SELECT max(l.quantity), l.orderkey FROM lineitem l GROUP BY l.orderkey, EXISTS (SELECT l.orderkey)", errorMsg);
+        assertQuery("SELECT max(l.quantity), l.orderkey, EXISTS(SELECT l.orderkey) FROM lineitem l GROUP BY l.orderkey");
+        assertQuery("SELECT max(l.quantity), l.orderkey FROM lineitem l GROUP BY l.orderkey HAVING EXISTS (SELECT l.orderkey)");
+        assertQuery("SELECT max(l.quantity), l.orderkey FROM lineitem l GROUP BY l.orderkey, EXISTS (SELECT l.orderkey)");
 
         // join
-        assertQueryFails("SELECT * FROM lineitem l1 JOIN lineitem l2 ON EXISTS(SELECT l1.orderkey = l2.orderkey)", errorMsg);
+        assertQuery("SELECT * FROM lineitem l1 JOIN (SELECT * FROM lineitem LIMIT 2) l2 ON NOT EXISTS(SELECT l1.orderkey = l2.orderkey)");
 
         // subrelation
-        assertQueryFails("SELECT * FROM lineitem l WHERE l.orderkey= (SELECT * FROM (SELECT EXISTS( SELECT l.orderkey)))", errorMsg);
+        assertQuery("SELECT count(*) FROM lineitem l WHERE (SELECT * FROM (SELECT EXISTS(SELECT l.orderkey)))", "VALUES 60175");
     }
 
     @Test

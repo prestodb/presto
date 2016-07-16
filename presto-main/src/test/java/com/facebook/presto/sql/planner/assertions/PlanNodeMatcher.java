@@ -31,7 +31,7 @@ final class PlanNodeMatcher
     }
 
     @Override
-    public boolean matches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public boolean matches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
     {
         return node.getClass().equals(nodeClass);
     }
@@ -42,5 +42,10 @@ final class PlanNodeMatcher
         return MoreObjects.toStringHelper(this)
                 .add("nodeClass", nodeClass)
                 .toString();
+    }
+
+    public Class<? extends PlanNode> getNodeClass()
+    {
+        return nodeClass;
     }
 }
