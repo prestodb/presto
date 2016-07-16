@@ -312,6 +312,9 @@ public class ExpressionInterpreter
                 else if (javaType == Slice.class) {
                     return type.getSlice(block, position);
                 }
+                else if (javaType == Block.class) {
+                    return type.getObject(block, position);
+                }
                 else {
                     throw new UnsupportedOperationException("not yet implemented");
                 }
@@ -334,6 +337,9 @@ public class ExpressionInterpreter
                 }
                 else if (javaType == Slice.class) {
                     return cursor.getSlice(channel);
+                }
+                else if (javaType == Block.class) {
+                    return cursor.getObject(channel);
                 }
                 else {
                     throw new UnsupportedOperationException("not yet implemented");
