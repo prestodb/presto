@@ -38,15 +38,18 @@ import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.toHivePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyInsertTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
@@ -79,9 +82,33 @@ public class SqlStandardAccessControl
     }
 
     @Override
+    public void checkCanCreateSchema(ConnectorTransactionHandle transaction, Identity identity, String schemaName)
+    {
+        if (!isAdmin(transaction, identity)) {
+            denyCreateSchema(schemaName);
+        }
+    }
+
+    @Override
+    public void checkCanDropSchema(ConnectorTransactionHandle transaction, Identity identity, String schemaName)
+    {
+        if (!isDatabaseOwner(transaction, identity, schemaName)) {
+            denyDropSchema(schemaName);
+        }
+    }
+
+    @Override
+    public void checkCanRenameSchema(ConnectorTransactionHandle transaction, Identity identity, String schemaName, String newSchemaName)
+    {
+        if (!isAdmin(transaction, identity) || !isDatabaseOwner(transaction, identity, schemaName)) {
+            denyRenameSchema(schemaName, newSchemaName);
+        }
+    }
+
+    @Override
     public void checkCanCreateTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
-        if (!checkDatabasePermission(transaction, identity, tableName.getSchemaName(), OWNERSHIP)) {
+        if (!isDatabaseOwner(transaction, identity, tableName.getSchemaName())) {
             denyCreateTable(tableName.toString());
         }
     }
@@ -145,7 +172,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanCreateView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
     {
-        if (!checkDatabasePermission(transaction, identity, viewName.getSchemaName(), OWNERSHIP)) {
+        if (!isDatabaseOwner(transaction, identity, viewName.getSchemaName())) {
             denyCreateView(viewName.toString());
         }
     }
@@ -191,6 +218,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanSetCatalogSessionProperty(Identity identity, String propertyName)
     {
+        // TODO: when this is updated to have a transaction, use isAdmin()
         if (!metastore.getRoles(identity.getUser()).contains(ADMIN_ROLE_NAME)) {
             denySetCatalogSessionProperty(connectorId, propertyName);
         }
@@ -232,6 +260,11 @@ public class SqlStandardAccessControl
         return privilegeSet.containsAll(ImmutableSet.copyOf(requiredPrivileges));
     }
 
+    private boolean isDatabaseOwner(ConnectorTransactionHandle transaction, Identity identity, String schemaName)
+    {
+        return checkDatabasePermission(transaction, identity, schemaName, OWNERSHIP);
+    }
+
     private boolean getGrantOptionForPrivilege(ConnectorTransactionHandle transaction, Identity identity, Privilege privilege, SchemaTableName tableName)
     {
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
@@ -250,5 +283,11 @@ public class SqlStandardAccessControl
                 .map(HivePrivilegeInfo::getHivePrivilege)
                 .collect(Collectors.toSet());
         return privilegeSet.containsAll(ImmutableSet.copyOf(requiredPrivileges));
+    }
+
+    private boolean isAdmin(ConnectorTransactionHandle transaction, Identity identity)
+    {
+        SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
+        return metastore.getRoles(identity.getUser()).contains(ADMIN_ROLE_NAME);
     }
 }

@@ -14,6 +14,7 @@
 package com.facebook.presto.security;
 
 import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.transaction.TransactionId;
@@ -25,6 +26,21 @@ public class AllowAllAccessControl
 {
     @Override
     public void checkCanSetUser(Principal principal, String userName)
+    {
+    }
+
+    @Override
+    public void checkCanCreateSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName)
+    {
+    }
+
+    @Override
+    public void checkCanDropSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName)
+    {
+    }
+
+    @Override
+    public void checkCanRenameSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName, String newSchemaName)
     {
     }
 

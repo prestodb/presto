@@ -19,6 +19,27 @@ import com.facebook.presto.spi.SchemaTableName;
 public interface ConnectorAccessControl
 {
     /**
+     * Check if identity is allowed to create the specified schema in this catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanCreateSchema(Identity identity, String schemaName);
+
+    /**
+     * Check if identity is allowed to drop the specified schema in this catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanDropSchema(Identity identity, String schemaName);
+
+    /**
+     * Check if identity is allowed to rename the specified schema in this catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanRenameSchema(Identity identity, String schemaName, String newSchemaName);
+
+    /**
      * Check if identity is allowed to create the specified table in this catalog.
      *
      * @throws AccessDeniedException if not allowed
