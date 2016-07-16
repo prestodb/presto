@@ -543,52 +543,57 @@ public final class HttpPageBufferClient
         @Override
         public PagesResponse handle(Request request, Response response)
         {
-            // no content means no content was created within the wait period, but query is still ok
-            // if job is finished, complete is set in the response
-            if (response.getStatusCode() == HttpStatus.NO_CONTENT.code()) {
-                return createEmptyPagesResponse(getTaskInstanceId(response), getToken(response), getNextToken(response), getComplete(response));
-            }
+            try {
+                // no content means no content was created within the wait period, but query is still ok
+                // if job is finished, complete is set in the response
+                if (response.getStatusCode() == HttpStatus.NO_CONTENT.code()) {
+                    return createEmptyPagesResponse(getTaskInstanceId(response), getToken(response), getNextToken(response), getComplete(response));
+                }
 
-            // otherwise we must have gotten an OK response, everything else is considered fatal
-            if (response.getStatusCode() != HttpStatus.OK.code()) {
-                StringBuilder body = new StringBuilder();
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(response.getInputStream()))) {
-                    // Get up to 1000 lines for debugging
-                    for (int i = 0; i < 1000; i++) {
-                        String line = reader.readLine();
-                        // Don't output more than 100KB
-                        if (line == null || body.length() + line.length() > 100 * 1024) {
-                            break;
+                // otherwise we must have gotten an OK response, everything else is considered fatal
+                if (response.getStatusCode() != HttpStatus.OK.code()) {
+                    StringBuilder body = new StringBuilder();
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(response.getInputStream()))) {
+                        // Get up to 1000 lines for debugging
+                        for (int i = 0; i < 1000; i++) {
+                            String line = reader.readLine();
+                            // Don't output more than 100KB
+                            if (line == null || body.length() + line.length() > 100 * 1024) {
+                                break;
+                            }
+                            body.append(line + "\n");
                         }
-                        body.append(line + "\n");
                     }
+                    catch (RuntimeException | IOException e) {
+                        // Ignored. Just return whatever message we were able to decode
+                    }
+                    throw new PageTransportErrorException(format("Expected response code to be 200, but was %s %s:%n%s", response.getStatusCode(), response.getStatusMessage(), body.toString()));
                 }
-                catch (RuntimeException | IOException e) {
-                    // Ignored. Just return whatever message we were able to decode
+
+                // invalid content type can happen when an error page is returned, but is unlikely given the above 200
+                String contentType = response.getHeader(CONTENT_TYPE);
+                if (contentType == null) {
+                    throw new PageTransportErrorException(format("%s header is not set: %s", CONTENT_TYPE, response));
                 }
-                throw new PageTransportErrorException(format("Expected response code to be 200, but was %s %s: %s%n%s", response.getStatusCode(), response.getStatusMessage(), request.getUri(), body.toString()));
-            }
+                if (!mediaTypeMatches(contentType, PRESTO_PAGES_TYPE)) {
+                    throw new PageTransportErrorException(format("Expected %s response from server but got %s", PRESTO_PAGES_TYPE, contentType));
+                }
 
-            // invalid content type can happen when an error page is returned, but is unlikely given the above 200
-            String contentType = response.getHeader(CONTENT_TYPE);
-            if (contentType == null) {
-                throw new PageTransportErrorException(format("%s header is not set: %s %s", CONTENT_TYPE, request.getUri(), response));
-            }
-            if (!mediaTypeMatches(contentType, PRESTO_PAGES_TYPE)) {
-                throw new PageTransportErrorException(format("Expected %s response from server but got %s: %s", PRESTO_PAGES_TYPE, contentType, request.getUri()));
-            }
+                String taskInstanceId = getTaskInstanceId(response);
+                long token = getToken(response);
+                long nextToken = getNextToken(response);
+                boolean complete = getComplete(response);
 
-            String taskInstanceId = getTaskInstanceId(response);
-            long token = getToken(response);
-            long nextToken = getNextToken(response);
-            boolean complete = getComplete(response);
-
-            try (SliceInput input = new InputStreamSliceInput(response.getInputStream())) {
-                List<Page> pages = ImmutableList.copyOf(readPages(blockEncodingSerde, input));
-                return createPagesResponse(taskInstanceId, token, nextToken, pages, complete);
+                try (SliceInput input = new InputStreamSliceInput(response.getInputStream())) {
+                    List<Page> pages = ImmutableList.copyOf(readPages(blockEncodingSerde, input));
+                    return createPagesResponse(taskInstanceId, token, nextToken, pages, complete);
+                }
+                catch (IOException e) {
+                    throw Throwables.propagate(e);
+                }
             }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
+            catch (PageTransportErrorException e) {
+                throw new PageTransportErrorException(format("Error fetching %s: %s", request.getUri().toASCIIString(), e.getMessage()), e);
             }
         }
 
