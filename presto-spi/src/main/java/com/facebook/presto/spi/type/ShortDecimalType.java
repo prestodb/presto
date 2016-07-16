@@ -17,6 +17,8 @@ package com.facebook.presto.spi.type;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.LongArrayBlockBuilder;
 
 import java.math.BigInteger;
 
@@ -28,8 +30,34 @@ final class ShortDecimalType
 {
     ShortDecimalType(int precision, int scale)
     {
-        super(precision, scale, long.class, SIZE_OF_LONG);
+        super(precision, scale, long.class);
         validatePrecisionScale(precision, scale, MAX_SHORT_PRECISION);
+    }
+
+    @Override
+    public int getFixedSize()
+    {
+        return SIZE_OF_LONG;
+    }
+
+    @Override
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    {
+        return new LongArrayBlockBuilder(
+                blockBuilderStatus,
+                Math.min(expectedEntries, blockBuilderStatus.getMaxBlockSizeInBytes() / getFixedSize()));
+    }
+
+    @Override
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    {
+        return createBlockBuilder(blockBuilderStatus, expectedEntries, getFixedSize());
+    }
+
+    @Override
+    public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
+    {
+        return new LongArrayBlockBuilder(new BlockBuilderStatus(), positionCount);
     }
 
     @Override
