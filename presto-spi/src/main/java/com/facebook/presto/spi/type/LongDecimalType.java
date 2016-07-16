@@ -37,13 +37,13 @@ final class LongDecimalType
     }
 
     @Override
-    public final int getFixedSize()
+    public int getFixedSize()
     {
         return SIZE_OF_LONG_DECIMAL;
     }
 
     @Override
-    public final BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
         return new FixedWidthBlockBuilder(
                 getFixedSize(),
@@ -52,13 +52,13 @@ final class LongDecimalType
     }
 
     @Override
-    public final BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         return createBlockBuilder(blockBuilderStatus, expectedEntries, getFixedSize());
     }
 
     @Override
-    public final BlockBuilder createFixedSizeBlockBuilder(int positionCount)
+    public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
         return new FixedWidthBlockBuilder(getFixedSize(), positionCount);
     }
@@ -123,7 +123,7 @@ final class LongDecimalType
     }
 
     @Override
-    public final Slice getSlice(Block block, int position)
+    public Slice getSlice(Block block, int position)
     {
         return block.getSlice(position, 0, getFixedSize());
     }
