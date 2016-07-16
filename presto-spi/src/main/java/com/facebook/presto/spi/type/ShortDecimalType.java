@@ -35,13 +35,13 @@ final class ShortDecimalType
     }
 
     @Override
-    public final int getFixedSize()
+    public int getFixedSize()
     {
         return SIZE_OF_LONG;
     }
 
     @Override
-    public final BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
         return new LongArrayBlockBuilder(
                 blockBuilderStatus,
@@ -49,13 +49,13 @@ final class ShortDecimalType
     }
 
     @Override
-    public final BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         return createBlockBuilder(blockBuilderStatus, expectedEntries, getFixedSize());
     }
 
     @Override
-    public final BlockBuilder createFixedSizeBlockBuilder(int positionCount)
+    public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
         return new LongArrayBlockBuilder(new BlockBuilderStatus(), positionCount);
     }
