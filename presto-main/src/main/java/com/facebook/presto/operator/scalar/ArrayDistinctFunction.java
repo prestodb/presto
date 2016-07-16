@@ -73,11 +73,14 @@ public final class ArrayDistinctFunction
         LongSet set = new LongOpenHashSet(array.getPositionCount());
         BlockBuilder distinctElementBlockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), array.getPositionCount());
         for (int i = 0; i < array.getPositionCount(); i++) {
-            if (!containsNull && array.isNull(i)) {
-                containsNull = true;
-                distinctElementBlockBuilder.appendNull();
+            if (array.isNull(i)) {
+                if (!containsNull) {
+                    containsNull = true;
+                    distinctElementBlockBuilder.appendNull();
+                }
                 continue;
             }
+
             long value = BIGINT.getLong(array, i);
             if (set.add(value)) {
                 BIGINT.writeLong(distinctElementBlockBuilder, value);
