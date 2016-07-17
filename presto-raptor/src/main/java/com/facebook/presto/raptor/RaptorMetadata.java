@@ -88,6 +88,7 @@ import static com.facebook.presto.raptor.RaptorTableProperties.getBucketCount;
 import static com.facebook.presto.raptor.RaptorTableProperties.getDistributionName;
 import static com.facebook.presto.raptor.RaptorTableProperties.getSortColumns;
 import static com.facebook.presto.raptor.RaptorTableProperties.getTemporalColumn;
+import static com.facebook.presto.raptor.util.DatabaseUtil.daoTransaction;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.raptor.util.DatabaseUtil.runIgnoringConstraintViolation;
 import static com.facebook.presto.raptor.util.DatabaseUtil.runTransaction;
@@ -730,11 +731,9 @@ public class RaptorMetadata
         String tableName = viewName.getTableName();
 
         if (replace) {
-            runTransaction(dbi, (handle, status) -> {
-                MetadataDao dao = handle.attach(MetadataDao.class);
+            daoTransaction(dbi, MetadataDao.class, dao -> {
                 dao.dropView(schemaName, tableName);
                 dao.insertView(schemaName, tableName, viewData);
-                return null;
             });
             return;
         }

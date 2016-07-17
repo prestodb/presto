@@ -26,6 +26,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
+import java.util.function.Consumer;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_METADATA_ERROR;
 import static com.google.common.base.Throwables.propagateIfInstanceOf;
@@ -63,6 +64,14 @@ public final class DatabaseUtil
             propagateIfInstanceOf(e.getCause(), PrestoException.class);
             throw metadataError(e);
         }
+    }
+
+    public static <T> void daoTransaction(IDBI dbi, Class<T> daoType, Consumer<T> callback)
+    {
+        runTransaction(dbi, (handle, status) -> {
+            callback.accept(handle.attach(daoType));
+            return null;
+        });
     }
 
     public static PrestoException metadataError(Throwable cause)
