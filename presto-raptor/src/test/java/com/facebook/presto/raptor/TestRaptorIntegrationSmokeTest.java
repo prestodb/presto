@@ -298,5 +298,7 @@ public class TestRaptorIntegrationSmokeTest
         assertUpdate("DROP TABLE system_tables_test2");
         assertUpdate("DROP TABLE system_tables_test3");
         assertUpdate("DROP TABLE system_tables_test4");
+
+        assertEquals(computeActual("SELECT * FROM system.tables WHERE table_schema IN ('foo', 'bar')").getRowCount(), 0);
     }
 }

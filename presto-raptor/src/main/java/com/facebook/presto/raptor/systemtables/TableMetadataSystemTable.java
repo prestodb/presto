@@ -28,11 +28,12 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.PeekingIterator;
 import io.airlift.slice.Slice;
 import org.skife.jdbi.v2.IDBI;
@@ -52,13 +53,13 @@ import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_CORRUPT_METADATA
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
+import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValues;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.Iterators.peekingIterator;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -110,12 +111,9 @@ public class TableMetadataSystemTable
 
     private static List<Page> buildPages(MetadataDao dao, ConnectorTableMetadata tableMetadata, TupleDomain<Integer> tupleDomain)
     {
-        Map<Integer, Domain> domains = tupleDomain.getDomains().get();
-        Domain schemaNameDomain = domains.get(getColumnIndex(tableMetadata, SCHEMA_NAME));
-        Domain tableNameDomain = domains.get(getColumnIndex(tableMetadata, TABLE_NAME));
-
-        String schemaName = schemaNameDomain == null ? null : getStringValue(schemaNameDomain.getSingleValue()).toLowerCase(ENGLISH);
-        String tableName = tableNameDomain == null ? null : getStringValue(tableNameDomain.getSingleValue()).toLowerCase(ENGLISH);
+        Map<Integer, NullableValue> domainValues = extractFixedValues(tupleDomain).orElse(ImmutableMap.of());
+        String schemaName = getStringValue(domainValues.get(getColumnIndex(tableMetadata, SCHEMA_NAME)));
+        String tableName = getStringValue(domainValues.get(getColumnIndex(tableMetadata, TABLE_NAME)));
 
         PageListBuilder pageBuilder = new PageListBuilder(tableMetadata.getColumns().stream()
                 .map(ColumnMetadata::getType)
@@ -218,8 +216,11 @@ public class TableMetadataSystemTable
         throw new IllegalArgumentException(format("Column %s not found", columnName));
     }
 
-    private static String getStringValue(Object value)
+    private static String getStringValue(NullableValue value)
     {
-        return checkType(value, Slice.class, "value").toStringUtf8();
+        if ((value == null) || value.isNull()) {
+            return null;
+        }
+        return checkType(value.getValue(), Slice.class, "value").toStringUtf8();
     }
 }
