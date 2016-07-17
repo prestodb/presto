@@ -122,14 +122,42 @@ public interface MetadataDao
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName);
 
-    @SqlUpdate("INSERT INTO tables (schema_name, table_name, compaction_enabled, distribution_id)\n" +
-            "VALUES (:schemaName, :tableName, :compactionEnabled, :distributionId)")
+    @SqlUpdate("INSERT INTO tables (\n" +
+            "  schema_name, table_name, compaction_enabled, distribution_id,\n" +
+            "  create_time, update_time, table_version,\n" +
+            "  shard_count, row_count, compressed_size, uncompressed_size)\n" +
+            "VALUES (\n" +
+            "  :schemaName, :tableName, :compactionEnabled, :distributionId,\n" +
+            "  :createTime, :createTime, 0,\n" +
+            "  0, 0, 0, 0)\n")
     @GetGeneratedKeys
     long insertTable(
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName,
             @Bind("compactionEnabled") boolean compactionEnabled,
-            @Bind("distributionId") Long distributionId);
+            @Bind("distributionId") Long distributionId,
+            @Bind("createTime") long createTime);
+
+    @SqlUpdate("UPDATE tables SET\n" +
+            "  update_time = :updateTime\n" +
+            ", table_version = table_version + 1\n" +
+            "WHERE table_id = :tableId")
+    void updateTableVersion(
+            @Bind("tableId") long tableId,
+            @Bind("updateTime") long updateTime);
+
+    @SqlUpdate("UPDATE tables SET\n" +
+            "  shard_count = shard_count + :shardCount \n" +
+            ", row_count = row_count + :rowCount\n" +
+            ", compressed_size = compressed_size + :compressedSize\n" +
+            ", uncompressed_size = uncompressed_size + :uncompressedSize\n" +
+            "WHERE table_id = :tableId")
+    void updateTableStats(
+            @Bind("tableId") long tableId,
+            @Bind("shardCount") long shardCount,
+            @Bind("rowCount") long rowCount,
+            @Bind("compressedSize") long compressedSize,
+            @Bind("uncompressedSize") long uncompressedSize);
 
     @SqlUpdate("INSERT INTO columns (table_id, column_id, column_name, ordinal_position, data_type, sort_ordinal_position, bucket_ordinal_position)\n" +
             "VALUES (:tableId, :columnId, :columnName, :ordinalPosition, :dataType, :sortOrdinalPosition, :bucketOrdinalPosition)")
