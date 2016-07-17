@@ -20,13 +20,11 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.PeekingIterator;
 import io.airlift.slice.Slice;
 import org.skife.jdbi.v2.IDBI;
@@ -141,8 +139,7 @@ public class TableMetadataPageSource
         String schemaName = schemaNameDomain == null ? null : getStringValue(schemaNameDomain.getSingleValue()).toLowerCase(ENGLISH);
         String tableName = tableNameDomain == null ? null : getStringValue(tableNameDomain.getSingleValue()).toLowerCase(ENGLISH);
 
-        ImmutableList.Builder<Page> pages = ImmutableList.builder();
-        PageBuilder pageBuilder = new PageBuilder(types);
+        PageListBuilder pageBuilder = new PageListBuilder(types);
 
         List<TableMetadataRow> tableRows = dao.getTableMetadataRows(schemaName, tableName);
         PeekingIterator<ColumnMetadataRow> columnRowIterator = peekingIterator(dao.getColumnMetadataRows(schemaName, tableName).iterator());
@@ -171,62 +168,49 @@ public class TableMetadataPageSource
                 }
             }
 
-            pageBuilder.declarePosition();
+            pageBuilder.beginRow();
 
             // schema_name, table_name
-            VARCHAR.writeSlice(pageBuilder.getBlockBuilder(0), utf8Slice(tableRow.getSchemaName()));
-            VARCHAR.writeSlice(pageBuilder.getBlockBuilder(1), utf8Slice(tableRow.getTableName()));
+            VARCHAR.writeSlice(pageBuilder.nextBlockBuilder(), utf8Slice(tableRow.getSchemaName()));
+            VARCHAR.writeSlice(pageBuilder.nextBlockBuilder(), utf8Slice(tableRow.getTableName()));
 
             // temporal_column
             if (temporalColumnId.isPresent()) {
                 if (temporalColumnName == null) {
                     throw new PrestoException(RAPTOR_CORRUPT_METADATA, format("Table ID %s has corrupt metadata (invalid temporal column ID)", tableRow.getTableId()));
                 }
-                VARCHAR.writeSlice(pageBuilder.getBlockBuilder(2), utf8Slice(temporalColumnName));
+                VARCHAR.writeSlice(pageBuilder.nextBlockBuilder(), utf8Slice(temporalColumnName));
             }
             else {
-                pageBuilder.getBlockBuilder(2).appendNull();
+                pageBuilder.nextBlockBuilder().appendNull();
             }
 
             // ordering_columns
-            writeArray(pageBuilder.getBlockBuilder(3), sortColumnNames.values());
+            writeArray(pageBuilder.nextBlockBuilder(), sortColumnNames.values());
 
             // distribution_name
             Optional<String> distributionName = tableRow.getDistributionName();
             if (distributionName.isPresent()) {
-                VARCHAR.writeSlice(pageBuilder.getBlockBuilder(4), utf8Slice(distributionName.get()));
+                VARCHAR.writeSlice(pageBuilder.nextBlockBuilder(), utf8Slice(distributionName.get()));
             }
             else {
-                pageBuilder.getBlockBuilder(4).appendNull();
+                pageBuilder.nextBlockBuilder().appendNull();
             }
 
             // bucket_count
             OptionalInt bucketCount = tableRow.getBucketCount();
             if (bucketCount.isPresent()) {
-                BIGINT.writeLong(pageBuilder.getBlockBuilder(5), bucketCount.getAsInt());
+                BIGINT.writeLong(pageBuilder.nextBlockBuilder(), bucketCount.getAsInt());
             }
             else {
-                pageBuilder.getBlockBuilder(5).appendNull();
+                pageBuilder.nextBlockBuilder().appendNull();
             }
 
             // bucketing_columns
-            writeArray(pageBuilder.getBlockBuilder(6), bucketColumnNames.values());
-
-            if (pageBuilder.isFull()) {
-                flushPage(pageBuilder, pages);
-            }
+            writeArray(pageBuilder.nextBlockBuilder(), bucketColumnNames.values());
         }
 
-        flushPage(pageBuilder, pages);
-        return pages.build().iterator();
-    }
-
-    private static void flushPage(PageBuilder pageBuilder, ImmutableList.Builder<Page> pages)
-    {
-        if (!pageBuilder.isEmpty()) {
-            pages.add(pageBuilder.build());
-            pageBuilder.reset();
-        }
+        return pageBuilder.build().iterator();
     }
 
     private static void writeArray(BlockBuilder blockBuilder, Collection<String> values)
