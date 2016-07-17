@@ -128,7 +128,7 @@ public class TestRaptorSplitManager
                 .collect(toList());
 
         long transactionId = shardManager.beginTransaction();
-        shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty());
+        shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty(), 0);
 
         raptorSplitManager = new RaptorSplitManager(connectorId, nodeSupplier, shardManager, false);
     }

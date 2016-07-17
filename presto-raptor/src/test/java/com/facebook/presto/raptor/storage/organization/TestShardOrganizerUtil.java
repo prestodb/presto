@@ -148,7 +148,7 @@ public class TestShardOrganizerUtil
                 .build();
 
         long transactionId = shardManager.beginTransaction();
-        shardManager.commitShards(transactionId, tableInfo.getTableId(), COLUMNS, shards, Optional.empty());
+        shardManager.commitShards(transactionId, tableInfo.getTableId(), COLUMNS, shards, Optional.empty(), 0);
         Set<ShardMetadata> shardMetadatas = shardManager.getNodeShards("node1");
 
         Long temporalColumnId = metadataDao.getTemporalColumnId(tableInfo.getTableId());

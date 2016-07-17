@@ -123,7 +123,8 @@ public class TestShardMetadataRecordCursor
                         new ColumnInfo(1, BIGINT),
                         new ColumnInfo(2, DATE)),
                 shards,
-                Optional.empty());
+                Optional.empty(),
+                0);
 
         Slice schema = utf8Slice(DEFAULT_TEST_ORDERS.getSchemaName());
         Slice table = utf8Slice(DEFAULT_TEST_ORDERS.getTableName());

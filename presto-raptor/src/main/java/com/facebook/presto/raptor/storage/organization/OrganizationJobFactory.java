@@ -28,6 +28,7 @@ import org.skife.jdbi.v2.IDBI;
 import java.io.IOException;
 import java.util.List;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 
@@ -108,7 +109,7 @@ public class OrganizationJobFactory
 
             List<ShardInfo> newShards = performCompaction(transactionId, bucketNumber, shardUuids, metadata);
             log.info("Compacted shards %s into %s", shardUuids, newShards.stream().map(ShardInfo::getShardUuid).collect(toList()));
-            shardManager.replaceShardUuids(transactionId, tableId, metadata.getColumns(), shardUuids, newShards);
+            shardManager.replaceShardUuids(transactionId, tableId, metadata.getColumns(), shardUuids, newShards, OptionalLong.empty());
         }
 
         private TableMetadata getTableMetadata(long tableId)
