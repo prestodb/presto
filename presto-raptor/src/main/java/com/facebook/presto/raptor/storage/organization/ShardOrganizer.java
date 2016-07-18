@@ -15,19 +15,19 @@ package com.facebook.presto.raptor.storage.organization;
 
 import com.facebook.presto.raptor.storage.StorageManagerConfig;
 import com.google.inject.Inject;
+import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
-import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -36,24 +36,19 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.Executors.newFixedThreadPool;
-import static java.util.concurrent.Executors.newSingleThreadExecutor;
 
 public class ShardOrganizer
 {
     private static final Logger log = Logger.get(ShardOrganizer.class);
 
     private final ExecutorService executorService;
-    private final ExecutorService driverService = newSingleThreadExecutor(daemonThreadsNamed("shard-organizer-driver"));
+    private final ThreadPoolExecutorMBean executorMBean;
 
-    private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicBoolean shutdown = new AtomicBoolean();
-
-    private final BlockingQueue<OrganizationSet> queue = new LinkedBlockingQueue<>();
 
     // Tracks shards that are scheduled for compaction so that we do not schedule them more than once
     private final Set<UUID> shardsInProgress = newConcurrentHashSet();
     private final JobFactory jobFactory;
-
     private final CounterStat successCount = new CounterStat();
     private final CounterStat failureCount = new CounterStat();
 
@@ -68,30 +63,21 @@ public class ShardOrganizer
         checkArgument(threads > 0, "threads must be > 0");
         this.jobFactory = requireNonNull(jobFactory, "jobFactory is null");
         this.executorService = newFixedThreadPool(threads, daemonThreadsNamed("shard-organizer-%s"));
+        this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executorService);
     }
 
-    @PostConstruct
-    public void start()
+    @PreDestroy
+    public void shutdown()
     {
-        if (!started.getAndSet(true)) {
-            driverService.submit((Runnable) () -> {
-                while (!Thread.currentThread().isInterrupted() && !shutdown.get()) {
-                    try {
-                        process();
-                    }
-                    catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                    }
-                }
-            });
+        if (!shutdown.getAndSet(true)) {
+            executorService.shutdownNow();
         }
     }
 
-    private void process()
-            throws InterruptedException
+    public CompletableFuture<?> enqueue(OrganizationSet organizationSet)
     {
-        OrganizationSet organizationSet = queue.take();
-        runAsync(jobFactory.create(organizationSet), executorService)
+        shardsInProgress.addAll(organizationSet.getShards());
+        return runAsync(jobFactory.create(organizationSet), executorService)
                 .whenComplete((none, throwable) -> {
                     shardsInProgress.removeAll(organizationSet.getShards());
                     if (throwable == null) {
@@ -104,30 +90,16 @@ public class ShardOrganizer
                 });
     }
 
-    @PreDestroy
-    public void shutdown()
-    {
-        if (!shutdown.getAndSet(true)) {
-            driverService.shutdownNow();
-            executorService.shutdownNow();
-        }
-    }
-
-    public void enqueue(OrganizationSet organizationSet)
-    {
-        shardsInProgress.addAll(organizationSet.getShards());
-        queue.add(organizationSet);
-    }
-
     public boolean inProgress(UUID shardUuid)
     {
         return shardsInProgress.contains(shardUuid);
     }
 
     @Managed
-    public int pendingOrganizationJobs()
+    @Nested
+    public ThreadPoolExecutorMBean getExecutor()
     {
-        return queue.size();
+        return executorMBean;
     }
 
     @Managed
