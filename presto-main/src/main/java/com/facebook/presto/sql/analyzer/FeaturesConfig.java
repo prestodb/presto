@@ -113,7 +113,7 @@ public class FeaturesConfig
         return distributedJoinsEnabled;
     }
 
-    @Config("experimental.legacy-array-agg")
+    @Config("deprecated.legacy-array-agg")
     public FeaturesConfig setLegacyArrayAgg(boolean legacyArrayAgg)
     {
         this.legacyArrayAgg = legacyArrayAgg;
