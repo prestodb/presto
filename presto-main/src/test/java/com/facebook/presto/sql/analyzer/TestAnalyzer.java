@@ -378,9 +378,9 @@ public class TestAnalyzer
     public void testNonEquiOuterJoin()
             throws Exception
     {
-        analyze("SELECT * FROM t1 LEFT JOIN t2 ON t1.a + t2.a = 1");
-        analyze("SELECT * FROM t1 RIGHT JOIN t2 ON t1.a + t2.a = 1");
-        analyze("SELECT * FROM t1 LEFT JOIN t2 ON t1.a = t2.a OR t1.b = t2.b");
+        assertFails(NOT_SUPPORTED, "SELECT * FROM t1 LEFT JOIN t2 ON t1.a + t2.a = 1");
+        assertFails(NOT_SUPPORTED, "SELECT * FROM t1 RIGHT JOIN t2 ON t1.a + t2.a = 1");
+        assertFails(NOT_SUPPORTED, "SELECT * FROM t1 LEFT JOIN t2 ON t1.a = t2.a OR t1.b = t2.b");
     }
 
     @Test

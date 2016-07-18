@@ -1229,12 +1229,18 @@ class StatementAnalyzer
                         // mixed references to both left and right join relation on one side of comparison operator.
                         // expression will be put in post-join condition; analyze in context of output table.
                         postJoinConjuncts.add(conjunct);
+                        if (node.getType() != Join.Type.INNER) {
+                            throw new SemanticException(NOT_SUPPORTED, node, "Non-equi joins only supported for inner join: %s", conjunct);
+                        }
                     }
                 }
                 else {
                     // non-comparison expression.
                     // expression will be put in post-join condition; analyze in context of output table.
                     postJoinConjuncts.add(conjunct);
+                    if (node.getType() != Join.Type.INNER) {
+                        throw new SemanticException(NOT_SUPPORTED, node, "Non-equi joins only supported for inner join: %s", conjunct);
+                    }
                 }
             }
             ExpressionAnalysis postJoinPredicatesConjunctsAnalysis = analyzeExpression(ExpressionUtils.combineConjuncts(postJoinConjuncts), output, context);

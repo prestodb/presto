@@ -346,6 +346,11 @@ class RelationPlanner
         if (node.getType() == INNER) {
             root = new FilterNode(idAllocator.getNextId(), root, postInnerJoinCriteria);
         }
+        else {
+            if (!new BooleanLiteral("TRUE").equals(postInnerJoinCriteria)) {
+                throw new SemanticException(NOT_SUPPORTED, node, "Non-equi joins only supported for inner join: %s", postInnerJoinCriteria);
+            }
+        }
 
         return new RelationPlan(root, outputDescriptor, outputSymbols, sampleWeight);
     }
