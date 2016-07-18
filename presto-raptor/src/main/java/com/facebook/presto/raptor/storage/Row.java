@@ -16,9 +16,14 @@ package com.facebook.presto.raptor.storage;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.slice.Slice;
+import org.apache.hadoop.hive.common.type.HiveDecimal;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -26,8 +31,7 @@ import java.util.Map;
 
 import static com.facebook.presto.raptor.util.Types.isArrayType;
 import static com.facebook.presto.raptor.util.Types.isMapType;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
@@ -126,6 +130,17 @@ public class Row
         if (nativeValue == null) {
             return null;
         }
+        if (type instanceof DecimalType) {
+            BigInteger unscaledValue;
+            DecimalType decimalType = (DecimalType) type;
+            if (decimalType.isShort()) {
+                unscaledValue = BigInteger.valueOf((long) nativeValue);
+            }
+            else {
+                unscaledValue = Decimals.decodeUnscaledValue((Slice) nativeValue);
+            }
+            return HiveDecimal.create(unscaledValue, decimalType.getScale());
+        }
         if (type.getJavaType() == boolean.class) {
             return nativeValue;
         }
@@ -137,7 +152,7 @@ public class Row
         }
         if (type.getJavaType() == Slice.class) {
             Slice slice = (Slice) nativeValue;
-            return type.equals(VARCHAR) ? slice.toStringUtf8() : slice.getBytes();
+            return type instanceof VarcharType ? slice.toStringUtf8() : slice.getBytes();
         }
         if (isArrayType(type)) {
             Block arrayBlock = (Block) nativeValue;
@@ -160,7 +175,7 @@ public class Row
             }
             return map;
         }
-        throw new PrestoException(INTERNAL_ERROR, "Unimplemented type: " + type);
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unimplemented type: " + type);
     }
 
     private static class RowBuilder

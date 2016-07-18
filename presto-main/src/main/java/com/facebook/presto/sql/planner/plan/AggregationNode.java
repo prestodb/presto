@@ -39,6 +39,7 @@ public class AggregationNode
     private final Map<Symbol, FunctionCall> aggregations;
     // Map from function symbol, to the mask symbol
     private final Map<Symbol, Symbol> masks;
+    private final List<List<Symbol>> groupingSets;
     private final Map<Symbol, Signature> functions;
     private final Step step;
     private final Optional<Symbol> sampleWeight;
@@ -47,9 +48,29 @@ public class AggregationNode
 
     public enum Step
     {
-        PARTIAL,
-        FINAL,
-        SINGLE
+        PARTIAL(true, true),
+        FINAL(false, false),
+        INTERMEDIATE(false, true),
+        SINGLE(true, false);
+
+        private final boolean inputRaw;
+        private final boolean outputPartial;
+
+        Step(boolean inputRaw, boolean outputPartial)
+        {
+            this.inputRaw = inputRaw;
+            this.outputPartial = outputPartial;
+        }
+
+        public boolean isInputRaw()
+        {
+            return inputRaw;
+        }
+
+        public boolean isOutputPartial()
+        {
+            return outputPartial;
+        }
     }
 
     @JsonCreator
@@ -59,6 +80,7 @@ public class AggregationNode
             @JsonProperty("aggregations") Map<Symbol, FunctionCall> aggregations,
             @JsonProperty("functions") Map<Symbol, Signature> functions,
             @JsonProperty("masks") Map<Symbol, Symbol> masks,
+            @JsonProperty("groupingSets") List<List<Symbol>> groupingSets,
             @JsonProperty("step") Step step,
             @JsonProperty("sampleWeight") Optional<Symbol> sampleWeight,
             @JsonProperty("confidence") double confidence,
@@ -74,6 +96,7 @@ public class AggregationNode
         for (Symbol mask : masks.keySet()) {
             checkArgument(aggregations.containsKey(mask), "mask does not match any aggregations");
         }
+        this.groupingSets = ImmutableList.copyOf(requireNonNull(groupingSets, "groupingSets is null"));
         this.step = step;
         this.sampleWeight = requireNonNull(sampleWeight, "sampleWeight is null");
         checkArgument(confidence >= 0 && confidence <= 1, "confidence must be in [0, 1]");
@@ -128,6 +151,12 @@ public class AggregationNode
     public List<Symbol> getGroupBy()
     {
         return groupByKeys;
+    }
+
+    @JsonProperty("groupingSets")
+    public List<List<Symbol>> getGroupingSets()
+    {
+        return groupingSets;
     }
 
     @JsonProperty("source")

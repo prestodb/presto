@@ -22,12 +22,14 @@ import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.AtomicDouble;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
+import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
@@ -38,7 +40,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
-import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.succinctBytes;
+import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -51,7 +54,6 @@ public class TaskContext
     private final Session session;
 
     private final DataSize operatorPreAllocatedMemory;
-
     private final AtomicLong memoryReservation = new AtomicLong();
     private final AtomicLong systemMemoryReservation = new AtomicLong();
 
@@ -69,6 +71,15 @@ public class TaskContext
     private final boolean verboseStats;
     private final boolean cpuTimerEnabled;
 
+    private final Object cumulativeMemoryLock = new Object();
+    private final AtomicDouble cumulativeMemory = new AtomicDouble(0.0);
+
+    @GuardedBy("cumulativeMemoryLock")
+    private long lastMemoryReservation = 0;
+
+    @GuardedBy("cumulativeMemoryLock")
+    private long lastTaskStatCallNanos = 0;
+
     public TaskContext(QueryContext queryContext,
             TaskStateMachine taskStateMachine,
             Executor executor,
@@ -82,7 +93,6 @@ public class TaskContext
         this.executor = requireNonNull(executor, "executor is null");
         this.session = session;
         this.operatorPreAllocatedMemory = requireNonNull(operatorPreAllocatedMemory, "operatorPreAllocatedMemory is null");
-
         taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
         {
             @Override
@@ -262,6 +272,8 @@ public class TaskContext
 
         List<PipelineStats> pipelineStats = ImmutableList.copyOf(transform(pipelineContexts, PipelineContext::getPipelineStats));
 
+        long lastExecutionEndTime = 0;
+
         int totalDrivers = 0;
         int queuedDrivers = 0;
         int queuedPartitionedDrivers = 0;
@@ -284,6 +296,10 @@ public class TaskContext
         long outputPositions = 0;
 
         for (PipelineStats pipeline : pipelineStats) {
+            if (pipeline.getLastEndTime() != null) {
+                lastExecutionEndTime = max(pipeline.getLastEndTime().getMillis(), lastExecutionEndTime);
+            }
+
             totalDrivers += pipeline.getTotalDrivers();
             queuedDrivers += pipeline.getQueuedDrivers();
             queuedPartitionedDrivers += pipeline.getQueuedPartitionedDrivers();
@@ -311,7 +327,7 @@ public class TaskContext
         }
 
         long startNanos = this.startNanos.get();
-        if (startNanos < createNanos) {
+        if (startNanos == 0) {
             startNanos = System.nanoTime();
         }
         Duration queuedTime = new Duration(startNanos - createNanos, NANOSECONDS);
@@ -325,6 +341,16 @@ public class TaskContext
             elapsedTime = new Duration(0, NANOSECONDS);
         }
 
+        synchronized (cumulativeMemoryLock) {
+            double sinceLastPeriodMillis = (System.nanoTime() - lastTaskStatCallNanos) / 1_000_000.0;
+            long currentSystemMemory = systemMemoryReservation.get();
+            long averageMemoryForLastPeriod = (currentSystemMemory + lastMemoryReservation) / 2;
+            cumulativeMemory.addAndGet(averageMemoryForLastPeriod * sinceLastPeriodMillis);
+
+            lastTaskStatCallNanos = System.nanoTime();
+            lastMemoryReservation = currentSystemMemory;
+        }
+
         boolean fullyBlocked = pipelineStats.stream()
                 .filter(pipeline -> pipeline.getRunningDrivers() > 0 || pipeline.getRunningPartitionedDrivers() > 0)
                 .allMatch(PipelineStats::isFullyBlocked);
@@ -336,6 +362,7 @@ public class TaskContext
                 taskStateMachine.getCreatedTime(),
                 executionStartTime.get(),
                 lastExecutionStartTime.get(),
+                lastExecutionEndTime == 0 ? null : new DateTime(lastExecutionEndTime),
                 executionEndTime.get(),
                 elapsedTime.convertToMostSuccinctTimeUnit(),
                 queuedTime.convertToMostSuccinctTimeUnit(),
@@ -345,19 +372,20 @@ public class TaskContext
                 runningDrivers,
                 runningPartitionedDrivers,
                 completedDrivers,
-                new DataSize(memoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),
-                new DataSize(systemMemoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),
+                cumulativeMemory.get(),
+                succinctBytes(memoryReservation.get()),
+                succinctBytes(systemMemoryReservation.get()),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 fullyBlocked && (runningDrivers > 0 || runningPartitionedDrivers > 0),
                 blockedReasons,
-                new DataSize(rawInputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(rawInputDataSize),
                 rawInputPositions,
-                new DataSize(processedInputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(processedInputDataSize),
                 processedInputPositions,
-                new DataSize(outputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(outputDataSize),
                 outputPositions,
                 pipelineStats);
     }

@@ -18,6 +18,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 
@@ -27,29 +28,29 @@ public class TestRowNumberFunction
     @Test
     public void testRowNumber()
     {
-        MaterializedResult expected = resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
-                .row(1, "O", 1)
-                .row(2, "O", 2)
-                .row(3, "F", 3)
-                .row(4, "O", 4)
-                .row(5, "F", 5)
-                .row(6, "F", 6)
-                .row(7, "O", 7)
-                .row(32, "O", 8)
-                .row(33, "F", 9)
-                .row(34, "O", 10)
+        MaterializedResult expected = resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
+                .row(1, "O", 1L)
+                .row(2, "O", 2L)
+                .row(3, "F", 3L)
+                .row(4, "O", 4L)
+                .row(5, "F", 5L)
+                .row(6, "F", 6L)
+                .row(7, "O", 7L)
+                .row(32, "O", 8L)
+                .row(33, "F", 9L)
+                .row(34, "O", 10L)
                 .build();
         MaterializedResult expectedWithNulls = resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
-                .row(1, null, 1)
-                .row(3, "F", 2)
-                .row(5, "F", 3)
-                .row(7, null, 4)
-                .row(34, "O", 5)
-                .row(null, "F", 6)
-                .row(null, "F", 7)
-                .row(null, "O", 8)
-                .row(null, null, 9)
-                .row(null, null, 10)
+                .row(1L, null, 1L)
+                .row(3L, "F", 2L)
+                .row(5L, "F", 3L)
+                .row(7L, null, 4L)
+                .row(34L, "O", 5L)
+                .row(null, "F", 6L)
+                .row(null, "F", 7L)
+                .row(null, "O", 8L)
+                .row(null, null, 9L)
+                .row(null, null, 10L)
                 .build();
 
         assertWindowQuery("row_number() OVER ()", expected);

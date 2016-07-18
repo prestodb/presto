@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Objects;
+import java.util.Optional;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class TableSubquery
@@ -22,6 +25,17 @@ public class TableSubquery
 
     public TableSubquery(Query query)
     {
+        this(Optional.empty(), query);
+    }
+
+    public TableSubquery(NodeLocation location, Query query)
+    {
+        this(Optional.of(location), query);
+    }
+
+    private TableSubquery(Optional<NodeLocation> location, Query query)
+    {
+        super(location);
         this.query = query;
     }
 
@@ -55,12 +69,7 @@ public class TableSubquery
         }
 
         TableSubquery tableSubquery = (TableSubquery) o;
-
-        if (!query.equals(tableSubquery.query)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(query, tableSubquery.query);
     }
 
     @Override

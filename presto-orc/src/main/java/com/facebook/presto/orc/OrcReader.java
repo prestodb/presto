@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.orc.memory.AbstractAggregatedMemoryContext;
+import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.Metadata;
@@ -25,6 +27,7 @@ import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
@@ -49,17 +52,22 @@ public class OrcReader
 
     private final OrcDataSource orcDataSource;
     private final MetadataReader metadataReader;
+    private final DataSize maxMergeDistance;
+    private final DataSize maxReadSize;
     private final CompressionKind compressionKind;
     private final int bufferSize;
     private final Footer footer;
     private final Metadata metadata;
 
     // This is based on the Apache Hive ORC code
-    public OrcReader(OrcDataSource orcDataSource, MetadataReader metadataReader)
+    public OrcReader(OrcDataSource orcDataSource, MetadataReader metadataReader, DataSize maxMergeDistance, DataSize maxReadSize)
             throws IOException
     {
-        this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
+        orcDataSource = wrapWithCacheIfTiny(requireNonNull(orcDataSource, "orcDataSource is null"), maxMergeDistance);
+        this.orcDataSource = orcDataSource;
         this.metadataReader = requireNonNull(metadataReader, "metadataReader is null");
+        this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
+        this.maxReadSize = requireNonNull(maxReadSize, "maxReadSize is null");
 
         //
         // Read the file tail:
@@ -122,13 +130,15 @@ public class OrcReader
 
         // read metadata
         Slice metadataSlice = completeFooterSlice.slice(0, metadataSize);
-        InputStream metadataInputStream = new OrcInputStream(orcDataSource.toString(), metadataSlice.getInput(), compressionKind, bufferSize);
-        this.metadata = metadataReader.readMetadata(metadataInputStream);
+        try (InputStream metadataInputStream = new OrcInputStream(orcDataSource.toString(), metadataSlice.getInput(), compressionKind, bufferSize, new AggregatedMemoryContext())) {
+            this.metadata = metadataReader.readMetadata(metadataInputStream);
+        }
 
         // read footer
         Slice footerSlice = completeFooterSlice.slice(metadataSize, footerSize);
-        InputStream footerInputStream = new OrcInputStream(orcDataSource.toString(), footerSlice.getInput(), compressionKind, bufferSize);
-        this.footer = metadataReader.readFooter(footerInputStream);
+        try (InputStream footerInputStream = new OrcInputStream(orcDataSource.toString(), footerSlice.getInput(), compressionKind, bufferSize, new AggregatedMemoryContext())) {
+            this.footer = metadataReader.readFooter(footerInputStream);
+        }
     }
 
     public List<String> getColumnNames()
@@ -156,10 +166,10 @@ public class OrcReader
         return bufferSize;
     }
 
-    public OrcRecordReader createRecordReader(Map<Integer, Type> includedColumns, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone)
+    public OrcRecordReader createRecordReader(Map<Integer, Type> includedColumns, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone, AbstractAggregatedMemoryContext systemMemoryUsage)
             throws IOException
     {
-        return createRecordReader(includedColumns, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone);
+        return createRecordReader(includedColumns, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage);
     }
 
     public OrcRecordReader createRecordReader(
@@ -167,7 +177,8 @@ public class OrcReader
             OrcPredicate predicate,
             long offset,
             long length,
-            DateTimeZone hiveStorageTimeZone)
+            DateTimeZone hiveStorageTimeZone,
+            AbstractAggregatedMemoryContext systemMemoryUsage)
             throws IOException
     {
         return new OrcRecordReader(
@@ -185,7 +196,23 @@ public class OrcReader
                 bufferSize,
                 footer.getRowsInRowGroup(),
                 requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null"),
-                metadataReader);
+                metadataReader,
+                maxMergeDistance,
+                maxReadSize,
+                footer.getUserMetadata(),
+                systemMemoryUsage);
+    }
+
+    private static OrcDataSource wrapWithCacheIfTiny(OrcDataSource dataSource, DataSize maxCacheSize)
+    {
+        if (dataSource instanceof CachingOrcDataSource) {
+            return dataSource;
+        }
+        if (dataSource.getSize() > maxCacheSize.toBytes()) {
+            return dataSource;
+        }
+        DiskRange diskRange = new DiskRange(0, Ints.checkedCast(dataSource.getSize()));
+        return new CachingOrcDataSource(dataSource, desiredOffset -> diskRange);
     }
 
     /**

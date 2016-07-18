@@ -19,14 +19,18 @@ import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
 import com.google.protobuf.CodedInputStream;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.CompressionKind.UNCOMPRESSED;
@@ -72,7 +76,8 @@ public class DwrfMetadataReader
                 footer.getRowIndexStride(),
                 toStripeInformation(footer.getStripesList()),
                 toType(footer.getTypesList()),
-                toColumnStatistics(footer.getStatisticsList(), false));
+                toColumnStatistics(footer.getStatisticsList(), false),
+                toUserMetadata(footer.getMetadataList()));
     }
 
     private static List<StripeInformation> toStripeInformation(List<OrcProto.StripeInformation> types)
@@ -158,6 +163,15 @@ public class DwrfMetadataReader
         return ImmutableList.copyOf(Iterables.transform(columnStatistics, statistics -> toColumnStatistics(statistics, isRowGroup)));
     }
 
+    private Map<String, Slice> toUserMetadata(List<OrcProto.UserMetadataItem> metadataList)
+    {
+        ImmutableMap.Builder<String, Slice> mapBuilder = ImmutableMap.builder();
+        for (OrcProto.UserMetadataItem item : metadataList) {
+            mapBuilder.put(item.getName(), Slices.wrappedBuffer(item.getValue().toByteArray()));
+        }
+        return mapBuilder.build();
+    }
+
     private static ColumnStatistics toColumnStatistics(OrcProto.ColumnStatistics statistics, boolean isRowGroup)
     {
         return new ColumnStatistics(
@@ -166,6 +180,7 @@ public class DwrfMetadataReader
                 toIntegerStatistics(statistics.getIntStatistics()),
                 toDoubleStatistics(statistics.getDoubleStatistics()),
                 toStringStatistics(statistics.getStringStatistics(), isRowGroup),
+                null,
                 null);
     }
 
@@ -226,7 +241,7 @@ public class DwrfMetadataReader
 
     private static OrcType toType(OrcProto.Type type)
     {
-        return new OrcType(toTypeKind(type.getKind()), type.getSubtypesList(), type.getFieldNamesList());
+        return new OrcType(toTypeKind(type.getKind()), type.getSubtypesList(), type.getFieldNamesList(), Optional.empty(), Optional.empty());
     }
 
     private static List<OrcType> toType(List<OrcProto.Type> types)

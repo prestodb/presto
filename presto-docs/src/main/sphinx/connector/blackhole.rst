@@ -65,3 +65,17 @@ Now query it::
     SELECT count(*) FROM blackhole.test.nation;
 
 The above query will return 1,000,000,000.
+
+Length of variable length columns can be controled using ``field_length`` 
+table property (default value is equal to 16)::
+    
+    CREATE TABLE blackhole.test.nation (
+      nationkey bigint,
+      name varchar
+    )
+    WITH (
+      split_count = 500,
+      pages_per_split = 1000,
+      rows_per_page = 2000,
+      field_length = 100
+    );

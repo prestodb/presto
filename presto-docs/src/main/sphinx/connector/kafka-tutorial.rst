@@ -579,7 +579,7 @@ RFC 2822 format as ``created_at`` attribute in each tweet.
 The topic definition file for the tweets table contains a mapping onto a
 timestamp using the ``rfc2822`` converter:
 
-.. code-block:: json
+.. code-block:: none
 
     ...
     {

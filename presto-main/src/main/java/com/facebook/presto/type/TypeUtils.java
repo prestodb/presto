@@ -35,12 +35,9 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public final class TypeUtils
 {
-    public static final int EXPECTED_ARRAY_SIZE = 1024;
     public static final int NULL_HASH_CODE = 0;
 
     private TypeUtils()
@@ -55,7 +52,7 @@ public final class TypeUtils
         return defaultSize;
     }
 
-    public static int hashPosition(Type type, Block block, int position)
+    public static long hashPosition(Type type, Block block, int position)
     {
         if (block.isNull(position)) {
             return NULL_HASH_CODE;
@@ -103,19 +100,21 @@ public final class TypeUtils
         return type.equalTo(leftBlock, leftPosition, rightBlock, rightPosition);
     }
 
+    public static Type resolveType(TypeSignature typeName, TypeManager typeManager)
+    {
+        Type type = typeManager.getType(typeName);
+        checkArgument(type != null, "Type '%s' not found", typeName);
+        return type;
+    }
+
     public static List<Type> resolveTypes(List<TypeSignature> typeNames, TypeManager typeManager)
     {
         return typeNames.stream()
-                .map((TypeSignature type) -> requireNonNull(typeManager.getType(type), format("Type '%s' not found", type)))
+                .map((TypeSignature type) -> resolveType(type, typeManager))
                 .collect(toImmutableList());
     }
 
-    public static TypeSignature parameterizedTypeName(String base, TypeSignature... argumentNames)
-    {
-        return new TypeSignature(base, ImmutableList.copyOf(argumentNames), ImmutableList.of());
-    }
-
-    public static int getHashPosition(List<? extends Type> hashTypes, Block[] hashBlocks, int position)
+    public static long getHashPosition(List<? extends Type> hashTypes, Block[] hashBlocks, int position)
     {
         int[] hashChannels = new int[hashBlocks.length];
         for (int i = 0; i < hashBlocks.length; i++) {
@@ -156,30 +155,6 @@ public final class TypeUtils
         }
         blocks[page.getChannelCount()] = getHashBlock(hashTypes.build(), hashBlocks);
         return new Page(blocks);
-    }
-
-    public static Object castValue(Type type, Block block, int position)
-    {
-        Class<?> javaType = type.getJavaType();
-
-        if (block.isNull(position)) {
-            return null;
-        }
-        else if (javaType == boolean.class) {
-            return type.getBoolean(block, position);
-        }
-        else if (javaType == long.class) {
-            return type.getLong(block, position);
-        }
-        else if (javaType == double.class) {
-            return type.getDouble(block, position);
-        }
-        else if (type.getJavaType() == Slice.class) {
-            return type.getSlice(block, position);
-        }
-        else {
-            return type.getObject(block, position);
-        }
     }
 
     public static void checkElementNotNull(boolean isNull, String errorMsg)

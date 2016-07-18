@@ -16,6 +16,8 @@ package com.facebook.presto.sql.tree;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -28,6 +30,17 @@ public class Select
 
     public Select(boolean distinct, List<SelectItem> selectItems)
     {
+        this(Optional.empty(), distinct, selectItems);
+    }
+
+    public Select(NodeLocation location, boolean distinct, List<SelectItem> selectItems)
+    {
+        this(Optional.of(location), distinct, selectItems);
+    }
+
+    private Select(Optional<NodeLocation> location, boolean distinct, List<SelectItem> selectItems)
+    {
+        super(location);
         this.distinct = distinct;
         this.selectItems = ImmutableList.copyOf(requireNonNull(selectItems, "selectItems"));
     }
@@ -69,22 +82,13 @@ public class Select
         }
 
         Select select = (Select) o;
-
-        if (distinct != select.distinct) {
-            return false;
-        }
-        if (!selectItems.equals(select.selectItems)) {
-            return false;
-        }
-
-        return true;
+        return (distinct == select.distinct) &&
+                Objects.equals(selectItems, select.selectItems);
     }
 
     @Override
     public int hashCode()
     {
-        int result = (distinct ? 1 : 0);
-        result = 31 * result + selectItems.hashCode();
-        return result;
+        return Objects.hash(distinct, selectItems);
     }
 }

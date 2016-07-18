@@ -17,12 +17,20 @@ import com.facebook.presto.spi.block.Block;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 
 public interface ConnectorPageSink
 {
-    void appendPage(Page page, Block sampleWeightBlock);
+    CompletableFuture<?> NOT_BLOCKED = CompletableFuture.completedFuture(null);
 
-    Collection<Slice> commit();
+    /**
+     * Returns a future that will be completed when the page sink can accept
+     * more pages.  If the page sink can accept more pages immediately,
+     * this method should return {@code NOT_BLOCKED}.
+     */
+    CompletableFuture<?> appendPage(Page page, Block sampleWeightBlock);
 
-    void rollback();
+    Collection<Slice> finish();
+
+    void abort();
 }

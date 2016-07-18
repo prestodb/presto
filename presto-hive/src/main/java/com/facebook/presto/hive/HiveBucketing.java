@@ -14,7 +14,14 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
+import com.google.common.primitives.Shorts;
+import com.google.common.primitives.SignedBytes;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.hive.metastore.api.Table;
@@ -26,20 +33,29 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.IntObjectInspector;
+import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+import static com.facebook.presto.hive.HiveUtil.getNonPartitionKeyColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.getTableStructFields;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Maps.immutableEntry;
 import static com.google.common.collect.Sets.immutableEnumSet;
+import static java.lang.Double.doubleToLongBits;
 import static java.util.Map.Entry;
+import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 import static org.apache.hadoop.hive.ql.udf.generic.GenericUDF.DeferredJavaObject;
 import static org.apache.hadoop.hive.ql.udf.generic.GenericUDF.DeferredObject;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
@@ -65,7 +81,125 @@ final class HiveBucketing
 
     private HiveBucketing() {}
 
-    public static Optional<HiveBucket> getHiveBucket(Table table, Map<ColumnHandle, ?> bindings)
+    public static int getHiveBucket(List<TypeInfo> types, Page page, int position, int bucketCount)
+    {
+        return (getBucketHashCode(types, page, position) & Integer.MAX_VALUE) % bucketCount;
+    }
+
+    private static int getBucketHashCode(List<TypeInfo> types, Page page, int position)
+    {
+        int result = 0;
+        for (int i = 0; i < page.getChannelCount(); i++) {
+            int fieldHash = hash(types.get(i), page.getBlock(i), position);
+            result = result * 31 + fieldHash;
+        }
+        return result;
+    }
+
+    private static int hash(TypeInfo type, Block block, int position)
+    {
+        // This function mirrors the behavior of function hashCode in
+        // HIVE-12025 ba83fd7bff serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java
+        // https://github.com/apache/hive/blob/ba83fd7bff/serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java
+
+        // HIVE-7148 proposed change to bucketing hash algorithms. If that gets implemented, this function will need to change significantly.
+
+        if (block.isNull(position)) {
+            return 0;
+        }
+
+        switch (type.getCategory()) {
+            case PRIMITIVE: {
+                PrimitiveTypeInfo typeInfo = (PrimitiveTypeInfo) type;
+                PrimitiveCategory primitiveCategory = typeInfo.getPrimitiveCategory();
+                Type prestoType = requireNonNull(HiveType.getPrimitiveType(typeInfo));
+                switch (primitiveCategory) {
+                    case BOOLEAN:
+                        return prestoType.getBoolean(block, position) ? 1 : 0;
+                    case BYTE:
+                        return SignedBytes.checkedCast(prestoType.getLong(block, position));
+                    case SHORT:
+                        return Shorts.checkedCast(prestoType.getLong(block, position));
+                    case INT:
+                        return Ints.checkedCast(prestoType.getLong(block, position));
+                    case LONG:
+                        long bigintValue = prestoType.getLong(block, position);
+                        return (int) ((bigintValue >>> 32) ^ bigintValue);
+                    case FLOAT:
+                        return Float.floatToIntBits((float) prestoType.getDouble(block, position));
+                    case DOUBLE:
+                        long doubleValue = doubleToLongBits(prestoType.getDouble(block, position));
+                        return (int) ((doubleValue >>> 32) ^ doubleValue);
+                    case STRING:
+                        return hashBytes(0, prestoType.getSlice(block, position));
+                    case VARCHAR:
+                        return hashBytes(1, prestoType.getSlice(block, position));
+                    case DATE:
+                        // day offset from 1970-01-01
+                        long days = prestoType.getLong(block, position);
+                        return Ints.checkedCast(days);
+                    case TIMESTAMP:
+                        long millisSinceEpoch = prestoType.getLong(block, position);
+                        // seconds << 30 + nanoseconds
+                        long secondsAndNanos = (Math.floorDiv(millisSinceEpoch, 1000L) << 30) + Math.floorMod(millisSinceEpoch, 1000);
+                        return (int) ((secondsAndNanos >>> 32) ^ secondsAndNanos);
+                    default:
+                        throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory.toString() + ".");
+                }
+            }
+            case LIST: {
+                TypeInfo elementTypeInfo = ((ListTypeInfo) type).getListElementTypeInfo();
+                Block elementsBlock = block.getObject(position, Block.class);
+                int result = 0;
+                for (int i = 0; i < elementsBlock.getPositionCount(); i++) {
+                    result = result * 31 + hash(elementTypeInfo, elementsBlock, i);
+                }
+                return result;
+            }
+            case MAP: {
+                MapTypeInfo mapTypeInfo = (MapTypeInfo) type;
+                TypeInfo keyTypeInfo = mapTypeInfo.getMapKeyTypeInfo();
+                TypeInfo valueTypeInfo = mapTypeInfo.getMapValueTypeInfo();
+                Block elementsBlock = block.getObject(position, Block.class);
+                int result = 0;
+                for (int i = 0; i < elementsBlock.getPositionCount(); i += 2) {
+                    result += hash(keyTypeInfo, elementsBlock, i) ^ hash(valueTypeInfo, elementsBlock, i + 1);
+                }
+                return result;
+            }
+            default:
+                // TODO: support more types, e.g. ROW
+                throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory().toString() + ".");
+        }
+    }
+
+    private static int hashBytes(int initialValue, Slice bytes)
+    {
+        int result = initialValue;
+        for (int i = 0; i < bytes.length(); i++) {
+            result = result * 31 + bytes.getByte(i);
+        }
+        return result;
+    }
+
+    public static Optional<HiveBucketHandle> getHiveBucketHandle(String connectorId, Table table)
+    {
+        Optional<HiveBucketProperty> hiveBucketProperty = HiveBucketProperty.fromStorageDescriptor(table.getSd(), table.getTableName());
+        if (!hiveBucketProperty.isPresent()) {
+            return Optional.empty();
+        }
+
+        Map<String, HiveColumnHandle> map = getNonPartitionKeyColumnHandles(connectorId, table).stream()
+                .collect(Collectors.toMap(HiveColumnHandle::getName, identity()));
+
+        List<HiveColumnHandle> bucketColumns = hiveBucketProperty.get().getBucketedBy().stream()
+                .map(map::get)
+                .collect(Collectors.toList());
+
+        return Optional.of(new HiveBucketHandle(bucketColumns, hiveBucketProperty.get().getBucketCount()));
+    }
+
+    public static Optional<HiveBucket> getHiveBucket(Table table, Map<ColumnHandle, NullableValue> bindings)
     {
         if (!table.getSd().isSetBucketCols() || table.getSd().getBucketCols().isEmpty() ||
                 !table.getSd().isSetNumBuckets() || (table.getSd().getNumBuckets() <= 0) ||
@@ -94,10 +228,10 @@ final class HiveBucketing
 
         // Get bindings for bucket columns
         Map<String, Object> bucketBindings = new HashMap<>();
-        for (Entry<ColumnHandle, ?> entry : bindings.entrySet()) {
+        for (Entry<ColumnHandle, NullableValue> entry : bindings.entrySet()) {
             HiveColumnHandle colHandle = (HiveColumnHandle) entry.getKey();
-            if (bucketColumns.contains(colHandle.getName())) {
-                bucketBindings.put(colHandle.getName(), entry.getValue());
+            if (!entry.getValue().isNull() && bucketColumns.contains(colHandle.getName())) {
+                bucketBindings.put(colHandle.getName(), entry.getValue().getValue());
             }
         }
 

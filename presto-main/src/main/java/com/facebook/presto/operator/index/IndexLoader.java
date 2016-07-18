@@ -24,6 +24,7 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Throwables;
@@ -32,7 +33,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
-import it.unimi.dsi.fastutil.longs.LongIterator;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;
@@ -236,8 +236,9 @@ public class IndexLoader
         Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext());
 
         PageRecordSet pageRecordSet = new PageRecordSet(keyTypes, indexKeyTuple);
-        PlanNodeId planNodeId = Iterables.getOnlyElement(driverFactory.getSourceIds());
-        driver.updateSource(new TaskSource(planNodeId, ImmutableSet.of(new ScheduledSplit(0, new Split("index", new IndexSplit(pageRecordSet)))), true));
+        PlanNodeId planNodeId = driverFactory.getSourceId().get();
+        ScheduledSplit split = new ScheduledSplit(0, planNodeId, new Split("index", new ConnectorTransactionHandle() {}, new IndexSplit(pageRecordSet)));
+        driver.updateSource(new TaskSource(planNodeId, ImmutableSet.of(split), true));
 
         return new StreamingIndexedData(outputTypes, keyTypes, indexKeyTuple, pageBuffer, driver);
     }
@@ -316,12 +317,13 @@ public class IndexLoader
         public boolean load(List<UpdateRequest> requests)
         {
             // Generate a RecordSet that only presents index keys that have not been cached and are deduped based on lookupSourceInputChannels
-            UnloadedIndexKeyRecordSet recordSetForLookupSource = new UnloadedIndexKeyRecordSet(indexSnapshotReference.get(), lookupSourceInputChannels, indexTypes, requests);
+            UnloadedIndexKeyRecordSet recordSetForLookupSource = new UnloadedIndexKeyRecordSet(pipelineContext.getSession(), indexSnapshotReference.get(), lookupSourceInputChannels, indexTypes, requests);
 
             // Drive index lookup to produce the output (landing in indexSnapshotBuilder)
             try (Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext())) {
-                PlanNodeId sourcePlanNodeId = Iterables.getOnlyElement(driverFactory.getSourceIds());
-                driver.updateSource(new TaskSource(sourcePlanNodeId, ImmutableSet.of(new ScheduledSplit(0, new Split("index", new IndexSplit(recordSetForLookupSource)))), true));
+                PlanNodeId sourcePlanNodeId = driverFactory.getSourceId().get();
+                ScheduledSplit split = new ScheduledSplit(0, sourcePlanNodeId, new Split("index", new ConnectorTransactionHandle() {}, new IndexSplit(recordSetForLookupSource)));
+                driver.updateSource(new TaskSource(sourcePlanNodeId, ImmutableSet.of(split), true));
                 while (!driver.isFinished()) {
                     ListenableFuture<?> process = driver.process();
                     checkState(process.isDone(), "Driver should never block");
@@ -336,7 +338,7 @@ public class IndexLoader
             // Generate a RecordSet that presents unique index keys that have not been cached
             UnloadedIndexKeyRecordSet indexKeysRecordSet = (lookupSourceInputChannels.equals(allInputChannels))
                     ? recordSetForLookupSource
-                    : new UnloadedIndexKeyRecordSet(indexSnapshotReference.get(), allInputChannels, indexTypes, requests);
+                    : new UnloadedIndexKeyRecordSet(pipelineContext.getSession(), indexSnapshotReference.get(), allInputChannels, indexTypes, requests);
 
             // Create lookup source with new data
             IndexSnapshot newValue = indexSnapshotBuilder.createIndexSnapshot(indexKeysRecordSet);
@@ -376,33 +378,33 @@ public class IndexLoader
         }
 
         @Override
+        public int getJoinPositionCount()
+        {
+            return 0;
+        }
+
+        @Override
         public long getInMemorySizeInBytes()
         {
             return 0;
         }
 
         @Override
-        public long getJoinPosition(int position, Page page, int rawHash)
+        public long getJoinPosition(int position, Page page, Page allChannelsPage, long rawHash)
         {
             return IndexSnapshot.UNLOADED_INDEX_KEY;
         }
 
         @Override
-        public long getJoinPosition(int position, Page page)
+        public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage)
         {
             return IndexSnapshot.UNLOADED_INDEX_KEY;
         }
 
         @Override
-        public long getNextJoinPosition(long currentPosition)
+        public long getNextJoinPosition(long currentJoinPosition, int probePosition, Page allProbeChannelsPage)
         {
             return IndexSnapshot.UNLOADED_INDEX_KEY;
-        }
-
-        @Override
-        public LongIterator getUnvisitedJoinPositions()
-        {
-            throw new UnsupportedOperationException();
         }
 
         @Override

@@ -18,14 +18,17 @@ import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.AtTimeZone;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.DereferenceExpression;
+import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
+import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
@@ -46,6 +49,7 @@ import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
+import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
@@ -62,17 +66,14 @@ import java.util.Set;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_AGGREGATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Predicates.equalTo;
 import static java.util.Objects.requireNonNull;
 
 /**
  * Checks whether an expression is constant with respect to the group
  */
-public class AggregationAnalyzer
+class AggregationAnalyzer
 {
     // fields and expressions in the group by clause
     private final List<Integer> fieldIndexes;
@@ -81,9 +82,9 @@ public class AggregationAnalyzer
     private final Metadata metadata;
     private final Set<Expression> columnReferences;
 
-    private final TupleDescriptor tupleDescriptor;
+    private final RelationType tupleDescriptor;
 
-    public AggregationAnalyzer(List<FieldOrExpression> groupByExpressions, Metadata metadata, TupleDescriptor tupleDescriptor, Set<Expression> columnReferences)
+    public AggregationAnalyzer(List<Expression> groupByExpressions, Metadata metadata, RelationType tupleDescriptor, Set<Expression> columnReferences)
     {
         requireNonNull(groupByExpressions, "groupByExpressions is null");
         requireNonNull(metadata, "metadata is null");
@@ -93,16 +94,13 @@ public class AggregationAnalyzer
         this.tupleDescriptor = tupleDescriptor;
         this.metadata = metadata;
         this.columnReferences = ImmutableSet.copyOf(columnReferences);
-        this.expressions = groupByExpressions.stream()
-                .filter(FieldOrExpression::isExpression)
-                .map(FieldOrExpression::getExpression)
-                .collect(toImmutableList());
-
+        this.expressions = ImmutableList.copyOf(groupByExpressions);
         ImmutableList.Builder<Integer> fieldIndexes = ImmutableList.builder();
 
         fieldIndexes.addAll(groupByExpressions.stream()
-                .filter(FieldOrExpression::isFieldReference)
-                .map(FieldOrExpression::getFieldIndex)
+                .filter(FieldReference.class::isInstance)
+                .map(FieldReference.class::cast)
+                .map(FieldReference::getFieldIndex)
                 .iterator());
 
         // For a query like "SELECT * FROM T GROUP BY a", groupByExpressions will contain "a",
@@ -128,11 +126,6 @@ public class AggregationAnalyzer
         this.fieldIndexes = fieldIndexes.build();
     }
 
-    public boolean analyze(int fieldIndex)
-    {
-        return Iterables.any(fieldIndexes, equalTo(fieldIndex));
-    }
-
     public void analyze(Expression expression)
     {
         Visitor visitor = new Visitor();
@@ -151,9 +144,21 @@ public class AggregationAnalyzer
         }
 
         @Override
+        protected Boolean visitAtTimeZone(AtTimeZone node, Void context)
+        {
+            return process(node.getValue(), context);
+        }
+
+        @Override
         protected Boolean visitSubqueryExpression(SubqueryExpression node, Void context)
         {
-            throw new SemanticException(NOT_SUPPORTED, node, "Scalar subqueries not yet supported");
+            return true;
+        }
+
+        @Override
+        protected Boolean visitExists(ExistsPredicate node, Void context)
+        {
+            return true;
         }
 
         @Override
@@ -369,6 +374,12 @@ public class AggregationAnalyzer
         }
 
         @Override
+        protected Boolean visitFieldReference(FieldReference node, Void context)
+        {
+            return fieldIndexes.contains(node.getFieldIndex());
+        }
+
+        @Override
         protected Boolean visitArithmeticUnary(ArithmeticUnaryExpression node, Void context)
         {
             return process(node.getValue(), context);
@@ -430,6 +441,12 @@ public class AggregationAnalyzer
             }
 
             return !node.getDefaultValue().isPresent() || process(node.getDefaultValue().get(), context);
+        }
+
+        @Override
+        protected Boolean visitTryExpression(TryExpression node, Void context)
+        {
+            return process(node.getInnerExpression(), context);
         }
 
         @Override

@@ -24,11 +24,9 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
-import com.facebook.presto.spi.TupleDomain;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -45,6 +43,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.redis.RedisHandleResolver.convertColumnHandle;
+import static com.facebook.presto.redis.RedisHandleResolver.convertLayout;
+import static com.facebook.presto.redis.RedisHandleResolver.convertTableHandle;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -58,8 +59,7 @@ public class RedisMetadata
     private static final Logger log = Logger.get(RedisMetadata.class);
 
     private final String connectorId;
-    private final RedisConnectorConfig redisConnectorConfig;
-    private final RedisHandleResolver handleResolver;
+    private final boolean hideInternalColumns;
 
     private final Supplier<Map<SchemaTableName, RedisTableDescription>> redisTableDescriptionSupplier;
     private final Set<RedisInternalFieldDescription> internalFieldDescriptions;
@@ -68,13 +68,13 @@ public class RedisMetadata
     RedisMetadata(
             RedisConnectorId connectorId,
             RedisConnectorConfig redisConnectorConfig,
-            RedisHandleResolver handleResolver,
             Supplier<Map<SchemaTableName, RedisTableDescription>> redisTableDescriptionSupplier,
             Set<RedisInternalFieldDescription> internalFieldDescriptions)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
-        this.redisConnectorConfig = requireNonNull(redisConnectorConfig, "redisConfig is null");
-        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
+
+        requireNonNull(redisConnectorConfig, "redisConfig is null");
+        hideInternalColumns = redisConnectorConfig.isHideInternalColumns();
 
         log.debug("Loading redis table definitions from %s", redisConnectorConfig.getTableDescriptionDir().getAbsolutePath());
 
@@ -124,8 +124,7 @@ public class RedisMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        RedisTableHandle redisTableHandle = handleResolver.convertTableHandle(tableHandle);
-        return getTableMetadata(redisTableHandle.toSchemaTableName());
+        return getTableMetadata(convertTableHandle(tableHandle).toSchemaTableName());
     }
 
     @Override
@@ -135,18 +134,9 @@ public class RedisMetadata
             Constraint<ColumnHandle> constraint,
             Optional<Set<ColumnHandle>> desiredColumns)
     {
-        RedisTableHandle tableHandle = handleResolver.convertTableHandle(table);
+        RedisTableHandle tableHandle = convertTableHandle(table);
 
-        Optional<Set<ColumnHandle>> partitioningColumns = Optional.empty();
-        List<LocalProperty<ColumnHandle>> localProperties = ImmutableList.of();
-
-        ConnectorTableLayout layout = new ConnectorTableLayout(
-                new RedisTableLayoutHandle(tableHandle),
-                Optional.<List<ColumnHandle>>empty(),
-                TupleDomain.<ColumnHandle>all(),
-                partitioningColumns,
-                Optional.empty(),
-                localProperties);
+        ConnectorTableLayout layout = new ConnectorTableLayout(new RedisTableLayoutHandle(tableHandle));
 
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
     }
@@ -154,7 +144,7 @@ public class RedisMetadata
     @Override
     public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
     {
-        RedisTableLayoutHandle layout = handleResolver.convertLayout(handle);
+        RedisTableLayoutHandle layout = convertLayout(handle);
 
         // tables in this connector have a single layout
         return getTableLayouts(session, layout.getTable(), Constraint.<ColumnHandle>alwaysTrue(), Optional.empty())
@@ -175,11 +165,10 @@ public class RedisMetadata
         return builder.build();
     }
 
-    @SuppressWarnings("ValueOfIncrementOrDecrementUsed")
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        RedisTableHandle redisTableHandle = handleResolver.convertTableHandle(tableHandle);
+        RedisTableHandle redisTableHandle = convertTableHandle(tableHandle);
 
         RedisTableDescription redisTableDescription = getDefinedTables().get(redisTableHandle.toSchemaTableName());
         if (redisTableDescription == null) {
@@ -193,8 +182,9 @@ public class RedisMetadata
         if (key != null) {
             List<RedisTableFieldDescription> fields = key.getFields();
             if (fields != null) {
-                for (RedisTableFieldDescription redisTableFieldDescription : fields) {
-                    columnHandles.put(redisTableFieldDescription.getName(), redisTableFieldDescription.getColumnHandle(connectorId, true, index++));
+                for (RedisTableFieldDescription field : fields) {
+                    columnHandles.put(field.getName(), field.getColumnHandle(connectorId, true, index));
+                    index++;
                 }
             }
         }
@@ -203,15 +193,16 @@ public class RedisMetadata
         if (value != null) {
             List<RedisTableFieldDescription> fields = value.getFields();
             if (fields != null) {
-                for (RedisTableFieldDescription redisTableFieldDescription : fields) {
-                    columnHandles.put(redisTableFieldDescription.getName(), redisTableFieldDescription.getColumnHandle(connectorId, false, index++));
+                for (RedisTableFieldDescription field : fields) {
+                    columnHandles.put(field.getName(), field.getColumnHandle(connectorId, false, index));
+                    index++;
                 }
             }
         }
 
-        for (RedisInternalFieldDescription redisInternalFieldDescription : internalFieldDescriptions) {
-            RedisColumnHandle columnHandle = redisInternalFieldDescription.getColumnHandle(connectorId, index++, redisConnectorConfig.isHideInternalColumns());
-            columnHandles.put(redisInternalFieldDescription.getName(), columnHandle);
+        for (RedisInternalFieldDescription field : internalFieldDescriptions) {
+            columnHandles.put(field.getName(), field.getColumnHandle(connectorId, index, hideInternalColumns));
+            index++;
         }
 
         return columnHandles.build();
@@ -245,10 +236,8 @@ public class RedisMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        handleResolver.convertTableHandle(tableHandle);
-        RedisColumnHandle redisColumnHandle = handleResolver.convertColumnHandle(columnHandle);
-
-        return redisColumnHandle.getColumnMetadata();
+        convertTableHandle(tableHandle);
+        return convertColumnHandle(columnHandle).getColumnMetadata();
     }
 
     @VisibleForTesting
@@ -266,32 +255,26 @@ public class RedisMetadata
         }
 
         ImmutableList.Builder<ColumnMetadata> builder = ImmutableList.builder();
-        int index = 0;
 
-        RedisTableFieldGroup key = table.getKey();
-        if (key != null) {
-            List<RedisTableFieldDescription> fields = key.getFields();
-            if (fields != null) {
-                for (RedisTableFieldDescription fieldDescription : fields) {
-                    builder.add(fieldDescription.getColumnMetadata(index++));
-                }
-            }
-        }
-
-        RedisTableFieldGroup value = table.getValue();
-        if (value != null) {
-            List<RedisTableFieldDescription> fields = value.getFields();
-            if (fields != null) {
-                for (RedisTableFieldDescription fieldDescription : fields) {
-                    builder.add(fieldDescription.getColumnMetadata(index++));
-                }
-            }
-        }
+        appendFields(builder, table.getKey());
+        appendFields(builder, table.getValue());
 
         for (RedisInternalFieldDescription fieldDescription : internalFieldDescriptions) {
-            builder.add(fieldDescription.getColumnMetadata(index++, redisConnectorConfig.isHideInternalColumns()));
+            builder.add(fieldDescription.getColumnMetadata(hideInternalColumns));
         }
 
         return new ConnectorTableMetadata(schemaTableName, builder.build());
+    }
+
+    private static void appendFields(ImmutableList.Builder<ColumnMetadata> builder, RedisTableFieldGroup group)
+    {
+        if (group != null) {
+            List<RedisTableFieldDescription> fields = group.getFields();
+            if (fields != null) {
+                for (RedisTableFieldDescription fieldDescription : fields) {
+                    builder.add(fieldDescription.getColumnMetadata());
+                }
+            }
+        }
     }
 }

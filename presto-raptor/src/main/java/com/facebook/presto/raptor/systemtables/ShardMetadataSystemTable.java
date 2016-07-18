@@ -18,8 +18,11 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import org.skife.jdbi.v2.IDBI;
+
+import javax.inject.Inject;
 
 import static com.facebook.presto.raptor.systemtables.ShardMetadataRecordCursor.SHARD_METADATA;
 import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
@@ -30,6 +33,7 @@ public class ShardMetadataSystemTable
 {
     private final IDBI dbi;
 
+    @Inject
     public ShardMetadataSystemTable(@ForMetadata IDBI dbi)
     {
         this.dbi = requireNonNull(dbi, "dbi is null");
@@ -48,7 +52,7 @@ public class ShardMetadataSystemTable
     }
 
     @Override
-    public RecordCursor cursor(ConnectorSession session, TupleDomain<Integer> constraint)
+    public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
         return new ShardMetadataRecordCursor(dbi, constraint);
     }

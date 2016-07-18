@@ -23,8 +23,8 @@ import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanRewriter;
-import com.facebook.presto.sql.planner.plan.TableCommitNode;
+import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
+import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.google.common.collect.Iterables;
 
@@ -43,7 +43,7 @@ import static java.util.Objects.requireNonNull;
  *     MetadataDelete
  */
 public class MetadataDeleteOptimizer
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     private final Metadata metadata;
 
@@ -57,11 +57,11 @@ public class MetadataDeleteOptimizer
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        return PlanRewriter.rewriteWith(new Optimizer(session, metadata, idAllocator), plan, null);
+        return SimplePlanRewriter.rewriteWith(new Optimizer(session, metadata, idAllocator), plan, null);
     }
 
     private static class Optimizer
-            extends PlanRewriter<Void>
+            extends SimplePlanRewriter<Void>
     {
         private final PlanNodeIdAllocator idAllocator;
         private final Session session;
@@ -75,7 +75,7 @@ public class MetadataDeleteOptimizer
         }
 
         @Override
-        public PlanNode visitTableCommit(TableCommitNode node, RewriteContext<Void> context)
+        public PlanNode visitTableFinish(TableFinishNode node, RewriteContext<Void> context)
         {
             Optional<DeleteNode> delete = findNode(node.getSource(), DeleteNode.class);
             if (!delete.isPresent()) {

@@ -13,8 +13,13 @@
  */
 package com.facebook.presto.raptor.util;
 
+import com.facebook.presto.raptor.storage.StoragePageSink;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageSorter;
+import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,52 +30,95 @@ import static java.util.Objects.requireNonNull;
 public class PageBuffer
 {
     private final long maxMemoryBytes;
+    private final StoragePageSink storagePageSink;
+    private final List<Type> columnTypes;
+    private final List<Integer> sortFields;
+    private final List<SortOrder> sortOrders;
+    private final PageSorter pageSorter;
     private final List<Page> pages = new ArrayList<>();
-    private final long maxRows;
 
     private long usedMemoryBytes;
     private long rowCount;
 
-    public PageBuffer(long maxMemoryBytes, long maxRows)
+    public PageBuffer(
+            long maxMemoryBytes,
+            StoragePageSink storagePageSink,
+            List<Type> columnTypes,
+            List<Integer> sortFields,
+            List<SortOrder> sortOrders,
+            PageSorter pageSorter)
     {
         checkArgument(maxMemoryBytes > 0, "maxMemoryBytes must be positive");
-        checkArgument(maxRows > 0, "maxRows must be positive");
-        this.maxRows = maxRows;
         this.maxMemoryBytes = maxMemoryBytes;
+        this.columnTypes = requireNonNull(columnTypes, "columnTypes is null");
+        this.sortFields = ImmutableList.copyOf(requireNonNull(sortFields, "sortFields is null"));
+        this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
+        this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
+        this.storagePageSink = requireNonNull(storagePageSink, "storagePageSink is null");
+    }
+
+    public StoragePageSink getStoragePageSink()
+    {
+        return storagePageSink;
+    }
+
+    public long getUsedMemoryBytes()
+    {
+        return usedMemoryBytes;
     }
 
     public void add(Page page)
     {
-        requireNonNull(page, "page is null");
+        flushIfNecessary(page.getPositionCount());
         pages.add(page);
         usedMemoryBytes += page.getSizeInBytes();
         rowCount += page.getPositionCount();
     }
 
-    public void reset()
+    public void flush()
     {
+        if (pages.isEmpty()) {
+            return;
+        }
+
+        if (sortFields.isEmpty()) {
+            storagePageSink.appendPages(pages);
+        }
+        else {
+            appendSorted();
+        }
+
+        storagePageSink.flush();
+
         pages.clear();
         rowCount = 0;
         usedMemoryBytes = 0;
     }
 
-    public boolean canAddRows(int rowsToAdd)
+    private void appendSorted()
     {
-        return !isFull() && rowCount + rowsToAdd < maxRows;
+        long[] addresses = pageSorter.sort(columnTypes, pages, sortFields, sortOrders, Ints.checkedCast(rowCount));
+
+        int[] pageIndex = new int[addresses.length];
+        int[] positionIndex = new int[addresses.length];
+        for (int i = 0; i < addresses.length; i++) {
+            pageIndex[i] = pageSorter.decodePageIndex(addresses[i]);
+            positionIndex[i] = pageSorter.decodePositionIndex(addresses[i]);
+        }
+
+        storagePageSink.appendPages(pages, pageIndex, positionIndex);
     }
 
-    public boolean isFull()
+    private void flushIfNecessary(int rowsToAdd)
     {
-        return rowCount >= maxRows || usedMemoryBytes >= maxMemoryBytes;
+        if (storagePageSink.isFull() || !canAddRows(rowsToAdd)) {
+            flush();
+        }
     }
 
-    public List<Page> getPages()
+    private boolean canAddRows(int rowsToAdd)
     {
-        return ImmutableList.copyOf(pages);
-    }
-
-    public long getRowCount()
-    {
-        return rowCount;
+        return (usedMemoryBytes < maxMemoryBytes) &&
+                ((rowCount + rowsToAdd) < Integer.MAX_VALUE);
     }
 }

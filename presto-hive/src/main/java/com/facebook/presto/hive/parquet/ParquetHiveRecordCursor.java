@@ -13,22 +13,27 @@
  */
 package com.facebook.presto.hive.parquet;
 
+import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.hive.HiveRecordCursor;
 import com.facebook.presto.hive.HiveUtil;
 import com.facebook.presto.hive.parquet.predicate.ParquetPredicate;
+import com.facebook.presto.hive.util.DecimalUtils;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.mapreduce.TaskAttemptID;
@@ -38,7 +43,6 @@ import parquet.hadoop.ParquetFileReader;
 import parquet.hadoop.ParquetInputSplit;
 import parquet.hadoop.ParquetRecordReader;
 import parquet.hadoop.api.ReadSupport;
-import parquet.hadoop.api.ReadSupport.ReadContext;
 import parquet.hadoop.metadata.BlockMetaData;
 import parquet.hadoop.metadata.FileMetaData;
 import parquet.hadoop.metadata.ParquetMetadata;
@@ -48,34 +52,56 @@ import parquet.io.api.Converter;
 import parquet.io.api.GroupConverter;
 import parquet.io.api.PrimitiveConverter;
 import parquet.io.api.RecordMaterializer;
+import parquet.schema.DecimalMetadata;
 import parquet.schema.GroupType;
 import parquet.schema.MessageType;
+import parquet.schema.PrimitiveType;
 
 import java.io.IOException;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Properties;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
+import static com.facebook.presto.hive.HiveUtil.getDecimalType;
+import static com.facebook.presto.hive.HiveUtil.integerPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.longDecimalPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.shortDecimalPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.smallintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.tinyintPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.varcharPartitionKey;
+import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getParquetType;
 import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.buildParquetPredicate;
 import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.predicateMatches;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
+import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
+import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
+import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
@@ -87,6 +113,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static parquet.format.converter.ParquetMetadataConverter.NO_FILTER;
+import static parquet.schema.OriginalType.DECIMAL;
 import static parquet.schema.OriginalType.MAP_KEY_VALUE;
 
 public class ParquetHiveRecordCursor
@@ -113,6 +140,8 @@ public class ParquetHiveRecordCursor
     private boolean closed;
 
     public ParquetHiveRecordCursor(
+            HdfsEnvironment hdfsEnvironment,
+            String sessionUser,
             Configuration configuration,
             Path path,
             long start,
@@ -178,17 +207,35 @@ public class ParquetHiveRecordCursor
                 else if (type.equals(BOOLEAN)) {
                     booleans[columnIndex] = booleanPartitionKey(partitionKeyValue, columnName);
                 }
+                else if (type.equals(INTEGER)) {
+                    longs[columnIndex] = integerPartitionKey(partitionKeyValue, columnName);
+                }
+                else if (type.equals(SMALLINT)) {
+                    longs[columnIndex] = smallintPartitionKey(partitionKeyValue, columnName);
+                }
+                else if (type.equals(TINYINT)) {
+                    longs[columnIndex] = tinyintPartitionKey(partitionKeyValue, columnName);
+                }
                 else if (type.equals(BIGINT)) {
                     longs[columnIndex] = bigintPartitionKey(partitionKeyValue, columnName);
                 }
                 else if (type.equals(DOUBLE)) {
                     doubles[columnIndex] = doublePartitionKey(partitionKeyValue, columnName);
                 }
-                else if (type.equals(VARCHAR)) {
-                    slices[columnIndex] = wrappedBuffer(bytes);
+                else if (isVarcharType(type)) {
+                    slices[columnIndex] = varcharPartitionKey(partitionKeyValue, columnName, type);
                 }
                 else if (type.equals(TIMESTAMP)) {
                     longs[columnIndex] = timestampPartitionKey(partitionKey.getValue(), hiveStorageTimeZone, columnName);
+                }
+                else if (type.equals(DATE)) {
+                    longs[columnIndex] = datePartitionKey(partitionKey.getValue(), columnName);
+                }
+                else if (isShortDecimal(type)) {
+                    longs[columnIndex] = shortDecimalPartitionKey(partitionKey.getValue(), (DecimalType) type, columnName);
+                }
+                else if (isLongDecimal(type)) {
+                    slices[columnIndex] = longDecimalPartitionKey(partitionKey.getValue(), (DecimalType) type, columnName);
                 }
                 else {
                     throw new PrestoException(NOT_SUPPORTED, format("Unsupported column type %s for partition key: %s", type.getDisplayName(), columnName));
@@ -196,7 +243,10 @@ public class ParquetHiveRecordCursor
             }
         }
 
-        this.recordReader = createParquetRecordReader(configuration,
+        this.recordReader = createParquetRecordReader(
+                hdfsEnvironment,
+                sessionUser,
+                configuration,
                 path,
                 start,
                 length,
@@ -346,6 +396,8 @@ public class ParquetHiveRecordCursor
     }
 
     private ParquetRecordReader<FakeParquetRecord> createParquetRecordReader(
+            HdfsEnvironment hdfsEnvironment,
+            String sessionUser,
             Configuration configuration,
             Path path,
             long start,
@@ -356,15 +408,16 @@ public class ParquetHiveRecordCursor
             boolean predicatePushdownEnabled,
             TupleDomain<HiveColumnHandle> effectivePredicate)
     {
+        ParquetDataSource dataSource = null;
         try {
-            ParquetMetadata parquetMetadata = ParquetFileReader.readFooter(configuration, path, NO_FILTER);
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
+            dataSource = buildHdfsParquetDataSource(fileSystem, path, start, length);
+            ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(sessionUser, () -> ParquetFileReader.readFooter(configuration, path, NO_FILTER));
             List<BlockMetaData> blocks = parquetMetadata.getBlocks();
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
 
-            MessageType schema = fileMetaData.getSchema();
-            PrestoReadSupport readSupport = new PrestoReadSupport(useParquetColumnNames, columns, schema);
-            ReadContext readContext = readSupport.init(configuration, fileMetaData.getKeyValueMetaData(), schema);
+            PrestoReadSupport readSupport = new PrestoReadSupport(useParquetColumnNames, columns, fileSchema);
 
             List<parquet.schema.Type> fields = columns.stream()
                     .filter(column -> !column.isPartitionKey())
@@ -384,32 +437,48 @@ public class ParquetHiveRecordCursor
 
             if (predicatePushdownEnabled) {
                 ParquetPredicate parquetPredicate = buildParquetPredicate(columns, effectivePredicate, fileMetaData.getSchema(), typeManager);
+                ParquetDataSource finalDataSource = dataSource;
                 splitGroup = splitGroup.stream()
-                        .filter(block -> predicateMatches(parquetPredicate, block, configuration, path, requestedSchema, effectivePredicate))
+                        .filter(block -> predicateMatches(parquetPredicate, block, finalDataSource, requestedSchema, effectivePredicate))
                         .collect(toList());
             }
 
-            ParquetInputSplit split = new ParquetInputSplit(path,
-                    start,
-                    length,
-                    null,
-                    splitGroup,
-                    readContext.getRequestedSchema().toString(),
-                    schema.toString(),
-                    fileMetaData.getKeyValueMetaData(),
-                    readContext.getReadSupportMetadata());
+            long[] offsets = new long[splitGroup.size()];
+            for (int i = 0; i < splitGroup.size(); i++) {
+                BlockMetaData block = splitGroup.get(i);
+                offsets[i] = block.getStartingPos();
+            }
+
+            ParquetInputSplit split = new ParquetInputSplit(path, start, start + length, length, null, offsets);
 
             TaskAttemptContext taskContext = ContextUtil.newTaskAttemptContext(configuration, new TaskAttemptID());
-            ParquetRecordReader<FakeParquetRecord> realReader = new PrestoParquetRecordReader(readSupport);
-            realReader.initialize(split, taskContext);
-            return realReader;
+
+            return hdfsEnvironment.doAs(sessionUser, () -> {
+                ParquetRecordReader<FakeParquetRecord> realReader = new PrestoParquetRecordReader(readSupport);
+                realReader.initialize(split, taskContext);
+                return realReader;
+            });
         }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw Throwables.propagate(e);
+        catch (Exception e) {
+            if (dataSource != null) {
+                try {
+                    dataSource.close();
+                }
+                catch (IOException ignored) {
+                }
+            }
+            if (e instanceof PrestoException) {
+                throw (PrestoException) e;
+            }
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+                throw Throwables.propagate(e);
+            }
+            String message = format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, e.getMessage());
+            if (e.getClass().getSimpleName().equals("BlockMissingException")) {
+                throw new PrestoException(HIVE_MISSING_DATA, message, e);
+            }
+            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
         }
     }
 
@@ -443,10 +512,16 @@ public class ParquetHiveRecordCursor
                         continue;
                     }
                     if (parquetType.isPrimitive()) {
-                        converters.add(new ParquetPrimitiveColumnConverter(i));
+                        Optional<DecimalType> decimalType = getDecimalType(column.getHiveType());
+                        if (decimalType.isPresent()) {
+                            converters.add(new ParquetDecimalColumnConverter(i, decimalType.get()));
+                        }
+                        else {
+                            converters.add(new ParquetPrimitiveColumnConverter(i));
+                        }
                     }
                     else {
-                        converters.add(new ParquetColumnConverter(createGroupConverter(types[i], parquetType.getName(), parquetType), i));
+                        converters.add(new ParquetColumnConverter(createGroupConverter(types[i], parquetType.getName(), parquetType, i), i));
                     }
                 }
             }
@@ -600,8 +675,12 @@ public class ParquetHiveRecordCursor
         public void addBinary(Binary value)
         {
             nulls[fieldIndex] = false;
-            if (types[fieldIndex] == TIMESTAMP) {
+            Type type = types[fieldIndex];
+            if (type == TIMESTAMP) {
                 longs[fieldIndex] = ParquetTimestampUtils.getTimestampMillis(value);
+            }
+            else if (isVarcharType(type)) {
+                slices[fieldIndex] = truncateToLength(wrappedBuffer(value.getBytes()), type);
             }
             else {
                 slices[fieldIndex] = wrappedBuffer(value.getBytes());
@@ -620,6 +699,31 @@ public class ParquetHiveRecordCursor
         {
             nulls[fieldIndex] = false;
             longs[fieldIndex] = value;
+        }
+    }
+
+    // todo: support for other types of decimal storage (see https://github.com/Parquet/parquet-format/blob/master/LogicalTypes.md)
+    private class ParquetDecimalColumnConverter
+            extends PrimitiveConverter
+    {
+        private final int fieldIndex;
+        private final DecimalType decimalType;
+
+        private ParquetDecimalColumnConverter(int fieldIndex, DecimalType decimalType)
+        {
+            this.fieldIndex = fieldIndex;
+            this.decimalType = requireNonNull(decimalType, "decimalType is null");
+        }
+
+        public void addBinary(Binary value)
+        {
+            nulls[fieldIndex] = false;
+            if (decimalType.isShort()) {
+                longs[fieldIndex] = DecimalUtils.getShortDecimalValue(value.getBytes());
+            }
+            else {
+                slices[fieldIndex] = Decimals.encodeUnscaledValue(new BigInteger(value.getBytes()));
+            }
         }
     }
 
@@ -674,25 +778,31 @@ public class ParquetHiveRecordCursor
         public abstract Block getBlock();
     }
 
-    private static BlockConverter createConverter(Type prestoType, String columnName, parquet.schema.Type parquetType)
+    private static BlockConverter createConverter(Type prestoType, String columnName, parquet.schema.Type parquetType, int fieldIndex)
     {
         if (parquetType.isPrimitive()) {
-            return new ParquetPrimitiveConverter(prestoType);
+            if (parquetType.getOriginalType() == DECIMAL) {
+                DecimalMetadata decimalMetadata = ((PrimitiveType) parquetType).getDecimalMetadata();
+                return new ParquetDecimalConverter(createDecimalType(decimalMetadata.getPrecision(), decimalMetadata.getScale()));
+            }
+            else {
+                return new ParquetPrimitiveConverter(prestoType, fieldIndex);
+            }
         }
 
-        return createGroupConverter(prestoType, columnName, parquetType);
+        return createGroupConverter(prestoType, columnName, parquetType, fieldIndex);
     }
 
-    private static GroupedConverter createGroupConverter(Type prestoType, String columnName, parquet.schema.Type parquetType)
+    private static GroupedConverter createGroupConverter(Type prestoType, String columnName, parquet.schema.Type parquetType, int fieldIndex)
     {
         GroupType groupType = parquetType.asGroupType();
         switch (prestoType.getTypeSignature().getBase()) {
             case ARRAY:
-                return new ParquetListConverter(prestoType, columnName, groupType);
+                return new ParquetListConverter(prestoType, columnName, groupType, fieldIndex);
             case MAP:
-                return new ParquetMapConverter(prestoType, columnName, groupType);
+                return new ParquetMapConverter(prestoType, columnName, groupType, fieldIndex);
             case ROW:
-                return new ParquetStructConverter(prestoType, columnName, groupType);
+                return new ParquetStructConverter(prestoType, columnName, groupType, fieldIndex);
             default:
                 throw new IllegalArgumentException("Column " + columnName + " type " + parquetType.getOriginalType() + " not supported");
         }
@@ -705,25 +815,32 @@ public class ParquetHiveRecordCursor
         private static final int NULL_BUILDER_SIZE_IN_BYTES_THRESHOLD = 32768;
 
         private final Type rowType;
+        private final int fieldIndex;
 
         private final List<BlockConverter> converters;
         private BlockBuilder builder;
         private BlockBuilder nullBuilder; // used internally when builder is set to null
         private BlockBuilder currentEntryBuilder;
 
-        public ParquetStructConverter(Type prestoType, String columnName, GroupType entryType)
+        public ParquetStructConverter(Type prestoType, String columnName, GroupType entryType, int fieldIndex)
         {
             checkArgument(ROW.equals(prestoType.getTypeSignature().getBase()));
             List<Type> prestoTypeParameters = prestoType.getTypeParameters();
             List<parquet.schema.Type> fieldTypes = entryType.getFields();
-            checkArgument(prestoTypeParameters.size() == fieldTypes.size());
+            checkArgument(
+                    prestoTypeParameters.size() == fieldTypes.size(),
+                    "Schema mismatch, metastore schema for row column %s has %s fields but parquet schema has %s fields",
+                    columnName,
+                    prestoTypeParameters.size(),
+                    fieldTypes.size());
 
             this.rowType = prestoType;
+            this.fieldIndex = fieldIndex;
 
             ImmutableList.Builder<BlockConverter> converters = ImmutableList.builder();
             for (int i = 0; i < prestoTypeParameters.size(); i++) {
                 parquet.schema.Type fieldType = fieldTypes.get(i);
-                converters.add(createConverter(prestoTypeParameters.get(i), columnName + "." + fieldType.getName(), fieldType));
+                converters.add(createConverter(prestoTypeParameters.get(i), columnName + "." + fieldType.getName(), fieldType, i));
             }
             this.converters = converters.build();
         }
@@ -750,6 +867,9 @@ public class ParquetHiveRecordCursor
                 currentEntryBuilder = nullBuilder.beginBlockEntry();
             }
             else {
+                while (builder.getPositionCount() < fieldIndex) {
+                    builder.appendNull();
+                }
                 currentEntryBuilder = builder.beginBlockEntry();
             }
             for (BlockConverter converter : converters) {
@@ -763,6 +883,10 @@ public class ParquetHiveRecordCursor
             for (BlockConverter converter : converters) {
                 converter.afterValue();
             }
+            while (currentEntryBuilder.getPositionCount() < converters.size()) {
+                currentEntryBuilder.appendNull();
+            }
+
             if (builder == null) {
                 nullBuilder.closeEntry();
             }
@@ -791,21 +915,24 @@ public class ParquetHiveRecordCursor
         private static final int NULL_BUILDER_SIZE_IN_BYTES_THRESHOLD = 32768;
 
         private final Type arrayType;
+        private final int fieldIndex;
 
         private final BlockConverter elementConverter;
         private BlockBuilder builder;
         private BlockBuilder nullBuilder; // used internally when builder is set to null
         private BlockBuilder currentEntryBuilder;
 
-        public ParquetListConverter(Type prestoType, String columnName, GroupType listType)
+        public ParquetListConverter(Type prestoType, String columnName, GroupType listType, int fieldIndex)
         {
-            checkArgument(listType.getFieldCount() == 1,
+            checkArgument(
+                    listType.getFieldCount() == 1,
                     "Expected LIST column '%s' to only have one field, but has %s fields",
                     columnName,
                     listType.getFieldCount());
             checkArgument(ARRAY.equals(prestoType.getTypeSignature().getBase()));
 
             this.arrayType = prestoType;
+            this.fieldIndex = fieldIndex;
 
             // The Parquet specification requires that the element value of a
             // LIST type be wrapped in an inner repeated group, like so:
@@ -821,7 +948,7 @@ public class ParquetHiveRecordCursor
             // documentation at http://git.io/vOpNz.
             parquet.schema.Type elementType = listType.getType(0);
             if (isElementType(elementType, listType.getName())) {
-                elementConverter = createConverter(prestoType.getTypeParameters().get(0), columnName + ".element", elementType);
+                elementConverter = createConverter(prestoType.getTypeParameters().get(0), columnName + ".element", elementType, 0);
             }
             else {
                 elementConverter = new ParquetListEntryConverter(prestoType.getTypeParameters().get(0), columnName, elementType.asGroupType());
@@ -875,6 +1002,9 @@ public class ParquetHiveRecordCursor
                 currentEntryBuilder = nullBuilder.beginBlockEntry();
             }
             else {
+                while (builder.getPositionCount() < fieldIndex) {
+                    builder.appendNull();
+                }
                 currentEntryBuilder = builder.beginBlockEntry();
             }
             elementConverter.beforeValue(currentEntryBuilder);
@@ -913,20 +1043,23 @@ public class ParquetHiveRecordCursor
         private final BlockConverter elementConverter;
 
         private BlockBuilder builder;
+        private int startingPosition;
 
         public ParquetListEntryConverter(Type prestoType, String columnName, GroupType elementType)
         {
-            checkArgument(elementType.getOriginalType() == null,
+            checkArgument(
+                    elementType.getOriginalType() == null,
                     "Expected LIST column '%s' field to be type STRUCT, but is %s",
                     columnName,
                     elementType);
 
-            checkArgument(elementType.getFieldCount() == 1,
+            checkArgument(
+                    elementType.getFieldCount() == 1,
                     "Expected LIST column '%s' element to have one field, but has %s fields",
                     columnName,
                     elementType.getFieldCount());
 
-            elementConverter = createConverter(prestoType, columnName + ".element", elementType.getType(0));
+            elementConverter = createConverter(prestoType, columnName + ".element", elementType.getType(0), 0);
         }
 
         @Override
@@ -948,12 +1081,17 @@ public class ParquetHiveRecordCursor
         public void start()
         {
             elementConverter.beforeValue(builder);
+            startingPosition = builder.getPositionCount();
         }
 
         @Override
         public void end()
         {
             elementConverter.afterValue();
+            // we have read nothing, this means there is a null element in this list
+            if (builder.getPositionCount() == startingPosition) {
+                builder.appendNull();
+            }
         }
 
         @Override
@@ -969,20 +1107,23 @@ public class ParquetHiveRecordCursor
         private static final int NULL_BUILDER_SIZE_IN_BYTES_THRESHOLD = 32768;
 
         private final Type mapType;
+        private final int fieldIndex;
 
         private final ParquetMapEntryConverter entryConverter;
         private BlockBuilder builder;
         private BlockBuilder nullBuilder; // used internally when builder is set to null
         private BlockBuilder currentEntryBuilder;
 
-        public ParquetMapConverter(Type type, String columnName, GroupType mapType)
+        public ParquetMapConverter(Type type, String columnName, GroupType mapType, int fieldIndex)
         {
-            checkArgument(mapType.getFieldCount() == 1,
+            checkArgument(
+                    mapType.getFieldCount() == 1,
                     "Expected MAP column '%s' to only have one field, but has %s fields",
                     mapType.getName(),
                     mapType.getFieldCount());
 
             this.mapType = type;
+            this.fieldIndex = fieldIndex;
 
             parquet.schema.Type entryType = mapType.getFields().get(0);
 
@@ -1014,6 +1155,9 @@ public class ParquetHiveRecordCursor
                 currentEntryBuilder = nullBuilder.beginBlockEntry();
             }
             else {
+                while (builder.getPositionCount() < fieldIndex) {
+                    builder.appendNull();
+                }
                 currentEntryBuilder = builder.beginBlockEntry();
             }
             entryConverter.beforeValue(currentEntryBuilder);
@@ -1059,7 +1203,8 @@ public class ParquetHiveRecordCursor
             checkArgument(MAP.equals(prestoType.getTypeSignature().getBase()));
             // original version of parquet used null for entry due to a bug
             if (entryType.getOriginalType() != null) {
-                checkArgument(entryType.getOriginalType() == MAP_KEY_VALUE,
+                checkArgument(
+                        entryType.getOriginalType() == MAP_KEY_VALUE,
                         "Expected MAP column '%s' field to be type %s, but is %s",
                         columnName,
                         MAP_KEY_VALUE,
@@ -1067,25 +1212,29 @@ public class ParquetHiveRecordCursor
             }
 
             GroupType entryGroupType = entryType.asGroupType();
-            checkArgument(entryGroupType.getFieldCount() == 2,
+            checkArgument(
+                    entryGroupType.getFieldCount() == 2,
                     "Expected MAP column '%s' entry to have two fields, but has %s fields",
                     columnName,
                     entryGroupType.getFieldCount());
-            checkArgument(entryGroupType.getFieldName(0).equals("key"),
+            checkArgument(
+                    entryGroupType.getFieldName(0).equals("key"),
                     "Expected MAP column '%s' entry field 0 to be named 'key', but is named %s",
                     columnName,
                     entryGroupType.getFieldName(0));
-            checkArgument(entryGroupType.getFieldName(1).equals("value"),
+            checkArgument(
+                    entryGroupType.getFieldName(1).equals("value"),
                     "Expected MAP column '%s' entry field 1 to be named 'value', but is named %s",
                     columnName,
                     entryGroupType.getFieldName(1));
-            checkArgument(entryGroupType.getType(0).isPrimitive(),
+            checkArgument(
+                    entryGroupType.getType(0).isPrimitive(),
                     "Expected MAP column '%s' entry field 0 to be primitive, but is %s",
                     columnName,
                     entryGroupType.getType(0));
 
-            keyConverter = createConverter(prestoType.getTypeParameters().get(0), columnName + ".key", entryGroupType.getFields().get(0));
-            valueConverter = createConverter(prestoType.getTypeParameters().get(1), columnName + ".value", entryGroupType.getFields().get(1));
+            keyConverter = createConverter(prestoType.getTypeParameters().get(0), columnName + ".key", entryGroupType.getFields().get(0), 0);
+            valueConverter = createConverter(prestoType.getTypeParameters().get(1), columnName + ".value", entryGroupType.getFields().get(1), 1);
         }
 
         @Override
@@ -1118,6 +1267,11 @@ public class ParquetHiveRecordCursor
         {
             keyConverter.afterValue();
             valueConverter.afterValue();
+            // handle the case where we have a key, but the value is null
+            // null keys are not supported anyway, so we can ignore that case here
+            if (builder.getPositionCount() % 2 != 0) {
+                builder.appendNull();
+            }
         }
 
         @Override
@@ -1131,12 +1285,123 @@ public class ParquetHiveRecordCursor
             implements BlockConverter
     {
         private final Type type;
+        private final int fieldIndex;
+        private BlockBuilder builder;
+
+        public ParquetPrimitiveConverter(Type type, int fieldIndex)
+        {
+            this.type = type;
+            this.fieldIndex = fieldIndex;
+        }
+
+        @Override
+        public void beforeValue(BlockBuilder builder)
+        {
+            this.builder = requireNonNull(builder, "parent builder is null");
+        }
+
+        @Override
+        public void afterValue()
+        {
+        }
+
+        private void addMissingValues()
+        {
+            while (builder.getPositionCount() < fieldIndex) {
+                builder.appendNull();
+            }
+        }
+
+        @Override
+        public boolean isPrimitive()
+        {
+            return true;
+        }
+
+        @Override
+        public PrimitiveConverter asPrimitiveConverter()
+        {
+            return this;
+        }
+
+        @Override
+        public boolean hasDictionarySupport()
+        {
+            return false;
+        }
+
+        @Override
+        public void setDictionary(Dictionary dictionary)
+        {
+        }
+
+        @Override
+        public void addValueFromDictionary(int dictionaryId)
+        {
+        }
+
+        @Override
+        public void addBoolean(boolean value)
+        {
+            addMissingValues();
+            type.writeBoolean(builder, value);
+        }
+
+        @Override
+        public void addDouble(double value)
+        {
+            addMissingValues();
+            type.writeDouble(builder, value);
+        }
+
+        @Override
+        public void addLong(long value)
+        {
+            addMissingValues();
+            type.writeLong(builder, value);
+        }
+
+        @Override
+        public void addBinary(Binary value)
+        {
+            addMissingValues();
+            if (type == TIMESTAMP) {
+                type.writeLong(builder, ParquetTimestampUtils.getTimestampMillis(value));
+            }
+            else if (isVarcharType(type)) {
+                type.writeSlice(builder, truncateToLength(wrappedBuffer(value.getBytes()), type));
+            }
+            else {
+                type.writeSlice(builder, wrappedBuffer(value.getBytes()));
+            }
+        }
+
+        @Override
+        public void addFloat(float value)
+        {
+            addMissingValues();
+            type.writeDouble(builder, value);
+        }
+
+        @Override
+        public void addInt(int value)
+        {
+            addMissingValues();
+            type.writeLong(builder, value);
+        }
+    }
+
+    private static class ParquetDecimalConverter
+            extends PrimitiveConverter
+            implements BlockConverter
+    {
+        private final DecimalType decimalType;
         private BlockBuilder builder;
         private boolean wroteValue;
 
-        public ParquetPrimitiveConverter(Type type)
+        public ParquetDecimalConverter(DecimalType decimalType)
         {
-            this.type = type;
+            this.decimalType = requireNonNull(decimalType, "decimalType is null");
         }
 
         @Override
@@ -1175,59 +1440,15 @@ public class ParquetHiveRecordCursor
         }
 
         @Override
-        public void setDictionary(Dictionary dictionary)
-        {
-        }
-
-        @Override
-        public void addValueFromDictionary(int dictionaryId)
-        {
-        }
-
-        @Override
-        public void addBoolean(boolean value)
-        {
-            BOOLEAN.writeBoolean(builder, value);
-            wroteValue = true;
-        }
-
-        @Override
-        public void addDouble(double value)
-        {
-            DOUBLE.writeDouble(builder, value);
-            wroteValue = true;
-        }
-
-        @Override
-        public void addLong(long value)
-        {
-            BIGINT.writeLong(builder, value);
-            wroteValue = true;
-        }
-
-        @Override
         public void addBinary(Binary value)
         {
-            if (type == TIMESTAMP) {
-                builder.writeLong(ParquetTimestampUtils.getTimestampMillis(value)).closeEntry();
+            if (decimalType.isShort()) {
+                decimalType.writeLong(builder, DecimalUtils.getShortDecimalValue(value.getBytes()));
             }
             else {
-                VARBINARY.writeSlice(builder, wrappedBuffer(value.getBytes()));
+                BigInteger unboundedDecimal = new BigInteger(value.getBytes());
+                decimalType.writeSlice(builder, Decimals.encodeUnscaledValue(unboundedDecimal));
             }
-            wroteValue = true;
-        }
-
-        @Override
-        public void addFloat(float value)
-        {
-            DOUBLE.writeDouble(builder, value);
-            wroteValue = true;
-        }
-
-        @Override
-        public void addInt(int value)
-        {
-            BIGINT.writeLong(builder, value);
             wroteValue = true;
         }
     }

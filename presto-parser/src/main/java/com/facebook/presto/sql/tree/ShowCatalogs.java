@@ -13,11 +13,37 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Optional;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public final class ShowCatalogs
         extends Statement
 {
+    private final Optional<String> likePattern;
+
+    public ShowCatalogs(Optional<String> likePattern)
+    {
+        this(Optional.empty(), likePattern);
+    }
+
+    public ShowCatalogs(NodeLocation location, Optional<String> likePattern)
+    {
+        this(Optional.of(location), likePattern);
+    }
+
+    public ShowCatalogs(Optional<NodeLocation> location, Optional<String> likePattern)
+    {
+        super(location);
+        this.likePattern = requireNonNull(likePattern, "likePattern is null");
+    }
+
+    public Optional<String> getLikePattern()
+    {
+        return likePattern;
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {

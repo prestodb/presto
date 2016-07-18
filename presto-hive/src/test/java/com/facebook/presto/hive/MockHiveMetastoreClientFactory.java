@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.authentication.NoHiveMetastoreAuthentication;
+import com.facebook.presto.hive.metastore.HiveMetastoreClient;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import org.apache.thrift.transport.TTransportException;
@@ -32,7 +34,7 @@ public class MockHiveMetastoreClientFactory
 
     public MockHiveMetastoreClientFactory(@Nullable HostAndPort socksProxy, Duration timeout, List<HiveMetastoreClient> clients)
     {
-        super(socksProxy, timeout);
+        super(socksProxy, timeout, new NoHiveMetastoreAuthentication());
         this.clients = new ArrayList<>(requireNonNull(clients, "clients is null"));
     }
 

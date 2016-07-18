@@ -40,7 +40,10 @@ public abstract class AbstractFixedWidthType
     @Override
     public final BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
-        return new FixedWidthBlockBuilder(getFixedSize(), blockBuilderStatus, Math.min(expectedEntries * fixedSize, blockBuilderStatus.getMaxBlockSizeInBytes()));
+        return new FixedWidthBlockBuilder(
+                getFixedSize(),
+                blockBuilderStatus,
+                fixedSize == 0 ? expectedEntries : Math.min(expectedEntries, blockBuilderStatus.getMaxBlockSizeInBytes() / fixedSize));
     }
 
     @Override

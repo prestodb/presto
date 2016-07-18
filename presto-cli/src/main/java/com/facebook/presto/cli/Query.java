@@ -72,6 +72,26 @@ public class Query
         return client.getResetSessionProperties();
     }
 
+    public Map<String, String> getAddedPreparedStatements()
+    {
+        return client.getAddedPreparedStatements();
+    }
+
+    public Set<String> getDeallocatedPreparedStatements()
+    {
+        return client.getDeallocatedPreparedStatements();
+    }
+
+    public String getStartedTransactionId()
+    {
+        return client.getStartedtransactionId();
+    }
+
+    public boolean isClearTransactionId()
+    {
+        return client.isClearTransactionId();
+    }
+
     public void renderOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
     {
         Thread clientThread = Thread.currentThread();
@@ -109,7 +129,7 @@ public class Query
         if ((!client.isFailed()) && (!client.isGone()) && (!client.isClosed())) {
             QueryResults results = client.isValid() ? client.current() : client.finalResults();
             if (results.getUpdateType() != null) {
-                renderUpdate(out, results);
+                renderUpdate(errorChannel, results);
             }
             else if (results.getColumns() == null) {
                 errorChannel.printf("Query %s has no columns\n", results.getId());
@@ -193,12 +213,12 @@ public class Query
             throws IOException
     {
         try (Pager pager = Pager.create();
+                ThreadInterruptor clientThread = new ThreadInterruptor();
                 Writer writer = createWriter(pager);
                 OutputHandler handler = createOutputHandler(format, writer, fieldNames)) {
             if (!pager.isNullPager()) {
                 // ignore the user pressing ctrl-C while in the pager
                 ignoreUserInterrupt.set(true);
-                Thread clientThread = Thread.currentThread();
                 pager.getFinishFuture().thenRun(() -> {
                     userAbortedQuery.set(true);
                     ignoreUserInterrupt.set(false);
@@ -311,6 +331,26 @@ public class Query
             String padding = Strings.repeat(" ", prefix.length() + (location.getColumnNumber() - 1));
             out.println(prefix + errorLine);
             out.println(padding + "^");
+        }
+    }
+
+    private static class ThreadInterruptor
+            implements Closeable
+    {
+        private final Thread thread = Thread.currentThread();
+        private final AtomicBoolean processing = new AtomicBoolean(true);
+
+        public synchronized void interrupt()
+        {
+            if (processing.get()) {
+                thread.interrupt();
+            }
+        }
+
+        @Override
+        public synchronized void close()
+        {
+            processing.set(false);
         }
     }
 }

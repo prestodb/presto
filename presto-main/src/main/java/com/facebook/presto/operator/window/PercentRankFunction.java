@@ -17,6 +17,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
+@WindowFunctionSignature(name = "percent_rank", returnType = "double")
 public class PercentRankFunction
         extends RankingWindowFunction
 {

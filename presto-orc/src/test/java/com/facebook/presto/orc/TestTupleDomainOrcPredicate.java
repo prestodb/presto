@@ -16,30 +16,35 @@ package com.facebook.presto.orc;
 import com.facebook.presto.orc.metadata.BooleanStatistics;
 import com.facebook.presto.orc.metadata.ColumnStatistics;
 import com.facebook.presto.orc.metadata.DateStatistics;
+import com.facebook.presto.orc.metadata.DecimalStatistics;
 import com.facebook.presto.orc.metadata.DoubleStatistics;
 import com.facebook.presto.orc.metadata.IntegerStatistics;
 import com.facebook.presto.orc.metadata.StringStatistics;
-import com.facebook.presto.spi.Domain;
-import com.facebook.presto.spi.Range;
-import com.facebook.presto.spi.SortedRangeSet;
+import com.facebook.presto.spi.predicate.Range;
+import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
+
+import java.math.BigDecimal;
 
 import static com.facebook.presto.orc.TupleDomainOrcPredicate.getDomain;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.getMaxSlice;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.getMinSlice;
-import static com.facebook.presto.spi.Domain.all;
-import static com.facebook.presto.spi.Domain.create;
-import static com.facebook.presto.spi.Domain.none;
-import static com.facebook.presto.spi.Domain.notNull;
-import static com.facebook.presto.spi.Domain.onlyNull;
-import static com.facebook.presto.spi.Domain.singleValue;
-import static com.facebook.presto.spi.Range.greaterThanOrEqual;
-import static com.facebook.presto.spi.Range.lessThanOrEqual;
-import static com.facebook.presto.spi.Range.range;
+import static com.facebook.presto.spi.predicate.Domain.all;
+import static com.facebook.presto.spi.predicate.Domain.create;
+import static com.facebook.presto.spi.predicate.Domain.none;
+import static com.facebook.presto.spi.predicate.Domain.notNull;
+import static com.facebook.presto.spi.predicate.Domain.onlyNull;
+import static com.facebook.presto.spi.predicate.Domain.singleValue;
+import static com.facebook.presto.spi.predicate.Range.greaterThanOrEqual;
+import static com.facebook.presto.spi.predicate.Range.lessThanOrEqual;
+import static com.facebook.presto.spi.predicate.Range.range;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
+import static com.facebook.presto.spi.type.Decimals.encodeScaledValue;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -47,27 +52,30 @@ import static org.testng.Assert.assertEquals;
 
 public class TestTupleDomainOrcPredicate
 {
+    private static final Type SHORT_DECIMAL = createDecimalType(5, 2);
+    private static final Type LONG_DECIMAL = createDecimalType(20, 10);
+
     @Test
     public void testBoolean()
             throws Exception
     {
-        assertEquals(getDomain(BOOLEAN, 0, null), none(Boolean.class));
-        assertEquals(getDomain(BOOLEAN, 10, null), all(Boolean.class));
+        assertEquals(getDomain(BOOLEAN, 0, null), none(BOOLEAN));
+        assertEquals(getDomain(BOOLEAN, 10, null), all(BOOLEAN));
 
-        assertEquals(getDomain(BOOLEAN, 0, booleanColumnStats(null, null)), none(Boolean.class));
-        assertEquals(getDomain(BOOLEAN, 0, booleanColumnStats(0L, null)), none(Boolean.class));
-        assertEquals(getDomain(BOOLEAN, 0, booleanColumnStats(0L, 0L)), none(Boolean.class));
+        assertEquals(getDomain(BOOLEAN, 0, booleanColumnStats(null, null)), none(BOOLEAN));
+        assertEquals(getDomain(BOOLEAN, 0, booleanColumnStats(0L, null)), none(BOOLEAN));
+        assertEquals(getDomain(BOOLEAN, 0, booleanColumnStats(0L, 0L)), none(BOOLEAN));
 
-        assertEquals(getDomain(BOOLEAN, 10, booleanColumnStats(0L, 0L)), onlyNull(Boolean.class));
-        assertEquals(getDomain(BOOLEAN, 10, booleanColumnStats(10L, null)), notNull(Boolean.class));
+        assertEquals(getDomain(BOOLEAN, 10, booleanColumnStats(0L, 0L)), onlyNull(BOOLEAN));
+        assertEquals(getDomain(BOOLEAN, 10, booleanColumnStats(10L, null)), notNull(BOOLEAN));
 
-        assertEquals(getDomain(BOOLEAN, 10, booleanColumnStats(10L, 10L)), singleValue(true));
-        assertEquals(getDomain(BOOLEAN, 10, booleanColumnStats(10L, 0L)), singleValue(false));
+        assertEquals(getDomain(BOOLEAN, 10, booleanColumnStats(10L, 10L)), singleValue(BOOLEAN, true));
+        assertEquals(getDomain(BOOLEAN, 10, booleanColumnStats(10L, 0L)), singleValue(BOOLEAN, false));
 
-        assertEquals(getDomain(BOOLEAN, 20, booleanColumnStats(10L, 5L)), all(Boolean.class));
+        assertEquals(getDomain(BOOLEAN, 20, booleanColumnStats(10L, 5L)), all(BOOLEAN));
 
-        assertEquals(getDomain(BOOLEAN, 20, booleanColumnStats(10L, 10L)), new Domain(SortedRangeSet.of(Range.equal(true)), true));
-        assertEquals(getDomain(BOOLEAN, 20, booleanColumnStats(10L, 0L)), new Domain(SortedRangeSet.of(Range.equal(false)), true));
+        assertEquals(getDomain(BOOLEAN, 20, booleanColumnStats(10L, 10L)), create(ValueSet.ofRanges(Range.equal(BOOLEAN, true)), true));
+        assertEquals(getDomain(BOOLEAN, 20, booleanColumnStats(10L, 0L)), create(ValueSet.ofRanges(Range.equal(BOOLEAN, false)), true));
     }
 
     private static ColumnStatistics booleanColumnStats(Long numberOfValues, Long trueValueCount)
@@ -76,126 +84,190 @@ public class TestTupleDomainOrcPredicate
         if (trueValueCount != null) {
             booleanStatistics = new BooleanStatistics(trueValueCount);
         }
-        return new ColumnStatistics(numberOfValues, booleanStatistics, null, null, null, null);
+        return new ColumnStatistics(numberOfValues, booleanStatistics, null, null, null, null, null);
     }
 
     @Test
     public void testBigint()
             throws Exception
     {
-        assertEquals(getDomain(BIGINT, 0, null), none(Long.class));
-        assertEquals(getDomain(BIGINT, 10, null), all(Long.class));
+        assertEquals(getDomain(BIGINT, 0, null), none(BIGINT));
+        assertEquals(getDomain(BIGINT, 10, null), all(BIGINT));
 
-        assertEquals(getDomain(BIGINT, 0, integerColumnStats(null, null, null)), none(Long.class));
-        assertEquals(getDomain(BIGINT, 0, integerColumnStats(0L, null, null)), none(Long.class));
-        assertEquals(getDomain(BIGINT, 0, integerColumnStats(0L, 100L, 100L)), none(Long.class));
+        assertEquals(getDomain(BIGINT, 0, integerColumnStats(null, null, null)), none(BIGINT));
+        assertEquals(getDomain(BIGINT, 0, integerColumnStats(0L, null, null)), none(BIGINT));
+        assertEquals(getDomain(BIGINT, 0, integerColumnStats(0L, 100L, 100L)), none(BIGINT));
 
-        assertEquals(getDomain(BIGINT, 10, integerColumnStats(0L, null, null)), onlyNull(Long.class));
-        assertEquals(getDomain(BIGINT, 10, integerColumnStats(10L, null, null)), notNull(Long.class));
+        assertEquals(getDomain(BIGINT, 10, integerColumnStats(0L, null, null)), onlyNull(BIGINT));
+        assertEquals(getDomain(BIGINT, 10, integerColumnStats(10L, null, null)), notNull(BIGINT));
 
-        assertEquals(getDomain(BIGINT, 10, integerColumnStats(10L, 100L, 100L)), singleValue(100L));
+        assertEquals(getDomain(BIGINT, 10, integerColumnStats(10L, 100L, 100L)), singleValue(BIGINT, 100L));
 
-        assertEquals(getDomain(BIGINT, 10, integerColumnStats(10L, 0L, 100L)), create(SortedRangeSet.of(range(0L, true, 100L, true)), false));
-        assertEquals(getDomain(BIGINT, 10, integerColumnStats(10L, null, 100L)), create(SortedRangeSet.of(lessThanOrEqual(100L)), false));
-        assertEquals(getDomain(BIGINT, 10, integerColumnStats(10L, 0L, null)), create(SortedRangeSet.of(greaterThanOrEqual(0L)), false));
+        assertEquals(getDomain(BIGINT, 10, integerColumnStats(10L, 0L, 100L)), create(ValueSet.ofRanges(range(BIGINT, 0L, true, 100L, true)), false));
+        assertEquals(getDomain(BIGINT, 10, integerColumnStats(10L, null, 100L)), create(ValueSet.ofRanges(lessThanOrEqual(BIGINT, 100L)), false));
+        assertEquals(getDomain(BIGINT, 10, integerColumnStats(10L, 0L, null)), create(ValueSet.ofRanges(greaterThanOrEqual(BIGINT, 0L)), false));
 
-        assertEquals(getDomain(BIGINT, 10, integerColumnStats(5L, 0L, 100L)), create(SortedRangeSet.of(range(0L, true, 100L, true)), true));
-        assertEquals(getDomain(BIGINT, 10, integerColumnStats(5L, null, 100L)), create(SortedRangeSet.of(lessThanOrEqual(100L)), true));
-        assertEquals(getDomain(BIGINT, 10, integerColumnStats(5L, 0L, null)), create(SortedRangeSet.of(greaterThanOrEqual(0L)), true));
+        assertEquals(getDomain(BIGINT, 10, integerColumnStats(5L, 0L, 100L)), create(ValueSet.ofRanges(range(BIGINT, 0L, true, 100L, true)), true));
+        assertEquals(getDomain(BIGINT, 10, integerColumnStats(5L, null, 100L)), create(ValueSet.ofRanges(lessThanOrEqual(BIGINT, 100L)), true));
+        assertEquals(getDomain(BIGINT, 10, integerColumnStats(5L, 0L, null)), create(ValueSet.ofRanges(greaterThanOrEqual(BIGINT, 0L)), true));
     }
 
     private static ColumnStatistics integerColumnStats(Long numberOfValues, Long minimum, Long maximum)
     {
-        return new ColumnStatistics(numberOfValues, null, new IntegerStatistics(minimum, maximum), null, null, null);
+        return new ColumnStatistics(numberOfValues, null, new IntegerStatistics(minimum, maximum), null, null, null, null);
     }
 
     @Test
     public void testDouble()
             throws Exception
     {
-        assertEquals(getDomain(DOUBLE, 0, null), none(Double.class));
-        assertEquals(getDomain(DOUBLE, 10, null), all(Double.class));
+        assertEquals(getDomain(DOUBLE, 0, null), none(DOUBLE));
+        assertEquals(getDomain(DOUBLE, 10, null), all(DOUBLE));
 
-        assertEquals(getDomain(DOUBLE, 0, doubleColumnStats(null, null, null)), none(Double.class));
-        assertEquals(getDomain(DOUBLE, 0, doubleColumnStats(0L, null, null)), none(Double.class));
-        assertEquals(getDomain(DOUBLE, 0, doubleColumnStats(0L, 42.24, 42.24)), none(Double.class));
+        assertEquals(getDomain(DOUBLE, 0, doubleColumnStats(null, null, null)), none(DOUBLE));
+        assertEquals(getDomain(DOUBLE, 0, doubleColumnStats(0L, null, null)), none(DOUBLE));
+        assertEquals(getDomain(DOUBLE, 0, doubleColumnStats(0L, 42.24, 42.24)), none(DOUBLE));
 
-        assertEquals(getDomain(DOUBLE, 10, doubleColumnStats(0L, null, null)), onlyNull(Double.class));
-        assertEquals(getDomain(DOUBLE, 10, doubleColumnStats(10L, null, null)), notNull(Double.class));
+        assertEquals(getDomain(DOUBLE, 10, doubleColumnStats(0L, null, null)), onlyNull(DOUBLE));
+        assertEquals(getDomain(DOUBLE, 10, doubleColumnStats(10L, null, null)), notNull(DOUBLE));
 
-        assertEquals(getDomain(DOUBLE, 10, doubleColumnStats(10L, 42.24, 42.24)), singleValue(42.24));
+        assertEquals(getDomain(DOUBLE, 10, doubleColumnStats(10L, 42.24, 42.24)), singleValue(DOUBLE, 42.24));
 
-        assertEquals(getDomain(DOUBLE, 10, doubleColumnStats(10L, 3.3, 42.24)), create(SortedRangeSet.of(range(3.3, true, 42.24, true)), false));
-        assertEquals(getDomain(DOUBLE, 10, doubleColumnStats(10L, null, 42.24)), create(SortedRangeSet.of(lessThanOrEqual(42.24)), false));
-        assertEquals(getDomain(DOUBLE, 10, doubleColumnStats(10L, 3.3, null)), create(SortedRangeSet.of(greaterThanOrEqual(3.3)), false));
+        assertEquals(getDomain(DOUBLE, 10, doubleColumnStats(10L, 3.3, 42.24)), create(ValueSet.ofRanges(range(DOUBLE, 3.3, true, 42.24, true)), false));
+        assertEquals(getDomain(DOUBLE, 10, doubleColumnStats(10L, null, 42.24)), create(ValueSet.ofRanges(lessThanOrEqual(DOUBLE, 42.24)), false));
+        assertEquals(getDomain(DOUBLE, 10, doubleColumnStats(10L, 3.3, null)), create(ValueSet.ofRanges(greaterThanOrEqual(DOUBLE, 3.3)), false));
 
-        assertEquals(getDomain(DOUBLE, 10, doubleColumnStats(5L, 3.3, 42.24)), create(SortedRangeSet.of(range(3.3, true, 42.24, true)), true));
-        assertEquals(getDomain(DOUBLE, 10, doubleColumnStats(5L, null, 42.24)), create(SortedRangeSet.of(lessThanOrEqual(42.24)), true));
-        assertEquals(getDomain(DOUBLE, 10, doubleColumnStats(5L, 3.3, null)), create(SortedRangeSet.of(greaterThanOrEqual(3.3)), true));
+        assertEquals(getDomain(DOUBLE, 10, doubleColumnStats(5L, 3.3, 42.24)), create(ValueSet.ofRanges(range(DOUBLE, 3.3, true, 42.24, true)), true));
+        assertEquals(getDomain(DOUBLE, 10, doubleColumnStats(5L, null, 42.24)), create(ValueSet.ofRanges(lessThanOrEqual(DOUBLE, 42.24)), true));
+        assertEquals(getDomain(DOUBLE, 10, doubleColumnStats(5L, 3.3, null)), create(ValueSet.ofRanges(greaterThanOrEqual(DOUBLE, 3.3)), true));
     }
 
     private static ColumnStatistics doubleColumnStats(Long numberOfValues, Double minimum, Double maximum)
     {
-        return new ColumnStatistics(numberOfValues, null, null, new DoubleStatistics(minimum, maximum), null, null);
+        return new ColumnStatistics(numberOfValues, null, null, new DoubleStatistics(minimum, maximum), null, null, null);
     }
 
     @Test
     public void testString()
             throws Exception
     {
-        assertEquals(getDomain(VARCHAR, 0, null), none(Slice.class));
-        assertEquals(getDomain(VARCHAR, 10, null), all(Slice.class));
+        assertEquals(getDomain(VARCHAR, 0, null), none(VARCHAR));
+        assertEquals(getDomain(VARCHAR, 10, null), all(VARCHAR));
 
-        assertEquals(getDomain(VARCHAR, 0, stringColumnStats(null, null, null)), none(Slice.class));
-        assertEquals(getDomain(VARCHAR, 0, stringColumnStats(0L, null, null)), none(Slice.class));
-        assertEquals(getDomain(VARCHAR, 0, stringColumnStats(0L, "taco", "taco")), none(Slice.class));
+        assertEquals(getDomain(VARCHAR, 0, stringColumnStats(null, null, null)), none(VARCHAR));
+        assertEquals(getDomain(VARCHAR, 0, stringColumnStats(0L, null, null)), none(VARCHAR));
+        assertEquals(getDomain(VARCHAR, 0, stringColumnStats(0L, "taco", "taco")), none(VARCHAR));
 
-        assertEquals(getDomain(VARCHAR, 10, stringColumnStats(0L, null, null)), onlyNull(Slice.class));
-        assertEquals(getDomain(VARCHAR, 10, stringColumnStats(10L, null, null)), notNull(Slice.class));
+        assertEquals(getDomain(VARCHAR, 10, stringColumnStats(0L, null, null)), onlyNull(VARCHAR));
+        assertEquals(getDomain(VARCHAR, 10, stringColumnStats(10L, null, null)), notNull(VARCHAR));
 
-        assertEquals(getDomain(VARCHAR, 10, stringColumnStats(10L, "taco", "taco")), singleValue(utf8Slice("taco")));
+        assertEquals(getDomain(VARCHAR, 10, stringColumnStats(10L, "taco", "taco")), singleValue(VARCHAR, utf8Slice("taco")));
 
-        assertEquals(getDomain(VARCHAR, 10, stringColumnStats(10L, "apple", "taco")), create(SortedRangeSet.of(range(utf8Slice("apple"), true, utf8Slice("taco"), true)), false));
-        assertEquals(getDomain(VARCHAR, 10, stringColumnStats(10L, null, "taco")), create(SortedRangeSet.of(lessThanOrEqual(utf8Slice("taco"))), false));
-        assertEquals(getDomain(VARCHAR, 10, stringColumnStats(10L, "apple", null)), create(SortedRangeSet.of(greaterThanOrEqual(utf8Slice("apple"))), false));
+        assertEquals(getDomain(VARCHAR, 10, stringColumnStats(10L, "apple", "taco")), create(ValueSet.ofRanges(range(VARCHAR, utf8Slice("apple"), true, utf8Slice("taco"), true)), false));
+        assertEquals(getDomain(VARCHAR, 10, stringColumnStats(10L, null, "taco")), create(ValueSet.ofRanges(lessThanOrEqual(VARCHAR, utf8Slice("taco"))), false));
+        assertEquals(getDomain(VARCHAR, 10, stringColumnStats(10L, "apple", null)), create(ValueSet.ofRanges(greaterThanOrEqual(VARCHAR, utf8Slice("apple"))), false));
 
-        assertEquals(getDomain(VARCHAR, 10, stringColumnStats(5L, "apple", "taco")), create(SortedRangeSet.of(range(utf8Slice("apple"), true, utf8Slice("taco"), true)), true));
-        assertEquals(getDomain(VARCHAR, 10, stringColumnStats(5L, null, "taco")), create(SortedRangeSet.of(lessThanOrEqual(utf8Slice("taco"))), true));
-        assertEquals(getDomain(VARCHAR, 10, stringColumnStats(5L, "apple", null)), create(SortedRangeSet.of(greaterThanOrEqual(utf8Slice("apple"))), true));
+        assertEquals(getDomain(VARCHAR, 10, stringColumnStats(5L, "apple", "taco")), create(ValueSet.ofRanges(range(VARCHAR, utf8Slice("apple"), true, utf8Slice("taco"), true)), true));
+        assertEquals(getDomain(VARCHAR, 10, stringColumnStats(5L, null, "taco")), create(ValueSet.ofRanges(lessThanOrEqual(VARCHAR, utf8Slice("taco"))), true));
+        assertEquals(getDomain(VARCHAR, 10, stringColumnStats(5L, "apple", null)), create(ValueSet.ofRanges(greaterThanOrEqual(VARCHAR, utf8Slice("apple"))), true));
     }
 
     private static ColumnStatistics stringColumnStats(Long numberOfValues, String minimum, String maximum)
     {
-        return new ColumnStatistics(numberOfValues, null, null, null, new StringStatistics(getMinSlice(minimum), getMaxSlice(maximum)), null);
+        return new ColumnStatistics(numberOfValues, null, null, null, new StringStatistics(getMinSlice(minimum), getMaxSlice(maximum)), null, null);
     }
 
     @Test
     public void testDate()
             throws Exception
     {
-        assertEquals(getDomain(DATE, 0, null), none(Long.class));
-        assertEquals(getDomain(DATE, 10, null), all(Long.class));
+        assertEquals(getDomain(DATE, 0, null), none(DATE));
+        assertEquals(getDomain(DATE, 10, null), all(DATE));
 
-        assertEquals(getDomain(DATE, 0, dateColumnStats(null, null, null)), none(Long.class));
-        assertEquals(getDomain(DATE, 0, dateColumnStats(0L, null, null)), none(Long.class));
-        assertEquals(getDomain(DATE, 0, dateColumnStats(0L, 100, 100)), none(Long.class));
+        assertEquals(getDomain(DATE, 0, dateColumnStats(null, null, null)), none(DATE));
+        assertEquals(getDomain(DATE, 0, dateColumnStats(0L, null, null)), none(DATE));
+        assertEquals(getDomain(DATE, 0, dateColumnStats(0L, 100, 100)), none(DATE));
 
-        assertEquals(getDomain(DATE, 10, dateColumnStats(0L, null, null)), onlyNull(Long.class));
-        assertEquals(getDomain(DATE, 10, dateColumnStats(10L, null, null)), notNull(Long.class));
+        assertEquals(getDomain(DATE, 10, dateColumnStats(0L, null, null)), onlyNull(DATE));
+        assertEquals(getDomain(DATE, 10, dateColumnStats(10L, null, null)), notNull(DATE));
 
-        assertEquals(getDomain(DATE, 10, dateColumnStats(10L, 100, 100)), singleValue(100L));
+        assertEquals(getDomain(DATE, 10, dateColumnStats(10L, 100, 100)), singleValue(DATE, 100L));
 
-        assertEquals(getDomain(DATE, 10, dateColumnStats(10L, 0, 100)), create(SortedRangeSet.of(range(0L, true, 100L, true)), false));
-        assertEquals(getDomain(DATE, 10, dateColumnStats(10L, null, 100)), create(SortedRangeSet.of(lessThanOrEqual(100L)), false));
-        assertEquals(getDomain(DATE, 10, dateColumnStats(10L, 0, null)), create(SortedRangeSet.of(greaterThanOrEqual(0L)), false));
+        assertEquals(getDomain(DATE, 10, dateColumnStats(10L, 0, 100)), create(ValueSet.ofRanges(range(DATE, 0L, true, 100L, true)), false));
+        assertEquals(getDomain(DATE, 10, dateColumnStats(10L, null, 100)), create(ValueSet.ofRanges(lessThanOrEqual(DATE, 100L)), false));
+        assertEquals(getDomain(DATE, 10, dateColumnStats(10L, 0, null)), create(ValueSet.ofRanges(greaterThanOrEqual(DATE, 0L)), false));
 
-        assertEquals(getDomain(DATE, 10, dateColumnStats(5L, 0, 100)), create(SortedRangeSet.of(range(0L, true, 100L, true)), true));
-        assertEquals(getDomain(DATE, 10, dateColumnStats(5L, null, 100)), create(SortedRangeSet.of(lessThanOrEqual(100L)), true));
-        assertEquals(getDomain(DATE, 10, dateColumnStats(5L, 0, null)), create(SortedRangeSet.of(greaterThanOrEqual(0L)), true));
+        assertEquals(getDomain(DATE, 10, dateColumnStats(5L, 0, 100)), create(ValueSet.ofRanges(range(DATE, 0L, true, 100L, true)), true));
+        assertEquals(getDomain(DATE, 10, dateColumnStats(5L, null, 100)), create(ValueSet.ofRanges(lessThanOrEqual(DATE, 100L)), true));
+        assertEquals(getDomain(DATE, 10, dateColumnStats(5L, 0, null)), create(ValueSet.ofRanges(greaterThanOrEqual(DATE, 0L)), true));
     }
 
     private static ColumnStatistics dateColumnStats(Long numberOfValues, Integer minimum, Integer maximum)
     {
-        return new ColumnStatistics(numberOfValues, null, null, null, null, new DateStatistics(minimum, maximum));
+        return new ColumnStatistics(numberOfValues, null, null, null, null, new DateStatistics(minimum, maximum), null);
+    }
+
+    @Test
+    public void testDecimal()
+            throws Exception
+    {
+        assertEquals(getDomain(SHORT_DECIMAL, 0, null), none(SHORT_DECIMAL));
+        assertEquals(getDomain(LONG_DECIMAL, 10, null), all(LONG_DECIMAL));
+
+        assertEquals(getDomain(SHORT_DECIMAL, 0, decimalColumnStats(null, null, null)), none(SHORT_DECIMAL));
+        assertEquals(getDomain(LONG_DECIMAL, 0, decimalColumnStats(0L, null, null)), none(LONG_DECIMAL));
+        assertEquals(getDomain(SHORT_DECIMAL, 0, decimalColumnStats(0L, "-999.99", "999.99")), none(SHORT_DECIMAL));
+
+        assertEquals(getDomain(LONG_DECIMAL, 10, decimalColumnStats(0L, null, null)), onlyNull(LONG_DECIMAL));
+        assertEquals(getDomain(SHORT_DECIMAL, 10, decimalColumnStats(10L, null, null)), notNull(SHORT_DECIMAL));
+
+        assertEquals(getDomain(SHORT_DECIMAL, 10, decimalColumnStats(10L, "999.99", "999.99")), singleValue(SHORT_DECIMAL, shortDecimal("999.99")));
+        assertEquals(getDomain(LONG_DECIMAL, 10, decimalColumnStats(10L, "1234567890.0987654321", "1234567890.0987654321")),
+                singleValue(LONG_DECIMAL, longDecimal("1234567890.0987654321")));
+
+        assertEquals(getDomain(SHORT_DECIMAL, 10, decimalColumnStats(10L, "-999.99", "999.99")),
+                create(ValueSet.ofRanges(range(SHORT_DECIMAL, shortDecimal("-999.99"), true, shortDecimal("999.99"), true)), false));
+        assertEquals(getDomain(SHORT_DECIMAL, 10, decimalColumnStats(10L, null, "999.99")),
+                create(ValueSet.ofRanges(lessThanOrEqual(SHORT_DECIMAL, shortDecimal("999.99"))), false));
+        assertEquals(getDomain(SHORT_DECIMAL, 10, decimalColumnStats(10L, "-999.99", null)),
+                create(ValueSet.ofRanges(greaterThanOrEqual(SHORT_DECIMAL, shortDecimal("-999.99"))), false));
+
+        assertEquals(getDomain(LONG_DECIMAL, 10, decimalColumnStats(10L, "-1234567890.0987654321", "1234567890.0987654321")),
+                create(ValueSet.ofRanges(range(LONG_DECIMAL, longDecimal("-1234567890.0987654321"), true, longDecimal("1234567890.0987654321"), true)), false));
+        assertEquals(getDomain(LONG_DECIMAL, 10, decimalColumnStats(10L, null, "1234567890.0987654321")),
+                create(ValueSet.ofRanges(lessThanOrEqual(LONG_DECIMAL, longDecimal("1234567890.0987654321"))), false));
+        assertEquals(getDomain(LONG_DECIMAL, 10, decimalColumnStats(10L, "-1234567890.0987654321", null)),
+                create(ValueSet.ofRanges(greaterThanOrEqual(LONG_DECIMAL, longDecimal("-1234567890.0987654321"))), false));
+
+        assertEquals(getDomain(SHORT_DECIMAL, 10, decimalColumnStats(5L, "-999.99", "999.99")),
+                create(ValueSet.ofRanges(range(SHORT_DECIMAL, shortDecimal("-999.99"), true, shortDecimal("999.99"), true)), true));
+        assertEquals(getDomain(SHORT_DECIMAL, 10, decimalColumnStats(5L, null, "999.99")),
+                create(ValueSet.ofRanges(lessThanOrEqual(SHORT_DECIMAL, shortDecimal("999.99"))), true));
+        assertEquals(getDomain(SHORT_DECIMAL, 10, decimalColumnStats(5L, "-999.99", null)),
+                create(ValueSet.ofRanges(greaterThanOrEqual(SHORT_DECIMAL, shortDecimal("-999.99"))), true));
+
+        assertEquals(getDomain(LONG_DECIMAL, 10, decimalColumnStats(5L, "-1234567890.0987654321", "1234567890.0987654321")),
+                create(ValueSet.ofRanges(range(LONG_DECIMAL, longDecimal("-1234567890.0987654321"), true, longDecimal("1234567890.0987654321"), true)), true));
+        assertEquals(getDomain(LONG_DECIMAL, 10, decimalColumnStats(5L, null, "1234567890.0987654321")),
+                create(ValueSet.ofRanges(lessThanOrEqual(LONG_DECIMAL, longDecimal("1234567890.0987654321"))), true));
+        assertEquals(getDomain(LONG_DECIMAL, 10, decimalColumnStats(5L, "-1234567890.0987654321", null)),
+                create(ValueSet.ofRanges(greaterThanOrEqual(LONG_DECIMAL, longDecimal("-1234567890.0987654321"))), true));
+    }
+
+    private static ColumnStatistics decimalColumnStats(Long numberOfValues, String minimum, String maximum)
+    {
+        BigDecimal minimumDecimal = minimum == null ? null : new BigDecimal(minimum);
+        BigDecimal maximumDecimal = maximum == null ? null : new BigDecimal(maximum);
+        return new ColumnStatistics(numberOfValues, null, null, null, null, null, new DecimalStatistics(minimumDecimal, maximumDecimal));
+    }
+
+    private static Long shortDecimal(String value)
+    {
+        return new BigDecimal(value).unscaledValue().longValue();
+    }
+
+    private static Slice longDecimal(String value)
+    {
+        return encodeScaledValue(new BigDecimal(value));
     }
 }

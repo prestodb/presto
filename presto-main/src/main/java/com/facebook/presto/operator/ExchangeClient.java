@@ -202,8 +202,8 @@ public class ExchangeClient
 
         if (page != null) {
             synchronized (this) {
-                bufferBytes -= page.getSizeInBytes();
-                systemMemoryUsageListener.updateSystemMemoryUsage(-page.getSizeInBytes());
+                bufferBytes -= page.getRetainedSizeInBytes();
+                systemMemoryUsageListener.updateSystemMemoryUsage(-page.getRetainedSizeInBytes());
             }
             if (!closed.get() && pageBuffer.peek() == NO_MORE_PAGES) {
                 closed.set(true);
@@ -211,6 +211,12 @@ public class ExchangeClient
             scheduleRequestIfNecessary();
         }
         return page;
+    }
+
+    public boolean isFinished()
+    {
+        throwIfFailed();
+        return isClosed() && completedClients.size() == locations.size();
     }
 
     public boolean isClosed()
@@ -236,7 +242,7 @@ public class ExchangeClient
 
     public synchronized void scheduleRequestIfNecessary()
     {
-        if (isClosed() || isFailed()) {
+        if (isFinished() || isFailed()) {
             return;
         }
 
@@ -299,25 +305,33 @@ public class ExchangeClient
         return future;
     }
 
-    private synchronized void addPage(Page page)
+    private synchronized boolean addPages(List<Page> pages)
     {
         if (isClosed() || isFailed()) {
-            return;
+            return false;
         }
 
-        pageBuffer.add(page);
+        pageBuffer.addAll(pages);
 
         // notify all blocked callers
         notifyBlockedCallers();
 
-        bufferBytes += page.getSizeInBytes();
-        systemMemoryUsageListener.updateSystemMemoryUsage(page.getSizeInBytes());
+        long memorySize = pages.stream()
+                .mapToLong(Page::getRetainedSizeInBytes)
+                .sum();
+
+        bufferBytes += memorySize;
+        systemMemoryUsageListener.updateSystemMemoryUsage(memorySize);
         successfulRequests++;
 
+        long responseSize = pages.stream()
+                .mapToLong(Page::getSizeInBytes)
+                .sum();
         // AVG_n = AVG_(n-1) * (n-1)/n + VALUE_n / n
-        averageBytesPerRequest = (long) (1.0 * averageBytesPerRequest * (successfulRequests - 1) / successfulRequests + page.getSizeInBytes() / successfulRequests);
+        averageBytesPerRequest = (long) (1.0 * averageBytesPerRequest * (successfulRequests - 1) / successfulRequests + responseSize / successfulRequests);
 
         scheduleRequestIfNecessary();
+        return true;
     }
 
     private synchronized void notifyBlockedCallers()
@@ -371,12 +385,13 @@ public class ExchangeClient
             implements ClientCallback
     {
         @Override
-        public void addPage(HttpPageBufferClient client, Page page)
+        public boolean addPages(HttpPageBufferClient client, List<Page> pages)
         {
             requireNonNull(client, "client is null");
-            requireNonNull(page, "page is null");
-            ExchangeClient.this.addPage(page);
+            requireNonNull(pages, "pages is null");
+            boolean added = ExchangeClient.this.addPages(pages);
             scheduleRequestIfNecessary();
+            return added;
         }
 
         @Override

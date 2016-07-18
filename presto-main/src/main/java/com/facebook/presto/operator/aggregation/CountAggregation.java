@@ -22,8 +22,6 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 @AggregationFunction("count")
 public final class CountAggregation
 {
-    public static final InternalAggregationFunction COUNT = new AggregationCompiler().generateAggregationFunction(CountAggregation.class);
-
     private CountAggregation()
     {
     }

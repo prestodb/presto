@@ -25,7 +25,7 @@ import java.util.regex.Pattern;
 
 /**
  * An immutable representation of a host and port.
- * <p/>
+ * <p>
  * <p>Example usage:
  * <pre>
  * HostAndPort hp = HostAndPort.fromString("[2001:db8::1]")
@@ -35,7 +35,7 @@ import java.util.regex.Pattern;
  * hp.getPort();      // returns 80
  * hp.toString();     // returns "[2001:db8::1]:80"
  * </pre>
- * <p/>
+ * <p>
  * <p>Here are some examples of recognized formats:
  * <ul>
  * <li>example.com
@@ -46,7 +46,7 @@ import java.util.regex.Pattern;
  * <li>[2001:db8::1]:80  - {@link #getHostText()} omits brackets
  * <li>2001:db8::1
  * </ul>
- * <p/>
+ * <p>
  * <p>Note that this is not an exhaustive list, because these methods are only
  * concerned with brackets, colons, and port numbers.  Full validation of the
  * host field (if desired) is the caller's responsibility.
@@ -80,7 +80,7 @@ public class HostAddress
     /**
      * Returns the portion of this {@code HostAddress} instance that should
      * represent the hostname or IPv4/IPv6 literal.
-     * <p/>
+     * <p>
      * <p>A successful parse does not imply any degree of sanity in this field.
      * For additional validation, see the {@link com.google.common.net.HostSpecifier} class.
      */
@@ -122,7 +122,7 @@ public class HostAddress
 
     /**
      * Build a HostAddress instance from separate host and port values.
-     * <p/>
+     * <p>
      * <p>Note: Non-bracketed IPv6 literals are allowed.
      *
      * @param host the host string to parse.  Must not contain a port number.
@@ -147,7 +147,7 @@ public class HostAddress
 
     /**
      * Split a freeform string into a host and port, without strict validation.
-     * <p/>
+     * <p>
      * Note that the host-only formats will leave the port field undefined.  You
      * can use {@link #withDefaultPort(int)} to patch in a default value.
      *
@@ -221,7 +221,7 @@ public class HostAddress
 
     /**
      * Provide a default port if the parsed string contained only a host.
-     * <p/>
+     * <p>
      * You can chain this after {@link #fromString(String)} to include a port in
      * case the port was omitted from the input string.  If a port was already
      * provided, then this method is a no-op.

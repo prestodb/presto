@@ -18,6 +18,7 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -39,6 +40,7 @@ public class RowNumberOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final Optional<Integer> maxRowsPerPartition;
         private final List<Type> sourceTypes;
         private final List<Integer> outputChannels;
@@ -51,6 +53,7 @@ public class RowNumberOperator
 
         public RowNumberOperatorFactory(
                 int operatorId,
+                PlanNodeId planNodeId,
                 List<? extends Type> sourceTypes,
                 List<Integer> outputChannels,
                 List<Integer> partitionChannels,
@@ -60,6 +63,7 @@ public class RowNumberOperator
                 int expectedPositions)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.sourceTypes = ImmutableList.copyOf(sourceTypes);
             this.outputChannels = ImmutableList.copyOf(requireNonNull(outputChannels, "outputChannels is null"));
             this.partitionChannels = ImmutableList.copyOf(requireNonNull(partitionChannels, "partitionChannels is null"));
@@ -83,7 +87,7 @@ public class RowNumberOperator
         {
             checkState(!closed, "Factory is already closed");
 
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, RowNumberOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, RowNumberOperator.class.getSimpleName());
             return new RowNumberOperator(
                     operatorContext,
                     sourceTypes,
@@ -99,6 +103,12 @@ public class RowNumberOperator
         public void close()
         {
             closed = true;
+        }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new RowNumberOperatorFactory(operatorId, planNodeId, sourceTypes, outputChannels, partitionChannels, partitionTypes, maxRowsPerPartition, hashChannel, expectedPositions);
         }
     }
 
@@ -135,7 +145,7 @@ public class RowNumberOperator
         }
         else {
             int[] channels = Ints.toArray(partitionChannels);
-            this.groupByHash = Optional.of(createGroupByHash(partitionTypes, channels, Optional.<Integer>empty(), hashChannel, expectedPositions));
+            this.groupByHash = Optional.of(createGroupByHash(operatorContext.getSession(), partitionTypes, channels, hashChannel, expectedPositions));
         }
         this.types = toTypes(sourceTypes, outputChannels);
     }
@@ -265,7 +275,7 @@ public class RowNumberOperator
             pageBuilder.declarePosition();
             for (int i = 0; i < outputChannels.length; i++) {
                 int channel = outputChannels[i];
-                Type type = types.get(channel);
+                Type type = types.get(i);
                 type.appendTo(inputPage.getBlock(channel), currentPosition, pageBuilder.getBlockBuilder(i));
             }
             BIGINT.writeLong(pageBuilder.getBlockBuilder(rowNumberChannel), rowCount + 1);

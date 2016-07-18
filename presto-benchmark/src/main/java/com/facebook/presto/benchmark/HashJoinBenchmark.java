@@ -21,13 +21,16 @@ import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.LookupSourceSupplier;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.NullOutputOperator.NullOutputOperatorFactory;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 
@@ -50,24 +53,33 @@ public class HashJoinBenchmark
     protected List<Driver> createDrivers(TaskContext taskContext)
     {
         if (lookupSourceSupplier == null) {
-            OperatorFactory ordersTableScan = createTableScanOperator(0, "orders", "orderkey", "totalprice");
-            HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(1, ordersTableScan.getTypes(), Ints.asList(0), Optional.empty(), 1_500_000);
+            OperatorFactory ordersTableScan = createTableScanOperator(0, new PlanNodeId("test"), "orders", "orderkey", "totalprice");
+            HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(
+                    1,
+                    new PlanNodeId("test"),
+                    ordersTableScan.getTypes(),
+                    ImmutableMap.of(),
+                    Ints.asList(0),
+                    Optional.empty(),
+                    false,
+                    Optional.empty(),
+                    1_500_000);
 
             DriverContext driverContext = taskContext.addPipelineContext(false, false).addDriverContext();
-            Driver driver = new DriverFactory(false, false, ordersTableScan, hashBuilder).createDriver(driverContext);
+            Driver driver = new DriverFactory(false, false, ImmutableList.of(ordersTableScan, hashBuilder), OptionalInt.empty()).createDriver(driverContext);
             while (!driver.isFinished()) {
                 driver.process();
             }
             lookupSourceSupplier = hashBuilder.getLookupSourceSupplier();
         }
 
-        OperatorFactory lineItemTableScan = createTableScanOperator(0, "lineitem", "orderkey", "quantity");
+        OperatorFactory lineItemTableScan = createTableScanOperator(0, new PlanNodeId("test"), "lineitem", "orderkey", "quantity");
 
-        OperatorFactory joinOperator = LookupJoinOperators.innerJoin(1, lookupSourceSupplier, lineItemTableScan.getTypes(), Ints.asList(0), Optional.empty());
+        OperatorFactory joinOperator = LookupJoinOperators.innerJoin(1, new PlanNodeId("test"), lookupSourceSupplier, lineItemTableScan.getTypes(), Ints.asList(0), Optional.empty(), false);
 
-        NullOutputOperatorFactory output = new NullOutputOperatorFactory(2, joinOperator.getTypes());
+        NullOutputOperatorFactory output = new NullOutputOperatorFactory(2, new PlanNodeId("test"), joinOperator.getTypes());
 
-        DriverFactory driverFactory = new DriverFactory(true, true, lineItemTableScan, joinOperator, output);
+        DriverFactory driverFactory = new DriverFactory(true, true, ImmutableList.of(lineItemTableScan, joinOperator, output), OptionalInt.empty());
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
         Driver driver = driverFactory.createDriver(driverContext);
         return ImmutableList.of(driver);

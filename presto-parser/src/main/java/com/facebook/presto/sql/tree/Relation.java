@@ -13,17 +13,15 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Optional;
+
 public abstract class Relation
         extends Node
 {
-    @Override
-    public abstract int hashCode();
-
-    @Override
-    public abstract boolean equals(Object obj);
-
-    @Override
-    public abstract String toString();
+    protected Relation(Optional<NodeLocation> location)
+    {
+        super(location);
+    }
 
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)

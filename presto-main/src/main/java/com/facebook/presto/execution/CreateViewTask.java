@@ -15,32 +15,31 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
-import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.CreateView;
-import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.transaction.TransactionManager;
 import io.airlift.json.JsonCodec;
 
 import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
-import static com.facebook.presto.metadata.MetadataUtil.createQualifiedTableName;
+import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.sql.SqlFormatter.formatSql;
+import static com.facebook.presto.sql.SqlFormatterUtil.getFormattedSql;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class CreateViewTask
         implements DataDefinitionTask<CreateView>
@@ -77,13 +76,14 @@ public class CreateViewTask
     }
 
     @Override
-    public void execute(CreateView statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
+    public CompletableFuture<?> execute(CreateView statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
     {
-        QualifiedTableName name = createQualifiedTableName(session, statement, statement.getName());
+        Session session = stateMachine.getSession();
+        QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
 
-        accessControl.checkCanCreateView(session.getIdentity(), name);
+        accessControl.checkCanCreateView(session.getRequiredTransactionId(), session.getIdentity(), name);
 
-        String sql = getFormattedSql(statement);
+        String sql = getFormattedSql(statement.getQuery(), sqlParser);
 
         Analysis analysis = analyzeStatement(statement, session, metadata);
 
@@ -95,31 +95,13 @@ public class CreateViewTask
         String data = codec.toJson(new ViewDefinition(sql, session.getCatalog(), session.getSchema(), columns, Optional.of(session.getUser())));
 
         metadata.createView(session, name, data, statement.isReplace());
+
+        return completedFuture(null);
     }
 
     private Analysis analyzeStatement(Statement statement, Session session, Metadata metadata)
     {
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.<QueryExplainer>empty(), experimentalSyntaxEnabled);
         return analyzer.analyze(statement);
-    }
-
-    private String getFormattedSql(CreateView statement)
-    {
-        Query query = statement.getQuery();
-        String sql = formatSql(query);
-
-        // verify round-trip
-        Statement parsed;
-        try {
-            parsed = sqlParser.createStatement(sql);
-        }
-        catch (ParsingException e) {
-            throw new PrestoException(INTERNAL_ERROR, "Formatted query does not parse: " + query);
-        }
-        if (!query.equals(parsed)) {
-            throw new PrestoException(INTERNAL_ERROR, "Query does not round-trip: " + query);
-        }
-
-        return sql;
     }
 }

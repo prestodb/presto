@@ -15,6 +15,7 @@ package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.slice.XxHash64;
 
 public abstract class AbstractFixedWidthBlock
         implements Block
@@ -73,20 +74,6 @@ public abstract class AbstractFixedWidthBlock
     }
 
     @Override
-    public float getFloat(int position, int offset)
-    {
-        checkReadablePosition(position);
-        return getRawSlice().getFloat(valueOffset(position) + offset);
-    }
-
-    @Override
-    public double getDouble(int position, int offset)
-    {
-        checkReadablePosition(position);
-        return getRawSlice().getDouble(valueOffset(position) + offset);
-    }
-
-    @Override
     public Slice getSlice(int position, int offset, int length)
     {
         checkReadablePosition(position);
@@ -113,13 +100,14 @@ public abstract class AbstractFixedWidthBlock
     }
 
     @Override
-    public int hash(int position, int offset, int length)
+    public long hash(int position, int offset, int length)
     {
         checkReadablePosition(position);
         if (isNull(position)) {
             return 0;
         }
-        return getRawSlice().hashCode(valueOffset(position) + offset, length);
+
+        return XxHash64.hash(getRawSlice(), valueOffset(position) + offset, length);
     }
 
     @Override
@@ -174,11 +162,6 @@ public abstract class AbstractFixedWidthBlock
     {
         checkReadablePosition(position);
         return isEntryNull(position);
-    }
-
-    @Override
-    public void assureLoaded()
-    {
     }
 
     private int valueOffset(int position)

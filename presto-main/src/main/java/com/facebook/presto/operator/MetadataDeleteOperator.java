@@ -21,6 +21,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -39,15 +40,17 @@ public class MetadataDeleteOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final TableLayoutHandle tableLayout;
         private final Metadata metadata;
         private final Session session;
         private final TableHandle tableHandle;
         private boolean closed;
 
-        public MetadataDeleteOperatorFactory(int operatorId, TableLayoutHandle tableLayout, Metadata metadata, Session session, TableHandle tableHandle)
+        public MetadataDeleteOperatorFactory(int operatorId, PlanNodeId planNodeId, TableLayoutHandle tableLayout, Metadata metadata, Session session, TableHandle tableHandle)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.tableLayout = requireNonNull(tableLayout, "tableLayout is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.session = requireNonNull(session, "session is null");
@@ -64,7 +67,7 @@ public class MetadataDeleteOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext context = driverContext.addOperatorContext(operatorId, MetadataDeleteOperator.class.getSimpleName());
+            OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, MetadataDeleteOperator.class.getSimpleName());
             return new MetadataDeleteOperator(context, tableLayout, metadata, session, tableHandle);
         }
 
@@ -72,6 +75,12 @@ public class MetadataDeleteOperator
         public void close()
         {
             closed = true;
+        }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new MetadataDeleteOperatorFactory(operatorId, planNodeId, tableLayout, metadata, session, tableHandle);
         }
     }
 

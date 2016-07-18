@@ -14,6 +14,8 @@
 package com.facebook.presto.sql.tree;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 public class InListExpression
         extends Expression
@@ -22,6 +24,17 @@ public class InListExpression
 
     public InListExpression(List<Expression> values)
     {
+        this(Optional.empty(), values);
+    }
+
+    public InListExpression(NodeLocation location, List<Expression> values)
+    {
+        this(Optional.of(location), values);
+    }
+
+    private InListExpression(Optional<NodeLocation> location, List<Expression> values)
+    {
+        super(location);
         this.values = values;
     }
 
@@ -47,12 +60,7 @@ public class InListExpression
         }
 
         InListExpression that = (InListExpression) o;
-
-        if (!values.equals(that.values)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(values, that.values);
     }
 
     @Override

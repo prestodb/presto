@@ -14,11 +14,14 @@
 package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
+import org.openjdk.jol.info.ClassLayout;
 
 public class ArrayElementBlockWriter
         extends AbstractArrayElementBlock
         implements BlockBuilder
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ArrayElementBlockWriter.class).instanceSize();
+
     private final BlockBuilder blockBuilder;
     private final int initialBlockBuilderSize;
     private int positionsWritten;
@@ -40,6 +43,12 @@ public class ArrayElementBlockWriter
     public int getSizeInBytes()
     {
         return blockBuilder.getSizeInBytes() - initialBlockBuilderSize;
+    }
+
+    @Override
+    public int getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + blockBuilder.getRetainedSizeInBytes();
     }
 
     @Override
@@ -67,20 +76,6 @@ public class ArrayElementBlockWriter
     public BlockBuilder writeLong(long value)
     {
         blockBuilder.writeLong(value);
-        return this;
-    }
-
-    @Override
-    public BlockBuilder writeFloat(float value)
-    {
-        blockBuilder.writeFloat(value);
-        return this;
-    }
-
-    @Override
-    public BlockBuilder writeDouble(double value)
-    {
-        blockBuilder.writeDouble(value);
         return this;
     }
 
@@ -133,6 +128,12 @@ public class ArrayElementBlockWriter
 
     @Override
     public Block build()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void reset(BlockBuilderStatus blockBuilderStatus)
     {
         throw new UnsupportedOperationException();
     }

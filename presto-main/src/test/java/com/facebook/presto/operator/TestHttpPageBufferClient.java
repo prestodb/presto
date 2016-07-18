@@ -17,7 +17,6 @@ import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.type.TypeRegistry;
-import com.google.common.base.Function;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableListMultimap;
@@ -33,8 +32,6 @@ import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-
-import javax.annotation.Nullable;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -201,7 +198,11 @@ public class TestHttpPageBufferClient
         assertStatus(client, location, "queued", 0, 1, 1, 1, "not scheduled");
 
         client.close();
-        assertStatus(client, location, "closed", 0, 1, 1, 1, "not scheduled");
+        beforeRequest.await(10, TimeUnit.SECONDS);
+        assertStatus(client, location, "closed", 0, 1, 1, 1, "PROCESSING_REQUEST");
+        afterRequest.await(10, TimeUnit.SECONDS);
+        requestComplete.await(10, TimeUnit.SECONDS);
+        assertStatus(client, location, "closed", 0, 1, 2, 1, "not scheduled");
     }
 
     @Test
@@ -267,7 +268,8 @@ public class TestHttpPageBufferClient
 
         // close client and verify
         client.close();
-        assertStatus(client, location, "closed", 0, 3, 3, 3, "not scheduled");
+        requestComplete.await(10, TimeUnit.SECONDS);
+        assertStatus(client, location, "closed", 0, 3, 4, 3, "not scheduled");
     }
 
     @Test
@@ -307,7 +309,12 @@ public class TestHttpPageBufferClient
         }
         catch (BrokenBarrierException ignored) {
         }
-        assertStatus(client, location, "closed", 0, 1, 1, 1, "not scheduled");
+        // client.close() triggers a DELETE request, so wait for it to finish
+        afterRequest.reset();
+        beforeRequest.await(10, TimeUnit.SECONDS);
+        afterRequest.await(10, TimeUnit.SECONDS);
+        requestComplete.await(10, TimeUnit.SECONDS);
+        assertStatus(client, location, "closed", 0, 1, 2, 1, "not scheduled");
     }
 
     @Test
@@ -317,7 +324,7 @@ public class TestHttpPageBufferClient
         TestingTicker ticker = new TestingTicker();
         AtomicReference<Duration> tickerIncrement = new AtomicReference<>(new Duration(0, TimeUnit.SECONDS));
 
-        Function<Request, Response> processor = (input) -> {
+        TestingHttpClient.Processor processor = (input) -> {
             Duration delta = tickerIncrement.get();
             ticker.increment(delta.toMillis(), TimeUnit.MILLISECONDS);
             throw new RuntimeException("Foo");
@@ -450,41 +457,24 @@ public class TestHttpPageBufferClient
         }
 
         @Override
-        public void addPage(HttpPageBufferClient client, Page page)
+        public boolean addPages(HttpPageBufferClient client, List<Page> pages)
         {
-            pages.add(page);
+            this.pages.addAll(pages);
+            return true;
         }
 
         @Override
         public void requestComplete(HttpPageBufferClient client)
         {
             completedRequests.getAndIncrement();
-            try {
-                done.await(10, TimeUnit.SECONDS);
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw Throwables.propagate(e);
-            }
-            catch (BrokenBarrierException | TimeoutException e) {
-                throw Throwables.propagate(e);
-            }
+            awaitDone();
         }
 
         @Override
         public void clientFinished(HttpPageBufferClient client)
         {
             finishedBuffers.getAndIncrement();
-            try {
-                done.await(10, TimeUnit.SECONDS);
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw Throwables.propagate(e);
-            }
-            catch (BrokenBarrierException | TimeoutException e) {
-                throw Throwables.propagate(e);
-            }
+            awaitDone();
         }
 
         @Override
@@ -503,10 +493,24 @@ public class TestHttpPageBufferClient
             failedBuffers.set(0);
             failure.set(null);
         }
+
+        private void awaitDone()
+        {
+            try {
+                done.await(10, TimeUnit.SECONDS);
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw Throwables.propagate(e);
+            }
+            catch (BrokenBarrierException | TimeoutException e) {
+                throw Throwables.propagate(e);
+            }
+        }
     }
 
     private static class StaticRequestProcessor
-            implements Function<Request, Response>
+            implements TestingHttpClient.Processor
     {
         private final AtomicReference<Response> response = new AtomicReference<>();
         private final CyclicBarrier beforeRequest;
@@ -525,33 +529,16 @@ public class TestHttpPageBufferClient
 
         @SuppressWarnings({"ThrowFromFinallyBlock", "Finally"})
         @Override
-        public Response apply(@Nullable Request request)
+        public Response handle(Request request)
+                throws Exception
         {
-            try {
-                beforeRequest.await(10, TimeUnit.SECONDS);
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw Throwables.propagate(e);
-            }
-            catch (BrokenBarrierException | TimeoutException e) {
-                throw Throwables.propagate(e);
-            }
+            beforeRequest.await(10, TimeUnit.SECONDS);
 
             try {
                 return response.get();
             }
             finally {
-                try {
-                    afterRequest.await(10, TimeUnit.SECONDS);
-                }
-                catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw Throwables.propagate(e);
-                }
-                catch (BrokenBarrierException | TimeoutException e) {
-                    throw Throwables.propagate(e);
-                }
+                afterRequest.await(10, TimeUnit.SECONDS);
             }
         }
     }

@@ -20,7 +20,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.raptor.metadata.MetadataDaoUtils.createMetadataTablesWithRetry;
+import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -38,7 +38,7 @@ public class TestMetadataDao
         IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();
         dao = dbi.onDemand(MetadataDao.class);
-        createMetadataTablesWithRetry(dbi);
+        createTablesWithRetry(dbi);
     }
 
     @AfterMethod(alwaysRun = true)
@@ -52,8 +52,8 @@ public class TestMetadataDao
             throws Exception
     {
         Long columnId = 1L;
-        long tableId = dao.insertTable("schema1", "table1", true);
-        dao.insertColumn(tableId, columnId, "col1", 1, "bigint", null);
+        long tableId = dao.insertTable("schema1", "table1", true, null);
+        dao.insertColumn(tableId, columnId, "col1", 1, "bigint", null, null);
         Long temporalColumnId = dao.getTemporalColumnId(tableId);
         assertNull(temporalColumnId);
 
@@ -62,7 +62,7 @@ public class TestMetadataDao
         assertNotNull(temporalColumnId);
         assertEquals(temporalColumnId, columnId);
 
-        long tableId2 = dao.insertTable("schema1", "table2", true);
+        long tableId2 = dao.insertTable("schema1", "table2", true, null);
         Long columnId2 = dao.getTemporalColumnId(tableId2);
         assertNull(columnId2);
     }

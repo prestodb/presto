@@ -56,8 +56,7 @@ public class ArrayAggregationStateSerializer
         int positionCount = stateBlock.getPositionCount();
         BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), positionCount);
         for (int i = 0; i < positionCount; i++) {
-            stateBlock.writePositionTo(i, blockBuilder);
-            blockBuilder.closeEntry();
+            elementType.appendTo(stateBlock, i, blockBuilder);
         }
         state.setBlockBuilder(blockBuilder);
     }

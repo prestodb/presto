@@ -18,7 +18,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 
 import java.io.Closeable;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -56,7 +58,10 @@ public class BenchmarkDriver
             return;
         }
 
-        ClientSession session = ClientSession.withSessionProperties(clientSession, suite.getSessionProperties());
+        Map<String, String> properties = new HashMap<>();
+        properties.putAll(clientSession.getProperties());
+        properties.putAll(suite.getSessionProperties());
+        ClientSession session = ClientSession.withProperties(clientSession, properties);
 
         // select schemas to use
         List<BenchmarkSchema> benchmarkSchemas;

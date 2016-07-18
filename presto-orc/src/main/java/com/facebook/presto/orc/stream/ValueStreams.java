@@ -22,6 +22,7 @@ import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DWRF_DIRECT;
+import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.DECIMAL;
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.INT;
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.TIMESTAMP;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
@@ -72,10 +73,13 @@ public final class ValueStreams
                 case DOUBLE:
                     return new DoubleStream(inputStream);
                 case STRING:
+                case VARCHAR:
                 case BINARY:
                     return new ByteArrayStream(inputStream);
                 case TIMESTAMP:
                     return createLongStream(inputStream, encoding, type, true, usesVInt);
+                case DECIMAL:
+                    return new DecimalStream(inputStream);
             }
         }
 
@@ -83,6 +87,7 @@ public final class ValueStreams
         if (streamId.getStreamKind() == LENGTH) {
             switch (type) {
                 case STRING:
+                case VARCHAR:
                 case BINARY:
                 case MAP:
                 case LIST:
@@ -94,6 +99,7 @@ public final class ValueStreams
         if (streamId.getStreamKind() == ROW_GROUP_DICTIONARY_LENGTH) {
             switch (type) {
                 case STRING:
+                case VARCHAR:
                 case BINARY:
                     return new RowGroupDictionaryLengthStream(inputStream, false);
             }
@@ -103,6 +109,7 @@ public final class ValueStreams
         if (streamId.getStreamKind() == ROW_GROUP_DICTIONARY) {
             switch (type) {
                 case STRING:
+                case VARCHAR:
                 case BINARY:
                     return new ByteArrayStream(inputStream);
             }
@@ -116,6 +123,14 @@ public final class ValueStreams
         // length (nanos) of a timestamp column
         if (type == TIMESTAMP && streamId.getStreamKind() == SECONDARY) {
             return createLongStream(inputStream, encoding, type, false, usesVInt);
+        }
+
+        // scale of a decimal column
+        if (type == DECIMAL && streamId.getStreamKind() == SECONDARY) {
+            // specification (https://orc.apache.org/docs/encodings.html) says scale stream is unsigned,
+            // however Hive writer stores scale as signed integer (org.apache.hadoop.hive.ql.io.orc.WriterImpl.DecimalTreeWriter)
+            // BUG link: https://issues.apache.org/jira/browse/HIVE-13229
+            return createLongStream(inputStream, encoding, type, true, usesVInt);
         }
 
         if (streamId.getStreamKind() == DICTIONARY_DATA) {

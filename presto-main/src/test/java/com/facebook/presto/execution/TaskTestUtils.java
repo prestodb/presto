@@ -17,12 +17,17 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.execution.TestSqlTaskManager.MockExchangeClientSupplier;
+import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
+import com.facebook.presto.execution.scheduler.NodeScheduler;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.index.IndexManager;
+import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
@@ -30,15 +35,19 @@ import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
+import com.facebook.presto.sql.planner.NodePartitioningManager;
+import com.facebook.presto.sql.planner.Partitioning;
+import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
-import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TestingColumnHandle;
 import com.facebook.presto.sql.planner.TestingTableHandle;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.testing.TestingSplit;
+import com.facebook.presto.testing.TestingTransactionHandle;
+import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -47,6 +56,8 @@ import java.util.Optional;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 
 public final class TaskTestUtils
 {
@@ -54,9 +65,11 @@ public final class TaskTestUtils
     {
     }
 
-    public static final ScheduledSplit SPLIT = new ScheduledSplit(0, new Split("test", TestingSplit.createLocalSplit()));
+    public static final ConnectorTransactionHandle TRANSACTION_HANDLE = TestingTransactionHandle.create("test");
 
     public static final PlanNodeId TABLE_SCAN_NODE_ID = new PlanNodeId("tableScan");
+
+    public static final ScheduledSplit SPLIT = new ScheduledSplit(0, TABLE_SCAN_NODE_ID, new Split("test", TRANSACTION_HANDLE, TestingSplit.createLocalSplit()));
 
     public static final ImmutableList<TaskSource> EMPTY_SOURCES = ImmutableList.of();
 
@@ -73,13 +86,10 @@ public final class TaskTestUtils
                     TupleDomain.all(),
                     null),
             ImmutableMap.<Symbol, Type>of(SYMBOL, VARCHAR),
-            ImmutableList.of(SYMBOL),
-            PlanDistribution.SOURCE,
-            TABLE_SCAN_NODE_ID,
-            OutputPartitioning.NONE,
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty());
+            SOURCE_DISTRIBUTION,
+            ImmutableList.of(TABLE_SCAN_NODE_ID),
+            new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(SYMBOL))
+                    .withBucketToPartition(Optional.of(new int[1])));
 
     public static LocalExecutionPlanner createTestingPlanner()
     {
@@ -87,11 +97,24 @@ public final class TaskTestUtils
 
         PageSourceManager pageSourceManager = new PageSourceManager();
         pageSourceManager.addConnectorPageSourceProvider("test", new TestingPageSourceProvider());
+
+        // we don't start the finalizer so nothing will be collected, which is ok for a test
+        FinalizerService finalizerService = new FinalizerService();
+
+        NodeScheduler nodeScheduler = new NodeScheduler(
+                new LegacyNetworkTopology(),
+                new InMemoryNodeManager(),
+                new NodeSchedulerConfig().setIncludeCoordinator(true),
+                new NodeTaskMap(finalizerService));
+        NodePartitioningManager nodePartitioningManager = new NodePartitioningManager(nodeScheduler);
+
         return new LocalExecutionPlanner(
                 metadata,
                 new SqlParser(),
+                Optional.empty(),
                 pageSourceManager,
                 new IndexManager(),
+                nodePartitioningManager,
                 new PageSinkManager(),
                 new MockExchangeClientSupplier(),
                 new ExpressionCompiler(metadata),
@@ -102,6 +125,6 @@ public final class TaskTestUtils
 
     public static TaskInfo updateTask(SqlTask sqlTask, List<TaskSource> taskSources, OutputBuffers outputBuffers)
     {
-        return sqlTask.updateTask(TEST_SESSION, PLAN_FRAGMENT, taskSources, outputBuffers);
+        return sqlTask.updateTask(TEST_SESSION, Optional.of(PLAN_FRAGMENT), taskSources, outputBuffers);
     }
 }

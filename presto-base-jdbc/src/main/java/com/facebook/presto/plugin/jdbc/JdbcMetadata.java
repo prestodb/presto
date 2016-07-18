@@ -15,27 +15,34 @@ package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayout;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 
-import javax.inject.Inject;
-
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.plugin.jdbc.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcMetadata
@@ -44,13 +51,12 @@ public class JdbcMetadata
     private final JdbcClient jdbcClient;
     private final boolean allowDropTable;
 
-    @Inject
-    public JdbcMetadata(JdbcConnectorId connectorId, JdbcClient jdbcClient, JdbcMetadataConfig config)
+    private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
+
+    public JdbcMetadata(JdbcClient jdbcClient, boolean allowDropTable)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "client is null");
-
-        requireNonNull(config, "config is null");
-        allowDropTable = config.isAllowDropTable();
+        this.allowDropTable = allowDropTable;
     }
 
     @Override
@@ -63,6 +69,20 @@ public class JdbcMetadata
     public JdbcTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         return jdbcClient.getTableHandle(tableName);
+    }
+
+    @Override
+    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
+    {
+        JdbcTableHandle tableHandle = checkType(table, JdbcTableHandle.class, "table");
+        ConnectorTableLayout layout = new ConnectorTableLayout(new JdbcTableLayoutHandle(tableHandle, constraint.getSummary()));
+        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
+    }
+
+    @Override
+    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
+    {
+        return new ConnectorTableLayout(handle);
     }
 
     @Override
@@ -132,15 +152,33 @@ public class JdbcMetadata
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
-        return jdbcClient.beginCreateTable(tableMetadata);
+        JdbcOutputTableHandle handle = jdbcClient.beginCreateTable(tableMetadata);
+        setRollback(() -> jdbcClient.rollbackCreateTable(handle));
+        return handle;
     }
 
     @Override
-    public void commitCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
+    public void finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         JdbcOutputTableHandle handle = checkType(tableHandle, JdbcOutputTableHandle.class, "tableHandle");
         jdbcClient.commitCreateTable(handle, fragments);
+        clearRollback();
+    }
+
+    private void setRollback(Runnable action)
+    {
+        checkState(rollbackAction.compareAndSet(null, action), "rollback action is already set");
+    }
+
+    private void clearRollback()
+    {
+        rollbackAction.set(null);
+    }
+
+    public void rollback()
+    {
+        Optional.ofNullable(rollbackAction.getAndSet(null)).ifPresent(Runnable::run);
     }
 }

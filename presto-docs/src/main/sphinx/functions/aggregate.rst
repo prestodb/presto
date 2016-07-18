@@ -106,6 +106,11 @@ Map Aggregate Functions
 
     Returns a map created from the input ``key`` / ``value`` pairs.
 
+.. function:: map_union(x<K,V>) -> map<K,V>
+
+   Returns the union of all the input maps. If a key is found in multiple
+   input maps, that key's value in the resulting map comes from an arbitrary input map.
+
 .. function:: multimap_agg(key, value) -> map<K,array<V>>
 
     Returns a multimap created from the input ``key`` / ``value`` pairs.
@@ -140,13 +145,13 @@ Approximate Aggregate Functions
 .. function:: approx_percentile(x, percentage) -> [same as x]
 
     Returns the approximate percentile for all input values of ``x`` at the
-    given ''percentage''. The value of ``percentage`` must be between zero and
+    given ``percentage``. The value of ``percentage`` must be between zero and
     one and must be constant for all input rows.
 
 .. function:: approx_percentile(x, percentages) -> array<[same as x]>
 
     Returns the approximate percentile for all input values of ``x`` at each of
-    the percentages specified in the array. Each element of the array must be 
+    the specified percentages. Each element of the ``percentages`` array must be
     between zero and one, and the array must be constant for all input rows.
 
 .. function:: approx_percentile(x, w, percentage) -> [same as x]
@@ -156,6 +161,16 @@ Approximate Aggregate Functions
     an integer value of at least one. It is effectively a replication count for
     the value ``x`` in the percentile set. The value of ``p`` must be between
     zero and one and must be constant for all input rows.
+
+.. function:: approx_percentile(x, w, percentage, accuracy) -> [same as x]
+
+    Returns the approximate weighed percentile for all input values of ``x``
+    using the per-item weight ``w`` at the percentage ``p``, with a maximum rank
+    error of ``accuracy``. The weight must be an integer value of at least one.
+    It is effectively a replication count for the value ``x`` in the percentile
+    set. The value of ``p`` must be between zero and one and must be constant
+    for all input rows. ``accuracy`` must be a value greater than zero and less
+    than one, and it must be constant for all input rows.
 
 .. function:: approx_percentile(x, w, percentages) -> array<[same as x]>
 

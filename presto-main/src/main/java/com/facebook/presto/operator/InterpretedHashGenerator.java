@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.scalar.CombineHashFunction;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
 import com.facebook.presto.type.TypeUtils;
@@ -41,13 +40,12 @@ public class InterpretedHashGenerator
     }
 
     @Override
-    public int hashPosition(int position, Page page)
+    public long hashPosition(int position, Page page)
     {
-        Block[] blocks = page.getBlocks();
-        int result = HashGenerationOptimizer.INITIAL_HASH_VALUE;
+        long result = HashGenerationOptimizer.INITIAL_HASH_VALUE;
         for (int i = 0; i < hashChannels.length; i++) {
             Type type = hashChannelTypes.get(i);
-            result = (int) CombineHashFunction.getHash(result, TypeUtils.hashPosition(type, blocks[hashChannels[i]], position));
+            result = CombineHashFunction.getHash(result, TypeUtils.hashPosition(type, page.getBlock(hashChannels[i]), position));
         }
         return result;
     }

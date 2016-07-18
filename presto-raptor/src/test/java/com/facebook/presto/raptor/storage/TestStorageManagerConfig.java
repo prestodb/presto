@@ -51,11 +51,12 @@ public class TestStorageManagerConfig
                 .setCompactionInterval(new Duration(1, HOURS))
                 .setShardEjectorInterval(new Duration(4, HOURS))
                 .setRecoveryThreads(10)
-                .setCompactionThreads(5)
+                .setOrganizationThreads(5)
                 .setCompactionEnabled(true)
                 .setMaxShardRows(1_000_000)
                 .setMaxShardSize(new DataSize(256, MEGABYTE))
-                .setMaxBufferSize(new DataSize(256, MEGABYTE)));
+                .setMaxBufferSize(new DataSize(256, MEGABYTE))
+                .setOneSplitPerBucketThreshold(0));
     }
 
     @Test
@@ -73,10 +74,11 @@ public class TestStorageManagerConfig
                 .put("storage.compaction-interval", "4h")
                 .put("storage.ejector-interval", "9h")
                 .put("storage.max-recovery-threads", "12")
-                .put("storage.max-compaction-threads", "12")
+                .put("storage.max-organization-threads", "12")
                 .put("storage.max-shard-rows", "10000")
                 .put("storage.max-shard-size", "10MB")
                 .put("storage.max-buffer-size", "512MB")
+                .put("storage.one-split-per-bucket-threshold", "4")
                 .build();
 
         StorageManagerConfig expected = new StorageManagerConfig()
@@ -91,10 +93,11 @@ public class TestStorageManagerConfig
                 .setCompactionInterval(new Duration(4, HOURS))
                 .setShardEjectorInterval(new Duration(9, HOURS))
                 .setRecoveryThreads(12)
-                .setCompactionThreads(12)
+                .setOrganizationThreads(12)
                 .setMaxShardRows(10_000)
                 .setMaxShardSize(new DataSize(10, MEGABYTE))
-                .setMaxBufferSize(new DataSize(512, MEGABYTE));
+                .setMaxBufferSize(new DataSize(512, MEGABYTE))
+                .setOneSplitPerBucketThreshold(4);
 
         assertFullMapping(properties, expected);
     }

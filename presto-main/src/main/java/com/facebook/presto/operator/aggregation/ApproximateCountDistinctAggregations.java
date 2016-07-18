@@ -16,25 +16,19 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.operator.aggregation.state.HyperLogLogState;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.LiteralParameters;
 import com.facebook.presto.type.SqlType;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Failures.checkCondition;
 
 @AggregationFunction("approx_distinct")
 public final class ApproximateCountDistinctAggregations
 {
-    public static final InternalAggregationFunction LONG_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS = new AggregationCompiler().generateAggregationFunction(ApproximateCountDistinctAggregations.class, BIGINT, ImmutableList.<Type>of(BIGINT, DOUBLE));
-    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS = new AggregationCompiler().generateAggregationFunction(ApproximateCountDistinctAggregations.class, BIGINT, ImmutableList.<Type>of(DOUBLE, DOUBLE));
-    public static final InternalAggregationFunction VARBINARY_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS = new AggregationCompiler().generateAggregationFunction(ApproximateCountDistinctAggregations.class, BIGINT, ImmutableList.<Type>of(VARCHAR, DOUBLE));
     private static final double DEFAULT_STANDARD_ERROR = 0.023;
     private static final double LOWEST_MAX_STANDARD_ERROR = 0.01150;
     private static final double HIGHEST_MAX_STANDARD_ERROR = 0.26000;
@@ -69,13 +63,27 @@ public final class ApproximateCountDistinctAggregations
     }
 
     @InputFunction
-    public static void input(HyperLogLogState state, @SqlType(StandardTypes.VARCHAR) Slice value)
+    @LiteralParameters("x")
+    public static void input(HyperLogLogState state, @SqlType("varchar(x)") Slice value)
     {
         input(state, value, DEFAULT_STANDARD_ERROR);
     }
 
     @InputFunction
-    public static void input(HyperLogLogState state, @SqlType(StandardTypes.VARCHAR) Slice value, @SqlType(StandardTypes.DOUBLE) double maxStandardError)
+    @LiteralParameters("x")
+    public static void input(HyperLogLogState state, @SqlType("varchar(x)") Slice value, @SqlType(StandardTypes.DOUBLE) double maxStandardError)
+    {
+        inputBinary(state, value, maxStandardError);
+    }
+
+    @InputFunction
+    public static void inputBinary(HyperLogLogState state, @SqlType(StandardTypes.VARBINARY) Slice value)
+    {
+        inputBinary(state, value, DEFAULT_STANDARD_ERROR);
+    }
+
+    @InputFunction
+    public static void inputBinary(HyperLogLogState state, @SqlType(StandardTypes.VARBINARY) Slice value, @SqlType(StandardTypes.DOUBLE) double maxStandardError)
     {
         HyperLogLog hll = getOrCreateHyperLogLog(state, maxStandardError);
         state.addMemoryUsage(-hll.estimatedInMemorySize());

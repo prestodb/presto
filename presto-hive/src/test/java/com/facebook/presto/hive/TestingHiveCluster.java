@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.authentication.NoHiveMetastoreAuthentication;
+import com.facebook.presto.hive.metastore.HiveMetastoreClient;
 import com.google.common.base.Throwables;
 import org.apache.thrift.transport.TTransportException;
 
@@ -38,7 +40,7 @@ public class TestingHiveCluster
     public HiveMetastoreClient createMetastoreClient()
     {
         try {
-            return new HiveMetastoreClientFactory(config).create(host, port);
+            return new HiveMetastoreClientFactory(config, new NoHiveMetastoreAuthentication()).create(host, port);
         }
         catch (TTransportException e) {
             throw Throwables.propagate(e);

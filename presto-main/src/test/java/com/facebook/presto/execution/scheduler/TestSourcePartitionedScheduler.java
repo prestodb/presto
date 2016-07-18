@@ -13,21 +13,17 @@
  */
 package com.facebook.presto.execution.scheduler;
 
-import com.facebook.presto.UnpartitionedPagePartitionFunction;
+import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.MockRemoteTaskFactory;
 import com.facebook.presto.execution.MockRemoteTaskFactory.MockRemoteTask;
-import com.facebook.presto.execution.NodeScheduler;
-import com.facebook.presto.execution.NodeSchedulerConfig;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.StageId;
-import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TestSqlTaskManager.MockLocationFactory;
-import com.facebook.presto.execution.TestingSplit;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.PrestoNode;
 import com.facebook.presto.metadata.TableHandle;
@@ -37,10 +33,12 @@ import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.ConnectorAwareSplitSource;
 import com.facebook.presto.split.SplitSource;
+import com.facebook.presto.sql.planner.Partitioning;
+import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.Symbol;
@@ -51,10 +49,15 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.testing.TestingSplit;
+import com.facebook.presto.testing.TestingTransactionHandle;
+import com.facebook.presto.util.FinalizerService;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -65,12 +68,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 
-import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
+import static com.facebook.presto.OutputBuffers.BufferType.PARTITIONED;
+import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning.NONE;
-import static com.facebook.presto.sql.planner.PlanFragment.PlanDistribution.SOURCE;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.Integer.min;
@@ -83,12 +87,13 @@ import static org.testng.Assert.fail;
 
 public class TestSourcePartitionedScheduler
 {
-    public static final TaskId OUT = new TaskId("query", "stage", "out");
+    public static final OutputBufferId OUT = new OutputBufferId(0);
     private static final String CONNECTOR_ID = "test";
 
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stageExecutor-%s"));
     private final LocationFactory locationFactory = new MockLocationFactory();
     private final InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+    private final FinalizerService finalizerService = new FinalizerService();
 
     public TestSourcePartitionedScheduler()
     {
@@ -98,10 +103,17 @@ public class TestSourcePartitionedScheduler
                 new PrestoNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN));
     }
 
+    @BeforeClass
+    public void setUp()
+    {
+        finalizerService.start();
+    }
+
     @AfterClass
     public void destroyExecutor()
     {
         executor.shutdownNow();
+        finalizerService.destroy();
     }
 
     @Test
@@ -109,7 +121,7 @@ public class TestSourcePartitionedScheduler
             throws Exception
     {
         StageExecutionPlan plan = createPlan(createFixedSplitSource(0, TestingSplit::createRemoteSplit));
-        NodeTaskMap nodeTaskMap = new NodeTaskMap();
+        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
         SqlStageExecution stage = createSqlStageExecution(plan, nodeTaskMap);
 
         SourcePartitionedScheduler scheduler = getSourcePartitionedScheduler(plan, stage, nodeManager, nodeTaskMap, 1);
@@ -119,6 +131,8 @@ public class TestSourcePartitionedScheduler
         assertTrue(scheduleResult.isFinished());
         assertTrue(scheduleResult.getBlocked().isDone());
         assertTrue(scheduleResult.getNewTasks().isEmpty());
+
+        stage.abort();
     }
 
     @Test
@@ -126,7 +140,7 @@ public class TestSourcePartitionedScheduler
             throws Exception
     {
         StageExecutionPlan plan = createPlan(createFixedSplitSource(60, TestingSplit::createRemoteSplit));
-        NodeTaskMap nodeTaskMap = new NodeTaskMap();
+        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
         SqlStageExecution stage = createSqlStageExecution(plan, nodeTaskMap);
 
         SourcePartitionedScheduler scheduler = getSourcePartitionedScheduler(plan, stage, nodeManager, nodeTaskMap, 1);
@@ -150,6 +164,8 @@ public class TestSourcePartitionedScheduler
         for (RemoteTask remoteTask : stage.getAllTasks()) {
             assertEquals(remoteTask.getPartitionedSplitCount(), 20);
         }
+
+        stage.abort();
     }
 
     @Test
@@ -157,7 +173,7 @@ public class TestSourcePartitionedScheduler
             throws Exception
     {
         StageExecutionPlan plan = createPlan(createFixedSplitSource(60, TestingSplit::createRemoteSplit));
-        NodeTaskMap nodeTaskMap = new NodeTaskMap();
+        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
         SqlStageExecution stage = createSqlStageExecution(plan, nodeTaskMap);
 
         SourcePartitionedScheduler scheduler = getSourcePartitionedScheduler(plan, stage, nodeManager, nodeTaskMap, 7);
@@ -181,6 +197,8 @@ public class TestSourcePartitionedScheduler
         for (RemoteTask remoteTask : stage.getAllTasks()) {
             assertEquals(remoteTask.getPartitionedSplitCount(), 20);
         }
+
+        stage.abort();
     }
 
     @Test
@@ -188,7 +206,7 @@ public class TestSourcePartitionedScheduler
             throws Exception
     {
         StageExecutionPlan plan = createPlan(createFixedSplitSource(80, TestingSplit::createRemoteSplit));
-        NodeTaskMap nodeTaskMap = new NodeTaskMap();
+        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
         SqlStageExecution stage = createSqlStageExecution(plan, nodeTaskMap);
 
         SourcePartitionedScheduler scheduler = getSourcePartitionedScheduler(plan, stage, nodeManager, nodeTaskMap, 1);
@@ -239,6 +257,8 @@ public class TestSourcePartitionedScheduler
         for (RemoteTask remoteTask : stage.getAllTasks()) {
             assertEquals(remoteTask.getPartitionedSplitCount(), 20);
         }
+
+        stage.abort();
     }
 
     @Test
@@ -247,7 +267,7 @@ public class TestSourcePartitionedScheduler
     {
         QueuedSplitSource queuedSplitSource = new QueuedSplitSource(TestingSplit::createRemoteSplit);
         StageExecutionPlan plan = createPlan(queuedSplitSource);
-        NodeTaskMap nodeTaskMap = new NodeTaskMap();
+        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
         SqlStageExecution stage = createSqlStageExecution(plan, nodeTaskMap);
 
         SourcePartitionedScheduler scheduler = getSourcePartitionedScheduler(plan, stage, nodeManager, nodeTaskMap, 1);
@@ -268,17 +288,18 @@ public class TestSourcePartitionedScheduler
             throws Exception
     {
         try {
-            NodeTaskMap nodeTaskMap = new NodeTaskMap();
+            NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
             InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-            NodeScheduler nodeScheduler = new NodeScheduler(nodeManager, new NodeSchedulerConfig().setIncludeCoordinator(false), nodeTaskMap);
+            NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, new NodeSchedulerConfig().setIncludeCoordinator(false), nodeTaskMap);
 
             StageExecutionPlan plan = createPlan(createFixedSplitSource(20, TestingSplit::createRemoteSplit));
             SqlStageExecution stage = createSqlStageExecution(plan, nodeTaskMap);
 
             SourcePartitionedScheduler scheduler = new SourcePartitionedScheduler(
                     stage,
-                    plan.getDataSource().get(),
-                    new SplitPlacementPolicy(nodeScheduler.createNodeSelector("test"), stage::getAllTasks),
+                    Iterables.getOnlyElement(plan.getSplitSources().keySet()),
+                    Iterables.getOnlyElement(plan.getSplitSources().values()),
+                    new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector("test"), stage::getAllTasks),
                     2);
             scheduler.schedule();
 
@@ -299,7 +320,7 @@ public class TestSourcePartitionedScheduler
                 new PrestoNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN),
                 new PrestoNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN),
                 new PrestoNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN));
-        NodeTaskMap nodeTaskMap = new NodeTaskMap();
+        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
 
         // Schedule 15 splits - there are 3 nodes, each node should get 5 splits
         StageExecutionPlan firstPlan = createPlan(createFixedSplitSource(15, TestingSplit::createRemoteSplit));
@@ -331,13 +352,16 @@ public class TestSourcePartitionedScheduler
         assertEquals(secondStage.getAllTasks().size(), 1);
         RemoteTask task = secondStage.getAllTasks().get(0);
         assertEquals(task.getPartitionedSplitCount(), 5);
+
+        firstStage.abort();
+        secondStage.abort();
     }
 
     @Test
     public void testBlockCausesFullSchedule()
             throws Exception
     {
-        NodeTaskMap nodeTaskMap = new NodeTaskMap();
+        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
 
         // Schedule 60 splits - filling up all nodes
         StageExecutionPlan firstPlan = createPlan(createFixedSplitSource(60, TestingSplit::createRemoteSplit));
@@ -366,6 +390,9 @@ public class TestSourcePartitionedScheduler
         for (RemoteTask remoteTask : secondStage.getAllTasks()) {
             assertEquals(remoteTask.getPartitionedSplitCount(), 0);
         }
+
+        firstStage.abort();
+        secondStage.abort();
     }
 
     private static void assertPartitionedSplitCount(SqlStageExecution stage, int expectedPartitionedSplitCount)
@@ -381,12 +408,13 @@ public class TestSourcePartitionedScheduler
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
                 .setIncludeCoordinator(false)
                 .setMaxSplitsPerNode(20)
-                .setMaxPendingSplitsPerNodePerTask(0);
-        NodeScheduler nodeScheduler = new NodeScheduler(nodeManager, nodeSchedulerConfig, nodeTaskMap);
+                .setMaxPendingSplitsPerNodePerStage(0);
+        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap);
 
-        SplitSource splitSource = plan.getDataSource().get();
-        SplitPlacementPolicy placementPolicy = new SplitPlacementPolicy(nodeScheduler.createNodeSelector(splitSource.getDataSourceName()), stage::getAllTasks);
-        return new SourcePartitionedScheduler(stage, splitSource, placementPolicy, splitBatchSize);
+        PlanNodeId sourceNode = Iterables.getOnlyElement(plan.getSplitSources().keySet());
+        SplitSource splitSource = Iterables.getOnlyElement(plan.getSplitSources().values());
+        SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(splitSource.getDataSourceName()), stage::getAllTasks);
+        return new SourcePartitionedScheduler(stage, sourceNode, splitSource, placementPolicy, splitBatchSize);
     }
 
     private static StageExecutionPlan createPlan(ConnectorSplitSource splitSource)
@@ -409,18 +437,18 @@ public class TestSourcePartitionedScheduler
                                 null),
                         new RemoteSourceNode(new PlanNodeId("remote_id"), new PlanFragmentId("plan_fragment_id"), ImmutableList.of()),
                         ImmutableList.of(),
+                        Optional.empty(),
                         Optional.<Symbol>empty(),
                         Optional.<Symbol>empty()),
                 ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),
-                ImmutableList.of(symbol),
-                SOURCE,
-                tableScanNodeId,
-                NONE,
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty());
+                SOURCE_DISTRIBUTION,
+                ImmutableList.of(tableScanNodeId),
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)));
 
-        return new StageExecutionPlan(testFragment, Optional.of(new ConnectorAwareSplitSource(CONNECTOR_ID, splitSource)), ImmutableList.<StageExecutionPlan>of());
+        return new StageExecutionPlan(
+                testFragment,
+                ImmutableMap.of(tableScanNodeId, new ConnectorAwareSplitSource(CONNECTOR_ID, TestingTransactionHandle.create(CONNECTOR_ID), splitSource)),
+                ImmutableList.of());
     }
 
     private static ConnectorSplitSource createFixedSplitSource(int splitCount, Supplier<ConnectorSplit> splitFactory)
@@ -430,7 +458,7 @@ public class TestSourcePartitionedScheduler
         for (int i = 0; i < splitCount; i++) {
             splits.add(splitFactory.get());
         }
-        return new FixedSplitSource(CONNECTOR_ID, splits.build());
+        return new FixedSplitSource(splits.build());
     }
 
     private SqlStageExecution createSqlStageExecution(StageExecutionPlan tableScanPlan, NodeTaskMap nodeTaskMap)
@@ -441,11 +469,12 @@ public class TestSourcePartitionedScheduler
                 tableScanPlan.getFragment(),
                 new MockRemoteTaskFactory(executor),
                 TEST_SESSION,
+                true,
                 nodeTaskMap,
                 executor);
 
-        stage.setOutputBuffers(INITIAL_EMPTY_OUTPUT_BUFFERS
-                .withBuffer(OUT, new UnpartitionedPagePartitionFunction())
+        stage.setOutputBuffers(createInitialEmptyOutputBuffers(PARTITIONED)
+                .withBuffer(OUT, 0)
                 .withNoMoreBufferIds());
 
         return stage;
@@ -473,12 +502,6 @@ public class TestSourcePartitionedScheduler
                 queue.add(splitFactory.get());
                 notEmptyFuture.complete(null);
             }
-        }
-
-        @Override
-        public String getDataSourceName()
-        {
-            return CONNECTOR_ID;
         }
 
         @Override

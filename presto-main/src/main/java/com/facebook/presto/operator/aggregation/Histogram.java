@@ -14,11 +14,10 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.ExceededMemoryLimitException;
-import com.facebook.presto.byteCode.DynamicClassLoader;
-import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricAggregation;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.aggregation.state.HistogramState;
 import com.facebook.presto.operator.aggregation.state.HistogramStateFactory;
 import com.facebook.presto.operator.aggregation.state.HistogramStateSerializer;
@@ -33,9 +32,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
-import java.util.Map;
 
-import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
@@ -43,11 +40,13 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static java.lang.String.format;
 
 public class Histogram
-        extends ParametricAggregation
+        extends SqlAggregationFunction
 {
     public static final Histogram HISTOGRAM = new Histogram();
     public static final String NAME = "histogram";
@@ -55,15 +54,15 @@ public class Histogram
     private static final MethodHandle INPUT_FUNCTION = methodHandle(Histogram.class, "input", Type.class, HistogramState.class, Block.class, int.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(Histogram.class, "combine", HistogramState.class, HistogramState.class);
 
-    private static final Signature SIGNATURE = new Signature(NAME, AGGREGATE, ImmutableList.of(comparableTypeParameter("K")),
-            "map<K,bigint>", ImmutableList.of("K"), false);
-
     public static final int EXPECTED_SIZE_FOR_HASHING = 10;
 
-    @Override
-    public Signature getSignature()
+    public Histogram()
     {
-        return SIGNATURE;
+        super(NAME,
+                ImmutableList.of(comparableTypeParameter("K")),
+                ImmutableList.of(),
+                parseTypeSignature("map(K,bigint)"),
+                ImmutableList.of(parseTypeSignature("K")));
     }
 
     @Override
@@ -73,13 +72,11 @@ public class Histogram
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Type keyType = types.get("K");
+        Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = BigintType.BIGINT;
-        Signature signature = new Signature(NAME, AGGREGATE, new MapType(keyType, valueType).getTypeSignature(), keyType.getTypeSignature());
-        InternalAggregationFunction aggregation = generateAggregation(keyType, valueType);
-        return new FunctionInfo(signature, getDescription(), aggregation);
+        return generateAggregation(keyType, valueType);
     }
 
     private static InternalAggregationFunction generateAggregation(Type keyType, Type valueType)
@@ -93,7 +90,7 @@ public class Histogram
         MethodHandle outputFunction = OUTPUT_FUNCTION.bindTo(outputType);
 
         AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(NAME, outputType, inputTypes),
+                generateAggregationName(NAME, outputType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(keyType),
                 inputFunction,
                 null,

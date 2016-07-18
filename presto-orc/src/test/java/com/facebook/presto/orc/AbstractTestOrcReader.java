@@ -13,28 +13,30 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
+import com.google.common.base.Function;
 import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
-import com.google.common.primitives.Shorts;
+import org.apache.hadoop.hive.common.type.HiveDecimal;
+import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveDecimalObjectInspector;
+import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.sql.Date;
-import java.sql.Timestamp;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -45,12 +47,13 @@ import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.base.Functions.compose;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
 import static com.google.common.collect.Iterables.transform;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.nCopies;
+import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaBooleanObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaByteArrayObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaByteObjectInspector;
@@ -66,6 +69,26 @@ import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestOrcReader
 {
+    private static final JavaHiveDecimalObjectInspector DECIMAL_INSPECTOR_PRECISION_2 =
+            new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(2, 1));
+    private static final JavaHiveDecimalObjectInspector DECIMAL_INSPECTOR_PRECISION_4 =
+            new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(4, 2));
+    private static final JavaHiveDecimalObjectInspector DECIMAL_INSPECTOR_PRECISION_8 =
+            new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(8, 4));
+    private static final JavaHiveDecimalObjectInspector DECIMAL_INSPECTOR_PRECISION_17 =
+            new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(17, 8));
+    private static final JavaHiveDecimalObjectInspector DECIMAL_INSPECTOR_PRECISION_18 =
+            new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(18, 8));
+    private static final JavaHiveDecimalObjectInspector DECIMAL_INSPECTOR_PRECISION_38 =
+            new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(38, 16));
+
+    private static final DecimalType DECIMAL_TYPE_PRECISION_2 = DecimalType.createDecimalType(2, 1);
+    private static final DecimalType DECIMAL_TYPE_PRECISION_4 = DecimalType.createDecimalType(4, 2);
+    private static final DecimalType DECIMAL_TYPE_PRECISION_8 = DecimalType.createDecimalType(8, 4);
+    private static final DecimalType DECIMAL_TYPE_PRECISION_17 = DecimalType.createDecimalType(17, 8);
+    private static final DecimalType DECIMAL_TYPE_PRECISION_18 = DecimalType.createDecimalType(18, 8);
+    private static final DecimalType DECIMAL_TYPE_PRECISION_38 = DecimalType.createDecimalType(38, 16);
+
     private final OrcTester tester;
 
     public AbstractTestOrcReader(OrcTester tester)
@@ -137,41 +160,53 @@ public abstract class AbstractTestOrcReader
     public void testLongStrideDictionary()
             throws Exception
     {
-        testRoundTripNumeric(concat(ImmutableList.of(1), Collections.nCopies(9999, 123), ImmutableList.of(2), Collections.nCopies(9999, 123)));
+        testRoundTripNumeric(concat(ImmutableList.of(1), nCopies(9999, 123), ImmutableList.of(2), nCopies(9999, 123)));
     }
 
-    private void testRoundTripNumeric(Iterable<Integer> writeValues)
+    private void testRoundTripNumeric(Iterable<? extends Number> values)
             throws Exception
     {
-        tester.testRoundTrip(javaByteObjectInspector,
-                transform(writeValues, AbstractTestOrcReader::intToByte),
-                AbstractTestOrcReader::byteToLong,
+        List<Long> writeValues = ImmutableList.copyOf(values).stream()
+                .map(Number::longValue)
+                .collect(toList());
+        tester.testRoundTrip(
+                javaByteObjectInspector,
+                writeValues.stream()
+                        .map(value -> (long) value.byteValue()) // truncate values to byte range
+                        .collect(toList()),
                 BIGINT);
 
-        tester.testRoundTrip(javaShortObjectInspector,
-                transform(writeValues, AbstractTestOrcReader::intToShort),
-                AbstractTestOrcReader::shortToLong,
+        tester.testRoundTrip(
+                javaShortObjectInspector,
+                writeValues.stream()
+                        .map(value -> (long) value.shortValue()) // truncate values to short range
+                        .collect(toList()),
                 BIGINT);
 
-        tester.testRoundTrip(javaIntObjectInspector, writeValues, AbstractTestOrcReader::intToLong, BIGINT);
-        tester.testRoundTrip(javaLongObjectInspector, transform(writeValues, AbstractTestOrcReader::intToLong), BIGINT);
+        tester.testRoundTrip(javaIntObjectInspector, writeValues, BIGINT);
+        tester.testRoundTrip(javaLongObjectInspector, writeValues, BIGINT);
 
-        tester.testRoundTrip(javaTimestampObjectInspector,
-                transform(writeValues, AbstractTestOrcReader::intToTimestamp),
-                transform(writeValues, AbstractTestOrcReader::intToSqlTimestamp),
-                TIMESTAMP);
-
-        tester.testRoundTrip(javaDateObjectInspector,
-                transform(writeValues, AbstractTestOrcReader::intToDate),
-                transform(writeValues, AbstractTestOrcReader::intToSqlDate),
+        tester.testRoundTrip(
+                javaDateObjectInspector,
+                writeValues.stream()
+                        .map(Long::intValue)
+                        .map(SqlDate::new)
+                        .collect(toList()),
                 DATE);
+
+        tester.testRoundTrip(
+                javaTimestampObjectInspector,
+                writeValues.stream()
+                        .map(timestamp -> new SqlTimestamp(timestamp, UTC_KEY))
+                        .collect(toList()),
+                TIMESTAMP);
     }
 
     @Test
     public void testFloatSequence()
             throws Exception
     {
-        tester.testRoundTrip(javaFloatObjectInspector, floatSequence(0.0f, 0.1f, 30_000), AbstractTestOrcReader::floatToDouble, DOUBLE);
+        tester.testRoundTrip(javaFloatObjectInspector, doubleSequence(0.0, 0.1, 30_000), DOUBLE);
     }
 
     @Test
@@ -179,6 +214,18 @@ public abstract class AbstractTestOrcReader
             throws Exception
     {
         tester.testRoundTrip(javaDoubleObjectInspector, doubleSequence(0, 0.1, 30_000), DOUBLE);
+    }
+
+    @Test
+    public void testDecimalSequence()
+            throws Exception
+    {
+        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_2, decimalSequence("0", "1", 30, 2, 1), DECIMAL_TYPE_PRECISION_2);
+        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_4, decimalSequence("0", "1", 30_00, 4, 2), DECIMAL_TYPE_PRECISION_4);
+        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_8, decimalSequence("0", "100", 30_000, 8, 4), DECIMAL_TYPE_PRECISION_8);
+        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_17, decimalSequence("0", "1000000", 30_000, 17, 8), DECIMAL_TYPE_PRECISION_17);
+        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_18, decimalSequence("0", "1000000", 30_000, 18, 8), DECIMAL_TYPE_PRECISION_18);
+        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_38, decimalSequence("0", "100000000000000", 30_000, 38, 16), DECIMAL_TYPE_PRECISION_38);
     }
 
     @Test
@@ -220,7 +267,7 @@ public abstract class AbstractTestOrcReader
     public void testStringStrideDictionary()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, concat(ImmutableList.of("a"), Collections.nCopies(9999, "123"), ImmutableList.of("b"), Collections.nCopies(9999, "123")), VARCHAR);
+        tester.testRoundTrip(javaStringObjectInspector, concat(ImmutableList.of("a"), nCopies(9999, "123"), ImmutableList.of("b"), nCopies(9999, "123")), VARCHAR);
     }
 
     @Test
@@ -234,10 +281,13 @@ public abstract class AbstractTestOrcReader
     public void testBinaryDirectSequence()
             throws Exception
     {
-        Iterable<byte[]> writeValues = transform(intsBetween(0, 30_000), compose(AbstractTestOrcReader::stringToByteArray, Object::toString));
-        tester.testRoundTrip(javaByteArrayObjectInspector,
-                writeValues,
-                transform(writeValues, AbstractTestOrcReader::byteArrayToVarbinary),
+        tester.testRoundTrip(
+                javaByteArrayObjectInspector,
+                intsBetween(0, 30_000).stream()
+                        .map(Object::toString)
+                        .map(string -> string.getBytes(UTF_8))
+                        .map(SqlVarbinary::new)
+                        .collect(toList()),
                 VARBINARY);
     }
 
@@ -245,10 +295,13 @@ public abstract class AbstractTestOrcReader
     public void testBinaryDictionarySequence()
             throws Exception
     {
-        Iterable<byte[]> writeValues = limit(cycle(transform(ImmutableList.of(1, 3, 5, 7, 11, 13, 17), compose(AbstractTestOrcReader::stringToByteArray, Object::toString))), 30_000);
-        tester.testRoundTrip(javaByteArrayObjectInspector,
-                writeValues,
-                transform(writeValues, AbstractTestOrcReader::byteArrayToVarbinary),
+        tester.testRoundTrip(
+                javaByteArrayObjectInspector,
+                ImmutableList.copyOf(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 30_000)).stream()
+                        .map(Object::toString)
+                        .map(string -> string.getBytes(UTF_8))
+                        .map(SqlVarbinary::new)
+                        .collect(toList()),
                 VARBINARY);
     }
 
@@ -256,7 +309,7 @@ public abstract class AbstractTestOrcReader
     public void testEmptyBinarySequence()
             throws Exception
     {
-        tester.testRoundTrip(javaByteArrayObjectInspector, limit(cycle(new byte[0]), 30_000), AbstractTestOrcReader::byteArrayToVarbinary, VARBINARY);
+        tester.testRoundTrip(javaByteArrayObjectInspector, nCopies(30_000, new SqlVarbinary(new byte[0])), VARBINARY);
     }
 
     @Test
@@ -264,16 +317,16 @@ public abstract class AbstractTestOrcReader
             throws Exception
     {
         Iterable<Integer> values = limit(cycle(concat(
-                        ImmutableList.of(1), Collections.nCopies(9999, 123),
-                        ImmutableList.of(2), Collections.nCopies(9999, 123),
-                        ImmutableList.of(3), Collections.nCopies(9999, 123),
-                        Collections.nCopies(1_000_000, null))),
+                        ImmutableList.of(1), nCopies(9999, 123),
+                        ImmutableList.of(2), nCopies(9999, 123),
+                        ImmutableList.of(3), nCopies(9999, 123),
+                        nCopies(1_000_000, null))),
                 200_000);
 
-        tester.assertRoundTrip(javaIntObjectInspector, values, transform(values, value -> value == null ? null : (long) value), BIGINT);
+        tester.assertRoundTrip(javaIntObjectInspector, transform(values, value -> value == null ? null : (long) value), BIGINT);
 
         Iterable<String> stringValue = transform(values, value -> value == null ? null : String.valueOf(value));
-        tester.assertRoundTrip(javaStringObjectInspector, stringValue, stringValue, VARCHAR);
+        tester.assertRoundTrip(javaStringObjectInspector, stringValue, VARCHAR);
     }
 
     @Test
@@ -337,147 +390,56 @@ public abstract class AbstractTestOrcReader
         };
     }
 
-    private static Iterable<Float> floatSequence(double start, double step, int items)
+    private static List<Double> doubleSequence(double start, double step, int items)
     {
-        return transform(doubleSequence(start, step, items), input -> {
-            if (input == null) {
-                return null;
-            }
-            return input.floatValue();
-        });
+        List<Double> values = new ArrayList<>();
+        double nextValue = start;
+        for (int i = 0; i < items; i++) {
+            values.add(nextValue);
+            nextValue += step;
+        }
+        return values;
     }
 
-    private static Iterable<Double> doubleSequence(double start, double step, int items)
+    private static List<SqlDecimal> decimalSequence(String start, String step, int items, int precision, int scale)
     {
-        return () -> new AbstractSequentialIterator<Double>(start)
-        {
-            private int item;
+        BigInteger decimalStep = new BigInteger(step);
 
-            @Override
-            protected Double computeNext(Double previous)
-            {
-                if (item >= items) {
-                    return null;
-                }
-                item++;
-                return previous + step;
-            }
-        };
+        List<SqlDecimal> values = new ArrayList<>();
+        BigInteger nextValue = new BigInteger(start);
+        for (int i = 0; i < items; i++) {
+            values.add(new SqlDecimal(nextValue, precision, scale));
+            nextValue = nextValue.add(decimalStep);
+        }
+        return values;
+    }
+
+//    private static Iterable<HiveDecimal> decimalSequence(String start, String step, int items, int scale)
+//    {
+//        HiveDecimal hiveStep = HiveDecimal.create(step);
+//        return () -> new AbstractSequentialIterator<HiveDecimal>(HiveDecimal.create(start))
+//        {
+//            private int item;
+//
+//            @Override
+//            protected HiveDecimal computeNext(HiveDecimal previous)
+//            {
+//                if (item >= items) {
+//                    return null;
+//                }
+//                item++;
+//                return previous.add(hiveStep).setScale(scale);
+//            }
+//        };
+//    }
+
+    private static Function<HiveDecimal, SqlDecimal> toSqlDecimal(int scale)
+    {
+        return hiveDecimal -> new SqlDecimal(hiveDecimal.unscaledValue(), hiveDecimal.precision(), scale);
     }
 
     private static ContiguousSet<Integer> intsBetween(int lowerInclusive, int upperExclusive)
     {
         return ContiguousSet.create(Range.openClosed(lowerInclusive, upperExclusive), DiscreteDomain.integers());
-    }
-
-    private static Double floatToDouble(Float input)
-    {
-        if (input == null) {
-            return null;
-        }
-        return input.doubleValue();
-    }
-
-    private static Byte intToByte(Integer input)
-    {
-        if (input == null) {
-            return null;
-        }
-        return input.byteValue();
-    }
-
-    private static Short intToShort(Integer input)
-    {
-        if (input == null) {
-            return null;
-        }
-        return Shorts.checkedCast(input);
-    }
-
-    private static Long byteToLong(Byte input)
-    {
-        return toLong(input);
-    }
-
-    private static Long shortToLong(Short input)
-    {
-        return toLong(input);
-    }
-
-    private static Long intToLong(Integer input)
-    {
-        return toLong(input);
-    }
-
-    private static <N extends Number> Long toLong(N input)
-    {
-        if (input == null) {
-            return null;
-        }
-        return input.longValue();
-    }
-
-    private static Timestamp intToTimestamp(Integer input)
-    {
-        if (input == null) {
-            return null;
-        }
-        Timestamp timestamp = new Timestamp(0);
-        long seconds = (input / 1000);
-        int nanos = ((input % 1000) * 1_000_000);
-
-        // add some junk nanos to the timestamp, which will be truncated
-        nanos += 888_888;
-
-        if (nanos < 0) {
-            nanos += 1_000_000_000;
-            seconds -= 1;
-        }
-        if (nanos > 1_000_000_000) {
-            nanos -= 1_000_000_000;
-            seconds += 1;
-        }
-        timestamp.setTime(seconds * 1000);
-        timestamp.setNanos(nanos);
-        return timestamp;
-    }
-
-    private static SqlTimestamp intToSqlTimestamp(Integer input)
-    {
-        if (input == null) {
-            return null;
-        }
-        return new SqlTimestamp(input, UTC_KEY);
-    }
-
-    private static Date intToDate(Integer input)
-    {
-        if (input == null) {
-            return null;
-        }
-        Date date = new Date(0);
-        date.setTime(TimeUnit.DAYS.toMillis(input));
-        return date;
-    }
-
-    private static SqlDate intToSqlDate(Integer input)
-    {
-        if (input == null) {
-            return null;
-        }
-        return new SqlDate(input);
-    }
-
-    private static byte[] stringToByteArray(String input)
-    {
-        return input.getBytes(UTF_8);
-    }
-
-    private static SqlVarbinary byteArrayToVarbinary(byte[] input)
-    {
-        if (input == null) {
-            return null;
-        }
-        return new SqlVarbinary(input);
     }
 }

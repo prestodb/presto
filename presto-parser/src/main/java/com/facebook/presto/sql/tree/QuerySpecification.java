@@ -26,7 +26,7 @@ public class QuerySpecification
     private final Select select;
     private final Optional<Relation> from;
     private final Optional<Expression> where;
-    private final List<Expression> groupBy;
+    private final Optional<GroupBy> groupBy;
     private final Optional<Expression> having;
     private final List<SortItem> orderBy;
     private final Optional<String> limit;
@@ -35,11 +35,38 @@ public class QuerySpecification
             Select select,
             Optional<Relation> from,
             Optional<Expression> where,
-            List<Expression> groupBy,
+            Optional<GroupBy> groupBy,
             Optional<Expression> having,
             List<SortItem> orderBy,
             Optional<String> limit)
     {
+        this(Optional.empty(), select, from, where, groupBy, having, orderBy, limit);
+    }
+
+    public QuerySpecification(
+            NodeLocation location,
+            Select select,
+            Optional<Relation> from,
+            Optional<Expression> where,
+            Optional<GroupBy> groupBy,
+            Optional<Expression> having,
+            List<SortItem> orderBy,
+            Optional<String> limit)
+    {
+        this(Optional.of(location), select, from, where, groupBy, having, orderBy, limit);
+    }
+
+    private QuerySpecification(
+            Optional<NodeLocation> location,
+            Select select,
+            Optional<Relation> from,
+            Optional<Expression> where,
+            Optional<GroupBy> groupBy,
+            Optional<Expression> having,
+            List<SortItem> orderBy,
+            Optional<String> limit)
+    {
+        super(location);
         requireNonNull(select, "select is null");
         requireNonNull(from, "from is null");
         requireNonNull(where, "where is null");
@@ -72,7 +99,7 @@ public class QuerySpecification
         return where;
     }
 
-    public List<Expression> getGroupBy()
+    public Optional<GroupBy> getGroupBy()
     {
         return groupBy;
     }

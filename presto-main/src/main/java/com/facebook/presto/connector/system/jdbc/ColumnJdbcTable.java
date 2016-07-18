@@ -14,8 +14,9 @@
 package com.facebook.presto.connector.system.jdbc;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.system.GlobalSystemTransactionHandle;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
@@ -24,7 +25,8 @@ import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.InMemoryRecordSet.Builder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.ArrayType;
 
@@ -44,12 +46,17 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
+import static com.facebook.presto.util.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
 public class ColumnJdbcTable
@@ -58,30 +65,30 @@ public class ColumnJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "columns");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
-            .column("table_cat", VARCHAR)
-            .column("table_schem", VARCHAR)
-            .column("table_name", VARCHAR)
-            .column("column_name", VARCHAR)
+            .column("table_cat", createUnboundedVarcharType())
+            .column("table_schem", createUnboundedVarcharType())
+            .column("table_name", createUnboundedVarcharType())
+            .column("column_name", createUnboundedVarcharType())
             .column("data_type", BIGINT)
-            .column("type_name", VARCHAR)
+            .column("type_name", createUnboundedVarcharType())
             .column("column_size", BIGINT)
             .column("buffer_length", BIGINT)
             .column("decimal_digits", BIGINT)
             .column("num_prec_radix", BIGINT)
             .column("nullable", BIGINT)
-            .column("remarks", VARCHAR)
-            .column("column_def", VARCHAR)
+            .column("remarks", createUnboundedVarcharType())
+            .column("column_def", createUnboundedVarcharType())
             .column("sql_data_type", BIGINT)
             .column("sql_datetime_sub", BIGINT)
             .column("char_octet_length", BIGINT)
             .column("ordinal_position", BIGINT)
-            .column("is_nullable", VARCHAR)
-            .column("scope_catalog", VARCHAR)
-            .column("scope_schema", VARCHAR)
-            .column("scope_table", VARCHAR)
+            .column("is_nullable", createUnboundedVarcharType())
+            .column("scope_catalog", createUnboundedVarcharType())
+            .column("scope_schema", createUnboundedVarcharType())
+            .column("scope_table", createUnboundedVarcharType())
             .column("source_data_type", BIGINT)
-            .column("is_autoincrement", VARCHAR)
-            .column("is_generatedcolumn", VARCHAR)
+            .column("is_autoincrement", createUnboundedVarcharType())
+            .column("is_generatedcolumn", createUnboundedVarcharType())
             .build();
 
     private final Metadata metadata;
@@ -99,9 +106,10 @@ public class ColumnJdbcTable
     }
 
     @Override
-    public RecordCursor cursor(ConnectorSession connectorSession, TupleDomain<Integer> constraint)
+    public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, TupleDomain<Integer> constraint)
     {
-        Session session = toSession(connectorSession);
+        GlobalSystemTransactionHandle transaction = checkType(transactionHandle, GlobalSystemTransactionHandle.class, "transaction");
+        Session session = toSession(transaction.getTransactionId(), connectorSession);
         Optional<String> catalogFilter = stringFilter(constraint, 0);
         Optional<String> schemaFilter = stringFilter(constraint, 1);
         Optional<String> tableFilter = stringFilter(constraint, 2);
@@ -109,14 +117,14 @@ public class ColumnJdbcTable
         Builder table = InMemoryRecordSet.builder(METADATA);
         for (String catalog : filter(metadata.getCatalogNames().keySet(), catalogFilter)) {
             QualifiedTablePrefix prefix = FilterUtil.tablePrefix(catalog, schemaFilter, tableFilter);
-            for (Entry<QualifiedTableName, List<ColumnMetadata>> entry : metadata.listTableColumns(session, prefix).entrySet()) {
+            for (Entry<QualifiedObjectName, List<ColumnMetadata>> entry : metadata.listTableColumns(session, prefix).entrySet()) {
                 addColumnRows(table, entry.getKey(), entry.getValue());
             }
         }
         return table.build().cursor();
     }
 
-    private static void addColumnRows(Builder builder, QualifiedTableName tableName, List<ColumnMetadata> columns)
+    private static void addColumnRows(Builder builder, QualifiedObjectName tableName, List<ColumnMetadata> columns)
     {
         int ordinalPosition = 1;
         for (ColumnMetadata column : columns) {
@@ -126,7 +134,7 @@ public class ColumnJdbcTable
             builder.addRow(
                     tableName.getCatalogName(),
                     tableName.getSchemaName(),
-                    tableName.getTableName(),
+                    tableName.getObjectName(),
                     column.getName(),
                     jdbcDataType(column.getType()),
                     column.getType().getDisplayName(),
@@ -160,10 +168,19 @@ public class ColumnJdbcTable
         if (type.equals(BIGINT)) {
             return Types.BIGINT;
         }
+        if (type.equals(INTEGER)) {
+            return Types.INTEGER;
+        }
+        if (type.equals(SMALLINT)) {
+            return Types.SMALLINT;
+        }
+        if (type.equals(TINYINT)) {
+            return Types.TINYINT;
+        }
         if (type.equals(DOUBLE)) {
             return Types.DOUBLE;
         }
-        if (type.equals(VARCHAR)) {
+        if (isVarcharType(type)) {
             return Types.LONGNVARCHAR;
         }
         if (type.equals(VARBINARY)) {

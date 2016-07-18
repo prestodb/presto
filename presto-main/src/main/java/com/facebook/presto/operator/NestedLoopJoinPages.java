@@ -32,13 +32,14 @@ public final class NestedLoopJoinPages
     @GuardedBy("this")
     private boolean freed;
 
-    NestedLoopJoinPages(List<Page> pages, DataSize estimatedSize, TaskContext taskContext)
+    NestedLoopJoinPages(List<Page> pages, DataSize estimatedSize, OperatorContext operatorContext)
     {
         requireNonNull(pages, "pages is null");
+        requireNonNull(operatorContext, "operatorContext is null");
         this.pages = ImmutableList.copyOf(pages);
-        this.taskContext = requireNonNull(taskContext, "taskContext is null");
+        this.taskContext = operatorContext.getDriverContext().getPipelineContext().getTaskContext();
         this.estimatedSize = requireNonNull(estimatedSize, "estimatedSize is null");
-        taskContext.reserveMemory(estimatedSize.toBytes());
+        operatorContext.transferMemoryToTaskContext(estimatedSize.toBytes());
     }
 
     public List<Page> getPages()

@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.metadata.RemoteTransactionHandle;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
@@ -31,6 +32,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
+import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -43,12 +45,12 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
@@ -63,6 +65,7 @@ public final class SqlStageExecution
     private final StageStateMachine stateMachine;
     private final RemoteTaskFactory remoteTaskFactory;
     private final NodeTaskMap nodeTaskMap;
+    private final boolean summarizeTaskInfo;
 
     private final Map<PlanFragmentId, RemoteSourceNode> exchangeSources;
 
@@ -70,12 +73,13 @@ public final class SqlStageExecution
     private final AtomicInteger nextTaskId = new AtomicInteger();
     private final Set<TaskId> allTasks = newConcurrentHashSet();
     private final Set<TaskId> finishedTasks = newConcurrentHashSet();
+    private final AtomicBoolean splitsScheduled = new AtomicBoolean();
 
     private final Multimap<PlanNodeId, URI> exchangeLocations = HashMultimap.create();
     private final Set<PlanNodeId> completeSources = newConcurrentHashSet();
     private final Set<PlanFragmentId> completeSourceFragments = newConcurrentHashSet();
 
-    private final AtomicReference<OutputBuffers> outputBuffers = new AtomicReference<>(INITIAL_EMPTY_OUTPUT_BUFFERS);
+    private final AtomicReference<OutputBuffers> outputBuffers = new AtomicReference<>();
 
     public SqlStageExecution(
             StageId stageId,
@@ -83,6 +87,7 @@ public final class SqlStageExecution
             PlanFragment fragment,
             RemoteTaskFactory remoteTaskFactory,
             Session session,
+            boolean summarizeTaskInfo,
             NodeTaskMap nodeTaskMap,
             ExecutorService executor)
     {
@@ -93,14 +98,16 @@ public final class SqlStageExecution
                         requireNonNull(fragment, "fragment is null"),
                         requireNonNull(executor, "executor is null")),
                 remoteTaskFactory,
-                nodeTaskMap);
+                nodeTaskMap,
+                summarizeTaskInfo);
     }
 
-    public SqlStageExecution(StageStateMachine stateMachine, RemoteTaskFactory remoteTaskFactory, NodeTaskMap nodeTaskMap)
+    public SqlStageExecution(StageStateMachine stateMachine, RemoteTaskFactory remoteTaskFactory, NodeTaskMap nodeTaskMap, boolean summarizeTaskInfo)
     {
         this.stateMachine = stateMachine;
         this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
+        this.summarizeTaskInfo = summarizeTaskInfo;
 
         ImmutableMap.Builder<PlanFragmentId, RemoteSourceNode> fragmentToExchangeSource = ImmutableMap.builder();
         for (RemoteSourceNode remoteSourceNode : stateMachine.getFragment().getRemoteSourceNodes()) {
@@ -154,8 +161,7 @@ public final class SqlStageExecution
             stateMachine.transitionToFinished();
         }
 
-        PlanNodeId partitionedSource = stateMachine.getFragment().getPartitionedSource();
-        if (partitionedSource != null) {
+        for (PlanNodeId partitionedSource : stateMachine.getFragment().getPartitionedSources()) {
             for (RemoteTask task : getAllTasks()) {
                 task.noMoreSplits(partitionedSource);
             }
@@ -178,8 +184,16 @@ public final class SqlStageExecution
     public synchronized long getMemoryReservation()
     {
         return getAllTasks().stream()
-                .mapToLong(task -> task.getTaskInfo().getStats().getMemoryReservation().toBytes())
+                .mapToLong(task -> task.getTaskStatus().getMemoryReservation().toBytes())
                 .sum();
+    }
+
+    public synchronized Duration getTotalCpuTime()
+    {
+        long millis = getAllTasks().stream()
+                .mapToLong(task -> task.getTaskInfo().getStats().getTotalCpuTime().toMillis())
+                .sum();
+        return new Duration(millis, TimeUnit.MILLISECONDS);
     }
 
     public StageInfo getStageInfo()
@@ -191,31 +205,33 @@ public final class SqlStageExecution
                 ImmutableList::of);
     }
 
-    public synchronized void addExchangeLocation(ExchangeLocation exchangeLocation)
-    {
-        requireNonNull(exchangeLocation, "exchangeLocation is null");
-        RemoteSourceNode remoteSource = exchangeSources.get(exchangeLocation.getPlanFragmentId());
-        checkArgument(remoteSource != null, "Unknown remote source %s. Known sources are %s", exchangeLocation.getPlanFragmentId(), exchangeSources.keySet());
-
-        exchangeLocations.put(remoteSource.getId(), exchangeLocation.getUri());
-        for (RemoteTask task : getAllTasks()) {
-            task.addSplits(remoteSource.getId(), ImmutableList.of(createRemoteSplitFor(task.getTaskInfo().getTaskId(), exchangeLocation.getUri())));
-        }
-    }
-
-    public synchronized void noMoreExchangeLocationsFor(PlanFragmentId fragmentId)
+    public synchronized void addExchangeLocations(PlanFragmentId fragmentId, Set<URI> exchangeLocations, boolean noMoreExchangeLocations)
     {
         requireNonNull(fragmentId, "fragmentId is null");
+        requireNonNull(exchangeLocations, "exchangeLocations is null");
+
         RemoteSourceNode remoteSource = exchangeSources.get(fragmentId);
         checkArgument(remoteSource != null, "Unknown remote source %s. Known sources are %s", fragmentId, exchangeSources.keySet());
 
-        completeSourceFragments.add(fragmentId);
+        this.exchangeLocations.putAll(remoteSource.getId(), exchangeLocations);
 
-        // is the source now complete?
-        if (completeSourceFragments.containsAll(remoteSource.getSourceFragmentIds())) {
-            completeSources.add(remoteSource.getId());
-            for (RemoteTask task : getAllTasks()) {
-                task.noMoreSplits(remoteSource.getId());
+        for (RemoteTask task : getAllTasks()) {
+            ImmutableMultimap.Builder<PlanNodeId, Split> newSplits = ImmutableMultimap.builder();
+            for (URI exchangeLocation : exchangeLocations) {
+                newSplits.put(remoteSource.getId(), createRemoteSplitFor(task.getTaskId(), exchangeLocation));
+            }
+            task.addSplits(newSplits.build());
+        }
+
+        if (noMoreExchangeLocations) {
+            completeSourceFragments.add(fragmentId);
+
+            // is the source now complete?
+            if (completeSourceFragments.containsAll(remoteSource.getSourceFragmentIds())) {
+                completeSources.add(remoteSource.getId());
+                for (RemoteTask task : getAllTasks()) {
+                    task.noMoreSplits(remoteSource.getId());
+                }
             }
         }
     }
@@ -226,8 +242,11 @@ public final class SqlStageExecution
 
         while (true) {
             OutputBuffers currentOutputBuffers = this.outputBuffers.get();
-            if (outputBuffers.getVersion() <= currentOutputBuffers.getVersion()) {
-                return;
+            if (currentOutputBuffers != null) {
+                if (outputBuffers.getVersion() <= currentOutputBuffers.getVersion()) {
+                    return;
+                }
+                currentOutputBuffers.checkValidTransition(outputBuffers);
             }
 
             if (this.outputBuffers.compareAndSet(currentOutputBuffers, outputBuffers)) {
@@ -246,7 +265,9 @@ public final class SqlStageExecution
         return !tasks.isEmpty();
     }
 
-    public synchronized List<RemoteTask> getAllTasks()
+    // do not synchronize
+    // this is used for query info building which should be independent of scheduling work
+    public List<RemoteTask> getAllTasks()
     {
         return tasks.values().stream()
                 .flatMap(Set::stream)
@@ -260,51 +281,57 @@ public final class SqlStageExecution
             return completedFuture(null);
         }
 
-        List<CompletableFuture<TaskInfo>> stateChangeFutures = allTasks.stream()
-                .map(task -> task.getStateChange(task.getTaskInfo()))
+        List<CompletableFuture<TaskStatus>> stateChangeFutures = allTasks.stream()
+                .map(task -> task.getStateChange(task.getTaskStatus()))
                 .collect(toImmutableList());
 
         return firstCompletedFuture(stateChangeFutures, true);
     }
 
-    public synchronized RemoteTask scheduleTask(Node node)
+    public synchronized RemoteTask scheduleTask(Node node, int partition)
     {
         requireNonNull(node, "node is null");
 
-        return scheduleTask(node, null, ImmutableList.<Split>of());
+        checkState(!splitsScheduled.get(), "scheduleTask can not be called once splits have been scheduled");
+        return scheduleTask(node, new TaskId(stateMachine.getStageId(), partition), ImmutableMultimap.of());
     }
 
-    public synchronized Set<RemoteTask> scheduleSplits(Node node, Iterable<Split> splits)
+    public synchronized Set<RemoteTask> scheduleSplits(Node node, Multimap<PlanNodeId, Split> splits)
     {
         requireNonNull(node, "node is null");
         requireNonNull(splits, "splits is null");
 
-        PlanNodeId partitionedSource = stateMachine.getFragment().getPartitionedSource();
-        checkState(partitionedSource != null, "Partitioned source is null");
+        splitsScheduled.set(true);
+
+        checkArgument(stateMachine.getFragment().getPartitionedSources().containsAll(splits.keySet()), "Invalid splits");
 
         ImmutableSet.Builder<RemoteTask> newTasks = ImmutableSet.builder();
         Collection<RemoteTask> tasks = this.tasks.get(node);
         if (tasks == null) {
-            newTasks.add(scheduleTask(node, partitionedSource, splits));
+            // The output buffer depends on the task id starting from 0 and being sequential, since each
+            // task is assigned a private buffer based on task id.
+            TaskId taskId = new TaskId(stateMachine.getStageId(), nextTaskId.getAndIncrement());
+            newTasks.add(scheduleTask(node, taskId, splits));
         }
         else {
             RemoteTask task = tasks.iterator().next();
-            task.addSplits(partitionedSource, splits);
+            task.addSplits(splits);
         }
         return newTasks.build();
     }
 
-    private synchronized RemoteTask scheduleTask(Node node, PlanNodeId sourceId, Iterable<Split> sourceSplits)
+    private synchronized RemoteTask scheduleTask(Node node, TaskId taskId, Multimap<PlanNodeId, Split> sourceSplits)
     {
-        TaskId taskId = new TaskId(stateMachine.getStageId(), String.valueOf(nextTaskId.getAndIncrement()));
+        checkArgument(!allTasks.contains(taskId), "A task with id %s already exists", taskId);
 
         ImmutableMultimap.Builder<PlanNodeId, Split> initialSplits = ImmutableMultimap.builder();
-        for (Split sourceSplit : sourceSplits) {
-            initialSplits.put(sourceId, sourceSplit);
-        }
+        initialSplits.putAll(sourceSplits);
         for (Entry<PlanNodeId, URI> entry : exchangeLocations.entries()) {
             initialSplits.put(entry.getKey(), createRemoteSplitFor(taskId, entry.getValue()));
         }
+
+        OutputBuffers outputBuffers = this.outputBuffers.get();
+        checkState(outputBuffers != null, "Initial output buffers must be set before a task can be scheduled");
 
         RemoteTask task = remoteTaskFactory.createRemoteTask(
                 stateMachine.getSession(),
@@ -312,8 +339,9 @@ public final class SqlStageExecution
                 node,
                 stateMachine.getFragment(),
                 initialSplits.build(),
-                outputBuffers.get(),
-                nodeTaskMap.getSplitCountChangeListener(node));
+                outputBuffers,
+                nodeTaskMap.createPartitionedSplitCountTracker(node, taskId),
+                summarizeTaskInfo);
 
         completeSources.forEach(task::noMoreSplits);
 
@@ -321,26 +349,71 @@ public final class SqlStageExecution
         tasks.computeIfAbsent(node, key -> newConcurrentHashSet()).add(task);
         nodeTaskMap.addTask(node, task);
 
-        task.addStateChangeListener(taskInfo -> {
+        task.addStateChangeListener(new StageTaskListener());
+
+        if (!stateMachine.getState().isDone()) {
+            task.start();
+        }
+        else {
+            // stage finished while we were scheduling this task
+            task.abort();
+        }
+
+        return task;
+    }
+
+    public Set<Node> getScheduledNodes()
+    {
+        return ImmutableSet.copyOf(tasks.keySet());
+    }
+
+    public void recordGetSplitTime(long start)
+    {
+        stateMachine.recordGetSplitTime(start);
+    }
+
+    private static Split createRemoteSplitFor(TaskId taskId, URI taskLocation)
+    {
+        // Fetch the results from the buffer assigned to the task based on id
+        URI splitLocation = uriBuilderFrom(taskLocation).appendPath("results").appendPath(String.valueOf(taskId.getId())).build();
+        return new Split("remote", new RemoteTransactionHandle(), new RemoteSplit(splitLocation));
+    }
+
+    @Override
+    public String toString()
+    {
+        return stateMachine.toString();
+    }
+
+    private class StageTaskListener
+            implements StateChangeListener<TaskStatus>
+    {
+        private long previousMemory;
+
+        @Override
+        public void stateChanged(TaskStatus taskStatus)
+        {
+            updateMemoryUsage(taskStatus);
+
             StageState stageState = getState();
             if (stageState.isDone()) {
                 return;
             }
 
-            TaskState taskState = taskInfo.getState();
+            TaskState taskState = taskStatus.getState();
             if (taskState == TaskState.FAILED) {
-                RuntimeException failure = taskInfo.getFailures().stream()
+                RuntimeException failure = taskStatus.getFailures().stream()
                         .findFirst()
                         .map(ExecutionFailureInfo::toException)
-                        .orElse(new PrestoException(StandardErrorCode.INTERNAL_ERROR, "A task failed for an unknown reason"));
+                        .orElse(new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
                 stateMachine.transitionToFailed(failure);
             }
             else if (taskState == TaskState.ABORTED) {
                 // A task should only be in the aborted state if the STAGE is done (ABORTED or FAILED)
-                stateMachine.transitionToFailed(new PrestoException(StandardErrorCode.INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageState));
+                stateMachine.transitionToFailed(new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageState));
             }
             else if (taskState == TaskState.FINISHED) {
-                finishedTasks.add(task.getTaskId());
+                finishedTasks.add(taskStatus.getTaskId());
             }
 
             if (stageState == StageState.SCHEDULED || stageState == StageState.RUNNING) {
@@ -351,64 +424,14 @@ public final class SqlStageExecution
                     stateMachine.transitionToFinished();
                 }
             }
-        });
-
-        if (!stateMachine.getState().isDone()) {
-            task.start();
-        }
-        else {
-            // stage finished while we were scheduling this task
-            task.cancel();
         }
 
-        return task;
-    }
-
-    public void recordGetSplitTime(long start)
-    {
-        stateMachine.recordGetSplitTime(start);
-    }
-
-    private static Split createRemoteSplitFor(TaskId taskId, URI taskLocation)
-    {
-        URI splitLocation = uriBuilderFrom(taskLocation).appendPath("results").appendPath(taskId.toString()).build();
-        return new Split("remote", new RemoteSplit(splitLocation));
-    }
-
-    @Override
-    public String toString()
-    {
-        return stateMachine.toString();
-    }
-
-    public static class ExchangeLocation
-    {
-        private final PlanFragmentId planFragmentId;
-        private final URI uri;
-
-        public ExchangeLocation(PlanFragmentId planFragmentId, URI uri)
+        private synchronized void updateMemoryUsage(TaskStatus taskStatus)
         {
-            this.planFragmentId = requireNonNull(planFragmentId, "planFragmentId is null");
-            this.uri = requireNonNull(uri, "uri is null");
-        }
-
-        public PlanFragmentId getPlanFragmentId()
-        {
-            return planFragmentId;
-        }
-
-        public URI getUri()
-        {
-            return uri;
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("planFragmentId", planFragmentId)
-                    .add("uri", uri)
-                    .toString();
+            long currentMemory = taskStatus.getMemoryReservation().toBytes();
+            long deltaMemoryInBytes = currentMemory - previousMemory;
+            previousMemory = currentMemory;
+            stateMachine.updateMemoryUsage(deltaMemoryInBytes);
         }
     }
 }

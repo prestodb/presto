@@ -11,7 +11,7 @@ Synopsis
     SELECT [ ALL | DISTINCT ] select_expr [, ...]
     [ FROM from_item [, ...] ]
     [ WHERE condition ]
-    [ GROUP BY expression [, ...] ]
+    [ GROUP BY [ ALL | DISTINCT ] grouping_element [, ...] ]
     [ HAVING condition]
     [ UNION [ ALL | DISTINCT ] select ]
     [ ORDER BY expression [ ASC | DESC ] [, ...] ]
@@ -36,6 +36,16 @@ and ``join_type`` is one of
     RIGHT [ OUTER ] JOIN
     FULL [ OUTER ] JOIN
     CROSS JOIN
+
+and ``grouping_element`` is one of
+
+.. code-block:: none
+
+    ()
+    expression
+    GROUPING SETS ( ( column [, ...] ) [, ...] )
+    CUBE ( column [, ...] )
+    ROLLUP ( column [, ...] )
 
 Description
 -----------
@@ -78,7 +88,7 @@ GROUP BY Clause
 ---------------
 
 The ``GROUP BY`` clause divides the output of a ``SELECT`` statement into
-groups of rows containing matching values. A ``GROUP BY`` clause may
+groups of rows containing matching values. A simple ``GROUP BY`` clause may
 contain any expression composed of input columns or it may be an ordinal
 number selecting an output column by position (starting at one).
 
@@ -109,8 +119,250 @@ row counts for the ``customer`` table using the input column ``mktsegment``::
     (5 rows)
 
 When a ``GROUP BY`` clause is used in a ``SELECT`` statement all output
-expression must be either aggregate functions or columns present in
+expressions must be either aggregate functions or columns present in
 the ``GROUP BY`` clause.
+
+.. _complex_grouping_operations:
+
+**Complex Grouping Operations**
+
+Presto also supports complex aggregations using the ``GROUPING SETS``, ``CUBE``
+and ``ROLLUP`` syntax. This syntax allows users to perform analysis that requires
+aggregation on multiple sets of columns in a single query. Complex grouping
+operations do not support grouping on expressions composed of input columns.
+Only column names or ordinals are allowed.
+
+Complex grouping operations are often equivalent to a ``UNION ALL`` of simple
+``GROUP BY`` expressions, as shown in the following examples. This equivalence
+does not apply, however, when the source of data for the aggregation
+is non-deterministic.
+
+**GROUPING SETS**
+
+Grouping sets allow users to specify multiple lists of columns to group on.
+The columns not part of a given sublist of grouping columns are set to ``NULL``.
+::
+
+    SELECT * FROM shipping;
+
+.. code-block:: none
+
+     origin_state | origin_zip | destination_state | destination_zip | package_weight
+    --------------+------------+-------------------+-----------------+----------------
+     California   |      94131 | New Jersey        |            8648 |             13
+     California   |      94131 | New Jersey        |            8540 |             42
+     New Jersey   |       7081 | Connecticut       |            6708 |            225
+     California   |      90210 | Connecticut       |            6927 |           1337
+     California   |      94131 | Colorado          |           80302 |              5
+     New York     |      10002 | New Jersey        |            8540 |              3
+    (6 rows)
+
+``GROUPING SETS`` semantics are demonstrated by this example query::
+
+    SELECT origin_state, origin_zip, destination_state, sum(package_weight)
+    FROM shipping
+    GROUP BY GROUPING SETS (
+        (origin_state),
+        (origin_state, origin_zip),
+        (destination_state));
+
+.. code-block:: none
+
+     origin_state | origin_zip | destination_state | _col0
+    --------------+------------+-------------------+-------
+     New Jersey   | NULL       | NULL              |   225
+     California   | NULL       | NULL              |  1397
+     New York     | NULL       | NULL              |     3
+     California   |      90210 | NULL              |  1337
+     California   |      94131 | NULL              |    60
+     New Jersey   |       7081 | NULL              |   225
+     New York     |      10002 | NULL              |     3
+     NULL         | NULL       | Colorado          |     5
+     NULL         | NULL       | New Jersey        |    58
+     NULL         | NULL       | Connecticut       |  1562
+    (10 rows)
+
+The preceding query may be considered logically equivalent to a ``UNION ALL`` of
+multiple ``GROUP BY`` queries::
+
+    SELECT origin_state, NULL, NULL, sum(package_weight)
+    FROM shipping GROUP BY origin_state
+
+    UNION ALL
+
+    SELECT origin_state, origin_zip, NULL, sum(package_weight)
+    FROM shipping GROUP BY origin_state, origin_zip
+
+    UNION ALL
+
+    SELECT NULL, NULL, destination_state, sum(package_weight)
+    FROM shipping GROUP BY destination_state;
+
+However, the query with the complex grouping syntax (``GROUPING SETS``, ``CUBE``
+or ``ROLLUP``) will only read from the underlying data source once, while the
+query with the ``UNION ALL`` reads the underlying data three times. This is why
+queries with a ``UNION ALL`` may produce inconsistent results when the data
+source is not deterministic.
+
+**CUBE**
+
+The ``CUBE`` operator generates all possible grouping sets (i.e. a power set)
+for a given set of columns. For example, the query::
+
+    SELECT origin_state, destination_state, sum(package_weight)
+    FROM shipping
+    GROUP BY CUBE (origin_state, destination_state);
+
+is equivalent to::
+
+    SELECT origin_state, destination_state, sum(package_weight)
+    FROM shipping
+    GROUP BY GROUPING SETS (
+        (origin_state, destination_state),
+        (origin_state),
+        (destination_state),
+        ());
+
+.. code-block:: none
+
+     origin_state | destination_state | _col0
+    --------------+-------------------+-------
+     California   | New Jersey        |    55
+     California   | Colorado          |     5
+     New York     | New Jersey        |     3
+     New Jersey   | Connecticut       |   225
+     California   | Connecticut       |  1337
+     California   | NULL              |  1397
+     New York     | NULL              |     3
+     New Jersey   | NULL              |   225
+     NULL         | New Jersey        |    58
+     NULL         | Connecticut       |  1562
+     NULL         | Colorado          |     5
+     NULL         | NULL              |  1625
+    (12 rows)
+
+**ROLLUP**
+
+The ``ROLLUP`` operator generates all possible subtotals for a given set of
+columns. For example, the query::
+
+    SELECT origin_state, origin_zip, sum(package_weight)
+    FROM shipping
+    GROUP BY ROLLUP (origin_state, origin_zip);
+
+.. code-block:: none
+
+     origin_state | origin_zip | _col2
+    --------------+------------+-------
+     California   |      94131 |    60
+     California   |      90210 |  1337
+     New Jersey   |       7081 |   225
+     New York     |      10002 |     3
+     California   | NULL       |  1397
+     New York     | NULL       |     3
+     New Jersey   | NULL       |   225
+     NULL         | NULL       |  1625
+    (8 rows)
+
+is equivalent to::
+
+    SELECT origin_state, origin_zip, sum(package_weight)
+    FROM shipping
+    GROUP BY GROUPING SETS ((origin_state, origin_zip), (origin_state), ());
+
+**Combining multiple grouping expressions**
+
+Multiple grouping expressions in the same query are interpreted as having
+cross-product semantics. For example, the following query::
+
+    SELECT origin_state, destination_state, origin_zip, sum(package_weight)
+    FROM shipping
+    GROUP BY
+        GROUPING SETS ((origin_state, destination_state)),
+        ROLLUP (origin_zip);
+
+which can be rewritten as::
+
+    SELECT origin_state, destination_state, origin_zip, sum(package_weight)
+    FROM shipping
+    GROUP BY
+        GROUPING SETS ((origin_state, destination_state)),
+        GROUPING SETS ((origin_zip), ());
+
+is logically equivalent to::
+
+    SELECT origin_state, destination_state, origin_zip, sum(package_weight)
+    FROM shipping
+    GROUP BY GROUPING SETS (
+        (origin_state, destination_state, origin_zip),
+        (origin_state, destination_state));
+
+.. code-block:: none
+
+     origin_state | destination_state | origin_zip | _col3
+    --------------+-------------------+------------+-------
+     New York     | New Jersey        |      10002 |     3
+     California   | New Jersey        |      94131 |    55
+     New Jersey   | Connecticut       |       7081 |   225
+     California   | Connecticut       |      90210 |  1337
+     California   | Colorado          |      94131 |     5
+     New York     | New Jersey        | NULL       |     3
+     New Jersey   | Connecticut       | NULL       |   225
+     California   | Colorado          | NULL       |     5
+     California   | Connecticut       | NULL       |  1337
+     California   | New Jersey        | NULL       |    55
+    (10 rows)
+
+The ``ALL`` and ``DISTINCT`` quantifiers determine whether duplicate grouping
+sets each produce distinct output rows. This is particularly useful when
+multiple complex grouping sets are combined in the same query. For example, the
+following query::
+
+    SELECT origin_state, destination_state, origin_zip, sum(package_weight)
+    FROM shipping
+    GROUP BY ALL
+        CUBE (origin_state, destination_state),
+        ROLLUP (origin_state, origin_zip);
+
+is equivalent to::
+
+    SELECT origin_state, destination_state, origin_zip, sum(package_weight)
+    FROM shipping
+    GROUP BY GROUPING SETS (
+        (origin_state, destination_state, origin_zip),
+        (origin_state, origin_zip),
+        (origin_state, destination_state, origin_zip),
+        (origin_state, origin_zip),
+        (origin_state, destination_state),
+        (origin_state),
+        (origin_state, destination_state),
+        (origin_state),
+        (origin_state, destination_state),
+        (origin_state),
+        (destination_state),
+        ());
+
+However, if the query uses the ``DISTINCT`` quantifier for the ``GROUP BY``::
+
+    SELECT origin_state, destination_state, origin_zip, sum(package_weight)
+    FROM shipping
+    GROUP BY DISTINCT
+        CUBE (origin_state, destination_state),
+        ROLLUP (origin_state, origin_zip);
+
+only unique grouping sets are generated::
+
+    SELECT origin_state, destination_state, origin_zip, sum(package_weight)
+    FROM shipping
+    GROUP BY GROUPING SETS (
+        (origin_state, destination_state, origin_zip),
+        (origin_state, origin_zip),
+        (origin_state, destination_state),
+        (origin_state),
+        (destination_state),
+        ());
+
+The default set quantifier is ``ALL``.
 
 HAVING Clause
 -------------

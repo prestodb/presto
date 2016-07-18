@@ -13,17 +13,15 @@
  */
 package com.facebook.presto.hive.parquet;
 
+import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.hive.HiveRecordCursor;
 import com.facebook.presto.hive.HiveRecordCursorProvider;
-import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Predicate;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -38,8 +36,6 @@ import java.util.Set;
 
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetPredicatePushdownEnabled;
 import static com.facebook.presto.hive.HiveUtil.getDeserializerClassName;
-import static com.google.common.base.Predicates.not;
-import static com.google.common.collect.Iterables.filter;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetRecordCursorProvider
@@ -51,16 +47,18 @@ public class ParquetRecordCursorProvider
             .build();
 
     private final boolean useParquetColumnNames;
+    private final HdfsEnvironment hdfsEnvironment;
 
     @Inject
-    public ParquetRecordCursorProvider(HiveClientConfig hiveClientConfig)
+    public ParquetRecordCursorProvider(HiveClientConfig hiveClientConfig, HdfsEnvironment hdfsEnvironment)
     {
-        this(requireNonNull(hiveClientConfig, "hiveClientConfig is null").isUseParquetColumnNames());
+        this(requireNonNull(hiveClientConfig, "hiveClientConfig is null").isUseParquetColumnNames(), hdfsEnvironment);
     }
 
-    public ParquetRecordCursorProvider(boolean useParquetColumnNames)
+    public ParquetRecordCursorProvider(boolean useParquetColumnNames, HdfsEnvironment hdfsEnvironment)
     {
         this.useParquetColumnNames = useParquetColumnNames;
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
     }
 
     @Override
@@ -82,13 +80,9 @@ public class ParquetRecordCursorProvider
             return Optional.empty();
         }
 
-        // are all columns supported by Parquet code
-        List<HiveColumnHandle> unsupportedColumns = ImmutableList.copyOf(filter(columns, not(isParquetSupportedType())));
-        if (!unsupportedColumns.isEmpty()) {
-            throw new IllegalArgumentException("Can not read Parquet column: " + unsupportedColumns);
-        }
-
         return Optional.<HiveRecordCursor>of(new ParquetHiveRecordCursor(
+                hdfsEnvironment,
+                session.getUser(),
                 configuration,
                 path,
                 start,
@@ -102,13 +96,5 @@ public class ParquetRecordCursorProvider
                 isParquetPredicatePushdownEnabled(session),
                 effectivePredicate
         ));
-    }
-
-    private static Predicate<HiveColumnHandle> isParquetSupportedType()
-    {
-        return columnHandle -> {
-            HiveType hiveType = columnHandle.getHiveType();
-            return !hiveType.equals(HiveType.HIVE_DATE);
-        };
     }
 }

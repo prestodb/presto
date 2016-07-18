@@ -17,7 +17,9 @@ import io.airlift.configuration.Config;
 
 public class SecurityConfig
 {
-    private String securitySystem = "none";
+    public static final String ALLOW_ALL_ACCESS_CONTROL = "allow-all";
+
+    private String securitySystem = ALLOW_ALL_ACCESS_CONTROL;
 
     public String getSecuritySystem()
     {

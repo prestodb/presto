@@ -14,21 +14,22 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
+import java.util.Map;
 
 public interface LookupSourceSupplier
 {
     List<Type> getTypes();
 
-    ListenableFuture<LookupSource> getLookupSource(OperatorContext operatorContext);
+    ListenableFuture<LookupSource> getLookupSource();
 
-    /**
-     * NOTE: LookupSourceSupplier must be reference counted, because some of them own a SharedLookupSource.
-     * Ideally, that would be owned by the pipeline instead.
-     */
-    void retain();
+    Map<Symbol, Integer> getLayout();
 
-    void release();
+    // this is only here for the index lookup source
+    default void setTaskContext(TaskContext taskContext) {}
+
+    void destroy();
 }

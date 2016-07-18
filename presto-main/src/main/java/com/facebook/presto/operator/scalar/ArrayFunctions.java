@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.operator.scalar.annotations.ScalarFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -28,7 +29,7 @@ public final class ArrayFunctions
     }
 
     @ScalarFunction(hidden = true)
-    @SqlType("array<unknown>")
+    @SqlType("array(unknown)")
     public static Block arrayConstructor()
     {
         BlockBuilder blockBuilder = new ArrayType(UNKNOWN).createBlockBuilder(new BlockBuilderStatus(), 0);

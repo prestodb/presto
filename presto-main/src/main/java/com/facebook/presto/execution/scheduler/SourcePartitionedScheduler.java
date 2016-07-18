@@ -18,12 +18,13 @@ import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.split.SplitSource;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -42,14 +43,14 @@ public class SourcePartitionedScheduler
     private final SplitSource splitSource;
     private final SplitPlacementPolicy splitPlacementPolicy;
     private final int splitBatchSize;
+    private final PlanNodeId partitionedNode;
 
     private CompletableFuture<List<Split>> batchFuture;
     private Set<Split> pendingSplits = ImmutableSet.of();
 
-    private final Set<String> scheduledNodes = new HashSet<>();
-
     public SourcePartitionedScheduler(
             SqlStageExecution stage,
+            PlanNodeId partitionedNode,
             SplitSource splitSource,
             SplitPlacementPolicy splitPlacementPolicy,
             int splitBatchSize)
@@ -60,6 +61,8 @@ public class SourcePartitionedScheduler
 
         checkArgument(splitBatchSize > 0, "splitBatchSize must be at least one");
         this.splitBatchSize = splitBatchSize;
+
+        this.partitionedNode = partitionedNode;
     }
 
     @Override
@@ -81,8 +84,8 @@ public class SourcePartitionedScheduler
                     return new ScheduleResult(true, ImmutableSet.of(), CompletableFuture.completedFuture(null));
                 }
 
-                batchFuture = splitSource.getNextBatch(splitBatchSize);
                 long start = System.nanoTime();
+                batchFuture = splitSource.getNextBatch(splitBatchSize);
                 batchFuture.thenRun(() -> stage.recordGetSplitTime(start));
             }
 
@@ -130,8 +133,10 @@ public class SourcePartitionedScheduler
     {
         ImmutableSet.Builder<RemoteTask> newTasks = ImmutableSet.builder();
         for (Entry<Node, Collection<Split>> taskSplits : splitAssignment.asMap().entrySet()) {
-            newTasks.addAll(stage.scheduleSplits(taskSplits.getKey(), taskSplits.getValue()));
-            scheduledNodes.add(taskSplits.getKey().getNodeIdentifier());
+            // source partitioned tasks can only receive broadcast data; otherwise it would have a different distribution
+            newTasks.addAll(stage.scheduleSplits(taskSplits.getKey(), ImmutableMultimap.<PlanNodeId, Split>builder()
+                    .putAll(partitionedNode, taskSplits.getValue())
+                    .build()));
         }
         return newTasks.build();
     }
@@ -145,9 +150,10 @@ public class SourcePartitionedScheduler
 
         splitPlacementPolicy.lockDownNodes();
 
+        Set<Node> scheduledNodes = stage.getScheduledNodes();
         Set<RemoteTask> newTasks = splitPlacementPolicy.allNodes().stream()
-                .filter(node -> !scheduledNodes.contains(node.getNodeIdentifier()))
-                .map(stage::scheduleTask)
+                .filter(node -> !scheduledNodes.contains(node))
+                .flatMap(node -> stage.scheduleSplits(node, ImmutableMultimap.of()).stream())
                 .collect(toImmutableSet());
 
         // notify listeners that we have scheduled all tasks so they can set no more buffers or exchange splits

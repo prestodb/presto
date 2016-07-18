@@ -13,13 +13,19 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import io.airlift.tpch.TpchTable;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 import static com.facebook.presto.cassandra.CassandraQueryRunner.createSampledSession;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static org.testng.Assert.assertEquals;
 
+//Integrations tests fail when parallel, due to a bug or configuration error in the embedded
+//cassandra instance. This problem results in either a hang in Thrift calls or broken sockets.
 @Test(singleThreaded = true)
 public class TestCassandraDistributed
         extends AbstractTestDistributedQueries
@@ -28,6 +34,20 @@ public class TestCassandraDistributed
             throws Exception
     {
         super(createCassandraQueryRunner(TpchTable.getTables()), createSampledSession());
+    }
+
+    @Override
+    public void testGroupingSetMixedExpressionAndColumn()
+            throws Exception
+    {
+        // Cassandra does not support DATE
+    }
+
+    @Override
+    public void testGroupingSetMixedExpressionAndOrdinal()
+            throws Exception
+    {
+        // Cassandra does not support DATE
     }
 
     @Override
@@ -59,6 +79,20 @@ public class TestCassandraDistributed
     }
 
     @Override
+    public void testCompatibleTypeChangeForView()
+            throws Exception
+    {
+        // Cassandra connector currently does not support views
+    }
+
+    @Override
+    public void testCompatibleTypeChangeForView2()
+            throws Exception
+    {
+        // Cassandra connector currently does not support views
+    }
+
+    @Override
     public void testViewMetadata()
             throws Exception
     {
@@ -80,16 +114,36 @@ public class TestCassandraDistributed
     }
 
     @Override
+    public void testCreateTableAsSelect()
+            throws Exception
+    {
+        // Cassandra connector currently does not support create table
+    }
+
+    @Override
     public void testDelete()
             throws Exception
     {
         // Cassandra connector currently does not support delete
     }
 
-    @Override
-    public void testDeleteSemiJoin()
+    public void testShowColumns()
             throws Exception
     {
-        // Cassandra connector currently does not support delete
+        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
+
+        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "bigint", "")
+                .row("custkey", "bigint", "")
+                .row("orderstatus", "varchar", "")
+                .row("totalprice", "double", "")
+                .row("orderdate", "varchar", "")
+                .row("orderpriority", "varchar", "")
+                .row("clerk", "varchar", "")
+                .row("shippriority", "integer", "")
+                .row("comment", "varchar", "")
+                .build();
+
+        assertEquals(actual, expectedParametrizedVarchar);
     }
 }

@@ -14,12 +14,8 @@
 package com.facebook.presto.redis;
 
 import com.facebook.presto.spi.Connector;
-import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 
 import javax.inject.Inject;
@@ -36,25 +32,16 @@ public class RedisConnector
 
     private final RedisSplitManager splitManager;
     private final RedisRecordSetProvider recordSetProvider;
-    private final RedisHandleResolver handleResolver;
 
     @Inject
     public RedisConnector(
-            RedisHandleResolver handleResolver,
             RedisMetadata metadata,
             RedisSplitManager splitManager,
             RedisRecordSetProvider recordSetProvider)
     {
-        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return handleResolver;
     }
 
     @Override
@@ -70,26 +57,8 @@ public class RedisConnector
     }
 
     @Override
-    public ConnectorPageSourceProvider getPageSourceProvider()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public ConnectorRecordSetProvider getRecordSetProvider()
     {
         return recordSetProvider;
-    }
-
-    @Override
-    public ConnectorRecordSinkProvider getRecordSinkProvider()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public ConnectorIndexResolver getIndexResolver()
-    {
-        throw new UnsupportedOperationException();
     }
 }

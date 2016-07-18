@@ -18,23 +18,34 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joda.time.DateTime;
 
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
+
+import java.lang.management.GarbageCollectorMXBean;
+import java.lang.management.ManagementFactory;
 import java.nio.ByteOrder;
+import java.util.List;
+import java.util.Locale;
+import java.util.OptionalLong;
+
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static java.lang.management.ManagementFactory.OPERATING_SYSTEM_MXBEAN_NAME;
 
 final class PrestoSystemRequirements
 {
+    private static final int MIN_FILE_DESCRIPTORS = 4096;
+    private static final int RECOMMENDED_FILE_DESCRIPTORS = 8192;
+
     private PrestoSystemRequirements() {}
 
     public static void verifyJvmRequirements()
     {
-        String specVersion = StandardSystemProperty.JAVA_SPECIFICATION_VERSION.value();
-        if ((specVersion == null) || (specVersion.compareTo("1.8") < 0)) {
-            failRequirement("Presto requires Java 1.8+ (found %s)", specVersion);
-        }
-
         String vendor = StandardSystemProperty.JAVA_VENDOR.value();
         if (!"Oracle Corporation".equals(vendor)) {
             failRequirement("Presto requires an Oracle or OpenJDK JVM (found %s)", vendor);
         }
+
+        verifyJavaVersion();
 
         String dataModel = System.getProperty("sun.arch.data.model");
         if (!"64".equals(dataModel)) {
@@ -61,7 +72,82 @@ final class PrestoSystemRequirements
             failRequirement("Presto requires a little endian platform (found %s)", ByteOrder.nativeOrder());
         }
 
+        verifyUsingG1Gc();
+
+        verifyFileDescriptor();
+
         verifySlice();
+    }
+
+    private static void verifyJavaVersion()
+    {
+        String javaVersion = StandardSystemProperty.JAVA_VERSION.value();
+        if (javaVersion == null) {
+            failRequirement("Java version not defined");
+        }
+
+        String[] versionParts = javaVersion.split("_");
+        if (versionParts.length != 2) {
+            failRequirement("Java version has an unknown format: %s", javaVersion);
+        }
+
+        String majorVersion = versionParts[0];
+        int minorVersion = 0;
+        try {
+            minorVersion = Integer.parseInt(versionParts[1]);
+        }
+        catch (NumberFormatException e) {
+            failRequirement("Java minor version is not a number: %s", javaVersion);
+        }
+
+        if ((majorVersion.compareTo("1.8.0") < 0) ||
+                ((majorVersion.compareTo("1.8.0") == 0) && (minorVersion < 60))) {
+            failRequirement("Presto requires Java 8u60+ (found %s)", javaVersion);
+        }
+    }
+
+    private static void verifyUsingG1Gc()
+    {
+        try {
+            List<String> garbageCollectors = ManagementFactory.getGarbageCollectorMXBeans().stream()
+                    .map(GarbageCollectorMXBean::getName)
+                    .collect(toImmutableList());
+
+            if (garbageCollectors.stream().noneMatch(name -> name.toUpperCase(Locale.US).startsWith("G1 "))) {
+                warnRequirement("Current garbage collectors are %s. Presto recommends the G1 garbage collector.", garbageCollectors);
+            }
+        }
+        catch (RuntimeException e) {
+            // This should never happen since we have verified the OS and JVM above
+            failRequirement("Cannot read garbage collector information: %s", e);
+        }
+    }
+
+    private static void verifyFileDescriptor()
+    {
+        OptionalLong maxFileDescriptorCount = getMaxFileDescriptorCount();
+        if (!maxFileDescriptorCount.isPresent()) {
+            // This should never happen since we have verified the OS and JVM above
+            failRequirement("Cannot read OS file descriptor limit");
+        }
+        if (maxFileDescriptorCount.getAsLong() < MIN_FILE_DESCRIPTORS) {
+            failRequirement("Presto requires at least %s file descriptors (found %s)", MIN_FILE_DESCRIPTORS, maxFileDescriptorCount.getAsLong());
+        }
+        if (maxFileDescriptorCount.getAsLong() < RECOMMENDED_FILE_DESCRIPTORS) {
+            warnRequirement("Current OS file descriptor limit is %s. Presto recommends at least %s", maxFileDescriptorCount.getAsLong(), RECOMMENDED_FILE_DESCRIPTORS);
+        }
+    }
+
+    private static OptionalLong getMaxFileDescriptorCount()
+    {
+        try {
+            MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
+            Object maxFileDescriptorCount = mbeanServer.getAttribute(ObjectName.getInstance(OPERATING_SYSTEM_MXBEAN_NAME), "MaxFileDescriptorCount");
+            return OptionalLong.of(((Number) maxFileDescriptorCount).longValue());
+        }
+        catch (Exception e) {
+            return OptionalLong.empty();
+        }
     }
 
     private static void verifySlice()
@@ -84,7 +170,7 @@ final class PrestoSystemRequirements
     {
         int currentYear = DateTime.now().year().get();
         if (currentYear < 2015) {
-           failRequirement("Presto requires the system time to be current (found year %s)", currentYear);
+            failRequirement("Presto requires the system time to be current (found year %s)", currentYear);
         }
     }
 
@@ -92,5 +178,10 @@ final class PrestoSystemRequirements
     {
         System.err.println(String.format(format, args));
         System.exit(100);
+    }
+
+    private static void warnRequirement(String format, Object... args)
+    {
+        System.err.println("WARNING: " + String.format(format, args));
     }
 }

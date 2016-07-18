@@ -25,6 +25,7 @@ import io.airlift.stats.CounterStat;
 import io.airlift.stats.Distribution;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -38,10 +39,11 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
-import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -60,6 +62,10 @@ public class PipelineContext
 
     private final AtomicLong memoryReservation = new AtomicLong();
     private final AtomicLong systemMemoryReservation = new AtomicLong();
+
+    private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
+    private final AtomicReference<DateTime> lastExecutionStartTime = new AtomicReference<>();
+    private final AtomicReference<DateTime> lastExecutionEndTime = new AtomicReference<>();
 
     private final Distribution queuedTime = new Distribution();
     private final Distribution elapsedTime = new Distribution();
@@ -133,6 +139,9 @@ public class PipelineContext
             throw new IllegalArgumentException("Unknown driver " + driverContext);
         }
 
+        // always update last execution end time
+        lastExecutionEndTime.set(DateTime.now());
+
         DriverStats driverStats = driverContext.getDriverStats();
 
         completedDrivers.getAndIncrement();
@@ -176,6 +185,11 @@ public class PipelineContext
 
     public void start()
     {
+        DateTime now = DateTime.now();
+        executionStartTime.compareAndSet(null, now);
+        // always update last execution start time
+        lastExecutionStartTime.set(now);
+
         taskContext.start();
     }
 
@@ -192,6 +206,12 @@ public class PipelineContext
     public DataSize getOperatorPreAllocatedMemory()
     {
         return taskContext.getOperatorPreAllocatedMemory();
+    }
+
+    public void transferMemoryToTaskContext(long bytes)
+    {
+        // The memory is already reserved in the task context, so just decrement our reservation
+        checkArgument(memoryReservation.addAndGet(-bytes) >= 0, "Tried to transfer more memory than is reserved");
     }
 
     public synchronized ListenableFuture<?> reserveMemory(long bytes)
@@ -291,6 +311,14 @@ public class PipelineContext
 
     public PipelineStats getPipelineStats()
     {
+        // check for end state to avoid callback ordering problems
+        if (taskContext.getState().isDone()) {
+            DateTime now = DateTime.now();
+            executionStartTime.compareAndSet(null, now);
+            lastExecutionStartTime.compareAndSet(null, now);
+            lastExecutionEndTime.compareAndSet(null, now);
+        }
+
         List<DriverContext> driverContexts = ImmutableList.copyOf(this.drivers);
 
         int totalDriers = completedDrivers.get() + driverContexts.size();
@@ -381,6 +409,10 @@ public class PipelineContext
                 .filter(driver -> driver.getEndTime() == null && driver.getStartTime() != null)
                 .allMatch(DriverStats::isFullyBlocked);
         return new PipelineStats(
+                executionStartTime.get(),
+                lastExecutionStartTime.get(),
+                lastExecutionEndTime.get(),
+
                 inputPipeline,
                 outputPipeline,
 
@@ -391,8 +423,8 @@ public class PipelineContext
                 runningPartitionedDrivers,
                 completedDrivers,
 
-                new DataSize(memoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),
-                new DataSize(systemMemoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(memoryReservation.get()),
+                succinctBytes(systemMemoryReservation.get()),
 
                 queuedTime.snapshot(),
                 elapsedTime.snapshot(),
@@ -404,13 +436,13 @@ public class PipelineContext
                 fullyBlocked && (runningDrivers > 0 || runningPartitionedDrivers > 0),
                 blockedReasons,
 
-                new DataSize(rawInputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(rawInputDataSize),
                 rawInputPositions,
 
-                new DataSize(processedInputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(processedInputDataSize),
                 processedInputPositions,
 
-                new DataSize(outputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(outputDataSize),
                 outputPositions,
 
                 ImmutableList.copyOf(operatorSummaries.values()),

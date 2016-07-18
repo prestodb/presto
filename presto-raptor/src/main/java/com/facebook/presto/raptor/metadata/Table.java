@@ -19,16 +19,27 @@ import org.skife.jdbi.v2.tweak.ResultSetMapper;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Objects;
+import java.util.OptionalInt;
+import java.util.OptionalLong;
 
+import static com.facebook.presto.raptor.util.DatabaseUtil.getOptionalInt;
+import static com.facebook.presto.raptor.util.DatabaseUtil.getOptionalLong;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public final class Table
 {
     private final long tableId;
+    private final OptionalLong distributionId;
+    private final OptionalInt bucketCount;
+    private final OptionalLong temporalColumnId;
 
-    public Table(long tableId)
+    public Table(long tableId, OptionalLong distributionId, OptionalInt bucketCount, OptionalLong temporalColumnId)
     {
         this.tableId = tableId;
+        this.distributionId = requireNonNull(distributionId, "distributionId is null");
+        this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
+        this.temporalColumnId = requireNonNull(temporalColumnId, "temporalColumnId is null");
     }
 
     public long getTableId()
@@ -36,23 +47,41 @@ public final class Table
         return tableId;
     }
 
-    @Override
-    public int hashCode()
+    public OptionalLong getDistributionId()
     {
-        return Objects.hash(tableId);
+        return distributionId;
+    }
+
+    public OptionalInt getBucketCount()
+    {
+        return bucketCount;
+    }
+
+    public OptionalLong getTemporalColumnId()
+    {
+        return temporalColumnId;
     }
 
     @Override
-    public boolean equals(Object obj)
+    public boolean equals(Object o)
     {
-        if (obj == this) {
+        if (this == o) {
             return true;
         }
-        if ((obj == null) || (getClass() != obj.getClass())) {
+        if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        Table o = (Table) obj;
-        return tableId == o.tableId;
+        Table table = (Table) o;
+        return tableId == table.tableId &&
+                Objects.equals(distributionId, table.distributionId) &&
+                Objects.equals(bucketCount, table.bucketCount) &&
+                Objects.equals(temporalColumnId, table.temporalColumnId);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(tableId, distributionId, bucketCount, temporalColumnId);
     }
 
     @Override
@@ -60,6 +89,10 @@ public final class Table
     {
         return toStringHelper(this)
                 .add("tableId", tableId)
+                .add("distributionId", distributionId.isPresent() ? distributionId.getAsLong() : null)
+                .add("bucketCount", bucketCount.isPresent() ? bucketCount.getAsInt() : null)
+                .add("temporalColumnId", temporalColumnId.isPresent() ? temporalColumnId.getAsLong() : null)
+                .omitNullValues()
                 .toString();
     }
 
@@ -70,7 +103,11 @@ public final class Table
         public Table map(int index, ResultSet r, StatementContext ctx)
                 throws SQLException
         {
-            return new Table(r.getLong("table_id"));
+            return new Table(
+                    r.getLong("table_id"),
+                    getOptionalLong(r, "distribution_id"),
+                    getOptionalInt(r, "bucket_count"),
+                    getOptionalLong(r, "temporal_column_id"));
         }
     }
 }

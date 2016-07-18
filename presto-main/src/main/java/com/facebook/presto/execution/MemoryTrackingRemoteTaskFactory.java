@@ -15,7 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.NodeTaskMap.SplitCountChangeListener;
+import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Node;
@@ -44,7 +44,8 @@ public class MemoryTrackingRemoteTaskFactory
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
-            SplitCountChangeListener splitCountChangeListener)
+            PartitionedSplitCountTracker partitionedSplitCountTracker,
+            boolean summarizeTaskInfo)
     {
         RemoteTask task = remoteTaskFactory.createRemoteTask(session,
                 taskId,
@@ -52,14 +53,15 @@ public class MemoryTrackingRemoteTaskFactory
                 fragment,
                 initialSplits,
                 outputBuffers,
-                splitCountChangeListener);
+                partitionedSplitCountTracker,
+                summarizeTaskInfo);
 
         task.addStateChangeListener(new UpdatePeakMemory(stateMachine));
         return task;
     }
 
     private static final class UpdatePeakMemory
-            implements StateChangeListener<TaskInfo>
+            implements StateChangeListener<TaskStatus>
     {
         private final QueryStateMachine stateMachine;
         private long previousMemory;
@@ -70,9 +72,9 @@ public class MemoryTrackingRemoteTaskFactory
         }
 
         @Override
-        public synchronized void stateChanged(TaskInfo newState)
+        public synchronized void stateChanged(TaskStatus newStatus)
         {
-            long currentMemory = newState.getStats().getMemoryReservation().toBytes();
+            long currentMemory = newStatus.getMemoryReservation().toBytes();
             long deltaMemoryInBytes = currentMemory - previousMemory;
             previousMemory = currentMemory;
             stateMachine.updateMemoryUsage(deltaMemoryInBytes);

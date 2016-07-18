@@ -46,6 +46,8 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
 import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
+import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -69,6 +71,8 @@ public class SliceDictionaryStreamReader
     private int dictionarySize;
     @Nonnull
     private Slice[] dictionary = new Slice[1];
+
+    private Block dictionaryBlock = createNewDictionaryBlock();
 
     @Nonnull
     private StreamSource<LongStream> dictionaryLengthStreamSource = missingStreamSource(LongStream.class);
@@ -115,7 +119,7 @@ public class SliceDictionaryStreamReader
             throws IOException
     {
         if (!rowGroupOpen) {
-            openRowGroup();
+            openRowGroup(type);
         }
 
         if (readOffset > 0) {
@@ -201,7 +205,7 @@ public class SliceDictionaryStreamReader
             }
             // copy ids into a private array for this block since data vector is reused
             Slice ids = Slices.wrappedIntArray(Arrays.copyOfRange(dataVector, 0, nextBatchSize));
-            block = new DictionaryBlock(nextBatchSize, new SliceArrayBlock(dictionarySize + 1, dictionary, true), ids);
+            block = new DictionaryBlock(nextBatchSize, dictionaryBlock, ids);
         }
 
         readOffset = 0;
@@ -209,13 +213,19 @@ public class SliceDictionaryStreamReader
         return block;
     }
 
-    private void openRowGroup()
+    private Block createNewDictionaryBlock()
+    {
+        return new SliceArrayBlock(dictionary.length, dictionary, true);
+    }
+
+    private void openRowGroup(Type type)
             throws IOException
     {
         // read the dictionary
         if (!dictionaryOpen) {
             // We must always create a new dictionary array because we need the last slot to be null
             dictionary = new Slice[dictionarySize + 1];
+            dictionaryBlock = createNewDictionaryBlock();
             if (dictionarySize > 0) {
                 int[] dictionaryLength = new int[dictionarySize];
 
@@ -227,7 +237,7 @@ public class SliceDictionaryStreamReader
                 lengthStream.nextIntVector(dictionarySize, dictionaryLength);
 
                 ByteArrayStream dictionaryDataStream = dictionaryDataStreamSource.openStream();
-                readDictionary(dictionaryDataStream, dictionarySize, dictionaryLength, dictionary);
+                readDictionary(dictionaryDataStream, dictionarySize, dictionaryLength, dictionary, type);
             }
         }
         dictionaryOpen = true;
@@ -247,9 +257,8 @@ public class SliceDictionaryStreamReader
             dictionaryLengthStream.nextIntVector(rowGroupDictionarySize, rowGroupDictionaryLength);
 
             ByteArrayStream dictionaryDataStream = rowGroupDictionaryDataStreamSource.openStream();
-            readDictionary(dictionaryDataStream, rowGroupDictionarySize, rowGroupDictionaryLength, rowGroupDictionary);
+            readDictionary(dictionaryDataStream, rowGroupDictionarySize, rowGroupDictionaryLength, rowGroupDictionary, type);
         }
-        dictionaryOpen = true;
 
         presentStream = presentStreamSource.openStream();
         inDictionaryStream = inDictionaryStreamSource.openStream();
@@ -258,7 +267,7 @@ public class SliceDictionaryStreamReader
         rowGroupOpen = true;
     }
 
-    private static void readDictionary(@Nullable ByteArrayStream dictionaryDataStream, int dictionarySize, int[] dictionaryLength, Slice[] dictionary)
+    private static void readDictionary(@Nullable ByteArrayStream dictionaryDataStream, int dictionarySize, int[] dictionaryLength, Slice[] dictionary, Type type)
             throws IOException
     {
         // build dictionary slices
@@ -268,7 +277,11 @@ public class SliceDictionaryStreamReader
                 dictionary[i] = Slices.EMPTY_SLICE;
             }
             else {
-                dictionary[i] = Slices.wrappedBuffer(dictionaryDataStream.next(length));
+                Slice value = Slices.wrappedBuffer(dictionaryDataStream.next(length));
+                if (isVarcharType(type)) {
+                    value = truncateToLength(value, type);
+                }
+                dictionary[i] = value;
             }
         }
     }

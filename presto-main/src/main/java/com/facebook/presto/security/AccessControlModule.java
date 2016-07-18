@@ -17,6 +17,8 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
+
 public class AccessControlModule
     implements Module
 {
@@ -25,5 +27,6 @@ public class AccessControlModule
     {
         binder.bind(AccessControlManager.class).in(Scopes.SINGLETON);
         binder.bind(AccessControl.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(AccessControlManager.class).withGeneratedName();
     }
 }

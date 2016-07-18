@@ -14,74 +14,55 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.PagePartitionFunction;
-import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.google.common.collect.ImmutableMap;
 
-import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.LinkedHashSet;
-import java.util.Set;
-import java.util.function.BiFunction;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
-import static java.util.Objects.requireNonNull;
+import static com.facebook.presto.OutputBuffers.BufferType.PARTITIONED;
+import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
+import static com.google.common.base.Preconditions.checkArgument;
 
 @ThreadSafe
 public class PartitionedOutputBufferManager
         implements OutputBufferManager
 {
-    protected final Consumer<OutputBuffers> outputBufferTarget;
-    protected final BiFunction<Integer, Integer, PagePartitionFunction> partitionFunctionGenerator;
-    @GuardedBy("this")
-    private final Set<TaskId> bufferIds = new LinkedHashSet<>();
-    @GuardedBy("this")
-    private boolean noMoreBufferIds;
+    private final Map<OutputBufferId, Integer> outputBuffers;
 
-    public PartitionedOutputBufferManager(
-            Consumer<OutputBuffers> outputBufferTarget,
-            BiFunction<Integer, Integer, PagePartitionFunction> partitionFunctionGenerator)
+    public PartitionedOutputBufferManager(int partitionCount, Consumer<OutputBuffers> outputBufferTarget)
     {
-        this.outputBufferTarget = requireNonNull(outputBufferTarget, "outputBufferTarget is null");
-        this.partitionFunctionGenerator = requireNonNull(partitionFunctionGenerator, "partitionFunctionGenerator is null");
-    }
+        checkArgument(partitionCount >= 1, "partitionCount must be at least 1");
 
-    @Override
-    public synchronized void addOutputBuffer(TaskId bufferId)
-    {
-        if (noMoreBufferIds) {
-            // a stage can move to a final state (e.g., failed) while scheduling, so ignore
-            // the new buffers
-            return;
-        }
-        bufferIds.add(bufferId);
-    }
-
-    @Override
-    public void noMoreOutputBuffers()
-    {
-        OutputBuffers outputBuffers;
-        synchronized (this) {
-            if (noMoreBufferIds) {
-                // already created the buffers
-                return;
-            }
-            noMoreBufferIds = true;
-
-            ImmutableMap.Builder<TaskId, PagePartitionFunction> buffers = ImmutableMap.builder();
-            int partition = 0;
-            int partitionCount = bufferIds.size();
-            for (TaskId bufferId : bufferIds) {
-                buffers.put(bufferId, partitionFunctionGenerator.apply(partition, partitionCount));
-                partition++;
-            }
-            outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS
-                    .withBuffers(buffers.build())
-                    .withNoMoreBufferIds();
+        ImmutableMap.Builder<OutputBufferId, Integer> partitions = ImmutableMap.builder();
+        for (int partition = 0; partition < partitionCount; partition++) {
+            partitions.put(new OutputBufferId(partition), partition);
         }
 
+        OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(PARTITIONED)
+                .withBuffers(partitions.build())
+                .withNoMoreBufferIds();
         outputBufferTarget.accept(outputBuffers);
+
+        this.outputBuffers = outputBuffers.getBuffers();
+    }
+
+    @Override
+    public void addOutputBuffers(List<OutputBufferId> newBuffers, boolean noMoreBuffers)
+    {
+        // All buffers are created in the constructor, so just validate that this isn't
+        // a request to add a new buffer
+        for (OutputBufferId newBuffer : newBuffers) {
+            Integer existingBufferId = outputBuffers.get(newBuffer);
+            if (existingBufferId == null) {
+                throw new IllegalStateException("Unexpected new output buffer " + newBuffer);
+            }
+            if (newBuffer.getId() != existingBufferId) {
+                throw new IllegalStateException("newOutputBuffers has changed the assignment for task " + newBuffer);
+            }
+        }
     }
 }

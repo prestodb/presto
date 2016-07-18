@@ -1,0 +1,2 @@
+-- delimiter: |; ignoreOrder: true; trimValues:true; types: LONGNVARCHAR|BIGINT
+10|null

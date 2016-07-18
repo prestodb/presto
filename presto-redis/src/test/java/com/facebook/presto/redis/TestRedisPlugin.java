@@ -18,9 +18,11 @@ import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.NodeState;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -28,6 +30,7 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -73,7 +76,7 @@ public class TestRedisPlugin
         }
 
         @Override
-        public Type getParameterizedType(String baseTypeName, List<TypeSignature> typeParameters, List<Object> literalParameters)
+        public Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
         {
             return null;
         }
@@ -83,6 +86,30 @@ public class TestRedisPlugin
         {
             return ImmutableList.of();
         }
+
+        @Override
+        public Optional<Type> getCommonSuperType(List<? extends Type> types)
+        {
+            return Optional.empty();
+        }
+
+        @Override
+        public boolean isTypeOnlyCoercion(Type actualType, Type expectedType)
+        {
+            return false;
+        }
+
+        @Override
+        public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
+        {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<Type> coerceTypeBase(Type sourceType, String resultTypeBase)
+        {
+            throw new UnsupportedOperationException();
+        }
     }
 
     private static class TestingNodeManager
@@ -91,7 +118,7 @@ public class TestRedisPlugin
         private static final Node LOCAL_NODE = new TestingNode();
 
         @Override
-        public Set<Node> getActiveNodes()
+        public Set<Node> getNodes(NodeState state)
         {
             return ImmutableSet.of(LOCAL_NODE);
         }

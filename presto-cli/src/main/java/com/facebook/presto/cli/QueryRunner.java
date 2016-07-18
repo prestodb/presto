@@ -118,7 +118,9 @@ public class QueryRunner
             Optional<String> kerberosRemoteServiceName,
             boolean authenticationEnabled)
     {
-        HttpClientConfig httpClientConfig = new HttpClientConfig().setConnectTimeout(new Duration(10, TimeUnit.SECONDS));
+        HttpClientConfig httpClientConfig = new HttpClientConfig()
+                .setConnectTimeout(new Duration(5, TimeUnit.SECONDS))
+                .setRequestTimeout(new Duration(5, TimeUnit.SECONDS));
 
         socksProxy.ifPresent(httpClientConfig::setSocksProxy);
 

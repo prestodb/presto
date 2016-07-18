@@ -13,74 +13,23 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricFunction;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.Description;
+import com.facebook.presto.operator.scalar.annotations.ScalarFunction;
+import com.facebook.presto.operator.scalar.annotations.TypeParameter;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.type.SqlType;
 
-import java.lang.invoke.MethodHandle;
-import java.util.Map;
-
-import static com.facebook.presto.metadata.FunctionType.SCALAR;
-import static com.facebook.presto.metadata.Signature.typeParameter;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
-import static com.facebook.presto.util.Reflection.methodHandle;
-import static com.google.common.base.Preconditions.checkArgument;
-
+@ScalarFunction("cardinality")
+@Description("Returns the cardinality (the number of key-value pairs) of the map")
 public final class MapCardinalityFunction
-        implements ParametricFunction
 {
-    public static final MapCardinalityFunction MAP_CARDINALITY = new MapCardinalityFunction();
-    private static final Signature SIGNATURE = new Signature("cardinality", SCALAR, ImmutableList.of(typeParameter("K"), typeParameter("V")), "bigint", ImmutableList.of("map<K,V>"), false);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(MapCardinalityFunction.class, "mapCardinality", Block.class);
+    private MapCardinalityFunction() {}
 
-    @Override
-    public Signature getSignature()
-    {
-        return SIGNATURE;
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return null;
-    }
-
-    @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
-    {
-        checkArgument(arity == 1, "Cardinality expects only one argument");
-        Type keyType = types.get("K");
-        Type valueType = types.get("V");
-        return new FunctionInfo(
-                new Signature("cardinality", SCALAR, parseTypeSignature(StandardTypes.BIGINT), parameterizedTypeName("map", keyType.getTypeSignature(), valueType.getTypeSignature())),
-                "Returns the cardinality (size) of the map",
-                isHidden(),
-                METHOD_HANDLE,
-                isDeterministic(),
-                false,
-                ImmutableList.of(false));
-    }
-
-    public static long mapCardinality(Block block)
+    @TypeParameter("K")
+    @TypeParameter("V")
+    @SqlType(StandardTypes.BIGINT)
+    public static long mapCardinality(@SqlType("map(K,V)") Block block)
     {
         return block.getPositionCount() / 2;
     }

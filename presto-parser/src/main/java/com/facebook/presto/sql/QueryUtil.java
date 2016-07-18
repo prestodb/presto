@@ -14,12 +14,12 @@
 package com.facebook.presto.sql;
 
 import com.facebook.presto.sql.tree.AliasedRelation;
-import com.facebook.presto.sql.tree.BooleanLiteral;
+import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.IfExpression;
+import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
@@ -43,12 +43,8 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 public final class QueryUtil
 {
-    public static final String FIELD_REFERENCE_PREFIX = "$field_reference$";
-
     private QueryUtil() {}
 
     public static Expression nameReference(String name)
@@ -117,7 +113,7 @@ public final class QueryUtil
 
     public static Expression functionCall(String name, Expression... arguments)
     {
-        return new FunctionCall(new QualifiedName(name), ImmutableList.copyOf(arguments));
+        return new FunctionCall(QualifiedName.of(name), ImmutableList.copyOf(arguments));
     }
 
     public static Values values(Row... row)
@@ -140,18 +136,21 @@ public final class QueryUtil
         return new SingleColumn(new CoalesceExpression(nameReference(column), new StringLiteral("")), alias);
     }
 
-    public static SelectItem aliasedYesNoToBoolean(String column, String alias)
-    {
-        Expression expression = new IfExpression(
-                equal(nameReference(column), new StringLiteral("YES")),
-                BooleanLiteral.TRUE_LITERAL,
-                BooleanLiteral.FALSE_LITERAL);
-        return new SingleColumn(expression, alias);
-    }
-
     public static List<SortItem> ordering(SortItem... items)
     {
         return ImmutableList.copyOf(items);
+    }
+
+    public static Query simpleQuery(Select select)
+    {
+        return query(new QuerySpecification(
+                select,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(),
+                Optional.empty()));
     }
 
     public static Query simpleQuery(Select select, Relation from)
@@ -176,19 +175,27 @@ public final class QueryUtil
 
     public static Query simpleQuery(Select select, Relation from, Optional<Expression> where, List<SortItem> ordering)
     {
-        return simpleQuery(select, from, where, ImmutableList.of(), Optional.empty(), ordering, Optional.empty());
+        return simpleQuery(select, from, where, Optional.empty(), Optional.empty(), ordering, Optional.empty());
     }
 
-    public static Query simpleQuery(Select select, Relation from, Optional<Expression> where, List<Expression> grouping, Optional<Expression> having, List<SortItem> ordering, Optional<String> limit)
+    public static Query simpleQuery(Select select, Relation from, Optional<Expression> where, Optional<GroupBy> groupBy, Optional<Expression> having, List<SortItem> ordering, Optional<String> limit)
     {
         return query(new QuerySpecification(
                 select,
                 Optional.of(from),
                 where,
-                grouping,
+                groupBy,
                 having,
                 ordering,
                 limit));
+    }
+
+    public static Query singleValueQuery(String columnName, String value)
+    {
+        Relation values = values(row(new StringLiteral((value))));
+        return simpleQuery(
+                selectList(new AllColumns()),
+                aliased(values, "t", ImmutableList.of(columnName)));
     }
 
     public static Query query(QueryBody body)
@@ -199,16 +206,5 @@ public final class QueryUtil
                 ImmutableList.of(),
                 Optional.empty(),
                 Optional.empty());
-    }
-
-    public static String mangleFieldReference(String fieldName)
-    {
-        return FIELD_REFERENCE_PREFIX + fieldName;
-    }
-
-    public static String unmangleFieldReference(String mangledName)
-    {
-        checkArgument(mangledName.startsWith(FIELD_REFERENCE_PREFIX), "Invalid mangled name: %s", mangledName);
-        return mangledName.substring(FIELD_REFERENCE_PREFIX.length());
     }
 }

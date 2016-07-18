@@ -24,7 +24,6 @@ import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
-import com.facebook.presto.type.UnknownType;
 import com.google.common.collect.Iterables;
 
 import java.lang.invoke.MethodHandle;
@@ -37,11 +36,14 @@ import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
 import static com.facebook.presto.sql.relational.Signatures.CAST;
 import static com.facebook.presto.sql.relational.Signatures.COALESCE;
+import static com.facebook.presto.sql.relational.Signatures.DEREFERENCE;
 import static com.facebook.presto.sql.relational.Signatures.IF;
 import static com.facebook.presto.sql.relational.Signatures.IN;
 import static com.facebook.presto.sql.relational.Signatures.IS_NULL;
 import static com.facebook.presto.sql.relational.Signatures.NULL_IF;
+import static com.facebook.presto.sql.relational.Signatures.ROW_CONSTRUCTOR;
 import static com.facebook.presto.sql.relational.Signatures.SWITCH;
+import static com.facebook.presto.sql.relational.Signatures.TRY;
 import static com.facebook.presto.sql.relational.Signatures.TRY_CAST;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
@@ -87,16 +89,13 @@ public class ExpressionOptimizer
             Signature signature = call.getSignature();
 
             if (signature.getName().equals(CAST)) {
-                if (call.getArguments().get(0).getType().equals(UnknownType.UNKNOWN)) {
-                    return constantNull(call.getType());
-                }
                 Signature functionSignature = registry.getCoercion(call.getArguments().get(0).getType(), call.getType());
                 function = registry.getScalarFunctionImplementation(functionSignature);
             }
             else {
                 switch (signature.getName()) {
                     // TODO: optimize these special forms
-                    case IF:
+                    case IF: {
                         checkState(call.getArguments().size() == 3, "IF function should have 3 arguments. Get " + call.getArguments().size());
                         RowExpression optimizedOperand = call.getArguments().get(0).accept(this, context);
                         if (optimizedOperand instanceof ConstantExpression) {
@@ -110,6 +109,21 @@ public class ExpressionOptimizer
                                 return call.getArguments().get(2).accept(this, context);
                             }
                         }
+                        List<RowExpression> arguments = call.getArguments().stream()
+                                .map(argument -> argument.accept(this, null))
+                                .collect(toImmutableList());
+                        return call(signature, call.getType(), arguments);
+                    }
+                    case TRY: {
+                        checkState(call.getArguments().size() == 1, "try call expressions must have a single argument");
+                        if (!(Iterables.getOnlyElement(call.getArguments()) instanceof CallExpression)) {
+                            return Iterables.getOnlyElement(call.getArguments()).accept(this, null);
+                        }
+                        List<RowExpression> arguments = call.getArguments().stream()
+                                .map(argument -> argument.accept(this, null))
+                                .collect(toImmutableList());
+                        return call(signature, call.getType(), arguments);
+                    }
                     case NULL_IF:
                     case SWITCH:
                     case "WHEN":
@@ -120,10 +134,13 @@ public class ExpressionOptimizer
                     case "AND":
                     case "OR":
                     case IN:
+                    case DEREFERENCE:
+                    case ROW_CONSTRUCTOR: {
                         List<RowExpression> arguments = call.getArguments().stream()
                                 .map(argument -> argument.accept(this, null))
                                 .collect(toImmutableList());
                         return call(signature, call.getType(), arguments);
+                    }
                     default:
                         function = registry.getScalarFunctionImplementation(signature);
                 }

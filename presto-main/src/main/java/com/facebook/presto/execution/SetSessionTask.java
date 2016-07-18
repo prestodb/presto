@@ -16,15 +16,22 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SetSession;
+import com.facebook.presto.transaction.TransactionManager;
+
+import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.metadata.SessionPropertyManager.evaluatePropertyValue;
 import static com.facebook.presto.metadata.SessionPropertyManager.serializeSessionProperty;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SESSION_PROPERTY;
+import static java.lang.String.format;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class SetSessionTask
         implements DataDefinitionTask<SetSession>
@@ -36,8 +43,9 @@ public class SetSessionTask
     }
 
     @Override
-    public void execute(SetSession statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
+    public CompletableFuture<?> execute(SetSession statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
     {
+        Session session = stateMachine.getSession();
         QualifiedName propertyName = statement.getName();
         if (propertyName.getParts().size() > 2) {
             throw new SemanticException(INVALID_SESSION_PROPERTY, statement, "Invalid session property '%s'", propertyName);
@@ -53,13 +61,22 @@ public class SetSessionTask
         }
 
         Type type = propertyMetadata.getSqlType();
+        Object objectValue;
 
-        Object objectValue = evaluatePropertyValue(statement.getValue(), type, session, metadata);
+        try {
+            objectValue = evaluatePropertyValue(statement.getValue(), type, session, metadata);
+        }
+        catch (SemanticException e) {
+            throw new PrestoException(StandardErrorCode.INVALID_SESSION_PROPERTY,
+                    format("Unable to set session property '%s' to '%s': %s", propertyName, statement.getValue(), e.getMessage()));
+        }
+
         String value = serializeSessionProperty(type, objectValue);
 
         // verify the SQL value can be decoded by the property
         metadata.getSessionPropertyManager().decodeProperty(propertyName.toString(), value, propertyMetadata.getJavaType());
-
         stateMachine.addSetSessionProperties(propertyName.toString(), value);
+
+        return completedFuture(null);
     }
 }

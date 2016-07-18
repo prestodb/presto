@@ -14,8 +14,9 @@
 package com.facebook.presto.connector.system.jdbc;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.system.GlobalSystemTransactionHandle;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -23,7 +24,8 @@ import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.InMemoryRecordSet.Builder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 
@@ -34,7 +36,8 @@ import static com.facebook.presto.connector.system.jdbc.FilterUtil.stringFilter;
 import static com.facebook.presto.connector.system.jdbc.FilterUtil.tablePrefix;
 import static com.facebook.presto.connector.system.jdbc.FilterUtil.toSession;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.util.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
 public class TableJdbcTable
@@ -43,16 +46,16 @@ public class TableJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "tables");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
-            .column("table_cat", VARCHAR)
-            .column("table_schem", VARCHAR)
-            .column("table_name", VARCHAR)
-            .column("table_type", VARCHAR)
-            .column("remarks", VARCHAR)
-            .column("type_cat", VARCHAR)
-            .column("type_schem", VARCHAR)
-            .column("type_name", VARCHAR)
-            .column("self_referencing_col_name", VARCHAR)
-            .column("ref_generation", VARCHAR)
+            .column("table_cat", createUnboundedVarcharType())
+            .column("table_schem", createUnboundedVarcharType())
+            .column("table_name", createUnboundedVarcharType())
+            .column("table_type", createUnboundedVarcharType())
+            .column("remarks", createUnboundedVarcharType())
+            .column("type_cat", createUnboundedVarcharType())
+            .column("type_schem", createUnboundedVarcharType())
+            .column("type_name", createUnboundedVarcharType())
+            .column("self_referencing_col_name", createUnboundedVarcharType())
+            .column("ref_generation", createUnboundedVarcharType())
             .build();
 
     private final Metadata metadata;
@@ -70,9 +73,10 @@ public class TableJdbcTable
     }
 
     @Override
-    public RecordCursor cursor(ConnectorSession connectorSession, TupleDomain<Integer> constraint)
+    public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, TupleDomain<Integer> constraint)
     {
-        Session session = toSession(connectorSession);
+        GlobalSystemTransactionHandle transaction = checkType(transactionHandle, GlobalSystemTransactionHandle.class, "transaction");
+        Session session = toSession(transaction.getTransactionId(), connectorSession);
         Optional<String> catalogFilter = stringFilter(constraint, 0);
         Optional<String> schemaFilter = stringFilter(constraint, 1);
         Optional<String> tableFilter = stringFilter(constraint, 2);
@@ -83,13 +87,13 @@ public class TableJdbcTable
             QualifiedTablePrefix prefix = tablePrefix(catalog, schemaFilter, tableFilter);
 
             if (FilterUtil.emptyOrEquals(typeFilter, "TABLE")) {
-                for (QualifiedTableName name : metadata.listTables(session, prefix)) {
+                for (QualifiedObjectName name : metadata.listTables(session, prefix)) {
                     table.addRow(tableRow(name, "TABLE"));
                 }
             }
 
             if (FilterUtil.emptyOrEquals(typeFilter, "VIEW")) {
-                for (QualifiedTableName name : metadata.listViews(session, prefix)) {
+                for (QualifiedObjectName name : metadata.listViews(session, prefix)) {
                     table.addRow(tableRow(name, "VIEW"));
                 }
             }
@@ -97,9 +101,9 @@ public class TableJdbcTable
         return table.build().cursor();
     }
 
-    private static Object[] tableRow(QualifiedTableName name, String type)
+    private static Object[] tableRow(QualifiedObjectName name, String type)
     {
-        return new Object[] {name.getCatalogName(), name.getSchemaName(), name.getTableName(), type,
+        return new Object[] {name.getCatalogName(), name.getSchemaName(), name.getObjectName(), type,
                              null, null, null, null, null, null};
     }
 }

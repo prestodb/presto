@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.operator.HashPartitionMaskOperator.HashPartitionMaskOperatorFactory;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.type.BigintOperators;
 import com.google.common.collect.ImmutableList;
@@ -39,7 +40,6 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static java.lang.Math.abs;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -80,6 +80,7 @@ public class TestHashPartitionMaskOperator
 
         OperatorFactory operatorFactory = new HashPartitionMaskOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 PARTITION_COUNT,
                 rowPagesBuilder.getTypes(),
                 ImmutableList.of(),
@@ -93,12 +94,13 @@ public class TestHashPartitionMaskOperator
 
             MaterializedResult.Builder expected = resultBuilder(TEST_SESSION, BIGINT, BOOLEAN);
             for (int i = 0; i < ROW_COUNT; i++) {
-                int rawHash = (int) BigintOperators.hashCode(i);
+                long rawHash = BigintOperators.hashCode(i);
                 // mix the bits so we don't use the same hash used to distribute between stages
-                rawHash = abs((int) XxHash64.hash(Integer.reverse(rawHash)));
+                rawHash = XxHash64.hash(Long.reverse(rawHash));
+                rawHash &= Long.MAX_VALUE;
 
                 boolean active = (rawHash % PARTITION_COUNT == partition);
-                expected.row(i, active);
+                expected.row((long) i, active);
 
                 if (active) {
                     assertEquals(rowPartition[i], -1);
@@ -122,6 +124,7 @@ public class TestHashPartitionMaskOperator
 
         OperatorFactory operatorFactory = new HashPartitionMaskOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 PARTITION_COUNT,
                 rowPagesBuilder.getTypes(),
                 ImmutableList.of(1, 2),
@@ -135,13 +138,14 @@ public class TestHashPartitionMaskOperator
 
             MaterializedResult.Builder expected = resultBuilder(TEST_SESSION, BIGINT, BOOLEAN, BOOLEAN, BOOLEAN);
             for (int i = 0; i < ROW_COUNT; i++) {
-                int rawHash = (int) BigintOperators.hashCode(i);
+                long rawHash = BigintOperators.hashCode(i);
                 // mix the bits so we don't use the same hash used to distribute between stages
-                rawHash = abs((int) XxHash64.hash(Integer.reverse(rawHash)));
+                rawHash = XxHash64.hash(Long.reverse(rawHash));
+                rawHash &= Long.MAX_VALUE;
 
                 boolean active = (rawHash % PARTITION_COUNT == partition);
                 boolean maskValue = i % 2 == 0;
-                expected.row(i, active && maskValue, active && !maskValue, active);
+                expected.row((long) i, active && maskValue, active && !maskValue, active);
 
                 if (active) {
                     assertEquals(rowPartition[i], -1);

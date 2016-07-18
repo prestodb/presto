@@ -21,6 +21,7 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -46,6 +47,7 @@ public class WindowOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final List<Type> sourceTypes;
         private final List<Integer> outputChannels;
         private final List<WindowFunctionDefinition> windowFunctionDefinitions;
@@ -61,6 +63,7 @@ public class WindowOperator
 
         public WindowOperatorFactory(
                 int operatorId,
+                PlanNodeId planNodeId,
                 List<? extends Type> sourceTypes,
                 List<Integer> outputChannels,
                 List<WindowFunctionDefinition> windowFunctionDefinitions,
@@ -73,6 +76,7 @@ public class WindowOperator
                 int expectedPositions)
         {
             requireNonNull(sourceTypes, "sourceTypes is null");
+            requireNonNull(planNodeId, "planNodeId is null");
             requireNonNull(outputChannels, "outputChannels is null");
             requireNonNull(windowFunctionDefinitions, "windowFunctionDefinitions is null");
             requireNonNull(partitionChannels, "partitionChannels is null");
@@ -86,6 +90,7 @@ public class WindowOperator
             requireNonNull(frameInfo, "frameInfo is null");
 
             this.operatorId = operatorId;
+            this.planNodeId = planNodeId;
             this.sourceTypes = ImmutableList.copyOf(sourceTypes);
             this.outputChannels = ImmutableList.copyOf(outputChannels);
             this.windowFunctionDefinitions = ImmutableList.copyOf(windowFunctionDefinitions);
@@ -115,7 +120,7 @@ public class WindowOperator
         {
             checkState(!closed, "Factory is already closed");
 
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, WindowOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, WindowOperator.class.getSimpleName());
             return new WindowOperator(
                     operatorContext,
                     sourceTypes,
@@ -134,6 +139,24 @@ public class WindowOperator
         public void close()
         {
             closed = true;
+        }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new WindowOperatorFactory(
+                operatorId,
+                planNodeId,
+                sourceTypes,
+                outputChannels,
+                windowFunctionDefinitions,
+                partitionChannels,
+                preGroupedChannels,
+                sortChannels,
+                sortOrder,
+                preSortedChannelPrefix,
+                frameInfo,
+                expectedPositions);
         }
     }
 
@@ -321,7 +344,7 @@ public class WindowOperator
 
         // TODO: Fix pagesHashStrategy to allow specifying channels for comparison, it currently requires us to rearrange the right side blocks in consecutive channel order
         Page preGroupedPage = rearrangePage(page, preGroupedChannels);
-        if (pagesIndex.getPositionCount() == 0 || pagesIndex.positionEqualsRow(preGroupedPartitionHashStrategy, 0, 0, preGroupedPage.getBlocks())) {
+        if (pagesIndex.getPositionCount() == 0 || pagesIndex.positionEqualsRow(preGroupedPartitionHashStrategy, 0, 0, preGroupedPage)) {
             // Find the position where the pre-grouped columns change
             int groupEnd = findGroupEnd(preGroupedPage, preGroupedPartitionHashStrategy, 0);
 
@@ -429,14 +452,14 @@ public class WindowOperator
         checkPositionIndex(startPosition, page.getPositionCount(), "startPosition out of bounds");
 
         // Short circuit if the whole page has the same value
-        if (pagesHashStrategy.rowEqualsRow(startPosition, page.getBlocks(), page.getPositionCount() - 1, page.getBlocks())) {
+        if (pagesHashStrategy.rowEqualsRow(startPosition, page, page.getPositionCount() - 1, page)) {
             return page.getPositionCount();
         }
 
         // TODO: do position binary search
         int endPosition = startPosition + 1;
         while (endPosition < page.getPositionCount() &&
-                pagesHashStrategy.rowEqualsRow(endPosition - 1, page.getBlocks(), endPosition, page.getBlocks())) {
+                pagesHashStrategy.rowEqualsRow(endPosition - 1, page, endPosition, page)) {
             endPosition++;
         }
         return endPosition;

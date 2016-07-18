@@ -17,11 +17,11 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.FunctionCall;
 
-import static com.facebook.presto.metadata.FunctionType.WINDOW;
+import static com.facebook.presto.metadata.FunctionKind.WINDOW;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_REQUIRES_OVER;
 import static java.util.Objects.requireNonNull;
 
-public class WindowFunctionValidator
+class WindowFunctionValidator
         extends DefaultExpressionTraversalVisitor<Void, Analysis>
 {
     @Override
@@ -30,7 +30,7 @@ public class WindowFunctionValidator
         requireNonNull(analysis, "analysis is null");
 
         Signature signature = analysis.getFunctionSignature(functionCall);
-        if (signature != null && signature.getType() == WINDOW && !functionCall.getWindow().isPresent()) {
+        if (signature != null && signature.getKind() == WINDOW && !functionCall.getWindow().isPresent()) {
             throw new SemanticException(WINDOW_REQUIRES_OVER, functionCall, "Window function %s requires an OVER clause", signature.getName());
         }
         return super.visitFunctionCall(functionCall, analysis);

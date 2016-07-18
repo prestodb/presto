@@ -15,11 +15,13 @@ package com.facebook.presto.connector.system.jdbc;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.Domain;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.transaction.TransactionId;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
@@ -33,9 +35,11 @@ final class FilterUtil
     private FilterUtil() {}
 
     // this does not preserve any connector properties (for the system connector)
-    public static Session toSession(ConnectorSession session)
+    public static Session toSession(TransactionId transactionId, ConnectorSession session)
     {
         return Session.builder(new SessionPropertyManager(SYSTEM_SESSION_PROPERTIES))
+                .setQueryId(new QueryId(session.getQueryId()))
+                .setTransactionId(transactionId)
                 .setCatalog("catalog")
                 .setSchema("schema")
                 .setIdentity(session.getIdentity())
@@ -51,20 +55,14 @@ final class FilterUtil
             return Optional.empty();
         }
 
-        Domain domain = constraint.getDomains().get(index);
+        Domain domain = constraint.getDomains().get().get(index);
         if ((domain == null) || !domain.isSingleValue()) {
             return Optional.empty();
         }
 
-        Comparable<?> value = domain.getSingleValue();
-        if (value == null) {
-            return Optional.empty();
-        }
+        Object value = domain.getSingleValue();
         if (value instanceof Slice) {
             return Optional.of(((Slice) value).toStringUtf8());
-        }
-        if (value instanceof String) {
-            return Optional.of((String) value);
         }
         return Optional.empty();
     }

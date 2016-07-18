@@ -17,12 +17,17 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlockBuilder;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public final class StructuralTestUtil
 {
@@ -80,6 +85,19 @@ public final class StructuralTestUtil
         return blockBuilder.build();
     }
 
+    public static Block mapBlockOf(Type keyType, Type valueType, Object[] keys, Object[] values)
+    {
+        checkArgument(keys.length == values.length, "keys/values must have the same length");
+        BlockBuilder blockBuilder = new InterleavedBlockBuilder(ImmutableList.of(keyType, valueType), new BlockBuilderStatus(), 1024);
+        for (int i = 0; i < keys.length; i++) {
+            Object key = keys[i];
+            Object value = values[i];
+            appendToBlockBuilder(keyType, key, blockBuilder);
+            appendToBlockBuilder(valueType, value, blockBuilder);
+        }
+        return blockBuilder.build();
+    }
+
     public static Block rowBlockOf(List<Type> parameterTypes, Object... values)
     {
         InterleavedBlockBuilder blockBuilder = new InterleavedBlockBuilder(parameterTypes, new BlockBuilderStatus(), 1024);
@@ -87,5 +105,29 @@ public final class StructuralTestUtil
             appendToBlockBuilder(parameterTypes.get(i), values[i], blockBuilder);
         }
         return blockBuilder.build();
+    }
+
+    public static Block decimalArrayBlockOf(DecimalType type, BigDecimal decimal)
+    {
+        if (type.isShort()) {
+            long longDecimal = decimal.unscaledValue().longValue();
+            return arrayBlockOf(type, longDecimal);
+        }
+        else {
+            Slice sliceDecimal = Decimals.encodeUnscaledValue(decimal.unscaledValue());
+            return arrayBlockOf(type, sliceDecimal);
+        }
+    }
+
+    public static Block decimalMapBlockOf(DecimalType type, BigDecimal decimal)
+    {
+        if (type.isShort()) {
+            long longDecimal = decimal.unscaledValue().longValue();
+            return mapBlockOf(type, type, longDecimal, longDecimal);
+        }
+        else {
+            Slice sliceDecimal = Decimals.encodeUnscaledValue(decimal.unscaledValue());
+            return mapBlockOf(type, type, sliceDecimal, sliceDecimal);
+        }
     }
 }

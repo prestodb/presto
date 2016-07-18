@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.facebook.presto.spi.Connector;
-import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.common.base.Throwables;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
@@ -49,6 +50,12 @@ public class CassandraConnectorFactory
     public String getName()
     {
         return name;
+    }
+
+    @Override
+    public ConnectorHandleResolver getHandleResolver()
+    {
+        return new CassandraHandleResolver();
     }
 
     @Override

@@ -14,30 +14,44 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.AsyncFunction;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
+import javax.annotation.concurrent.GuardedBy;
+
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.Futures.transform;
 import static java.util.Objects.requireNonNull;
 
 public final class SettableLookupSourceSupplier
         implements LookupSourceSupplier
 {
-    private final List<Type> types;
-    private final SettableFuture<SharedLookupSource> lookupSourceFuture = SettableFuture.create();
-    private final AtomicInteger referenceCount = new AtomicInteger(1);
+    private enum State
+    {
+        NOT_SET, SET, DESTROYED
+    }
 
-    public SettableLookupSourceSupplier(List<Type> types)
+    private final List<Type> types;
+    private final boolean outer;
+    private final SettableFuture<LookupSource> lookupSourceFuture = SettableFuture.create();
+    private final Map<Symbol, Integer> layout;
+
+    @GuardedBy("this")
+    private State state = State.NOT_SET;
+
+    @GuardedBy("this")
+    private Runnable onDestroy;
+
+    public SettableLookupSourceSupplier(List<Type> types, Map<Symbol, Integer> layout, boolean outer)
     {
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.layout = ImmutableMap.copyOf(requireNonNull(layout, "layout is null"));
+        this.outer = outer;
     }
 
     @Override
@@ -47,42 +61,60 @@ public final class SettableLookupSourceSupplier
     }
 
     @Override
-    public ListenableFuture<LookupSource> getLookupSource(OperatorContext operatorContext)
+    public Map<Symbol, Integer> getLayout()
     {
-        return transform(lookupSourceFuture, (AsyncFunction<SharedLookupSource, LookupSource>) Futures::immediateFuture);
-    }
-
-    public void setLookupSource(SharedLookupSource lookupSource)
-    {
-        requireNonNull(lookupSource, "lookupSource is null");
-        boolean wasSet = lookupSourceFuture.set(lookupSource);
-        checkState(wasSet, "Lookup source already set");
+        return layout;
     }
 
     @Override
-    public void retain()
+    public ListenableFuture<LookupSource> getLookupSource()
     {
-        referenceCount.incrementAndGet();
+        return lookupSourceFuture;
+    }
+
+    public void setLookupSource(LookupSource lookupSource, OperatorContext operatorContext)
+    {
+        if (outer) {
+            lookupSource = new OuterLookupSource(lookupSource);
+        }
+
+        synchronized (this) {
+            requireNonNull(lookupSource, "lookupSource is null");
+            requireNonNull(operatorContext, "operatorContext is null");
+
+            if (state == State.DESTROYED) {
+                return;
+            }
+
+            checkState(state == State.NOT_SET, "Lookup source already set");
+            state = State.SET;
+
+            // transfer lookup source memory to task context
+            long lookupSourceSizeInBytes = lookupSource.getInMemorySizeInBytes();
+            operatorContext.transferMemoryToTaskContext(lookupSourceSizeInBytes);
+
+            // when all references are released, free the task memory
+            TaskContext taskContext = operatorContext.getDriverContext().getPipelineContext().getTaskContext();
+            onDestroy = () -> taskContext.freeMemory(lookupSourceSizeInBytes);
+        }
+
+        lookupSourceFuture.set(lookupSource);
     }
 
     @Override
-    public void release()
+    public void destroy()
     {
-        if (referenceCount.decrementAndGet() == 0) {
-            // We own the shared lookup source, so we need to free their memory
-            Futures.addCallback(lookupSourceFuture, new FutureCallback<SharedLookupSource>() {
-                @Override
-                public void onSuccess(SharedLookupSource result)
-                {
-                    result.freeMemory();
-                }
+        Runnable onDestroy;
+        synchronized (this) {
+            if (state == State.DESTROYED) {
+                return;
+            }
+            state = State.DESTROYED;
+            onDestroy = this.onDestroy;
+        }
 
-                @Override
-                public void onFailure(Throwable t)
-                {
-                    // ignored
-                }
-            });
+        if (onDestroy != null) {
+            onDestroy.run();
         }
     }
 }

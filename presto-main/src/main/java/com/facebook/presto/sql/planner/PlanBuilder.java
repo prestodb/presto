@@ -13,10 +13,13 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.analyzer.FieldOrExpression;
+import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
+import com.google.common.collect.ImmutableMap;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -38,6 +41,23 @@ class PlanBuilder
         this.sampleWeight = sampleWeight;
     }
 
+    public TranslationMap copyTranslations()
+    {
+        TranslationMap translations = new TranslationMap(getRelationPlan(), getAnalysis());
+        translations.copyMappingsFrom(getTranslations());
+        return translations;
+    }
+
+    private Analysis getAnalysis()
+    {
+        return translations.getAnalysis();
+    }
+
+    public PlanBuilder withNewRoot(PlanNode root)
+    {
+        return new PlanBuilder(translations, root, sampleWeight);
+    }
+
     public Optional<Symbol> getSampleWeight()
     {
         return sampleWeight;
@@ -53,14 +73,14 @@ class PlanBuilder
         return root;
     }
 
+    public boolean canTranslate(Expression expression)
+    {
+        return translations.containsSymbol(expression);
+    }
+
     public Symbol translate(Expression expression)
     {
         return translations.get(expression);
-    }
-
-    public Symbol translate(FieldOrExpression fieldOrExpression)
-    {
-        return translations.get(fieldOrExpression);
     }
 
     public Expression rewrite(Expression expression)
@@ -68,13 +88,34 @@ class PlanBuilder
         return translations.rewrite(expression);
     }
 
-    public Expression rewrite(FieldOrExpression fieldOrExpression)
-    {
-        return translations.rewrite(fieldOrExpression);
-    }
-
     public TranslationMap getTranslations()
     {
         return translations;
+    }
+
+    public PlanBuilder appendProjections(Iterable<Expression> expressions, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    {
+        TranslationMap translations = copyTranslations();
+
+        ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
+
+        // add an identity projection for underlying plan
+        for (Symbol symbol : getRoot().getOutputSymbols()) {
+            projections.put(symbol, symbol.toSymbolReference());
+        }
+
+        ImmutableMap.Builder<Symbol, Expression> newTranslations = ImmutableMap.builder();
+        for (Expression expression : expressions) {
+            Symbol symbol = symbolAllocator.newSymbol(expression, getAnalysis().getTypeWithCoercions(expression));
+
+            projections.put(symbol, translations.rewrite(expression));
+            newTranslations.put(symbol, expression);
+        }
+        // Now append the new translations into the TranslationMap
+        for (Map.Entry<Symbol, Expression> entry : newTranslations.build().entrySet()) {
+            translations.put(entry.getValue(), entry.getKey());
+        }
+
+        return new PlanBuilder(translations, new ProjectNode(idAllocator.getNextId(), getRoot(), projections.build()), getSampleWeight());
     }
 }

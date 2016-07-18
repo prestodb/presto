@@ -27,37 +27,42 @@ public interface Block
     /**
      * Gets a byte at {@code offset} in the value at {@code position}.
      */
-    byte getByte(int position, int offset);
+    default byte getByte(int position, int offset)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * Gets a little endian short at {@code offset} in the value at {@code position}.
      */
-    short getShort(int position, int offset);
+    default short getShort(int position, int offset)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * Gets a little endian int at {@code offset} in the value at {@code position}.
      */
-    int getInt(int position, int offset);
+    default int getInt(int position, int offset)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * Gets a little endian long at {@code offset} in the value at {@code position}.
      */
-    long getLong(int position, int offset);
-
-    /**
-     * Gets a little endian float at {@code offset} in the value at {@code position}.
-     */
-    float getFloat(int position, int offset);
-
-    /**
-     * Gets a little endian double at {@code offset} in the value at {@code position}.
-     */
-    double getDouble(int position, int offset);
+    default long getLong(int position, int offset)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * Gets a slice at {@code offset} in the value at {@code position}.
      */
-    Slice getSlice(int position, int offset, int length);
+    default Slice getSlice(int position, int offset, int length)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * Gets an object in the value at {@code position}.
@@ -70,20 +75,32 @@ public interface Block
     /**
      * Is the byte sequences at {@code offset} in the value at {@code position} equal
      * to the byte sequence at {@code otherOffset} in {@code otherSlice}.
+     * This method must be implemented if @{code getSlice} is implemented.
      */
-    boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length);
+    default boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * Compares the byte sequences at {@code offset} in the value at {@code position}
      * to the byte sequence at {@code otherOffset} in {@code otherSlice}.
+     * This method must be implemented if @{code getSlice} is implemented.
      */
-    int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength);
+    default int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * Appends the byte sequences at {@code offset} in the value at {@code position}
      * to {@code blockBuilder}.
+     * This method must be implemented if @{code getSlice} is implemented.
      */
-    void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder);
+    default void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * Appends the value at {@code position} to {@code blockBuilder}.
@@ -94,26 +111,38 @@ public interface Block
      * Is the byte sequences at {@code offset} in the value at {@code position} equal
      * to the byte sequence at {@code otherOffset} in the value at {@code otherPosition}
      * in {@code otherBlock}.
+     * This method must be implemented if @{code getSlice} is implemented.
      */
-    boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length);
+    default boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * Calculates the hash code the byte sequences at {@code offset} in the
      * value at {@code position}.
+     * This method must be implemented if @{code getSlice} is implemented.
      */
-    int hash(int position, int offset, int length);
+    default long hash(int position, int offset, int length)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * Compares the byte sequences at {@code offset} in the value at {@code position}
      * to the byte sequence at {@code otherOffset} in the value at {@code otherPosition}
      * in {@code otherBlock}.
+     * This method must be implemented if @{code getSlice} is implemented.
      */
-    int compareTo(int leftPosition, int leftOffset, int leftLength, Block rightBlock, int rightPosition, int rightOffset, int rightLength);
+    default int compareTo(int leftPosition, int leftOffset, int leftLength, Block rightBlock, int rightPosition, int rightOffset, int rightLength)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * Gets the value at the specified position as a single element block.  The method
      * must copy the data into a new block.
-     *
+     * <p>
      * This method is useful for operators that hold on to a single value without
      * holding on to the entire block.
      *
@@ -133,6 +162,7 @@ public interface Block
 
     /**
      * Returns the retained size of this block in memory.
+     * This method is called from the inner most execution loop and must be fast.
      */
     int getRetainedSizeInBytes();
 
@@ -144,7 +174,7 @@ public interface Block
     /**
      * Returns a block containing the specified positions.
      * All specified positions must be valid for this block.
-     *
+     * <p>
      * The returned block must be a compact representation of the original block.
      */
     Block copyPositions(List<Integer> positions);
@@ -153,7 +183,7 @@ public interface Block
      * Returns a block starting at the specified position and extends for the
      * specified length.  The specified region must be entirely contained
      * within this block.
-     *
+     * <p>
      * The region can be a view over this block.  If this block is released
      * the region block may also be released.  If the region block is released
      * this block may also be released.
@@ -164,7 +194,7 @@ public interface Block
      * Returns a block starting at the specified position and extends for the
      * specified length.  The specified region must be entirely contained
      * within this block.
-     *
+     * <p>
      * The region returned must be a compact representation of the original block, unless their internal
      * representation will be exactly the same. This method is useful for
      * operators that hold on to a range of values without holding on to the
@@ -181,9 +211,9 @@ public interface Block
 
     /**
      * Assures that all data for the block is in memory.
-     *
+     * <p>
      * This allows streaming data sources to skip sections that are not
      * accessed in a query.
      */
-    void assureLoaded();
+    default void assureLoaded() {}
 }

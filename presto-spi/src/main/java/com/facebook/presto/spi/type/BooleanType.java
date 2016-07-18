@@ -16,18 +16,46 @@ package com.facebook.presto.spi.type;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.ByteArrayBlockBuilder;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 
 public final class BooleanType
-        extends AbstractFixedWidthType
+        extends AbstractType
+        implements FixedWidthType
 {
     public static final BooleanType BOOLEAN = new BooleanType();
 
     private BooleanType()
     {
-        super(parseTypeSignature(StandardTypes.BOOLEAN), boolean.class, SIZE_OF_BYTE);
+        super(parseTypeSignature(StandardTypes.BOOLEAN), boolean.class);
+    }
+
+    @Override
+    public int getFixedSize()
+    {
+        return Byte.BYTES;
+    }
+
+    @Override
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    {
+        return new ByteArrayBlockBuilder(
+                blockBuilderStatus,
+                Math.min(expectedEntries, blockBuilderStatus.getMaxBlockSizeInBytes() / Byte.BYTES));
+    }
+
+    @Override
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    {
+        return createBlockBuilder(blockBuilderStatus, expectedEntries, Byte.BYTES);
+    }
+
+    @Override
+    public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
+    {
+        return new ByteArrayBlockBuilder(new BlockBuilderStatus(), positionCount);
     }
 
     @Override
@@ -61,7 +89,7 @@ public final class BooleanType
     }
 
     @Override
-    public int hash(Block block, int position)
+    public long hash(Block block, int position)
     {
         boolean value = block.getByte(position, 0) != 0;
         return value ? 1231 : 1237;
@@ -96,5 +124,17 @@ public final class BooleanType
     public void writeBoolean(BlockBuilder blockBuilder, boolean value)
     {
         blockBuilder.writeByte(value ? 1 : 0).closeEntry();
+    }
+
+    @Override
+    public boolean equals(Object other)
+    {
+        return other == BOOLEAN;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return getClass().hashCode();
     }
 }

@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.collect.Lists;
-
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -28,6 +28,17 @@ public class DereferenceExpression
 
     public DereferenceExpression(Expression base, String fieldName)
     {
+        this(Optional.empty(), base, fieldName);
+    }
+
+    public DereferenceExpression(NodeLocation location, Expression base, String fieldName)
+    {
+        this(Optional.of(location), base, fieldName);
+    }
+
+    private DereferenceExpression(Optional<NodeLocation> location, Expression base, String fieldName)
+    {
+        super(location);
         checkArgument(base != null, "base is null");
         checkArgument(fieldName != null, "fieldName is null");
         this.base = base;
@@ -57,20 +68,20 @@ public class DereferenceExpression
     public static QualifiedName getQualifiedName(DereferenceExpression expression)
     {
         List<String> parts = tryParseParts(expression.base, expression.fieldName);
-        return parts == null ? null : new QualifiedName(parts);
+        return parts == null ? null : QualifiedName.of(parts);
     }
 
     private static List<String> tryParseParts(Expression base, String fieldName)
     {
         if (base instanceof QualifiedNameReference) {
-            List<String> newList = Lists.newArrayList(((QualifiedNameReference) base).getName().getParts());
+            List<String> newList = new ArrayList<>(((QualifiedNameReference) base).getName().getParts());
             newList.add(fieldName);
             return newList;
         }
         else if (base instanceof DereferenceExpression) {
             QualifiedName baseQualifiedName = getQualifiedName((DereferenceExpression) base);
             if (baseQualifiedName != null) {
-                List<String> newList = Lists.newArrayList(baseQualifiedName.getParts());
+                List<String> newList = new ArrayList<>(baseQualifiedName.getParts());
                 newList.add(fieldName);
                 return newList;
             }

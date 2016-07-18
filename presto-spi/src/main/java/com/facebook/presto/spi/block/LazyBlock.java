@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
@@ -22,6 +23,8 @@ import static java.util.Objects.requireNonNull;
 public class LazyBlock
         implements Block
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LazyBlock.class).instanceSize();
+
     private final int positionCount;
     private LazyBlockLoader<LazyBlock> loader;
 
@@ -72,20 +75,6 @@ public class LazyBlock
     {
         assureLoaded();
         return block.getLong(position, offset);
-    }
-
-    @Override
-    public float getFloat(int position, int offset)
-    {
-        assureLoaded();
-        return block.getFloat(position, offset);
-    }
-
-    @Override
-    public double getDouble(int position, int offset)
-    {
-        assureLoaded();
-        return block.getDouble(position, offset);
     }
 
     @Override
@@ -148,7 +137,7 @@ public class LazyBlock
     }
 
     @Override
-    public int hash(int position, int offset, int length)
+    public long hash(int position, int offset, int length)
     {
         assureLoaded();
         return block.hash(position, offset, length);
@@ -185,7 +174,7 @@ public class LazyBlock
     public int getRetainedSizeInBytes()
     {
         assureLoaded();
-        return block.getRetainedSizeInBytes();
+        return INSTANCE_SIZE + block.getRetainedSizeInBytes();
     }
 
     @Override

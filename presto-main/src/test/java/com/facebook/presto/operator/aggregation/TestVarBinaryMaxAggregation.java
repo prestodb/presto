@@ -26,7 +26,6 @@ import io.airlift.slice.Slices;
 import java.util.List;
 
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class TestVarBinaryMaxAggregation
         extends AbstractTestAggregationFunction
@@ -52,7 +51,7 @@ public class TestVarBinaryMaxAggregation
             Slice slice = Slices.wrappedBuffer(Ints.toByteArray(i));
             max = (max == null) ? slice : Ordering.natural().max(max, slice);
         }
-        return max.toString(UTF_8);
+        return max.toStringUtf8();
     }
 
     @Override

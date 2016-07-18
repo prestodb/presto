@@ -35,6 +35,14 @@ public interface BackupStore
     void restoreShard(UUID uuid, File target);
 
     /**
+     * Delete shard from the backup store if it exists.
+     *
+     * @param uuid shard UUID
+     * @return {@code true} if the shard was deleted; {@code false} if it did not exist
+     */
+    boolean deleteShard(UUID uuid);
+
+    /**
      * Check if a shard exists in the backup store.
      *
      * @param uuid shard UUID

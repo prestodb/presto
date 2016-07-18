@@ -25,6 +25,7 @@ public class FixedPageSource
 
     private final long totalBytes;
     private long completedBytes;
+    private long memoryUsageBytes;
     private boolean closed;
 
     public FixedPageSource(Iterable<Page> pages)
@@ -36,6 +37,12 @@ public class FixedPageSource
             totalSize += page.getSizeInBytes();
         }
         this.totalBytes = totalSize;
+
+        long memoryUsageBytes = 0;
+        for (Page page : pages) {
+            memoryUsageBytes += page.getRetainedSizeInBytes();
+        }
+        this.memoryUsageBytes = memoryUsageBytes;
     }
 
     @Override
@@ -78,5 +85,11 @@ public class FixedPageSource
         Page page = pages.next();
         completedBytes += page.getSizeInBytes();
         return page;
+    }
+
+    @Override
+    public long getSystemMemoryUsage()
+    {
+        return memoryUsageBytes;
     }
 }

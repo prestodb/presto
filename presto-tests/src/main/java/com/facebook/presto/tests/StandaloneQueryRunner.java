@@ -16,7 +16,7 @@ package com.facebook.presto.tests;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.Node;
@@ -24,6 +24,7 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager;
+import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
@@ -83,7 +84,6 @@ public final class StandaloneQueryRunner
         finally {
             lock.readLock().unlock();
         }
-
     }
 
     @Override
@@ -96,7 +96,6 @@ public final class StandaloneQueryRunner
         finally {
             lock.readLock().unlock();
         }
-
     }
 
     @Override
@@ -116,6 +115,12 @@ public final class StandaloneQueryRunner
     public Session getDefaultSession()
     {
         return prestoClient.getDefaultSession();
+    }
+
+    @Override
+    public TransactionManager getTransactionManager()
+    {
+        return server.getTransactionManager();
     }
 
     @Override
@@ -187,7 +192,7 @@ public final class StandaloneQueryRunner
     }
 
     @Override
-    public List<QualifiedTableName> listTables(Session session, String catalog, String schema)
+    public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)
     {
         lock.readLock().lock();
         try {
@@ -196,7 +201,6 @@ public final class StandaloneQueryRunner
         finally {
             lock.readLock().unlock();
         }
-
     }
 
     @Override
@@ -209,7 +213,6 @@ public final class StandaloneQueryRunner
         finally {
             lock.readLock().unlock();
         }
-
     }
 
     @Override

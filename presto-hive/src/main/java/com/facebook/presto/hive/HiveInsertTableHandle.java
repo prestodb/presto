@@ -31,8 +31,10 @@ public class HiveInsertTableHandle
             @JsonProperty("tableName") String tableName,
             @JsonProperty("inputColumns") List<HiveColumnHandle> inputColumns,
             @JsonProperty("filePrefix") String filePrefix,
-            @JsonProperty("writePath") Optional<String> writePath,
-            @JsonProperty("hiveStorageFormat") HiveStorageFormat hiveStorageFormat)
+            @JsonProperty("locationHandle") LocationHandle locationHandle,
+            @JsonProperty("bucketProperty") Optional<HiveBucketProperty> bucketProperty,
+            @JsonProperty("tableStorageFormat") HiveStorageFormat tableStorageFormat,
+            @JsonProperty("partitionStorageFormat") HiveStorageFormat partitionStorageFormat)
     {
         super(
                 clientId,
@@ -40,7 +42,9 @@ public class HiveInsertTableHandle
                 tableName,
                 inputColumns,
                 filePrefix,
-                writePath,
-                hiveStorageFormat);
+                locationHandle,
+                bucketProperty,
+                tableStorageFormat,
+                partitionStorageFormat);
     }
 }

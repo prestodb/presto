@@ -24,10 +24,17 @@ public final class PrestoHeaders
     public static final String PRESTO_SESSION = "X-Presto-Session";
     public static final String PRESTO_SET_SESSION = "X-Presto-Set-Session";
     public static final String PRESTO_CLEAR_SESSION = "X-Presto-Clear-Session";
+    public static final String PRESTO_PREPARED_STATEMENT = "X-Presto-Prepared-Statement";
+    public static final String PRESTO_ADDED_PREPARE = "X-Presto-Added-Prepare";
+    public static final String PRESTO_DEALLOCATED_PREPARE = "X-Presto-Deallocated-Prepare";
+    public static final String PRESTO_TRANSACTION_ID = "X-Presto-Transaction-Id";
+    public static final String PRESTO_STARTED_TRANSACTION_ID = "X-Presto-Started-Transaction-Id";
+    public static final String PRESTO_CLEAR_TRANSACTION_ID = "X-Presto-Clear-Transaction-Id";
 
     public static final String PRESTO_CURRENT_STATE = "X-Presto-Current-State";
     public static final String PRESTO_MAX_WAIT = "X-Presto-Max-Wait";
     public static final String PRESTO_MAX_SIZE = "X-Presto-Max-Size";
+    public static final String PRESTO_TASK_INSTANCE_ID = "X-Presto-Task-Instance-Id";
     public static final String PRESTO_PAGE_TOKEN = "X-Presto-Page-Sequence-Id";
     public static final String PRESTO_PAGE_NEXT_TOKEN = "X-Presto-Page-End-Sequence-Id";
     public static final String PRESTO_BUFFER_COMPLETE = "X-Presto-Buffer-Complete";

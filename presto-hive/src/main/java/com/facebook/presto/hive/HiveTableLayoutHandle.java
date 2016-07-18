@@ -15,10 +15,11 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
@@ -30,28 +31,49 @@ public final class HiveTableLayoutHandle
         implements ConnectorTableLayoutHandle
 {
     private final String clientId;
+    private final List<ColumnHandle> partitionColumns;
     private final List<HivePartition> partitions;
     private final TupleDomain<ColumnHandle> promisedPredicate;
+    private final Optional<HiveBucketHandle> bucketHandle;
 
     @JsonCreator
-    public HiveTableLayoutHandle(@JsonProperty("clientId") String clientId, @JsonProperty("promisedPredicate") TupleDomain<ColumnHandle> promisedPredicate)
+    public HiveTableLayoutHandle(
+            @JsonProperty("clientId") String clientId,
+            @JsonProperty("partitionColumns") List<ColumnHandle> partitionColumns,
+            @JsonProperty("promisedPredicate") TupleDomain<ColumnHandle> promisedPredicate,
+            @JsonProperty("bucketHandle") Optional<HiveBucketHandle> bucketHandle)
     {
         this.clientId = requireNonNull(clientId, "clientId is null");
+        this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
         this.partitions = null;
         this.promisedPredicate = requireNonNull(promisedPredicate, "promisedPredicate is null");
+        this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
     }
 
-    public HiveTableLayoutHandle(String clientId, List<HivePartition> partitions, TupleDomain<ColumnHandle> promisedPredicate)
+    public HiveTableLayoutHandle(
+            String clientId,
+            List<ColumnHandle> partitionColumns,
+            List<HivePartition> partitions,
+            TupleDomain<ColumnHandle> promisedPredicate,
+            Optional<HiveBucketHandle> bucketHandle)
     {
         this.clientId = requireNonNull(clientId, "clientId is null");
+        this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
         this.partitions = requireNonNull(partitions, "partitions is null");
         this.promisedPredicate = requireNonNull(promisedPredicate, "promisedPredicate is null");
+        this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
     }
 
     @JsonProperty
     public String getClientId()
     {
         return clientId;
+    }
+
+    @JsonProperty
+    public List<ColumnHandle> getPartitionColumns()
+    {
+        return partitionColumns;
     }
 
     /**
@@ -71,6 +93,12 @@ public final class HiveTableLayoutHandle
         return promisedPredicate;
     }
 
+    @JsonProperty
+    public Optional<HiveBucketHandle> getBucketHandle()
+    {
+        return bucketHandle;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -82,13 +110,14 @@ public final class HiveTableLayoutHandle
         }
         HiveTableLayoutHandle that = (HiveTableLayoutHandle) o;
         return Objects.equals(clientId, that.clientId) &&
+                Objects.equals(partitionColumns, that.partitionColumns) &&
                 Objects.equals(partitions, that.partitions);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(clientId, partitions);
+        return Objects.hash(clientId, partitionColumns, partitions);
     }
 
     @Override

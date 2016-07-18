@@ -18,13 +18,15 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingSession;
+import com.google.common.collect.ImmutableList;
+import io.airlift.testing.Assertions;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
@@ -41,7 +43,6 @@ import static com.facebook.presto.testing.TestingAccessControlManager.TestingPri
 import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
 import static java.util.Objects.requireNonNull;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestIntegrationSmokeTest
@@ -191,10 +192,14 @@ public abstract class AbstractTestIntegrationSmokeTest
     {
         MaterializedResult actualColumns = computeActual("DESC ORDERS").toJdbcTypes();
 
-        // some connectors don't support dates, so test with both options
-        if (!actualColumns.equals(getExpectedTableDescription(true))) {
-            assertEquals(actualColumns, getExpectedTableDescription(false));
-        }
+        // some connectors don't support dates, and some do not support parametrized varchars, so we check multiple options
+        List<MaterializedResult> expectedColumnsPossibilities = ImmutableList.of(
+                getExpectedTableDescription(true, true),
+                getExpectedTableDescription(true, false),
+                getExpectedTableDescription(false, true),
+                getExpectedTableDescription(false, false)
+        );
+        assertTrue(expectedColumnsPossibilities.contains(actualColumns), String.format("%s not in %s", actualColumns, expectedColumnsPossibilities));
     }
 
     @Test
@@ -218,7 +223,7 @@ public abstract class AbstractTestIntegrationSmokeTest
         }
         catch (AssertionError e) {
             // There is no clean exception message for authorization failure.  We simply get a 403
-            assertTrue(e.getMessage().matches(".*statusCode=403.*"));
+            Assertions.assertContains(e.getMessage(), "statusCode=403");
         }
     }
 
@@ -296,7 +301,7 @@ public abstract class AbstractTestIntegrationSmokeTest
         assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_access");
     }
 
-    private MaterializedResult getExpectedTableDescription(boolean dateSupported)
+    private MaterializedResult getExpectedTableDescription(boolean dateSupported, boolean parametrizedVarchar)
     {
         String orderDateType;
         if (dateSupported) {
@@ -305,17 +310,32 @@ public abstract class AbstractTestIntegrationSmokeTest
         else {
             orderDateType = "varchar";
         }
-        return MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR, VARCHAR, BOOLEAN, BOOLEAN, VARCHAR)
-                    .row("orderkey", "bigint", true, false, "")
-                    .row("custkey", "bigint", true, false, "")
-                    .row("orderstatus", "varchar", true, false, "")
-                    .row("totalprice", "double", true, false, "")
-                    .row("orderdate", orderDateType, true, false, "")
-                    .row("orderpriority", "varchar", true, false, "")
-                    .row("clerk", "varchar", true, false, "")
-                    .row("shippriority", "bigint", true, false, "")
-                    .row("comment", "varchar", true, false, "")
+        if (parametrizedVarchar) {
+            return MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR, VARCHAR, VARCHAR)
+                    .row("orderkey", "bigint", "")
+                    .row("custkey", "bigint", "")
+                    .row("orderstatus", "varchar", "")
+                    .row("totalprice", "double", "")
+                    .row("orderdate", orderDateType, "")
+                    .row("orderpriority", "varchar", "")
+                    .row("clerk", "varchar", "")
+                    .row("shippriority", "integer", "")
+                    .row("comment", "varchar", "")
                     .build();
+        }
+        else {
+            return MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR, VARCHAR, VARCHAR)
+                    .row("orderkey", "bigint", "")
+                    .row("custkey", "bigint", "")
+                    .row("orderstatus", "varchar(1)", "")
+                    .row("totalprice", "double", "")
+                    .row("orderdate", orderDateType, "")
+                    .row("orderpriority", "varchar(15)", "")
+                    .row("clerk", "varchar(15)", "")
+                    .row("shippriority", "integer", "")
+                    .row("comment", "varchar(79)", "")
+                    .build();
+        }
     }
 
     protected void assertApproximateQuery(@Language("SQL") String actual, @Language("SQL") String expected)

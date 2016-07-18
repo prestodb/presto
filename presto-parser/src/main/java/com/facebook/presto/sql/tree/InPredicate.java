@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Objects;
+import java.util.Optional;
+
 public class InPredicate
         extends Expression
 {
@@ -21,6 +24,17 @@ public class InPredicate
 
     public InPredicate(Expression value, Expression valueList)
     {
+        this(Optional.empty(), value, valueList);
+    }
+
+    public InPredicate(NodeLocation location, Expression value, Expression valueList)
+    {
+        this(Optional.of(location), value, valueList);
+    }
+
+    private InPredicate(Optional<NodeLocation> location, Expression value, Expression valueList)
+    {
+        super(location);
         this.value = value;
         this.valueList = valueList;
     }
@@ -52,22 +66,13 @@ public class InPredicate
         }
 
         InPredicate that = (InPredicate) o;
-
-        if (!value.equals(that.value)) {
-            return false;
-        }
-        if (!valueList.equals(that.valueList)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(value, that.value) &&
+                Objects.equals(valueList, that.valueList);
     }
 
     @Override
     public int hashCode()
     {
-        int result = value.hashCode();
-        result = 31 * result + valueList.hashCode();
-        return result;
+        return Objects.hash(value, valueList);
     }
 }

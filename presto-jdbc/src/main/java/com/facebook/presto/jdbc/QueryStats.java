@@ -21,7 +21,9 @@ import static java.util.Objects.requireNonNull;
 
 public final class QueryStats
 {
+    private final String queryId;
     private final String state;
+    private final boolean queued;
     private final boolean scheduled;
     private final int nodes;
     private final int totalSplits;
@@ -36,7 +38,9 @@ public final class QueryStats
     private final Optional<StageStats> rootStage;
 
     public QueryStats(
+            String queryId,
             String state,
+            boolean queued,
             boolean scheduled,
             int nodes,
             int totalSplits,
@@ -50,7 +54,9 @@ public final class QueryStats
             long processedBytes,
             Optional<StageStats> rootStage)
     {
+        this.queryId = requireNonNull(queryId, "queryId is null");
         this.state = requireNonNull(state, "state is null");
+        this.queued = queued;
         this.scheduled = scheduled;
         this.nodes = nodes;
         this.totalSplits = totalSplits;
@@ -65,10 +71,12 @@ public final class QueryStats
         this.rootStage = requireNonNull(rootStage, "rootStage is null");
     }
 
-    static QueryStats create(StatementStats stats)
+    static QueryStats create(String queryId, StatementStats stats)
     {
         return new QueryStats(
+                queryId,
                 stats.getState(),
+                stats.isQueued(),
                 stats.isScheduled(),
                 stats.getNodes(),
                 stats.getTotalSplits(),
@@ -83,9 +91,19 @@ public final class QueryStats
                 Optional.ofNullable(stats.getRootStage()).map(StageStats::create));
     }
 
+    public String getQueryId()
+    {
+        return queryId;
+    }
+
     public String getState()
     {
         return state;
+    }
+
+    public boolean isQueued()
+    {
+        return queued;
     }
 
     public boolean isScheduled()

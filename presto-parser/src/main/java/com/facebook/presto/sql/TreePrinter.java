@@ -17,12 +17,16 @@ import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.BinaryLiteral;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GroupingElement;
+import com.facebook.presto.sql.tree.GroupingSets;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
@@ -32,9 +36,11 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.Rollup;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
+import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.StringLiteral;
@@ -47,6 +53,7 @@ import com.google.common.base.Strings;
 
 import java.io.PrintStream;
 import java.util.IdentityHashMap;
+import java.util.Set;
 
 public class TreePrinter
 {
@@ -114,10 +121,41 @@ public class TreePrinter
                     process(node.getWhere().get(), indentLevel + 1);
                 }
 
-                if (!node.getGroupBy().isEmpty()) {
-                    print(indentLevel, "GroupBy");
-                    for (Expression expression : node.getGroupBy()) {
-                        process(expression, indentLevel + 1);
+                if (node.getGroupBy().isPresent()) {
+                    String distinct = "";
+                    if (node.getGroupBy().get().isDistinct()) {
+                        distinct = "[DISTINCT]";
+                    }
+                    print(indentLevel, "GroupBy" + distinct);
+                    for (GroupingElement groupingElement : node.getGroupBy().get().getGroupingElements()) {
+                        print(indentLevel, "SimpleGroupBy");
+                        if (groupingElement instanceof SimpleGroupBy) {
+                            for (Expression column : ((SimpleGroupBy) groupingElement).getColumnExpressions()) {
+                                process(column, indentLevel + 1);
+                            }
+                        }
+                        else if (groupingElement instanceof GroupingSets) {
+                            print(indentLevel + 1, "GroupingSets");
+                            for (Set<Expression> column : groupingElement.enumerateGroupingSets()) {
+                                print(indentLevel + 2, "GroupingSet[");
+                                for (Expression expression : column) {
+                                    process(expression, indentLevel + 3);
+                                }
+                                print(indentLevel + 2, "]");
+                            }
+                        }
+                        else if (groupingElement instanceof Cube) {
+                            print(indentLevel + 1, "Cube");
+                            for (QualifiedName column : ((Cube) groupingElement).getColumns()) {
+                                print(indentLevel + 1, column.toString());
+                            }
+                        }
+                        else if (groupingElement instanceof Rollup) {
+                            print(indentLevel + 1, "Rollup");
+                            for (QualifiedName column : ((Rollup) groupingElement).getColumns()) {
+                                print(indentLevel + 1, column.toString());
+                            }
+                        }
                     }
                 }
 
@@ -213,6 +251,13 @@ public class TreePrinter
             protected Void visitStringLiteral(StringLiteral node, Integer indentLevel)
             {
                 print(indentLevel, "String[" + node.getValue() + "]");
+                return null;
+            }
+
+            @Override
+            protected Void visitBinaryLiteral(BinaryLiteral node, Integer indentLevel)
+            {
+                print(indentLevel, "Binary[" + node.toHexString() + "]");
                 return null;
             }
 

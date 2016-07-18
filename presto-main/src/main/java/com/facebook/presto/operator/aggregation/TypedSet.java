@@ -19,6 +19,7 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.array.IntBigArray;
 import io.airlift.units.DataSize;
+import org.openjdk.jol.info.ClassLayout;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalLimit;
 import static com.facebook.presto.type.TypeUtils.hashPosition;
@@ -30,6 +31,7 @@ import static java.util.Objects.requireNonNull;
 
 public class TypedSet
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TypedSet.class).instanceSize();
     private static final float FILL_RATIO = 0.75f;
     private static final long FOUR_MEGABYTES = new DataSize(4, MEGABYTE).toBytes();
 
@@ -45,7 +47,7 @@ public class TypedSet
 
     public TypedSet(Type elementType, int expectedSize)
     {
-        checkArgument(expectedSize > 0, "expectedSize must be > 0");
+        checkArgument(expectedSize >= 0, "expectedSize must not be negative");
         this.elementType = requireNonNull(elementType, "elementType must not be null");
         this.elementBlock = elementType.createBlockBuilder(new BlockBuilderStatus(), expectedSize);
 
@@ -61,9 +63,9 @@ public class TypedSet
         this.containsNullElement = false;
     }
 
-    public long getEstimatedSize()
+    public long getRetainedSizeInBytes()
     {
-        return elementBlock.getSizeInBytes() + blockPositionByHash.sizeOf();
+        return INSTANCE_SIZE + elementBlock.getRetainedSizeInBytes() + blockPositionByHash.sizeOf();
     }
 
     public boolean contains(Block block, int position)
@@ -88,7 +90,7 @@ public class TypedSet
             containsNullElement = true;
         }
         else {
-            int hashPosition = getHashPositionOfElement(block, position);
+            long hashPosition = getHashPositionOfElement(block, position);
             if (blockPositionByHash.get(hashPosition) == EMPTY_SLOT) {
                 addNewElement(hashPosition, block, position);
             }
@@ -108,9 +110,9 @@ public class TypedSet
     /**
      * Get slot position of element at {@code position} of {@code block}
      */
-    private int getHashPositionOfElement(Block block, int position)
+    private long getHashPositionOfElement(Block block, int position)
     {
-        int hashPosition = getMaskedHash(hashPosition(elementType, block, position));
+        long hashPosition = getMaskedHash(hashPosition(elementType, block, position));
         while (true) {
             int blockPosition = blockPositionByHash.get(hashPosition);
             // Doesn't have this element
@@ -126,7 +128,7 @@ public class TypedSet
         }
     }
 
-    private void addNewElement(int hashPosition, Block block, int position)
+    private void addNewElement(long hashPosition, Block block, int position)
     {
         elementType.appendTo(block, position, elementBlock);
         if (elementBlock.getSizeInBytes() > FOUR_MEGABYTES) {
@@ -169,7 +171,7 @@ public class TypedSet
         return maxFill;
     }
 
-    private int getMaskedHash(int rawHash)
+    private long getMaskedHash(long rawHash)
     {
         return rawHash & hashMask;
     }

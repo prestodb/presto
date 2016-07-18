@@ -29,14 +29,17 @@ public final class BlackHoleSplit
 {
     private final int pagesCount;
     private final int rowsPerPage;
+    private final int fieldsLength;
 
     @JsonCreator
     public BlackHoleSplit(
             @JsonProperty("pagesCount") int pagesCount,
-            @JsonProperty("rowsPerPage") int rowsPerPage)
+            @JsonProperty("rowsPerPage") int rowsPerPage,
+            @JsonProperty("fieldsLength") int fieldsLength)
     {
         this.rowsPerPage = requireNonNull(rowsPerPage, "rowsPerPage is null");
         this.pagesCount = requireNonNull(pagesCount, "pagesCount is null");
+        this.fieldsLength = requireNonNull(fieldsLength, "fieldsLength is null");
     }
 
     @JsonProperty
@@ -49,6 +52,12 @@ public final class BlackHoleSplit
     public int getRowsPerPage()
     {
         return rowsPerPage;
+    }
+
+    @JsonProperty
+    public int getFieldsLength()
+    {
+        return fieldsLength;
     }
 
     @Override

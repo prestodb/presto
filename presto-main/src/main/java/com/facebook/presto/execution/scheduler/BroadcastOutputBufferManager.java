@@ -14,15 +14,17 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.UnpartitionedPagePartitionFunction;
-import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.OutputBuffers.OutputBufferId;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.List;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
+import static com.facebook.presto.OutputBuffers.BROADCAST_PARTITION_ID;
+import static com.facebook.presto.OutputBuffers.BufferType.BROADCAST;
+import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -32,15 +34,16 @@ class BroadcastOutputBufferManager
     private final Consumer<OutputBuffers> outputBufferTarget;
 
     @GuardedBy("this")
-    private OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS;
+    private OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(BROADCAST);
 
     public BroadcastOutputBufferManager(Consumer<OutputBuffers> outputBufferTarget)
     {
         this.outputBufferTarget = requireNonNull(outputBufferTarget, "outputBufferTarget is null");
+        outputBufferTarget.accept(outputBuffers);
     }
 
     @Override
-    public void addOutputBuffer(TaskId bufferId)
+    public void addOutputBuffers(List<OutputBufferId> newBuffers, boolean noMoreBuffers)
     {
         OutputBuffers newOutputBuffers;
         synchronized (this) {
@@ -50,25 +53,22 @@ class BroadcastOutputBufferManager
                 return;
             }
 
-            newOutputBuffers = outputBuffers.withBuffer(bufferId, new UnpartitionedPagePartitionFunction());
-            if (newOutputBuffers == outputBuffers) {
-                return;
-            }
-            outputBuffers = newOutputBuffers;
-        }
-        outputBufferTarget.accept(newOutputBuffers);
-    }
+            OutputBuffers originalOutputBuffers = outputBuffers;
 
-    @Override
-    public void noMoreOutputBuffers()
-    {
-        OutputBuffers newOutputBuffers;
-        synchronized (this) {
-            newOutputBuffers = outputBuffers.withNoMoreBufferIds();
-            if (newOutputBuffers == outputBuffers) {
+            // Note: it does not matter which partition id the task is using, in broadcast all tasks read from the same partition
+            for (OutputBufferId newBuffer : newBuffers) {
+                outputBuffers = outputBuffers.withBuffer(newBuffer, BROADCAST_PARTITION_ID);
+            }
+
+            if (noMoreBuffers) {
+                outputBuffers = outputBuffers.withNoMoreBufferIds();
+            }
+
+            // don't update if nothing changed
+            if (outputBuffers == originalOutputBuffers) {
                 return;
             }
-            outputBuffers = newOutputBuffers;
+            newOutputBuffers = this.outputBuffers;
         }
         outputBufferTarget.accept(newOutputBuffers);
     }

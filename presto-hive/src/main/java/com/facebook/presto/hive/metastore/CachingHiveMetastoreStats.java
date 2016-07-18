@@ -33,6 +33,10 @@ public class CachingHiveMetastoreStats
     private final HiveMetastoreApiStats addPartitions = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats dropPartition = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats dropPartitionByName = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats loadRoles = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats getPrivilegeSet = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats grantTablePrivileges = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats revokeTablePrivileges = new HiveMetastoreApiStats();
 
     @Managed
     @Nested
@@ -137,5 +141,33 @@ public class CachingHiveMetastoreStats
     public HiveMetastoreApiStats getDropPartitionByName()
     {
         return dropPartitionByName;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getGrantTablePrivileges()
+    {
+        return grantTablePrivileges;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getRevokeTablePrivileges()
+    {
+        return revokeTablePrivileges;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getLoadRoles()
+    {
+        return loadRoles;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getGetPrivilegeSet()
+    {
+        return getPrivilegeSet;
     }
 }

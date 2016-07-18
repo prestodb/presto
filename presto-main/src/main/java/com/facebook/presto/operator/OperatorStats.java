@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -25,7 +26,7 @@ import javax.annotation.concurrent.Immutable;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -33,6 +34,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 public class OperatorStats
 {
     private final int operatorId;
+    private final PlanNodeId planNodeId;
     private final String operatorType;
 
     private final long addInputCalls;
@@ -65,6 +67,7 @@ public class OperatorStats
     @JsonCreator
     public OperatorStats(
             @JsonProperty("operatorId") int operatorId,
+            @JsonProperty("planNodeId") PlanNodeId planNodeId,
             @JsonProperty("operatorType") String operatorType,
 
             @JsonProperty("addInputCalls") long addInputCalls,
@@ -96,6 +99,7 @@ public class OperatorStats
     {
         checkArgument(operatorId >= 0, "operatorId is negative");
         this.operatorId = operatorId;
+        this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
 
         this.addInputCalls = addInputCalls;
@@ -132,6 +136,12 @@ public class OperatorStats
     public int getOperatorId()
     {
         return operatorId;
+    }
+
+    @JsonProperty
+    public PlanNodeId getPlanNodeId()
+    {
+        return planNodeId;
     }
 
     @JsonProperty
@@ -341,20 +351,21 @@ public class OperatorStats
 
         return new OperatorStats(
                 operatorId,
+                planNodeId,
                 operatorType,
 
                 addInputCalls,
                 new Duration(addInputWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputUser, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new DataSize(inputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(inputDataSize),
                 inputPositions,
 
                 getOutputCalls,
                 new Duration(getOutputWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(getOutputCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(getOutputUser, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new DataSize(outputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(outputDataSize),
                 outputPositions,
 
                 new Duration(blockedWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
@@ -364,8 +375,8 @@ public class OperatorStats
                 new Duration(finishCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(finishUser, NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
-                new DataSize(memoryReservation, BYTE).convertToMostSuccinctDataSize(),
-                new DataSize(systemMemoryReservation, BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(memoryReservation),
+                succinctBytes(systemMemoryReservation),
                 blockedReason,
 
                 base);

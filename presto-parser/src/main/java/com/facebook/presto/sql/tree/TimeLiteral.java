@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Objects;
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 public class TimeLiteral
@@ -22,6 +25,17 @@ public class TimeLiteral
 
     public TimeLiteral(String value)
     {
+        this(Optional.empty(), value);
+    }
+
+    public TimeLiteral(NodeLocation location, String value)
+    {
+        this(Optional.of(location), value);
+    }
+
+    private TimeLiteral(Optional<NodeLocation> location, String value)
+    {
+        super(location);
         requireNonNull(value, "value is null");
         this.value = value;
     }
@@ -48,12 +62,7 @@ public class TimeLiteral
         }
 
         TimeLiteral that = (TimeLiteral) o;
-
-        if (!value.equals(that.value)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(value, that.value);
     }
 
     @Override

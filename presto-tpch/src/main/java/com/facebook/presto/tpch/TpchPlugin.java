@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;

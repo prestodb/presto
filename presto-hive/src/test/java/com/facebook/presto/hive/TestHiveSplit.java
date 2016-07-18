@@ -14,11 +14,12 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
+import java.util.OptionalInt;
 import java.util.Properties;
 
 import static org.testng.Assert.assertEquals;
@@ -47,6 +48,7 @@ public class TestHiveSplit
                 schema,
                 partitionKeys,
                 addresses,
+                OptionalInt.empty(),
                 true,
                 TupleDomain.<HiveColumnHandle>all());
 

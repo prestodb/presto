@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -30,26 +31,33 @@ public class RaptorInsertTableHandle
         implements ConnectorInsertTableHandle
 {
     private final String connectorId;
+    private final long transactionId;
     private final long tableId;
     private final List<RaptorColumnHandle> columnHandles;
     private final List<Type> columnTypes;
     private final Optional<String> externalBatchId;
     private final List<RaptorColumnHandle> sortColumnHandles;
     private final List<SortOrder> sortOrders;
+    private final OptionalInt bucketCount;
+    private final List<RaptorColumnHandle> bucketColumnHandles;
 
     @JsonCreator
     public RaptorInsertTableHandle(
             @JsonProperty("connectorId") String connectorId,
+            @JsonProperty("transactionId") long transactionId,
             @JsonProperty("tableId") long tableId,
             @JsonProperty("columnHandles") List<RaptorColumnHandle> columnHandles,
             @JsonProperty("columnTypes") List<Type> columnTypes,
             @JsonProperty("externalBatchId") Optional<String> externalBatchId,
             @JsonProperty("sortColumnHandles") List<RaptorColumnHandle> sortColumnHandles,
-            @JsonProperty("sortOrders") List<SortOrder> sortOrders)
+            @JsonProperty("sortOrders") List<SortOrder> sortOrders,
+            @JsonProperty("bucketCount") OptionalInt bucketCount,
+            @JsonProperty("bucketColumnHandles") List<RaptorColumnHandle> bucketColumnHandles)
     {
         checkArgument(tableId > 0, "tableId must be greater than zero");
 
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.transactionId = transactionId;
         this.tableId = tableId;
         this.columnHandles = ImmutableList.copyOf(requireNonNull(columnHandles, "columnHandles is null"));
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
@@ -57,12 +65,20 @@ public class RaptorInsertTableHandle
 
         this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
         this.sortColumnHandles = ImmutableList.copyOf(requireNonNull(sortColumnHandles, "sortColumnHandles is null"));
+        this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
+        this.bucketColumnHandles = ImmutableList.copyOf(requireNonNull(bucketColumnHandles, "bucketColumnHandles is null"));
     }
 
     @JsonProperty
     public String getConnectorId()
     {
         return connectorId;
+    }
+
+    @JsonProperty
+    public long getTransactionId()
+    {
+        return transactionId;
     }
 
     @JsonProperty
@@ -99,6 +115,18 @@ public class RaptorInsertTableHandle
     public List<SortOrder> getSortOrders()
     {
         return sortOrders;
+    }
+
+    @JsonProperty
+    public OptionalInt getBucketCount()
+    {
+        return bucketCount;
+    }
+
+    @JsonProperty
+    public List<RaptorColumnHandle> getBucketColumnHandles()
+    {
+        return bucketColumnHandles;
     }
 
     @Override

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -33,6 +34,17 @@ public class CreateTable
 
     public CreateTable(QualifiedName name, List<TableElement> elements, boolean notExists, Map<String, Expression> properties)
     {
+        this(Optional.empty(), name, elements, notExists, properties);
+    }
+
+    public CreateTable(NodeLocation location, QualifiedName name, List<TableElement> elements, boolean notExists, Map<String, Expression> properties)
+    {
+        this(Optional.of(location), name, elements, notExists, properties);
+    }
+
+    private CreateTable(Optional<NodeLocation> location, QualifiedName name, List<TableElement> elements, boolean notExists, Map<String, Expression> properties)
+    {
+        super(location);
         this.name = requireNonNull(name, "table is null");
         this.elements = ImmutableList.copyOf(requireNonNull(elements, "elements is null"));
         this.notExists = notExists;

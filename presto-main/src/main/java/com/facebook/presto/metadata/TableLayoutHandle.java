@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -24,17 +25,21 @@ import static java.util.Objects.requireNonNull;
 public final class TableLayoutHandle
 {
     private final String connectorId;
+    private final ConnectorTransactionHandle transactionHandle;
     private final ConnectorTableLayoutHandle layout;
 
     @JsonCreator
     public TableLayoutHandle(
             @JsonProperty("connectorId") String connectorId,
+            @JsonProperty("transactionHandle") ConnectorTransactionHandle transactionHandle,
             @JsonProperty("connectorHandle") ConnectorTableLayoutHandle layout)
     {
         requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(transactionHandle, "transactionHandle is null");
         requireNonNull(layout, "layout is null");
 
         this.connectorId = connectorId;
+        this.transactionHandle = transactionHandle;
         this.layout = layout;
     }
 
@@ -42,6 +47,12 @@ public final class TableLayoutHandle
     public String getConnectorId()
     {
         return connectorId;
+    }
+
+    @JsonProperty
+    public ConnectorTransactionHandle getTransactionHandle()
+    {
+        return transactionHandle;
     }
 
     @JsonProperty
@@ -61,12 +72,13 @@ public final class TableLayoutHandle
         }
         TableLayoutHandle that = (TableLayoutHandle) o;
         return Objects.equals(connectorId, that.connectorId) &&
+                Objects.equals(transactionHandle, that.transactionHandle) &&
                 Objects.equals(layout, that.layout);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, layout);
+        return Objects.hash(connectorId, transactionHandle, layout);
     }
 }

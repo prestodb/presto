@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.ByteCodeBlock;
-import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.Variable;
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
@@ -23,15 +23,15 @@ import com.google.common.base.Preconditions;
 
 import java.util.List;
 
-import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantFalse;
-import static com.facebook.presto.byteCode.instruction.Constant.loadBoolean;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
+import static com.facebook.presto.bytecode.instruction.Constant.loadBoolean;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 
 public class IsNullCodeGenerator
-        implements ByteCodeGenerator
+        implements BytecodeGenerator
 {
     @Override
-    public ByteCodeNode generateExpression(Signature signature, ByteCodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
     {
         Preconditions.checkArgument(arguments.size() == 1);
 
@@ -40,11 +40,11 @@ public class IsNullCodeGenerator
             return loadBoolean(true);
         }
 
-        ByteCodeNode value = generatorContext.generate(argument);
+        BytecodeNode value = generatorContext.generate(argument);
 
         // evaluate the expression, pop the produced value, and load the null flag
         Variable wasNull = generatorContext.wasNull();
-        ByteCodeBlock block = new ByteCodeBlock()
+        BytecodeBlock block = new BytecodeBlock()
                 .comment("is null")
                 .append(value)
                 .pop(argument.getType().getJavaType())

@@ -172,7 +172,7 @@ will define new columns that can be further queried from Presto.
 A table definition file consists of a JSON definition for a table. The
 name of the file can be arbitrary but must end in ``.json``.
 
-.. code-block:: json
+.. code-block:: none
 
     {
         "tableName": ...,
@@ -204,7 +204,7 @@ Please refer to the `Kafka connector`_ page for the description of the ``dataFor
 
 In addition to the above Kafka types, the Redis connector supports ``hash`` type for the ``value`` field which represent data stored in the Redis hash.
 
-.. code-block:: json
+.. code-block:: none
 
     {
         "tableName": ...,

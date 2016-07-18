@@ -167,7 +167,7 @@ public final class RedisColumnHandle
 
     ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(name, type, false, null, hidden);
+        return new ColumnMetadata(name, type, null, hidden);
     }
 
     @Override

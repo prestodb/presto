@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Objects;
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 public class NotExpression
@@ -22,6 +25,17 @@ public class NotExpression
 
     public NotExpression(Expression value)
     {
+        this(Optional.empty(), value);
+    }
+
+    public NotExpression(NodeLocation location, Expression value)
+    {
+        this(Optional.of(location), value);
+    }
+
+    private NotExpression(Optional<NodeLocation> location, Expression value)
+    {
+        super(location);
         requireNonNull(value, "value is null");
         this.value = value;
     }
@@ -48,12 +62,7 @@ public class NotExpression
         }
 
         NotExpression that = (NotExpression) o;
-
-        if (!value.equals(that.value)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(value, that.value);
     }
 
     @Override

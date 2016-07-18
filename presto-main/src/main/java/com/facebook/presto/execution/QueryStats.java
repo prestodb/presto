@@ -25,7 +25,9 @@ import org.joda.time.DateTime;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.Duration.succinctNanos;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class QueryStats
 {
@@ -40,6 +42,7 @@ public class QueryStats
     private final Duration analysisTime;
     private final Duration distributedPlanningTime;
     private final Duration totalPlanningTime;
+    private final Duration finishingTime;
 
     private final int totalTasks;
     private final int runningTasks;
@@ -50,6 +53,7 @@ public class QueryStats
     private final int runningDrivers;
     private final int completedDrivers;
 
+    private final double cumulativeMemory;
     private final DataSize totalMemoryReservation;
     private final DataSize peakMemoryReservation;
 
@@ -81,6 +85,7 @@ public class QueryStats
         this.analysisTime = null;
         this.distributedPlanningTime = null;
         this.totalPlanningTime = null;
+        this.finishingTime = null;
         this.totalTasks = 0;
         this.runningTasks = 0;
         this.completedTasks = 0;
@@ -88,6 +93,7 @@ public class QueryStats
         this.queuedDrivers = 0;
         this.runningDrivers = 0;
         this.completedDrivers = 0;
+        this.cumulativeMemory = 0.0;
         this.totalMemoryReservation = null;
         this.peakMemoryReservation = null;
         this.totalScheduledTime = null;
@@ -116,6 +122,7 @@ public class QueryStats
             @JsonProperty("analysisTime") Duration analysisTime,
             @JsonProperty("distributedPlanningTime") Duration distributedPlanningTime,
             @JsonProperty("totalPlanningTime") Duration totalPlanningTime,
+            @JsonProperty("finishingTime") Duration finishingTime,
 
             @JsonProperty("totalTasks") int totalTasks,
             @JsonProperty("runningTasks") int runningTasks,
@@ -126,6 +133,7 @@ public class QueryStats
             @JsonProperty("runningDrivers") int runningDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
 
+            @JsonProperty("cumulativeMemory") double cumulativeMemory,
             @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
             @JsonProperty("peakMemoryReservation") DataSize peakMemoryReservation,
 
@@ -155,6 +163,7 @@ public class QueryStats
         this.analysisTime = analysisTime;
         this.distributedPlanningTime = distributedPlanningTime;
         this.totalPlanningTime = totalPlanningTime;
+        this.finishingTime = finishingTime;
 
         checkArgument(totalTasks >= 0, "totalTasks is negative");
         this.totalTasks = totalTasks;
@@ -172,6 +181,7 @@ public class QueryStats
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
 
+        this.cumulativeMemory = requireNonNull(cumulativeMemory, "cumulativeMemory is null");
         this.totalMemoryReservation = requireNonNull(totalMemoryReservation, "totalMemoryReservation is null");
         this.peakMemoryReservation = requireNonNull(peakMemoryReservation, "peakMemoryReservation is null");
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
@@ -231,6 +241,16 @@ public class QueryStats
     }
 
     @JsonProperty
+    public Duration getExecutionTime()
+    {
+        if (queuedTime == null) {
+            // counter-intuitively, this means that the query is still queued
+            return new Duration(0, NANOSECONDS);
+        }
+        return succinctNanos((long) elapsedTime.getValue(NANOSECONDS) - (long) queuedTime.getValue(NANOSECONDS));
+    }
+
+    @JsonProperty
     public Duration getAnalysisTime()
     {
         return analysisTime;
@@ -246,6 +266,12 @@ public class QueryStats
     public Duration getTotalPlanningTime()
     {
         return totalPlanningTime;
+    }
+
+    @JsonProperty
+    public Duration getFinishingTime()
+    {
+        return finishingTime;
     }
 
     @JsonProperty
@@ -288,6 +314,12 @@ public class QueryStats
     public int getCompletedDrivers()
     {
         return completedDrivers;
+    }
+
+    @JsonProperty
+    public double getCumulativeMemory()
+    {
+        return cumulativeMemory;
     }
 
     @JsonProperty

@@ -13,48 +13,69 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.security.ConnectorAccessControl;
+import com.facebook.presto.spi.connector.ConnectorAccessControl;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.Privilege;
+import org.apache.hadoop.hive.metastore.api.Table;
 
 import javax.inject.Inject;
 
+import java.util.Optional;
+
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
 import static java.util.Objects.requireNonNull;
 
 public class NoAccessControl
         implements ConnectorAccessControl
 {
+    private final HiveMetastore metastore;
     private final boolean allowDropTable;
     private final boolean allowRenameTable;
     private final boolean allowAddColumn;
+    private final boolean allowRenameColumn;
 
     @Inject
-    public NoAccessControl(HiveClientConfig hiveClientConfig)
+    public NoAccessControl(HiveMetastore metastore, HiveClientConfig hiveClientConfig)
     {
         requireNonNull(hiveClientConfig, "hiveClientConfig is null");
         allowDropTable = hiveClientConfig.getAllowDropTable();
         allowRenameTable = hiveClientConfig.getAllowRenameTable();
         allowAddColumn = hiveClientConfig.getAllowAddColumn();
+        allowRenameColumn = hiveClientConfig.getAllowRenameColumn();
+        this.metastore = requireNonNull(metastore, "metastore is null");
     }
 
     @Override
-    public void checkCanCreateTable(Identity identity, SchemaTableName tableName)
+    public void checkCanCreateTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
     }
 
     @Override
-    public void checkCanDropTable(Identity identity, SchemaTableName tableName)
+    public void checkCanDropTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
         if (!allowDropTable) {
             denyDropTable(tableName.toString());
         }
+
+        Optional<Table> target = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
+
+        if (!target.isPresent()) {
+            denyDropTable(tableName.toString(), "Table not found");
+        }
+
+        if (!identity.getUser().equals(target.get().getOwner())) {
+            denyDropTable(tableName.toString(), "Owner of the table is different from session user");
+        }
     }
 
     @Override
-    public void checkCanRenameTable(Identity identity, SchemaTableName tableName, SchemaTableName newTableName)
+    public void checkCanRenameTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName, SchemaTableName newTableName)
     {
         if (!allowRenameTable) {
             denyRenameTable(tableName.toString(), newTableName.toString());
@@ -62,7 +83,7 @@ public class NoAccessControl
     }
 
     @Override
-    public void checkCanAddColumn(Identity identity, SchemaTableName tableName)
+    public void checkCanAddColumn(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
         if (!allowAddColumn) {
             denyAddColumn(tableName.toString());
@@ -70,52 +91,65 @@ public class NoAccessControl
     }
 
     @Override
-    public void checkCanRenameColumn(Identity identity, SchemaTableName tableName)
+    public void checkCanRenameColumn(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    {
+        if (!allowRenameColumn) {
+            denyRenameColumn(tableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
     }
 
     @Override
-    public void checkCanSelectFromTable(Identity identity, SchemaTableName tableName)
+    public void checkCanInsertIntoTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
     }
 
     @Override
-    public void checkCanInsertIntoTable(Identity identity, SchemaTableName tableName)
+    public void checkCanDeleteFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
     }
 
     @Override
-    public void checkCanDeleteFromTable(Identity identity, SchemaTableName tableName)
+    public void checkCanCreateView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
     {
     }
 
     @Override
-    public void checkCanCreateView(Identity identity, SchemaTableName viewName)
+    public void checkCanDropView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
     {
     }
 
     @Override
-    public void checkCanDropView(Identity identity, SchemaTableName viewName)
+    public void checkCanSelectFromView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
     {
     }
 
     @Override
-    public void checkCanSelectFromView(Identity identity, SchemaTableName viewName)
+    public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromTable(Identity identity, SchemaTableName tableName)
-    {
-    }
-
-    @Override
-    public void checkCanCreateViewWithSelectFromView(Identity identity, SchemaTableName viewName)
+    public void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
     {
     }
 
     @Override
     public void checkCanSetCatalogSessionProperty(Identity identity, String propertyName)
+    {
+    }
+
+    @Override
+    public void checkCanGrantTablePrivilege(Identity identity, Privilege privilege, SchemaTableName tableName)
+    {
+    }
+
+    @Override
+    public void checkCanRevokeTablePrivilege(Identity identity, Privilege privilege, SchemaTableName tableName)
     {
     }
 }

@@ -38,6 +38,12 @@ public class TestDictionaryBlockEncoding
     private static final ConnectorSession SESSION = new ConnectorSession()
     {
         @Override
+        public String getQueryId()
+        {
+            return "test_query_id";
+        }
+
+        @Override
         public Identity getIdentity()
         {
             return new Identity("user", Optional.empty());
@@ -99,6 +105,7 @@ public class TestDictionaryBlockEncoding
         DictionaryBlock actualDictionaryBlock = (DictionaryBlock) actualBlock;
         assertBlockEquals(VARCHAR, actualDictionaryBlock.getDictionary(), dictionary);
         assertEquals(actualDictionaryBlock.getIds(), idsSlice);
+        assertEquals(actualDictionaryBlock.getDictionarySourceId(), dictionaryBlock.getDictionarySourceId());
     }
 
     private static void assertBlockEquals(Type type, Block actual, Block expected)

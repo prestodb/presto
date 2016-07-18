@@ -1,0 +1,22 @@
+databases:
+  hive:
+    host: hadoop-master
+  presto:
+    host: presto-master
+    configured_hdfs_user: hive
+
+  mysql:
+    jdbc_driver_class: com.mysql.jdbc.Driver
+    jdbc_url: jdbc:mysql://mysql:3306/test
+    jdbc_user: root
+    jdbc_password: swarm
+    jdbc_pooling: true
+    table_manager_type: jdbc
+
+  postgres:
+    jdbc_driver_class: org.postgresql.Driver
+    jdbc_url: jdbc:postgresql://postgres:5432/test
+    jdbc_user: swarm
+    jdbc_password: swarm
+    jdbc_pooling: true
+    table_manager_type: jdbc

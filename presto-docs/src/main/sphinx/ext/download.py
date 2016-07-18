@@ -56,5 +56,4 @@ def setup(app):
         node = nodes.reference(title, title, internal=False, refuri=uri)
 
         return [node], []
-
-    app.add_role('download', download_link_role)
+    app.add_role('maven_download', download_link_role)

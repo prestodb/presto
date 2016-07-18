@@ -17,8 +17,9 @@ These configuration options may require tuning in specific situations:
 
 * ``task.max-worker-threads``:
   Sets the number of threads used by workers to process splits. Increasing this number
-  can improve throughput, if worker CPU utilization is low, but will cause increased
-  heap space usage.
+  can improve throughput if worker CPU utilization is low and all the threads are in use,
+  but will cause increased heap space usage. The number of active threads is available via
+  the ``com.facebook.presto.execution.TaskExecutor.RunningSplits`` JMX stat.
 
 * ``distributed-joins-enabled``:
   Use hash distributed joins instead of broadcast joins. Distributed joins
@@ -28,6 +29,11 @@ These configuration options may require tuning in specific situations:
   the join fit in memory on each machine, whereas distributed joins only
   need to fit in distributed memory across all machines. This can also be
   specified on a per-query basis using the ``distributed_join`` session property.
+
+* ``node-scheduler.network-topology``:
+  Sets the network topology to use when scheduling splits. "legacy" will ignore
+  the topology when scheduling splits. "flat" will try to schedule splits on the same
+  host as the data is located by reserving 50% of the work queue for local splits.
 
 JVM Settings
 ------------
@@ -42,6 +48,7 @@ The following can be helpful for diagnosing GC issues:
     -XX:+PrintGCDateStamps
     -XX:+PrintGCTimeStamps
     -XX:+PrintGCDetails
+    -XX:+PrintReferenceGC
     -XX:+PrintClassHistogramAfterFullGC
     -XX:+PrintClassHistogramBeforeFullGC
     -XX:PrintFLSStatistics=2

@@ -15,75 +15,19 @@ package com.facebook.presto.redis;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorIndexHandle;
-import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
-
-import javax.inject.Inject;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Redis specific {@link com.facebook.presto.spi.ConnectorHandleResolver} implementation.
+ * Redis specific {@link ConnectorHandleResolver} implementation.
  */
 public class RedisHandleResolver
         implements ConnectorHandleResolver
 {
-    private final String connectorId;
-
-    @Inject
-    RedisHandleResolver(RedisConnectorId connectorId, RedisConnectorConfig redisConnectorConfig)
-    {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
-        requireNonNull(redisConnectorConfig, "redisConnectorConfig is null");
-    }
-
-    @Override
-    public boolean canHandle(ConnectorTableHandle tableHandle)
-    {
-        return tableHandle != null && tableHandle instanceof RedisTableHandle && connectorId.equals(((RedisTableHandle) tableHandle).getConnectorId());
-    }
-
-    @Override
-    public boolean canHandle(ColumnHandle columnHandle)
-    {
-        return columnHandle != null && columnHandle instanceof RedisColumnHandle && connectorId.equals(((RedisColumnHandle) columnHandle).getConnectorId());
-    }
-
-    @Override
-    public boolean canHandle(ConnectorSplit split)
-    {
-        return split != null && split instanceof RedisSplit && connectorId.equals(((RedisSplit) split).getConnectorId());
-    }
-
-    @Override
-    public boolean canHandle(ConnectorTableLayoutHandle handle)
-    {
-        return handle instanceof RedisTableLayoutHandle && ((RedisTableLayoutHandle) handle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(ConnectorIndexHandle indexHandle)
-    {
-        return false;
-    }
-
-    @Override
-    public boolean canHandle(ConnectorOutputTableHandle tableHandle)
-    {
-        return false;
-    }
-
-    @Override
-    public boolean canHandle(ConnectorInsertTableHandle tableHandle)
-    {
-        return false;
-    }
-
     @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
@@ -103,63 +47,36 @@ public class RedisHandleResolver
     }
 
     @Override
-    public Class<? extends ConnectorIndexHandle> getIndexHandleClass()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
     {
         return RedisTableLayoutHandle.class;
     }
 
-    @Override
-    public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    RedisTableHandle convertTableHandle(ConnectorTableHandle tableHandle)
+    static RedisTableHandle convertTableHandle(ConnectorTableHandle tableHandle)
     {
         requireNonNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof RedisTableHandle, "tableHandle is not an instance of RedisTableHandle");
-        RedisTableHandle redisTableHandle = (RedisTableHandle) tableHandle;
-        checkArgument(redisTableHandle.getConnectorId().equals(connectorId), "tableHandle is not for this connector");
-
-        return redisTableHandle;
+        return (RedisTableHandle) tableHandle;
     }
 
-    RedisColumnHandle convertColumnHandle(ColumnHandle columnHandle)
+    static RedisColumnHandle convertColumnHandle(ColumnHandle columnHandle)
     {
         requireNonNull(columnHandle, "columnHandle is null");
         checkArgument(columnHandle instanceof RedisColumnHandle, "columnHandle is not an instance of RedisColumnHandle");
-        RedisColumnHandle redisColumnHandle = (RedisColumnHandle) columnHandle;
-        checkArgument(redisColumnHandle.getConnectorId().equals(connectorId), "columnHandle is not for this connector");
-        return redisColumnHandle;
+        return (RedisColumnHandle) columnHandle;
     }
 
-    RedisSplit convertSplit(ConnectorSplit split)
+    static RedisSplit convertSplit(ConnectorSplit split)
     {
         requireNonNull(split, "split is null");
         checkArgument(split instanceof RedisSplit, "split is not an instance of RedisSplit");
-        RedisSplit redisSplit = (RedisSplit) split;
-        checkArgument(redisSplit.getConnectorId().equals(connectorId), "split is not for this connector");
-        return redisSplit;
+        return (RedisSplit) split;
     }
 
-    RedisTableLayoutHandle convertLayout(ConnectorTableLayoutHandle layout)
+    static RedisTableLayoutHandle convertLayout(ConnectorTableLayoutHandle layout)
     {
         requireNonNull(layout, "layout is null");
         checkArgument(layout instanceof RedisTableLayoutHandle, "layout is not an instance of RedisTableLayoutHandle");
-        RedisTableLayoutHandle redisLayout = (RedisTableLayoutHandle) layout;
-        checkArgument(redisLayout.getConnectorId().equals(connectorId), "layout is not for this connector");
-        return redisLayout;
+        return (RedisTableLayoutHandle) layout;
     }
 }

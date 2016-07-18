@@ -13,22 +13,33 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.sql.planner.ExpressionExtractor.extractExpressions;
 import static java.util.Objects.requireNonNull;
 
 public final class DependencyExtractor
 {
     private DependencyExtractor() {}
+
+    public static Set<Symbol> extractUnique(PlanNode node)
+    {
+        ImmutableSet.Builder<Symbol> uniqueSymbols = ImmutableSet.builder();
+        extractExpressions(node).forEach(expression -> uniqueSymbols.addAll(extractUnique(expression)));
+
+        return uniqueSymbols.build();
+    }
 
     public static Set<Symbol> extractUnique(Expression expression)
     {
@@ -63,9 +74,9 @@ public final class DependencyExtractor
             extends DefaultExpressionTraversalVisitor<Void, ImmutableList.Builder<Symbol>>
     {
         @Override
-        protected Void visitQualifiedNameReference(QualifiedNameReference node, ImmutableList.Builder<Symbol> builder)
+        protected Void visitSymbolReference(SymbolReference node, ImmutableList.Builder<Symbol> builder)
         {
-            builder.add(Symbol.fromQualifiedName(node.getName()));
+            builder.add(Symbol.from(node));
             return null;
         }
     }

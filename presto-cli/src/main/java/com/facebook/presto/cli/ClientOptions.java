@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.airlift.airline.Option;
 import io.airlift.http.client.spnego.KerberosConfig;
+import io.airlift.units.Duration;
 
 import java.io.File;
 import java.net.URI;
@@ -34,8 +35,10 @@ import java.util.TimeZone;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.US_ASCII;
+import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class ClientOptions
 {
@@ -59,6 +62,9 @@ public class ClientOptions
 
     @Option(name = "--krb5-principal", title = "krb5 principal", description = "Kerberos principal to be used")
     public String krb5Principal;
+
+    @Option(name = "--krb5-disable-remote-service-hostname-canonicalization", title = "krb5 disable remote service hostname canonicalization", description = "Disable service hostname canonicalization using the DNS reverse lookup")
+    public boolean krb5DisableRemoteServiceHostnameCanonicalization;
 
     @Option(name = "--keystore-path", title = "keystore path", description = "Keystore path")
     public String keystorePath;
@@ -90,14 +96,17 @@ public class ClientOptions
     @Option(name = "--execute", title = "execute", description = "Execute specified statements and exit")
     public String execute;
 
-    @Option(name = "--output-format", title = "output-format", description = "Output format for batch mode (default: CSV)")
+    @Option(name = "--output-format", title = "output-format", description = "Output format for batch mode [ALIGNED, VERTICAL, CSV, TSV, CSV_HEADER, TSV_HEADER, NULL] (default: CSV)")
     public OutputFormat outputFormat = OutputFormat.CSV;
 
-    @Option(name = "--session", title = "session", description = "Session property (property can be used multiple times; format is key=value)")
+    @Option(name = "--session", title = "session", description = "Session property (property can be used multiple times; format is key=value; use 'SHOW SESSION' to see available properties)")
     public final List<ClientSessionProperty> sessionProperties = new ArrayList<>();
 
     @Option(name = "--socks-proxy", title = "socks-proxy", description = "SOCKS proxy to use for server connections")
     public HostAndPort socksProxy;
+
+    @Option(name = "--client-request-timeout", title = "client request timeout", description = "Client request timeout (default: 2m)")
+    public Duration clientRequestTimeout = new Duration(2, MINUTES);
 
     public enum OutputFormat
     {
@@ -121,7 +130,10 @@ public class ClientOptions
                 TimeZone.getDefault().getID(),
                 Locale.getDefault(),
                 toProperties(sessionProperties),
-                debug);
+                emptyMap(),
+                null,
+                debug,
+                clientRequestTimeout);
     }
 
     public KerberosConfig toKerberosConfig()
@@ -136,7 +148,7 @@ public class ClientOptions
         if (krb5CredentialCachePath != null) {
             config.setCredentialCache(new File(krb5CredentialCachePath));
         }
-
+        config.setUseCanonicalHostname(!krb5DisableRemoteServiceHostnameCanonicalization);
         return config;
     }
 
@@ -175,8 +187,7 @@ public class ClientOptions
         if (value != null && value.startsWith("FILE:")) {
             return value.substring("FILE:".length());
         }
-
-        return null;
+        return value;
     }
 
     public static final class ClientSessionProperty

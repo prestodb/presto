@@ -26,7 +26,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -41,8 +41,8 @@ public class TestExampleRecordSetProvider
             throws Exception
     {
         ExampleRecordSetProvider recordSetProvider = new ExampleRecordSetProvider(new ExampleConnectorId("test"));
-        RecordSet recordSet = recordSetProvider.getRecordSet(SESSION, new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
-                new ExampleColumnHandle("test", "text", VARCHAR, 0),
+        RecordSet recordSet = recordSetProvider.getRecordSet(ExampleTransactionHandle.INSTANCE, SESSION, new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
+                new ExampleColumnHandle("test", "text", createUnboundedVarcharType(), 0),
                 new ExampleColumnHandle("test", "value", BIGINT, 1)));
         assertNotNull(recordSet, "recordSet is null");
 

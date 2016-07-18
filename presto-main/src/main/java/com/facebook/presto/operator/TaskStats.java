@@ -36,6 +36,7 @@ public class TaskStats
     private final DateTime createTime;
     private final DateTime firstStartTime;
     private final DateTime lastStartTime;
+    private final DateTime lastEndTime;
     private final DateTime endTime;
 
     private final Duration elapsedTime;
@@ -48,6 +49,7 @@ public class TaskStats
     private final int runningPartitionedDrivers;
     private final int completedDrivers;
 
+    private final double cumulativeMemory;
     private final DataSize memoryReservation;
     private final DataSize systemMemoryReservation;
 
@@ -74,6 +76,7 @@ public class TaskStats
         this(createTime,
                 null,
                 null,
+                null,
                 endTime,
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
@@ -83,6 +86,7 @@ public class TaskStats
                 0,
                 0,
                 0,
+                0.0,
                 new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
                 new Duration(0, MILLISECONDS),
@@ -105,6 +109,7 @@ public class TaskStats
             @JsonProperty("createTime") DateTime createTime,
             @JsonProperty("firstStartTime") DateTime firstStartTime,
             @JsonProperty("lastStartTime") DateTime lastStartTime,
+            @JsonProperty("lastEndTime") DateTime lastEndTime,
             @JsonProperty("endTime") DateTime endTime,
             @JsonProperty("elapsedTime") Duration elapsedTime,
             @JsonProperty("queuedTime") Duration queuedTime,
@@ -116,6 +121,7 @@ public class TaskStats
             @JsonProperty("runningPartitionedDrivers") int runningPartitionedDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
 
+            @JsonProperty("cumulativeMemory") double cumulativeMemory,
             @JsonProperty("memoryReservation") DataSize memoryReservation,
             @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
 
@@ -140,6 +146,7 @@ public class TaskStats
         this.createTime = requireNonNull(createTime, "createTime is null");
         this.firstStartTime = firstStartTime;
         this.lastStartTime = lastStartTime;
+        this.lastEndTime = lastEndTime;
         this.endTime = endTime;
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
@@ -159,6 +166,7 @@ public class TaskStats
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
 
+        this.cumulativeMemory = requireNonNull(cumulativeMemory, "cumulativeMemory is null");
         this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
         this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
 
@@ -206,6 +214,13 @@ public class TaskStats
 
     @Nullable
     @JsonProperty
+    public DateTime getLastEndTime()
+    {
+        return lastEndTime;
+    }
+
+    @Nullable
+    @JsonProperty
     public DateTime getEndTime()
     {
         return endTime;
@@ -245,6 +260,12 @@ public class TaskStats
     public int getCompletedDrivers()
     {
         return completedDrivers;
+    }
+
+    @JsonProperty
+    public double getCumulativeMemory()
+    {
+        return cumulativeMemory;
     }
 
     @JsonProperty
@@ -355,6 +376,7 @@ public class TaskStats
                 createTime,
                 firstStartTime,
                 lastStartTime,
+                lastEndTime,
                 endTime,
                 elapsedTime,
                 queuedTime,
@@ -364,6 +386,7 @@ public class TaskStats
                 runningDrivers,
                 runningPartitionedDrivers,
                 completedDrivers,
+                cumulativeMemory,
                 memoryReservation,
                 systemMemoryReservation,
                 totalScheduledTime,

@@ -20,12 +20,16 @@ import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.IntegerType;
+import com.facebook.presto.spi.type.SmallintType;
 import com.facebook.presto.spi.type.TimestampType;
+import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.slice.Slices;
 import org.apache.hadoop.hive.serde2.io.DateWritable;
+import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.hadoop.hive.serde2.io.TimestampWritable;
 import org.apache.hadoop.hive.serde2.lazy.LazyDate;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
@@ -40,6 +44,8 @@ import org.apache.hadoop.hive.serde2.objectinspector.primitive.ByteObjectInspect
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.DateObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.DoubleObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.FloatObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.primitive.HiveDecimalObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.primitive.HiveVarcharObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.IntObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.LongObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.ShortObjectInspector;
@@ -52,6 +58,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -69,7 +76,7 @@ public final class SerDeUtils
     {
         switch (inspector.getCategory()) {
             case PRIMITIVE:
-                serializePrimitive(builder, object, (PrimitiveObjectInspector) inspector);
+                serializePrimitive(type, builder, object, (PrimitiveObjectInspector) inspector);
                 return null;
             case LIST:
                 return serializeList(type, builder, object, (ListObjectInspector) inspector);
@@ -81,7 +88,7 @@ public final class SerDeUtils
         throw new RuntimeException("Unknown object inspector category: " + inspector.getCategory());
     }
 
-    private static void serializePrimitive(BlockBuilder builder, Object object, PrimitiveObjectInspector inspector)
+    private static void serializePrimitive(Type type, BlockBuilder builder, Object object, PrimitiveObjectInspector inspector)
     {
         requireNonNull(builder, "parent builder is null");
 
@@ -95,13 +102,13 @@ public final class SerDeUtils
                 BooleanType.BOOLEAN.writeBoolean(builder, ((BooleanObjectInspector) inspector).get(object));
                 return;
             case BYTE:
-                BigintType.BIGINT.writeLong(builder, ((ByteObjectInspector) inspector).get(object));
+                TinyintType.TINYINT.writeLong(builder, ((ByteObjectInspector) inspector).get(object));
                 return;
             case SHORT:
-                BigintType.BIGINT.writeLong(builder, ((ShortObjectInspector) inspector).get(object));
+                SmallintType.SMALLINT.writeLong(builder, ((ShortObjectInspector) inspector).get(object));
                 return;
             case INT:
-                BigintType.BIGINT.writeLong(builder, ((IntObjectInspector) inspector).get(object));
+                IntegerType.INTEGER.writeLong(builder, ((IntObjectInspector) inspector).get(object));
                 return;
             case LONG:
                 BigintType.BIGINT.writeLong(builder, ((LongObjectInspector) inspector).get(object));
@@ -113,7 +120,10 @@ public final class SerDeUtils
                 DoubleType.DOUBLE.writeDouble(builder, ((DoubleObjectInspector) inspector).get(object));
                 return;
             case STRING:
-                VarcharType.VARCHAR.writeSlice(builder, Slices.utf8Slice(((StringObjectInspector) inspector).getPrimitiveJavaObject(object)));
+                type.writeSlice(builder, Slices.utf8Slice(((StringObjectInspector) inspector).getPrimitiveJavaObject(object)));
+                return;
+            case VARCHAR:
+                type.writeSlice(builder, Slices.utf8Slice(((HiveVarcharObjectInspector) inspector).getPrimitiveJavaObject(object).getValue()));
                 return;
             case DATE:
                 DateType.DATE.writeLong(builder, formatDateAsLong(object, (DateObjectInspector) inspector));
@@ -123,6 +133,16 @@ public final class SerDeUtils
                 return;
             case BINARY:
                 VARBINARY.writeSlice(builder, Slices.wrappedBuffer(((BinaryObjectInspector) inspector).getPrimitiveJavaObject(object)));
+                return;
+            case DECIMAL:
+                DecimalType decimalType = checkType(type, DecimalType.class, "type");
+                HiveDecimalWritable hiveDecimal = ((HiveDecimalObjectInspector) inspector).getPrimitiveWritableObject(object);
+                if (decimalType.isShort()) {
+                    decimalType.writeLong(builder, DecimalUtils.getShortDecimalValue(hiveDecimal, decimalType.getScale()));
+                }
+                else {
+                    decimalType.writeSlice(builder, DecimalUtils.getLongDecimalValue(hiveDecimal, decimalType.getScale()));
+                }
                 return;
         }
         throw new RuntimeException("Unknown primitive type: " + inspector.getPrimitiveCategory());

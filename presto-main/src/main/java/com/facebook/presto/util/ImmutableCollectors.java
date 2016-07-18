@@ -74,4 +74,16 @@ public final class ImmutableCollectors
                 },
                 ImmutableMap.Builder::build);
     }
+
+    public static <K, V, O> Collector<O, ?, ImmutableMap<K, V>> toImmutableMap(Function<O, K> keyMapper, Function<O, V> valueMapper)
+    {
+        return Collector.<O, ImmutableMap.Builder<K, V>, ImmutableMap<K, V>>of(
+                ImmutableMap.Builder::new,
+                (builder, object) -> builder.put(keyMapper.apply(object), valueMapper.apply(object)),
+                (left, right) -> {
+                    left.putAll(right.build());
+                    return left;
+                },
+                ImmutableMap.Builder::build);
+    }
 }

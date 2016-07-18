@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Objects;
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 public class CurrentTime
@@ -31,7 +34,7 @@ public class CurrentTime
 
         private final String name;
 
-        private Type(String name)
+        Type(String name)
         {
             this.name = name;
         }
@@ -44,11 +47,27 @@ public class CurrentTime
 
     public CurrentTime(Type type)
     {
-        this(type, null);
+        this(Optional.empty(), type, null);
+    }
+
+    public CurrentTime(NodeLocation location, Type type)
+    {
+        this(Optional.of(location), type, null);
     }
 
     public CurrentTime(Type type, Integer precision)
     {
+        this(Optional.empty(), type, precision);
+    }
+
+    public CurrentTime(NodeLocation location, Type type, Integer precision)
+    {
+        this(Optional.of(location), type, precision);
+    }
+
+    private CurrentTime(Optional<NodeLocation> location, Type type, Integer precision)
+    {
+        super(location);
         requireNonNull(type, "type is null");
         this.type = type;
         this.precision = precision;
@@ -76,27 +95,17 @@ public class CurrentTime
         if (this == o) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
+        if ((o == null) || (getClass() != o.getClass())) {
             return false;
         }
-
         CurrentTime that = (CurrentTime) o;
-
-        if (precision != null ? !precision.equals(that.precision) : that.precision != null) {
-            return false;
-        }
-        if (type != that.type) {
-            return false;
-        }
-
-        return true;
+        return (type == that.type) &&
+                Objects.equals(precision, that.precision);
     }
 
     @Override
     public int hashCode()
     {
-        int result = type.hashCode();
-        result = 31 * result + (precision != null ? precision.hashCode() : 0);
-        return result;
+        return Objects.hash(type, precision);
     }
 }

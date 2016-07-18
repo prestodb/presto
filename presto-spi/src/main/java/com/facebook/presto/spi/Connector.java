@@ -15,6 +15,7 @@ package com.facebook.presto.spi;
 
 import com.facebook.presto.spi.security.ConnectorAccessControl;
 import com.facebook.presto.spi.session.PropertyMetadata;
+import com.facebook.presto.spi.transaction.IsolationLevel;
 
 import java.util.List;
 import java.util.Set;
@@ -22,10 +23,9 @@ import java.util.Set;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
 
+@Deprecated
 public interface Connector
 {
-    ConnectorHandleResolver getHandleResolver();
-
     ConnectorMetadata getMetadata();
 
     ConnectorSplitManager getSplitManager();
@@ -63,11 +63,11 @@ public interface Connector
     }
 
     /**
-     * @throws UnsupportedOperationException if this connector does not support indexes
+     * @return null if this connector does not support indexes
      */
     default ConnectorIndexResolver getIndexResolver()
     {
-        throw new UnsupportedOperationException();
+        return null;
     }
 
     /**
@@ -100,6 +100,14 @@ public interface Connector
     default ConnectorAccessControl getAccessControl()
     {
         throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Get the transaction read isolation level supported by this connector.
+     */
+    default IsolationLevel getIsolationLevel()
+    {
+        return IsolationLevel.READ_UNCOMMITTED;
     }
 
     /**

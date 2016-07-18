@@ -15,6 +15,7 @@ package com.facebook.presto.spi.block;
 
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
@@ -24,6 +25,9 @@ public class InterleavedBlockBuilder
         extends AbstractInterleavedBlock
         implements BlockBuilder
 {
+    // TODO: This does not account for the size of the blockEncoding field
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(InterleavedBlockBuilder.class).instanceSize();
+
     private final BlockBuilder[] blockBuilders;
     private final InterleavedBlockEncoding blockEncoding;
 
@@ -67,7 +71,7 @@ public class InterleavedBlockBuilder
         this.blockEncoding = computeBlockEncoding();
         this.positionCount = 0;
         this.sizeInBytes = 0;
-        this.retainedSizeInBytes = 0;
+        this.retainedSizeInBytes = INSTANCE_SIZE;
         for (BlockBuilder blockBuilder : blockBuilders) {
             this.sizeInBytes += blockBuilder.getSizeInBytes();
             this.retainedSizeInBytes += blockBuilder.getRetainedSizeInBytes();
@@ -84,6 +88,12 @@ public class InterleavedBlockBuilder
         }
 
         return blockBuilders[blockIndex];
+    }
+
+    @Override
+    protected int toAbsolutePosition(int position)
+    {
+        return position;
     }
 
     @Override
@@ -157,24 +167,6 @@ public class InterleavedBlockBuilder
     }
 
     @Override
-    public BlockBuilder writeFloat(float value)
-    {
-        BlockBuilder blockBuilder = blockBuilders[currentBlockIndex];
-        recordStartSizesIfNecessary(blockBuilder);
-        blockBuilder.writeFloat(value);
-        return this;
-    }
-
-    @Override
-    public BlockBuilder writeDouble(double value)
-    {
-        BlockBuilder blockBuilder = blockBuilders[currentBlockIndex];
-        recordStartSizesIfNecessary(blockBuilder);
-        blockBuilder.writeDouble(value);
-        return this;
-    }
-
-    @Override
     public BlockBuilder writeBytes(Slice source, int sourceIndex, int length)
     {
         BlockBuilder blockBuilder = blockBuilders[currentBlockIndex];
@@ -244,6 +236,13 @@ public class InterleavedBlockBuilder
     }
 
     @Override
+    public Block getRegion(int position, int length)
+    {
+        validateRange(position, length);
+        return sliceRange(position, length, false);
+    }
+
+    @Override
     public InterleavedBlock build()
     {
         Block[] blocks = new Block[getBlockCount()];
@@ -251,6 +250,23 @@ public class InterleavedBlockBuilder
             blocks[i] = blockBuilders[i].build();
         }
         return new InterleavedBlock(blocks);
+    }
+
+    @Override
+    public void reset(BlockBuilderStatus blockBuilderStatus)
+    {
+        this.positionCount = 0;
+
+        this.sizeInBytes = 0;
+        this.retainedSizeInBytes = INSTANCE_SIZE;
+        for (BlockBuilder blockBuilder : blockBuilders) {
+            blockBuilder.reset(blockBuilderStatus);
+            this.sizeInBytes += blockBuilder.getSizeInBytes();
+            this.retainedSizeInBytes += blockBuilder.getRetainedSizeInBytes();
+        }
+
+        this.startSize = -1;
+        this.startRetainedSize = -1;
     }
 
     @Override

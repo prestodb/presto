@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.io.Writer;
 import java.util.List;
 
+import static com.facebook.presto.cli.AlignedTablePrinter.formatHexDump;
 import static java.util.Objects.requireNonNull;
 
 public class CsvPrinter
@@ -75,9 +76,21 @@ public class CsvPrinter
     {
         String[] array = new String[values.size()];
         for (int i = 0; i < values.size(); i++) {
-            Object value = values.get(i);
-            array[i] = (value == null) ? "" : value.toString();
+            array[i] = formatValue(values.get(i));
         }
         return array;
+    }
+
+    static String formatValue(Object o)
+    {
+        if (o == null) {
+            return "";
+        }
+
+        if (o instanceof byte[]) {
+            return formatHexDump((byte[]) o);
+        }
+
+        return o.toString();
     }
 }

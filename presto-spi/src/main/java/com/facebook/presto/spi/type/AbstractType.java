@@ -70,7 +70,7 @@ public abstract class AbstractType
     }
 
     @Override
-    public int hash(Block block, int position)
+    public long hash(Block block, int position)
     {
         throw new UnsupportedOperationException(getTypeSignature() + " type is not comparable");
     }
@@ -154,13 +154,13 @@ public abstract class AbstractType
     }
 
     @Override
-    public final String toString()
+    public String toString()
     {
         return getTypeSignature().toString();
     }
 
     @Override
-    public final boolean equals(Object o)
+    public boolean equals(Object o)
     {
         if (this == o) {
             return true;
@@ -173,8 +173,8 @@ public abstract class AbstractType
     }
 
     @Override
-    public final int hashCode()
+    public int hashCode()
     {
-        return getClass().hashCode();
+        return signature.hashCode();
     }
 }

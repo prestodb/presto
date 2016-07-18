@@ -34,7 +34,7 @@ public final class LearnClassifierAggregation
     public static void input(
             LearnState state,
             @SqlType(BIGINT) long label,
-            @SqlType("map<bigint,double>") Block features)
+            @SqlType("map(bigint,double)") Block features)
     {
         input(state, (double) label, features);
     }
@@ -43,7 +43,7 @@ public final class LearnClassifierAggregation
     public static void input(
             LearnState state,
             @SqlType(DOUBLE) double label,
-            @SqlType("map<bigint,double>") Block features)
+            @SqlType("map(bigint,double)") Block features)
     {
         LearnLibSvmClassifierAggregation.input(state, label, features, Slices.utf8Slice(""));
     }

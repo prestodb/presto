@@ -80,6 +80,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/atop">
+        <artifact id="${project.groupId}:presto-atop:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/ml">
         <artifact id="${project.groupId}:presto-ml:zip:${project.version}">
             <unpack />
@@ -112,6 +118,24 @@
 
     <artifactSet to="plugin/tpch">
         <artifact id="${project.groupId}:presto-tpch:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/teradata-functions">
+        <artifact id="${project.groupId}:presto-teradata-functions:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/mongodb">
+        <artifact id="${project.groupId}:presto-mongodb:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/localfile">
+        <artifact id="${project.groupId}:presto-local-file:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>

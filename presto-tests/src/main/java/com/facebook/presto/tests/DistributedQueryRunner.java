@@ -18,14 +18,18 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.ProcedureRegistry;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager;
+import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -76,6 +80,12 @@ public class DistributedQueryRunner
     public DistributedQueryRunner(Session defaultSession, int workersCount, Map<String, String> extraProperties)
             throws Exception
     {
+        this(defaultSession, workersCount, extraProperties, ImmutableMap.of());
+    }
+
+    public DistributedQueryRunner(Session defaultSession, int workersCount, Map<String, String> extraProperties, Map<String, String> coordinatorProperties)
+            throws Exception
+    {
         requireNonNull(defaultSession, "defaultSession is null");
 
         try {
@@ -84,17 +94,28 @@ public class DistributedQueryRunner
             log.info("Created TestingDiscoveryServer in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
 
             ImmutableList.Builder<TestingPrestoServer> servers = ImmutableList.builder();
+
             for (int i = 1; i < workersCount; i++) {
                 TestingPrestoServer worker = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), false, extraProperties));
                 servers.add(worker);
             }
-            coordinator = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), true, extraProperties));
+
+            Map<String, String> extraCoordinatorProperties = ImmutableMap.<String, String>builder()
+                    .putAll(extraProperties)
+                    .putAll(coordinatorProperties)
+                    .build();
+            coordinator = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), true, extraCoordinatorProperties));
             servers.add(coordinator);
+
             this.servers = servers.build();
         }
         catch (Exception e) {
-            close();
-            throw e;
+            try {
+                throw closer.rethrow(e, Exception.class);
+            }
+            finally {
+                closer.close();
+            }
         }
 
         this.prestoClient = closer.register(new TestingPrestoClient(coordinator, defaultSession));
@@ -117,6 +138,13 @@ public class DistributedQueryRunner
             sessionPropertyManager.addSystemSessionProperties(AbstractTestQueries.TEST_SYSTEM_PROPERTIES);
             sessionPropertyManager.addConnectorSessionProperties("connector", AbstractTestQueries.TEST_CATALOG_PROPERTIES);
         }
+
+        TypeManager typeManager = coordinator.getMetadata().getTypeManager();
+        ProcedureRegistry procedureRegistry = coordinator.getMetadata().getProcedureRegistry();
+        TestingProcedures procedures = new TestingProcedures(coordinator.getProcedureTester(), typeManager);
+        for (Procedure procedure : procedures.getProcedures(defaultSession.getSchema().get())) {
+            procedureRegistry.addProcedure(defaultSession.getCatalog().get(), procedure);
+        }
     }
 
     private static TestingPrestoServer createTestingPrestoServer(URI discoveryUri, boolean coordinator, Map<String, String> extraProperties)
@@ -133,7 +161,6 @@ public class DistributedQueryRunner
         if (coordinator) {
             propertiesBuilder.put("node-scheduler.include-coordinator", "true");
             propertiesBuilder.put("distributed-joins-enabled", "true");
-            propertiesBuilder.put("node-scheduler.multiple-tasks-per-node-enabled", "true");
         }
         HashMap<String, String> properties = new HashMap<>(propertiesBuilder.build());
         properties.putAll(extraProperties);
@@ -172,6 +199,12 @@ public class DistributedQueryRunner
     public Session getDefaultSession()
     {
         return prestoClient.getDefaultSession();
+    }
+
+    @Override
+    public TransactionManager getTransactionManager()
+    {
+        return coordinator.getTransactionManager();
     }
 
     @Override
@@ -248,7 +281,7 @@ public class DistributedQueryRunner
     }
 
     @Override
-    public List<QualifiedTableName> listTables(Session session, String catalog, String schema)
+    public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)
     {
         lock.readLock().lock();
         try {
@@ -257,7 +290,6 @@ public class DistributedQueryRunner
         finally {
             lock.readLock().unlock();
         }
-
     }
 
     @Override
@@ -270,7 +302,6 @@ public class DistributedQueryRunner
         finally {
             lock.readLock().unlock();
         }
-
     }
 
     @Override
@@ -283,7 +314,6 @@ public class DistributedQueryRunner
         finally {
             lock.readLock().unlock();
         }
-
     }
 
     @Override
@@ -296,7 +326,6 @@ public class DistributedQueryRunner
         finally {
             lock.readLock().unlock();
         }
-
     }
 
     @Override

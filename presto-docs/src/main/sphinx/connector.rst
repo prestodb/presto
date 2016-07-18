@@ -11,9 +11,12 @@ from different data sources.
     connector/blackhole
     connector/cassandra
     connector/hive
+    connector/hive-security
     connector/jmx
     connector/kafka
     connector/kafka-tutorial
+    connector/localfile
+    connector/mongodb
     connector/mysql
     connector/postgresql
     connector/redis

@@ -31,16 +31,17 @@ import java.util.Optional;
 
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
-import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringArraysBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
-import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
+import static com.facebook.presto.block.BlockAssertions.createTypedLongsBlock;
+import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
+import static com.facebook.presto.operator.OperatorAssertion.toRow;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static com.facebook.presto.operator.aggregation.MapAggregation.NAME;
-import static com.facebook.presto.operator.scalar.TestingRowConstructor.testRowBigintBigint;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.operator.aggregation.MapAggregationFunction.NAME;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.StructuralTestUtil.mapBlockOf;
 
@@ -53,7 +54,12 @@ public class TestMapAggAggregation
             throws Exception
     {
         MapType mapType = new MapType(DOUBLE, VARCHAR);
-        InternalAggregationFunction aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.DOUBLE, StandardTypes.VARCHAR));
+        InternalAggregationFunction aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature(NAME,
+                        AGGREGATE,
+                        mapType.getTypeSignature(),
+                        parseTypeSignature(StandardTypes.DOUBLE),
+                        parseTypeSignature(StandardTypes.VARCHAR)));
         assertAggregation(
                 aggFunc,
                 1.0,
@@ -61,14 +67,19 @@ public class TestMapAggAggregation
                 createDoublesBlock(1.0, 1.0, 1.0),
                 createStringsBlock("a", "b", "c"));
 
-        mapType = new MapType(DOUBLE, BIGINT);
-        aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.DOUBLE, StandardTypes.BIGINT));
+        mapType = new MapType(DOUBLE, INTEGER);
+        aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature(NAME,
+                        AGGREGATE,
+                        mapType.getTypeSignature(),
+                        parseTypeSignature(StandardTypes.DOUBLE),
+                        parseTypeSignature(StandardTypes.INTEGER)));
         assertAggregation(
                 aggFunc,
                 1.0,
-                ImmutableMap.of(1.0, 99L, 2.0, 99L, 3.0, 99L),
+                ImmutableMap.of(1.0, 99, 2.0, 99, 3.0, 99),
                 createDoublesBlock(1.0, 2.0, 3.0),
-                createLongsBlock(99L, 99L, 99L));
+                createTypedLongsBlock(INTEGER, ImmutableList.of(99L, 99L, 99L)));
     }
 
     @Test
@@ -76,7 +87,12 @@ public class TestMapAggAggregation
             throws Exception
     {
         MapType mapType = new MapType(DOUBLE, VARCHAR);
-        InternalAggregationFunction aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.DOUBLE, StandardTypes.VARCHAR));
+        InternalAggregationFunction aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature(NAME,
+                        AGGREGATE,
+                        mapType.getTypeSignature(),
+                        parseTypeSignature(StandardTypes.DOUBLE),
+                        parseTypeSignature(StandardTypes.VARCHAR)));
         assertAggregation(
                 aggFunc,
                 1.0,
@@ -84,17 +100,27 @@ public class TestMapAggAggregation
                 createDoublesBlock(1.0, 2.0, 3.0),
                 createStringsBlock("a", "b", "c"));
 
-        mapType = new MapType(DOUBLE, BIGINT);
-        aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.DOUBLE, StandardTypes.BIGINT));
+        mapType = new MapType(DOUBLE, INTEGER);
+        aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature(NAME,
+                        AGGREGATE,
+                        mapType.getTypeSignature(),
+                        parseTypeSignature(StandardTypes.DOUBLE),
+                        parseTypeSignature(StandardTypes.INTEGER)));
         assertAggregation(
                 aggFunc,
                 1.0,
-                ImmutableMap.of(1.0, 3L, 2.0, 2L, 3.0, 1L),
+                ImmutableMap.of(1.0, 3, 2.0, 2, 3.0, 1),
                 createDoublesBlock(1.0, 2.0, 3.0),
-                createLongsBlock(3L, 2L, 1L));
+                createTypedLongsBlock(INTEGER, ImmutableList.of(3L, 2L, 1L)));
 
         mapType = new MapType(DOUBLE, BOOLEAN);
-        aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.DOUBLE, StandardTypes.BOOLEAN));
+        aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature(NAME,
+                        AGGREGATE,
+                        mapType.getTypeSignature(),
+                        parseTypeSignature(StandardTypes.DOUBLE),
+                        parseTypeSignature(StandardTypes.BOOLEAN)));
         assertAggregation(
                 aggFunc,
                 1.0,
@@ -107,7 +133,12 @@ public class TestMapAggAggregation
     public void testNull()
             throws Exception
     {
-        InternalAggregationFunction doubleDouble = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, new MapType(DOUBLE, DOUBLE).getTypeSignature().toString(), StandardTypes.DOUBLE, StandardTypes.DOUBLE));
+        InternalAggregationFunction doubleDouble = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature(NAME,
+                        AGGREGATE,
+                        new MapType(DOUBLE, DOUBLE).getTypeSignature(),
+                        parseTypeSignature(StandardTypes.DOUBLE),
+                        parseTypeSignature(StandardTypes.DOUBLE)));
         assertAggregation(
                 doubleDouble,
                 1.0,
@@ -142,9 +173,9 @@ public class TestMapAggAggregation
         MapType mapType = new MapType(DOUBLE, arrayType);
         InternalAggregationFunction aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME,
                                                                                     AGGREGATE,
-                                                                                    mapType.getTypeSignature().toString(),
-                                                                                    StandardTypes.DOUBLE,
-                                                                                    arrayType.getTypeSignature().toString()));
+                                                                                    mapType.getTypeSignature(),
+                                                                                    parseTypeSignature(StandardTypes.DOUBLE),
+                                                                                    arrayType.getTypeSignature()));
 
         assertAggregation(
                 aggFunc,
@@ -164,9 +195,9 @@ public class TestMapAggAggregation
         MapType mapType = new MapType(DOUBLE, innerMapType);
         InternalAggregationFunction aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME,
                 AGGREGATE,
-                mapType.getTypeSignature().toString(),
-                StandardTypes.DOUBLE,
-                innerMapType.getTypeSignature().toString()));
+                mapType.getTypeSignature(),
+                parseTypeSignature(StandardTypes.DOUBLE),
+                innerMapType.getTypeSignature()));
 
         BlockBuilder builder = innerMapType.createBlockBuilder(new BlockBuilderStatus(), 3);
         innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("a", "b")));
@@ -187,25 +218,25 @@ public class TestMapAggAggregation
     public void testDoubleRowMap()
             throws Exception
     {
-        RowType innerRowType = new RowType(ImmutableList.of(BIGINT, DOUBLE), Optional.of(ImmutableList.of("f1", "f2")));
+        RowType innerRowType = new RowType(ImmutableList.of(INTEGER, DOUBLE), Optional.of(ImmutableList.of("f1", "f2")));
         MapType mapType = new MapType(DOUBLE, innerRowType);
         InternalAggregationFunction aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME,
                 AGGREGATE,
-                mapType.getTypeSignature().toString(),
-                StandardTypes.DOUBLE,
-                innerRowType.getTypeSignature().toString()));
+                mapType.getTypeSignature(),
+                parseTypeSignature(StandardTypes.DOUBLE),
+                innerRowType.getTypeSignature()));
 
         BlockBuilder builder = innerRowType.createBlockBuilder(new BlockBuilderStatus(), 3);
-        innerRowType.writeObject(builder, testRowBigintBigint(1L, 1.0));
-        innerRowType.writeObject(builder, testRowBigintBigint(2L, 2.0));
-        innerRowType.writeObject(builder, testRowBigintBigint(3L, 3.0));
+        innerRowType.writeObject(builder, toRow(ImmutableList.of(INTEGER, DOUBLE), 1L, 1.0));
+        innerRowType.writeObject(builder, toRow(ImmutableList.of(INTEGER, DOUBLE), 2L, 2.0));
+        innerRowType.writeObject(builder, toRow(ImmutableList.of(INTEGER, DOUBLE), 3L, 3.0));
 
         assertAggregation(
                 aggFunc,
                 1.0,
-                ImmutableMap.of(1.0, ImmutableList.of(1L, 1.0),
-                        2.0, ImmutableList.of(2L, 2.0),
-                        3.0, ImmutableList.of(3L, 3.0)),
+                ImmutableMap.of(1.0, ImmutableList.of(1, 1.0),
+                        2.0, ImmutableList.of(2, 2.0),
+                        3.0, ImmutableList.of(3, 3.0)),
                 createDoublesBlock(1.0, 2.0, 3.0),
                 builder.build());
     }
@@ -219,9 +250,9 @@ public class TestMapAggAggregation
         InternalAggregationFunction aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(
                 NAME,
                 AGGREGATE,
-                mapType.getTypeSignature().toString(),
-                arrayType.getTypeSignature().toString(),
-                StandardTypes.DOUBLE
+                mapType.getTypeSignature(),
+                arrayType.getTypeSignature(),
+                parseTypeSignature(StandardTypes.DOUBLE)
         ));
 
         assertAggregation(

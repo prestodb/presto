@@ -14,12 +14,13 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.metadata.MetadataUtil;
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.type.Type;
@@ -37,6 +38,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.util.Objects.requireNonNull;
@@ -80,7 +82,9 @@ public abstract class AbstractTestingPrestoClient<T>
     {
         ResultsSession<T> resultsSession = getResultSession(session);
 
-        try (StatementClient client = new StatementClient(httpClient, QUERY_RESULTS_CODEC, session.toClientSession(prestoServer.getBaseUrl(), true), sql)) {
+        ClientSession clientSession = session.toClientSession(prestoServer.getBaseUrl(), true, new Duration(2, TimeUnit.MINUTES));
+
+        try (StatementClient client = new StatementClient(httpClient, QUERY_RESULTS_CODEC, clientSession, sql)) {
             while (client.isValid()) {
                 QueryResults results = client.current();
 
@@ -89,6 +93,14 @@ public abstract class AbstractTestingPrestoClient<T>
             }
 
             if (!client.isFailed()) {
+                QueryResults results = client.finalResults();
+                if (results.getUpdateType() != null) {
+                    resultsSession.setUpdateType(results.getUpdateType());
+                }
+                if (results.getUpdateCount() != null) {
+                    resultsSession.setUpdateCount(results.getUpdateCount());
+                }
+
                 return resultsSession.build(client.getSetSessionProperties(), client.getResetSessionProperties());
             }
 
@@ -105,14 +117,22 @@ public abstract class AbstractTestingPrestoClient<T>
         }
     }
 
-    public List<QualifiedTableName> listTables(Session session, String catalog, String schema)
+    public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)
     {
-        return prestoServer.getMetadata().listTables(session, new QualifiedTablePrefix(catalog, schema));
+        return transaction(prestoServer.getTransactionManager())
+                .readOnly()
+                .execute(session, transactionSession -> {
+                    return prestoServer.getMetadata().listTables(transactionSession, new QualifiedTablePrefix(catalog, schema));
+                });
     }
 
     public boolean tableExists(Session session, String table)
     {
-        return MetadataUtil.tableExists(prestoServer.getMetadata(), session, table);
+        return transaction(prestoServer.getTransactionManager())
+                .readOnly()
+                .execute(session, transactionSession -> {
+                    return MetadataUtil.tableExists(prestoServer.getMetadata(), transactionSession, table);
+                });
     }
 
     public Session getDefaultSession()

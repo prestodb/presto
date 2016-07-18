@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.kafka;
 
-import com.facebook.presto.spi.Connector;
-import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
 import com.google.inject.Injector;
@@ -57,6 +58,12 @@ public class KafkaConnectorFactory
     public String getName()
     {
         return "kafka";
+    }
+
+    @Override
+    public ConnectorHandleResolver getHandleResolver()
+    {
+        return new KafkaHandleResolver();
     }
 
     @Override

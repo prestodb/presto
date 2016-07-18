@@ -1,4 +1,4 @@
-# Presto
+# Presto [![Build Status](https://travis-ci.org/prestodb/presto.svg?branch=master)](https://travis-ci.org/prestodb/presto)
 
 Presto is a distributed SQL query engine for big data.
 
@@ -7,8 +7,8 @@ See the [User Manual](https://prestodb.io/docs/current/) for deployment instruct
 ## Requirements
 
 * Mac OS X or Linux
-* Java 8 Update 40 or higher (8u40+), 64-bit
-* Maven 3.2.3+ (for building)
+* Java 8 Update 60 or higher (8u60+), 64-bit
+* Maven 3.3.9+ (for building)
 * Python 2.4+ (for running with the launcher script)
 
 ## Building Presto
@@ -29,7 +29,7 @@ Presto has a comprehensive set of unit tests that can take several minutes to ru
 
 After building Presto for the first time, you can load the project into your IDE and run the server. We recommend using [IntelliJ IDEA](http://www.jetbrains.com/idea/). Because Presto is a standard Maven project, you can import it into your IDE using the root `pom.xml` file. In IntelliJ, choose Open Project from the Quick Start box or choose Open from the File menu and select the root `pom.xml` file.
 
-After opening the project in IntelliJ, double check that the Java SDK is properly configured properly for the project:
+After opening the project in IntelliJ, double check that the Java SDK is properly configured for the project:
 
 * Open the File menu and select Project Structure
 * In the SDKs section, ensure that a 1.8 JDK is selected (create one if none exist)
@@ -71,3 +71,15 @@ Run a query to see the nodes in the cluster:
 In the sample configuration, the Hive connector is mounted in the `hive` catalog, so you can run the following queries to show the tables in the Hive database `default`:
 
     SHOW TABLES FROM hive.default;
+
+## Developers
+
+We recommend you use IntelliJ as your IDE. The code style template for the project can be found in the [codestyle](https://github.com/airlift/codestyle) repository along with our general programming and Java guidelines. In addition to those you should also adhere to the following:
+
+* Alphabetize sections in the documentation source files (both in table of contents files and other regular documentation files). In general, alphabetize methods/variables/sections if such ordering already exists in the surrounding code.
+* When appropriate, use the Java 8 stream API. However, note that the stream implementation does not perform well so avoid using it in inner loops or otherwise performance sensitive sections.
+* Categorize errors when throwing exceptions. For example, PrestoException takes an error code as an argument, `PrestoException(HIVE_TOO_MANY_OPEN_PARTITIONS)`. This categorization lets you generate reports so you can monitor the frequency of various failures.
+* Ensure that all files have the appropriate license header; you can generate the license by running `mvn license:format`.
+* Consider using String formatting (printf style formatting using the Java `Formatter` class): `format("Session property %s is invalid: %s", name, value)` (note that `format()` should always be statically imported). Sometimes, if you only need to append something, consider using the `+` operator.
+* Avoid using the ternary operator except for trivial expressions.
+* Use an assertion from Airlift's `Assertions` class if there is one that covers your case rather than writing the assertion by hand. Over time we may move over to more fluent assertions like AssertJ.

@@ -19,10 +19,10 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.AbstractType;
+import com.facebook.presto.spi.type.TypeSignature;
 import io.airlift.joni.Regex;
 
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
 public class LikePatternType
         extends AbstractType
@@ -32,7 +32,7 @@ public class LikePatternType
 
     public LikePatternType()
     {
-        super(parameterizedTypeName(NAME), Regex.class);
+        super(new TypeSignature(NAME), Regex.class);
     }
 
     @Override
@@ -50,12 +50,12 @@ public class LikePatternType
     @Override
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
-        throw new PrestoException(INTERNAL_ERROR, "LikePattern type cannot be serialized");
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, "LikePattern type cannot be serialized");
     }
 
     @Override
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
-        throw new PrestoException(INTERNAL_ERROR, "LikePattern type cannot be serialized");
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, "LikePattern type cannot be serialized");
     }
 }

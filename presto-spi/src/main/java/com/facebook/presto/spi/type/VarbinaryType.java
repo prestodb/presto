@@ -16,18 +16,16 @@ package com.facebook.presto.spi.type;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.fasterxml.jackson.annotation.JsonCreator;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 
-public class VarbinaryType
+public final class VarbinaryType
         extends AbstractVariableWidthType
 {
     public static final VarbinaryType VARBINARY = new VarbinaryType();
 
-    @JsonCreator
-    public VarbinaryType()
+    private VarbinaryType()
     {
         super(parseTypeSignature(StandardTypes.VARBINARY), Slice.class);
     }
@@ -66,7 +64,7 @@ public class VarbinaryType
     }
 
     @Override
-    public int hash(Block block, int position)
+    public long hash(Block block, int position)
     {
         return block.hash(position, 0, block.getLength(position));
     }
@@ -107,5 +105,17 @@ public class VarbinaryType
     public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
     {
         blockBuilder.writeBytes(value, offset, length).closeEntry();
+    }
+
+    @Override
+    public boolean equals(Object other)
+    {
+        return other == VARBINARY;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return getClass().hashCode();
     }
 }

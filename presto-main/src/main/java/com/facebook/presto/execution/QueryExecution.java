@@ -36,11 +36,15 @@ public interface QueryExecution
 
     long getTotalMemoryReservation();
 
+    Duration getTotalCpuTime();
+
     Session getSession();
 
     void start();
 
     void fail(Throwable cause);
+
+    void cancelQuery();
 
     void cancelStage(StageId stageId);
 

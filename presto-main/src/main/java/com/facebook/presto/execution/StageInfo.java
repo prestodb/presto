@@ -24,6 +24,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -126,6 +127,11 @@ public class StageInfo
         return failureCause;
     }
 
+    public boolean isFinalStageInfo()
+    {
+        return state.isDone() && tasks.stream().allMatch(taskInfo -> taskInfo.getTaskStatus().getState().isDone());
+    }
+
     @Override
     public String toString()
     {
@@ -135,20 +141,19 @@ public class StageInfo
                 .toString();
     }
 
-    public static List<StageInfo> getAllStages(StageInfo stageInfo)
+    public static List<StageInfo> getAllStages(Optional<StageInfo> stageInfo)
     {
         ImmutableList.Builder<StageInfo> collector = ImmutableList.builder();
-        if (stageInfo != null) {
-            addAllStages(stageInfo, collector);
-        }
+        addAllStages(stageInfo, collector);
         return collector.build();
     }
 
-    private static void addAllStages(StageInfo stageInfo, ImmutableList.Builder<StageInfo> collector)
+    private static void addAllStages(Optional<StageInfo> stageInfo, ImmutableList.Builder<StageInfo> collector)
     {
-        collector.add(stageInfo);
-        for (StageInfo subStage : stageInfo.getSubStages()) {
-            addAllStages(subStage, collector);
-        }
+        stageInfo.ifPresent(stage -> {
+            collector.add(stage);
+            stage.getSubStages().stream()
+                    .forEach(subStage -> addAllStages(Optional.ofNullable(subStage), collector));
+        });
     }
 }

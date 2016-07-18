@@ -14,12 +14,15 @@
 package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
+import org.openjdk.jol.info.ClassLayout;
 
 import static java.util.Objects.requireNonNull;
 
 public class ArrayBlock
         extends AbstractArrayBlock
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ArrayBlock.class).instanceSize();
+
     private final Block values;
     private final Slice offsets;
     private final int offsetBase;
@@ -37,6 +40,18 @@ public class ArrayBlock
     public int getPositionCount()
     {
         return valueIsNull.length();
+    }
+
+    @Override
+    public int getSizeInBytes()
+    {
+        return getValues().getSizeInBytes() + offsets.length() + valueIsNull.length();
+    }
+
+    @Override
+    public int getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + values.getRetainedSizeInBytes() + offsets.getRetainedSize() + valueIsNull.getRetainedSize();
     }
 
     @Override
@@ -61,11 +76,6 @@ public class ArrayBlock
     protected Slice getValueIsNull()
     {
         return valueIsNull;
-    }
-
-    @Override
-    public void assureLoaded()
-    {
     }
 
     @Override

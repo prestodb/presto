@@ -18,17 +18,16 @@ import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.metadata.FunctionFactory;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControlManager;
-import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
-import com.facebook.presto.spi.security.SystemAccessControl;
+import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.ParametricType;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.inject.Injector;
 import io.airlift.configuration.ConfigurationFactory;
@@ -207,6 +206,11 @@ public class PluginManager
             typeRegistry.addParametricType(parametricType);
         }
 
+        for (com.facebook.presto.spi.ConnectorFactory connectorFactory : plugin.getServices(com.facebook.presto.spi.ConnectorFactory.class)) {
+            log.info("Registering legacy connector %s", connectorFactory.getName());
+            connectorManager.addConnectorFactory(connectorFactory);
+        }
+
         for (ConnectorFactory connectorFactory : plugin.getServices(ConnectorFactory.class)) {
             log.info("Registering connector %s", connectorFactory.getName());
             connectorManager.addConnectorFactory(connectorFactory);
@@ -217,9 +221,9 @@ public class PluginManager
             metadata.addFunctions(functionFactory.listFunctions());
         }
 
-        for (SystemAccessControl accessControl : plugin.getServices(SystemAccessControl.class)) {
-            log.info("Registering system access control %s", accessControl.getClass().getName());
-            accessControlManager.addSystemAccessControl(accessControl);
+        for (SystemAccessControlFactory accessControlFactory : plugin.getServices(SystemAccessControlFactory.class)) {
+            log.info("Registering system access control %s", accessControlFactory.getName());
+            accessControlManager.addSystemAccessControlFactory(accessControlFactory);
         }
     }
 
@@ -307,7 +311,7 @@ public class PluginManager
 
     private static List<Artifact> sortedArtifacts(List<Artifact> artifacts)
     {
-        List<Artifact> list = Lists.newArrayList(artifacts);
+        List<Artifact> list = new ArrayList<>(artifacts);
         Collections.sort(list, Ordering.natural().nullsLast().onResultOf(Artifact::getFile));
         return list;
     }

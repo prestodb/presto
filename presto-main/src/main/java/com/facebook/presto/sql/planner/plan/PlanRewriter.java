@@ -13,40 +13,64 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.util.ImmutableCollectors;
+import javax.annotation.Nullable;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public abstract class PlanRewriter<C>
-        extends PlanVisitor<PlanRewriter.RewriteContext<C>, PlanNode>
+public abstract class PlanRewriter<C, P>
+        extends PlanVisitor<PlanRewriter.RewriteContext<C, P>, PlanRewriter.Result<P>>
 {
-    public static <C> PlanNode rewriteWith(PlanRewriter<C> rewriter, PlanNode node)
+    public static <C, P> Result<P> rewriteWith(PlanRewriter<C, P> rewriter, PlanNode node)
     {
         return node.accept(rewriter, new RewriteContext<>(rewriter, null));
     }
 
-    public static <C> PlanNode rewriteWith(PlanRewriter<C> rewriter, PlanNode node, C context)
+    public static <C, P> Result<P> rewriteWith(PlanRewriter<C, P> rewriter, PlanNode node, C context)
     {
         return node.accept(rewriter, new RewriteContext<>(rewriter, context));
     }
 
     @Override
-    protected PlanNode visitPlan(PlanNode node, RewriteContext<C> context)
+    protected Result<P> visitPlan(PlanNode node, RewriteContext<C, P> context)
     {
         return context.defaultRewrite(node, context.get());
     }
 
-    public static class RewriteContext<C>
+    public static class Result<P>
+    {
+        private final PlanNode planNode;
+        private final P payload;
+
+        public Result(PlanNode planNode, @Nullable P payload)
+        {
+            this.planNode = requireNonNull(planNode, "planNode is null");
+            this.payload = payload;
+        }
+
+        public PlanNode getPlanNode()
+        {
+            return planNode;
+        }
+
+        public P getPayload()
+        {
+            return payload;
+        }
+    }
+
+    public static class RewriteContext<C, P>
     {
         private final C userContext;
-        private final PlanRewriter<C> nodeRewriter;
+        private final PlanRewriter<C, P> nodeRewriter;
 
-        private RewriteContext(PlanRewriter<C> nodeRewriter, C userContext)
+        private RewriteContext(PlanRewriter<C, P> nodeRewriter, @Nullable C userContext)
         {
-            this.nodeRewriter = nodeRewriter;
+            this.nodeRewriter = requireNonNull(nodeRewriter, "nodeRewriter is null");
             this.userContext = userContext;
         }
 
@@ -57,56 +81,66 @@ public abstract class PlanRewriter<C>
 
         /**
          * Invoke the rewrite logic recursively on children of the given node and swap it
-         * out with an identical copy with the rewritten children
+         * out with an identical copy with the rewritten children. The final payload will
+         * be null.
          */
-        public PlanNode defaultRewrite(PlanNode node)
+        public Result<P> defaultRewrite(PlanNode node)
         {
-            return defaultRewrite(node, null);
+            return defaultRewrite(node, null, payloads -> null);
         }
 
         /**
          * Invoke the rewrite logic recursively on children of the given node and swap it
-         * out with an identical copy with the rewritten children
+         * out with an identical copy with the rewritten children. The final payload will
+         * be null.
          */
-        public PlanNode defaultRewrite(PlanNode node, C context)
+        public Result<P> defaultRewrite(PlanNode node, C context)
         {
-            List<PlanNode> children = node.getSources().stream()
-                    .map(child -> rewrite(child, context))
-                    .collect(ImmutableCollectors.toImmutableList());
-
-            return replaceChildren(node, children);
+            return defaultRewrite(node, context, payloads -> null);
         }
 
         /**
-         * Return an identical copy of the given node with its children replaced
+         * Invoke the rewrite logic recursively on children of the given node and swap it
+         * out with an identical copy with the rewritten children. The payloadCombiner is used
+         * to produce the final payload given the respective payloads of the children.
          */
-        public PlanNode replaceChildren(PlanNode node, List<PlanNode> newChildren)
+        public Result<P> defaultRewrite(PlanNode node, Function<List<P>, P> payloadCombiner)
         {
-            for (int i = 0; i < node.getSources().size(); i++) {
-                if (newChildren.get(i) != node.getSources().get(i)) {
-                    return ChildReplacer.replaceChildren(node, newChildren);
-                }
+            return defaultRewrite(node, null, payloadCombiner);
+        }
+
+        /**
+         * Invoke the rewrite logic recursively on children of the given node and swap it
+         * out with an identical copy with the rewritten children. The payloadCombiner is used
+         * to produce the final payload given the respective payloads of the children.
+         */
+        public Result<P> defaultRewrite(PlanNode node, C context, Function<List<P>, P> payloadCombiner)
+        {
+            List<PlanNode> children = new ArrayList<>(node.getSources().size());
+            List<P> payloads = new ArrayList<>(node.getSources().size());
+            for (PlanNode source : node.getSources()) {
+                Result<P> result = rewrite(source, context);
+                children.add(result.getPlanNode());
+                payloads.add(result.getPayload());
             }
-
-            // children haven't change, so make this a no-op
-            return node;
+            return new Result<>(ChildReplacer.replaceChildren(node, children), payloadCombiner.apply(payloads));
         }
 
         /**
-         * This method is meant for invoking the rewrite logic on children while processing a node
+         * This method is meant for invoking the rewrite logic on children while processing a node.
          */
-        public PlanNode rewrite(PlanNode node, C userContext)
+        public Result<P> rewrite(PlanNode node, C userContext)
         {
-            PlanNode result = node.accept(nodeRewriter, new RewriteContext<>(nodeRewriter, userContext));
+            Result<P> result = node.accept(nodeRewriter, new RewriteContext<>(nodeRewriter, userContext));
             requireNonNull(result, format("nodeRewriter returned null for %s", node.getClass().getName()));
 
             return result;
         }
 
         /**
-         * This method is meant for invoking the rewrite logic on children while processing a node
+         * This method is meant for invoking the rewrite logic on children while processing a node.
          */
-        public PlanNode rewrite(PlanNode node)
+        public Result<P> rewrite(PlanNode node)
         {
             return rewrite(node, null);
         }

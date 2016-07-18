@@ -14,6 +14,7 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.collect.ImmutableList;
 
 import java.sql.Types;
@@ -88,7 +89,7 @@ class ColumnInfo
     {
         builder.setColumnType(getType(type));
         ImmutableList.Builder<Integer> parameterTypes = ImmutableList.builder();
-        for (TypeSignature parameter : type.getParameters()) {
+        for (TypeSignatureParameter parameter : type.getParameters()) {
             parameterTypes.add(getType(parameter));
         }
         builder.setColumnParameterTypes(parameterTypes.build());
@@ -101,6 +102,24 @@ class ColumnInfo
                 builder.setPrecision(19);
                 builder.setScale(0);
                 builder.setColumnDisplaySize(20);
+                break;
+            case "integer":
+                builder.setSigned(true);
+                builder.setPrecision(10);
+                builder.setScale(0);
+                builder.setColumnDisplaySize(11);
+                break;
+            case "smallint":
+                builder.setSigned(true);
+                builder.setPrecision(5);
+                builder.setScale(0);
+                builder.setColumnDisplaySize(6);
+                break;
+            case "tinyint":
+                builder.setSigned(true);
+                builder.setPrecision(3);
+                builder.setScale(0);
+                builder.setColumnDisplaySize(4);
                 break;
             case "double":
                 builder.setSigned(true);
@@ -155,6 +174,22 @@ class ColumnInfo
             case "interval day to second":
                 builder.setColumnDisplaySize(TIMESTAMP_MAX);
                 break;
+            case "decimal":
+                builder.setSigned(true);
+                builder.setColumnDisplaySize(type.getParameters().get(0).getLongLiteral().intValue() + 2); // dot and sign
+                builder.setPrecision(type.getParameters().get(0).getLongLiteral().intValue());
+                builder.setScale(type.getParameters().get(1).getLongLiteral().intValue());
+                break;
+        }
+    }
+
+    private static int getType(TypeSignatureParameter typeParameter)
+    {
+        switch (typeParameter.getKind()) {
+            case TYPE:
+                return getType(typeParameter.getTypeSignature());
+            default:
+                return Types.JAVA_OBJECT;
         }
     }
 
@@ -163,11 +198,17 @@ class ColumnInfo
         if (type.getBase().equals("array")) {
             return Types.ARRAY;
         }
-        switch (type.toString()) {
+        switch (type.getBase()) {
             case "boolean":
                 return Types.BOOLEAN;
             case "bigint":
                 return Types.BIGINT;
+            case "integer":
+                return Types.INTEGER;
+            case "smallint":
+                return Types.SMALLINT;
+            case "tinyint":
+                return Types.TINYINT;
             case "double":
                 return Types.DOUBLE;
             case "varchar":
@@ -184,6 +225,8 @@ class ColumnInfo
                 return Types.TIMESTAMP;
             case "date":
                 return Types.DATE;
+            case "decimal":
+                return Types.DECIMAL;
             default:
                 return Types.JAVA_OBJECT;
         }

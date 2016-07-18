@@ -68,7 +68,7 @@ public class BenchmarkGroupByHash
     @OperationsPerInvocation(POSITIONS)
     public Object groupByHashPreCompute(BenchmarkData data)
     {
-        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), Optional.empty(), data.getHashChannel(), EXPECTED_SIZE);
+        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), EXPECTED_SIZE, false);
         data.getPages().forEach(groupByHash::getGroupIds);
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
@@ -89,7 +89,7 @@ public class BenchmarkGroupByHash
     @OperationsPerInvocation(POSITIONS)
     public Object addPagePreCompute(BenchmarkData data)
     {
-        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), Optional.empty(), data.getHashChannel(), EXPECTED_SIZE);
+        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), EXPECTED_SIZE, false);
         data.getPages().forEach(groupByHash::addPage);
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
@@ -110,7 +110,7 @@ public class BenchmarkGroupByHash
     @OperationsPerInvocation(POSITIONS)
     public Object bigintGroupByHash(SingleChannelBenchmarkData data)
     {
-        GroupByHash groupByHash = new BigintGroupByHash(0, Optional.empty(), data.getHashEnabled(), EXPECTED_SIZE);
+        GroupByHash groupByHash = new BigintGroupByHash(0, data.getHashEnabled(), EXPECTED_SIZE);
         data.getPages().forEach(groupByHash::addPage);
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
@@ -138,7 +138,7 @@ public class BenchmarkGroupByHash
 
         long groupIds = 0;
         for (Page page : data.getPages()) {
-            Block block = page.getBlocks()[0];
+            Block block = page.getBlock(0);
             int positionCount = block.getPositionCount();
             for (int position = 0; position < positionCount; position++) {
                 long value = block.getLong(position, 0);
@@ -167,7 +167,7 @@ public class BenchmarkGroupByHash
 
         long groupIds = 0;
         for (Page page : data.getPages()) {
-            Block block = page.getBlocks()[0];
+            Block block = page.getBlock(0);
             int positionCount = block.getPositionCount();
             for (int position = 0; position < positionCount; position++) {
                 long value = BIGINT.getLong(block, position);

@@ -33,6 +33,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -47,10 +48,9 @@ public class RowType
     public RowType(List<Type> fieldTypes, Optional<List<String>> fieldNames)
     {
         super(new TypeSignature(
-                        "row",
+                        ROW,
                         Lists.transform(fieldTypes, Type::getTypeSignature),
                         fieldNames.orElse(ImmutableList.of()).stream()
-                                .map(Object.class::cast)
                                 .collect(toImmutableList())),
                 Block.class);
 
@@ -94,7 +94,7 @@ public class RowType
                 fieldDisplayNames.add(typeDisplayName);
             }
         }
-        return "row(" + Joiner.on(", ").join(fieldDisplayNames) + ")";
+        return ROW + "(" + Joiner.on(", ").join(fieldDisplayNames) + ")";
     }
 
     @Override
@@ -198,10 +198,10 @@ public class RowType
     }
 
     @Override
-    public int hash(Block block, int position)
+    public long hash(Block block, int position)
     {
         Block arrayBlock = block.getObject(position, Block.class);
-        int result = 1;
+        long result = 1;
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
             checkElementNotNull(arrayBlock.isNull(i));
             Type elementType = fields.get(i).getType();

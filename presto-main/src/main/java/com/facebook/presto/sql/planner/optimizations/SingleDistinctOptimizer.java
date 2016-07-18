@@ -21,12 +21,12 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.NullLiteral;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -53,16 +53,16 @@ import static java.util.Objects.requireNonNull;
  * Remove Distincts in the original AggregationNode
  */
 public class SingleDistinctOptimizer
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        return PlanRewriter.rewriteWith(new Optimizer(idAllocator), plan, Optional.empty());
+        return SimplePlanRewriter.rewriteWith(new Optimizer(idAllocator), plan, Optional.empty());
     }
 
     private static class Optimizer
-            extends PlanRewriter<Optional<Symbol>>
+            extends SimplePlanRewriter<Optional<Symbol>>
     {
         private final PlanNodeIdAllocator idAllocator;
 
@@ -91,6 +91,7 @@ public class SingleDistinctOptimizer
                                         aggregations,
                                         node.getFunctions(),
                                         Collections.emptyMap(),
+                                        node.getGroupingSets(),
                                         node.getStep(),
                                         node.getSampleWeight(),
                                         node.getConfidence(),
@@ -109,6 +110,7 @@ public class SingleDistinctOptimizer
                                                                         Collections.emptyMap(),
                                                                         Collections.emptyMap(),
                                                                         Collections.emptyMap(),
+                                                                        ImmutableList.of(node.getDistinctSymbols()),
                                                                         SINGLE,
                                                                         Optional.empty(),
                                                                         1.0,
@@ -116,8 +118,7 @@ public class SingleDistinctOptimizer
 
                 ImmutableMap.Builder<Symbol, Expression> outputSymbols = ImmutableMap.builder();
                 for (Symbol symbol : aggregationNode.getOutputSymbols()) {
-                    Expression expression = new QualifiedNameReference(symbol.toQualifiedName());
-                    outputSymbols.put(symbol, expression);
+                    outputSymbols.put(symbol, symbol.toSymbolReference());
                 }
 
                 // add null assignment for mask

@@ -15,27 +15,19 @@ package com.facebook.presto.teradata.functions;
 
 import com.facebook.presto.metadata.FunctionFactory;
 import com.facebook.presto.metadata.FunctionListBuilder;
-import com.facebook.presto.metadata.ParametricFunction;
-import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.metadata.SqlFunction;
 
 import java.util.List;
 
 public class TeradataFunctionFactory
         implements FunctionFactory
 {
-    private final TypeManager typeManager;
-
-    public TeradataFunctionFactory(TypeManager typeManager)
-    {
-        this.typeManager = typeManager;
-    }
-
     @Override
-    public List<ParametricFunction> listFunctions()
+    public List<SqlFunction> listFunctions()
     {
-        return new FunctionListBuilder(typeManager)
-                .scalar(TeradataStringFunctions.class)
-                .scalar(TeradataDateFunctions.class)
+        return new FunctionListBuilder()
+                .scalars(TeradataStringFunctions.class)
+                .scalars(TeradataDateFunctions.class)
                 .getFunctions();
     }
 }

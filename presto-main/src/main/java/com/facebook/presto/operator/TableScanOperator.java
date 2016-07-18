@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -58,7 +59,7 @@ public class TableScanOperator
             this.operatorId = operatorId;
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
             this.types = requireNonNull(types, "types is null");
-            this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceManager is null");
+            this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         }
 
@@ -78,7 +79,7 @@ public class TableScanOperator
         public SourceOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, TableScanOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, TableScanOperator.class.getSimpleName());
             return new TableScanOperator(
                     operatorContext,
                     sourceId,
@@ -99,6 +100,7 @@ public class TableScanOperator
     private final PageSourceProvider pageSourceProvider;
     private final List<Type> types;
     private final List<ColumnHandle> columns;
+    private final LocalMemoryContext systemMemoryContext;
     private final SettableFuture<?> blocked = SettableFuture.create();
 
     private Split split;
@@ -119,8 +121,9 @@ public class TableScanOperator
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
         this.types = requireNonNull(types, "types is null");
-        this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceManager is null");
+        this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+        this.systemMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
     }
 
     @Override
@@ -196,6 +199,7 @@ public class TableScanOperator
             catch (IOException e) {
                 throw Throwables.propagate(e);
             }
+            systemMemoryContext.setBytes(source.getSystemMemoryUsage());
         }
     }
 
@@ -205,6 +209,9 @@ public class TableScanOperator
         if (!finished) {
             createSourceIfNecessary();
             finished = (source != null) && source.isFinished();
+            if (source != null) {
+                systemMemoryContext.setBytes(source.getSystemMemoryUsage());
+            }
         }
 
         return finished;
@@ -248,6 +255,9 @@ public class TableScanOperator
             completedBytes = endCompletedBytes;
             readTimeNanos = endReadTimeNanos;
         }
+
+        // updating system memory usage should happen after page is loaded.
+        systemMemoryContext.setBytes(source.getSystemMemoryUsage());
 
         return page;
     }

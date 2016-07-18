@@ -15,55 +15,86 @@ package com.facebook.presto.operator.index;
 
 import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.operator.LookupSourceSupplier;
-import com.facebook.presto.operator.OperatorContext;
+import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.Symbol;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
+
+import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class IndexLookupSourceSupplier
         implements LookupSourceSupplier
 {
-    private final IndexLoader indexLoader;
+    private final List<Type> outputTypes;
+    private final Map<Symbol, Integer> layout;
+    private final Supplier<IndexLoader> indexLoaderSupplier;
+    private TaskContext taskContext;
 
     public IndexLookupSourceSupplier(
             Set<Integer> lookupSourceInputChannels,
             List<Integer> keyOutputChannels,
             Optional<Integer> keyOutputHashChannel,
             List<Type> outputTypes,
+            Map<Symbol, Integer> layout,
             IndexBuildDriverFactoryProvider indexBuildDriverFactoryProvider,
             DataSize maxIndexMemorySize,
-            IndexJoinLookupStats stats)
+            IndexJoinLookupStats stats,
+            boolean shareIndexLoading)
     {
-        this.indexLoader = new IndexLoader(lookupSourceInputChannels, keyOutputChannels, keyOutputHashChannel, outputTypes, indexBuildDriverFactoryProvider, 10_000, maxIndexMemorySize, stats);
+        this.outputTypes = ImmutableList.copyOf(requireNonNull(outputTypes, "outputTypes is null"));
+        this.layout = ImmutableMap.copyOf(requireNonNull(layout, "layout is null"));
+
+        if (shareIndexLoading) {
+            IndexLoader shared = new IndexLoader(lookupSourceInputChannels, keyOutputChannels, keyOutputHashChannel, outputTypes, indexBuildDriverFactoryProvider, 10_000, maxIndexMemorySize, stats);
+            this.indexLoaderSupplier = () -> shared;
+        }
+        else {
+            this.indexLoaderSupplier = () -> new IndexLoader(lookupSourceInputChannels, keyOutputChannels, keyOutputHashChannel, outputTypes, indexBuildDriverFactoryProvider, 10_000, maxIndexMemorySize, stats);
+        }
     }
 
     @Override
     public List<Type> getTypes()
     {
-        return indexLoader.getOutputTypes();
+        return outputTypes;
     }
 
     @Override
-    public ListenableFuture<LookupSource> getLookupSource(OperatorContext operatorContext)
+    public Map<Symbol, Integer> getLayout()
     {
-        indexLoader.setContext(operatorContext.getDriverContext().getPipelineContext().getTaskContext());
+        return layout;
+    }
+
+    @Override
+    public void setTaskContext(TaskContext taskContext)
+    {
+        this.taskContext = taskContext;
+    }
+
+    @Override
+    public ListenableFuture<LookupSource> getLookupSource()
+    {
+        checkState(taskContext != null, "taskContext not set");
+
+        IndexLoader indexLoader = indexLoaderSupplier.get();
+        indexLoader.setContext(taskContext);
         return Futures.immediateFuture(new IndexLookupSource(indexLoader));
     }
 
     @Override
-    public void release()
+    public void destroy()
     {
-        // no-op
-    }
-
-    @Override
-    public void retain()
-    {
-        // no-op
+        // nothing to do
     }
 }

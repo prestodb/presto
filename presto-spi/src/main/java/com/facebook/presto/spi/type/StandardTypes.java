@@ -16,10 +16,16 @@ package com.facebook.presto.spi.type;
 public final class StandardTypes
 {
     public static final String BIGINT = "bigint";
+    public static final String INTEGER = "integer";
+    public static final String SMALLINT = "smallint";
+    public static final String TINYINT = "tinyint";
     public static final String BOOLEAN = "boolean";
     public static final String DATE = "date";
+    public static final String DECIMAL = "decimal";
+    public static final String FLOAT = "float";
     public static final String DOUBLE = "double";
     public static final String HYPER_LOG_LOG = "HyperLogLog";
+    public static final String P4_HYPER_LOG_LOG = "P4HyperLogLog";
     public static final String INTERVAL_DAY_TO_SECOND = "interval day to second";
     public static final String INTERVAL_YEAR_TO_MONTH = "interval year to month";
     public static final String TIMESTAMP = "timestamp";

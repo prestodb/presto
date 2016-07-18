@@ -13,9 +13,12 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.predicate.TupleDomain;
+
 import java.util.List;
 import java.util.Set;
 
+@Deprecated
 public interface ConnectorIndexResolver
 {
     // TODO: should we allow partial index resolutions? (e.g. only index on colA when asking for an index on colA and colB)

@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 
@@ -28,13 +29,15 @@ public class NestedLoopBuildOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final NestedLoopJoinPagesSupplier nestedLoopJoinPagesSupplier;
 
         private boolean closed;
 
-        public NestedLoopBuildOperatorFactory(int operatorId, List<Type> types)
+        public NestedLoopBuildOperatorFactory(int operatorId, PlanNodeId planNodeId, List<Type> types)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             nestedLoopJoinPagesSupplier = new NestedLoopJoinPagesSupplier(requireNonNull(types, "types is null"));
             nestedLoopJoinPagesSupplier.retain();
         }
@@ -54,7 +57,7 @@ public class NestedLoopBuildOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, NestedLoopBuildOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, NestedLoopBuildOperator.class.getSimpleName());
             return new NestedLoopBuildOperator(operatorContext, nestedLoopJoinPagesSupplier);
         }
 
@@ -67,6 +70,12 @@ public class NestedLoopBuildOperator
             closed = true;
             nestedLoopJoinPagesSupplier.release();
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new NestedLoopBuildOperatorFactory(operatorId, planNodeId, getTypes());
+        }
     }
 
     private final OperatorContext operatorContext;
@@ -78,7 +87,7 @@ public class NestedLoopBuildOperator
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.nestedLoopJoinPagesSupplier = requireNonNull(nestedLoopJoinPagesSupplier, "nestedLoopJoinPagesSupplier is null");
-        this.nestedLoopJoinPagesBuilder = new NestedLoopJoinPagesBuilder(operatorContext.getDriverContext().getPipelineContext().getTaskContext());
+        this.nestedLoopJoinPagesBuilder = new NestedLoopJoinPagesBuilder(operatorContext);
     }
 
     @Override
@@ -100,8 +109,7 @@ public class NestedLoopBuildOperator
             return;
         }
 
-        // Free memory, as the PageSource is going to take it over
-        operatorContext.setMemoryReservation(0);
+        // The NestedLoopJoinPages will take over our memory reservation, so after this point ours will be zero.
         nestedLoopJoinPagesSupplier.setPages(nestedLoopJoinPagesBuilder.build());
 
         finished = true;

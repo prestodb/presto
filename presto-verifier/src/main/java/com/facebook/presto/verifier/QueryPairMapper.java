@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import org.skife.jdbi.v2.StatementContext;
@@ -20,12 +21,14 @@ import org.skife.jdbi.v2.tweak.ResultSetMapper;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Map;
 
 public class QueryPairMapper
         implements ResultSetMapper<QueryPair>
 {
-    private static final JsonCodec<Map<String, String>> jsonCodec = JsonCodec.mapJsonCodec(String.class, String.class);
+    private static final JsonCodec<Map<String, String>> propertiesJsonCodec = JsonCodec.mapJsonCodec(String.class, String.class);
+    private static final JsonCodec<List<String>> queriesJsonCodec = JsonCodec.listJsonCodec(String.class);
 
     @Override
     public QueryPair map(int index, ResultSet resultSet, StatementContext statementContext)
@@ -34,15 +37,23 @@ public class QueryPairMapper
         Map<String, String> sessionProperties = ImmutableMap.of();
         String json = resultSet.getString("session_properties_json");
         if (json != null) {
-            sessionProperties = jsonCodec.fromJson(json);
+            sessionProperties = propertiesJsonCodec.fromJson(json);
         }
 
         return new QueryPair(
                 resultSet.getString("suite"),
                 resultSet.getString("name"),
-                new Query(resultSet.getString("test_catalog"), resultSet.getString("test_schema"), resultSet.getString("test_query"),
+                new Query(resultSet.getString("test_catalog"), resultSet.getString("test_schema"), fromJsonString(resultSet.getString("test_prequeries")), resultSet.getString("test_query"),
+                        fromJsonString(resultSet.getString("test_postqueries")),
                         resultSet.getString("test_username"), resultSet.getString("test_password"), sessionProperties),
-                new Query(resultSet.getString("control_catalog"), resultSet.getString("control_schema"), resultSet.getString("control_query"),
+                new Query(resultSet.getString("control_catalog"), resultSet.getString("control_schema"), fromJsonString(resultSet.getString("control_prequeries")), resultSet.getString("control_query"),
+                        fromJsonString(resultSet.getString("control_postqueries")),
                         resultSet.getString("control_username"), resultSet.getString("control_password"), sessionProperties));
+    }
+
+    private static List<String> fromJsonString(String jsonString)
+            throws SQLException
+    {
+        return jsonString == null ? ImmutableList.of() : queriesJsonCodec.fromJson(jsonString);
     }
 }

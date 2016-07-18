@@ -136,7 +136,7 @@ public class StateMachine<T>
      * Sets the state if the current state satisfies the specified predicate.
      * If the new state does not {@code .equals()} the current state, listeners and waiters will be notified.
      *
-     * @return the old state
+     * @return true if the state is set
      */
     public boolean setIf(T newState, Predicate<T> predicate)
     {
@@ -168,7 +168,7 @@ public class StateMachine<T>
      * Sets the state if the current state {@code .equals()} the specified expected state.
      * If the new state does not {@code .equals()} the current state, listeners and waiters will be notified.
      *
-     * @return the old state
+     * @return true if the state is set
      */
     public boolean compareAndSet(T expectedState, T newState)
     {
@@ -241,7 +241,7 @@ public class StateMachine<T>
 
         synchronized (lock) {
             // return a completed future if the state has already changed, or we are in a terminal state
-            if (!isPossibleStateChange(currentState)) {
+            if (isPossibleStateChange(currentState)) {
                 return CompletableFuture.completedFuture(state);
             }
 
@@ -281,7 +281,7 @@ public class StateMachine<T>
         requireNonNull(maxWait, "maxWait is null");
 
         // don't wait if the state has already changed, or we are in a terminal state
-        if (!isPossibleStateChange(currentState)) {
+        if (isPossibleStateChange(currentState)) {
             return maxWait;
         }
 
@@ -291,7 +291,7 @@ public class StateMachine<T>
         long end = start + remainingNanos;
 
         synchronized (lock) {
-            while (remainingNanos > 0 && isPossibleStateChange(currentState)) {
+            while (remainingNanos > 0 && !isPossibleStateChange(currentState)) {
                 // wait for timeout or notification
                 NANOSECONDS.timedWait(lock, remainingNanos);
                 remainingNanos = end - System.nanoTime();
@@ -305,7 +305,7 @@ public class StateMachine<T>
 
     private boolean isPossibleStateChange(T currentState)
     {
-        return state.equals(currentState) && !isTerminalState(state);
+        return !state.equals(currentState) || isTerminalState(state);
     }
 
     @VisibleForTesting

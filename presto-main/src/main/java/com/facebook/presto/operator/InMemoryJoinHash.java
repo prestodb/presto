@@ -17,75 +17,107 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.google.common.primitives.Ints;
-import io.airlift.slice.XxHash64;
+import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.HashCommon;
-import it.unimi.dsi.fastutil.longs.AbstractLongIterator;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
-import it.unimi.dsi.fastutil.longs.LongIterator;
 
 import java.util.Arrays;
 
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.airlift.slice.SizeOf.sizeOfBooleanArray;
-import static io.airlift.slice.SizeOf.sizeOfIntArray;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static java.util.Objects.requireNonNull;
 
 // This implementation assumes arrays used in the hash are always a power of 2
 public final class InMemoryJoinHash
         implements LookupSource
 {
+    private static final DataSize CACHE_SIZE = new DataSize(128, KILOBYTE);
     private final LongArrayList addresses;
     private final PagesHashStrategy pagesHashStrategy;
 
     private final int channelCount;
     private final int mask;
     private final int[] key;
-    private final boolean[] keyVisited;
     private final int[] positionLinks;
     private final long size;
+    private final boolean filterFunctionPresent;
+
+    // Native array of hashes for faster collisions resolution compared
+    // to accessing values in blocks. We use bytes to reduce memory foot print
+    // and there is no performance gain from storing full hashes
+    private final byte[] positionToHashes;
 
     public InMemoryJoinHash(LongArrayList addresses, PagesHashStrategy pagesHashStrategy)
     {
         this.addresses = requireNonNull(addresses, "addresses is null");
         this.pagesHashStrategy = requireNonNull(pagesHashStrategy, "pagesHashStrategy is null");
         this.channelCount = pagesHashStrategy.getChannelCount();
+        this.filterFunctionPresent = pagesHashStrategy.getFilterFunction().isPresent();
 
         // reserve memory for the arrays
         int hashSize = HashCommon.arraySize(addresses.size(), 0.75f);
-        size = sizeOfIntArray(hashSize) + sizeOfBooleanArray(hashSize) + sizeOfIntArray(addresses.size())
-                +  sizeOf(addresses.elements()) + pagesHashStrategy.getSizeInBytes();
 
         mask = hashSize - 1;
         key = new int[hashSize];
-        keyVisited = new boolean[hashSize];
         Arrays.fill(key, -1);
 
         this.positionLinks = new int[addresses.size()];
         Arrays.fill(positionLinks, -1);
 
-        // index pages
-        for (int position = 0; position < addresses.size(); position++) {
-            int pos = getHashPosition(hashPosition(position), mask);
+        positionToHashes = new byte[addresses.size()];
 
-            // look for an empty slot or a slot containing this key
-            while (key[pos] != -1) {
-                int currentKey = key[pos];
-                if (positionEqualsPosition(currentKey, position)) {
-                    // found a slot for this key
-                    // link the new key position to the current key position
-                    positionLinks[position] = currentKey;
+        // We will process addresses in batches, to save memory on array of hashes.
+        int positionsInStep = Math.min(addresses.size() + 1, (int) CACHE_SIZE.toBytes() / Integer.SIZE);
+        long[] positionToFullHashes = new long[positionsInStep];
 
-                    // key[pos] updated outside of this loop
-                    break;
-                }
-                // increment position and mask to handler wrap around
-                pos = (pos + 1) & mask;
+        for (int step = 0; step * positionsInStep <= addresses.size(); step++) {
+            int stepBeginPosition = step * positionsInStep;
+            int stepEndPosition = Math.min((step + 1) * positionsInStep, addresses.size());
+            int stepSize = stepEndPosition - stepBeginPosition;
+
+            // First extract all hashes from blocks to native array.
+            // Somehow having this as a separate loop is much faster compared
+            // to extracting hashes on the fly in the loop below.
+            for (int position = 0; position < stepSize; position++) {
+                int realPosition = position + stepBeginPosition;
+                long hash = readHashPosition(realPosition);
+                positionToFullHashes[position] = hash;
+                positionToHashes[realPosition] = (byte) hash;
             }
 
-            key[pos] = position;
+            // index pages
+            for (int position = 0; position < stepSize; position++) {
+                int realPosition = position + stepBeginPosition;
+                if (isPositionNull(realPosition)) {
+                    continue;
+                }
+
+                long hash = positionToFullHashes[position];
+                int pos = getHashPosition(hash, mask);
+
+                // look for an empty slot or a slot containing this key
+                while (key[pos] != -1) {
+                    int currentKey = key[pos];
+                    if (((byte) hash) == positionToHashes[currentKey] && positionEqualsPositionIgnoreNulls(currentKey, realPosition)) {
+                        // found a slot for this key
+                        // link the new key position to the current key position
+                        positionLinks[realPosition] = currentKey;
+
+                        // key[pos] updated outside of this loop
+                        break;
+                    }
+                    // increment position and mask to handler wrap around
+                    pos = (pos + 1) & mask;
+                }
+
+                key[pos] = realPosition;
+            }
         }
+
+        size = sizeOf(addresses.elements()) + pagesHashStrategy.getSizeInBytes() +
+                sizeOf(key) + sizeOf(positionLinks) + sizeOf(positionToHashes);
     }
 
     @Override
@@ -95,26 +127,31 @@ public final class InMemoryJoinHash
     }
 
     @Override
+    public int getJoinPositionCount()
+    {
+        return positionLinks.length;
+    }
+
+    @Override
     public long getInMemorySizeInBytes()
     {
         return size;
     }
 
     @Override
-    public long getJoinPosition(int position, Page page)
+    public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage)
     {
-        return getJoinPosition(position, page, pagesHashStrategy.hashRow(position, page.getBlocks()));
+        return getJoinPosition(position, hashChannelsPage, allChannelsPage, pagesHashStrategy.hashRow(position, hashChannelsPage));
     }
 
     @Override
-    public long getJoinPosition(int position, Page page, int rawHash)
+    public long getJoinPosition(int rightPosition, Page hashChannelsPage, Page allChannelsPage, long rawHash)
     {
         int pos = getHashPosition(rawHash, mask);
 
         while (key[pos] != -1) {
-            if (positionEqualsCurrentRow(key[pos], position, page.getBlocks())) {
-                keyVisited[pos] = true;
-                return key[pos];
+            if (positionEqualsCurrentRowIgnoreNulls(key[pos], (byte) rawHash, rightPosition, hashChannelsPage)) {
+                return getNextJoinPositionFrom(key[pos], rightPosition, allChannelsPage);
             }
             // increment position and mask to handler wrap around
             pos = (pos + 1) & mask;
@@ -123,59 +160,18 @@ public final class InMemoryJoinHash
     }
 
     @Override
-    public final long getNextJoinPosition(long currentPosition)
+    public final long getNextJoinPosition(long currentJoinPosition, int probePosition, Page allProbeChannelsPage)
     {
-        return positionLinks[Ints.checkedCast(currentPosition)];
+        return getNextJoinPositionFrom(positionLinks[Ints.checkedCast(currentJoinPosition)], probePosition, allProbeChannelsPage);
     }
 
-    @Override
-    public LongIterator getUnvisitedJoinPositions()
+    private long getNextJoinPositionFrom(int startJoinPosition, int probePosition, Page allProbeChannelsPage)
     {
-        return new UnvisitedJoinPositionIterator();
-    }
-
-    public class UnvisitedJoinPositionIterator extends AbstractLongIterator
-    {
-        private int nextKeyId = 0;
-        private long nextJoinPosition = -1;
-
-        private UnvisitedJoinPositionIterator()
-        {
-            findUnvisitedKeyId();
+        long currentJoinPosition = startJoinPosition;
+        while (filterFunctionPresent && currentJoinPosition != -1 && !applyFilterFilterFunction(Ints.checkedCast(currentJoinPosition), probePosition, allProbeChannelsPage.getBlocks())) {
+            currentJoinPosition = positionLinks[Ints.checkedCast(currentJoinPosition)];
         }
-
-        @Override
-        public long nextLong()
-        {
-            long result = nextJoinPosition;
-
-            nextJoinPosition = getNextJoinPosition(nextJoinPosition);
-            if (nextJoinPosition < 0) {
-                nextKeyId++;
-                findUnvisitedKeyId();
-            }
-
-            return result;
-        }
-
-        @Override
-        public boolean hasNext()
-        {
-            return nextKeyId < keyVisited.length;
-        }
-
-        private void findUnvisitedKeyId()
-        {
-            while (nextKeyId < keyVisited.length) {
-                if (key[nextKeyId] != -1 && !keyVisited[nextKeyId]) {
-                    break;
-                }
-                nextKeyId++;
-            }
-            if (nextKeyId < keyVisited.length) {
-                nextJoinPosition = key[nextKeyId];
-            }
-        }
+        return currentJoinPosition;
     }
 
     @Override
@@ -193,7 +189,16 @@ public final class InMemoryJoinHash
     {
     }
 
-    private int hashPosition(int position)
+    private boolean isPositionNull(int position)
+    {
+        long pageAddress = addresses.getLong(position);
+        int blockIndex = decodeSliceIndex(pageAddress);
+        int blockPosition = decodePosition(pageAddress);
+
+        return pagesHashStrategy.isPositionNull(blockIndex, blockPosition);
+    }
+
+    private long readHashPosition(int position)
     {
         long pageAddress = addresses.getLong(position);
         int blockIndex = decodeSliceIndex(pageAddress);
@@ -202,16 +207,33 @@ public final class InMemoryJoinHash
         return pagesHashStrategy.hashPosition(blockIndex, blockPosition);
     }
 
-    private boolean positionEqualsCurrentRow(int leftPosition, int rightPosition, Block... rightBlocks)
+    private boolean positionEqualsCurrentRowIgnoreNulls(int leftPosition, byte rawHash, int rightPosition, Page rightPage)
     {
+        if (positionToHashes[leftPosition] != rawHash) {
+            return false;
+        }
+
         long pageAddress = addresses.getLong(leftPosition);
         int blockIndex = decodeSliceIndex(pageAddress);
         int blockPosition = decodePosition(pageAddress);
 
-        return pagesHashStrategy.positionEqualsRow(blockIndex, blockPosition, rightPosition, rightBlocks);
+        return pagesHashStrategy.positionEqualsRowIgnoreNulls(blockIndex, blockPosition, rightPosition, rightPage);
     }
 
-    private boolean positionEqualsPosition(int leftPosition, int rightPosition)
+    private boolean applyFilterFilterFunction(int leftPosition, int rightPosition, Block[] rightBlocks)
+    {
+        if (!filterFunctionPresent) {
+            return true;
+        }
+
+        long pageAddress = addresses.getLong(leftPosition);
+        int blockIndex = decodeSliceIndex(pageAddress);
+        int blockPosition = decodePosition(pageAddress);
+
+        return pagesHashStrategy.applyFilterFunction(blockIndex, blockPosition, rightPosition, rightBlocks);
+    }
+
+    private boolean positionEqualsPositionIgnoreNulls(int leftPosition, int rightPosition)
     {
         long leftPageAddress = addresses.getLong(leftPosition);
         int leftBlockIndex = decodeSliceIndex(leftPageAddress);
@@ -221,11 +243,24 @@ public final class InMemoryJoinHash
         int rightBlockIndex = decodeSliceIndex(rightPageAddress);
         int rightBlockPosition = decodePosition(rightPageAddress);
 
-        return pagesHashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition);
+        return pagesHashStrategy.positionEqualsPositionIgnoreNulls(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition);
     }
 
-    private static int getHashPosition(int rawHash, int mask)
+    private static int getHashPosition(long rawHash, long mask)
     {
-        return ((int) XxHash64.hash(rawHash)) & mask;
+        // Avalanches the bits of a long integer by applying the finalisation step of MurmurHash3.
+        //
+        // This function implements the finalisation step of Austin Appleby's <a href="http://sites.google.com/site/murmurhash/">MurmurHash3</a>.
+        // Its purpose is to avalanche the bits of the argument to within 0.25% bias. It is used, among other things, to scramble quickly (but deeply) the hash
+        // values returned by {@link Object#hashCode()}.
+        //
+
+        rawHash ^= rawHash >>> 33;
+        rawHash *= 0xff51afd7ed558ccdL;
+        rawHash ^= rawHash >>> 33;
+        rawHash *= 0xc4ceb9fe1a85ec53L;
+        rawHash ^= rawHash >>> 33;
+
+        return (int) (rawHash & mask);
     }
 }

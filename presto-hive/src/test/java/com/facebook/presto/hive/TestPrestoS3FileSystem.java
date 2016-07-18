@@ -16,26 +16,42 @@ package com.facebook.presto.hive;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.internal.StaticCredentialsProvider;
+import com.amazonaws.services.s3.AmazonS3EncryptionClient;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
+import com.amazonaws.services.s3.model.EncryptionMaterials;
+import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
+import com.facebook.presto.hive.PrestoS3FileSystem.UnrecoverableS3OperationException;
+import com.google.common.base.StandardSystemProperty;
 import com.google.common.base.Throwables;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.Path;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
+import javax.crypto.spec.SecretKeySpec;
+
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.Map;
 
+import static com.facebook.presto.hive.PrestoS3FileSystem.S3_ENCRYPTION_MATERIALS_PROVIDER;
 import static com.facebook.presto.hive.PrestoS3FileSystem.S3_MAX_BACKOFF_TIME;
 import static com.facebook.presto.hive.PrestoS3FileSystem.S3_MAX_CLIENT_RETRIES;
 import static com.facebook.presto.hive.PrestoS3FileSystem.S3_MAX_RETRY_TIME;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static io.airlift.testing.FileUtils.deleteRecursively;
 import static org.apache.http.HttpStatus.SC_FORBIDDEN;
 import static org.apache.http.HttpStatus.SC_INTERNAL_SERVER_ERROR;
 import static org.apache.http.HttpStatus.SC_NOT_FOUND;
 import static org.apache.http.HttpStatus.SC_REQUESTED_RANGE_NOT_SATISFIABLE;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestPrestoS3FileSystem
 {
@@ -44,8 +60,8 @@ public class TestPrestoS3FileSystem
             throws Exception
     {
         Configuration config = new Configuration();
-        config.set("fs.s3n.awsSecretAccessKey", "test_secret_access_key");
-        config.set("fs.s3n.awsAccessKeyId", "test_access_key_id");
+        config.set(PrestoS3FileSystem.S3_ACCESS_KEY, "test_secret_access_key");
+        config.set(PrestoS3FileSystem.S3_SECRET_KEY, "test_access_key_id");
         // the static credentials should be preferred
 
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
@@ -162,6 +178,87 @@ public class TestPrestoS3FileSystem
     }
 
     @Test
+    public void testCreateWithNonexistentStagingDirectory()
+        throws Exception
+    {
+        java.nio.file.Path tmpdir = Paths.get(StandardSystemProperty.JAVA_IO_TMPDIR.value());
+        java.nio.file.Path stagingParent = Files.createTempDirectory(tmpdir, "test");
+        java.nio.file.Path staging = Paths.get(stagingParent.toString(), "staging");
+        // stagingParent = /tmp/testXXX
+        // staging = /tmp/testXXX/staging
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            MockAmazonS3 s3 = new MockAmazonS3();
+            Configuration conf = new Configuration();
+            conf.set(PrestoS3FileSystem.S3_STAGING_DIRECTORY, staging.toString());
+            fs.initialize(new URI("s3n://test-bucket/"), conf);
+            fs.setS3Client(s3);
+            FSDataOutputStream stream = fs.create(new Path("s3n://test-bucket/test"));
+            stream.close();
+            assertTrue(Files.exists(staging));
+        }
+        finally {
+            deleteRecursively(stagingParent.toFile());
+        }
+    }
+
+    @Test(expectedExceptions = IOException.class, expectedExceptionsMessageRegExp = "Configured staging path is not a directory: .*")
+    public void testCreateWithStagingDirectoryFile()
+        throws Exception
+    {
+        java.nio.file.Path tmpdir = Paths.get(StandardSystemProperty.JAVA_IO_TMPDIR.value());
+        java.nio.file.Path staging = Files.createTempFile(tmpdir, "staging", null);
+        // staging = /tmp/stagingXXX.tmp
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            MockAmazonS3 s3 = new MockAmazonS3();
+            Configuration conf = new Configuration();
+            conf.set(PrestoS3FileSystem.S3_STAGING_DIRECTORY, staging.toString());
+            fs.initialize(new URI("s3n://test-bucket/"), conf);
+            fs.setS3Client(s3);
+            fs.create(new Path("s3n://test-bucket/test"));
+        }
+        finally {
+            Files.deleteIfExists(staging);
+        }
+    }
+
+    @Test
+    public void testCreateWithStagingDirectorySymlink()
+        throws Exception
+    {
+        java.nio.file.Path tmpdir = Paths.get(StandardSystemProperty.JAVA_IO_TMPDIR.value());
+        java.nio.file.Path staging = Files.createTempDirectory(tmpdir, "staging");
+        java.nio.file.Path link = Paths.get(staging + ".symlink");
+        // staging = /tmp/stagingXXX
+        // link = /tmp/stagingXXX.symlink -> /tmp/stagingXXX
+
+        try {
+            try {
+                Files.createSymbolicLink(link, staging);
+            }
+            catch (UnsupportedOperationException e) {
+                throw new SkipException("Filesystem does not support symlinks", e);
+            }
+
+            try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+                MockAmazonS3 s3 = new MockAmazonS3();
+                Configuration conf = new Configuration();
+                conf.set(PrestoS3FileSystem.S3_STAGING_DIRECTORY, link.toString());
+                fs.initialize(new URI("s3n://test-bucket/"), conf);
+                fs.setS3Client(s3);
+                FSDataOutputStream stream = fs.create(new Path("s3n://test-bucket/test"));
+                stream.close();
+                assertTrue(Files.exists(link));
+            }
+        }
+        finally {
+            deleteRecursively(link.toFile());
+            deleteRecursively(staging.toFile());
+        }
+    }
+
+    @Test
     public void testReadRequestRangeNotSatisfiable()
             throws Exception
     {
@@ -202,6 +299,26 @@ public class TestPrestoS3FileSystem
         }
     }
 
+    @Test
+    public void testEncryptionMaterialsProvider()
+            throws Exception
+    {
+        Configuration config = new Configuration();
+        config.set(S3_ENCRYPTION_MATERIALS_PROVIDER, TestEncryptionMaterialsProvider.class.getName());
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            fs.initialize(new URI("s3n://test-bucket/"), config);
+            assertInstanceOf(fs.getS3Client(), AmazonS3EncryptionClient.class);
+        }
+    }
+
+    @Test(expectedExceptions = UnrecoverableS3OperationException.class, expectedExceptionsMessageRegExp = ".*\\Q (Path: /tmp/test/path)\\E")
+    public void testUnrecoverableS3ExceptionMessage()
+            throws Exception
+    {
+        throw new UnrecoverableS3OperationException(new Path("/tmp/test/path"), new IOException("test io exception"));
+    }
+
     private static AWSCredentialsProvider getAwsCredentialsProvider(PrestoS3FileSystem fs)
     {
         return getFieldValue(fs.getS3Client(), "awsCredentialsProvider", AWSCredentialsProvider.class);
@@ -218,6 +335,34 @@ public class TestPrestoS3FileSystem
         }
         catch (ReflectiveOperationException e) {
             throw Throwables.propagate(e);
+        }
+    }
+
+    private static class TestEncryptionMaterialsProvider
+            implements EncryptionMaterialsProvider
+    {
+        private final EncryptionMaterials encryptionMaterials;
+
+        public TestEncryptionMaterialsProvider()
+        {
+            encryptionMaterials = new EncryptionMaterials(new SecretKeySpec(new byte[] {1, 2, 3}, "AES"));
+        }
+
+        @Override
+        public void refresh()
+        {
+        }
+
+        @Override
+        public EncryptionMaterials getEncryptionMaterials(Map<String, String> materialsDescription)
+        {
+            return encryptionMaterials;
+        }
+
+        @Override
+        public EncryptionMaterials getEncryptionMaterials()
+        {
+            return encryptionMaterials;
         }
     }
 }

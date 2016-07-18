@@ -16,15 +16,12 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.operator.aggregation.state.DigestAndPercentileState;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.SqlType;
-import com.google.common.collect.ImmutableList;
 import io.airlift.stats.QuantileDigest;
 
-import static com.facebook.presto.operator.aggregation.LongDoubleConverterUtil.doubleToSortableLong;
-import static com.facebook.presto.operator.aggregation.LongDoubleConverterUtil.sortableLongToDouble;
+import static com.facebook.presto.operator.aggregation.FloatingPointBitsConverterUtil.doubleToSortableLong;
+import static com.facebook.presto.operator.aggregation.FloatingPointBitsConverterUtil.sortableLongToDouble;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Preconditions.checkState;
@@ -32,9 +29,6 @@ import static com.google.common.base.Preconditions.checkState;
 @AggregationFunction("approx_percentile")
 public final class ApproximateDoublePercentileAggregations
 {
-    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateDoublePercentileAggregations.class, DOUBLE, ImmutableList.<Type>of(DOUBLE, DOUBLE));
-    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateDoublePercentileAggregations.class, DOUBLE, ImmutableList.<Type>of(DOUBLE, BIGINT, DOUBLE));
-
     private ApproximateDoublePercentileAggregations() {}
 
     @InputFunction
@@ -47,6 +41,12 @@ public final class ApproximateDoublePercentileAggregations
     public static void weightedInput(DigestAndPercentileState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType(StandardTypes.DOUBLE) double percentile)
     {
         ApproximateLongPercentileAggregations.weightedInput(state, doubleToSortableLong(value), weight, percentile);
+    }
+
+    @InputFunction
+    public static void weightedInput(DigestAndPercentileState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType(StandardTypes.DOUBLE) double percentile, @SqlType(StandardTypes.DOUBLE) double accuracy)
+    {
+        ApproximateLongPercentileAggregations.weightedInput(state, doubleToSortableLong(value), weight, percentile, accuracy);
     }
 
     @CombineFunction

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.block.BlockUtils;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
@@ -25,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -97,7 +97,7 @@ public class InternalTable
         {
             pageBuilder.declarePosition();
             for (int i = 0; i < types.size(); i++) {
-                BlockUtils.appendObject(types.get(i), pageBuilder.getBlockBuilder(i), values[i]);
+                writeNativeValue(types.get(i), pageBuilder.getBlockBuilder(i), values[i]);
             }
 
             if (pageBuilder.isFull()) {

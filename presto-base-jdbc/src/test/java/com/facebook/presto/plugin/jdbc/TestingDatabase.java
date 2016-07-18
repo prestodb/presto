@@ -14,10 +14,9 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableMap;
 import org.h2.Driver;
 
@@ -52,15 +51,17 @@ final class TestingDatabase
         connection = DriverManager.getConnection(connectionUrl);
         connection.createStatement().execute("CREATE SCHEMA example");
 
-        connection.createStatement().execute("CREATE TABLE example.numbers(text varchar primary key, value bigint)");
-        connection.createStatement().execute("INSERT INTO example.numbers(text, value) VALUES " +
-                "('one', 1)," +
-                "('two', 2)," +
-                "('three', 3)," +
-                "('ten', 10)," +
-                "('eleven', 11)," +
-                "('twelve', 12)" +
+        connection.createStatement().execute("CREATE TABLE example.numbers(text varchar primary key, text_short varchar(32), value bigint)");
+        connection.createStatement().execute("INSERT INTO example.numbers(text, text_short, value) VALUES " +
+                "('one', 'one', 1)," +
+                "('two', 'two', 2)," +
+                "('three', 'three', 3)," +
+                "('ten', 'ten', 10)," +
+                "('eleven', 'eleven', 11)," +
+                "('twelve', 'twelve', 12)" +
                 "");
+        connection.createStatement().execute("CREATE TABLE example.view_source(id varchar primary key)");
+        connection.createStatement().execute("CREATE VIEW example.view AS SELECT id FROM example.view_source");
         connection.createStatement().execute("CREATE SCHEMA tpch");
         connection.createStatement().execute("CREATE TABLE tpch.orders(orderkey bigint primary key, custkey bigint)");
         connection.createStatement().execute("CREATE TABLE tpch.lineitem(orderkey bigint primary key, partkey bigint)");
@@ -92,8 +93,8 @@ final class TestingDatabase
             throws InterruptedException
     {
         JdbcTableHandle jdbcTableHandle = jdbcClient.getTableHandle(new SchemaTableName(schemaName, tableName));
-        ConnectorPartitionResult partitions = jdbcClient.getPartitions(jdbcTableHandle, TupleDomain.<ColumnHandle>all());
-        ConnectorSplitSource splits = jdbcClient.getPartitionSplits((JdbcPartition) getOnlyElement(partitions.getPartitions()));
+        JdbcTableLayoutHandle jdbcLayoutHandle = new JdbcTableLayoutHandle(jdbcTableHandle, TupleDomain.<ColumnHandle>all());
+        ConnectorSplitSource splits = jdbcClient.getSplits(jdbcLayoutHandle);
         return (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(1000)));
     }
 

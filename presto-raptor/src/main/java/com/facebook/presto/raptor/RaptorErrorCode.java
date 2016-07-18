@@ -15,22 +15,31 @@ package com.facebook.presto.raptor;
 
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorCodeSupplier;
+import com.facebook.presto.spi.ErrorType;
+
+import static com.facebook.presto.spi.ErrorType.EXTERNAL;
 
 public enum RaptorErrorCode
         implements ErrorCodeSupplier
 {
-    RAPTOR_ERROR(0x0300_0000),
-    RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS(0x0300_0001),
-    RAPTOR_NO_HOST_FOR_SHARD(0x0300_0002),
-    RAPTOR_RECOVERY_ERROR(0x0300_0003),
-    RAPTOR_BACKUP_TIMEOUT(0x0300_0004),
-    RAPTOR_METADATA_ERROR(0x0300_0005);
+    RAPTOR_ERROR(0, EXTERNAL),
+    RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS(1, EXTERNAL),
+    RAPTOR_NO_HOST_FOR_SHARD(2, EXTERNAL),
+    RAPTOR_RECOVERY_ERROR(3, EXTERNAL),
+    RAPTOR_BACKUP_TIMEOUT(4, EXTERNAL),
+    RAPTOR_METADATA_ERROR(5, EXTERNAL),
+    RAPTOR_BACKUP_ERROR(6, EXTERNAL),
+    RAPTOR_BACKUP_NOT_FOUND(7, EXTERNAL),
+    RAPTOR_REASSIGNMENT_DELAY(8, EXTERNAL),
+    RAPTOR_REASSIGNMENT_THROTTLE(9, EXTERNAL),
+    RAPTOR_RECOVERY_TIMEOUT(10, EXTERNAL),
+    RAPTOR_CORRUPT_METADATA(11, EXTERNAL);
 
     private final ErrorCode errorCode;
 
-    RaptorErrorCode(int code)
+    RaptorErrorCode(int code, ErrorType type)
     {
-        errorCode = new ErrorCode(code, name());
+        errorCode = new ErrorCode(code + 0x0300_0000, name(), type);
     }
 
     @Override

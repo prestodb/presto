@@ -13,16 +13,19 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.raptor.RaptorConnectorId;
+import com.facebook.presto.raptor.RaptorNodeSupplier;
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.metadata.ColumnInfo;
-import com.facebook.presto.raptor.metadata.DatabaseShardManager;
+import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardMetadata;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.NodeState;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
@@ -37,9 +40,11 @@ import java.io.File;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.io.Files.createTempDir;
 import static io.airlift.testing.FileUtils.deleteRecursively;
@@ -53,6 +58,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestShardEjector
 {
+    private IDBI dbi;
     private Handle dummyHandle;
     private ShardManager shardManager;
     private File dataDir;
@@ -62,9 +68,9 @@ public class TestShardEjector
     public void setup()
             throws Exception
     {
-        IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();
-        shardManager = new DatabaseShardManager(dbi);
+        shardManager = createShardManager(dbi);
 
         dataDir = createTempDir();
         storageService = new FileStorageService(dataDir);
@@ -89,7 +95,8 @@ public class TestShardEjector
         NodeManager nodeManager = createNodeManager("node1", "node2", "node3", "node4", "node5");
 
         ShardEjector ejector = new ShardEjector(
-                nodeManager,
+                nodeManager.getCurrentNode().getNodeIdentifier(),
+                new RaptorNodeSupplier(nodeManager, new RaptorConnectorId("test")),
                 shardManager,
                 storageService,
                 new Duration(1, HOURS),
@@ -113,11 +120,13 @@ public class TestShardEjector
                 .add(shardInfo("node6", 200))
                 .build();
 
-        long tableId = 1;
+        long tableId = createTable("test");
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
 
-        shardManager.createTable(tableId, columns);
-        shardManager.commitShards(tableId, columns, shards, Optional.empty());
+        shardManager.createTable(tableId, columns, false);
+
+        long transactionId = shardManager.beginTransaction();
+        shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty());
 
         for (ShardInfo shard : shards.subList(0, 8)) {
             File file = storageService.getStorageFile(shard.getShardUuid());
@@ -158,6 +167,11 @@ public class TestShardEjector
         assertTrue(others.containsAll(ejectedShards));
     }
 
+    private long createTable(String name)
+    {
+        return dbi.onDemand(MetadataDao.class).insertTable("test", name, false, null);
+    }
+
     private static Set<UUID> uuids(Set<ShardMetadata> metadata)
     {
         return metadata.stream()
@@ -167,7 +181,7 @@ public class TestShardEjector
 
     private static ShardInfo shardInfo(String node, long size)
     {
-        return new ShardInfo(randomUUID(), ImmutableSet.of(node), ImmutableList.of(), 1, size, size * 2);
+        return new ShardInfo(randomUUID(), OptionalInt.empty(), ImmutableSet.of(node), ImmutableList.of(), 1, size, size * 2);
     }
 
     private static NodeManager createNodeManager(String current, String... others)
@@ -196,7 +210,7 @@ public class TestShardEjector
         }
 
         @Override
-        public Set<Node> getActiveNodes()
+        public Set<Node> getNodes(NodeState state)
         {
             return nodes;
         }
@@ -260,6 +274,12 @@ public class TestShardEjector
 
         @Override
         public void restoreShard(UUID uuid, File target)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean deleteShard(UUID uuid)
         {
             throw new UnsupportedOperationException();
         }

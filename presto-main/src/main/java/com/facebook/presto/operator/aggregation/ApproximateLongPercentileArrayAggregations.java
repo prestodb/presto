@@ -17,8 +17,6 @@ import com.facebook.presto.operator.aggregation.state.DigestAndPercentileArraySt
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.SqlType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.stats.QuantileDigest;
@@ -33,13 +31,10 @@ import static com.facebook.presto.util.Failures.checkCondition;
 @AggregationFunction("approx_percentile")
 public final class ApproximateLongPercentileArrayAggregations
 {
-    public static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateLongPercentileArrayAggregations.class, new ArrayType(BIGINT), ImmutableList.<Type>of(BIGINT, new ArrayType(DOUBLE)));
-    public static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateLongPercentileArrayAggregations.class, new ArrayType(BIGINT), ImmutableList.<Type>of(BIGINT, BIGINT, new ArrayType(DOUBLE)));
-
     private ApproximateLongPercentileArrayAggregations() {}
 
     @InputFunction
-    public static void input(DigestAndPercentileArrayState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType("array<double>") Block percentilesArrayBlock)
+    public static void input(DigestAndPercentileArrayState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType("array(double)") Block percentilesArrayBlock)
     {
         initializePercentilesArray(state, percentilesArrayBlock);
         initializeDigest(state);
@@ -51,7 +46,7 @@ public final class ApproximateLongPercentileArrayAggregations
     }
 
     @InputFunction
-    public static void weightedInput(DigestAndPercentileArrayState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType("array<double>") Block percentilesArrayBlock)
+    public static void weightedInput(DigestAndPercentileArrayState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType("array(double)") Block percentilesArrayBlock)
     {
         initializePercentilesArray(state, percentilesArrayBlock);
         initializeDigest(state);
@@ -81,7 +76,7 @@ public final class ApproximateLongPercentileArrayAggregations
         state.setPercentiles(otherState.getPercentiles());
     }
 
-    @OutputFunction("array<bigint>")
+    @OutputFunction("array(bigint)")
     public static void output(DigestAndPercentileArrayState state, BlockBuilder out)
     {
         QuantileDigest digest = state.getDigest();

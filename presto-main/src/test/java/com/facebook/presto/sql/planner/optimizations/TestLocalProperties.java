@@ -21,7 +21,6 @@ import com.facebook.presto.spi.block.SortOrder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -41,32 +40,32 @@ public class TestLocalProperties
     public void testConstantProcessing()
             throws Exception
     {
-        Assert.assertEquals(stripLeadingConstants(ImmutableList.of()), ImmutableList.of());
-        Assert.assertEquals(extractLeadingConstants(ImmutableList.of()), ImmutableSet.of());
+        assertEquals(stripLeadingConstants(ImmutableList.of()), ImmutableList.of());
+        assertEquals(extractLeadingConstants(ImmutableList.of()), ImmutableSet.of());
 
         List<LocalProperty<String>> input = ImmutableList.of(grouped("a"));
-        Assert.assertEquals(stripLeadingConstants(input), ImmutableList.of(grouped("a")));
-        Assert.assertEquals(extractLeadingConstants(input), ImmutableSet.of());
+        assertEquals(stripLeadingConstants(input), ImmutableList.of(grouped("a")));
+        assertEquals(extractLeadingConstants(input), ImmutableSet.of());
 
         input = ImmutableList.of(constant("b"), grouped("a"));
-        Assert.assertEquals(stripLeadingConstants(input), ImmutableList.of(grouped("a")));
-        Assert.assertEquals(extractLeadingConstants(input), ImmutableSet.of("b"));
+        assertEquals(stripLeadingConstants(input), ImmutableList.of(grouped("a")));
+        assertEquals(extractLeadingConstants(input), ImmutableSet.of("b"));
 
         input = ImmutableList.of(constant("a"), grouped("a"));
-        Assert.assertEquals(stripLeadingConstants(input), ImmutableList.of(grouped("a")));
-        Assert.assertEquals(extractLeadingConstants(input), ImmutableSet.of("a"));
+        assertEquals(stripLeadingConstants(input), ImmutableList.of(grouped("a")));
+        assertEquals(extractLeadingConstants(input), ImmutableSet.of("a"));
 
         input = ImmutableList.of(grouped("a"), constant("b"));
-        Assert.assertEquals(stripLeadingConstants(input), input);
-        Assert.assertEquals(extractLeadingConstants(input), ImmutableSet.of());
+        assertEquals(stripLeadingConstants(input), input);
+        assertEquals(extractLeadingConstants(input), ImmutableSet.of());
 
         input = ImmutableList.of(constant("a"));
-        Assert.assertEquals(stripLeadingConstants(input), ImmutableList.of());
-        Assert.assertEquals(extractLeadingConstants(input), ImmutableSet.of("a"));
+        assertEquals(stripLeadingConstants(input), ImmutableList.of());
+        assertEquals(extractLeadingConstants(input), ImmutableSet.of("a"));
 
         input = ImmutableList.of(constant("a"), constant("b"));
-        Assert.assertEquals(stripLeadingConstants(input), ImmutableList.of());
-        Assert.assertEquals(extractLeadingConstants(input), ImmutableSet.of("a", "b"));
+        assertEquals(stripLeadingConstants(input), ImmutableList.of());
+        assertEquals(extractLeadingConstants(input), ImmutableSet.of("a", "b"));
     }
 
     @Test
@@ -75,59 +74,59 @@ public class TestLocalProperties
     {
         Map<String, String> map = ImmutableMap.of();
         List<LocalProperty<String>> input = ImmutableList.of();
-        Assert.assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of());
+        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of());
 
         map = ImmutableMap.of();
         input = ImmutableList.of(grouped("a"));
-        Assert.assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of());
+        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of());
 
         map = ImmutableMap.of("a", "a1");
         input = ImmutableList.of(grouped("a"));
-        Assert.assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of(grouped("a1")));
+        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of(grouped("a1")));
 
         map = ImmutableMap.of();
         input = ImmutableList.of(constant("a"));
-        Assert.assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of());
+        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of());
 
         map = ImmutableMap.of();
         input = ImmutableList.of(constant("a"), grouped("b"));
-        Assert.assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of());
+        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of());
 
         map = ImmutableMap.of("b", "b1");
         input = ImmutableList.of(constant("a"), grouped("b"));
-        Assert.assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of(grouped("b1")));
+        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of(grouped("b1")));
 
         map = ImmutableMap.of("a", "a1", "b", "b1");
         input = ImmutableList.of(constant("a"), grouped("b"));
-        Assert.assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of(constant("a1"), grouped("b1")));
+        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of(constant("a1"), grouped("b1")));
 
         map = ImmutableMap.of("a", "a1", "b", "b1");
         input = ImmutableList.of(grouped("a", "b"));
-        Assert.assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of(grouped("a1", "b1")));
+        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of(grouped("a1", "b1")));
 
         map = ImmutableMap.of("a", "a1", "c", "c1");
         input = ImmutableList.of(constant("a"), grouped("b"), grouped("c"));
-        Assert.assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of(constant("a1")));
+        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of(constant("a1")));
 
         map = ImmutableMap.of("a", "a1", "c", "c1");
         input = ImmutableList.of(grouped("a", "b"), grouped("c"));
-        Assert.assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of());
+        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of());
 
         map = ImmutableMap.of("a", "a1", "c", "c1");
         input = ImmutableList.of(grouped("a"), grouped("b"), grouped("c"));
-        Assert.assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of(grouped("a1")));
+        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of(grouped("a1")));
 
         map = ImmutableMap.of("a", "a1", "c", "c1");
         input = ImmutableList.of(constant("b"), grouped("a", "b"), grouped("c")); // Because b is constant, we can rewrite (a, b)
-        Assert.assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of(grouped("a1"), grouped("c1")));
+        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of(grouped("a1"), grouped("c1")));
 
         map = ImmutableMap.of("a", "a1", "c", "c1");
         input = ImmutableList.of(grouped("a"), constant("b"), grouped("c")); // Don't fail c translation due to a failed constant translation
-        Assert.assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of(grouped("a1"), grouped("c1")));
+        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of(grouped("a1"), grouped("c1")));
 
         map = ImmutableMap.of("a", "a1", "b", "b1", "c", "c1");
         input = ImmutableList.of(grouped("a"), constant("b"), grouped("c"));
-        Assert.assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of(grouped("a1"), constant("b1"), grouped("c1")));
+        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of(grouped("a1"), constant("b1"), grouped("c1")));
     }
 
     private static <X, Y> Function<X, Optional<Y>> translateWithMap(Map<X, Y> translateMap)

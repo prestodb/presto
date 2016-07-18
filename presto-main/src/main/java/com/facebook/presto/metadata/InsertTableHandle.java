@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -24,14 +25,17 @@ import static java.util.Objects.requireNonNull;
 public final class InsertTableHandle
 {
     private final String connectorId;
+    private final ConnectorTransactionHandle transactionHandle;
     private final ConnectorInsertTableHandle connectorHandle;
 
     @JsonCreator
     public InsertTableHandle(
             @JsonProperty("connectorId") String connectorId,
+            @JsonProperty("transactionHandle") ConnectorTransactionHandle transactionHandle,
             @JsonProperty("connectorHandle") ConnectorInsertTableHandle connectorHandle)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
         this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
     }
 
@@ -39,6 +43,12 @@ public final class InsertTableHandle
     public String getConnectorId()
     {
         return connectorId;
+    }
+
+    @JsonProperty
+    public ConnectorTransactionHandle getTransactionHandle()
+    {
+        return transactionHandle;
     }
 
     @JsonProperty
@@ -50,7 +60,7 @@ public final class InsertTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, connectorHandle);
+        return Objects.hash(connectorId, transactionHandle, connectorHandle);
     }
 
     @Override
@@ -64,12 +74,13 @@ public final class InsertTableHandle
         }
         InsertTableHandle o = (InsertTableHandle) obj;
         return Objects.equals(this.connectorId, o.connectorId) &&
+                Objects.equals(this.transactionHandle, o.transactionHandle) &&
                 Objects.equals(this.connectorHandle, o.connectorHandle);
     }
 
     @Override
     public String toString()
     {
-        return connectorId + ":" + connectorHandle;
+        return connectorId + ":" + transactionHandle + ":" + connectorHandle;
     }
 }

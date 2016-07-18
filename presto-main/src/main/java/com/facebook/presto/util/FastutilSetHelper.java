@@ -34,7 +34,7 @@ import java.util.Set;
 
 import static com.facebook.presto.metadata.OperatorType.EQUAL;
 import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
 public final class FastutilSetHelper
 {
@@ -43,18 +43,21 @@ public final class FastutilSetHelper
     @SuppressWarnings({"unchecked"})
     public static Set<?> toFastutilHashSet(Set<?> set, Type type, FunctionRegistry registry)
     {
+        // 0.25 as the load factor is chosen because the argument set is assumed to be small (<10000),
+        // and the return set is assumed to be read-heavy.
+        // The performance of InCodeGenerator heavily depends on the load factor being small.
         Class<?> javaElementType = type.getJavaType();
         if (javaElementType == long.class) {
-            return new LongOpenCustomHashSet((Collection<Long>) set, new LongStrategy(registry, type));
+            return new LongOpenCustomHashSet((Collection<Long>) set, 0.25f, new LongStrategy(registry, type));
         }
         if (javaElementType == double.class) {
-            return new DoubleOpenCustomHashSet((Collection<Double>) set, new DoubleStrategy(registry, type));
+            return new DoubleOpenCustomHashSet((Collection<Double>) set, 0.25f, new DoubleStrategy(registry, type));
         }
         if (javaElementType == boolean.class) {
-            return new BooleanOpenHashSet((Collection<Boolean>) set);
+            return new BooleanOpenHashSet((Collection<Boolean>) set, 0.25f);
         }
         else if (!type.getJavaType().isPrimitive()) {
-            return new ObjectOpenCustomHashSet(set, new ObjectStrategy(registry, type));
+            return new ObjectOpenCustomHashSet(set, 0.25f, new ObjectStrategy(registry, type));
         }
         else {
             throw new UnsupportedOperationException("Unsupported native type in set: " + type.getJavaType() + " with type " + type.getTypeSignature());
@@ -97,12 +100,12 @@ public final class FastutilSetHelper
         public int hashCode(long value)
         {
             try {
-                return Ints.checkedCast((long) hashCodeHandle.invokeExact(value));
+                return Long.hashCode((long) hashCodeHandle.invokeExact(value));
             }
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
                 Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(INTERNAL_ERROR, t);
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
 
@@ -115,7 +118,7 @@ public final class FastutilSetHelper
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
                 Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(INTERNAL_ERROR, t);
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
     }
@@ -136,12 +139,12 @@ public final class FastutilSetHelper
         public int hashCode(double value)
         {
             try {
-                return Ints.checkedCast((long) hashCodeHandle.invokeExact(value));
+                return Long.hashCode((long) hashCodeHandle.invokeExact(value));
             }
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
                 Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(INTERNAL_ERROR, t);
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
 
@@ -154,7 +157,7 @@ public final class FastutilSetHelper
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
                 Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(INTERNAL_ERROR, t);
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
     }
@@ -179,12 +182,12 @@ public final class FastutilSetHelper
         public int hashCode(Object value)
         {
             try {
-                return Ints.checkedCast((long) hashCodeHandle.invokeExact(value));
+                return Ints.checkedCast(Long.hashCode((long) hashCodeHandle.invokeExact(value)));
             }
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
                 Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(INTERNAL_ERROR, t);
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
 
@@ -197,7 +200,7 @@ public final class FastutilSetHelper
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
                 Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(INTERNAL_ERROR, t);
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
     }

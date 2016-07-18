@@ -14,10 +14,14 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.FixedWidthType;
+import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.core.JsonFactory;
@@ -31,6 +35,9 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -72,7 +79,7 @@ public final class TypeJsonUtils
             throws IOException
     {
         // checking whether type is JsonType needs to go before null check because
-        // cast('[null]', array<json>) should be casted to a single item array containing a json document "null" instead of sql null.
+        // cast('[null]', array(json)) should be casted to a single item array containing a json document "null" instead of sql null.
         if (type instanceof JsonType) {
             return OBJECT_MAPPER.writeValueAsString(parser.readValueAsTree());
         }
@@ -132,7 +139,10 @@ public final class TypeJsonUtils
             blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1, requireNonNull(sliceValue, "sliceValue is null").length());
         }
 
-        if (type.getJavaType() == boolean.class) {
+        if (type instanceof DecimalType) {
+            return getSqlDecimal((DecimalType) type, parser.getDecimalValue());
+        }
+        else if (type.getJavaType() == boolean.class) {
             type.writeBoolean(blockBuilder, parser.getBooleanValue());
         }
         else if (type.getJavaType() == long.class) {
@@ -147,6 +157,17 @@ public final class TypeJsonUtils
         return type.getObjectValue(session, blockBuilder.build(), 0);
     }
 
+    private static SqlDecimal getSqlDecimal(DecimalType decimalType, BigDecimal decimalValue)
+    {
+        BigInteger unscaledValue = decimalValue.setScale(decimalType.getScale(), RoundingMode.HALF_UP).unscaledValue();
+        if (Decimals.overflows(unscaledValue, decimalType.getPrecision())) {
+            throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, String.format("DECIMAL with unscaled value %s exceeds precision %s", unscaledValue, decimalType.getPrecision()));
+        }
+        return new SqlDecimal(unscaledValue,
+                decimalType.getPrecision(),
+                decimalType.getScale());
+    }
+
     private static Object mapKeyToObject(ConnectorSession session, String jsonKey, Type type)
     {
         BlockBuilder blockBuilder;
@@ -156,7 +177,11 @@ public final class TypeJsonUtils
         else {
             blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1, jsonKey.length());
         }
-        if (type.getJavaType() == boolean.class) {
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            return getSqlDecimal(decimalType, new BigDecimal(jsonKey));
+        }
+        else if (type.getJavaType() == boolean.class) {
             type.writeBoolean(blockBuilder, Boolean.parseBoolean(jsonKey));
         }
         else if (type.getJavaType() == long.class) {
@@ -171,7 +196,8 @@ public final class TypeJsonUtils
         return type.getObjectValue(session, blockBuilder.build(), 0);
     }
 
-    private static double getDoubleValue(JsonParser parser) throws IOException
+    private static double getDoubleValue(JsonParser parser)
+            throws IOException
     {
         double value;
         try {
@@ -188,9 +214,13 @@ public final class TypeJsonUtils
     {
         String baseType = type.getTypeSignature().getBase();
         if (baseType.equals(StandardTypes.BOOLEAN) ||
+                baseType.equals(StandardTypes.TINYINT) ||
+                baseType.equals(StandardTypes.SMALLINT) ||
+                baseType.equals(StandardTypes.INTEGER) ||
                 baseType.equals(StandardTypes.BIGINT) ||
                 baseType.equals(StandardTypes.DOUBLE) ||
                 baseType.equals(StandardTypes.VARCHAR) ||
+                baseType.equals(StandardTypes.DECIMAL) ||
                 baseType.equals(StandardTypes.JSON)) {
             return true;
         }
@@ -207,8 +237,12 @@ public final class TypeJsonUtils
     {
         String baseType = type.getTypeSignature().getBase();
         return baseType.equals(StandardTypes.BOOLEAN) ||
+                baseType.equals(StandardTypes.TINYINT) ||
+                baseType.equals(StandardTypes.SMALLINT) ||
+                baseType.equals(StandardTypes.INTEGER) ||
                 baseType.equals(StandardTypes.BIGINT) ||
                 baseType.equals(StandardTypes.DOUBLE) ||
+                baseType.equals(StandardTypes.DECIMAL) ||
                 baseType.equals(StandardTypes.VARCHAR);
     }
 
@@ -220,35 +254,39 @@ public final class TypeJsonUtils
             blockBuilder.appendNull();
         }
         else if (type.getTypeSignature().getBase().equals(StandardTypes.ARRAY) && element instanceof Iterable<?>) {
-            BlockBuilder subBlockBuilder = ((ArrayType) type).getElementType().createBlockBuilder(new BlockBuilderStatus(), TypeUtils.EXPECTED_ARRAY_SIZE);
+            BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
             for (Object subElement : (Iterable<?>) element) {
                 appendToBlockBuilder(type.getTypeParameters().get(0), subElement, subBlockBuilder);
             }
-            type.writeObject(blockBuilder, subBlockBuilder);
+            blockBuilder.closeEntry();
         }
         else if (type.getTypeSignature().getBase().equals(StandardTypes.ROW) && element instanceof Iterable<?>) {
-            BlockBuilder subBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), TypeUtils.EXPECTED_ARRAY_SIZE);
+            BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
             int field = 0;
             for (Object subElement : (Iterable<?>) element) {
                 appendToBlockBuilder(type.getTypeParameters().get(field), subElement, subBlockBuilder);
                 field++;
             }
-            type.writeObject(blockBuilder, subBlockBuilder);
+            blockBuilder.closeEntry();
         }
         else if (type.getTypeSignature().getBase().equals(StandardTypes.MAP) && element instanceof Map<?, ?>) {
-            BlockBuilder subBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), TypeUtils.EXPECTED_ARRAY_SIZE);
+            BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
             for (Map.Entry<?, ?> entry : ((Map<?, ?>) element).entrySet()) {
                 appendToBlockBuilder(type.getTypeParameters().get(0), entry.getKey(), subBlockBuilder);
                 appendToBlockBuilder(type.getTypeParameters().get(1), entry.getValue(), subBlockBuilder);
             }
-            type.writeObject(blockBuilder, subBlockBuilder);
+            blockBuilder.closeEntry();
         }
-
         else if (javaType == boolean.class) {
             type.writeBoolean(blockBuilder, (Boolean) element);
         }
         else if (javaType == long.class) {
-            type.writeLong(blockBuilder, ((Number) element).longValue());
+            if (element instanceof SqlDecimal) {
+                type.writeLong(blockBuilder, ((SqlDecimal) element).getUnscaledValue().longValue());
+            }
+            else {
+                type.writeLong(blockBuilder, ((Number) element).longValue());
+            }
         }
         else if (javaType == double.class) {
             type.writeDouble(blockBuilder, ((Number) element).doubleValue());
@@ -259,6 +297,9 @@ public final class TypeJsonUtils
             }
             else if (element instanceof byte[]) {
                 type.writeSlice(blockBuilder, Slices.wrappedBuffer((byte[]) element));
+            }
+            else if (element instanceof SqlDecimal) {
+                type.writeSlice(blockBuilder, Decimals.encodeUnscaledValue(((SqlDecimal) element).getUnscaledValue()));
             }
             else {
                 type.writeSlice(blockBuilder, (Slice) element);

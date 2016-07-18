@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-public class WindowFunctionExtractor
+class WindowFunctionExtractor
         extends DefaultExpressionTraversalVisitor<Void, Void>
 {
     private final ImmutableList.Builder<FunctionCall> windowFunctions = ImmutableList.builder();

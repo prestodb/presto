@@ -25,6 +25,8 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Map;
 
+import static java.util.Objects.requireNonNull;
+
 @Immutable
 public class ProjectNode
         extends PlanNode
@@ -41,14 +43,12 @@ public class ProjectNode
     {
         super(id);
 
+        requireNonNull(source, "source is null");
+        requireNonNull(assignments, "assignments is null");
+
         this.source = source;
         this.assignments = ImmutableMap.copyOf(assignments);
         this.outputs = ImmutableList.copyOf(assignments.keySet());
-    }
-
-    public List<Expression> getExpressions()
-    {
-        return ImmutableList.copyOf(assignments.values());
     }
 
     @Override

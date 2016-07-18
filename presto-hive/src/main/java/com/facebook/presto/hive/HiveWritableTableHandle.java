@@ -28,8 +28,10 @@ public class HiveWritableTableHandle
     private final String tableName;
     private final List<HiveColumnHandle> inputColumns;
     private final String filePrefix;
-    private final Optional<String> writePath;
-    private final HiveStorageFormat hiveStorageFormat;
+    private final LocationHandle locationHandle;
+    private final Optional<HiveBucketProperty> bucketProperty;
+    private final HiveStorageFormat tableStorageFormat;
+    private final HiveStorageFormat partitionStorageFormat;
 
     public HiveWritableTableHandle(
             String clientId,
@@ -37,16 +39,20 @@ public class HiveWritableTableHandle
             String tableName,
             List<HiveColumnHandle> inputColumns,
             String filePrefix,
-            Optional<String> writePath,
-            HiveStorageFormat hiveStorageFormat)
+            LocationHandle locationHandle,
+            Optional<HiveBucketProperty> bucketProperty,
+            HiveStorageFormat tableStorageFormat,
+            HiveStorageFormat partitionStorageFormat)
     {
         this.clientId = requireNonNull(clientId, "clientId is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.inputColumns = ImmutableList.copyOf(requireNonNull(inputColumns, "inputColumns is null"));
         this.filePrefix = requireNonNull(filePrefix, "filePrefix is null");
-        this.writePath = requireNonNull(writePath, "writePath is null");
-        this.hiveStorageFormat = requireNonNull(hiveStorageFormat, "hiveStorageFormat is null");
+        this.locationHandle = requireNonNull(locationHandle, "locationHandle is null");
+        this.bucketProperty = requireNonNull(bucketProperty, "bucketProperty is null");
+        this.tableStorageFormat = requireNonNull(tableStorageFormat, "tableStorageFormat is null");
+        this.partitionStorageFormat = requireNonNull(partitionStorageFormat, "partitionStorageFormat is null");
     }
 
     @JsonProperty
@@ -80,15 +86,27 @@ public class HiveWritableTableHandle
     }
 
     @JsonProperty
-    public Optional<String> getWritePath()
+    public LocationHandle getLocationHandle()
     {
-        return writePath;
+        return locationHandle;
     }
 
     @JsonProperty
-    public HiveStorageFormat getHiveStorageFormat()
+    public Optional<HiveBucketProperty> getBucketProperty()
     {
-        return hiveStorageFormat;
+        return bucketProperty;
+    }
+
+    @JsonProperty
+    public HiveStorageFormat getTableStorageFormat()
+    {
+        return tableStorageFormat;
+    }
+
+    @JsonProperty
+    public HiveStorageFormat getPartitionStorageFormat()
+    {
+        return partitionStorageFormat;
     }
 
     @Override

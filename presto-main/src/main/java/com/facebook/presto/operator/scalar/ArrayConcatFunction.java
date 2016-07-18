@@ -13,63 +13,52 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricFunction;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.Description;
+import com.facebook.presto.operator.scalar.annotations.ScalarFunction;
+import com.facebook.presto.operator.scalar.annotations.TypeParameter;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.type.SqlType;
 import com.google.common.collect.ImmutableList;
 
-import java.lang.invoke.MethodHandle;
-import java.util.Map;
-
-import static com.facebook.presto.metadata.FunctionType.SCALAR;
-import static com.facebook.presto.metadata.Signature.typeParameter;
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
-import static com.facebook.presto.util.Reflection.methodHandle;
-
-public class ArrayConcatFunction
-        implements ParametricFunction
+@ScalarFunction("concat")
+@Description("Concatenates given arrays")
+public final class ArrayConcatFunction
 {
-    public static final ArrayConcatFunction ARRAY_CONCAT_FUNCTION = new ArrayConcatFunction();
-    private static final String FUNCTION_NAME = "concat";
-    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, SCALAR, ImmutableList.of(typeParameter("E")), "array<E>", ImmutableList.of("array<E>", "array<E>"), false);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayConcatUtils.class, FUNCTION_NAME, Type.class, Block.class, Block.class);
+    private final PageBuilder pageBuilder;
 
-    @Override
-    public Signature getSignature()
+    @TypeParameter("E")
+    public ArrayConcatFunction(@TypeParameter("E") Type elementType)
     {
-        return SIGNATURE;
+        pageBuilder = new PageBuilder(ImmutableList.of(elementType));
     }
 
-    @Override
-    public boolean isHidden()
+    @TypeParameter("E")
+    @SqlType("array(E)")
+    public Block concat(@TypeParameter("E") Type elementType, @SqlType("array(E)") Block leftBlock, @SqlType("array(E)") Block rightBlock)
     {
-        return false;
-    }
+        if (leftBlock.getPositionCount() == 0) {
+            return rightBlock;
+        }
+        if (rightBlock.getPositionCount() == 0) {
+            return leftBlock;
+        }
 
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
+        if (pageBuilder.isFull()) {
+            pageBuilder.reset();
+        }
 
-    @Override
-    public String getDescription()
-    {
-        return "Concatenates given arrays";
-    }
-
-    @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
-    {
-        Type elementType = types.get("E");
-        MethodHandle methodHandle = METHOD_HANDLE.bindTo(elementType);
-        TypeSignature typeSignature = parameterizedTypeName("array", elementType.getTypeSignature());
-        Signature signature = new Signature(FUNCTION_NAME, SCALAR, typeSignature, typeSignature, typeSignature); // return type & arg types are the same
-        return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), false, ImmutableList.of(false, false));
+        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
+        for (int i = 0; i < leftBlock.getPositionCount(); i++) {
+            elementType.appendTo(leftBlock, i, blockBuilder);
+        }
+        for (int i = 0; i < rightBlock.getPositionCount(); i++) {
+            elementType.appendTo(rightBlock, i, blockBuilder);
+        }
+        int total = leftBlock.getPositionCount() + rightBlock.getPositionCount();
+        pageBuilder.declarePositions(total);
+        return blockBuilder.getRegion(blockBuilder.getPositionCount() - total, total);
     }
 }

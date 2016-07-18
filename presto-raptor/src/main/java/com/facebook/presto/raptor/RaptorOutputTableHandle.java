@@ -22,6 +22,8 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.OptionalLong;
 
 import static com.facebook.presto.raptor.util.MetadataUtil.checkSchemaName;
 import static com.facebook.presto.raptor.util.MetadataUtil.checkTableName;
@@ -31,6 +33,7 @@ public class RaptorOutputTableHandle
         implements ConnectorOutputTableHandle
 {
     private final String connectorId;
+    private final long transactionId;
     private final String schemaName;
     private final String tableName;
     private final List<RaptorColumnHandle> columnHandles;
@@ -39,10 +42,14 @@ public class RaptorOutputTableHandle
     private final List<RaptorColumnHandle> sortColumnHandles;
     private final List<SortOrder> sortOrders;
     private final Optional<RaptorColumnHandle> temporalColumnHandle;
+    private final OptionalLong distributionId;
+    private final OptionalInt bucketCount;
+    private final List<RaptorColumnHandle> bucketColumnHandles;
 
     @JsonCreator
     public RaptorOutputTableHandle(
             @JsonProperty("connectorId") String connectorId,
+            @JsonProperty("transactionId") long transactionId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("columnHandles") List<RaptorColumnHandle> columnHandles,
@@ -50,9 +57,13 @@ public class RaptorOutputTableHandle
             @JsonProperty("sampleWeightColumnHandle") Optional<RaptorColumnHandle> sampleWeightColumnHandle,
             @JsonProperty("sortColumnHandles") List<RaptorColumnHandle> sortColumnHandles,
             @JsonProperty("sortOrders") List<SortOrder> sortOrders,
-            @JsonProperty("temporalColumnHandle") Optional<RaptorColumnHandle> temporalColumnHandle)
+            @JsonProperty("temporalColumnHandle") Optional<RaptorColumnHandle> temporalColumnHandle,
+            @JsonProperty("distributionId") OptionalLong distributionId,
+            @JsonProperty("bucketCount") OptionalInt bucketCount,
+            @JsonProperty("bucketColumnHandles") List<RaptorColumnHandle> bucketColumnHandles)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.transactionId = transactionId;
         this.schemaName = checkSchemaName(schemaName);
         this.tableName = checkTableName(tableName);
         this.columnHandles = ImmutableList.copyOf(requireNonNull(columnHandles, "columnHandles is null"));
@@ -61,12 +72,21 @@ public class RaptorOutputTableHandle
         this.sortOrders = requireNonNull(sortOrders, "sortOrders is null");
         this.sortColumnHandles = requireNonNull(sortColumnHandles, "sortColumnHandles is null");
         this.temporalColumnHandle = requireNonNull(temporalColumnHandle, "temporalColumnHandle is null");
+        this.distributionId = requireNonNull(distributionId, "distributionId is null");
+        this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
+        this.bucketColumnHandles = ImmutableList.copyOf(requireNonNull(bucketColumnHandles, "bucketColumnHandles is null"));
     }
 
     @JsonProperty
     public String getConnectorId()
     {
         return connectorId;
+    }
+
+    @JsonProperty
+    public long getTransactionId()
+    {
+        return transactionId;
     }
 
     @JsonProperty
@@ -115,6 +135,24 @@ public class RaptorOutputTableHandle
     public Optional<RaptorColumnHandle> getTemporalColumnHandle()
     {
         return temporalColumnHandle;
+    }
+
+    @JsonProperty
+    public OptionalLong getDistributionId()
+    {
+        return distributionId;
+    }
+
+    @JsonProperty
+    public OptionalInt getBucketCount()
+    {
+        return bucketCount;
+    }
+
+    @JsonProperty
+    public List<RaptorColumnHandle> getBucketColumnHandles()
+    {
+        return bucketColumnHandles;
     }
 
     @Override

@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.ByteCodeBlock;
-import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.Variable;
-import com.facebook.presto.byteCode.control.IfStatement;
-import com.facebook.presto.byteCode.instruction.LabelNode;
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.Variable;
+import com.facebook.presto.bytecode.control.IfStatement;
+import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
@@ -25,23 +25,23 @@ import com.google.common.base.Preconditions;
 
 import java.util.List;
 
-import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantFalse;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 
 public class OrCodeGenerator
-        implements ByteCodeGenerator
+        implements BytecodeGenerator
 {
     @Override
-    public ByteCodeNode generateExpression(Signature signature, ByteCodeGeneratorContext generator, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generator, Type returnType, List<RowExpression> arguments)
     {
         Preconditions.checkArgument(arguments.size() == 2);
 
         Variable wasNull = generator.wasNull();
-        ByteCodeBlock block = new ByteCodeBlock()
+        BytecodeBlock block = new BytecodeBlock()
                 .comment("OR")
                 .setDescription("OR");
 
-        ByteCodeNode left = generator.generate(arguments.get(0));
-        ByteCodeNode right = generator.generate(arguments.get(1));
+        BytecodeNode left = generator.generate(arguments.get(0));
+        BytecodeNode right = generator.generate(arguments.get(1));
 
         block.append(left);
 
@@ -49,14 +49,14 @@ public class OrCodeGenerator
                 .condition(wasNull);
 
         LabelNode end = new LabelNode("end");
-        ifLeftIsNull.ifTrue(new ByteCodeBlock()
+        ifLeftIsNull.ifTrue(new BytecodeBlock()
                 .comment("clear the null flag, pop left value off stack, and push left null flag on the stack (true)")
                 .append(wasNull.set(constantFalse()))
                 .pop(arguments.get(0).getType().getJavaType()) // discard left value
                 .push(true));
 
         LabelNode leftIsFalse = new LabelNode("leftIsFalse");
-        ifLeftIsNull.ifFalse(new ByteCodeBlock()
+        ifLeftIsNull.ifFalse(new BytecodeBlock()
                 .comment("if left is true, push true, and goto end")
                 .ifFalseGoto(leftIsFalse)
                 .push(true)

@@ -19,6 +19,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.OptionalLong;
 
 import static com.facebook.presto.raptor.util.MetadataUtil.checkSchemaName;
 import static com.facebook.presto.raptor.util.MetadataUtil.checkTableName;
@@ -32,7 +34,11 @@ public final class RaptorTableHandle
     private final String schemaName;
     private final String tableName;
     private final long tableId;
+    private final OptionalLong distributionId;
+    private final OptionalInt bucketCount;
+    private final OptionalLong transactionId;
     private final Optional<RaptorColumnHandle> sampleWeightColumnHandle;
+    private final boolean delete;
 
     @JsonCreator
     public RaptorTableHandle(
@@ -40,7 +46,11 @@ public final class RaptorTableHandle
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tableId") long tableId,
-            @JsonProperty("sampleWeightColumnHandle") Optional<RaptorColumnHandle> sampleWeightColumnHandle)
+            @JsonProperty("distributionId") OptionalLong distributionId,
+            @JsonProperty("bucketCount") OptionalInt bucketCount,
+            @JsonProperty("transactionId") OptionalLong transactionId,
+            @JsonProperty("sampleWeightColumnHandle") Optional<RaptorColumnHandle> sampleWeightColumnHandle,
+            @JsonProperty("delete") boolean delete)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schemaName = checkSchemaName(schemaName);
@@ -50,6 +60,11 @@ public final class RaptorTableHandle
         this.tableId = tableId;
 
         this.sampleWeightColumnHandle = requireNonNull(sampleWeightColumnHandle, "sampleWeightColumnHandle is null");
+        this.distributionId = requireNonNull(distributionId, "distributionId is null");
+        this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
+        this.transactionId = requireNonNull(transactionId, "transactionId is null");
+
+        this.delete = delete;
     }
 
     @JsonProperty
@@ -77,9 +92,33 @@ public final class RaptorTableHandle
     }
 
     @JsonProperty
+    public OptionalLong getDistributionId()
+    {
+        return distributionId;
+    }
+
+    @JsonProperty
+    public OptionalInt getBucketCount()
+    {
+        return bucketCount;
+    }
+
+    @JsonProperty
+    public OptionalLong getTransactionId()
+    {
+        return transactionId;
+    }
+
+    @JsonProperty
     public Optional<RaptorColumnHandle> getSampleWeightColumnHandle()
     {
         return sampleWeightColumnHandle;
+    }
+
+    @JsonProperty
+    public boolean isDelete()
+    {
+        return delete;
     }
 
     @Override

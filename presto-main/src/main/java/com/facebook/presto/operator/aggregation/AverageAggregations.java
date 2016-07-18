@@ -16,19 +16,13 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.operator.aggregation.state.LongAndDoubleState;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.SqlType;
-import com.google.common.collect.ImmutableList;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 @AggregationFunction("avg")
 public final class AverageAggregations
 {
-    public static final InternalAggregationFunction LONG_AVERAGE = new AggregationCompiler().generateAggregationFunction(AverageAggregations.class, DOUBLE, ImmutableList.<Type>of(BIGINT));
-    public static final InternalAggregationFunction DOUBLE_AVERAGE = new AggregationCompiler().generateAggregationFunction(AverageAggregations.class, DOUBLE, ImmutableList.<Type>of(DOUBLE));
-
     private AverageAggregations() {}
 
     @InputFunction

@@ -18,6 +18,7 @@ import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
+import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.security.AccessControl;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -25,6 +26,7 @@ import com.google.common.collect.AbstractIterator;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.json.JsonCodec;
+import io.airlift.units.Duration;
 
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
@@ -48,6 +50,7 @@ import static com.google.common.collect.Iterators.concat;
 import static com.google.common.collect.Iterators.transform;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static javax.ws.rs.core.Response.Status.INTERNAL_SERVER_ERROR;
 import static javax.ws.rs.core.Response.status;
 
@@ -58,6 +61,7 @@ public class ExecuteResource
     private final AccessControl accessControl;
     private final SessionPropertyManager sessionPropertyManager;
     private final HttpClient httpClient;
+    private final QueryIdGenerator queryIdGenerator;
     private final JsonCodec<QueryResults> queryResultsCodec;
 
     @Inject
@@ -66,12 +70,14 @@ public class ExecuteResource
             AccessControl accessControl,
             SessionPropertyManager sessionPropertyManager,
             @ForExecute HttpClient httpClient,
+            QueryIdGenerator queryIdGenerator,
             JsonCodec<QueryResults> queryResultsCodec)
     {
         this.serverInfo = requireNonNull(serverInfo, "serverInfo is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
         this.queryResultsCodec = requireNonNull(queryResultsCodec, "queryResultsCodec is null");
     }
 
@@ -81,8 +87,8 @@ public class ExecuteResource
     {
         assertRequest(!isNullOrEmpty(query), "SQL query is empty");
 
-        Session session = createSessionForRequest(servletRequest, accessControl, sessionPropertyManager);
-        ClientSession clientSession = session.toClientSession(serverUri(), false);
+        Session session = createSessionForRequest(servletRequest, accessControl, sessionPropertyManager, queryIdGenerator.createNextQueryId());
+        ClientSession clientSession = session.toClientSession(serverUri(), false, new Duration(2, MINUTES));
 
         StatementClient client = new StatementClient(httpClient, queryResultsCodec, clientSession, query);
 

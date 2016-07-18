@@ -59,6 +59,11 @@ public class DictionaryBlockEncoding
         sliceOutput
                 .appendInt(ids.length())
                 .writeBytes(ids);
+
+        // instance id
+        sliceOutput.appendLong(dictionaryBlock.getDictionarySourceId().getMostSignificantBits());
+        sliceOutput.appendLong(dictionaryBlock.getDictionarySourceId().getLeastSignificantBits());
+        sliceOutput.appendLong(dictionaryBlock.getDictionarySourceId().getSequenceId());
     }
 
     @Override
@@ -74,14 +79,13 @@ public class DictionaryBlockEncoding
         int lengthIdsSlice = sliceInput.readInt();
         Slice ids = sliceInput.readSlice(lengthIdsSlice);
 
-        return new DictionaryBlock(positionCount, dictionaryBlock, ids);
-    }
+        // instance id
+        long mostSignificantBits = sliceInput.readLong();
+        long leastSignificantBits = sliceInput.readLong();
+        long sequenceId = sliceInput.readLong();
 
-    @Override
-    public int getEstimatedSize(Block block)
-    {
-        //TODO remove this method
-        throw new UnsupportedOperationException();
+        // we always compact the dictionary before we send it
+        return new DictionaryBlock(positionCount, dictionaryBlock, ids, true, new DictionaryId(mostSignificantBits, leastSignificantBits, sequenceId));
     }
 
     @Override

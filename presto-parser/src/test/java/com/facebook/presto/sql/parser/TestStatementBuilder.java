@@ -128,7 +128,9 @@ public class TestStatementBuilder
         printStatement("select * from foo approximate at 90 confidence");
 
         printStatement("create table foo as (select * from abc)");
+        printStatement("create table if not exists foo as (select * from abc)");
         printStatement("create table foo with (a = 'apple', b = 'banana') as select * from abc");
+        printStatement("create table foo as select * from abc WITH NO DATA");
         printStatement("drop table foo");
 
         printStatement("insert into foo select * from abc");
@@ -176,6 +178,34 @@ public class TestStatementBuilder
         printStatement("create or replace view foo as select 123 from t");
 
         printStatement("drop view foo");
+
+        printStatement("insert into t select * from t");
+        printStatement("insert into t (c1, c2) select * from t");
+
+        printStatement("start transaction");
+        printStatement("start transaction isolation level read uncommitted");
+        printStatement("start transaction isolation level read committed");
+        printStatement("start transaction isolation level repeatable read");
+        printStatement("start transaction isolation level serializable");
+        printStatement("start transaction read only");
+        printStatement("start transaction read write");
+        printStatement("start transaction isolation level read committed, read only");
+        printStatement("start transaction read only, isolation level read committed");
+        printStatement("start transaction read write, isolation level serializable");
+        printStatement("commit");
+        printStatement("commit work");
+        printStatement("rollback");
+        printStatement("rollback work");
+
+        printStatement("call foo()");
+        printStatement("call foo(123, a => 1, b => 'go', 456)");
+
+        printStatement("grant select on foo to alice with grant option");
+        printStatement("grant all privileges on foo to alice");
+        printStatement("grant delete, select on foo to public");
+        printStatement("revoke grant option for select on foo from alice");
+        printStatement("revoke all privileges on foo from alice");
+        printStatement("revoke insert, delete on foo from public"); //check support for public
     }
 
     @Test

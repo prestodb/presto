@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.OperatorType;
-import com.facebook.presto.metadata.ParametricOperator;
+import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.server.SliceSerializer;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
@@ -43,14 +43,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 
-import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class MapToJsonCast
-        extends ParametricOperator
+        extends SqlOperator
 {
     public static final MapToJsonCast MAP_TO_JSON = new MapToJsonCast();
     private static final Supplier<ObjectMapper> OBJECT_MAPPER = Suppliers.memoize(() -> new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new SliceSerializer()).addSerializer(Map.class, new MapSerializer())));
@@ -58,28 +57,31 @@ public class MapToJsonCast
 
     private MapToJsonCast()
     {
-        super(OperatorType.CAST, ImmutableList.of(typeParameter("K"), typeParameter("V")), StandardTypes.JSON, ImmutableList.of("map<K,V>"));
+        super(OperatorType.CAST,
+                ImmutableList.of(typeVariable("K"), typeVariable("V")),
+                ImmutableList.of(),
+                parseTypeSignature(StandardTypes.JSON),
+                ImmutableList.of(parseTypeSignature("map(K,V)")));
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         checkArgument(arity == 1, "Expected arity to be 1");
-        Type keyType = types.get("K");
-        Type valueType = types.get("V");
-        Type mapType = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(keyType.getTypeSignature(), valueType.getTypeSignature()), ImmutableList.of());
+        Type keyType = boundVariables.getTypeVariable("K");
+        Type valueType = boundVariables.getTypeVariable("V");
 
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(keyType);
         methodHandle = methodHandle.bindTo(valueType);
 
-        return operatorInfo(OperatorType.CAST, parseTypeSignature(StandardTypes.JSON), ImmutableList.of(mapType.getTypeSignature()), methodHandle, false, ImmutableList.of(false));
+        return new ScalarFunctionImplementation(false, ImmutableList.of(false), methodHandle, isDeterministic());
     }
 
     public static Slice toJson(Type keyType, Type valueType, ConnectorSession session, Block block)
     {
         Map<Object, Object> map = new HashMap<>();
         for (int i = 0; i < block.getPositionCount(); i += 2) {
-            map.put(keyType.getObjectValue(session, block, i), valueType.getObjectValue(session, block, i + 1));
+            map.put(JsonFunctions.getJsonObjectValue(keyType, session, block, i), JsonFunctions.getJsonObjectValue(valueType, session, block, i + 1));
         }
         try {
             return Slices.utf8Slice(OBJECT_MAPPER.get().writeValueAsString(map));

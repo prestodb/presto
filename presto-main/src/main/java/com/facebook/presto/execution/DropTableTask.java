@@ -15,16 +15,19 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.DropTable;
+import com.facebook.presto.transaction.TransactionManager;
 
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
-import static com.facebook.presto.metadata.MetadataUtil.createQualifiedTableName;
+import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class DropTableTask
         implements DataDefinitionTask<DropTable>
@@ -36,20 +39,23 @@ public class DropTableTask
     }
 
     @Override
-    public void execute(DropTable statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
+    public CompletableFuture<?> execute(DropTable statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
     {
-        QualifiedTableName tableName = createQualifiedTableName(session, statement, statement.getTableName());
+        Session session = stateMachine.getSession();
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName());
 
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         if (!tableHandle.isPresent()) {
             if (!statement.isExists()) {
                 throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
             }
-            return;
+            return completedFuture(null);
         }
 
-        accessControl.checkCanDropTable(session.getIdentity(), tableName);
+        accessControl.checkCanDropTable(session.getRequiredTransactionId(), session.getIdentity(), tableName);
 
         metadata.dropTable(session, tableHandle.get());
+
+        return completedFuture(null);
     }
 }

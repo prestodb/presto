@@ -33,7 +33,7 @@ public class JsonBenchmarkResultWriter
     {
         requireNonNull(outputStream, "outputStream is null");
         try {
-            jsonGenerator = new JsonFactory().createJsonGenerator(outputStream, JsonEncoding.UTF8);
+            jsonGenerator = new JsonFactory().createGenerator(outputStream, JsonEncoding.UTF8);
             jsonGenerator.writeStartObject();
             jsonGenerator.writeArrayFieldStart("samples");
         }

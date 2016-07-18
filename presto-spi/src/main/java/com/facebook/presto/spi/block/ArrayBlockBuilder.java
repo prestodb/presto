@@ -17,17 +17,21 @@ import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import org.openjdk.jol.info.ClassLayout;
 
+import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
 import static java.util.Objects.requireNonNull;
 
 public class ArrayBlockBuilder
         extends AbstractArrayBlock
         implements BlockBuilder
 {
-    private final BlockBuilderStatus blockBuilderStatus;
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ArrayBlockBuilder.class).instanceSize() + BlockBuilderStatus.INSTANCE_SIZE;
+
+    private BlockBuilderStatus blockBuilderStatus;
     private final BlockBuilder values;
-    private final SliceOutput offsets;
-    private final SliceOutput valueIsNull;
+    private SliceOutput offsets;
+    private SliceOutput valueIsNull;
     private static final int OFFSET_BASE = 0;
     private int currentEntrySize;
 
@@ -39,7 +43,7 @@ public class ArrayBlockBuilder
         this(
                 blockBuilderStatus,
                 valuesBlock,
-                new DynamicSliceOutput(expectedEntries * 4),
+                new DynamicSliceOutput(expectedEntries * Integer.BYTES),
                 new DynamicSliceOutput(expectedEntries));
     }
 
@@ -48,7 +52,7 @@ public class ArrayBlockBuilder
         this(
                 blockBuilderStatus,
                 elementType.createBlockBuilder(blockBuilderStatus, expectedEntries, expectedBytesPerEntry),
-                new DynamicSliceOutput(expectedEntries * 4),
+                new DynamicSliceOutput(expectedEntries * Integer.BYTES),
                 new DynamicSliceOutput(expectedEntries));
     }
 
@@ -57,7 +61,7 @@ public class ArrayBlockBuilder
         this(
                 blockBuilderStatus,
                 elementType.createBlockBuilder(blockBuilderStatus, expectedEntries),
-                new DynamicSliceOutput(expectedEntries * 4),
+                new DynamicSliceOutput(expectedEntries * Integer.BYTES),
                 new DynamicSliceOutput(expectedEntries));
     }
 
@@ -76,6 +80,18 @@ public class ArrayBlockBuilder
     public int getPositionCount()
     {
         return valueIsNull.size();
+    }
+
+    @Override
+    public int getSizeInBytes()
+    {
+        return values.getSizeInBytes() + offsets.size() + valueIsNull.size();
+    }
+
+    @Override
+    public int getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + values.getRetainedSizeInBytes() + offsets.getRetainedSize() + valueIsNull.getRetainedSize();
     }
 
     @Override
@@ -100,53 +116,6 @@ public class ArrayBlockBuilder
     protected Slice getValueIsNull()
     {
         return valueIsNull.getUnderlyingSlice();
-    }
-
-    @Override
-    public void assureLoaded()
-    {
-    }
-
-    @Override
-    public BlockBuilder writeByte(int value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public BlockBuilder writeShort(int value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public BlockBuilder writeInt(int value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public BlockBuilder writeLong(long value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public BlockBuilder writeFloat(float value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public BlockBuilder writeDouble(double value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public BlockBuilder writeBytes(Slice source, int sourceIndex, int length)
-    {
-        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -219,6 +188,19 @@ public class ArrayBlockBuilder
             throw new IllegalStateException("Current entry must be closed before the block can be built");
         }
         return new ArrayBlock(values.build(), offsets.slice(), OFFSET_BASE, valueIsNull.slice());
+    }
+
+    @Override
+    public void reset(BlockBuilderStatus blockBuilderStatus)
+    {
+        this.blockBuilderStatus = requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
+
+        int newSize = calculateBlockResetSize(getPositionCount());
+        valueIsNull = new DynamicSliceOutput(newSize);
+        offsets = new DynamicSliceOutput(newSize * Integer.BYTES);
+        values.reset(blockBuilderStatus);
+
+        currentEntrySize = 0;
     }
 
     @Override

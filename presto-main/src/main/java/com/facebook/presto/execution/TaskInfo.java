@@ -13,112 +13,59 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.execution.buffer.BufferInfo;
+import com.facebook.presto.execution.buffer.OutputBufferInfo;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.execution.TaskStatus.initialTaskStatus;
+import static com.facebook.presto.execution.buffer.BufferState.OPEN;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class TaskInfo
 {
-    /**
-     * The first valid version that will be returned for a remote task.
-     */
-    public static final long STARTING_VERSION = 1;
-
-    /**
-     * A value lower than {@link #STARTING_VERSION}. This value can be used to
-     * create an initial local task that is always older than any remote task.
-     */
-    public static final long MIN_VERSION = 0;
-
-    /**
-     * A value larger than any valid value. This value can be used to create
-     * a final local task that is always newer than any remote task.
-     */
-    public static final long MAX_VERSION = Long.MAX_VALUE;
-
-    private final TaskId taskId;
-    private final Optional<String> nodeInstanceId;
-    private final long version;
-    private final TaskState state;
-    private final URI self;
+    private final TaskStatus taskStatus;
     private final DateTime lastHeartbeat;
-    private final SharedBufferInfo outputBuffers;
+    private final OutputBufferInfo outputBuffers;
     private final Set<PlanNodeId> noMoreSplits;
     private final TaskStats stats;
-    private final List<ExecutionFailureInfo> failures;
+
+    private final boolean needsPlan;
 
     @JsonCreator
-    public TaskInfo(@JsonProperty("taskId") TaskId taskId,
-            @JsonProperty("nodeInstanceId") Optional<String> nodeInstanceId,
-            @JsonProperty("version") long version,
-            @JsonProperty("state") TaskState state,
-            @JsonProperty("self") URI self,
+    public TaskInfo(@JsonProperty("taskStatus") TaskStatus taskStatus,
             @JsonProperty("lastHeartbeat") DateTime lastHeartbeat,
-            @JsonProperty("outputBuffers") SharedBufferInfo outputBuffers,
+            @JsonProperty("outputBuffers") OutputBufferInfo outputBuffers,
             @JsonProperty("noMoreSplits") Set<PlanNodeId> noMoreSplits,
             @JsonProperty("stats") TaskStats stats,
-            @JsonProperty("failures") List<ExecutionFailureInfo> failures)
+
+            @JsonProperty("needsPlan") boolean needsPlan)
     {
-        this.taskId = requireNonNull(taskId, "taskId is null");
-        this.nodeInstanceId = requireNonNull(nodeInstanceId, "nodeInstanceId is null");
-        this.version = version;
-        this.state = requireNonNull(state, "state is null");
-        this.self = requireNonNull(self, "self is null");
+        this.taskStatus = requireNonNull(taskStatus, "taskStatus is null");
         this.lastHeartbeat = requireNonNull(lastHeartbeat, "lastHeartbeat is null");
         this.outputBuffers = requireNonNull(outputBuffers, "outputBuffers is null");
         this.noMoreSplits = requireNonNull(noMoreSplits, "noMoreSplits is null");
         this.stats = requireNonNull(stats, "stats is null");
 
-        if (failures != null) {
-            this.failures = ImmutableList.copyOf(failures);
-        }
-        else {
-            this.failures = ImmutableList.of();
-        }
+        this.needsPlan = needsPlan;
     }
 
     @JsonProperty
-    public TaskId getTaskId()
+    public TaskStatus getTaskStatus()
     {
-        return taskId;
-    }
-
-    @JsonProperty
-    public Optional<String> getNodeInstanceId()
-    {
-        return nodeInstanceId;
-    }
-
-    @JsonProperty
-    public long getVersion()
-    {
-        return version;
-    }
-
-    @JsonProperty
-    public TaskState getState()
-    {
-        return state;
-    }
-
-    @JsonProperty
-    public URI getSelf()
-    {
-        return self;
+        return taskStatus;
     }
 
     @JsonProperty
@@ -128,7 +75,7 @@ public class TaskInfo
     }
 
     @JsonProperty
-    public SharedBufferInfo getOutputBuffers()
+    public OutputBufferInfo getOutputBuffers()
     {
         return outputBuffers;
     }
@@ -146,22 +93,38 @@ public class TaskInfo
     }
 
     @JsonProperty
-    public List<ExecutionFailureInfo> getFailures()
+    public boolean isNeedsPlan()
     {
-        return failures;
+        return needsPlan;
     }
 
     public TaskInfo summarize()
     {
-        return new TaskInfo(taskId, nodeInstanceId, version, state, self, lastHeartbeat, outputBuffers, noMoreSplits, stats.summarize(), failures);
+        return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats.summarize(), needsPlan);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("taskId", taskId)
-                .add("state", state)
+                .add("taskId", taskStatus.getTaskId())
+                .add("state", taskStatus.getState())
                 .toString();
+    }
+
+    public static TaskInfo createInitialTask(TaskId taskId, URI location, List<BufferInfo> bufferStates, TaskStats taskStats)
+    {
+        return new TaskInfo(
+                initialTaskStatus(taskId, location),
+                DateTime.now(),
+                new OutputBufferInfo("UNINITIALIZED", OPEN, true, true, 0, 0, 0, 0, bufferStates),
+                ImmutableSet.of(),
+                taskStats,
+                true);
+    }
+
+    public TaskInfo withTaskStatus(TaskStatus taskStatus)
+    {
+        return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats, needsPlan);
     }
 }

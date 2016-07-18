@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.execution.scheduler;
 
-import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.OutputBuffers.OutputBufferId;
+
+import java.util.List;
 
 interface OutputBufferManager
 {
-    void addOutputBuffer(TaskId bufferId);
-
-    void noMoreOutputBuffers();
+    void addOutputBuffers(List<OutputBufferId> newBuffers, boolean noMoreBuffers);
 }

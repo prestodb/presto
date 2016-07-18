@@ -13,65 +13,25 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.MaterializedRow;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
-import com.google.common.collect.ImmutableList;
-import org.testng.annotations.Test;
-
-import java.util.List;
-import java.util.UUID;
+import com.google.common.collect.ImmutableMap;
 
 import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunner;
 import static com.facebook.presto.raptor.RaptorQueryRunner.createSampledSession;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static io.airlift.testing.Assertions.assertInstanceOf;
-import static io.airlift.tpch.TpchTable.getTables;
-import static org.testng.Assert.assertEquals;
 
 public class TestRaptorDistributedQueries
         extends AbstractTestDistributedQueries
 {
+    @SuppressWarnings("unused")
     public TestRaptorDistributedQueries()
             throws Exception
     {
-        super(createRaptorQueryRunner(getTables()), createSampledSession());
+        this(createRaptorQueryRunner(ImmutableMap.of(), true, false));
     }
 
-    @Test
-    public void testCreateArrayTable()
-            throws Exception
+    protected TestRaptorDistributedQueries(QueryRunner queryRunner)
     {
-        assertQuery("CREATE TABLE array_test AS SELECT ARRAY [1, 2, 3] AS c", "SELECT 1");
-        assertQuery("SELECT cardinality(c) FROM array_test", "SELECT 3");
-        assertQueryTrue("DROP TABLE array_test");
-    }
-
-    @Test
-    public void testMapTable()
-            throws Exception
-    {
-        assertQuery("CREATE TABLE map_test AS SELECT MAP(ARRAY [1, 2, 3], ARRAY ['hi', 'bye', NULL]) AS c", "SELECT 1");
-        assertQuery("SELECT c[1] FROM map_test", "SELECT 'hi'");
-        assertQuery("SELECT c[3] FROM map_test", "SELECT NULL");
-        assertQueryTrue("DROP TABLE map_test");
-    }
-
-    @Test
-    public void testShardUuidHiddenColumn()
-            throws Exception
-    {
-        assertQuery("CREATE TABLE test_shard_uuid AS " + "SELECT orderdate, orderkey FROM orders", "SELECT count(*) FROM orders");
-        MaterializedResult actualResults = computeActual("SELECT *, \"$shard_uuid\" FROM test_shard_uuid");
-        assertEquals(actualResults.getTypes(), ImmutableList.of(DATE, BIGINT, VARCHAR));
-        List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
-        for (MaterializedRow row : actualRows) {
-            Object uuid = row.getField(2);
-            assertInstanceOf(uuid, String.class);
-            // check that the string can be parsed into a UUID
-            UUID.fromString((String) uuid);
-        }
+        super(queryRunner, createSampledSession());
     }
 }

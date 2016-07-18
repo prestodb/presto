@@ -13,15 +13,16 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricFunction;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.Description;
+import com.facebook.presto.operator.scalar.annotations.OperatorDependency;
+import com.facebook.presto.operator.scalar.annotations.ScalarFunction;
+import com.facebook.presto.operator.scalar.annotations.TypeParameter;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.type.SqlType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
@@ -29,68 +30,39 @@ import java.lang.invoke.MethodHandle;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 
-import static com.facebook.presto.metadata.FunctionType.SCALAR;
-import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
-import static com.facebook.presto.util.Reflection.methodHandle;
-import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
+import static com.facebook.presto.metadata.OperatorType.LESS_THAN;
 
+@ScalarFunction("array_sort")
+@Description("Sorts the given array in ascending order according to the natural ordering of its elements.")
 public final class ArraySortFunction
-        implements ParametricFunction
 {
-    public static final ArraySortFunction ARRAY_SORT_FUNCTION = new ArraySortFunction();
-    private static final String FUNCTION_NAME = "array_sort";
-    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, SCALAR, ImmutableList.of(orderableTypeParameter("E")), "array<E>", ImmutableList.of("array<E>"), false);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ArraySortFunction.class, "sort", Type.class, Block.class);
+    private final PageBuilder pageBuilder;
+    private static final int INITIAL_LENGTH = 128;
+    private List<Integer> positions = Ints.asList(new int[INITIAL_LENGTH]);
 
-    @Override
-    public Signature getSignature()
+    @TypeParameter("E")
+    public ArraySortFunction(@TypeParameter("E") Type elementType)
     {
-        return SIGNATURE;
+        pageBuilder = new PageBuilder(ImmutableList.of(elementType));
     }
 
-    @Override
-    public boolean isHidden()
+    @TypeParameter("E")
+    @SqlType("array(E)")
+    public Block sort(
+            @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle lessThanFunction,
+            @TypeParameter("E") Type type,
+            @SqlType("array(E)") Block block)
     {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Sorts the given array in ascending order according to the natural ordering of its elements.";
-    }
-
-    @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
-    {
-        checkArgument(types.size() == 1, format("%s expects only one argument", FUNCTION_NAME));
-        Type type = types.get("E");
-        MethodHandle methodHandle = METHOD_HANDLE.bindTo(type);
-        Signature signature = new Signature(FUNCTION_NAME,
-                SCALAR,
-                parameterizedTypeName("array", type.getTypeSignature()),
-                parameterizedTypeName("array", type.getTypeSignature()));
-        return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), false, ImmutableList.of(false));
-    }
-
-    public static Block sort(Type type, Block block)
-    {
-        List<Integer> positions = Ints.asList(new int[block.getPositionCount()]);
-        for (int i = 0; i < block.getPositionCount(); i++) {
+        int arrayLength = block.getPositionCount();
+        if (positions.size() < arrayLength) {
+            positions = Ints.asList(new int[arrayLength]);
+        }
+        for (int i = 0; i < arrayLength; i++) {
             positions.set(i, i);
         }
 
-        Collections.sort(positions, new Comparator<Integer>()
+        Collections.sort(positions.subList(0, arrayLength), new Comparator<Integer>()
         {
             @Override
             public int compare(Integer p1, Integer p2)
@@ -100,12 +72,17 @@ public final class ArraySortFunction
             }
         });
 
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount());
-
-        for (int position : positions) {
-            type.appendTo(block, position, blockBuilder);
+        if (pageBuilder.isFull()) {
+            pageBuilder.reset();
         }
 
-        return blockBuilder.build();
+        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
+
+        for (int i = 0; i < arrayLength; i++) {
+            type.appendTo(block, positions.get(i), blockBuilder);
+        }
+        pageBuilder.declarePositions(arrayLength);
+
+        return blockBuilder.getRegion(blockBuilder.getPositionCount() - arrayLength, arrayLength);
     }
 }

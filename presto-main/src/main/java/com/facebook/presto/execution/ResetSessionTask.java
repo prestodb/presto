@@ -13,13 +13,16 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.ResetSession;
+import com.facebook.presto.transaction.TransactionManager;
+
+import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SESSION_PROPERTY;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class ResetSessionTask
         implements DataDefinitionTask<ResetSession>
@@ -31,7 +34,7 @@ public class ResetSessionTask
     }
 
     @Override
-    public void execute(ResetSession statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
+    public CompletableFuture<?> execute(ResetSession statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
     {
         if (statement.getName().getParts().size() > 2) {
             throw new SemanticException(INVALID_SESSION_PROPERTY, statement, "Invalid session property '%s'", statement.getName());
@@ -41,5 +44,7 @@ public class ResetSessionTask
         metadata.getSessionPropertyManager().getSessionPropertyMetadata(statement.getName().toString());
 
         stateMachine.addResetSessionProperties(statement.getName().toString());
+
+        return completedFuture(null);
     }
 }

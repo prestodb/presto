@@ -26,7 +26,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -40,20 +40,20 @@ public class TestExampleRecordSet
             throws Exception
     {
         RecordSet recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
-                new ExampleColumnHandle("test", "text", VARCHAR, 0),
+                new ExampleColumnHandle("test", "text", createUnboundedVarcharType(), 0),
                 new ExampleColumnHandle("test", "value", BIGINT, 1)));
-        assertEquals(recordSet.getColumnTypes(), ImmutableList.of(VARCHAR, BIGINT));
+        assertEquals(recordSet.getColumnTypes(), ImmutableList.of(createUnboundedVarcharType(), BIGINT));
 
         recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
                 new ExampleColumnHandle("test", "value", BIGINT, 1),
-                new ExampleColumnHandle("test", "text", VARCHAR, 0)));
-        assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, VARCHAR));
+                new ExampleColumnHandle("test", "text", createUnboundedVarcharType(), 0)));
+        assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, createUnboundedVarcharType()));
 
         recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
                 new ExampleColumnHandle("test", "value", BIGINT, 1),
                 new ExampleColumnHandle("test", "value", BIGINT, 1),
-                new ExampleColumnHandle("test", "text", VARCHAR, 0)));
-        assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, BIGINT, VARCHAR));
+                new ExampleColumnHandle("test", "text", createUnboundedVarcharType(), 0)));
+        assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, BIGINT, createUnboundedVarcharType()));
 
         recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.<ExampleColumnHandle>of());
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of());
@@ -64,11 +64,11 @@ public class TestExampleRecordSet
             throws Exception
     {
         RecordSet recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
-                new ExampleColumnHandle("test", "text", VARCHAR, 0),
+                new ExampleColumnHandle("test", "text", createUnboundedVarcharType(), 0),
                 new ExampleColumnHandle("test", "value", BIGINT, 1)));
         RecordCursor cursor = recordSet.cursor();
 
-        assertEquals(cursor.getType(0), VARCHAR);
+        assertEquals(cursor.getType(0), createUnboundedVarcharType());
         assertEquals(cursor.getType(1), BIGINT);
 
         Map<String, Long> data = new LinkedHashMap<>();
@@ -91,7 +91,7 @@ public class TestExampleRecordSet
         RecordSet recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
                 new ExampleColumnHandle("test", "value", BIGINT, 1),
                 new ExampleColumnHandle("test", "value", BIGINT, 1),
-                new ExampleColumnHandle("test", "text", VARCHAR, 0)));
+                new ExampleColumnHandle("test", "text", createUnboundedVarcharType(), 0)));
         RecordCursor cursor = recordSet.cursor();
 
         Map<String, Long> data = new LinkedHashMap<>();

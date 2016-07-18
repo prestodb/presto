@@ -19,7 +19,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.testing.RunLengthEncodedBlock;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -28,6 +28,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.BiConsumer;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -48,7 +49,7 @@ public final class AggregationTestUtils
             assertEquals(positions, blocks[i].getPositionCount(), "input blocks provided are not equal in position count");
         }
         if (positions == 0) {
-            assertAggregation(function, confidence, expectedValue, new Page[]{});
+            assertAggregation(function, confidence, expectedValue, new Page[] {});
         }
         else if (positions == 1) {
             assertAggregation(function, confidence, expectedValue, new Page(positions, blocks));
@@ -165,14 +166,24 @@ public final class AggregationTestUtils
 
     private static void assertAggregation(InternalAggregationFunction function, double confidence, Object expectedValue, Page... pages)
     {
+        BiConsumer<Object, Object> equalAssertion = (actual, expected) -> {
+            assertEquals(actual, expected);
+        };
+        if (expectedValue instanceof Double && !expectedValue.equals(Double.NaN)) {
+            equalAssertion = (actual, expected) -> assertEquals((double) actual, (double) expected, 1e-10);
+        }
+        if (expectedValue instanceof Float && !expectedValue.equals(Float.NaN)) {
+            equalAssertion = (actual, expected) -> assertEquals((float) actual, (float) expected, 1e-10f);
+        }
+
         // This assertAggregation does not try to split up the page to test the correctness of combine function.
         // Do not use this directly. Always use the other assertAggregation.
-        assertEquals(aggregation(function, confidence, pages), expectedValue);
-        assertEquals(partialAggregation(function, confidence, pages), expectedValue);
+        equalAssertion.accept(aggregation(function, confidence, pages), expectedValue);
+        equalAssertion.accept(partialAggregation(function, confidence, pages), expectedValue);
         if (pages.length > 0) {
-            assertEquals(groupedAggregation(function, confidence, pages), expectedValue);
-            assertEquals(groupedPartialAggregation(function, confidence, pages), expectedValue);
-            assertEquals(distinctAggregation(function, confidence, pages), expectedValue);
+            equalAssertion.accept(groupedAggregation(function, confidence, pages), expectedValue);
+            equalAssertion.accept(groupedPartialAggregation(function, confidence, pages), expectedValue);
+            equalAssertion.accept(distinctAggregation(function, confidence, pages), expectedValue);
         }
     }
 
@@ -427,7 +438,7 @@ public final class AggregationTestUtils
                 newBlocks[channel] = createNullRLEBlock(page.getPositionCount());
             }
             for (int channel = 0; channel < page.getBlocks().length; channel++) {
-                newBlocks[channel + offset] = page.getBlocks()[channel];
+                newBlocks[channel + offset] = page.getBlock(channel);
             }
             newPages[i] = new Page(page.getPositionCount(), newBlocks);
         }

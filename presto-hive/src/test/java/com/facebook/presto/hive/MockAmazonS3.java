@@ -30,6 +30,7 @@ import com.amazonaws.services.s3.model.BucketLifecycleConfiguration;
 import com.amazonaws.services.s3.model.BucketLoggingConfiguration;
 import com.amazonaws.services.s3.model.BucketNotificationConfiguration;
 import com.amazonaws.services.s3.model.BucketPolicy;
+import com.amazonaws.services.s3.model.BucketReplicationConfiguration;
 import com.amazonaws.services.s3.model.BucketTaggingConfiguration;
 import com.amazonaws.services.s3.model.BucketVersioningConfiguration;
 import com.amazonaws.services.s3.model.BucketWebsiteConfiguration;
@@ -80,9 +81,11 @@ import com.amazonaws.services.s3.model.SetBucketLifecycleConfigurationRequest;
 import com.amazonaws.services.s3.model.SetBucketLoggingConfigurationRequest;
 import com.amazonaws.services.s3.model.SetBucketNotificationConfigurationRequest;
 import com.amazonaws.services.s3.model.SetBucketPolicyRequest;
+import com.amazonaws.services.s3.model.SetBucketReplicationConfigurationRequest;
 import com.amazonaws.services.s3.model.SetBucketTaggingConfigurationRequest;
 import com.amazonaws.services.s3.model.SetBucketVersioningConfigurationRequest;
 import com.amazonaws.services.s3.model.SetBucketWebsiteConfigurationRequest;
+import com.amazonaws.services.s3.model.SetObjectAclRequest;
 import com.amazonaws.services.s3.model.StorageClass;
 import com.amazonaws.services.s3.model.UploadPartRequest;
 import com.amazonaws.services.s3.model.UploadPartResult;
@@ -305,6 +308,12 @@ public class MockAmazonS3
     }
 
     @Override
+    public void setObjectAcl(SetObjectAclRequest setObjectAclRequest)
+            throws AmazonClientException
+    {
+    }
+
+    @Override
     public AccessControlList getBucketAcl(String bucketName)
             throws AmazonClientException
     {
@@ -397,21 +406,21 @@ public class MockAmazonS3
     public PutObjectResult putObject(PutObjectRequest putObjectRequest)
             throws AmazonClientException
     {
-        return null;
+        return new PutObjectResult();
     }
 
     @Override
     public PutObjectResult putObject(String bucketName, String key, File file)
             throws AmazonClientException
     {
-        return null;
+        return new PutObjectResult();
     }
 
     @Override
     public PutObjectResult putObject(String bucketName, String key, InputStream input, ObjectMetadata metadata)
             throws AmazonClientException
     {
-        return null;
+        return new PutObjectResult();
     }
 
     @Override
@@ -762,5 +771,30 @@ public class MockAmazonS3
             throws AmazonClientException
     {
         return false;
+    }
+
+    @Override
+    public void setBucketReplicationConfiguration(String bucketName, BucketReplicationConfiguration bucketReplicationConfiguration)
+            throws AmazonClientException
+    {
+    }
+
+    @Override
+    public void setBucketReplicationConfiguration(SetBucketReplicationConfigurationRequest setBucketReplicationConfigurationRequest)
+            throws AmazonClientException
+    {
+    }
+
+    @Override
+    public BucketReplicationConfiguration getBucketReplicationConfiguration(String bucketName)
+            throws AmazonClientException
+    {
+        return null;
+    }
+
+    @Override
+    public void deleteBucketReplicationConfiguration(String bucketName)
+            throws AmazonClientException
+    {
     }
 }

@@ -17,6 +17,7 @@ import com.facebook.presto.operator.ChannelSet.ChannelSetBuilder;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -65,6 +66,7 @@ public class SetBuilderOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final Optional<Integer> hashChannel;
         private final SetSupplier setProvider;
         private final int setChannel;
@@ -73,14 +75,16 @@ public class SetBuilderOperator
 
         public SetBuilderOperatorFactory(
                 int operatorId,
-                List<Type> types,
+                PlanNodeId planNodeId,
+                Type type,
                 int setChannel,
                 Optional<Integer> hashChannel,
                 int expectedPositions)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             Preconditions.checkArgument(setChannel >= 0, "setChannel is negative");
-            this.setProvider = new SetSupplier(requireNonNull(types, "types is null").get(setChannel));
+            this.setProvider = new SetSupplier(requireNonNull(type, "type is null"));
             this.setChannel = setChannel;
             this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
             this.expectedPositions = expectedPositions;
@@ -101,7 +105,7 @@ public class SetBuilderOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, SetBuilderOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, SetBuilderOperator.class.getSimpleName());
             return new SetBuilderOperator(operatorContext, setProvider, setChannel, hashChannel, expectedPositions);
         }
 
@@ -109,6 +113,12 @@ public class SetBuilderOperator
         public void close()
         {
             closed = true;
+        }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new SetBuilderOperatorFactory(operatorId, planNodeId, setProvider.getType(), setChannel, hashChannel, expectedPositions);
         }
     }
 

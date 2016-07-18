@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.security.Privilege;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
@@ -22,11 +23,12 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 
+@Deprecated
 public interface ConnectorMetadata
 {
     /**
@@ -41,7 +43,7 @@ public interface ConnectorMetadata
 
     /**
      * Return a list of table layouts that satisfy the given constraint.
-     *
+     * <p>
      * For each layout, connectors must return an "unenforced constraint" representing the part of the constraint summary that isn't guaranteed by the layout.
      */
     default List<ConnectorTableLayoutResult> getTableLayouts(
@@ -162,7 +164,7 @@ public interface ConnectorMetadata
      */
     default void commitCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
-        throw new PrestoException(INTERNAL_ERROR, "ConnectorMetadata beginCreateTable() is implemented without commitCreateTable()");
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginCreateTable() is implemented without commitCreateTable()");
     }
 
     /**
@@ -183,7 +185,7 @@ public interface ConnectorMetadata
      */
     default void commitInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
     {
-        throw new PrestoException(INTERNAL_ERROR, "ConnectorMetadata beginInsert() is implemented without commitInsert()");
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginInsert() is implemented without commitInsert()");
     }
 
     /**
@@ -212,7 +214,7 @@ public interface ConnectorMetadata
     /**
      * Commit delete query
      *
-     * @param fragments all fragments returned by {@link com.facebook.presto.spi.UpdatablePageSource#commit()}
+     * @param fragments all fragments returned by {@link com.facebook.presto.spi.UpdatablePageSource#finish()}
      */
     default void commitDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
     {
@@ -266,10 +268,27 @@ public interface ConnectorMetadata
 
     /**
      * Delete the provided table layout
+     *
      * @return number of rows deleted, or null for unknown
      */
     default OptionalLong metadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle tableLayoutHandle)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support deletes");
+    }
+
+    /**
+     * Grants the specified privilege to the specified user on the specified table
+     */
+    default void grantTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, String grantee, boolean grantOption)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support grants");
+    }
+
+    /**
+     * Revokes the specified privilege on the specified table from the specified user
+     */
+    default void revokeTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, String grantee, boolean grantOption)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support revokes");
     }
 }
