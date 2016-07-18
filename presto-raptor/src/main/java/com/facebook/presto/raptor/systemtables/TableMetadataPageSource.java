@@ -31,6 +31,7 @@ import com.google.common.collect.PeekingIterator;
 import io.airlift.slice.Slice;
 import org.skife.jdbi.v2.IDBI;
 
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -188,16 +189,7 @@ public class TableMetadataPageSource
             }
 
             // ordering_columns
-            if (!sortColumnNames.isEmpty()) {
-                BlockBuilder orderingColumnsBlockBuilder = pageBuilder.getBlockBuilder(3).beginBlockEntry();
-                for (String sortColumnName : sortColumnNames.values()) {
-                    VARCHAR.writeSlice(orderingColumnsBlockBuilder, utf8Slice(sortColumnName));
-                }
-                pageBuilder.getBlockBuilder(3).closeEntry();
-            }
-            else {
-                pageBuilder.getBlockBuilder(3).appendNull();
-            }
+            writeArray(pageBuilder.getBlockBuilder(3), sortColumnNames.values());
 
             // distribution_name
             Optional<String> distributionName = tableRow.getDistributionName();
@@ -218,16 +210,7 @@ public class TableMetadataPageSource
             }
 
             // bucketing_columns
-            if (!bucketColumnNames.isEmpty()) {
-                BlockBuilder bucketColumnsBlockBuilder = pageBuilder.getBlockBuilder(6).beginBlockEntry();
-                for (String bucketColumnName : bucketColumnNames.values()) {
-                    VARCHAR.writeSlice(bucketColumnsBlockBuilder, utf8Slice(bucketColumnName));
-                }
-                pageBuilder.getBlockBuilder(6).closeEntry();
-            }
-            else {
-                pageBuilder.getBlockBuilder(6).appendNull();
-            }
+            writeArray(pageBuilder.getBlockBuilder(6), bucketColumnNames.values());
 
             if (pageBuilder.isFull()) {
                 flushPage(pageBuilder, pages);
@@ -243,6 +226,20 @@ public class TableMetadataPageSource
         if (!pageBuilder.isEmpty()) {
             pages.add(pageBuilder.build());
             pageBuilder.reset();
+        }
+    }
+
+    private static void writeArray(BlockBuilder blockBuilder, Collection<String> values)
+    {
+        if (values.isEmpty()) {
+            blockBuilder.appendNull();
+        }
+        else {
+            BlockBuilder array = blockBuilder.beginBlockEntry();
+            for (String value : values) {
+                VARCHAR.writeSlice(array, utf8Slice(value));
+            }
+            blockBuilder.closeEntry();
         }
     }
 
