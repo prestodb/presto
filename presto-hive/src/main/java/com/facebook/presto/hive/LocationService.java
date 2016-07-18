@@ -21,7 +21,7 @@ import java.util.Optional;
 
 public interface LocationService
 {
-    LocationHandle forNewTable(String user, String queryId, String schemaName, String tableName);
+    LocationHandle forNewTable(String user, String queryId, String schemaName, String tableName, String location);
 
     LocationHandle forExistingTable(String user, String queryId, Table table);
 

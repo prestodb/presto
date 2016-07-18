@@ -38,6 +38,11 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Principal %s cannot become user %s%s", principal, userName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denySetLocation(String tableName)
+    {
+        throw new AccessDeniedException(format("Cannot set location for table %s", tableName));
+    }
+
     public static void denyCreateTable(String tableName)
     {
         denyCreateTable(tableName, null);

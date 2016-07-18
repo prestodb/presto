@@ -129,4 +129,11 @@ public interface AccessControl
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     void checkCanSetCatalogSessionProperty(Identity identity, String catalogName, String propertyName);
+
+    /**
+     * Check if identity is allowed to set location for the specified table in this catalog.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanSetLocation(TransactionId transactionId, Identity identity, QualifiedObjectName tableName);
 }

@@ -47,6 +47,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeT
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static com.facebook.presto.spi.security.AccessDeniedException.denySetLocation;
 import static java.util.Objects.requireNonNull;
 
 public class SqlStandardAccessControl
@@ -59,6 +60,7 @@ public class SqlStandardAccessControl
     private final HiveMetastore metastore;
     private final boolean allowDropTable;
     private final boolean allowRenameTable;
+    private final boolean allowSetLocation;
 
     @Inject
     public SqlStandardAccessControl(HiveConnectorId connectorId, HiveMetastore metastore, HiveClientConfig hiveClientConfig)
@@ -69,6 +71,7 @@ public class SqlStandardAccessControl
         requireNonNull(hiveClientConfig, "hiveClientConfig is null");
         allowDropTable = hiveClientConfig.getAllowDropTable();
         allowRenameTable = hiveClientConfig.getAllowRenameTable();
+        allowSetLocation = hiveClientConfig.getAllowSetLocation();
     }
 
     @Override
@@ -180,6 +183,14 @@ public class SqlStandardAccessControl
     {
         if (!metastore.getRoles(identity.getUser()).contains(ADMIN_ROLE_NAME)) {
             denySetCatalogSessionProperty(connectorId, propertyName);
+        }
+    }
+
+    @Override
+    public void checkCanSetTableLocation(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    {
+        if (!metastore.getRoles(identity.getUser()).contains(ADMIN_ROLE_NAME)) {
+            denySetLocation(tableName.toString());
         }
     }
 

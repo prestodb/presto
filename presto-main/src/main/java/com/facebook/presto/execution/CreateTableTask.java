@@ -88,6 +88,10 @@ public class CreateTableTask
                 session,
                 metadata);
 
+        if (properties.containsKey("location")) {
+            accessControl.checkCanSetLocation(session.getRequiredTransactionId(), session.getIdentity(), tableName);
+        }
+
         TableMetadata tableMetadata = new TableMetadata(
                 tableName.getCatalogName(),
                 new ConnectorTableMetadata(tableName.asSchemaTableName(), columns, properties, session.getUser(), false));

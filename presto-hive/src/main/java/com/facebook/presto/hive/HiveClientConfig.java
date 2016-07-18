@@ -65,6 +65,7 @@ public class HiveClientConfig
     private boolean allowDropTable;
     private boolean allowRenameTable;
     private boolean allowRenameColumn;
+    private boolean allowSetLocation;
 
     private boolean allowCorruptWritesForTesting;
 
@@ -80,6 +81,7 @@ public class HiveClientConfig
     private int dfsConnectMaxRetries = 5;
     private boolean verifyChecksum = true;
     private String domainSocketPath;
+    private String location;
 
     private String s3AwsAccessKey;
     private String s3AwsSecretKey;
@@ -289,6 +291,19 @@ public class HiveClientConfig
     public HiveClientConfig setAllowRenameColumn(boolean allowRenameColumn)
     {
         this.allowRenameColumn = allowRenameColumn;
+        return this;
+    }
+
+    public boolean getAllowSetLocation()
+    {
+        return this.allowSetLocation;
+    }
+
+    @Config("hive.allow-set-location")
+    @ConfigDescription("Allow hive connector to set location")
+    public HiveClientConfig setAllowSetLocation(boolean allowSetLocation)
+    {
+        this.allowSetLocation = allowSetLocation;
         return this;
     }
 
@@ -570,6 +585,19 @@ public class HiveClientConfig
     public HiveClientConfig setDomainSocketPath(String domainSocketPath)
     {
         this.domainSocketPath = domainSocketPath;
+        return this;
+    }
+
+    public String getLocation()
+    {
+        return location;
+    }
+
+    @Config("hive.dfs.location")
+    @ConfigDescription("Physical file system location")
+    public HiveClientConfig setLocation(String location)
+    {
+        this.location = location;
         return this;
     }
 

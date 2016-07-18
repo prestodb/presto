@@ -2602,7 +2602,7 @@ public abstract class AbstractTestHiveClient
         String tableName = schemaTableName.getTableName();
 
         LocationService locationService = getLocationService(schemaName);
-        LocationHandle locationHandle = locationService.forNewTable(session.getUser(), session.getQueryId(), schemaName, tableName);
+        LocationHandle locationHandle = locationService.forNewTable(session.getUser(), session.getQueryId(), schemaName, tableName, null);
         Path targetPath = locationService.targetPathRoot(locationHandle);
         HiveWriteUtils.createDirectory(session.getUser(), hdfsEnvironment, targetPath);
 

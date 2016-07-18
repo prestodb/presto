@@ -104,6 +104,7 @@ import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPER
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.getBucketProperty;
 import static com.facebook.presto.hive.HiveTableProperties.getHiveStorageFormat;
+import static com.facebook.presto.hive.HiveTableProperties.getLocation;
 import static com.facebook.presto.hive.HiveTableProperties.getPartitionedBy;
 import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
@@ -386,7 +387,7 @@ public class HiveMetadata
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         Map<String, String> additionalTableParameters = tableParameterCodec.encode(tableMetadata.getProperties());
 
-        LocationHandle locationHandle = locationService.forNewTable(session.getUser(), session.getQueryId(), schemaName, tableName);
+        LocationHandle locationHandle = locationService.forNewTable(session.getUser(), session.getQueryId(), schemaName, tableName, getLocation(tableMetadata.getProperties()));
         Path targetPath = locationService.targetPathRoot(locationHandle);
         createDirectory(session.getUser(), hdfsEnvironment, targetPath);
 
@@ -556,7 +557,7 @@ public class HiveMetadata
                 tableName,
                 columnHandles,
                 session.getQueryId(),
-                locationService.forNewTable(session.getUser(), session.getQueryId(), schemaName, tableName),
+                locationService.forNewTable(session.getUser(), session.getQueryId(), schemaName, tableName, getLocation(tableMetadata.getProperties())),
                 tableStorageFormat,
                 respectTableFormat ? tableStorageFormat : defaultStorageFormat,
                 partitionedBy,

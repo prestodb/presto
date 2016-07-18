@@ -126,4 +126,10 @@ public class LegacyConnectorAccessControl
     {
         accessControl.checkCanRevokeTablePrivilege(identity, privilege, tableName);
     }
+
+    @Override
+    public void checkCanSetTableLocation(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    {
+        accessControl.checkCanSetTableLocation(identity, tableName);
+    }
 }

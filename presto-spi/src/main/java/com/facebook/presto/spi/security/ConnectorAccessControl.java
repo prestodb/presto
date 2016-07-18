@@ -129,4 +129,11 @@ public interface ConnectorAccessControl
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     void checkCanRevokeTablePrivilege(Identity identity, Privilege privilege, SchemaTableName tableName);
+
+    /**
+     * Check if identity is allowed to set location for the specified table in this catalog.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanSetTableLocation(Identity identity, SchemaTableName tableName);
 }

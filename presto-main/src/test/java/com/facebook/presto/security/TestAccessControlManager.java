@@ -289,5 +289,11 @@ public class TestAccessControlManager
         {
             throw new UnsupportedOperationException();
         }
+
+        @Override
+        public void checkCanSetTableLocation(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+        {
+            throw new UnsupportedOperationException();
+        }
     }
 }

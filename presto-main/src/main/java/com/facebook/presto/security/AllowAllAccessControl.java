@@ -112,4 +112,9 @@ public class AllowAllAccessControl
     public void checkCanSetCatalogSessionProperty(Identity identity, String catalogName, String propertyName)
     {
     }
+
+    @Override
+    public void checkCanSetLocation(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    {
+    }
 }

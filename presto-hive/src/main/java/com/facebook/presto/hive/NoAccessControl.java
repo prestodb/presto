@@ -29,6 +29,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColu
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denySetLocation;
 import static java.util.Objects.requireNonNull;
 
 public class NoAccessControl
@@ -39,6 +40,7 @@ public class NoAccessControl
     private final boolean allowRenameTable;
     private final boolean allowAddColumn;
     private final boolean allowRenameColumn;
+    private final boolean allowSetLocation;
 
     @Inject
     public NoAccessControl(HiveMetastore metastore, HiveClientConfig hiveClientConfig)
@@ -48,6 +50,7 @@ public class NoAccessControl
         allowRenameTable = hiveClientConfig.getAllowRenameTable();
         allowAddColumn = hiveClientConfig.getAllowAddColumn();
         allowRenameColumn = hiveClientConfig.getAllowRenameColumn();
+        allowSetLocation = hiveClientConfig.getAllowSetLocation();
         this.metastore = requireNonNull(metastore, "metastore is null");
     }
 
@@ -151,5 +154,13 @@ public class NoAccessControl
     @Override
     public void checkCanRevokeTablePrivilege(Identity identity, Privilege privilege, SchemaTableName tableName)
     {
+    }
+
+    @Override
+    public void checkCanSetTableLocation(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    {
+        if (!allowSetLocation) {
+            denySetLocation(tableName.toString());
+        }
     }
 }

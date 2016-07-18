@@ -219,6 +219,18 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanSetLocation(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(tableName, "tableName is null");
+
+        CatalogAccessControlEntry entry = catalogAccessControl.get(tableName.getCatalogName());
+        if (entry != null) {
+            authorizationCheck(() -> entry.getAccessControl().checkCanSetTableLocation(entry.getTransactionHandle(transactionId), identity, tableName.asSchemaTableName()));
+        }
+    }
+
+    @Override
     public void checkCanSelectFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
         requireNonNull(identity, "identity is null");

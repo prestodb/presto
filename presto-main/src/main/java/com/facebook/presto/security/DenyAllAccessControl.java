@@ -34,6 +34,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeT
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static com.facebook.presto.spi.security.AccessDeniedException.denySetLocation;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetUser;
 
@@ -146,5 +147,11 @@ public class DenyAllAccessControl
     public void checkCanSetCatalogSessionProperty(Identity identity, String catalogName, String propertyName)
     {
         denySetCatalogSessionProperty(catalogName, propertyName);
+    }
+
+    @Override
+    public void checkCanSetLocation(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    {
+        denySetLocation(tableName.toString());
     }
 }

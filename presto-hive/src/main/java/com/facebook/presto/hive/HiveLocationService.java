@@ -45,9 +45,9 @@ public class HiveLocationService
     }
 
     @Override
-    public LocationHandle forNewTable(String user, String queryId, String schemaName, String tableName)
+    public LocationHandle forNewTable(String user, String queryId, String schemaName, String tableName, String location)
     {
-        Path targetPath = getTableDefaultLocation(user, metastore, hdfsEnvironment, schemaName, tableName);
+        Path targetPath = location == null ? getTableDefaultLocation(user, metastore, hdfsEnvironment, schemaName, tableName) : new Path(location);
 
         // verify the target directory for the table
         if (pathExists(user, hdfsEnvironment, targetPath)) {

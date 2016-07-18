@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.String.format;
@@ -39,6 +40,7 @@ public class HiveTableProperties
     public static final String PARTITIONED_BY_PROPERTY = "partitioned_by";
     public static final String BUCKETED_BY_PROPERTY = "bucketed_by";
     public static final String BUCKET_COUNT_PROPERTY = "bucket_count";
+    public static final String LOCATION = "location";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -77,7 +79,8 @@ public class HiveTableProperties
                                 .map(name -> ((String) name).toLowerCase(ENGLISH))
                                 .collect(Collectors.toList())),
                         value -> value),
-                integerSessionProperty(BUCKET_COUNT_PROPERTY, "Number of buckets", 0, false));
+                integerSessionProperty(BUCKET_COUNT_PROPERTY, "Number of buckets", 0, false),
+                stringSessionProperty(LOCATION, "physical file system location", config.getLocation(), false));
     }
 
     public List<PropertyMetadata<?>> getTableProperties()
@@ -116,5 +119,10 @@ public class HiveTableProperties
     private static List<String> getBucketedBy(Map<String, Object> tableProperties)
     {
         return (List<String>) tableProperties.get(BUCKETED_BY_PROPERTY);
+    }
+
+    public static String getLocation(Map<String, Object> tableProperties)
+    {
+        return (String) tableProperties.get(LOCATION);
     }
 }
