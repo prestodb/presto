@@ -39,7 +39,6 @@ public class TestShardOrganizer
         OrganizationSet organizationSet = new OrganizationSet(1L, shards, OptionalInt.empty());
 
         organizer.enqueue(organizationSet);
-        organizer.start();
 
         assertTrue(organizer.inProgress(getOnlyElement(shards)));
         assertEquals(organizer.getShardsInProgress(), 1);
