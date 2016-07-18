@@ -38,19 +38,22 @@ install: ./mvnw install -DskipTests=true $MAVEN_SKIP_CHECKS_AND_DOCS -B -q -T C1
 
 script:
   - |
-    if [ -v TEST_MODULES ]; then
-      ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl $TEST_MODULES;
-    fi
+    test ! -v TEST_MODULES ||
+      ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl $TEST_MODULES
   - |
-    if [ -v PRODUCT_TESTS ]; then
-      presto-product-tests/bin/run_on_docker.sh singlenode -x quarantine,big_query,storage_formats,mysql_connector,postgresql_connector,profile_specific_tests
-      presto-product-tests/bin/run_on_docker.sh singlenode-kerberos-hdfs-impersonation -g storage_formats,cli,hdfs_impersonation,authorization
-    fi
+    test ! -v PRODUCT_TESTS ||
+      presto-product-tests/bin/run_on_docker.sh \
+        singlenode -x quarantine,big_query,storage_formats,mysql_connector,postgresql_connector,profile_specific_tests
   - |
-    if [ -v INTEGRATION_TESTS ]; then
+    test ! -v PRODUCT_TESTS ||
+      presto-product-tests/bin/run_on_docker.sh \
+        singlenode-kerberos-hdfs-impersonation -g storage_formats,cli,hdfs_impersonation,authorization
+  - |
+    test ! -v INTEGRATION_TESTS ||
       presto-hive-hadoop2/bin/run_on_docker.sh
+  - |
+    test ! -v INTEGRATION_TESTS ||
       ./mvnw install -DskipTests=true -B
-    fi
 
 notifications:
   slack:
