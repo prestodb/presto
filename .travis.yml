@@ -49,7 +49,7 @@ script:
   - |
     test ! -v PRODUCT_TESTS ||
       presto-product-tests/bin/run_on_docker.sh \
-        singlenode -x quarantine,big_query,storage_formats,mysql_connector,postgresql_connector,profile_specific_tests
+        multinode -x quarantine,big_query,storage_formats,mysql_connector,postgresql_connector,profile_specific_tests
   - |
     test ! -v PRODUCT_TESTS ||
       presto-product-tests/bin/run_on_docker.sh \
