@@ -463,6 +463,7 @@ public abstract class AbstractTestHiveClient
                 true,
                 true,
                 true,
+                false,
                 HiveStorageFormat.RCBINARY,
                 typeManager,
                 locationService,
@@ -480,6 +481,7 @@ public abstract class AbstractTestHiveClient
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 hiveClientConfig.getMaxInitialSplits(),
+                false,
                 false
         );
         pageSinkProvider = new HivePageSinkProvider(hdfsEnvironment, metastoreClient, new GroupByHashPageIndexerFactory(), typeManager, new HiveClientConfig(), locationService, partitionUpdateCodec);

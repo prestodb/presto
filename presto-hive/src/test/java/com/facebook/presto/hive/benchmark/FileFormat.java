@@ -64,10 +64,10 @@ public enum FileFormat
 {
     PRESTO_RCBINARY {
         @Override
-        public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
+        public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes, boolean forceIntegralToBigint)
         {
             HiveRecordCursorProvider cursorProvider = new ColumnarBinaryHiveRecordCursorProvider(hdfsEnvironment);
-            return createPageSource(cursorProvider, session, targetFile, columnNames, columnTypes, HiveStorageFormat.RCBINARY);
+            return createPageSource(cursorProvider, session, targetFile, columnNames, columnTypes, HiveStorageFormat.RCBINARY, forceIntegralToBigint);
         }
 
         @Override
@@ -76,19 +76,20 @@ public enum FileFormat
                 File targetFile,
                 List<String> columnNames,
                 List<Type> columnTypes,
-                HiveCompressionCodec compressionCodec)
+                HiveCompressionCodec compressionCodec,
+                boolean forceIntegralToBigint)
                 throws IOException
         {
-            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.RCBINARY);
+            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.RCBINARY, forceIntegralToBigint);
         }
     },
 
     PRESTO_RCTEXT {
         @Override
-        public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
+        public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes, boolean forceIntegralToBigint)
         {
             HiveRecordCursorProvider cursorProvider = new ColumnarTextHiveRecordCursorProvider(hdfsEnvironment);
-            return createPageSource(cursorProvider, session, targetFile, columnNames, columnTypes, HiveStorageFormat.RCTEXT);
+            return createPageSource(cursorProvider, session, targetFile, columnNames, columnTypes, HiveStorageFormat.RCTEXT, forceIntegralToBigint);
         }
 
         @Override
@@ -97,19 +98,20 @@ public enum FileFormat
                 File targetFile,
                 List<String> columnNames,
                 List<Type> columnTypes,
-                HiveCompressionCodec compressionCodec)
+                HiveCompressionCodec compressionCodec,
+                boolean forceIntegralToBigint)
                 throws IOException
         {
-            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.RCTEXT);
+            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.RCTEXT, forceIntegralToBigint);
         }
     },
 
     PRESTO_ORC {
         @Override
-        public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
+        public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes, boolean forceIntegralToBigint)
         {
             HivePageSourceFactory pageSourceFactory = new OrcPageSourceFactory(TYPE_MANAGER, false, hdfsEnvironment);
-            return createPageSource(pageSourceFactory, session, targetFile, columnNames, columnTypes, HiveStorageFormat.ORC);
+            return createPageSource(pageSourceFactory, session, targetFile, columnNames, columnTypes, HiveStorageFormat.ORC, forceIntegralToBigint);
         }
 
         @Override
@@ -118,19 +120,20 @@ public enum FileFormat
                 File targetFile,
                 List<String> columnNames,
                 List<Type> columnTypes,
-                HiveCompressionCodec compressionCodec)
+                HiveCompressionCodec compressionCodec,
+                boolean forceIntegralToBigint)
                 throws IOException
         {
-            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.ORC);
+            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.ORC, forceIntegralToBigint);
         }
     },
 
     PRESTO_DWRF {
         @Override
-        public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
+        public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes, boolean forceIntegralToBigint)
         {
             HivePageSourceFactory pageSourceFactory = new DwrfPageSourceFactory(TYPE_MANAGER, hdfsEnvironment);
-            return createPageSource(pageSourceFactory, session, targetFile, columnNames, columnTypes, HiveStorageFormat.DWRF);
+            return createPageSource(pageSourceFactory, session, targetFile, columnNames, columnTypes, HiveStorageFormat.DWRF, forceIntegralToBigint);
         }
 
         @Override
@@ -139,10 +142,11 @@ public enum FileFormat
                 File targetFile,
                 List<String> columnNames,
                 List<Type> columnTypes,
-                HiveCompressionCodec compressionCodec)
+                HiveCompressionCodec compressionCodec,
+                boolean forceIntegralToBigint)
                 throws IOException
         {
-            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.DWRF);
+            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.DWRF, forceIntegralToBigint);
         }
 
         @Override
@@ -154,10 +158,10 @@ public enum FileFormat
 
     PRESTO_PARQUET {
         @Override
-        public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
+        public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes, boolean forceIntegralToBigint)
         {
             HivePageSourceFactory pageSourceFactory = new ParquetPageSourceFactory(TYPE_MANAGER, false, hdfsEnvironment);
-            return createPageSource(pageSourceFactory, session, targetFile, columnNames, columnTypes, HiveStorageFormat.PARQUET);
+            return createPageSource(pageSourceFactory, session, targetFile, columnNames, columnTypes, HiveStorageFormat.PARQUET, forceIntegralToBigint);
         }
 
         @Override
@@ -166,19 +170,20 @@ public enum FileFormat
                 File targetFile,
                 List<String> columnNames,
                 List<Type> columnTypes,
-                HiveCompressionCodec compressionCodec)
+                HiveCompressionCodec compressionCodec,
+                boolean forceIntegralToBigint)
                 throws IOException
         {
-            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.PARQUET);
+            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.PARQUET, forceIntegralToBigint);
         }
     },
 
     HIVE_RCBINARY {
         @Override
-        public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
+        public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes, boolean forceIntegralToBigint)
         {
             HiveRecordCursorProvider cursorProvider = new ColumnarBinaryHiveRecordCursorProvider(hdfsEnvironment);
-            return createPageSource(cursorProvider, session, targetFile, columnNames, columnTypes, HiveStorageFormat.RCBINARY);
+            return createPageSource(cursorProvider, session, targetFile, columnNames, columnTypes, HiveStorageFormat.RCBINARY, forceIntegralToBigint);
         }
 
         @Override
@@ -187,19 +192,20 @@ public enum FileFormat
                 File targetFile,
                 List<String> columnNames,
                 List<Type> columnTypes,
-                HiveCompressionCodec compressionCodec)
+                HiveCompressionCodec compressionCodec,
+                boolean forceIntegralToBigint)
                 throws IOException
         {
-            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.RCBINARY);
+            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.RCBINARY, forceIntegralToBigint);
         }
     },
 
     HIVE_RCTEXT {
         @Override
-        public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
+        public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes, boolean forceIntegralToBigint)
         {
             HiveRecordCursorProvider cursorProvider = new ColumnarTextHiveRecordCursorProvider(hdfsEnvironment);
-            return createPageSource(cursorProvider, session, targetFile, columnNames, columnTypes, HiveStorageFormat.RCTEXT);
+            return createPageSource(cursorProvider, session, targetFile, columnNames, columnTypes, HiveStorageFormat.RCTEXT, forceIntegralToBigint);
         }
 
         @Override
@@ -208,19 +214,20 @@ public enum FileFormat
                 File targetFile,
                 List<String> columnNames,
                 List<Type> columnTypes,
-                HiveCompressionCodec compressionCodec)
+                HiveCompressionCodec compressionCodec,
+                boolean forceIntegralToBigint)
                 throws IOException
         {
-            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.RCTEXT);
+            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.RCTEXT, forceIntegralToBigint);
         }
     },
 
     HIVE_ORC {
         @Override
-        public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
+        public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes, boolean forceIntegralToBigint)
         {
             HiveRecordCursorProvider cursorProvider = new GenericHiveRecordCursorProvider(hdfsEnvironment);
-            return createPageSource(cursorProvider, session, targetFile, columnNames, columnTypes, HiveStorageFormat.ORC);
+            return createPageSource(cursorProvider, session, targetFile, columnNames, columnTypes, HiveStorageFormat.ORC, forceIntegralToBigint);
         }
 
         @Override
@@ -229,19 +236,20 @@ public enum FileFormat
                 File targetFile,
                 List<String> columnNames,
                 List<Type> columnTypes,
-                HiveCompressionCodec compressionCodec)
+                HiveCompressionCodec compressionCodec,
+                boolean forceIntegralToBigint)
                 throws IOException
         {
-            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.ORC);
+            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.ORC, forceIntegralToBigint);
         }
     },
 
     HIVE_DWRF {
         @Override
-        public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
+        public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes, boolean forceIntegralToBigint)
         {
             HiveRecordCursorProvider cursorProvider = new GenericHiveRecordCursorProvider(hdfsEnvironment);
-            return createPageSource(cursorProvider, session, targetFile, columnNames, columnTypes, HiveStorageFormat.DWRF);
+            return createPageSource(cursorProvider, session, targetFile, columnNames, columnTypes, HiveStorageFormat.DWRF, forceIntegralToBigint);
         }
 
         @Override
@@ -250,10 +258,11 @@ public enum FileFormat
                 File targetFile,
                 List<String> columnNames,
                 List<Type> columnTypes,
-                HiveCompressionCodec compressionCodec)
+                HiveCompressionCodec compressionCodec,
+                boolean forceIntegralToBigint)
                 throws IOException
         {
-            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.DWRF);
+            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.DWRF, forceIntegralToBigint);
         }
 
         @Override
@@ -265,10 +274,10 @@ public enum FileFormat
 
     HIVE_PARQUET {
         @Override
-        public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
+        public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes, boolean forceIntegralToBigint)
         {
             HiveRecordCursorProvider cursorProvider = new ParquetRecordCursorProvider(false, hdfsEnvironment);
-            return createPageSource(cursorProvider, session, targetFile, columnNames, columnTypes, HiveStorageFormat.PARQUET);
+            return createPageSource(cursorProvider, session, targetFile, columnNames, columnTypes, HiveStorageFormat.PARQUET, forceIntegralToBigint);
         }
 
         @Override
@@ -277,10 +286,11 @@ public enum FileFormat
                 File targetFile,
                 List<String> columnNames,
                 List<Type> columnTypes,
-                HiveCompressionCodec compressionCodec)
+                HiveCompressionCodec compressionCodec,
+                boolean forceIntegralToBigint)
                 throws IOException
         {
-            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.PARQUET);
+            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.PARQUET, forceIntegralToBigint);
         }
     };
 
@@ -294,14 +304,16 @@ public enum FileFormat
             HdfsEnvironment hdfsEnvironment,
             File targetFile,
             List<String> columnNames,
-            List<Type> columnTypes);
+            List<Type> columnTypes,
+            boolean forceIntegralToBigint);
 
     public abstract FormatWriter createFileFormatWriter(
             ConnectorSession session,
             File targetFile,
             List<String> columnNames,
             List<Type> columnTypes,
-            HiveCompressionCodec compressionCodec)
+            HiveCompressionCodec compressionCodec,
+            boolean forceIntegralToBigint)
             throws IOException;
 
     private static final TypeManager TYPE_MANAGER = new TypeRegistry();
@@ -319,13 +331,13 @@ public enum FileFormat
 
     private static ConnectorPageSource createPageSource(
             HiveRecordCursorProvider cursorProvider,
-            ConnectorSession session, File targetFile, List<String> columnNames, List<Type> columnTypes, HiveStorageFormat format)
+            ConnectorSession session, File targetFile, List<String> columnNames, List<Type> columnTypes, HiveStorageFormat format, boolean forceIntegralToBigint)
     {
         List<HiveColumnHandle> columnHandles = new ArrayList<>(columnNames.size());
         for (int i = 0; i < columnNames.size(); i++) {
             String columnName = columnNames.get(i);
             Type columnType = columnTypes.get(i);
-            columnHandles.add(new HiveColumnHandle("test", columnName, HiveType.toHiveType(columnType), columnType.getTypeSignature(), i, false));
+            columnHandles.add(new HiveColumnHandle("test", columnName, HiveType.toHiveType(columnType, forceIntegralToBigint), columnType.getTypeSignature(), i, false));
         }
 
         HiveRecordCursor recordCursor = cursorProvider
@@ -336,7 +348,7 @@ public enum FileFormat
                         new Path(targetFile.getAbsolutePath()),
                         0,
                         targetFile.length(),
-                        createSchema(format, columnNames, columnTypes),
+                        createSchema(format, columnNames, columnTypes, forceIntegralToBigint),
                         columnHandles,
                         ImmutableList.<HivePartitionKey>of(),
                         TupleDomain.all(),
@@ -352,13 +364,14 @@ public enum FileFormat
             File targetFile,
             List<String> columnNames,
             List<Type> columnTypes,
-            HiveStorageFormat format)
+            HiveStorageFormat format,
+            boolean forceIntegralToBigint)
     {
         List<HiveColumnHandle> columnHandles = new ArrayList<>(columnNames.size());
         for (int i = 0; i < columnNames.size(); i++) {
             String columnName = columnNames.get(i);
             Type columnType = columnTypes.get(i);
-            columnHandles.add(new HiveColumnHandle("test", columnName, HiveType.toHiveType(columnType), columnType.getTypeSignature(), i, false));
+            columnHandles.add(new HiveColumnHandle("test", columnName, HiveType.toHiveType(columnType, forceIntegralToBigint), columnType.getTypeSignature(), i, false));
         }
 
         return pageSourceFactory
@@ -368,7 +381,7 @@ public enum FileFormat
                         new Path(targetFile.getAbsolutePath()),
                         0,
                         targetFile.length(),
-                        createSchema(format, columnNames, columnTypes),
+                        createSchema(format, columnNames, columnTypes, forceIntegralToBigint),
                         columnHandles,
                         ImmutableList.<HivePartitionKey>of(),
                         TupleDomain.all(),
@@ -386,14 +399,15 @@ public enum FileFormat
                 List<String> columnNames,
                 List<Type> columnTypes,
                 HiveCompressionCodec compressionCodec,
-                HiveStorageFormat format)
+                HiveStorageFormat format,
+                boolean forceIntegralToBigint)
         {
             JobConf config = new JobConf(conf);
             configureCompression(config, compressionCodec);
 
             List<DataColumn> dataColumns = new ArrayList<>(columnNames.size());
             for (int i = 0; i < columnNames.size(); i++) {
-                dataColumns.add(new DataColumn(columnNames.get(i), columnTypes.get(i), HiveType.toHiveType(columnTypes.get(i))));
+                dataColumns.add(new DataColumn(columnNames.get(i), columnTypes.get(i), HiveType.toHiveType(columnTypes.get(i), forceIntegralToBigint)));
             }
 
             recordWriter = new HiveRecordWriter(
@@ -401,16 +415,17 @@ public enum FileFormat
                     "test_table",
                     null,
                     compressionCodec != HiveCompressionCodec.NONE,
-                    true,
+                    false,
                     dataColumns,
                     format.getOutputFormat(),
                     format.getSerDe(),
-                    createSchema(format, columnNames, columnTypes),
+                    createSchema(format, columnNames, columnTypes, forceIntegralToBigint),
                     targetFile.getName(),
                     targetFile.getParent(),
                     targetFile.toString(),
                     TYPE_MANAGER,
-                    config);
+                    config,
+                    false);
         }
 
         @Override
@@ -429,7 +444,7 @@ public enum FileFormat
         }
     }
 
-    private static Properties createSchema(HiveStorageFormat format, List<String> columnNames, List<Type> columnTypes)
+    private static Properties createSchema(HiveStorageFormat format, List<String> columnNames, List<Type> columnTypes, boolean forceIntegralToBigint)
     {
         Properties schema = new Properties();
         schema.setProperty(SERIALIZATION_LIB, format.getSerDe());
@@ -437,7 +452,7 @@ public enum FileFormat
         schema.setProperty(META_TABLE_COLUMNS, columnNames.stream()
                 .collect(joining(",")));
         schema.setProperty(META_TABLE_COLUMN_TYPES, columnTypes.stream()
-                .map(HiveType::toHiveType)
+                .map(type -> HiveType.toHiveType(type, forceIntegralToBigint))
                 .map(HiveType::getHiveTypeName)
                 .collect(joining(":")));
         return schema;

@@ -117,14 +117,14 @@ public final class HiveType
         return typeInfo;
     }
 
-    public TypeSignature getTypeSignature()
+    public TypeSignature getTypeSignature(boolean forceIntegralToBigint)
     {
-        return getTypeSignature(typeInfo);
+        return getTypeSignature(typeInfo, forceIntegralToBigint);
     }
 
-    public Type getType(TypeManager typeManager)
+    public Type getType(TypeManager typeManager, boolean forceIntegralToBigint)
     {
-        return typeManager.getType(getTypeSignature());
+        return typeManager.getType(getTypeSignature(forceIntegralToBigint));
     }
 
     @Override
@@ -158,26 +158,26 @@ public final class HiveType
         return hiveTypeName;
     }
 
-    public boolean isSupportedType()
+    public boolean isSupportedType(boolean forceIntegralToBigint)
     {
-        return isSupportedType(getTypeInfo());
+        return isSupportedType(getTypeInfo(), forceIntegralToBigint);
     }
 
-    public static boolean isSupportedType(TypeInfo typeInfo)
+    public static boolean isSupportedType(TypeInfo typeInfo, boolean forceIntegralToBigint)
     {
         switch (typeInfo.getCategory()) {
             case PRIMITIVE:
-                return getPrimitiveType((PrimitiveTypeInfo) typeInfo) != null;
+                return getPrimitiveType((PrimitiveTypeInfo) typeInfo, forceIntegralToBigint) != null;
             case MAP:
                 MapTypeInfo mapTypeInfo = checkType(typeInfo, MapTypeInfo.class, "typeInfo");
-                return isSupportedType(mapTypeInfo.getMapKeyTypeInfo()) && isSupportedType(mapTypeInfo.getMapValueTypeInfo());
+                return isSupportedType(mapTypeInfo.getMapKeyTypeInfo(), forceIntegralToBigint) && isSupportedType(mapTypeInfo.getMapValueTypeInfo(), forceIntegralToBigint);
             case LIST:
                 ListTypeInfo listTypeInfo = checkType(typeInfo, ListTypeInfo.class, "typeInfo");
-                return isSupportedType(listTypeInfo.getListElementTypeInfo());
+                return isSupportedType(listTypeInfo.getListElementTypeInfo(), forceIntegralToBigint);
             case STRUCT:
                 StructTypeInfo structTypeInfo = checkType(typeInfo, StructTypeInfo.class, "typeInfo");
                 return structTypeInfo.getAllStructFieldTypeInfos().stream()
-                        .allMatch(HiveType::isSupportedType);
+                        .allMatch(type -> isSupportedType(type, forceIntegralToBigint));
         }
         return false;
     }
@@ -207,15 +207,27 @@ public final class HiveType
     }
 
     @Nonnull
-    public static HiveType toHiveType(Type type)
+    public static HiveType toHiveType(Type type, boolean forceIntegralToBigin)
     {
         requireNonNull(type, "type is null");
-        return new HiveType(toTypeInfo(type));
+        return new HiveType(toTypeInfo(type, forceIntegralToBigin));
     }
 
     @Nonnull
-    private static TypeInfo toTypeInfo(Type type)
+    private static TypeInfo toTypeInfo(Type type, boolean forceIntegralToBigint)
     {
+        if (forceIntegralToBigint) {
+            if (INTEGER.equals(type)) {
+                return HIVE_LONG.typeInfo;
+            }
+            if (SMALLINT.equals(type)) {
+                return HIVE_LONG.typeInfo;
+            }
+            if (TINYINT.equals(type)) {
+                return HIVE_LONG.typeInfo;
+            }
+        }
+
         if (BOOLEAN.equals(type)) {
             return HIVE_BOOLEAN.typeInfo;
         }
@@ -262,12 +274,12 @@ public final class HiveType
             return new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale());
         }
         if (isArrayType(type)) {
-            TypeInfo elementType = toTypeInfo(type.getTypeParameters().get(0));
+            TypeInfo elementType = toTypeInfo(type.getTypeParameters().get(0), forceIntegralToBigint);
             return getListTypeInfo(elementType);
         }
         if (isMapType(type)) {
-            TypeInfo keyType = toTypeInfo(type.getTypeParameters().get(0));
-            TypeInfo valueType = toTypeInfo(type.getTypeParameters().get(1));
+            TypeInfo keyType = toTypeInfo(type.getTypeParameters().get(0), forceIntegralToBigint);
+            TypeInfo valueType = toTypeInfo(type.getTypeParameters().get(1), forceIntegralToBigint);
             return getMapTypeInfo(keyType, valueType);
         }
         if (isRowType(type)) {
@@ -282,32 +294,32 @@ public final class HiveType
             return getStructTypeInfo(
                     fieldNames.build(),
                     type.getTypeParameters().stream()
-                            .map(HiveType::toTypeInfo)
+                            .map(hiveType -> toTypeInfo(hiveType, forceIntegralToBigint))
                             .collect(toList()));
         }
         throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type));
     }
 
     @Nonnull
-    private static TypeSignature getTypeSignature(TypeInfo typeInfo)
+    private static TypeSignature getTypeSignature(TypeInfo typeInfo, boolean forceIntegralToBigint)
     {
         switch (typeInfo.getCategory()) {
             case PRIMITIVE:
-                Type primitiveType = getPrimitiveType((PrimitiveTypeInfo) typeInfo);
+                Type primitiveType = getPrimitiveType((PrimitiveTypeInfo) typeInfo, forceIntegralToBigint);
                 if (primitiveType == null) {
                     break;
                 }
                 return primitiveType.getTypeSignature();
             case MAP:
                 MapTypeInfo mapTypeInfo = checkType(typeInfo, MapTypeInfo.class, "fieldInspector");
-                TypeSignature keyType = getTypeSignature(mapTypeInfo.getMapKeyTypeInfo());
-                TypeSignature valueType = getTypeSignature(mapTypeInfo.getMapValueTypeInfo());
+                TypeSignature keyType = getTypeSignature(mapTypeInfo.getMapKeyTypeInfo(), forceIntegralToBigint);
+                TypeSignature valueType = getTypeSignature(mapTypeInfo.getMapValueTypeInfo(), forceIntegralToBigint);
                 return new TypeSignature(
                         StandardTypes.MAP,
                         ImmutableList.of(TypeSignatureParameter.of(keyType), TypeSignatureParameter.of(valueType)));
             case LIST:
                 ListTypeInfo listTypeInfo = checkType(typeInfo, ListTypeInfo.class, "fieldInspector");
-                TypeSignature elementType = getTypeSignature(listTypeInfo.getListElementTypeInfo());
+                TypeSignature elementType = getTypeSignature(listTypeInfo.getListElementTypeInfo(), forceIntegralToBigint);
                 return new TypeSignature(
                         StandardTypes.ARRAY,
                         ImmutableList.of(TypeSignatureParameter.of(elementType)));
@@ -315,15 +327,26 @@ public final class HiveType
                 StructTypeInfo structTypeInfo = checkType(typeInfo, StructTypeInfo.class, "fieldInspector");
                 List<TypeSignature> fieldTypes = structTypeInfo.getAllStructFieldTypeInfos()
                         .stream()
-                        .map(HiveType::getTypeSignature)
+                        .map(type -> getTypeSignature(type, forceIntegralToBigint))
                         .collect(toList());
                 return new TypeSignature(StandardTypes.ROW, fieldTypes, structTypeInfo.getAllStructFieldNames());
         }
         throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", typeInfo));
     }
 
-    public static Type getPrimitiveType(PrimitiveTypeInfo typeInfo)
+    public static Type getPrimitiveType(PrimitiveTypeInfo typeInfo, boolean forceIntegralToBigint)
     {
+        if (forceIntegralToBigint) {
+            switch (typeInfo.getPrimitiveCategory()) {
+                case BYTE:
+                    return BIGINT;
+                case SHORT:
+                    return BIGINT;
+                case INT:
+                    return BIGINT;
+            }
+        }
+
         switch (typeInfo.getPrimitiveCategory()) {
             case BOOLEAN:
                 return BOOLEAN;

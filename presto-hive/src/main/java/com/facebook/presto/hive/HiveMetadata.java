@@ -157,6 +157,7 @@ public class HiveMetadata
     private final boolean respectTableFormat;
     private final boolean bucketExecutionEnabled;
     private final boolean bucketWritingEnabled;
+    private final boolean forceIntegralToBigint;
     private final HiveStorageFormat defaultStorageFormat;
 
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
@@ -171,6 +172,7 @@ public class HiveMetadata
             boolean respectTableFormat,
             boolean bucketExecutionEnabled,
             boolean bucketWritingEnabled,
+            boolean forceIntegralToBigint,
             HiveStorageFormat defaultStorageFormat,
             TypeManager typeManager,
             LocationService locationService,
@@ -193,6 +195,7 @@ public class HiveMetadata
         this.respectTableFormat = respectTableFormat;
         this.bucketExecutionEnabled = bucketExecutionEnabled;
         this.bucketWritingEnabled = bucketWritingEnabled;
+        this.forceIntegralToBigint = forceIntegralToBigint;
         this.defaultStorageFormat = requireNonNull(defaultStorageFormat, "defaultStorageFormat is null");
 
         this.renameExecutor = requireNonNull(renameExecutor, "renameExecution is null");
@@ -237,7 +240,7 @@ public class HiveMetadata
         Function<HiveColumnHandle, ColumnMetadata> metadataGetter = columnMetadataGetter(table.get(), typeManager);
         boolean sampled = false;
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-        for (HiveColumnHandle columnHandle : hiveColumnHandles(connectorId, table.get())) {
+        for (HiveColumnHandle columnHandle : hiveColumnHandles(connectorId, table.get(), forceIntegralToBigint)) {
             if (columnHandle.getName().equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
                 sampled = true;
             }
@@ -300,7 +303,7 @@ public class HiveMetadata
         if (!table.isPresent()) {
             throw new TableNotFoundException(tableName);
         }
-        for (HiveColumnHandle columnHandle : hiveColumnHandles(connectorId, table.get())) {
+        for (HiveColumnHandle columnHandle : hiveColumnHandles(connectorId, table.get(), forceIntegralToBigint)) {
             if (columnHandle.getName().equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
                 return columnHandle;
             }
@@ -323,7 +326,7 @@ public class HiveMetadata
             throw new TableNotFoundException(tableName);
         }
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
-        for (HiveColumnHandle columnHandle : hiveColumnHandles(connectorId, table.get())) {
+        for (HiveColumnHandle columnHandle : hiveColumnHandles(connectorId, table.get(), forceIntegralToBigint)) {
             if (!columnHandle.getName().equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
                 columnHandles.put(columnHandle.getName(), columnHandle);
             }
@@ -382,7 +385,7 @@ public class HiveMetadata
         if (bucketProperty.isPresent() && !bucketWritingEnabled) {
             throw new PrestoException(NOT_SUPPORTED, "Writing to bucketed Hive table has been temporarily disabled");
         }
-        List<HiveColumnHandle> columnHandles = getColumnHandles(connectorId, tableMetadata, ImmutableSet.copyOf(partitionedBy));
+        List<HiveColumnHandle> columnHandles = getColumnHandles(connectorId, tableMetadata, ImmutableSet.copyOf(partitionedBy), forceIntegralToBigint);
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         Map<String, String> additionalTableParameters = tableParameterCodec.encode(tableMetadata.getProperties());
 
@@ -469,7 +472,7 @@ public class HiveMetadata
 
         ImmutableList.Builder<FieldSchema> columns = ImmutableList.builder();
         columns.addAll(sd.getCols());
-        columns.add(new FieldSchema(column.getName(), toHiveType(column.getType()).getHiveTypeName(), column.getComment()));
+        columns.add(new FieldSchema(column.getName(), toHiveType(column.getType(), forceIntegralToBigint).getHiveTypeName(), column.getComment()));
         sd.setCols(columns.build());
 
         table.setSd(sd);
@@ -548,7 +551,7 @@ public class HiveMetadata
         String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
 
-        List<HiveColumnHandle> columnHandles = getColumnHandles(connectorId, tableMetadata, ImmutableSet.copyOf(partitionedBy));
+        List<HiveColumnHandle> columnHandles = getColumnHandles(connectorId, tableMetadata, ImmutableSet.copyOf(partitionedBy), forceIntegralToBigint);
 
         HiveOutputTableHandle result = new HiveOutputTableHandle(
                 connectorId,
@@ -743,14 +746,14 @@ public class HiveMetadata
 
         for (FieldSchema fieldSchema : table.get().getSd().getCols()) {
             HiveType hiveType = HiveType.valueOf(fieldSchema.getType());
-            if (!isWritableType(hiveType)) {
+            if (!isWritableType(hiveType, forceIntegralToBigint)) {
                 throw new PrestoException(
                         NOT_SUPPORTED,
                         format("Inserting into Hive table %s.%s with column type %s not supported", table.get().getDbName(), table.get().getTableName(), hiveType));
             }
         }
 
-        List<HiveColumnHandle> handles = hiveColumnHandles(connectorId, table.get());
+        List<HiveColumnHandle> handles = hiveColumnHandles(connectorId, table.get(), forceIntegralToBigint);
 
         HiveStorageFormat tableStorageFormat = extractHiveStorageFormat(table.get());
         HiveInsertTableHandle result = new HiveInsertTableHandle(
@@ -1488,7 +1491,7 @@ public class HiveMetadata
         }
         List<String> bucketedBy = bucketProperty.get().getBucketedBy();
         Map<String, HiveType> hiveTypeMap = tableMetadata.getColumns().stream()
-                .collect(toMap(ColumnMetadata::getName, column -> toHiveType(column.getType())));
+                .collect(toMap(ColumnMetadata::getName, column -> toHiveType(column.getType(), forceIntegralToBigint)));
         return Optional.of(new ConnectorNewTableLayout(
                 new HivePartitioningHandle(
                         connectorId,
@@ -1584,7 +1587,7 @@ public class HiveMetadata
         }
     }
 
-    private static List<HiveColumnHandle> getColumnHandles(String connectorId, ConnectorTableMetadata tableMetadata, Set<String> partitionColumnNames)
+    private static List<HiveColumnHandle> getColumnHandles(String connectorId, ConnectorTableMetadata tableMetadata, Set<String> partitionColumnNames, boolean forceIntegralToBigint)
     {
         validatePartitionColumns(tableMetadata);
 
@@ -1594,7 +1597,7 @@ public class HiveMetadata
             columnHandles.add(new HiveColumnHandle(
                     connectorId,
                     column.getName(),
-                    toHiveType(column.getType()),
+                    toHiveType(column.getType(), forceIntegralToBigint),
                     column.getType().getTypeSignature(),
                     ordinal,
                     partitionColumnNames.contains(column.getName())));
@@ -1604,7 +1607,7 @@ public class HiveMetadata
             columnHandles.add(new HiveColumnHandle(
                     connectorId,
                     SAMPLE_WEIGHT_COLUMN_NAME,
-                    toHiveType(BIGINT),
+                    toHiveType(BIGINT, forceIntegralToBigint),
                     BIGINT.getTypeSignature(),
                     ordinal,
                     false));

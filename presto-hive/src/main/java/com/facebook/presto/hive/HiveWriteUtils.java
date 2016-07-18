@@ -206,11 +206,18 @@ public final class HiveWriteUtils
         throw new IllegalArgumentException("unsupported type: " + type);
     }
 
-    public static Object getField(Type type, Block block, int position)
+    public static Object getField(Type type, Block block, int position, boolean forceIntegralToBigint)
     {
         if (block.isNull(position)) {
             return null;
         }
+
+        if (forceIntegralToBigint) {
+            if (IntegerType.INTEGER.equals(type) || SmallintType.SMALLINT.equals(type) || TinyintType.TINYINT.equals(type)) {
+                return type.getLong(block, position);
+            }
+        }
+
         if (BooleanType.BOOLEAN.equals(type)) {
             return type.getBoolean(block, position);
         }
@@ -254,7 +261,7 @@ public final class HiveWriteUtils
 
             List<Object> list = new ArrayList<>(arrayBlock.getPositionCount());
             for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
-                Object element = getField(elementType, arrayBlock, i);
+                Object element = getField(elementType, arrayBlock, i, forceIntegralToBigint);
                 list.add(element);
             }
 
@@ -267,8 +274,8 @@ public final class HiveWriteUtils
             Block mapBlock = block.getObject(position, Block.class);
             Map<Object, Object> map = new HashMap<>();
             for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
-                Object key = getField(keyType, mapBlock, i);
-                Object value = getField(valueType, mapBlock, i + 1);
+                Object key = getField(keyType, mapBlock, i, forceIntegralToBigint);
+                Object value = getField(valueType, mapBlock, i + 1, forceIntegralToBigint);
                 map.put(key, value);
             }
 
@@ -282,7 +289,7 @@ public final class HiveWriteUtils
 
             List<Object> row = new ArrayList<>(rowBlock.getPositionCount());
             for (int i = 0; i < rowBlock.getPositionCount(); i++) {
-                Object element = getField(fieldTypes.get(i), rowBlock, i);
+                Object element = getField(fieldTypes.get(i), rowBlock, i, forceIntegralToBigint);
                 row.add(element);
             }
 
@@ -466,32 +473,41 @@ public final class HiveWriteUtils
         }
     }
 
-    public static boolean isWritableType(HiveType hiveType)
+    public static boolean isWritableType(HiveType hiveType, boolean forceIntegralToBigint)
     {
-        return isWritableType(hiveType.getTypeInfo());
+        return isWritableType(hiveType.getTypeInfo(), forceIntegralToBigint);
     }
 
-    private static boolean isWritableType(TypeInfo typeInfo)
+    private static boolean isWritableType(TypeInfo typeInfo, boolean forceIntegralToBigint)
     {
         switch (typeInfo.getCategory()) {
             case PRIMITIVE:
                 PrimitiveCategory primitiveCategory = ((PrimitiveTypeInfo) typeInfo).getPrimitiveCategory();
-                return isWritablePrimitiveType(primitiveCategory);
+                return isWritablePrimitiveType(primitiveCategory, forceIntegralToBigint);
             case MAP:
                 MapTypeInfo mapTypeInfo = checkType(typeInfo, MapTypeInfo.class, "typeInfo");
-                return isWritableType(mapTypeInfo.getMapKeyTypeInfo()) && isWritableType(mapTypeInfo.getMapValueTypeInfo());
+                return isWritableType(mapTypeInfo.getMapKeyTypeInfo(), forceIntegralToBigint) && isWritableType(mapTypeInfo.getMapValueTypeInfo(), forceIntegralToBigint);
             case LIST:
                 ListTypeInfo listTypeInfo = checkType(typeInfo, ListTypeInfo.class, "typeInfo");
-                return isWritableType(listTypeInfo.getListElementTypeInfo());
+                return isWritableType(listTypeInfo.getListElementTypeInfo(), forceIntegralToBigint);
             case STRUCT:
                 StructTypeInfo structTypeInfo = checkType(typeInfo, StructTypeInfo.class, "typeInfo");
-                return structTypeInfo.getAllStructFieldTypeInfos().stream().allMatch(HiveType::isSupportedType);
+                return structTypeInfo.getAllStructFieldTypeInfos().stream().allMatch(type -> HiveType.isSupportedType(type, false));
         }
         return false;
     }
 
-    private static boolean isWritablePrimitiveType(PrimitiveCategory primitiveCategory)
+    private static boolean isWritablePrimitiveType(PrimitiveCategory primitiveCategory, boolean forceIntegralToBigint)
     {
+        if (forceIntegralToBigint) {
+            switch (primitiveCategory) {
+                case INT:
+                case SHORT:
+                case BYTE:
+                    return false;
+            }
+        }
+
         switch (primitiveCategory) {
             case BOOLEAN:
             case LONG:
@@ -581,8 +597,22 @@ public final class HiveWriteUtils
         throw new IllegalArgumentException("unsupported type: " + type);
     }
 
-    public static FieldSetter createFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field, Type type)
+    public static FieldSetter createFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field, Type type, boolean forceIntegralToBigint)
     {
+        if (forceIntegralToBigint) {
+            if (type.equals(IntegerType.INTEGER)) {
+                return new IntAsBigintFieldSetter(rowInspector, row, field);
+            }
+
+            if (type.equals(SmallintType.SMALLINT)) {
+                return new SmallintAsBigintFieldSetter(rowInspector, row, field);
+            }
+
+            if (type.equals(TinyintType.TINYINT)) {
+                return new TinyintAsBigintFieldSetter(rowInspector, row, field);
+            }
+        }
+
         if (type.equals(BooleanType.BOOLEAN)) {
             return new BooleanFieldSetter(rowInspector, row, field);
         }
@@ -629,15 +659,15 @@ public final class HiveWriteUtils
         }
 
         if (isArrayType(type)) {
-            return new ArrayFieldSetter(rowInspector, row, field, type.getTypeParameters().get(0));
+            return new ArrayFieldSetter(rowInspector, row, field, type.getTypeParameters().get(0), forceIntegralToBigint);
         }
 
         if (isMapType(type)) {
-            return new MapFieldSetter(rowInspector, row, field, type.getTypeParameters().get(0), type.getTypeParameters().get(1));
+            return new MapFieldSetter(rowInspector, row, field, type.getTypeParameters().get(0), type.getTypeParameters().get(1), forceIntegralToBigint);
         }
 
         if (isRowType(type)) {
-            return new RowFieldSetter(rowInspector, row, field, type.getTypeParameters());
+            return new RowFieldSetter(rowInspector, row, field, type.getTypeParameters(), forceIntegralToBigint);
         }
 
         throw new IllegalArgumentException("unsupported type: " + type);
@@ -737,6 +767,60 @@ public final class HiveWriteUtils
         private final ByteWritable value = new ByteWritable();
 
         public TinyintFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field)
+        {
+            super(rowInspector, row, field);
+        }
+
+        @Override
+        public void setField(Block block, int position)
+        {
+            value.set(SignedBytes.checkedCast(TinyintType.TINYINT.getLong(block, position)));
+            rowInspector.setStructFieldData(row, field, value);
+        }
+    }
+
+    private static class IntAsBigintFieldSetter
+            extends FieldSetter
+    {
+        private final LongWritable value = new LongWritable();
+
+        public IntAsBigintFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field)
+        {
+            super(rowInspector, row, field);
+        }
+
+        @Override
+        public void setField(Block block, int position)
+        {
+            value.set(Ints.checkedCast(IntegerType.INTEGER.getLong(block, position)));
+            rowInspector.setStructFieldData(row, field, value);
+        }
+    }
+
+    private static class SmallintAsBigintFieldSetter
+            extends FieldSetter
+    {
+        private final LongWritable value = new LongWritable();
+
+        public SmallintAsBigintFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field)
+        {
+            super(rowInspector, row, field);
+        }
+
+        @Override
+        public void setField(Block block, int position)
+        {
+            value.set(Shorts.checkedCast(SmallintType.SMALLINT.getLong(block, position)));
+            rowInspector.setStructFieldData(row, field, value);
+        }
+    }
+
+    private static class TinyintAsBigintFieldSetter
+            extends FieldSetter
+    {
+        private final LongWritable value = new LongWritable();
+
+        public TinyintAsBigintFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field)
         {
             super(rowInspector, row, field);
         }
@@ -879,11 +963,13 @@ public final class HiveWriteUtils
             extends FieldSetter
     {
         private final Type elementType;
+        private final boolean forceIntegralToBigint;
 
-        public ArrayFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field, Type elementType)
+        public ArrayFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field, Type elementType, boolean forceIntegralToBigint)
         {
             super(rowInspector, row, field);
             this.elementType = requireNonNull(elementType, "elementType is null");
+            this.forceIntegralToBigint = forceIntegralToBigint;
         }
 
         @Override
@@ -893,7 +979,7 @@ public final class HiveWriteUtils
 
             List<Object> list = new ArrayList<>(arrayBlock.getPositionCount());
             for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
-                Object element = getField(elementType, arrayBlock, i);
+                Object element = getField(elementType, arrayBlock, i, forceIntegralToBigint);
                 list.add(element);
             }
 
@@ -906,12 +992,14 @@ public final class HiveWriteUtils
     {
         private final Type keyType;
         private final Type valueType;
+        private final boolean forceIntegralToBigint;
 
-        public MapFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field, Type keyType, Type valueType)
+        public MapFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field, Type keyType, Type valueType, boolean forceIntegralToBigint)
         {
             super(rowInspector, row, field);
             this.keyType = requireNonNull(keyType, "keyType is null");
             this.valueType = requireNonNull(valueType, "valueType is null");
+            this.forceIntegralToBigint = forceIntegralToBigint;
         }
 
         @Override
@@ -920,8 +1008,8 @@ public final class HiveWriteUtils
             Block mapBlock = block.getObject(position, Block.class);
             Map<Object, Object> map = new HashMap<>(mapBlock.getPositionCount() * 2);
             for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
-                Object key = getField(keyType, mapBlock, i);
-                Object value = getField(valueType, mapBlock, i + 1);
+                Object key = getField(keyType, mapBlock, i, forceIntegralToBigint);
+                Object value = getField(valueType, mapBlock, i + 1, forceIntegralToBigint);
                 map.put(key, value);
             }
 
@@ -933,11 +1021,13 @@ public final class HiveWriteUtils
             extends FieldSetter
     {
         private final List<Type> fieldTypes;
+        private final boolean forceIntegralToBigint;
 
-        public RowFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field, List<Type> fieldTypes)
+        public RowFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field, List<Type> fieldTypes, boolean forceIntegralToBigint)
         {
             super(rowInspector, row, field);
             this.fieldTypes = ImmutableList.copyOf(fieldTypes);
+            this.forceIntegralToBigint = forceIntegralToBigint;
         }
 
         @Override
@@ -951,7 +1041,7 @@ public final class HiveWriteUtils
             // (multiple blocks vs all fields packed in a single block)
             List<Object> value = new ArrayList<>(fieldTypes.size());
             for (int i = 0; i < fieldTypes.size(); i++) {
-                Object element = getField(fieldTypes.get(i), rowBlock, i);
+                Object element = getField(fieldTypes.get(i), rowBlock, i, forceIntegralToBigint);
                 value.add(element);
             }
 

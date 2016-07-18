@@ -40,7 +40,8 @@ public class HiveBucketFunction
     @Override
     public int getBucket(Page page, int position)
     {
-        return HiveBucketing.getHiveBucket(typeInfos, page, position, bucketCount);
+        // TODO: make sure that false is the right value to set here
+        return HiveBucketing.getHiveBucket(typeInfos, page, position, bucketCount, false);
     }
 
     @Override

@@ -79,6 +79,7 @@ public class HiveSplitManager
     private final int minPartitionBatchSize;
     private final int maxPartitionBatchSize;
     private final int maxInitialSplits;
+    private final boolean forceIntegralToBigint;
     private final boolean recursiveDfsWalkerEnabled;
 
     @Inject
@@ -101,6 +102,7 @@ public class HiveSplitManager
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 hiveClientConfig.getMaxInitialSplits(),
+                hiveClientConfig.isForceIntegralToBigint(),
                 hiveClientConfig.getRecursiveDirWalkerEnabled()
         );
     }
@@ -116,6 +118,7 @@ public class HiveSplitManager
             int minPartitionBatchSize,
             int maxPartitionBatchSize,
             int maxInitialSplits,
+            boolean forceIntegralToBigint,
             boolean recursiveDfsWalkerEnabled)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
@@ -129,6 +132,7 @@ public class HiveSplitManager
         this.minPartitionBatchSize = minPartitionBatchSize;
         this.maxPartitionBatchSize = maxPartitionBatchSize;
         this.maxInitialSplits = maxInitialSplits;
+        this.forceIntegralToBigint = forceIntegralToBigint;
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
     }
 
@@ -169,6 +173,7 @@ public class HiveSplitManager
                 executor,
                 maxPartitionBatchSize,
                 maxInitialSplits,
+                forceIntegralToBigint,
                 recursiveDfsWalkerEnabled);
 
         HiveSplitSource splitSource = new HiveSplitSource(maxOutstandingSplits, hiveSplitLoader, executor);

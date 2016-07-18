@@ -131,6 +131,8 @@ public class HiveClientConfig
     private boolean bucketExecutionEnabled = true;
     private boolean bucketWritingEnabled = true;
 
+    private boolean forceIntegralToBigint = true;
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -1042,6 +1044,19 @@ public class HiveClientConfig
     public HiveClientConfig setBucketWritingEnabled(boolean bucketWritingEnabled)
     {
         this.bucketWritingEnabled = bucketWritingEnabled;
+        return this;
+    }
+
+    public boolean isForceIntegralToBigint()
+    {
+        return forceIntegralToBigint;
+    }
+
+    @Config("hive.force-integral-to-bigint")
+    @ConfigDescription("Convert all hive integral types to BIGINT")
+    public HiveClientConfig setForceIntegralToBigint(boolean forceIntegralToBigint)
+    {
+        this.forceIntegralToBigint = forceIntegralToBigint;
         return this;
     }
 }
