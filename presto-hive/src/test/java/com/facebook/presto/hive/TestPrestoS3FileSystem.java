@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.internal.StaticCredentialsProvider;
+import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3EncryptionClient;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.EncryptionMaterials;
@@ -39,6 +40,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Map;
 
+import static com.facebook.presto.hive.PrestoS3FileSystem.S3_AWS_KMS_KEY_ID;
 import static com.facebook.presto.hive.PrestoS3FileSystem.S3_ENCRYPTION_MATERIALS_PROVIDER;
 import static com.facebook.presto.hive.PrestoS3FileSystem.S3_MAX_BACKOFF_TIME;
 import static com.facebook.presto.hive.PrestoS3FileSystem.S3_MAX_CLIENT_RETRIES;
@@ -305,6 +307,19 @@ public class TestPrestoS3FileSystem
     {
         Configuration config = new Configuration();
         config.set(S3_ENCRYPTION_MATERIALS_PROVIDER, TestEncryptionMaterialsProvider.class.getName());
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            fs.initialize(new URI("s3n://test-bucket/"), config);
+            assertInstanceOf(fs.getS3Client(), AmazonS3EncryptionClient.class);
+        }
+    }
+
+    @Test
+    public void testKMSEncryptionMaterialsProvider()
+            throws Exception
+    {
+        Configuration config = new Configuration();
+        config.set(S3_AWS_KMS_KEY_ID, "test-key-id");
 
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
             fs.initialize(new URI("s3n://test-bucket/"), config);
