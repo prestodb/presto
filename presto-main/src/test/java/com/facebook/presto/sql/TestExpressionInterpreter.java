@@ -928,6 +928,7 @@ public class TestExpressionInterpreter
                         "when cast(fail() as integer) then 2 " +
                         "else 1 " +
                         "end");
+        assertOptimizedEquals("case true or false when true then true else null end", "true");
     }
 
     @Test
