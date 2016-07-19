@@ -49,6 +49,8 @@ public class StorageManagerConfig
     private int deletionThreads = max(1, getRuntime().availableProcessors() / 2);
     private int recoveryThreads = 10;
     private int organizationThreads = 5;
+    private boolean organizationEnabled = true;
+    private Duration organizationInterval = new Duration(7, TimeUnit.DAYS);
 
     private long maxShardRows = 1_000_000;
     private DataSize maxShardSize = new DataSize(256, MEGABYTE);
@@ -164,6 +166,21 @@ public class StorageManagerConfig
         return this;
     }
 
+    @NotNull
+    @MinDuration("1s")
+    public Duration getOrganizationInterval()
+    {
+        return organizationInterval;
+    }
+
+    @Config("storage.organization-interval")
+    @ConfigDescription("How long to wait between table organization iterations")
+    public StorageManagerConfig setOrganizationInterval(Duration organizationInterval)
+    {
+        this.organizationInterval = organizationInterval;
+        return this;
+    }
+
     @MinDuration("5m")
     public Duration getShardEjectorInterval()
     {
@@ -260,6 +277,18 @@ public class StorageManagerConfig
     public StorageManagerConfig setCompactionEnabled(boolean compactionEnabled)
     {
         this.compactionEnabled = compactionEnabled;
+        return this;
+    }
+
+    public boolean isOrganizationEnabled()
+    {
+        return organizationEnabled;
+    }
+
+    @Config("storage.organization-enabled")
+    public StorageManagerConfig setOrganizationEnabled(boolean organizationEnabled)
+    {
+        this.organizationEnabled = organizationEnabled;
         return this;
     }
 
