@@ -33,6 +33,7 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Functions.toStringFunction;
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 
@@ -58,7 +59,8 @@ public final class Failures
             type = ((Failure) failure).getType();
         }
         else {
-            type = failure.getClass().getCanonicalName();
+            Class<?> clazz = failure.getClass();
+            type = firstNonNull(clazz.getCanonicalName(), clazz.getName());
         }
 
         return new ExecutionFailureInfo(type,

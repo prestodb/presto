@@ -98,9 +98,9 @@ public class LegacyConnectorAccessControl
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName, SchemaTableName tableName)
     {
-        accessControl.checkCanCreateViewWithSelectFromTable(identity, tableName);
+        accessControl.checkCanCreateViewWithSelectFromTable(identity, viewName, tableName);
     }
 
     @Override
