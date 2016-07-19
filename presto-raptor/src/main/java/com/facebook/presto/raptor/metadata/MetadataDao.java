@@ -270,4 +270,15 @@ public interface MetadataDao
     List<ColumnMetadataRow> getColumnMetadataRows(
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName);
+
+    @SqlQuery("SELECT schema_name, table_name, create_time, update_time, table_version,\n" +
+            "  shard_count, row_count, compressed_size, uncompressed_size\n" +
+            "FROM tables\n" +
+            "WHERE (schema_name = :schemaName OR :schemaName IS NULL)\n" +
+            "  AND (table_name = :tableName OR :tableName IS NULL)\n" +
+            "ORDER BY schema_name, table_name")
+    @Mapper(TableStatsRow.Mapper.class)
+    List<TableStatsRow> getTableStatsRows(
+            @Bind("schemaName") String schemaName,
+            @Bind("tableName") String tableName);
 }

@@ -205,7 +205,7 @@ public class TableMetadataSystemTable
         }
     }
 
-    private static int getColumnIndex(ConnectorTableMetadata tableMetadata, String columnName)
+    static int getColumnIndex(ConnectorTableMetadata tableMetadata, String columnName)
     {
         List<ColumnMetadata> columns = tableMetadata.getColumns();
         for (int i = 0; i < columns.size(); i++) {
@@ -216,7 +216,7 @@ public class TableMetadataSystemTable
         throw new IllegalArgumentException(format("Column %s not found", columnName));
     }
 
-    private static String getStringValue(NullableValue value)
+    static String getStringValue(NullableValue value)
     {
         if ((value == null) || value.isNull()) {
             return null;

@@ -20,6 +20,7 @@ import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.raptor.systemtables.ShardMetadataSystemTable;
 import com.facebook.presto.raptor.systemtables.TableMetadataSystemTable;
+import com.facebook.presto.raptor.systemtables.TableStatsSystemTable;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.inject.Binder;
@@ -65,6 +66,7 @@ public class RaptorModule
         Multibinder<SystemTable> tableBinder = newSetBinder(binder, SystemTable.class);
         tableBinder.addBinding().to(ShardMetadataSystemTable.class).in(Scopes.SINGLETON);
         tableBinder.addBinding().to(TableMetadataSystemTable.class).in(Scopes.SINGLETON);
+        tableBinder.addBinding().to(TableStatsSystemTable.class).in(Scopes.SINGLETON);
 
         jsonCodecBinder(binder).bindJsonCodec(ShardInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(ShardDelta.class);
