@@ -162,7 +162,7 @@ public class TestMySqlDistributedQueries
 
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM mysql_test_tinyint1");
         MaterializedResult expected = resultBuilder(getSession(), TINYINT)
-                .row("c_tinyint", "integer", "").build();
+                .row("c_tinyint", "tinyint", "").build();
 
         assertEquals(actual, expected);
 

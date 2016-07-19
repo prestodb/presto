@@ -7,7 +7,7 @@ id_employee        | integer     | |
 first_name         | varchar(32) | |
 last_name          | varchar(32) | |
 date_of_employment | date        | |
-department         | integer     | |
+department         | tinyint     | |
 id_department      | integer     | |
 name               | varchar(32) | |
 salary             | integer     | |

@@ -432,7 +432,9 @@ public class BaseJdbcClient
             case Types.BOOLEAN:
                 return BOOLEAN;
             case Types.TINYINT:
+                return TINYINT;
             case Types.SMALLINT:
+                return SMALLINT;
             case Types.INTEGER:
                 return INTEGER;
             case Types.BIGINT:
