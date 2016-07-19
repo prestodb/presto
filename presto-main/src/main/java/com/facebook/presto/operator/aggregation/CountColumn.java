@@ -87,8 +87,6 @@ public class CountColumn
                 generateAggregationName(NAME, BIGINT.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(type),
                 INPUT_FUNCTION,
-                null,
-                null,
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION,
                 LongState.class,

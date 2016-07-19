@@ -82,8 +82,6 @@ public abstract class AbstractMinMaxBy
                 generateAggregationName(getSignature().getName(), valueType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(valueType, keyType),
                 insertArguments(INPUT_FUNCTION, 0, min).bindTo(keyType),
-                null,
-                null,
                 insertArguments(COMBINE_FUNCTION, 0, min).bindTo(keyType),
                 OUTPUT_FUNCTION.bindTo(valueType),
                 MaxOrMinByState.class,

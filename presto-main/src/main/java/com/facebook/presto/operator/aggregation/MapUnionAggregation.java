@@ -80,8 +80,6 @@ public class MapUnionAggregation
                 generateAggregationName(NAME, outputType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(outputType),
                 INPUT_FUNCTION.bindTo(keyType).bindTo(valueType),
-                null,
-                null,
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION,
                 KeyValuePairsState.class,

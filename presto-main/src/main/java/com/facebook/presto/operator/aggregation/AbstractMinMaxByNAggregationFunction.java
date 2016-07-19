@@ -156,8 +156,6 @@ public abstract class AbstractMinMaxByNAggregationFunction
                 generateAggregationName(name, valueType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 inputParameterMetadata,
                 INPUT_FUNCTION.bindTo(comparator).bindTo(valueType).bindTo(keyType),
-                null,
-                null,
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION.bindTo(outputType),
                 MinMaxByNState.class,
