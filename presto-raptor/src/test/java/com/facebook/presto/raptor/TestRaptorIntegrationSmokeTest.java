@@ -21,8 +21,10 @@ import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import java.sql.Timestamp;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -36,7 +38,10 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.testing.Assertions.assertGreaterThan;
+import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static io.airlift.testing.Assertions.assertLessThan;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toSet;
@@ -300,5 +305,94 @@ public class TestRaptorIntegrationSmokeTest
         assertUpdate("DROP TABLE system_tables_test4");
 
         assertEquals(computeActual("SELECT * FROM system.tables WHERE table_schema IN ('foo', 'bar')").getRowCount(), 0);
+    }
+
+    @SuppressWarnings("OverlyStrongTypeCast")
+    @Test
+    public void testTableStatsSystemTable()
+            throws Exception
+    {
+        // basic sanity tests
+        assertQuery("" +
+                        "SELECT table_schema, table_name, sum(row_count)\n" +
+                        "FROM system.table_stats\n" +
+                        "WHERE table_schema = 'tpch'\n" +
+                        "  AND table_name IN ('orders', 'lineitem')\n" +
+                        "GROUP BY 1, 2",
+                "" +
+                        "SELECT 'tpch', 'orders', (SELECT count(*) FROM orders)\n" +
+                        "UNION ALL\n" +
+                        "SELECT 'tpch', 'lineitem', (SELECT count(*) FROM lineitem)");
+
+        assertQuery("" +
+                        "SELECT\n" +
+                        "  bool_and(row_count >= shard_count)\n" +
+                        ", bool_and(update_time >= create_time)\n" +
+                        ", bool_and(table_version >= 1)\n" +
+                        "FROM system.table_stats\n" +
+                        "WHERE row_count > 0",
+                "SELECT true, true, true");
+
+        // create empty table
+        assertUpdate("CREATE TABLE test_table_stats (x bigint)");
+
+        @Language("SQL") String sql = "" +
+                "SELECT create_time, update_time, table_version," +
+                "  shard_count, row_count, uncompressed_size\n" +
+                "FROM system.table_stats\n" +
+                "WHERE table_schema = 'tpch'\n" +
+                "  AND table_name = 'test_table_stats'";
+        MaterializedRow row = getOnlyElement(computeActual(sql).getMaterializedRows());
+
+        Timestamp createTime = (Timestamp) row.getField(0);
+        Timestamp updateTime1 = (Timestamp) row.getField(1);
+        assertEquals(createTime, updateTime1);
+
+        assertEquals(row.getField(2), 1L);      // table_version
+        assertEquals(row.getField(3), 0L);      // shard_count
+        assertEquals(row.getField(4), 0L);      // row_count
+        long size1 = (long) row.getField(5);    // uncompressed_size
+
+        // insert
+        assertUpdate("INSERT INTO test_table_stats VALUES (1), (2), (3), (4)", 4);
+        row = getOnlyElement(computeActual(sql).getMaterializedRows());
+
+        assertEquals(row.getField(0), createTime);
+        Timestamp updateTime2 = (Timestamp) row.getField(1);
+        assertLessThan(updateTime1, updateTime2);
+
+        assertEquals(row.getField(2), 2L);                    // table_version
+        assertGreaterThanOrEqual((Long) row.getField(3), 1L); // shard_count
+        assertEquals(row.getField(4), 4L);                    // row_count
+        long size2 = (long) row.getField(5);                  // uncompressed_size
+        assertGreaterThan(size2, size1);
+
+        // delete
+        assertUpdate("DELETE FROM test_table_stats WHERE x IN (2, 4)", 2);
+        row = getOnlyElement(computeActual(sql).getMaterializedRows());
+
+        assertEquals(row.getField(0), createTime);
+        Timestamp updateTime3 = (Timestamp) row.getField(1);
+        assertLessThan(updateTime2, updateTime3);
+
+        assertEquals(row.getField(2), 3L);                    // table_version
+        assertGreaterThanOrEqual((Long) row.getField(3), 1L); // shard_count
+        assertEquals(row.getField(4), 2L);                    // row_count
+        long size3 = (long) row.getField(5);                  // uncompressed_Size
+        assertLessThan(size3, size2);
+
+        // add column
+        assertUpdate("ALTER TABLE test_table_stats ADD COLUMN y bigint");
+        row = getOnlyElement(computeActual(sql).getMaterializedRows());
+
+        assertEquals(row.getField(0), createTime);
+        assertLessThan(updateTime3, (Timestamp) row.getField(1));
+
+        assertEquals(row.getField(2), 4L);      // table_version
+        assertEquals(row.getField(4), 2L);      // row_count
+        assertEquals(row.getField(5), size3);   // uncompressed_size
+
+        // cleanup
+        assertUpdate("DROP TABLE test_table_stats");
     }
 }
