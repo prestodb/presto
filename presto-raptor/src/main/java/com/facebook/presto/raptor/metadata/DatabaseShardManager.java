@@ -15,6 +15,7 @@ package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.raptor.NodeSupplier;
 import com.facebook.presto.raptor.RaptorColumnHandle;
+import com.facebook.presto.raptor.storage.organization.ShardOrganizerDao;
 import com.facebook.presto.raptor.util.DaoSupplier;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
@@ -220,6 +221,8 @@ public class DatabaseShardManager
             shardDao.insertDeletedShards(tableId);
             shardDao.dropShardNodes(tableId);
             shardDao.dropShards(tableId);
+
+            handle.attach(ShardOrganizerDao.class).dropOrganizerJobs(tableId);
 
             MetadataDao dao = handle.attach(MetadataDao.class);
             dao.dropColumns(tableId);
@@ -485,7 +488,13 @@ public class DatabaseShardManager
     @Override
     public Set<ShardMetadata> getNodeShards(String nodeIdentifier)
     {
-        return dao.getNodeShards(nodeIdentifier);
+        return dao.getNodeShards(nodeIdentifier, null);
+    }
+
+    @Override
+    public Set<ShardMetadata> getNodeShards(String nodeIdentifier, long tableId)
+    {
+        return dao.getNodeShards(nodeIdentifier, tableId);
     }
 
     @Override

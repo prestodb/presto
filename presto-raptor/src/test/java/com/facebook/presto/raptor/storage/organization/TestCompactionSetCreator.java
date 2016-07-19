@@ -203,7 +203,7 @@ public class TestCompactionSetCreator
         assertEquals(actual, expected);
     }
 
-    private static Set<UUID> extractIndexes(List<ShardIndexInfo> inputShards, int... indexes)
+    static Set<UUID> extractIndexes(List<ShardIndexInfo> inputShards, int... indexes)
     {
         ImmutableSet.Builder<UUID> builder = ImmutableSet.builder();
         for (int index : indexes) {

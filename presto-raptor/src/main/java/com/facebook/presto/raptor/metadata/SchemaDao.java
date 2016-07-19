@@ -32,6 +32,7 @@ public interface SchemaDao
             "  table_name VARCHAR(255) NOT NULL,\n" +
             "  temporal_column_id BIGINT,\n" +
             "  compaction_enabled BOOLEAN NOT NULL,\n" +
+            "  organization_enabled BOOLEAN NOT NULL,\n" +
             "  distribution_id BIGINT,\n" +
             "  create_time BIGINT NOT NULL,\n" +
             "  update_time BIGINT NOT NULL,\n" +
@@ -137,4 +138,13 @@ public interface SchemaDao
             "  FOREIGN KEY (node_id) REFERENCES nodes (node_id)\n" +
             ")")
     void createTableBuckets();
+
+    @SqlUpdate("CREATE TABLE IF NOT EXISTS shard_organizer_jobs (\n" +
+            "  node_identifier VARCHAR(255) NOT NULL,\n" +
+            "  table_id BIGINT NOT NULL,\n" +
+            "  last_start_time BIGINT,\n" +
+            "  PRIMARY KEY (node_identifier, table_id),\n" +
+            "  FOREIGN KEY (table_id) REFERENCES tables (table_id)\n" +
+            ")")
+    void createTableShardOrganizerJobs();
 }
