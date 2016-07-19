@@ -444,7 +444,8 @@ public class PipelineContext
                 runningPartitionedDrivers,
                 completedDrivers,
 
-                succinctBytes(memoryReservation.get() + revocableMemoryReservation.get()),
+                succinctBytes(memoryReservation.get()),
+                succinctBytes(revocableMemoryReservation.get()),
                 succinctBytes(systemMemoryReservation.get()),
 
                 queuedTime.snapshot(),

@@ -51,6 +51,7 @@ public class TaskStats
 
     private final double cumulativeMemory;
     private final DataSize memoryReservation;
+    private final DataSize revocableMemoryReservation;
     private final DataSize systemMemoryReservation;
 
     private final Duration totalScheduledTime;
@@ -89,6 +90,7 @@ public class TaskStats
                 0.0,
                 new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
@@ -123,6 +125,7 @@ public class TaskStats
 
             @JsonProperty("cumulativeMemory") double cumulativeMemory,
             @JsonProperty("memoryReservation") DataSize memoryReservation,
+            @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
             @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
 
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
@@ -168,6 +171,7 @@ public class TaskStats
 
         this.cumulativeMemory = requireNonNull(cumulativeMemory, "cumulativeMemory is null");
         this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
+        this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
         this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
 
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
@@ -272,6 +276,12 @@ public class TaskStats
     public DataSize getMemoryReservation()
     {
         return memoryReservation;
+    }
+
+    @JsonProperty
+    public DataSize getRevocableMemoryReservation()
+    {
+        return revocableMemoryReservation;
     }
 
     @JsonProperty
@@ -388,6 +398,7 @@ public class TaskStats
                 completedDrivers,
                 cumulativeMemory,
                 memoryReservation,
+                revocableMemoryReservation,
                 systemMemoryReservation,
                 totalScheduledTime,
                 totalCpuTime,

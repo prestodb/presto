@@ -80,6 +80,12 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
+    public long getTotalRevocableMemoryReservation()
+    {
+        return 0;
+    }
+
+    @Override
     public Duration getTotalCpuTime()
     {
         return new Duration(0, TimeUnit.SECONDS);

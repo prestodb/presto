@@ -189,6 +189,23 @@ public final class SqlQueryExecution
     }
 
     @Override
+    public long getTotalRevocableMemoryReservation()
+    {
+        // acquire reference to outputStage before checking finalQueryInfo, because
+        // state change listener sets finalQueryInfo and then clears outputStage when
+        // the query finishes.
+        SqlQueryScheduler scheduler = queryScheduler.get();
+        QueryInfo queryInfo = finalQueryInfo.get();
+        if (queryInfo != null) {
+            return queryInfo.getQueryStats().getTotalRevocableMemoryReservation().toBytes();
+        }
+        if (scheduler == null) {
+            return 0;
+        }
+        return scheduler.getTotalRevocableMemoryReservation();
+    }
+
+    @Override
     public Duration getTotalCpuTime()
     {
         SqlQueryScheduler scheduler = queryScheduler.get();

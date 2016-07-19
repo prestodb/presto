@@ -153,7 +153,8 @@ public class ClusterMemoryManager
         boolean queryKilled = false;
         long totalBytes = 0;
         for (QueryExecution query : queries) {
-            long bytes = query.getTotalMemoryReservation();
+            // TODO: revoke revocable memory instead of kill
+            long bytes = query.getTotalMemoryReservation() + query.getTotalRevocableMemoryReservation();
             DataSize sessionMaxQueryMemory = getQueryMaxMemory(query.getSession());
             long queryMemoryLimit = Math.min(maxQueryMemory.toBytes(), sessionMaxQueryMemory.toBytes());
             totalBytes += bytes;
@@ -188,7 +189,8 @@ public class ClusterMemoryManager
                 QueryExecution biggestQuery = null;
                 long maxMemory = -1;
                 for (QueryExecution query : queries) {
-                    long bytesUsed = query.getTotalMemoryReservation();
+                    // TODO: revoke revocable memory instead of kill?
+                    long bytesUsed = query.getTotalMemoryReservation() + query.getTotalRevocableMemoryReservation();
                     if (bytesUsed > maxMemory && query.getMemoryPool().getId().equals(GENERAL_POOL)) {
                         biggestQuery = query;
                         maxMemory = bytesUsed;
@@ -253,7 +255,7 @@ public class ClusterMemoryManager
                         // since their memory usage is unbounded.
                         continue;
                     }
-                    long bytesUsed = queryExecution.getTotalMemoryReservation();
+                    long bytesUsed = queryExecution.getTotalMemoryReservation() + queryExecution.getTotalRevocableMemoryReservation();
                     if (bytesUsed > maxMemory) {
                         biggestQuery = queryExecution;
                         maxMemory = bytesUsed;

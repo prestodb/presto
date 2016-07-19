@@ -56,6 +56,7 @@ public class TaskStatus
     private final int queuedPartitionedDrivers;
     private final int runningPartitionedDrivers;
     private final DataSize memoryReservation;
+    private final DataSize revocableMemoryReservation;
 
     private final List<ExecutionFailureInfo> failures;
 
@@ -68,7 +69,8 @@ public class TaskStatus
             @JsonProperty("failures") List<ExecutionFailureInfo> failures,
             @JsonProperty("queuedPartitionedDrivers") int queuedPartitionedDrivers,
             @JsonProperty("runningPartitionedDrivers") int runningPartitionedDrivers,
-            @JsonProperty("memoryReservation") DataSize memoryReservation)
+            @JsonProperty("memoryReservation") DataSize memoryReservation,
+            @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
@@ -85,6 +87,7 @@ public class TaskStatus
         this.runningPartitionedDrivers = runningPartitionedDrivers;
 
         this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
+        this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
         this.failures = ImmutableList.copyOf(requireNonNull(failures, "failures is null"));
     }
 
@@ -142,6 +145,12 @@ public class TaskStatus
         return memoryReservation;
     }
 
+    @JsonProperty
+    public DataSize getRevocableMemoryReservation()
+    {
+        return revocableMemoryReservation;
+    }
+
     @Override
     public String toString()
     {
@@ -153,7 +162,7 @@ public class TaskStatus
 
     public static TaskStatus initialTaskStatus(TaskId taskId, URI location)
     {
-        return new TaskStatus(taskId, "", MIN_VERSION, PLANNED, location, ImmutableList.of(), 0, 0, new DataSize(0, BYTE));
+        return new TaskStatus(taskId, "", MIN_VERSION, PLANNED, location, ImmutableList.of(), 0, 0, new DataSize(0, BYTE), new DataSize(0, BYTE));
     }
 
     public static TaskStatus failWith(TaskStatus taskStatus, TaskState state, List<ExecutionFailureInfo> exceptions)
@@ -167,6 +176,7 @@ public class TaskStatus
                 exceptions,
                 taskStatus.getQueuedPartitionedDrivers(),
                 taskStatus.getRunningPartitionedDrivers(),
-                taskStatus.getMemoryReservation());
+                taskStatus.getMemoryReservation(),
+                taskStatus.getRevocableMemoryReservation());
     }
 }

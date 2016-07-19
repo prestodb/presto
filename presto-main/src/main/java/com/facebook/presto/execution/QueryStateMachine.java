@@ -238,6 +238,7 @@ public class QueryStateMachine
 
         long cumulativeMemory = 0;
         long totalMemoryReservation = 0;
+        long totalRevocableMemoryReservation = 0;
         long peakMemoryReservation = 0;
 
         long totalScheduledTime = 0;
@@ -270,6 +271,7 @@ public class QueryStateMachine
 
             cumulativeMemory += stageStats.getCumulativeMemory();
             totalMemoryReservation += stageStats.getTotalMemoryReservation().toBytes();
+            totalRevocableMemoryReservation += stageStats.getTotalRevocableMemoryReservation().toBytes();
             peakMemoryReservation = getPeakMemoryInBytes();
 
             totalScheduledTime += stageStats.getTotalScheduledTime().roundTo(NANOSECONDS);
@@ -321,6 +323,7 @@ public class QueryStateMachine
 
                 cumulativeMemory,
                 succinctBytes(totalMemoryReservation),
+                succinctBytes(totalRevocableMemoryReservation),
                 succinctBytes(peakMemoryReservation),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),

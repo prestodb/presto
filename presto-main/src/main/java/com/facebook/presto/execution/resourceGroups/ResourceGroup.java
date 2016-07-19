@@ -523,7 +523,7 @@ public class ResourceGroup
             if (subGroups.isEmpty()) {
                 cachedMemoryUsageBytes = 0;
                 for (QueryExecution query : runningQueries) {
-                    cachedMemoryUsageBytes += query.getTotalMemoryReservation();
+                    cachedMemoryUsageBytes += query.getTotalMemoryReservation() + query.getTotalRevocableMemoryReservation();
                 }
             }
             else {
@@ -660,6 +660,7 @@ public class ResourceGroup
                 // Always allow at least one running query
                 maxRunning = Math.max(1, maxRunning);
             }
+            // TODO: add handling revocable memory?
             return runningQueries.size() + descendantRunningQueries < maxRunning &&
                     cachedMemoryUsageBytes < softMemoryLimitBytes;
         }

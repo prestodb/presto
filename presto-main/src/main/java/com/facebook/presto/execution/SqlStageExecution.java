@@ -188,6 +188,13 @@ public final class SqlStageExecution
                 .sum();
     }
 
+    public synchronized long getRevocableMemoryReservation()
+    {
+        return getAllTasks().stream()
+                .mapToLong(task -> task.getTaskStatus().getRevocableMemoryReservation().toBytes())
+                .sum();
+    }
+
     public synchronized Duration getTotalCpuTime()
     {
         long millis = getAllTasks().stream()
