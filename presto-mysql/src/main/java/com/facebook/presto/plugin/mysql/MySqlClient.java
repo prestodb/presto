@@ -47,6 +47,7 @@ public class MySqlClient
         connectionProperties.setProperty("nullCatalogMeansCurrent", "false");
         connectionProperties.setProperty("useUnicode", "true");
         connectionProperties.setProperty("characterEncoding", "utf8");
+        connectionProperties.setProperty("tinyInt1isBit", "false");
         if (mySqlConfig.isAutoReconnect()) {
             connectionProperties.setProperty("autoReconnect", String.valueOf(mySqlConfig.isAutoReconnect()));
             connectionProperties.setProperty("maxReconnects", String.valueOf(mySqlConfig.getMaxReconnects()));

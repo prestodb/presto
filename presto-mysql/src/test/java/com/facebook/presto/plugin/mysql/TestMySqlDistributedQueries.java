@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.mysql;
 
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tests.AbstractTestQueries;
 import com.facebook.presto.tests.datatype.CreateAndInsertDataSetup;
 import com.facebook.presto.tests.datatype.CreateAsSelectDataSetup;
@@ -33,12 +34,14 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.tests.datatype.DataType.stringDataType;
 import static com.facebook.presto.tests.datatype.DataType.varcharDataType;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -149,6 +152,29 @@ public class TestMySqlDistributedQueries
     {
         JdbcSqlExecutor mysqlUnicodeExecutor = new JdbcSqlExecutor(mysqlServer.getJdbcUrl() + "&useUnicode=true&characterEncoding=utf8");
         return new CreateAndInsertDataSetup(mysqlUnicodeExecutor, tableNamePrefix);
+    }
+
+    @Test
+    public void testMySqlTinyInt1()
+            throws Exception
+    {
+        execute("CREATE TABLE tpch.mysql_test_tinyint1 (c_tinyint tinyint(1))");
+
+        MaterializedResult actual = computeActual("SHOW COLUMNS FROM mysql_test_tinyint1");
+        MaterializedResult expected = resultBuilder(getSession(), TINYINT)
+                .row("c_tinyint", "integer", "").build();
+
+        assertEquals(actual, expected);
+
+        execute("INSERT INTO tpch.mysql_test_tinyint1 VALUES (127), (-128)");
+        MaterializedResult materializedRows = computeActual("SELECT * FROM tpch.mysql_test_tinyint1 WHERE c_tinyint = 127");
+        assertEquals(materializedRows.getRowCount(), 1);
+        MaterializedRow row = getOnlyElement(materializedRows);
+
+        assertEquals(row.getFields().size(), 1);
+        assertEquals(row.getField(0), 127);
+
+        assertUpdate("DROP TABLE mysql_test_tinyint1");
     }
 
     @Override
