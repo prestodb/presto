@@ -806,12 +806,12 @@ public class FunctionRegistry
         // search for exact match
         Type returnType = typeManager.getType(signature.getReturnType());
         List<Type> argumentTypes = resolveTypes(signature.getArgumentTypes(), typeManager);
-        for (SqlFunction operator : candidates) {
-            Optional<BoundVariables> boundVariables = new SignatureBinder(typeManager, operator.getSignature(), false)
+        for (SqlFunction candidate : candidates) {
+            Optional<BoundVariables> boundVariables = new SignatureBinder(typeManager, candidate.getSignature(), false)
                     .bindVariables(argumentTypes, returnType);
             if (boundVariables.isPresent()) {
                 try {
-                    return specializedScalarCache.getUnchecked(new SpecializedFunctionKey(operator, boundVariables.get(), argumentTypes.size()));
+                    return specializedScalarCache.getUnchecked(new SpecializedFunctionKey(candidate, boundVariables.get(), argumentTypes.size()));
                 }
                 catch (UncheckedExecutionException e) {
                     throw Throwables.propagate(e.getCause());
