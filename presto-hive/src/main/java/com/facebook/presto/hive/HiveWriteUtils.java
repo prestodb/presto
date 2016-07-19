@@ -475,7 +475,7 @@ public final class HiveWriteUtils
                 return isWritableType(listTypeInfo.getListElementTypeInfo());
             case STRUCT:
                 StructTypeInfo structTypeInfo = checkType(typeInfo, StructTypeInfo.class, "typeInfo");
-                return structTypeInfo.getAllStructFieldTypeInfos().stream().allMatch(HiveType::isSupportedType);
+                return structTypeInfo.getAllStructFieldTypeInfos().stream().allMatch(HiveWriteUtils::isWritableType);
         }
         return false;
     }
