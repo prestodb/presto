@@ -61,6 +61,7 @@ public class PipelineContext
     private final AtomicInteger completedDrivers = new AtomicInteger();
 
     private final AtomicLong memoryReservation = new AtomicLong();
+    private final AtomicLong revocableMemoryReservation = new AtomicLong();
     private final AtomicLong systemMemoryReservation = new AtomicLong();
 
     private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
@@ -214,10 +215,22 @@ public class PipelineContext
         checkArgument(memoryReservation.addAndGet(-bytes) >= 0, "Tried to transfer more memory than is reserved");
     }
 
+    public synchronized boolean isWaitingForRevocableMemory()
+    {
+        return taskContext.isWaitingForRevocableMemory();
+    }
+
     public synchronized ListenableFuture<?> reserveMemory(long bytes)
     {
         ListenableFuture<?> future = taskContext.reserveMemory(bytes);
         memoryReservation.getAndAdd(bytes);
+        return future;
+    }
+
+    public synchronized ListenableFuture<?> reserveRevocableMemory(long bytes)
+    {
+        ListenableFuture<?> future = taskContext.reserveRevocableMemory(bytes);
+        revocableMemoryReservation.getAndAdd(bytes);
         return future;
     }
 
@@ -244,6 +257,14 @@ public class PipelineContext
         checkArgument(bytes <= memoryReservation.get(), "tried to free more memory than is reserved");
         taskContext.freeMemory(bytes);
         memoryReservation.getAndAdd(-bytes);
+    }
+
+    public synchronized void freeRevocableMemory(long bytes)
+    {
+        checkArgument(bytes >= 0, "bytes is negative");
+        checkArgument(bytes <= revocableMemoryReservation.get(), "tried to free more revocable memory than is reserved");
+        taskContext.freeRevocableMemory(bytes);
+        revocableMemoryReservation.getAndAdd(-bytes);
     }
 
     public synchronized void freeSystemMemory(long bytes)
@@ -423,7 +444,7 @@ public class PipelineContext
                 runningPartitionedDrivers,
                 completedDrivers,
 
-                succinctBytes(memoryReservation.get()),
+                succinctBytes(memoryReservation.get() + revocableMemoryReservation.get()),
                 succinctBytes(systemMemoryReservation.get()),
 
                 queuedTime.snapshot(),

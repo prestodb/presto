@@ -73,6 +73,13 @@ public interface Operator
     Page getOutput();
 
     /**
+     * After calling this method operator should revoke all reserved revocable memory
+     */
+    default void revokeMemory()
+    {
+    }
+
+    /**
      * This method will always be called before releasing the Operator reference.
      */
     @Override
