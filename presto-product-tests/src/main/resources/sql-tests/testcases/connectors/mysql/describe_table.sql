@@ -1,6 +1,6 @@
--- database: presto; groups: mysql_connector; queryType: SELECT; tables: mysql.workers_jdbc
+-- database: presto; groups: mysql_connector; queryType: SELECT; tables: mysql.workers_mysql
 --!
-describe mysql.test.workers_jdbc
+describe mysql.test.workers_mysql
 --!
 -- delimiter: |; trimValues: true; ignoreOrder: true;
 id_employee        | integer     | |
