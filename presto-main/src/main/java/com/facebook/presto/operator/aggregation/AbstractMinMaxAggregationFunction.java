@@ -156,8 +156,6 @@ public abstract class AbstractMinMaxAggregationFunction
                 generateAggregationName(getSignature().getName(), type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createParameterMetadata(type),
                 inputFunction,
-                null,
-                null,
                 combineFunction,
                 outputFunction,
                 stateInterface,
