@@ -73,7 +73,7 @@ public class TablePropertiesSystemTable
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
         Builder table = InMemoryRecordSet.builder(TABLE_PROPERTIES_TABLE);
-        Map<String, Map<String, PropertyMetadata<?>>> tableProperties = new TreeMap<>(metadata.getTablePropertyManager().getAllTableProperties());
+        Map<String, Map<String, PropertyMetadata<?>>> tableProperties = new TreeMap<>(metadata.getTablePropertyManager().getAllProperties());
         for (Entry<String, Map<String, PropertyMetadata<?>>> entry : tableProperties.entrySet()) {
             String catalog = entry.getKey();
             Map<String, PropertyMetadata<?>> properties = new TreeMap<>(entry.getValue());

@@ -350,7 +350,7 @@ public class LogicalPlanner
     {
         String owner = session.getUser();
 
-        Map<String, Object> properties = metadata.getTablePropertyManager().getTableProperties(
+        Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
                 table.getCatalogName(),
                 propertyExpressions,
                 session,
