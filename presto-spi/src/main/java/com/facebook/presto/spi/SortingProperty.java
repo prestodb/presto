@@ -14,6 +14,8 @@
 package com.facebook.presto.spi;
 
 import com.facebook.presto.spi.block.SortOrder;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Collections;
 import java.util.Objects;
@@ -29,7 +31,10 @@ public final class SortingProperty<E>
     private final E column;
     private final SortOrder order;
 
-    public SortingProperty(E column, SortOrder order)
+    @JsonCreator
+    public SortingProperty(
+            @JsonProperty("column") E column,
+            @JsonProperty("order") SortOrder order)
     {
         requireNonNull(column, "column is null");
         requireNonNull(order, "order is null");
@@ -38,6 +43,7 @@ public final class SortingProperty<E>
         this.order = order;
     }
 
+    @JsonProperty
     public E getColumn()
     {
         return column;
@@ -48,6 +54,7 @@ public final class SortingProperty<E>
         return Collections.singleton(column);
     }
 
+    @JsonProperty
     public SortOrder getOrder()
     {
         return order;
