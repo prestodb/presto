@@ -43,9 +43,7 @@ public class NullableBooleanStateSerializer
     @Override
     public void deserialize(Block block, int index, NullableBooleanState state)
     {
-        state.setNull(block.isNull(index));
-        if (!state.isNull()) {
-            state.setBoolean(BOOLEAN.getBoolean(block, index));
-        }
+        state.setNull(false);
+        state.setBoolean(BOOLEAN.getBoolean(block, index));
     }
 }
