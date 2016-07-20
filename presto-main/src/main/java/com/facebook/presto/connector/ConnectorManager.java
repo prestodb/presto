@@ -200,6 +200,7 @@ public class ConnectorManager
 
         // Register session and table properties once per catalog
         metadataManager.getSessionPropertyManager().addConnectorSessionProperties(catalogName, connector.getSessionProperties());
+        metadataManager.getSchemaPropertyManager().addProperties(catalogName, connector.getSchemaProperties());
         metadataManager.getTablePropertyManager().addProperties(catalogName, connector.getTableProperties());
     }
 

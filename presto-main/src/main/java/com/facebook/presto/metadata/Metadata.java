@@ -122,6 +122,11 @@ public interface Metadata
     Map<QualifiedObjectName, List<ColumnMetadata>> listTableColumns(Session session, QualifiedTablePrefix prefix);
 
     /**
+     * Creates a schema.
+     */
+    void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties);
+
+    /**
      * Creates a table using the specified table metadata.
      */
     @NotNull
@@ -260,6 +265,8 @@ public interface Metadata
     BlockEncodingSerde getBlockEncodingSerde();
 
     SessionPropertyManager getSessionPropertyManager();
+
+    SchemaPropertyManager getSchemaPropertyManager();
 
     TablePropertyManager getTablePropertyManager();
 }

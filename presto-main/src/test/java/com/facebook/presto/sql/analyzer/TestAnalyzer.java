@@ -19,6 +19,7 @@ import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.metadata.SchemaPropertyManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.metadata.TestingMetadata;
@@ -1017,6 +1018,7 @@ public class TestAnalyzer
                 typeManager,
                 new BlockEncodingManager(typeManager),
                 new SessionPropertyManager(),
+                new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 transactionManager);
         metadata.registerConnectorCatalog(TPCH_CONNECTOR_ID, TPCH_CATALOG);

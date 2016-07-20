@@ -189,6 +189,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.createSchema(session, schemaName, properties);
+        }
+    }
+
+    @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

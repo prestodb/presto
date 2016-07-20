@@ -142,6 +142,14 @@ public interface ConnectorMetadata
     Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix);
 
     /**
+     * Creates a schema.
+     */
+    default void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating schemas");
+    }
+
+    /**
      * Creates a table using the specified table metadata.
      */
     default void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)

@@ -63,6 +63,7 @@ import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.SchemaPropertyManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.metadata.ViewDefinition;
@@ -193,6 +194,9 @@ public class ServerMainModule
         // session properties
         binder.bind(SessionPropertyManager.class).in(Scopes.SINGLETON);
         binder.bind(SystemSessionProperties.class).in(Scopes.SINGLETON);
+
+        // schema properties
+        binder.bind(SchemaPropertyManager.class).in(Scopes.SINGLETON);
 
         // table properties
         binder.bind(TablePropertyManager.class).in(Scopes.SINGLETON);

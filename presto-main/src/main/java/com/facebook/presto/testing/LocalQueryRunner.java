@@ -26,6 +26,7 @@ import com.facebook.presto.connector.system.CatalogSystemTable;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
 import com.facebook.presto.connector.system.GlobalSystemConnectorFactory;
 import com.facebook.presto.connector.system.NodeSystemTable;
+import com.facebook.presto.connector.system.SchemaPropertiesSystemTable;
 import com.facebook.presto.connector.system.TablePropertiesSystemTable;
 import com.facebook.presto.connector.system.TransactionsSystemTable;
 import com.facebook.presto.execution.CommitTask;
@@ -55,6 +56,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
+import com.facebook.presto.metadata.SchemaPropertyManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TableHandle;
@@ -258,6 +260,7 @@ public class LocalQueryRunner
                 typeRegistry,
                 blockEncodingSerde,
                 new SessionPropertyManager(),
+                new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 transactionManager);
         this.accessControl = new TestingAccessControlManager(transactionManager);
@@ -286,6 +289,7 @@ public class LocalQueryRunner
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),
                 new CatalogSystemTable(metadata),
+                new SchemaPropertiesSystemTable(metadata),
                 new TablePropertiesSystemTable(metadata),
                 new TransactionsSystemTable(typeRegistry, transactionManager)),
                 ImmutableSet.of());

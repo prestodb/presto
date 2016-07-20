@@ -87,6 +87,14 @@ public interface Connector
     }
 
     /**
+     * @return the schema properties for this connector
+     */
+    default List<PropertyMetadata<?>> getSchemaProperties()
+    {
+        return emptyList();
+    }
+
+    /**
      * @return the table properties for this connector
      */
     default List<PropertyMetadata<?>> getTableProperties()
