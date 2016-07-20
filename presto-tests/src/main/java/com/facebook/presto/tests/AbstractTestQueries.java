@@ -143,9 +143,9 @@ public abstract class AbstractTestQueries
         assertEquals(result.getRowCount(), 1);
         assertEquals(result.getMaterializedRows().get(0).getField(0), new SqlIntervalDayTime(30, 0, 0, 0, 0));
 
-        result = computeActual("SELECT INTERVAL '" + Integer.MAX_VALUE + "' YEAR");
+        result = computeActual("SELECT INTERVAL '" + Short.MAX_VALUE + "' YEAR");
         assertEquals(result.getRowCount(), 1);
-        assertEquals(result.getMaterializedRows().get(0).getField(0), new SqlIntervalYearMonth(Integer.MAX_VALUE, 0));
+        assertEquals(result.getMaterializedRows().get(0).getField(0), new SqlIntervalYearMonth(Short.MAX_VALUE, 0));
     }
 
     @Test

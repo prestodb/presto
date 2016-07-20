@@ -153,7 +153,7 @@ public final class IntervalYearMonthOperators
     @SqlType(StandardTypes.VARCHAR)
     public static Slice castToSlice(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long value)
     {
-        return utf8Slice(IntervalYearMonth.formatMonths(value));
+        return utf8Slice(IntervalYearMonth.formatMonths((int) value));
     }
 
     @ScalarOperator(HASH_CODE)
