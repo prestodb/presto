@@ -819,6 +819,39 @@ public class FunctionRegistry
             }
         }
 
+        // TODO: hack because there could be "type only" coercions (which aren't necessarily included as implicit casts),
+        // so do a second pass allowing "type only" coercions
+        for (SqlFunction candidate : candidates) {
+            SignatureBinder binder = new SignatureBinder(typeManager, candidate.getSignature(), true);
+            Optional<Signature> boundSignature = binder.bind(argumentTypes);
+            if (boundSignature.isPresent()) {
+                if (!typeManager.isTypeOnlyCoercion(typeManager.getType(boundSignature.get().getReturnType()), returnType)) {
+                    continue;
+                }
+                boolean nonTypeOnlyCoercion = false;
+                for (int i = 0; i < argumentTypes.size(); i++) {
+                    Type expectedType = typeManager.getType(boundSignature.get().getArgumentTypes().get(i));
+                    if (!typeManager.isTypeOnlyCoercion(argumentTypes.get(i), expectedType)) {
+                        nonTypeOnlyCoercion = true;
+                        break;
+                    }
+                }
+                if (nonTypeOnlyCoercion) {
+                    continue;
+                }
+            }
+
+            Optional<BoundVariables> boundVariables = binder.bindVariables(argumentTypes, returnType);
+            if (boundVariables.isPresent()) {
+                try {
+                    return specializedScalarCache.getUnchecked(new SpecializedFunctionKey(candidate, boundVariables.get(), argumentTypes.size()));
+                }
+                catch (UncheckedExecutionException e) {
+                    throw Throwables.propagate(e.getCause());
+                }
+            }
+        }
+
         // TODO: this is a hack and should be removed
         if (signature.getName().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {
             List<TypeSignature> parameterTypes = signature.getArgumentTypes();
