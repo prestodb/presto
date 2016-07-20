@@ -20,7 +20,6 @@ import org.apache.hadoop.security.authentication.util.KerberosName;
 import javax.security.auth.Subject;
 
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.fs.CommonConfigurationKeys.IPC_CLIENT_FALLBACK_TO_SIMPLE_AUTH_ALLOWED_KEY;
 import static org.apache.hadoop.security.UserGroupInformationShim.createUserGroupInformationForSubject;
 
 public class KerberosHadoopAuthentication
@@ -32,7 +31,7 @@ public class KerberosHadoopAuthentication
         // It is further used in many places in DfsClient
         Configuration configuration = new Configuration(false);
         configuration.set("hadoop.security.authentication", "kerberos");
-        configuration.setBoolean(IPC_CLIENT_FALLBACK_TO_SIMPLE_AUTH_ALLOWED_KEY, true);
+        configuration.set("ipc.client.fallback-to-simple-auth-allowed", "true");
         UserGroupInformation.setConfiguration(configuration);
 
         // KerberosName#rules static field must be initialized
