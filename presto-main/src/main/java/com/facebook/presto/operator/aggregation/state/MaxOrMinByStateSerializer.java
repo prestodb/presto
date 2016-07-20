@@ -65,11 +65,6 @@ public class MaxOrMinByStateSerializer
     @Override
     public void deserialize(Block block, int index, MaxOrMinByState state)
     {
-        if (block.isNull(index)) {
-            state.setKey(null);
-            state.setValue(null);
-            return;
-        }
         Block rowBlock = block.getObject(index, Block.class);
         state.setKey(rowBlock.getSingleValueBlock(0));
         state.setValue(rowBlock.getSingleValueBlock(1));

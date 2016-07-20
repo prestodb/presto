@@ -55,15 +55,13 @@ public class DigestAndPercentileStateSerializer
     @Override
     public void deserialize(Block block, int index, DigestAndPercentileState state)
     {
-        if (!block.isNull(index)) {
-            SliceInput input = VARCHAR.getSlice(block, index).getInput();
+        SliceInput input = VARCHAR.getSlice(block, index).getInput();
 
-            // read digest
-            state.setDigest(QuantileDigest.deserialize(input));
-            state.addMemoryUsage(state.getDigest().estimatedInMemorySizeInBytes());
+        // read digest
+        state.setDigest(QuantileDigest.deserialize(input));
+        state.addMemoryUsage(state.getDigest().estimatedInMemorySizeInBytes());
 
-            // read percentile
-            state.setPercentile(input.readDouble());
-        }
+        // read percentile
+        state.setPercentile(input.readDouble());
     }
 }

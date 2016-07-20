@@ -48,11 +48,6 @@ public class BlockStateSerializer
     @Override
     public void deserialize(Block block, int index, BlockState state)
     {
-        if (block.isNull(index)) {
-            state.setBlock(null);
-        }
-        else {
-            state.setBlock((Block) type.getObject(block, index));
-        }
+        state.setBlock((Block) type.getObject(block, index));
     }
 }

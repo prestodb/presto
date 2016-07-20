@@ -57,9 +57,6 @@ public class MinMaxByNStateSerializer
     @Override
     public void deserialize(Block block, int index, MinMaxByNState state)
     {
-        if (block.isNull(index)) {
-            return;
-        }
         Block currentBlock = (Block) serializedType.getObject(block, index);
         state.setTypedKeyValueHeap(TypedKeyValueHeap.deserialize(currentBlock, keyType, valueType, blockComparator));
     }

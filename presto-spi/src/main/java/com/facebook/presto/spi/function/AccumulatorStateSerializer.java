@@ -23,5 +23,15 @@ public interface AccumulatorStateSerializer<T>
 
     void serialize(T state, BlockBuilder out);
 
+    /**
+     * Deserialize {@code index}-th position in {@code block} into {@code state}.
+     * <p>
+     * This method may be invoked with a reused dirty {@code state}. Therefore,
+     * implementations must not make assumptions about the initial value of
+     * {@code state}.
+     * <p>
+     * Null positions in {@code block} are skipped and ignored. In other words,
+     * {@code block.isNull(index)} is guaranteed to return false.
+     */
     void deserialize(Block block, int index, T state);
 }

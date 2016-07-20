@@ -44,8 +44,6 @@ public class HyperLogLogStateSerializer
     @Override
     public void deserialize(Block block, int index, HyperLogLogState state)
     {
-        if (!block.isNull(index)) {
-            state.setHyperLogLog(HyperLogLog.newInstance(HYPER_LOG_LOG.getSlice(block, index)));
-        }
+        state.setHyperLogLog(HyperLogLog.newInstance(HYPER_LOG_LOG.getSlice(block, index)));
     }
 }

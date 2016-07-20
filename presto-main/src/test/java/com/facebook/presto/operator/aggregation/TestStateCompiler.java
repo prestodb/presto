@@ -52,13 +52,12 @@ public class TestStateCompiler
 
         Block block = builder.build();
 
+        assertEquals(block.isNull(0), false);
         assertEquals(BIGINT.getLong(block, 0), state.getLong());
         serializer.deserialize(block, 0, deserializedState);
         assertEquals(deserializedState.getLong(), state.getLong());
 
-        assertEquals(block.isNull(1), state.isNull());
-        serializer.deserialize(block, 1, deserializedState);
-        assertEquals(deserializedState.isNull(), state.isNull());
+        assertEquals(block.isNull(1), true);
     }
 
     @Test

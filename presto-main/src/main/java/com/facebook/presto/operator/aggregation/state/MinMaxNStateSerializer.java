@@ -71,9 +71,6 @@ public class MinMaxNStateSerializer
     @Override
     public void deserialize(Block block, int index, MinMaxNState state)
     {
-        if (block.isNull(index)) {
-            return;
-        }
         Block currentBlock = (Block) serializedType.getObject(block, index);
         int capacity = Ints.checkedCast(BIGINT.getLong(currentBlock, 0));
         Block heapBlock = arrayType.getObject(currentBlock, 1);

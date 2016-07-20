@@ -52,8 +52,6 @@ public class KeyValuePairStateSerializer
     @Override
     public void deserialize(Block block, int index, KeyValuePairsState state)
     {
-        if (!block.isNull(index)) {
-            state.set(new KeyValuePairs(mapType.getObject(block, index), state.getKeyType(), state.getValueType(), isMultiValue));
-        }
+        state.set(new KeyValuePairs(mapType.getObject(block, index), state.getKeyType(), state.getValueType(), isMultiValue));
     }
 }
