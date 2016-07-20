@@ -23,8 +23,6 @@ import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.fs.CommonConfigurationKeys.IPC_CLIENT_FALLBACK_TO_SIMPLE_AUTH_ALLOWED_KEY;
 import static org.apache.hadoop.security.UserGroupInformationShim.createUserGroupInformationForSubject;
 
-
-
 public class KerberosHadoopAuthentication
         implements HadoopAuthentication
 {
