@@ -616,7 +616,7 @@ public class TestMathFunctions
                 DOUBLE,
                 0.0);
 
-        assertFunction("cosine_similarity(null, map(array ['c', 'b'], array [1.0, 3.0]))",
+        assertFunction("cosine_similarity(cast(null as map(varchar,double)), map(array ['c', 'b'], array [1.0, 3.0]))",
                 DOUBLE,
                 null);
 
