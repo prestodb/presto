@@ -14,6 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -332,6 +333,7 @@ public final class TypeRegistry
                     case StandardTypes.BIGINT:
                     case StandardTypes.INTEGER:
                     case StandardTypes.DOUBLE:
+                    case StandardTypes.FLOAT:
                     case StandardTypes.VARBINARY:
                     case StandardTypes.DATE:
                     case StandardTypes.TIME:
@@ -365,6 +367,8 @@ public final class TypeRegistry
                         return Optional.of(INTEGER);
                     case StandardTypes.BIGINT:
                         return Optional.of(BIGINT);
+                    case StandardTypes.FLOAT:
+                        return Optional.of(FLOAT);
                     case StandardTypes.DOUBLE:
                         return Optional.of(DOUBLE);
                     case StandardTypes.DECIMAL:
@@ -379,6 +383,8 @@ public final class TypeRegistry
                         return Optional.of(INTEGER);
                     case StandardTypes.BIGINT:
                         return Optional.of(BIGINT);
+                    case StandardTypes.FLOAT:
+                        return Optional.of(FLOAT);
                     case StandardTypes.DOUBLE:
                         return Optional.of(DOUBLE);
                     case StandardTypes.DECIMAL:
@@ -391,6 +397,8 @@ public final class TypeRegistry
                 switch (resultTypeBase) {
                     case StandardTypes.BIGINT:
                         return Optional.of(BIGINT);
+                    case StandardTypes.FLOAT:
+                        return Optional.of(FLOAT);
                     case StandardTypes.DOUBLE:
                         return Optional.of(DOUBLE);
                     case StandardTypes.DECIMAL:
@@ -401,6 +409,8 @@ public final class TypeRegistry
             }
             case StandardTypes.BIGINT: {
                 switch (resultTypeBase) {
+                    case StandardTypes.FLOAT:
+                        return Optional.of(FLOAT);
                     case StandardTypes.DOUBLE:
                         return Optional.of(DOUBLE);
                     case StandardTypes.DECIMAL:
@@ -410,6 +420,16 @@ public final class TypeRegistry
                 }
             }
             case StandardTypes.DECIMAL: {
+                switch (resultTypeBase) {
+                    case StandardTypes.FLOAT:
+                        return Optional.of(FLOAT);
+                    case StandardTypes.DOUBLE:
+                        return Optional.of(DOUBLE);
+                    default:
+                        return Optional.empty();
+                }
+            }
+            case StandardTypes.FLOAT: {
                 switch (resultTypeBase) {
                     case StandardTypes.DOUBLE:
                         return Optional.of(DOUBLE);

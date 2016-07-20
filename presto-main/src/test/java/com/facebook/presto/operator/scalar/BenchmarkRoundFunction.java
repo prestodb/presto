@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.operator.Description;
-import com.facebook.presto.operator.scalar.annotations.ScalarFunction;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.type.SqlType;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;

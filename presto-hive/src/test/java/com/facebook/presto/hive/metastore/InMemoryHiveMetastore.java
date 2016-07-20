@@ -20,8 +20,10 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
@@ -34,15 +36,12 @@ import java.net.URI;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static com.facebook.presto.hive.AbstractTestHiveClient.listAllDataPaths;
-import static com.facebook.presto.hive.HiveUtil.createPartitionName;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -162,6 +161,28 @@ public class InMemoryHiveMetastore
         }
     }
 
+    private static List<String> listAllDataPaths(HiveMetastore metastore, String schemaName, String tableName)
+    {
+        ImmutableList.Builder<String> locations = ImmutableList.builder();
+        Table table = metastore.getTable(schemaName, tableName).get();
+        if (table.getSd().getLocation() != null) {
+            // For unpartitioned table, there should be nothing directly under this directory.
+            // But including this location in the set makes the directory content assert more
+            // extensive, which is desirable.
+            locations.add(table.getSd().getLocation());
+        }
+
+        Optional<List<String>> partitionNames = metastore.getPartitionNames(schemaName, tableName);
+        if (partitionNames.isPresent()) {
+            metastore.getPartitionsByNames(schemaName, tableName, partitionNames.get()).stream()
+                    .map(partition -> partition.getSd().getLocation())
+                    .filter(location -> !location.startsWith(table.getSd().getLocation()))
+                    .forEach(locations::add);
+        }
+
+        return locations.build();
+    }
+
     @Override
     public void alterTable(String databaseName, String tableName, Table newTable)
     {
@@ -236,6 +257,18 @@ public class InMemoryHiveMetastore
         }
     }
 
+    private static String createPartitionName(Partition partition, Table table)
+    {
+        return makePartName(table.getPartitionKeys(), partition.getValues());
+    }
+
+    private static String makePartName(List<FieldSchema> partitionColumns, List<String> values)
+    {
+        checkArgument(partitionColumns.size() == values.size());
+        List<String> partitionColumnNames = partitionColumns.stream().map(FieldSchema::getName).collect(toList());
+        return FileUtils.makePartName(partitionColumnNames, values);
+    }
+
     @Override
     public void dropPartition(String databaseName, String tableName, List<String> parts)
     {
@@ -307,18 +340,18 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public Optional<Map<String, Partition>> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
+    public List<Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
     {
-        ImmutableMap.Builder<String, Partition> builder = ImmutableMap.builder();
+        ImmutableList.Builder<Partition> builder = ImmutableList.builder();
         for (String name : partitionNames) {
             PartitionName partitionName = new PartitionName(databaseName, tableName, name);
             Partition partition = partitions.get(partitionName);
             if (partition == null) {
-                return Optional.empty();
+                return ImmutableList.of();
             }
-            builder.put(name, partition.deepCopy());
+            builder.add(partition.deepCopy());
         }
-        return Optional.of(builder.build());
+        return builder.build();
     }
 
     @Override

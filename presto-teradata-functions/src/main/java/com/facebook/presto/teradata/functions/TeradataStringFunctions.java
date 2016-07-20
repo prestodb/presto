@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.teradata.functions;
 
-import com.facebook.presto.operator.Description;
 import com.facebook.presto.operator.scalar.StringFunctions;
-import com.facebook.presto.operator.scalar.annotations.ScalarFunction;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.LiteralParameters;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.type.LiteralParameters;
-import com.facebook.presto.type.SqlType;
 import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;

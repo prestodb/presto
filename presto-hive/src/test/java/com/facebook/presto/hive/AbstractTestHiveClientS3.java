@@ -15,8 +15,11 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
+import com.facebook.presto.hive.metastore.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
-import com.facebook.presto.hive.metastore.HiveMetastoreClient;
+import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.hive.metastore.ThriftHiveMetastore;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPageSink;
@@ -41,13 +44,13 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
+import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.api.Database;
-import org.apache.hadoop.hive.metastore.api.Table;
-import org.apache.thrift.TException;
+import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -150,7 +153,12 @@ public abstract class AbstractTestHiveClientS3
         HivePartitionManager hivePartitionManager = new HivePartitionManager(connectorId, TYPE_MANAGER, hiveClientConfig);
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig, new NoHdfsAuthentication());
-        metastoreClient = new TestingHiveMetastore(hiveCluster, executor, hiveClientConfig, writableBucket, hdfsEnvironment);
+        metastoreClient = new TestingHiveMetastore(
+                new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster)),
+                executor,
+                hiveClientConfig,
+                writableBucket,
+                hdfsEnvironment);
         locationService = new HiveLocationService(metastoreClient, hdfsEnvironment);
         TypeRegistry typeManager = new TypeRegistry();
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
@@ -168,12 +176,16 @@ public abstract class AbstractTestHiveClientS3
                 new HiveTypeTranslator());
         splitManager = new HiveSplitManager(
                 connectorId,
-                hiveClientConfig,
                 metastoreClient,
                 new NamenodeStats(),
                 hdfsEnvironment,
                 new HadoopDirectoryLister(),
-                executor);
+                new BoundedExecutor(executor, hiveClientConfig.getMaxSplitIteratorThreads()),
+                hiveClientConfig.getMaxOutstandingSplits(),
+                hiveClientConfig.getMinPartitionBatchSize(),
+                hiveClientConfig.getMaxPartitionBatchSize(),
+                hiveClientConfig.getMaxInitialSplits(),
+                hiveClientConfig.getRecursiveDirWalkerEnabled());
         pageSinkProvider = new HivePageSinkProvider(hdfsEnvironment, metastoreClient, new GroupByHashPageIndexerFactory(), typeManager, new HiveClientConfig(), locationService, partitionUpdateCodec);
         pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, getDefaultHiveRecordCursorProvider(hiveClientConfig), getDefaultHiveDataStreamFactories(hiveClientConfig), TYPE_MANAGER);
     }
@@ -403,9 +415,9 @@ public abstract class AbstractTestHiveClientS3
         private final String writableBucket;
         private final HdfsEnvironment hdfsEnvironment;
 
-        public TestingHiveMetastore(HiveCluster hiveCluster, ExecutorService executor, HiveClientConfig hiveClientConfig, String writableBucket, HdfsEnvironment hdfsEnvironment)
+        public TestingHiveMetastore(ExtendedHiveMetastore delegate, ExecutorService executor, HiveClientConfig hiveClientConfig, String writableBucket, HdfsEnvironment hdfsEnvironment)
         {
-            super(hiveCluster, executor, hiveClientConfig);
+            super(delegate, executor, hiveClientConfig);
             this.writableBucket = writableBucket;
             this.hdfsEnvironment = hdfsEnvironment;
         }
@@ -421,11 +433,12 @@ public abstract class AbstractTestHiveClientS3
         }
 
         @Override
-        public void createTable(Table table)
+        public void createTable(Table table, PrincipalPrivilegeSet privilegeSet)
         {
             // hack to work around the metastore not being configured for S3
-            table.getSd().setLocation("/");
-            super.createTable(table);
+            Table.Builder tableBuilder = Table.builder(table);
+            tableBuilder.getStorageBuilder().setLocation("/");
+            super.createTable(tableBuilder.build(), privilegeSet);
         }
 
         @Override
@@ -439,13 +452,13 @@ public abstract class AbstractTestHiveClientS3
 
                 // hack to work around the metastore not being configured for S3
                 List<String> locations = listAllDataPaths(this, databaseName, tableName);
-                table.get().getSd().setLocation("/");
+
+                Table.Builder tableBuilder = Table.builder(table.get());
+                tableBuilder.getStorageBuilder().setLocation("/");
 
                 // drop table
-                try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                    client.alterTable(databaseName, tableName, table.get());
-                    client.dropTable(databaseName, tableName, false);
-                }
+                delegate.replaceTable(databaseName, tableName, tableBuilder.build(), new PrincipalPrivilegeSet());
+                delegate.dropTable(databaseName, tableName);
 
                 // drop data
                 for (String location : locations) {
@@ -463,19 +476,15 @@ public abstract class AbstractTestHiveClientS3
 
         public void updateTableLocation(String databaseName, String tableName, String location)
         {
-            try {
-                Optional<Table> table = getTable(databaseName, tableName);
-                if (!table.isPresent()) {
-                    throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
-                }
-                table.get().getSd().setLocation(location);
-                try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                    client.alterTable(databaseName, tableName, table.get());
-                }
+            Optional<Table> table = getTable(databaseName, tableName);
+            if (!table.isPresent()) {
+                throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
             }
-            catch (TException e) {
-                throw Throwables.propagate(e);
-            }
+
+            Table.Builder tableBuilder = Table.builder(table.get());
+            tableBuilder.getStorageBuilder().setLocation(location);
+
+            delegate.replaceTable(databaseName, tableName, tableBuilder.build(), new PrincipalPrivilegeSet());
         }
     }
 }

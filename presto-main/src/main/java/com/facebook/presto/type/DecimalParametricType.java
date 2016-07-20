@@ -15,6 +15,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeParameter;

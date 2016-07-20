@@ -88,6 +88,7 @@ import static com.facebook.presto.raptor.RaptorTableProperties.getBucketCount;
 import static com.facebook.presto.raptor.RaptorTableProperties.getDistributionName;
 import static com.facebook.presto.raptor.RaptorTableProperties.getSortColumns;
 import static com.facebook.presto.raptor.RaptorTableProperties.getTemporalColumn;
+import static com.facebook.presto.raptor.util.DatabaseUtil.daoTransaction;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.raptor.util.DatabaseUtil.runIgnoringConstraintViolation;
 import static com.facebook.presto.raptor.util.DatabaseUtil.runTransaction;
@@ -441,7 +442,11 @@ public class RaptorMetadata
         int ordinalPosition = existingColumns.size();
 
         String type = column.getType().getTypeSignature().toString();
-        dao.insertColumn(table.getTableId(), columnId, column.getName(), ordinalPosition, type, null, null);
+        daoTransaction(dbi, MetadataDao.class, dao -> {
+            dao.insertColumn(table.getTableId(), columnId, column.getName(), ordinalPosition, type, null, null);
+            dao.updateTableVersion(table.getTableId(), session.getStartTime());
+        });
+
         shardManager.addColumn(table.getTableId(), new ColumnInfo(columnId, column.getType()));
     }
 
@@ -450,7 +455,10 @@ public class RaptorMetadata
     {
         RaptorTableHandle table = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
         RaptorColumnHandle sourceColumn = checkType(source, RaptorColumnHandle.class, "columnHandle");
-        dao.renameColumn(table.getTableId(), sourceColumn.getColumnId(), target);
+        daoTransaction(dbi, MetadataDao.class, dao -> {
+            dao.renameColumn(table.getTableId(), sourceColumn.getColumnId(), target);
+            dao.updateTableVersion(table.getTableId(), session.getStartTime());
+        });
     }
 
     @Override
@@ -563,12 +571,13 @@ public class RaptorMetadata
     {
         RaptorOutputTableHandle table = checkType(outputTableHandle, RaptorOutputTableHandle.class, "outputTableHandle");
         long transactionId = table.getTransactionId();
+        long updateTime = session.getStartTime();
 
         long newTableId = runTransaction(dbi, (dbiHandle, status) -> {
             MetadataDao dao = dbiHandle.attach(MetadataDao.class);
 
             Long distributionId = table.getDistributionId().isPresent() ? table.getDistributionId().getAsLong() : null;
-            long tableId = dao.insertTable(table.getSchemaName(), table.getTableName(), true, distributionId);
+            long tableId = dao.insertTable(table.getSchemaName(), table.getTableName(), true, distributionId, updateTime);
 
             List<RaptorColumnHandle> sortColumnHandles = table.getSortColumnHandles();
             List<RaptorColumnHandle> bucketColumnHandles = table.getBucketColumnHandles();
@@ -595,7 +604,7 @@ public class RaptorMetadata
 
         // TODO: refactor this to avoid creating an empty table on failure
         shardManager.createTable(newTableId, columns, table.getBucketCount().isPresent());
-        shardManager.commitShards(transactionId, newTableId, columns, parseFragments(fragments), Optional.empty());
+        shardManager.commitShards(transactionId, newTableId, columns, parseFragments(fragments), Optional.empty(), updateTime);
 
         clearRollback();
     }
@@ -654,8 +663,9 @@ public class RaptorMetadata
         long tableId = handle.getTableId();
         Optional<String> externalBatchId = handle.getExternalBatchId();
         List<ColumnInfo> columns = handle.getColumnHandles().stream().map(ColumnInfo::fromHandle).collect(toList());
+        long updateTime = session.getStartTime();
 
-        shardManager.commitShards(transactionId, tableId, columns, parseFragments(fragments), externalBatchId);
+        shardManager.commitShards(transactionId, tableId, columns, parseFragments(fragments), externalBatchId, updateTime);
 
         clearRollback();
     }
@@ -710,9 +720,10 @@ public class RaptorMetadata
 
         Set<UUID> oldShardUuids = oldShardUuidsBuilder.build();
         List<ShardInfo> newShards = newShardsBuilder.build();
+        OptionalLong updateTime = OptionalLong.of(session.getStartTime());
 
         log.info("Finishing delete for tableId %s (removed: %s, rewritten: %s)", tableId, oldShardUuids.size() - newShards.size(), newShards.size());
-        shardManager.replaceShardUuids(transactionId, tableId, columns, oldShardUuids, newShards);
+        shardManager.replaceShardUuids(transactionId, tableId, columns, oldShardUuids, newShards, updateTime);
 
         clearRollback();
     }
@@ -730,11 +741,9 @@ public class RaptorMetadata
         String tableName = viewName.getTableName();
 
         if (replace) {
-            runTransaction(dbi, (handle, status) -> {
-                MetadataDao dao = handle.attach(MetadataDao.class);
+            daoTransaction(dbi, MetadataDao.class, dao -> {
                 dao.dropView(schemaName, tableName);
                 dao.insertView(schemaName, tableName, viewData);
-                return null;
             });
             return;
         }

@@ -14,7 +14,8 @@
 package com.facebook.presto.operator.window;
 
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.Description;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.WindowFunction;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;

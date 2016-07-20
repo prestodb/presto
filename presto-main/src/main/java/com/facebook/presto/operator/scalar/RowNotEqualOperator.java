@@ -24,8 +24,8 @@ import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.facebook.presto.metadata.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.metadata.Signature.comparableWithVariadicBound;
+import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 

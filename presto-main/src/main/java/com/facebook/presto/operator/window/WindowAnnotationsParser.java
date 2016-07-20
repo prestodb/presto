@@ -15,6 +15,8 @@ package com.facebook.presto.operator.window;
 
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TypeVariableConstraint;
+import com.facebook.presto.spi.function.WindowFunction;
+import com.facebook.presto.spi.function.WindowFunctionSignature;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 

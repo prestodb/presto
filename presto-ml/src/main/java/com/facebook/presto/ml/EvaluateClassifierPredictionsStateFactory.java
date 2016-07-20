@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.ml;
 
-import com.facebook.presto.operator.aggregation.state.AbstractGroupedAccumulatorState;
-import com.facebook.presto.operator.aggregation.state.AccumulatorStateFactory;
-import com.facebook.presto.util.array.ObjectBigArray;
+import com.facebook.presto.array.ObjectBigArray;
+import com.facebook.presto.spi.function.AccumulatorStateFactory;
+import com.facebook.presto.spi.function.GroupedAccumulatorState;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.HashMap;
@@ -51,13 +51,19 @@ public class EvaluateClassifierPredictionsStateFactory
     }
 
     public static class GroupedEvaluateClassifierPredictionsState
-            extends AbstractGroupedAccumulatorState
-            implements EvaluateClassifierPredictionsState
+            implements GroupedAccumulatorState, EvaluateClassifierPredictionsState
     {
         private final ObjectBigArray<Map<String, Integer>> truePositives = new ObjectBigArray<>();
         private final ObjectBigArray<Map<String, Integer>> falsePositives = new ObjectBigArray<>();
         private final ObjectBigArray<Map<String, Integer>> falseNegatives = new ObjectBigArray<>();
+        private long groupId;
         private long memoryUsage;
+
+        @Override
+        public void setGroupId(long groupId)
+        {
+            this.groupId = groupId;
+        }
 
         @Override
         public void addMemoryUsage(int memory)
@@ -68,31 +74,31 @@ public class EvaluateClassifierPredictionsStateFactory
         @Override
         public Map<String, Integer> getTruePositives()
         {
-            if (truePositives.get(getGroupId()) == null) {
-                truePositives.set(getGroupId(), new HashMap<>());
+            if (truePositives.get(groupId) == null) {
+                truePositives.set(groupId, new HashMap<>());
                 memoryUsage += HASH_MAP_SIZE;
             }
-            return truePositives.get(getGroupId());
+            return truePositives.get(groupId);
         }
 
         @Override
         public Map<String, Integer> getFalsePositives()
         {
-            if (falsePositives.get(getGroupId()) == null) {
-                falsePositives.set(getGroupId(), new HashMap<>());
+            if (falsePositives.get(groupId) == null) {
+                falsePositives.set(groupId, new HashMap<>());
                 memoryUsage += HASH_MAP_SIZE;
             }
-            return falsePositives.get(getGroupId());
+            return falsePositives.get(groupId);
         }
 
         @Override
         public Map<String, Integer> getFalseNegatives()
         {
-            if (falseNegatives.get(getGroupId()) == null) {
-                falseNegatives.set(getGroupId(), new HashMap<>());
+            if (falseNegatives.get(groupId) == null) {
+                falseNegatives.set(groupId, new HashMap<>());
                 memoryUsage += HASH_MAP_SIZE;
             }
-            return falseNegatives.get(getGroupId());
+            return falseNegatives.get(groupId);
         }
 
         @Override

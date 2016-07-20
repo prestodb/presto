@@ -28,10 +28,10 @@ import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
-import static com.facebook.presto.metadata.OperatorType.ADD;
 import static com.facebook.presto.metadata.Signature.comparableWithVariadicBound;
 import static com.facebook.presto.metadata.TestPolymorphicScalarFunction.TestMethods.VARCHAR_TO_BIGINT_RETURN_VALUE;
 import static com.facebook.presto.metadata.TestPolymorphicScalarFunction.TestMethods.VARCHAR_TO_VARCHAR_RETURN_VALUE;
+import static com.facebook.presto.spi.function.OperatorType.ADD;
 import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static org.testng.Assert.assertEquals;

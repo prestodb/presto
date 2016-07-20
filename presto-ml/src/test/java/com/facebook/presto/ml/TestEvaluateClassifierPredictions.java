@@ -32,6 +32,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -46,7 +47,7 @@ public class TestEvaluateClassifierPredictions
     public void testEvaluateClassifierPredictions()
             throws Exception
     {
-        metadata.addFunctions(new MLFunctionFactory().listFunctions());
+        metadata.addFunctions(extractFunctions(new MLPlugin().getFunctions()));
         InternalAggregationFunction aggregation = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("evaluate_classifier_predictions",
                         AGGREGATE,

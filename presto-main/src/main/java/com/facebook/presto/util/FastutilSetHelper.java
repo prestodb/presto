@@ -32,9 +32,9 @@ import java.lang.invoke.MethodType;
 import java.util.Collection;
 import java.util.Set;
 
-import static com.facebook.presto.metadata.OperatorType.EQUAL;
-import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.function.OperatorType.EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 
 public final class FastutilSetHelper
 {

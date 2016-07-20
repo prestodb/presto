@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.metastore.HiveMetastore;
+import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
@@ -62,7 +62,7 @@ public class HiveConnectorFactory
     private final String name;
     private final Map<String, String> optionalConfig;
     private final ClassLoader classLoader;
-    private final HiveMetastore metastore;
+    private final ExtendedHiveMetastore metastore;
     private final TypeManager typeManager;
     private final PageIndexerFactory pageIndexerFactory;
     private final NodeManager nodeManager;
@@ -71,7 +71,7 @@ public class HiveConnectorFactory
             String name,
             Map<String, String> optionalConfig,
             ClassLoader classLoader,
-            HiveMetastore metastore,
+            ExtendedHiveMetastore metastore,
             TypeManager typeManager,
             PageIndexerFactory pageIndexerFactory,
             NodeManager nodeManager)

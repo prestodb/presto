@@ -15,8 +15,8 @@ package com.facebook.presto.sql;
 
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.relational.CallExpression;

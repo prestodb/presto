@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
+import com.facebook.presto.spi.function.WindowFunction;
 import com.facebook.presto.spi.type.Type;
 
 import java.util.Arrays;

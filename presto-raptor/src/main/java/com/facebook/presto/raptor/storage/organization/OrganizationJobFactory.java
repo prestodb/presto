@@ -28,6 +28,7 @@ import org.skife.jdbi.v2.IDBI;
 import java.io.IOException;
 import java.util.List;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 
@@ -49,7 +50,6 @@ public class OrganizationJobFactory
     @Inject
     public OrganizationJobFactory(@ForMetadata IDBI dbi, ShardManager shardManager, ShardCompactor compactor)
     {
-        requireNonNull(dbi, "dbi is null");
         this.metadataDao = onDemandDao(dbi, MetadataDao.class);
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
         this.compactor = requireNonNull(compactor, "compactor is null");
@@ -99,9 +99,17 @@ public class OrganizationJobFactory
                 throws IOException
         {
             TableMetadata metadata = getTableMetadata(tableId);
+
+            // This job could be in the queue for quite some time, so before doing any expensive operations,
+            // filter out shards that no longer exist, reducing the possibility of failure
+            shardUuids = shardManager.getExistingShardUuids(tableId, shardUuids);
+            if (shardUuids.size() <= 1) {
+                return;
+            }
+
             List<ShardInfo> newShards = performCompaction(transactionId, bucketNumber, shardUuids, metadata);
             log.info("Compacted shards %s into %s", shardUuids, newShards.stream().map(ShardInfo::getShardUuid).collect(toList()));
-            shardManager.replaceShardUuids(transactionId, tableId, metadata.getColumns(), shardUuids, newShards);
+            shardManager.replaceShardUuids(transactionId, tableId, metadata.getColumns(), shardUuids, newShards, OptionalLong.empty());
         }
 
         private TableMetadata getTableMetadata(long tableId)

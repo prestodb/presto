@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.Session;
 import com.facebook.presto.benchmark.BenchmarkSuite;
+import com.facebook.presto.hive.metastore.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.InMemoryHiveMetastore;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.testing.LocalQueryRunner;
@@ -75,7 +76,7 @@ public final class HiveBenchmarkQueryRunner
                 "hive",
                 ImmutableMap.of("node.environment", "test"),
                 HiveBenchmarkQueryRunner.class.getClassLoader(),
-                metastore,
+                new BridgingHiveMetastore(metastore),
                 new TypeRegistry(),
                 new GroupByHashPageIndexerFactory(),
                 nodeManager);

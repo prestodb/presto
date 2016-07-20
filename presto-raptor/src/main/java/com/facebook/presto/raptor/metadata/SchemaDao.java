@@ -33,6 +33,13 @@ public interface SchemaDao
             "  temporal_column_id BIGINT,\n" +
             "  compaction_enabled BOOLEAN NOT NULL,\n" +
             "  distribution_id BIGINT,\n" +
+            "  create_time BIGINT NOT NULL,\n" +
+            "  update_time BIGINT NOT NULL,\n" +
+            "  table_version BIGINT NOT NULL,\n" +
+            "  shard_count BIGINT NOT NULL,\n" +
+            "  row_count BIGINT NOT NULL,\n" +
+            "  compressed_size BIGINT NOT NULL,\n" +
+            "  uncompressed_size BIGINT NOT NULL,\n" +
             "  UNIQUE (schema_name, table_name),\n" +
             "  FOREIGN KEY (distribution_id) REFERENCES distributions (distribution_id)\n" +
             ")")

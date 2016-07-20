@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
+import com.facebook.presto.array.ObjectBigArray;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.util.array.ObjectBigArray;
+import com.facebook.presto.spi.function.AccumulatorStateFactory;
 
 import static java.util.Objects.requireNonNull;
 

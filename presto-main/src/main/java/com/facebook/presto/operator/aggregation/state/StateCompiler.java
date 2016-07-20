@@ -13,6 +13,12 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
+import com.facebook.presto.array.BlockBigArray;
+import com.facebook.presto.array.BooleanBigArray;
+import com.facebook.presto.array.ByteBigArray;
+import com.facebook.presto.array.DoubleBigArray;
+import com.facebook.presto.array.LongBigArray;
+import com.facebook.presto.array.SliceBigArray;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.DynamicClassLoader;
@@ -25,14 +31,11 @@ import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AccumulatorStateFactory;
+import com.facebook.presto.spi.function.AccumulatorStateMetadata;
+import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.CallSiteBinder;
-import com.facebook.presto.util.array.BlockBigArray;
-import com.facebook.presto.util.array.BooleanBigArray;
-import com.facebook.presto.util.array.ByteBigArray;
-import com.facebook.presto.util.array.DoubleBigArray;
-import com.facebook.presto.util.array.LongBigArray;
-import com.facebook.presto.util.array.SliceBigArray;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;

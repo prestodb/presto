@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
-import com.facebook.presto.util.array.ObjectBigArray;
+import com.facebook.presto.array.ObjectBigArray;
+import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import io.airlift.stats.cardinality.HyperLogLog;
 
 import static java.util.Objects.requireNonNull;

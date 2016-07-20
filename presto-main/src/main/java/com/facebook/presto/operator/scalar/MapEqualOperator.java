@@ -13,14 +13,14 @@ package com.facebook.presto.operator.scalar;
  * limitations under the License.
  */
 
-import com.facebook.presto.operator.scalar.annotations.OperatorDependency;
-import com.facebook.presto.operator.scalar.annotations.ScalarOperator;
-import com.facebook.presto.operator.scalar.annotations.TypeParameter;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.OperatorDependency;
+import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.SqlType;
 import com.google.common.base.Throwables;
 
 import javax.annotation.Nullable;
@@ -29,9 +29,9 @@ import java.lang.invoke.MethodHandle;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.OperatorType.EQUAL;
-import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.function.OperatorType.EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 
 @ScalarOperator(EQUAL)

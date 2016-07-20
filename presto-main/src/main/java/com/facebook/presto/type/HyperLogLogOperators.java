@@ -13,12 +13,13 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.operator.scalar.annotations.ScalarOperator;
+import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
 
-import static com.facebook.presto.metadata.OperatorType.CAST;
+import static com.facebook.presto.spi.function.OperatorType.CAST;
 
 public final class HyperLogLogOperators
 {

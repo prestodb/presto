@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.operator.window.RankingWindowFunction;
-import com.facebook.presto.operator.window.WindowFunctionSignature;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.RankingWindowFunction;
+import com.facebook.presto.spi.function.WindowFunctionSignature;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
