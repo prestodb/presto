@@ -324,7 +324,7 @@ public abstract class AbstractTestHiveClientS3
                 .add(new ColumnMetadata("id", BIGINT))
                 .build();
 
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, createTableProperties(storageFormat), tableOwner);
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, createTableProperties(storageFormat));
         HiveOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, tableMetadata, Optional.empty());
 
         MaterializedResult data = MaterializedResult.resultBuilder(SESSION, BIGINT)
@@ -354,7 +354,6 @@ public abstract class AbstractTestHiveClientS3
 
         // verify the metadata
         tableMetadata = metadata.getTableMetadata(SESSION, getTableHandle(metadata, tableName));
-        assertEquals(tableMetadata.getOwner(), tableOwner);
         assertEquals(tableMetadata.getColumns(), columns);
 
         // verify the data

@@ -47,11 +47,7 @@ public class TestBlackHoleMetadata
 
         ConnectorOutputTableHandle table = metadata.beginCreateTable(
                 SESSION,
-                new ConnectorTableMetadata(
-                        schemaTableName,
-                        ImmutableList.of(),
-                        tableProperties,
-                        null),
+                new ConnectorTableMetadata(schemaTableName, ImmutableList.of(), tableProperties),
                 Optional.empty());
 
         assertThatNoTableIsCreated();

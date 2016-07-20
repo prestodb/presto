@@ -34,7 +34,6 @@ public class TestJdbcOutputTableHandle
                 "table",
                 ImmutableList.of("abc", "xyz"),
                 ImmutableList.<Type>of(VARCHAR, VARCHAR),
-                "test",
                 "tmp_table",
                 "jdbc:junk",
                 ImmutableMap.of("user", "test"));

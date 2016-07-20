@@ -39,7 +39,6 @@ public class JdbcOutputTableHandle
     private final String tableName;
     private final List<String> columnNames;
     private final List<Type> columnTypes;
-    private final String tableOwner;
     private final String temporaryTableName;
     private final String connectionUrl;
     private final Map<String, String> connectionProperties;
@@ -52,7 +51,6 @@ public class JdbcOutputTableHandle
             @JsonProperty("tableName") String tableName,
             @JsonProperty("columnNames") List<String> columnNames,
             @JsonProperty("columnTypes") List<Type> columnTypes,
-            @JsonProperty("tableOwner") String tableOwner,
             @JsonProperty("temporaryTableName") String temporaryTableName,
             @JsonProperty("connectionUrl") String connectionUrl,
             @JsonProperty("connectionProperties") Map<String, String> connectionProperties)
@@ -61,7 +59,6 @@ public class JdbcOutputTableHandle
         this.catalogName = catalogName;
         this.schemaName = schemaName;
         this.tableName = requireNonNull(tableName, "tableName is null");
-        this.tableOwner = requireNonNull(tableOwner, "tableOwner is null");
         this.temporaryTableName = requireNonNull(temporaryTableName, "temporaryTableName is null");
         this.connectionUrl = requireNonNull(connectionUrl, "connectionUrl is null");
         this.connectionProperties = ImmutableMap.copyOf(requireNonNull(connectionProperties, "connectionProperties is null"));
@@ -112,12 +109,6 @@ public class JdbcOutputTableHandle
     }
 
     @JsonProperty
-    public String getTableOwner()
-    {
-        return tableOwner;
-    }
-
-    @JsonProperty
     public String getTemporaryTableName()
     {
         return temporaryTableName;
@@ -151,7 +142,6 @@ public class JdbcOutputTableHandle
                 tableName,
                 columnNames,
                 columnTypes,
-                tableOwner,
                 temporaryTableName,
                 connectionUrl,
                 connectionProperties);
@@ -173,7 +163,6 @@ public class JdbcOutputTableHandle
                 Objects.equals(this.tableName, other.tableName) &&
                 Objects.equals(this.columnNames, other.columnNames) &&
                 Objects.equals(this.columnTypes, other.columnTypes) &&
-                Objects.equals(this.tableOwner, other.tableOwner) &&
                 Objects.equals(this.temporaryTableName, other.temporaryTableName) &&
                 Objects.equals(this.connectionUrl, other.connectionUrl) &&
                 Objects.equals(this.connectionProperties, other.connectionProperties);

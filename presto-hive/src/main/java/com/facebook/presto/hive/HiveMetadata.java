@@ -126,9 +126,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.concat;
 import static java.lang.String.format;
@@ -276,7 +274,7 @@ public class HiveMetadata
         }
         properties.putAll(tableParameterCodec.decode(table.get().getParameters()));
 
-        return new ConnectorTableMetadata(tableName, columns.build(), properties.build(), table.get().getOwner(), sampled);
+        return new ConnectorTableMetadata(tableName, columns.build(), properties.build(), sampled);
     }
 
     @Override
@@ -379,8 +377,6 @@ public class HiveMetadata
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        checkArgument(!isNullOrEmpty(tableMetadata.getOwner()), "Table owner is null or empty");
-
         SchemaTableName schemaTableName = tableMetadata.getTable();
         String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
@@ -397,8 +393,8 @@ public class HiveMetadata
         Path targetPath = locationService.targetPathRoot(locationHandle);
         createDirectory(session.getUser(), hdfsEnvironment, targetPath);
 
-        Table table = buildTableObject(schemaName, tableName, tableMetadata.getOwner(), columnHandles, hiveStorageFormat, partitionedBy, bucketProperty, additionalTableParameters, targetPath);
-        PrincipalPrivilegeSet principalPrivilegeSet = buildInitialPrivilegeSet(tableMetadata.getOwner());
+        Table table = buildTableObject(schemaName, tableName, session.getUser(), columnHandles, hiveStorageFormat, partitionedBy, bucketProperty, additionalTableParameters, targetPath);
+        PrincipalPrivilegeSet principalPrivilegeSet = buildInitialPrivilegeSet(table.getOwner());
         metastore.createTable(table, principalPrivilegeSet);
     }
 
@@ -515,8 +511,6 @@ public class HiveMetadata
 
         verifyJvmTimeZone();
 
-        checkArgument(!isNullOrEmpty(tableMetadata.getOwner()), "Table owner is null or empty");
-
         HiveStorageFormat tableStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
         Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
@@ -540,7 +534,7 @@ public class HiveMetadata
                 respectTableFormat ? tableStorageFormat : defaultStorageFormat,
                 partitionedBy,
                 bucketProperty,
-                tableMetadata.getOwner(),
+                session.getUser(),
                 additionalTableParameters);
 
         setRollback(() -> rollbackCreateTable(session.getUser(), result));
