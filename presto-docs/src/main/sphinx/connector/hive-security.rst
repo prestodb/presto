@@ -394,7 +394,7 @@ S3 URIs.
 Presto registers its own S3 filesystem for the following URI schemes:
 ``s3://``, ``s3a://``, ``s3n://`` and it registers the default Hadoop S3
 FileSystem (``org.apache.hadoop.fs.s3.S3FileSystem``) for ``s3bfs://`` URIs.
-The following assumes your are using the native Presto S3 FileSystem implementation.
+The following assumes you are using the native Presto S3 FileSystem implementation.
 
 Configuration Properties
 ------------------------
