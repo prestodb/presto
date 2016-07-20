@@ -13,16 +13,26 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConstantProperty;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.sql.planner.TestingColumnHandle;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.json.ObjectMapperProvider;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -701,6 +711,34 @@ public class TestLocalProperties
                         .sorted("a", SortOrder.ASC_NULLS_LAST)
                         .build(),
                 Optional.of(sorted("a", SortOrder.ASC_NULLS_LAST)));
+    }
+
+    @Test
+    public void testJsonSerialization()
+            throws Exception
+    {
+        ObjectMapper mapper = new ObjectMapperProvider().get()
+                .registerModule(new SimpleModule()
+                        .addDeserializer(ColumnHandle.class, new JsonDeserializer<ColumnHandle>()
+                        {
+                            @Override
+                            public ColumnHandle deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
+                                    throws IOException
+                            {
+                                return new ObjectMapperProvider().get().readValue(jsonParser, TestingColumnHandle.class);
+                            }
+                        }));
+
+        TestingColumnHandle columnHandle = new TestingColumnHandle("a");
+
+        LocalProperty<ColumnHandle> property1 = new ConstantProperty<>(columnHandle);
+        assertEquals(property1, mapper.readValue(mapper.writeValueAsString(property1), new TypeReference<LocalProperty<ColumnHandle>>() {}));
+
+        LocalProperty<ColumnHandle> property2 = new SortingProperty<>(columnHandle, SortOrder.ASC_NULLS_FIRST);
+        assertEquals(property2, mapper.readValue(mapper.writeValueAsString(property2), new TypeReference<LocalProperty<ColumnHandle>>() {}));
+
+        LocalProperty<ColumnHandle> property3 = new GroupingProperty<>(ImmutableList.of(columnHandle));
+        assertEquals(property3, mapper.readValue(mapper.writeValueAsString(property3), new TypeReference<LocalProperty<ColumnHandle>>() {}));
     }
 
     @SafeVarargs
