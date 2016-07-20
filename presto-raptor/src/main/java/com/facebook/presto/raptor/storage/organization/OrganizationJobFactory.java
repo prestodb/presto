@@ -49,7 +49,6 @@ public class OrganizationJobFactory
     @Inject
     public OrganizationJobFactory(@ForMetadata IDBI dbi, ShardManager shardManager, ShardCompactor compactor)
     {
-        requireNonNull(dbi, "dbi is null");
         this.metadataDao = onDemandDao(dbi, MetadataDao.class);
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
         this.compactor = requireNonNull(compactor, "compactor is null");
