@@ -1313,7 +1313,7 @@ public abstract class AbstractTestHiveClient
             ConnectorMetadata metadata = newMetadata();
 
             // begin creating the table
-            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateRollbackTable, CREATE_TABLE_COLUMNS, createTableProperties(RCBINARY), session.getUser());
+            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateRollbackTable, CREATE_TABLE_COLUMNS, createTableProperties(RCBINARY));
 
             ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty());
 
@@ -1456,7 +1456,7 @@ public abstract class AbstractTestHiveClient
             try {
                 ConnectorSession session = newSession();
                 List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("dummy", HYPER_LOG_LOG));
-                ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(invalidTable, columns, createTableProperties(storageFormat), session.getUser());
+                ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(invalidTable, columns, createTableProperties(storageFormat));
                 newMetadata().beginCreateTable(session, tableMetadata, Optional.empty());
                 fail("create table with unsupported type should fail for storage format " + storageFormat);
             }
@@ -1472,7 +1472,7 @@ public abstract class AbstractTestHiveClient
         ConnectorMetadata metadata = newMetadata();
 
         List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("dummy", createUnboundedVarcharType()));
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, createTableProperties(TEXTFILE), session.getUser());
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, createTableProperties(TEXTFILE));
         ConnectorOutputTableHandle handle = metadata.beginCreateTable(session, tableMetadata, Optional.empty());
         metadata.finishCreateTable(session, handle, ImmutableList.of());
     }
@@ -1540,7 +1540,7 @@ public abstract class AbstractTestHiveClient
                 .add(new ColumnMetadata("sales", BIGINT))
                 .build();
 
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, createTableProperties(RCBINARY), session.getUser(), true);
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, createTableProperties(RCBINARY), true);
         ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty());
 
         // write the records
@@ -1575,8 +1575,6 @@ public abstract class AbstractTestHiveClient
 
         // verify the metadata
         tableMetadata = metadata.getTableMetadata(session, getTableHandle(metadata, tableName));
-        assertEquals(tableMetadata.getOwner(), session.getUser());
-
         Map<String, ColumnMetadata> columnMap = uniqueIndex(tableMetadata.getColumns(), ColumnMetadata::getName);
         assertEquals(columnMap.size(), 1);
 
@@ -1618,7 +1616,7 @@ public abstract class AbstractTestHiveClient
         ConnectorMetadata metadata = newMetadata();
 
         // begin creating the table
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, CREATE_TABLE_COLUMNS, createTableProperties(storageFormat), session.getUser());
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, CREATE_TABLE_COLUMNS, createTableProperties(storageFormat));
 
         ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty());
 
@@ -1641,7 +1639,6 @@ public abstract class AbstractTestHiveClient
 
         // verify the metadata
         tableMetadata = metadata.getTableMetadata(session, getTableHandle(metadata, tableName));
-        assertEquals(tableMetadata.getOwner(), session.getUser());
         assertEquals(tableMetadata.getColumns(), CREATE_TABLE_COLUMNS);
 
         // verify the data
@@ -1659,7 +1656,7 @@ public abstract class AbstractTestHiveClient
                 .filter(column -> column.getName().equals("ds"))
                 .map(ColumnMetadata::getName)
                 .collect(toList());
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, createTableColumns, createTableProperties(storageFormat, partitionedBy), session.getUser());
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, createTableColumns, createTableProperties(storageFormat, partitionedBy));
 
         metadata.createTable(session, tableMetadata);
 
@@ -1668,7 +1665,6 @@ public abstract class AbstractTestHiveClient
 
         // verify the metadata
         tableMetadata = metadata.getTableMetadata(session, getTableHandle(metadata, tableName));
-        assertEquals(tableMetadata.getOwner(), session.getUser());
 
         List<ColumnMetadata> expectedColumns = createTableColumns.stream()
                 .map(column -> new ColumnMetadata(
@@ -1719,7 +1715,6 @@ public abstract class AbstractTestHiveClient
 
             // verify the metadata
             ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, getTableHandle(metadata, tableName));
-            assertEquals(tableMetadata.getOwner(), session.getUser());
             assertEquals(tableMetadata.getColumns(), CREATE_TABLE_COLUMNS);
 
             // verify the data
