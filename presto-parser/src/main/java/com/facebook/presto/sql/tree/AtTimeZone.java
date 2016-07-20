@@ -16,7 +16,6 @@ package com.facebook.presto.sql.tree;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class AtTimeZone
@@ -38,7 +37,6 @@ public class AtTimeZone
     private AtTimeZone(Optional<NodeLocation> location, Expression value, Expression timeZone)
     {
         super(location);
-        checkArgument(timeZone instanceof IntervalLiteral || timeZone instanceof StringLiteral, "timeZone must be IntervalLiteral or StringLiteral");
         this.value = requireNonNull(value, "value is null");
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
     }
