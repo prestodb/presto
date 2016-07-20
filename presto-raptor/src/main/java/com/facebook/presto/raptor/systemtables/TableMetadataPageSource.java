@@ -71,7 +71,7 @@ public class TableMetadataPageSource
 
     public TableMetadataPageSource(IDBI dbi, TupleDomain<Integer> tupleDomain, ConnectorTableMetadata tableMetadata)
     {
-        this.dao = onDemandDao(requireNonNull(dbi, "dbi is null"), MetadataDao.class);
+        this.dao = onDemandDao(dbi, MetadataDao.class);
         this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
         this.tableMetadata = requireNonNull(tableMetadata, "tableMetadata is null");
         this.types = tableMetadata.getColumns().stream()

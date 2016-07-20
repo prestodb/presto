@@ -31,6 +31,7 @@ import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_METADATA_ERROR;
 import static com.google.common.base.Throwables.propagateIfInstanceOf;
 import static com.google.common.reflect.Reflection.newProxy;
 import static java.sql.Types.INTEGER;
+import static java.util.Objects.requireNonNull;
 
 public final class DatabaseUtil
 {
@@ -38,6 +39,7 @@ public final class DatabaseUtil
 
     public static <T> T onDemandDao(IDBI dbi, Class<T> daoType)
     {
+        requireNonNull(dbi, "dbi is null");
         return newProxy(daoType, (proxy, method, args) -> {
             try (Handle handle = dbi.open()) {
                 T dao = handle.attach(daoType);

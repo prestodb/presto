@@ -99,8 +99,7 @@ public class ShardMetadataRecordCursor
 
     public ShardMetadataRecordCursor(IDBI dbi, TupleDomain<Integer> tupleDomain)
     {
-        requireNonNull(dbi, "dbi is null");
-        this.dbi = dbi;
+        this.dbi = requireNonNull(dbi, "dbi is null");
         this.metadataDao = onDemandDao(dbi, MetadataDao.class);
         this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
         this.tableIds = getTableIds(dbi, tupleDomain);
