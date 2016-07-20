@@ -20,9 +20,9 @@ import static com.facebook.presto.client.IntervalYearMonth.toMonths;
 
 public class PrestoIntervalYearMonth
 {
-    private final long months;
+    private final int months;
 
-    public PrestoIntervalYearMonth(long months)
+    public PrestoIntervalYearMonth(int months)
     {
         this.months = months;
     }
@@ -32,7 +32,7 @@ public class PrestoIntervalYearMonth
         this.months = toMonths(year, months);
     }
 
-    public long getMonths()
+    public int getMonths()
     {
         return months;
     }

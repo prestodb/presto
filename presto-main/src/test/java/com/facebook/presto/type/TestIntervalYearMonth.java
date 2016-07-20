@@ -26,7 +26,7 @@ import static org.testng.Assert.assertEquals;
 public class TestIntervalYearMonth
         extends AbstractTestFunctions
 {
-    private static final int MAX_INT = Integer.MAX_VALUE;
+    private static final int MAX_SHORT = Short.MAX_VALUE;
 
     @Test
     public void testObject()
@@ -35,11 +35,11 @@ public class TestIntervalYearMonth
         assertEquals(new SqlIntervalYearMonth(3, 11), new SqlIntervalYearMonth(47));
         assertEquals(new SqlIntervalYearMonth(-3, -11), new SqlIntervalYearMonth(-47));
 
-        assertEquals(new SqlIntervalYearMonth(MAX_INT, 0), new SqlIntervalYearMonth(25_769_803_764L));
-        assertEquals(new SqlIntervalYearMonth(MAX_INT, MAX_INT), new SqlIntervalYearMonth(27_917_287_411L));
+        assertEquals(new SqlIntervalYearMonth(MAX_SHORT, 0), new SqlIntervalYearMonth(393_204));
+        assertEquals(new SqlIntervalYearMonth(MAX_SHORT, MAX_SHORT), new SqlIntervalYearMonth(425_971));
 
-        assertEquals(new SqlIntervalYearMonth(-MAX_INT, 0), new SqlIntervalYearMonth(-25_769_803_764L));
-        assertEquals(new SqlIntervalYearMonth(-MAX_INT, -MAX_INT), new SqlIntervalYearMonth(-27_917_287_411L));
+        assertEquals(new SqlIntervalYearMonth(-MAX_SHORT, 0), new SqlIntervalYearMonth(-393_204));
+        assertEquals(new SqlIntervalYearMonth(-MAX_SHORT, -MAX_SHORT), new SqlIntervalYearMonth(-425_971));
     }
 
     @Test
@@ -53,9 +53,9 @@ public class TestIntervalYearMonth
 
         assertLiteral("INTERVAL '30' MONTH", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(0, 30));
 
-        assertLiteral(format("INTERVAL '%s' YEAR", MAX_INT), INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(MAX_INT, 0));
-        assertLiteral(format("INTERVAL '%s' MONTH", MAX_INT), INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(0, MAX_INT));
-        assertLiteral(format("INTERVAL '%s-%s' YEAR TO MONTH", MAX_INT, MAX_INT), INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(MAX_INT, MAX_INT));
+        assertLiteral(format("INTERVAL '%s' YEAR", MAX_SHORT), INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(MAX_SHORT, 0));
+        assertLiteral(format("INTERVAL '%s' MONTH", MAX_SHORT), INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(0, MAX_SHORT));
+        assertLiteral(format("INTERVAL '%s-%s' YEAR TO MONTH", MAX_SHORT, MAX_SHORT), INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(MAX_SHORT, MAX_SHORT));
     }
 
     private void assertLiteral(String projection, Type expectedType, SqlIntervalYearMonth expectedValue)
@@ -106,8 +106,8 @@ public class TestIntervalYearMonth
 
         assertFunction("INTERVAL '6' YEAR * 2", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(12 * 12));
         assertFunction("2 * INTERVAL '6' YEAR", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(12 * 12));
-        assertFunction("INTERVAL '1' YEAR * 2.5", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth((long) (2.5 * 12)));
-        assertFunction("2.5 * INTERVAL '1' YEAR", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth((long) (2.5 * 12)));
+        assertFunction("INTERVAL '1' YEAR * 2.5", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth((int) (2.5 * 12)));
+        assertFunction("2.5 * INTERVAL '1' YEAR", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth((int) (2.5 * 12)));
     }
 
     @Test
