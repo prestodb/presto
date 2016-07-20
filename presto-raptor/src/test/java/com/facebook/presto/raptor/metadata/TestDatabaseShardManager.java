@@ -271,7 +271,7 @@ public class TestDatabaseShardManager
         shardManager.createTable(tableId, columns, false);
 
         long transactionId = shardManager.beginTransaction();
-        shardManager.commitShards(transactionId, tableId, columns, shardNodes, Optional.empty());
+        shardManager.commitShards(transactionId, tableId, columns, shardNodes, Optional.empty(), 0);
         Set<UUID> actual = shardManager.getExistingShardUuids(tableId, ImmutableSet.of(shard1, shard2, UUID.randomUUID()));
         Set<UUID> expected = ImmutableSet.of(shard1, shard2);
         assertEquals(actual, expected);
