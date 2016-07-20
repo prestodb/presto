@@ -32,7 +32,7 @@ public class KerberosHadoopAuthentication
         // It is further used in many places in DfsClient
         Configuration configuration = new Configuration(false);
         configuration.set("hadoop.security.authentication", "kerberos");
-        configuration.setBoolean(IPC_CLIENT_FALLBACK_TO_SIMPLE_AUTH_ALLOWED_KEY,true);
+        configuration.setBoolean(IPC_CLIENT_FALLBACK_TO_SIMPLE_AUTH_ALLOWED_KEY, true);
         UserGroupInformation.setConfiguration(configuration);
 
         // KerberosName#rules static field must be initialized
