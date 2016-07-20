@@ -6850,6 +6850,22 @@ public abstract class AbstractTestQueries
         // SMALLINT - DECIMAL
         assertQuery("SELECT CAST(1.1 AS DECIMAL(38,1)) + CAST(CAST(121 AS DECIMAL(30,1)) AS SMALLINT)");
         assertQuery("SELECT CAST(292 AS DECIMAL(38,1)) = CAST(CAST(121 AS DECIMAL(30,1)) AS SMALLINT)");
+
+        // Complex coercions across joins
+        assertQuery("SELECT * FROM (" +
+                "  SELECT t2.x || t2.z cc FROM (" +
+                "    SELECT *" +
+                "    FROM (VALUES (CAST('a' as VARCHAR), CAST('c' as VARCHAR))) t(x, z)" +
+                "  ) t2" +
+                "  JOIN (" +
+                "    SELECT *" +
+                "    FROM (VALUES (CAST('a' as VARCHAR), CAST('c' as VARCHAR))) u(x, z)" +
+                "    WHERE z='c'" +
+                "  ) u2" +
+                "  ON t2.z = u2.z" +
+                ") tt " +
+                "WHERE cc = 'ac'",
+                "SELECT 'ac'");
     }
 
     @Test
