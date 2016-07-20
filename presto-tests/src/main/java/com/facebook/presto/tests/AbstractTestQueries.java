@@ -6860,6 +6860,59 @@ public abstract class AbstractTestQueries
         // SMALLINT - DECIMAL
         assertQuery("SELECT CAST(1.1 AS DECIMAL(38,1)) + CAST(CAST(121 AS DECIMAL(30,1)) AS SMALLINT)");
         assertQuery("SELECT CAST(292 AS DECIMAL(38,1)) = CAST(CAST(121 AS DECIMAL(30,1)) AS SMALLINT)");
+
+        // Complex coercions across joins
+        assertQuery("SELECT * FROM (" +
+                "  SELECT t2.x || t2.z cc FROM (" +
+                "    SELECT *" +
+                "    FROM (VALUES (CAST('a' as VARCHAR), CAST('c' as VARCHAR))) t(x, z)" +
+                "  ) t2" +
+                "  JOIN (" +
+                "    SELECT *" +
+                "    FROM (VALUES (CAST('a' as VARCHAR), CAST('c' as VARCHAR))) u(x, z)" +
+                "    WHERE z='c'" +
+                "  ) u2" +
+                "  ON t2.z = u2.z" +
+                ") tt " +
+                "WHERE cc = 'ac'",
+                "SELECT 'ac'");
+
+        assertQuery("SELECT * FROM (" +
+                "  SELECT greatest (t.x, t.z) cc FROM (" +
+                "    SELECT *" +
+                "    FROM (VALUES (VARCHAR 'a', VARCHAR 'c')) t(x, z)" +
+                "  ) t" +
+                "  JOIN (" +
+                "    SELECT *" +
+                "    FROM (VALUES (VARCHAR 'a', VARCHAR 'c')) u(x, z)" +
+                "    WHERE z='c'" +
+                "  ) u" +
+                "  ON t.z = u.z" +
+                ")" +
+                "WHERE cc = 'c'",
+                "SELECT 'c'");
+
+        assertQuery("SELECT cc[1], cc[2] FROM (" +
+                " SELECT * FROM (" +
+                "  SELECT array[t.x, t.z] cc FROM (" +
+                "    SELECT *" +
+                "    FROM (VALUES (VARCHAR 'a', VARCHAR 'c')) t(x, z)" +
+                "  ) t" +
+                "  JOIN (" +
+                "    SELECT *" +
+                "    FROM (VALUES (VARCHAR 'a', VARCHAR 'c')) u(x, z)" +
+                "    WHERE z='c'" +
+                "  ) u" +
+                "  ON t.z = u.z)" +
+                " WHERE cc = array['a', 'c'])",
+                "SELECT 'a', 'c'");
+
+        assertQuery("SELECT c = 'x'" +
+                "FROM (" +
+                "    SELECT 'x' as c" +
+                "    UNION ALL" +
+                "    SELECT 'yy' as c" +
+                ")");
     }
 
     @Test
