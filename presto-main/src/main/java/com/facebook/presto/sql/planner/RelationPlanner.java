@@ -25,7 +25,6 @@ import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
-import com.facebook.presto.sql.analyzer.SemanticExceptions;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -308,6 +307,20 @@ class RelationPlanner
                     InPredicate inPredicate = Iterables.getLast(inPredicates);
                     throwNotSupportedException(inPredicate, "IN with subquery predicate in join condition");
                 }
+
+                subqueryPlanner.collectExistsSubqueries(complexExpression, node).stream()
+                        .filter(existsPredicate -> subqueryPlanner.isCorrelated(existsPredicate.getSubquery()))
+                        .findFirst()
+                        .ifPresent(existsPredicate -> throwNotSupportedException(
+                                existsPredicate,
+                                "Correlated EXISTS predicate in join condition"));
+
+                subqueryPlanner.collectScalarSubqueries(complexExpression, node).stream()
+                        .filter(subquery-> subqueryPlanner.isCorrelated(subquery.getQuery()))
+                        .findFirst()
+                        .ifPresent(scalar -> throwNotSupportedException(
+                                scalar,
+                                "Correlated scalar subquery in join condition"));
             }
 
             // non inner join subqueries can be applied only to one side of join
