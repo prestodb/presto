@@ -2372,28 +2372,28 @@ public abstract class AbstractTestQueries
 
         assertQueryFails(
                 queryPrefix.apply("left") + "x in (VALUES 1)",
-                ".*IN with subquery predicate in join condition not supported");
+                ".*IN with subquery predicate in join condition is not supported");
         assertQueryFails(
                 queryPrefix.apply("left") + "y in (VALUES 1)",
-                ".*IN with subquery predicate in join condition not supported");
+                ".*IN with subquery predicate in join condition is not supported");
         assertQuery(
                 queryPrefix.apply("left") + twoDuplicatedInSubqueriesCondition,
                 "VALUES (1,1), (1,2), (2,2), (2,1), (3,3), (4, null)");
         assertQueryFails(
                 queryPrefix.apply("right") + "x in (VALUES 1)",
-                ".*IN with subquery predicate in join condition not supported");
+                ".*IN with subquery predicate in join condition is not supported");
         assertQueryFails(
                 queryPrefix.apply("right") + "y in (VALUES 1)",
-                ".*IN with subquery predicate in join condition not supported");
+                ".*IN with subquery predicate in join condition is not supported");
         assertQuery(
                 queryPrefix.apply("right") + twoDuplicatedInSubqueriesCondition,
                 "VALUES (1,1), (1,2), (2,2), (2,1), (3,3), (null, 5)");
         assertQueryFails(
                 queryPrefix.apply("full") + "x in (VALUES 1)",
-                ".*IN with subquery predicate in join condition not supported");
+                ".*IN with subquery predicate in join condition is not supported");
         assertQueryFails(
                 queryPrefix.apply("full") + "y in (VALUES 1)",
-                ".*IN with subquery predicate in join condition not supported");
+                ".*IN with subquery predicate in join condition is not supported");
         assertQuery(
                 queryPrefix.apply("full") + twoDuplicatedInSubqueriesCondition,
                 "VALUES (1,1), (1,2), (2,2), (2,1), (3,3), (4, null), (null, 5)");
@@ -2430,15 +2430,15 @@ public abstract class AbstractTestQueries
         assertQueryFails(
                 queryPrefix.apply("left")
                         + "(x+y in (VALUES 4,5)) AND (x in (VALUES 4,5)) != (y in (VALUES 4,5))",
-                ".*IN with subquery predicate in join condition not supported");
+                ".*IN with subquery predicate in join condition is not supported");
         assertQueryFails(
                 queryPrefix.apply("right")
                         + "(x+y in (VALUES 4,5)) AND (x in (VALUES 4,5)) != (y in (VALUES 4,5))",
-                ".*IN with subquery predicate in join condition not supported");
+                ".*IN with subquery predicate in join condition is not supported");
         assertQueryFails(
                 queryPrefix.apply("full")
                         + "(x+y in (VALUES 4,5)) AND (x in (VALUES 4,5)) != (y in (VALUES 4,5))",
-                ".*IN with subquery predicate in join condition not supported");
+                ".*IN with subquery predicate in join condition is not supported");
     }
 
     @Test
