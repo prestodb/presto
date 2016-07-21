@@ -23,6 +23,8 @@ import com.google.inject.Inject;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadFactory;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
@@ -31,6 +33,8 @@ import static java.util.concurrent.Executors.newFixedThreadPool;
 public class BinarySpillerFactory
         implements SpillerFactory
 {
+    public static final String SPILLER_THREAD_NAME_PREFIX = "binary-spiller";
+
     private final ListeningExecutorService executor;
     private final BlockEncodingSerde blockEncodingSerde;
     private final Path spillPath;
@@ -38,15 +42,17 @@ public class BinarySpillerFactory
     @Inject
     public BinarySpillerFactory(BlockEncodingSerde blockEncodingSerde, FeaturesConfig featuresConfig)
     {
-        this(blockEncodingSerde, MoreExecutors.listeningDecorator(newFixedThreadPool(4, daemonThreadsNamed("binary-spiller-%s"))), featuresConfig);
-    }
-
-    public BinarySpillerFactory(BlockEncodingSerde blockEncodingSerde, ListeningExecutorService executor, FeaturesConfig featuresConfig)
-    {
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
-        this.executor = requireNonNull(executor, "executor is null");
+        this.executor = createExecutorServiceOfSize(featuresConfig.getSpillerThreads());
         this.spillPath = featuresConfig.getSpillerSpillPath();
         this.spillPath.toFile().mkdirs();
+    }
+
+    private static ListeningExecutorService createExecutorServiceOfSize(int nThreads)
+    {
+        ThreadFactory threadFactory = daemonThreadsNamed(SPILLER_THREAD_NAME_PREFIX + "-%s");
+        ExecutorService executorService = newFixedThreadPool(nThreads, threadFactory);
+        return MoreExecutors.listeningDecorator(executorService);
     }
 
     @Override

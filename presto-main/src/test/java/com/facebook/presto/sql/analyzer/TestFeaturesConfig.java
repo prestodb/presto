@@ -53,7 +53,8 @@ public class TestFeaturesConfig
                 .setRe2JDfaRetries(5)
                 .setSpillEnabled(false)
                 .setOperatorMemoryLimitBeforeSpill(DataSize.valueOf("4MB"))
-                .setSpillerSpillPath(Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString()));
+                .setSpillerSpillPath(Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString())
+                .setSpillerThreads(4));
     }
 
     @Test
@@ -79,6 +80,7 @@ public class TestFeaturesConfig
                 .put("experimental.spill-enabled", "true")
                 .put("experimental.operator-memory-limit-before-spill", "100MB")
                 .put("experimental.spiller-spill-path", "/tmp/custom/spill/path")
+                .put("experimental.spiller-threads", "42")
                 .build();
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("experimental-syntax-enabled", "true")
@@ -100,6 +102,7 @@ public class TestFeaturesConfig
                 .put("experimental.spill-enabled", "true")
                 .put("experimental.operator-memory-limit-before-spill", "100MB")
                 .put("experimental.spiller-spill-path", "/tmp/custom/spill/path")
+                .put("experimental.spiller-threads", "42")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -121,7 +124,8 @@ public class TestFeaturesConfig
                 .setRe2JDfaRetries(42)
                 .setSpillEnabled(true)
                 .setOperatorMemoryLimitBeforeSpill(DataSize.valueOf("100MB"))
-                .setSpillerSpillPath("/tmp/custom/spill/path");
+                .setSpillerSpillPath("/tmp/custom/spill/path")
+                .setSpillerThreads(42);
 
         assertFullMapping(properties, expected);
         assertDeprecatedEquivalence(FeaturesConfig.class, properties, propertiesLegacy);
