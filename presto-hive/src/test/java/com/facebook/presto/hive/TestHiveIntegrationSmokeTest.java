@@ -24,11 +24,14 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTime;
@@ -73,19 +76,24 @@ public class TestHiveIntegrationSmokeTest
 {
     private final String catalog;
     private final Session bucketedSession;
+    private final TypeManager typeManager;
+    private final TypeTranslator typeTranslator;
 
     @SuppressWarnings("unused")
     public TestHiveIntegrationSmokeTest()
             throws Exception
     {
-        this(createQueryRunner(ORDERS, CUSTOMER), createSampledSession(), createBucketedSession(), HIVE_CATALOG);
+        this(createQueryRunner(ORDERS, CUSTOMER), createSampledSession(), createBucketedSession(), HIVE_CATALOG, new HiveTypeTranslator());
     }
 
-    protected TestHiveIntegrationSmokeTest(QueryRunner queryRunner, Session sampledSession, Session bucketedSession, String catalog)
+    protected TestHiveIntegrationSmokeTest(QueryRunner queryRunner, Session sampledSession, Session bucketedSession, String catalog, TypeTranslator typeTranslator)
     {
         super(queryRunner, sampledSession);
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.bucketedSession = requireNonNull(bucketedSession, "bucketSession is null");
+        this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
+
+        this.typeManager = new TypeRegistry();
     }
 
     protected List<?> getPartitions(ConnectorTableLayoutHandle tableLayoutHandle)
@@ -616,7 +624,7 @@ public class TestHiveIntegrationSmokeTest
         assertEquals(partitions.size(), 3);
 
         MaterializedResult actual = computeActual("SELECT * from " + tableName);
-        MaterializedResult expected = resultBuilder(getSession(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType())
+        MaterializedResult expected = resultBuilder(getSession(), canonicalizeType(createUnboundedVarcharType()), canonicalizeType(createUnboundedVarcharType()), canonicalizeType(createUnboundedVarcharType()))
                 .row("a", "b", "c")
                 .row("aa", "bb", "cc")
                 .row("aaa", "bbb", "ccc")
@@ -964,15 +972,15 @@ public class TestHiveIntegrationSmokeTest
                 "WITH (partitioned_by = ARRAY['apple', 'pineapple'])");
 
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM test_show_columns_partition_key");
-        MaterializedResult expected = resultBuilder(getSession(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType())
-                .row("grape", "bigint", "")
-                .row("orange", "bigint", "")
-                .row("pear", "varchar(65535)", "")
-                .row("mango", "integer", "")
-                .row("lychee", "smallint", "")
-                .row("kiwi", "tinyint", "")
-                .row("apple", "varchar", "Partition Key")
-                .row("pineapple", "varchar(65535)", "Partition Key")
+        MaterializedResult expected = resultBuilder(getSession(), canonicalizeType(createUnboundedVarcharType()), canonicalizeType(createUnboundedVarcharType()), canonicalizeType(createUnboundedVarcharType()))
+                .row("grape", canonicalizeTypeName("bigint"), "")
+                .row("orange", canonicalizeTypeName("bigint"), "")
+                .row("pear", canonicalizeTypeName("varchar(65535)"), "")
+                .row("mango", canonicalizeTypeName("integer"), "")
+                .row("lychee", canonicalizeTypeName("smallint"), "")
+                .row("kiwi", canonicalizeTypeName("tinyint"), "")
+                .row("apple", canonicalizeTypeName("varchar"), "Partition Key")
+                .row("pineapple", canonicalizeTypeName("varchar(65535)"), "Partition Key")
                 .build();
         assertEquals(actual, expected);
     }
@@ -1174,8 +1182,20 @@ public class TestHiveIntegrationSmokeTest
         return storageFormat != HiveStorageFormat.DWRF;
     }
 
+    private Type canonicalizeType(Type type)
+    {
+        HiveType hiveType = HiveType.toHiveType(typeTranslator, type);
+        return typeManager.getType(hiveType.getTypeSignature());
+    }
+
+    private String canonicalizeTypeName(String type)
+    {
+        TypeSignature typeSignature = TypeSignature.parseTypeSignature(type);
+        return canonicalizeType(typeManager.getType(typeSignature)).toString();
+    }
+
     private void assertColumnType(TableMetadata tableMetadata, String columnName, Type expectedType)
     {
-        assertEquals(tableMetadata.getColumn(columnName).getType(), expectedType);
+        assertEquals(tableMetadata.getColumn(columnName).getType(), canonicalizeType(expectedType));
     }
 }

@@ -15,6 +15,8 @@ package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.hive.HiveCluster;
 import com.facebook.presto.hive.HiveViewNotSupportedException;
+import com.facebook.presto.hive.PartitionAlreadyExistsException;
+import com.facebook.presto.hive.PartitionNotFoundException;
 import com.facebook.presto.hive.RetryDriver;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.spi.PrestoException;
@@ -393,8 +395,7 @@ public class ThriftHiveMetastore
                     }));
         }
         catch (AlreadyExistsException e) {
-            // todo partition already exists exception
-            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+            throw new PartitionAlreadyExistsException(new SchemaTableName(databaseName, tableName), Optional.empty());
         }
         catch (NoSuchObjectException e) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
@@ -422,7 +423,7 @@ public class ThriftHiveMetastore
                     }));
         }
         catch (NoSuchObjectException e) {
-            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+            throw new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), parts);
         }
         catch (TException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
@@ -433,44 +434,16 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void dropPartitionByName(String databaseName, String tableName, String partitionName)
+    public Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues)
     {
-        try {
-            retry()
-                    .stopOn(NoSuchObjectException.class, MetaException.class)
-                    .stopOnIllegalExceptions()
-                    .run("dropPartitionByName", stats.getDropPartitionByName().wrap(() -> {
-                        try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                            // It is observed that: (examples below assumes a table with one partition column `ds`)
-                            //  * When a partition doesn't exist (e.g. ds=2015-09-99), this thrift call is a no-op. It doesn't throw any exception.
-                            //  * When a typo exists in partition column name (e.g. dxs=2015-09-01), this thrift call will delete ds=2015-09-01.
-                            client.dropPartitionByName(databaseName, tableName, partitionName, true);
-                        }
-                        return null;
-                    }));
-        }
-        catch (NoSuchObjectException e) {
-            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
-        }
-        catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
-    @Override
-    public Optional<Partition> getPartition(String databaseName, String tableName, String partitionName)
-    {
-        requireNonNull(partitionName, "partitionName is null");
+        requireNonNull(partitionValues, "partitionValues is null");
         try {
             return retry()
                     .stopOn(NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
-                    .run("getPartitionsByNames", stats.getGetPartitionByName().wrap(() -> {
+                    .run("getPartition", stats.getGetPartition().wrap(() -> {
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                            return Optional.of(client.getPartitionByName(databaseName, tableName, partitionName));
+                            return Optional.of(client.getPartition(databaseName, tableName, partitionValues));
                         }
                     }));
         }

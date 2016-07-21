@@ -55,8 +55,6 @@ public class HistogramStateSerializer
     @Override
     public void deserialize(Block block, int index, HistogramState state)
     {
-        if (!block.isNull(index)) {
-            state.set(new TypedHistogram((Block) serializedType.getObject(block, index), type, EXPECTED_SIZE_FOR_HASHING));
-        }
+        state.set(new TypedHistogram((Block) serializedType.getObject(block, index), type, EXPECTED_SIZE_FOR_HASHING));
     }
 }

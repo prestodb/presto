@@ -45,8 +45,6 @@ public class DoubleHistogramStateSerializer
     @Override
     public void deserialize(Block block, int index, DoubleHistogramAggregation.State state)
     {
-        if (!block.isNull(index)) {
-            state.set(new NumericHistogram(VARBINARY.getSlice(block, index), DoubleHistogramAggregation.ENTRY_BUFFER_SIZE));
-        }
+        state.set(new NumericHistogram(VARBINARY.getSlice(block, index), DoubleHistogramAggregation.ENTRY_BUFFER_SIZE));
     }
 }
