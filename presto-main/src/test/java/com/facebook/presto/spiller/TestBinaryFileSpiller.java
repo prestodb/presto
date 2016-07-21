@@ -20,6 +20,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -45,7 +46,7 @@ public class TestBinaryFileSpiller
     private static final List<Type> TYPES = ImmutableList.of(BIGINT, VARCHAR, DOUBLE, BIGINT);
     private final ListeningExecutorService executor = listeningDecorator(newSingleThreadScheduledExecutor());
     private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry(ImmutableSet.of(BIGINT, DOUBLE, VARBINARY)));
-    private final BinarySpillerFactory factory = new BinarySpillerFactory(blockEncodingSerde, executor);
+    private final BinarySpillerFactory factory = new BinarySpillerFactory(blockEncodingSerde, executor, new FeaturesConfig());
 
     @Test
     public void testFileSpiller()

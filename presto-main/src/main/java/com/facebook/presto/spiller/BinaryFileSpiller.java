@@ -41,7 +41,6 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spiller.BinarySpillerFactory.SPILL_PATH;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -56,12 +55,12 @@ public class BinaryFileSpiller
     private int spillsCount;
     private final ListeningExecutorService executor;
 
-    public BinaryFileSpiller(BlockEncodingSerde blockEncodingSerde, ListeningExecutorService executor)
+    public BinaryFileSpiller(BlockEncodingSerde blockEncodingSerde, ListeningExecutorService executor, Path spillPath)
     {
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.executor = requireNonNull(executor, "executor is null");
         try {
-            this.targetDirectory = Files.createTempDirectory(SPILL_PATH, "presto-spill");
+            this.targetDirectory = Files.createTempDirectory(spillPath, "presto-spill");
         }
         catch (IOException e) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to create spill directory", e);

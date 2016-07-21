@@ -338,7 +338,7 @@ public class LocalQueryRunner
                 .put(Rollback.class, new RollbackTask())
                 .build();
 
-        this.spillerFactory = new BinarySpillerFactory(blockEncodingSerde);
+        this.spillerFactory = new BinarySpillerFactory(blockEncodingSerde, featuresConfig);
     }
 
     public static LocalQueryRunner queryRunnerWithInitialTransaction(Session defaultSession)

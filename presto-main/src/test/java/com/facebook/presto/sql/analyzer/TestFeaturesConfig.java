@@ -18,6 +18,7 @@ import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
+import java.nio.file.Paths;
 import java.util.Map;
 
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.ProcessingOptimization.COLUMNAR_DICTIONARY;
@@ -51,7 +52,8 @@ public class TestFeaturesConfig
                 .setRe2JDfaStatesLimit(Integer.MAX_VALUE)
                 .setRe2JDfaRetries(5)
                 .setSpillEnabled(false)
-                .setOperatorMemoryLimitBeforeSpill(DataSize.valueOf("4MB")));
+                .setOperatorMemoryLimitBeforeSpill(DataSize.valueOf("4MB"))
+                .setSpillerSpillPath(Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString()));
     }
 
     @Test
@@ -76,6 +78,7 @@ public class TestFeaturesConfig
                 .put("re2j.dfa-retries", "42")
                 .put("experimental.spill-enabled", "true")
                 .put("experimental.operator-memory-limit-before-spill", "100MB")
+                .put("experimental.spiller-spill-path", "/tmp/custom/spill/path")
                 .build();
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("experimental-syntax-enabled", "true")
@@ -96,6 +99,7 @@ public class TestFeaturesConfig
                 .put("re2j.dfa-retries", "42")
                 .put("experimental.spill-enabled", "true")
                 .put("experimental.operator-memory-limit-before-spill", "100MB")
+                .put("experimental.spiller-spill-path", "/tmp/custom/spill/path")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -116,7 +120,8 @@ public class TestFeaturesConfig
                 .setRe2JDfaStatesLimit(42)
                 .setRe2JDfaRetries(42)
                 .setSpillEnabled(true)
-                .setOperatorMemoryLimitBeforeSpill(DataSize.valueOf("100MB"));
+                .setOperatorMemoryLimitBeforeSpill(DataSize.valueOf("100MB"))
+                .setSpillerSpillPath("/tmp/custom/spill/path");
 
         assertFullMapping(properties, expected);
         assertDeprecatedEquivalence(FeaturesConfig.class, properties, propertiesLegacy);

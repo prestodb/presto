@@ -16,12 +16,12 @@ package com.facebook.presto.spiller;
 
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.inject.Inject;
 
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -31,28 +31,27 @@ import static java.util.concurrent.Executors.newFixedThreadPool;
 public class BinarySpillerFactory
         implements SpillerFactory
 {
-    public static final Path SPILL_PATH = Paths.get("/tmp/spills");
-
     private final ListeningExecutorService executor;
     private final BlockEncodingSerde blockEncodingSerde;
+    private final Path spillPath;
 
     @Inject
-    public BinarySpillerFactory(BlockEncodingSerde blockEncodingSerde)
+    public BinarySpillerFactory(BlockEncodingSerde blockEncodingSerde, FeaturesConfig featuresConfig)
     {
-        this(blockEncodingSerde, MoreExecutors.listeningDecorator(newFixedThreadPool(4, daemonThreadsNamed("binary-spiller-%s"))));
+        this(blockEncodingSerde, MoreExecutors.listeningDecorator(newFixedThreadPool(4, daemonThreadsNamed("binary-spiller-%s"))), featuresConfig);
     }
 
-    public BinarySpillerFactory(BlockEncodingSerde blockEncodingSerde, ListeningExecutorService executor)
+    public BinarySpillerFactory(BlockEncodingSerde blockEncodingSerde, ListeningExecutorService executor, FeaturesConfig featuresConfig)
     {
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.executor = requireNonNull(executor, "executor is null");
-
-        SPILL_PATH.toFile().mkdirs();
+        this.spillPath = featuresConfig.getSpillerSpillPath();
+        this.spillPath.toFile().mkdirs();
     }
 
     @Override
     public Spiller create(List<Type> types)
     {
-        return new BinaryFileSpiller(blockEncodingSerde, executor);
+        return new BinaryFileSpiller(blockEncodingSerde, executor, spillPath);
     }
 }

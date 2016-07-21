@@ -22,6 +22,8 @@ import io.airlift.units.DataSize;
 
 import javax.validation.constraints.Min;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
@@ -58,6 +60,7 @@ public class FeaturesConfig
     private RegexLibrary regexLibrary = JONI;
     private boolean spillEnabled;
     private DataSize operatorMemoryLimitBeforeSpill = new DataSize(4, DataSize.Unit.MEGABYTE);
+    private Path spillerSpillPath = Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills");
 
     public boolean isResourceGroupsEnabled()
     {
@@ -279,6 +282,18 @@ public class FeaturesConfig
     public FeaturesConfig setOperatorMemoryLimitBeforeSpill(DataSize operatorMemoryLimitBeforeSpill)
     {
         this.operatorMemoryLimitBeforeSpill = operatorMemoryLimitBeforeSpill;
+        return this;
+    }
+
+    public Path getSpillerSpillPath()
+    {
+        return spillerSpillPath;
+    }
+
+    @Config("experimental.spiller-spill-path")
+    public FeaturesConfig setSpillerSpillPath(String spillPath)
+    {
+        this.spillerSpillPath = Paths.get(spillPath);
         return this;
     }
 }
