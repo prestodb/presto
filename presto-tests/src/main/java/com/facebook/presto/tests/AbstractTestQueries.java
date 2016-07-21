@@ -4806,6 +4806,7 @@ public abstract class AbstractTestQueries
         assertEquals(result.getOnlyColumnAsSet(), ImmutableSet.of(getSession().getSchema().get()));
     }
 
+    @Test
     public void testShowTables()
             throws Exception
     {
