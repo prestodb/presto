@@ -16,6 +16,9 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
@@ -42,6 +45,8 @@ import java.util.LinkedList;
 import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonParser.NumberType;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
@@ -416,5 +421,41 @@ public final class JsonFunctions
             objectValue = ((SqlDecimal) objectValue).toBigDecimal();
         }
         return objectValue;
+    }
+
+    @ScalarFunction("json_array_extract")
+    @Description("extract json array value by given jsonPath.")
+    @SqlType("array(varchar)")
+    public static Block jsonArrayExtract(@SqlType(StandardTypes.VARCHAR) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
+    {
+        Long length = jsonArrayLength(json);
+        if (length == null) {
+            return null;
+        }
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), length.intValue());
+        for (int i = 0; i < length; i++) {
+            Slice content = varcharJsonArrayGet(json, i);
+            Slice result = varcharJsonExtract(content, jsonPath);
+            appendToBlockBuilder(VARCHAR, result, blockBuilder);
+        }
+        return blockBuilder.build();
+    }
+
+    @ScalarFunction("json_array_extract_scalar")
+    @Description("like json_array_extract, but returns the result value as a string (as opposed to being encoded as JSON.")
+    @SqlType("array(varchar)")
+    public static Block jsonArrayExtractScalar(@SqlType(StandardTypes.VARCHAR) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
+    {
+        Long length = jsonArrayLength(json);
+        if (length == null) {
+            return null;
+        }
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), length.intValue());
+        for (int i = 0; i < length; i++) {
+            Slice content = varcharJsonArrayGet(json, i);
+            Slice result = varcharJsonExtractScalar(content, jsonPath);
+            appendToBlockBuilder(VARCHAR, result, blockBuilder);
+        }
+        return blockBuilder.build();
     }
 }
