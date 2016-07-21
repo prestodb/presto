@@ -61,7 +61,6 @@ import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
-import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.parsePrivilege;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -425,34 +424,6 @@ public class ThriftHiveMetastore
         }
         catch (NoSuchObjectException e) {
             throw new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), parts);
-        }
-        catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
-    @Override
-    public void dropPartitionByName(String databaseName, String tableName, String partitionName)
-    {
-        try {
-            retry()
-                    .stopOn(NoSuchObjectException.class, MetaException.class)
-                    .stopOnIllegalExceptions()
-                    .run("dropPartitionByName", stats.getDropPartitionByName().wrap(() -> {
-                        try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                            // It is observed that: (examples below assumes a table with one partition column `ds`)
-                            //  * When a partition doesn't exist (e.g. ds=2015-09-99), this thrift call is a no-op. It doesn't throw any exception.
-                            //  * When a typo exists in partition column name (e.g. dxs=2015-09-01), this thrift call will delete ds=2015-09-01.
-                            client.dropPartitionByName(databaseName, tableName, partitionName, true);
-                        }
-                        return null;
-                    }));
-        }
-        catch (NoSuchObjectException e) {
-            throw new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), toPartitionValues(partitionName));
         }
         catch (TException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);

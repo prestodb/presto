@@ -68,9 +68,6 @@ public interface HiveMetastoreClient
     boolean dropPartition(String databaseName, String tableName, List<String> partitionValues, boolean deleteData)
             throws TException;
 
-    boolean dropPartitionByName(String databaseName, String tableName, String partitionName, boolean deleteData)
-            throws TException;
-
     Partition getPartitionByName(String databaseName, String tableName, String partitionName)
             throws TException;
 

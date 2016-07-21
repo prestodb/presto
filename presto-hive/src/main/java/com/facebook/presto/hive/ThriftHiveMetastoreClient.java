@@ -141,13 +141,6 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
-    public boolean dropPartitionByName(String databaseName, String tableName, String partitionName, boolean deleteData)
-            throws TException
-    {
-        return client.drop_partition_by_name(databaseName, tableName, partitionName, deleteData);
-    }
-
-    @Override
     public Partition getPartitionByName(String databaseName, String tableName, String partitionName)
             throws TException
     {

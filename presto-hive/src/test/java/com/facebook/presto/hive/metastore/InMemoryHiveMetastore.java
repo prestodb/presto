@@ -282,16 +282,6 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public void dropPartitionByName(String databaseName, String tableName, String partitionName)
-    {
-        for (PartitionName partition : partitions.keySet()) {
-            if (partition.matches(databaseName, tableName, partitionName)) {
-                partitions.remove(partition);
-            }
-        }
-    }
-
-    @Override
     public Optional<List<String>> getPartitionNames(String databaseName, String tableName)
     {
         return Optional.of(ImmutableList.copyOf(partitions.entrySet().stream()
