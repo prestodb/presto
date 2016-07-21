@@ -207,12 +207,6 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void dropPartitionByName(String databaseName, String tableName, String partitionName)
-    {
-        delegate.dropPartitionByName(databaseName, tableName, partitionName);
-    }
-
-    @Override
     public Set<String> getRoles(String user)
     {
         return delegate.getRoles(user);

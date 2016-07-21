@@ -500,17 +500,6 @@ public class CachingHiveMetastore
         }
     }
 
-    @Override
-    public void dropPartitionByName(String databaseName, String tableName, String partitionName)
-    {
-        try {
-            delegate.dropPartitionByName(databaseName, tableName, partitionName);
-        }
-        finally {
-            invalidatePartitionCache(databaseName, tableName);
-        }
-    }
-
     private void invalidatePartitionCache(String databaseName, String tableName)
     {
         HiveTableName hiveTableName = HiveTableName.table(databaseName, tableName);

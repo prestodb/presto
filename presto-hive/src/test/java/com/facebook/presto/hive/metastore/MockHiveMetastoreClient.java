@@ -228,12 +228,6 @@ public class MockHiveMetastoreClient
     }
 
     @Override
-    public boolean dropPartitionByName(String databaseName, String tableName, String partitionName, boolean deleteData)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public List<Role> listRoles(String principalName, PrincipalType principalType)
     {
         throw new UnsupportedOperationException();
