@@ -30,6 +30,7 @@ import static java.lang.Math.abs;
 import static java.lang.Math.pow;
 import static java.lang.Math.round;
 import static java.lang.String.format;
+import static java.math.BigDecimal.ROUND_UNNECESSARY;
 import static java.math.BigInteger.TEN;
 
 public class Decimals
@@ -246,6 +247,16 @@ public class Decimals
     public static void writeBigDecimal(DecimalType decimalType, BlockBuilder blockBuilder, BigDecimal value)
     {
         decimalType.writeSlice(blockBuilder, encodeScaledValue(value));
+    }
+
+    public static BigDecimal rescale(BigDecimal value, DecimalType type)
+    {
+        value = value.setScale(type.getScale(), ROUND_UNNECESSARY);
+
+        if (value.precision() > type.getPrecision()) {
+            throw new IllegalArgumentException("decimal precision larger than column precision");
+        }
+        return value;
     }
 
     public static long rescale(long value, int fromScale, int toScale)
