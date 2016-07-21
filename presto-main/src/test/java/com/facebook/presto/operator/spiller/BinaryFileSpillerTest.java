@@ -25,7 +25,6 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.ListeningExecutorService;
 import org.testng.annotations.Test;
 
 import java.util.Iterator;
@@ -37,17 +36,14 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static java.lang.Double.doubleToLongBits;
-import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static org.testng.Assert.assertEquals;
 
 public class BinaryFileSpillerTest
 {
     private static final List<Type> TYPES = ImmutableList.of(BIGINT, VARCHAR, DOUBLE, BIGINT);
-    private final ListeningExecutorService executor = listeningDecorator(newSingleThreadScheduledExecutor());
     private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry(ImmutableSet.of(BIGINT, DOUBLE, VARBINARY)));
-    private final BinarySpillerFactory factory = new BinarySpillerFactory(blockEncodingSerde, executor, new FeaturesConfig());
+    private final BinarySpillerFactory factory = new BinarySpillerFactory(blockEncodingSerde, new FeaturesConfig());
 
     @Test
     public void testFileSpiller()

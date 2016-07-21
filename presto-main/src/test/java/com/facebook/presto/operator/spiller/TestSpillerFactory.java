@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.List;
+import java.util.Map;
 
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.airlift.testing.FileUtils.deleteRecursively;
@@ -40,7 +41,7 @@ public class TestSpillerFactory
             throws Exception
     {
         ImmutableList<Module> additionalModules = ImmutableList.of(new CustomSpillerModule());
-        ImmutableMap<String, String> serverProperties = ImmutableMap.of("experimental.spiller-implementation", "custom");
+        Map<String, String> serverProperties = ImmutableMap.of("experimental.spiller-implementation", "custom");
         try (TestingPrestoServer server = new TestingPrestoServer(true, serverProperties, null, null, additionalModules)) {
             assertInstanceOf(server.getSpillerFactory(), CustomSpillerFactory.class);
         }
@@ -52,7 +53,7 @@ public class TestSpillerFactory
     {
         File tempDir = Files.createTempDir();
         String spillPath = new File(tempDir, "custom_path").getAbsolutePath();
-        ImmutableMap<String, String> serverProperties = ImmutableMap.of("experimental.spiller-spill-path", spillPath);
+        Map<String, String> serverProperties = ImmutableMap.of("experimental.spiller-spill-path", spillPath);
         try (TestingPrestoServer server = new TestingPrestoServer(true, serverProperties, null, null, emptyList())) {
             assertTrue(new File(spillPath).exists());
         } finally {

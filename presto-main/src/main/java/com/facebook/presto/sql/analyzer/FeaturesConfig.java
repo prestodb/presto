@@ -68,6 +68,7 @@ public class FeaturesConfig
     private DataSize operatorMemoryLimitBeforeSpill = new DataSize(0, DataSize.Unit.MEGABYTE);
     private String spillerImplementation = SpillerImplementation.BINARY_FILE;
     private Path spillerSpillPath = Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills");
+    private int spillerThreads = 4;
 
     @NotNull
     public String getResourceGroupManager()
@@ -316,6 +317,18 @@ public class FeaturesConfig
     public FeaturesConfig setSpillerSpillPath(String spillPath)
     {
         this.spillerSpillPath = Paths.get(spillPath);
+        return this;
+    }
+
+    public int getSpillerThreads()
+    {
+        return spillerThreads;
+    }
+
+    @Config("experimental.spiller-threads")
+    public FeaturesConfig setSpillerThreads(int spillerThreads)
+    {
+        this.spillerThreads = spillerThreads;
         return this;
     }
 }
