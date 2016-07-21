@@ -103,6 +103,30 @@ class SubqueryPlanner
         return builder;
     }
 
+    public Set<InPredicate> collectInPredicateSubqueries(Expression expression, Node node)
+    {
+        return analysis.getInPredicateSubqueries(node)
+                .stream()
+                .filter(inPredicate -> nodeContains(expression, inPredicate.getValueList()))
+                .collect(toImmutableSet());
+    }
+
+    public Set<SubqueryExpression> collectScalarSubqueries(Expression expression, Node node)
+    {
+        return analysis.getScalarSubqueries(node)
+                .stream()
+                .filter(subquery -> nodeContains(expression, subquery))
+                .collect(toImmutableSet());
+    }
+
+    public Set<ExistsPredicate> collectExistsSubqueries(Expression expression, Node node)
+    {
+        return analysis.getExistsSubqueries(node)
+                .stream()
+                .filter(subquery -> nodeContains(expression, subquery))
+                .collect(toImmutableSet());
+    }
+
     private PlanBuilder appendInPredicateApplyNodes(PlanBuilder subPlan, Set<InPredicate> inPredicates)
     {
         for (InPredicate inPredicate : inPredicates) {
@@ -357,5 +381,11 @@ class SubqueryPlanner
                     rewrittenNode.getOutputSymbols(),
                     rewrittenRows);
         }
+    }
+
+    public boolean isCorrelated(Query subquery)
+    {
+        PlanNode subqueryPlan = createRelationPlan(subquery).getRoot();
+        return !extractMissingExpressions(subqueryPlan).isEmpty();
     }
 }

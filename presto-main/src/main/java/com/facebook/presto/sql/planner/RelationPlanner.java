@@ -44,6 +44,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
+import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -57,6 +58,7 @@ import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SetOperation;
+import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
@@ -307,6 +309,22 @@ class RelationPlanner
                     throw SemanticExceptions.createNotSupportedException(
                             Iterables.getLast(inPredicates),
                             "IN with subquery predicate in join condition");
+                }
+
+                for (ExistsPredicate existsPredicate : subqueryPlanner.collectExistsSubqueries(complexExpression, node)) {
+                    if (subqueryPlanner.isCorrelated(existsPredicate.getSubquery())) {
+                        throw SemanticExceptions.createNotSupportedException(
+                                existsPredicate,
+                                "Correlated EXISTS predicate in join condition");
+                    }
+                }
+
+                for (SubqueryExpression subquery : subqueryPlanner.collectScalarSubqueries(complexExpression, node)) {
+                    if (subqueryPlanner.isCorrelated(subquery.getQuery())) {
+                        throw SemanticExceptions.createNotSupportedException(
+                                subquery,
+                                "Correlated scalar subquery in join condition");
+                    }
                 }
             }
 
