@@ -19,14 +19,19 @@ import com.facebook.presto.spi.spiller.SpillerFactory;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Files;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.util.List;
 
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static io.airlift.testing.FileUtils.deleteRecursively;
+import static java.util.Collections.emptyList;
+import static org.testng.Assert.assertTrue;
 
 public class TestSpillerFactory
 {
@@ -38,6 +43,20 @@ public class TestSpillerFactory
         ImmutableMap<String, String> serverProperties = ImmutableMap.of("experimental.spiller-implementation", "custom");
         try (TestingPrestoServer server = new TestingPrestoServer(true, serverProperties, null, null, additionalModules)) {
             assertInstanceOf(server.getSpillerFactory(), CustomSpillerFactory.class);
+        }
+    }
+
+    @Test
+    public void testOverrideSpillPath()
+            throws Exception
+    {
+        File tempDir = Files.createTempDir();
+        String spillPath = new File(tempDir, "custom_path").getAbsolutePath();
+        ImmutableMap<String, String> serverProperties = ImmutableMap.of("experimental.spiller-spill-path", spillPath);
+        try (TestingPrestoServer server = new TestingPrestoServer(true, serverProperties, null, null, emptyList())) {
+            assertTrue(new File(spillPath).exists());
+        } finally {
+            deleteRecursively(tempDir);
         }
     }
 

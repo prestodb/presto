@@ -33,6 +33,7 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.CompilerConfig;
@@ -123,7 +124,7 @@ public final class TaskTestUtils
                 new IndexJoinLookupStats(),
                 new CompilerConfig(),
                 new TaskManagerConfig(),
-                new BinarySpillerFactory(new BlockEncodingManager(metadata.getTypeManager())));
+                new BinarySpillerFactory(new BlockEncodingManager(metadata.getTypeManager()), new FeaturesConfig()));
     }
 
     public static TaskInfo updateTask(SqlTask sqlTask, List<TaskSource> taskSources, OutputBuffers outputBuffers)

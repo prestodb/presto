@@ -36,6 +36,8 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -57,12 +59,13 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class BenchmarkBinaryFileSpiller
 {
     private static final BlockEncodingSerde BLOCK_ENCODING_MANAGER = new BlockEncodingManager(new TypeRegistry(ImmutableSet.of(BIGINT, DOUBLE, VARCHAR)));
+    private static final Path SPILL_PATH = Paths.get(System.getProperty("java.io.tmpdir"), "spills");
 
     @Benchmark
     public void write(BenchmarkData data)
             throws ExecutionException, InterruptedException
     {
-        try (Spiller spiller = new BinaryFileSpiller(BLOCK_ENCODING_MANAGER, data.getExecutor())) {
+        try (Spiller spiller = new BinaryFileSpiller(BLOCK_ENCODING_MANAGER, data.getExecutor(), SPILL_PATH)) {
             spiller.spill(data.getPages().iterator()).get();
         }
     }
@@ -99,7 +102,7 @@ public class BenchmarkBinaryFileSpiller
         {
             executor = listeningDecorator(newSingleThreadScheduledExecutor());
             pages = createInputPages();
-            spiller = new BinaryFileSpiller(BLOCK_ENCODING_MANAGER, executor);
+            spiller = new BinaryFileSpiller(BLOCK_ENCODING_MANAGER, executor, SPILL_PATH);
             spiller.spill(pages.iterator()).get();
         }
 
