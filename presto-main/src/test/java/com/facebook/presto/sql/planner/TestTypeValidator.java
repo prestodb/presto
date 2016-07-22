@@ -141,16 +141,15 @@ public class TestTypeValidator
             throws Exception
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
-        Map<Symbol, Signature> signatures = ImmutableMap.of(
-                windowSymbol, new Signature(
+        Signature signature = new Signature(
                         "sum",
                         FunctionKind.WINDOW,
                         ImmutableList.of(),
                         ImmutableList.of(),
                         DOUBLE.getTypeSignature(),
                         ImmutableList.of(DOUBLE.getTypeSignature()),
-                        false));
-        Map<Symbol, FunctionCall> functions = ImmutableMap.of(windowSymbol, new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference())));
+                        false);
+        FunctionCall function = new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference()));
         WindowNode.Frame frame = new WindowNode.Frame(
                 WindowFrame.Type.RANGE,
                 FrameBound.Type.UNBOUNDED_PRECEDING,
@@ -163,8 +162,7 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 specification,
-                functions,
-                signatures,
+                ImmutableMap.of(windowSymbol, new WindowNode.Function(function, signature)),
                 Optional.empty(),
                 ImmutableSet.of(),
                 0);
@@ -305,16 +303,15 @@ public class TestTypeValidator
             throws Exception
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
-        Map<Symbol, Signature> signatures = ImmutableMap.of(
-                windowSymbol, new Signature(
+        Signature signature = new Signature(
                         "sum",
                         FunctionKind.WINDOW,
                         ImmutableList.of(),
                         ImmutableList.of(),
                         DOUBLE.getTypeSignature(),
                         ImmutableList.of(DOUBLE.getTypeSignature()),
-                        false));
-        Map<Symbol, FunctionCall> functions = ImmutableMap.of(windowSymbol, new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnA.toSymbolReference()))); // shoud be columnC
+                        false);
+        FunctionCall function = new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnA.toSymbolReference())); // should be columnC
         WindowNode.Frame frame = new WindowNode.Frame(
                 WindowFrame.Type.RANGE,
                 FrameBound.Type.UNBOUNDED_PRECEDING,
@@ -327,8 +324,7 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 specification,
-                functions,
-                signatures,
+                ImmutableMap.of(windowSymbol, new WindowNode.Function(function, signature)),
                 Optional.empty(),
                 ImmutableSet.of(),
                 0);
@@ -341,16 +337,15 @@ public class TestTypeValidator
             throws Exception
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
-        Map<Symbol, Signature> signatures = ImmutableMap.of(
-                windowSymbol, new Signature(
+        Signature signature = new Signature(
                         "sum",
                         FunctionKind.WINDOW,
                         ImmutableList.of(),
                         ImmutableList.of(),
                         BIGINT.getTypeSignature(), // should be DOUBLE
                         ImmutableList.of(DOUBLE.getTypeSignature()),
-                        false));
-        Map<Symbol, FunctionCall> functions = ImmutableMap.of(windowSymbol, new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference())));
+                        false);
+        FunctionCall function = new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference()));
         WindowNode.Frame frame = new WindowNode.Frame(
                 WindowFrame.Type.RANGE,
                 FrameBound.Type.UNBOUNDED_PRECEDING,
@@ -363,8 +358,7 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 specification,
-                functions,
-                signatures,
+                ImmutableMap.of(windowSymbol, new WindowNode.Function(function, signature)),
                 Optional.empty(),
                 ImmutableSet.of(),
                 0);
