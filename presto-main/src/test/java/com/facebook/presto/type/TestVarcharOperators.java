@@ -62,6 +62,8 @@ public class TestVarcharOperators
         assertFunction("'foo' || 'bar'", VARCHAR, "foo" + "bar");
         assertFunction("'bar' || 'foo'", VARCHAR, "bar" + "foo");
         assertFunction("'bar' || 'bar'", VARCHAR, "bar" + "bar");
+        assertFunction("'barbaz' || 'bar'", VARCHAR, "barbaz" + "bar");
+        assertFunction("'bar' || 'barbaz'", VARCHAR, "bar" + "barbaz");
     }
 
     @Test
@@ -72,6 +74,8 @@ public class TestVarcharOperators
         assertFunction("'foo' = 'bar'", BOOLEAN, false);
         assertFunction("'bar' = 'foo'", BOOLEAN, false);
         assertFunction("'bar' = 'bar'", BOOLEAN, true);
+        assertFunction("'foobar' = 'bar'", BOOLEAN, false);
+        assertFunction("'bar' = 'foobar'", BOOLEAN, false);
     }
 
     @Test
@@ -82,6 +86,8 @@ public class TestVarcharOperators
         assertFunction("'foo' <> 'bar'", BOOLEAN, true);
         assertFunction("'bar' <> 'foo'", BOOLEAN, true);
         assertFunction("'bar' <> 'bar'", BOOLEAN, false);
+        assertFunction("'foobar' <> 'bar'", BOOLEAN, true);
+        assertFunction("'bar' <> 'foobar'", BOOLEAN, true);
     }
 
     @Test
@@ -92,6 +98,8 @@ public class TestVarcharOperators
         assertFunction("'foo' < 'bar'", BOOLEAN, false);
         assertFunction("'bar' < 'foo'", BOOLEAN, true);
         assertFunction("'bar' < 'bar'", BOOLEAN, false);
+        assertFunction("'foobar' < 'bar'", BOOLEAN, false);
+        assertFunction("'bar' < 'foobar'", BOOLEAN, true);
     }
 
     @Test
@@ -102,6 +110,8 @@ public class TestVarcharOperators
         assertFunction("'foo' <= 'bar'", BOOLEAN, false);
         assertFunction("'bar' <= 'foo'", BOOLEAN, true);
         assertFunction("'bar' <= 'bar'", BOOLEAN, true);
+        assertFunction("'foobar' <= 'bar'", BOOLEAN, false);
+        assertFunction("'bar' <= 'foobar'", BOOLEAN, true);
     }
 
     @Test
@@ -112,6 +122,8 @@ public class TestVarcharOperators
         assertFunction("'foo' > 'bar'", BOOLEAN, true);
         assertFunction("'bar' > 'foo'", BOOLEAN, false);
         assertFunction("'bar' > 'bar'", BOOLEAN, false);
+        assertFunction("'foobar' > 'bar'", BOOLEAN, true);
+        assertFunction("'bar' > 'foobar'", BOOLEAN, false);
     }
 
     @Test
@@ -122,6 +134,8 @@ public class TestVarcharOperators
         assertFunction("'foo' >= 'bar'", BOOLEAN, true);
         assertFunction("'bar' >= 'foo'", BOOLEAN, false);
         assertFunction("'bar' >= 'bar'", BOOLEAN, true);
+        assertFunction("'foobar' >= 'bar'", BOOLEAN, true);
+        assertFunction("'bar' >= 'foobar'", BOOLEAN, false);
     }
 
     @Test
@@ -139,5 +153,12 @@ public class TestVarcharOperators
 
         assertFunction("'bar' BETWEEN 'bar' AND 'foo'", BOOLEAN, true);
         assertFunction("'bar' BETWEEN 'bar' AND 'bar'", BOOLEAN, true);
+
+        assertFunction("'foobarbaz' BETWEEN 'foobar' AND 'baz'", BOOLEAN, false);
+        assertFunction("'baz' BETWEEN 'foobar' AND 'foobarbaz'", BOOLEAN, false);
+        assertFunction("'foobar' BETWEEN 'foobarbaz' AND 'baz'", BOOLEAN, false);
+        assertFunction("'foo' BETWEEN 'foobarbaz' AND 'foobar'", BOOLEAN, false);
+
+        assertFunction("'mak' BETWEEN 'baba' AND 'siala'", BOOLEAN, true);
     }
 }
