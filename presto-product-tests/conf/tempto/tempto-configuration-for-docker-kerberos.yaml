@@ -26,7 +26,7 @@ databases:
     cli_keystore: /etc/presto/conf/keystore.jks
     cli_keystore_password: password
     cli_kerberos_use_canonical_hostname: false
-    configured_hdfs_user: hive
+    configured_hdfs_user: hdfs
 
   mysql:
     jdbc_driver_class: com.mysql.jdbc.Driver
