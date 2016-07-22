@@ -202,13 +202,14 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            ImmutableMap.Builder<Symbol, Signature> functionInfos = ImmutableMap.builder();
-            ImmutableMap.Builder<Symbol, FunctionCall> functionCalls = ImmutableMap.builder();
-            for (Map.Entry<Symbol, FunctionCall> entry : node.getWindowFunctions().entrySet()) {
+            ImmutableMap.Builder<Symbol, WindowNode.Function> functions = ImmutableMap.builder();
+            for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
                 Symbol symbol = entry.getKey();
                 Symbol canonical = canonicalize(symbol);
-                functionCalls.put(canonical, (FunctionCall) canonicalize(entry.getValue()));
-                functionInfos.put(canonical, node.getSignatures().get(symbol));
+
+                FunctionCall functionCall = entry.getValue().getFunctionCall();
+                Signature signature = entry.getValue().getSignature();
+                functions.put(canonical, new WindowNode.Function((FunctionCall) canonicalize(functionCall), signature));
             }
 
             ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
@@ -229,8 +230,7 @@ public class UnaliasSymbolReferences
                             canonicalizeAndDistinct(node.getOrderBy()),
                             orderings.build(),
                             frame),
-                    functionCalls.build(),
-                    functionInfos.build(),
+                    functions.build(),
                     canonicalize(node.getHashSymbol()),
                     canonicalize(node.getPrePartitionedInputs()),
                     node.getPreSortedOrderPrefix());

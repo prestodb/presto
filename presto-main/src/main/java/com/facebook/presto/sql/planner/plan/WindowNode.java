@@ -45,8 +45,7 @@ public class WindowNode
     private final Set<Symbol> prePartitionedInputs;
     private final Specification specification;
     private final int preSortedOrderPrefix;
-    private final Map<Symbol, FunctionCall> windowFunctions;
-    private final Map<Symbol, Signature> functionHandles;
+    private final Map<Symbol, Function> windowFunctions;
     private final Optional<Symbol> hashSymbol;
 
     @JsonCreator
@@ -54,8 +53,7 @@ public class WindowNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("specification") Specification specification,
-            @JsonProperty("windowFunctions") Map<Symbol, FunctionCall> windowFunctions,
-            @JsonProperty("signatures") Map<Symbol, Signature> signatures,
+            @JsonProperty("windowFunctions") Map<Symbol, Function> windowFunctions,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
             @JsonProperty("prePartitionedInputs") Set<Symbol> prePartitionedInputs,
             @JsonProperty("preSortedOrderPrefix") int preSortedOrderPrefix)
@@ -65,8 +63,6 @@ public class WindowNode
         requireNonNull(source, "source is null");
         requireNonNull(specification, "specification is null");
         requireNonNull(windowFunctions, "windowFunctions is null");
-        requireNonNull(signatures, "signatures is null");
-        checkArgument(windowFunctions.keySet().equals(signatures.keySet()), "windowFunctions does not match signatures");
         requireNonNull(hashSymbol, "hashSymbol is null");
         checkArgument(specification.getPartitionBy().containsAll(prePartitionedInputs), "prePartitionedInputs must be contained in partitionBy");
         checkArgument(preSortedOrderPrefix <= specification.getOrderBy().size(), "Cannot have sorted more symbols than those requested");
@@ -76,7 +72,6 @@ public class WindowNode
         this.prePartitionedInputs = ImmutableSet.copyOf(prePartitionedInputs);
         this.specification = specification;
         this.windowFunctions = ImmutableMap.copyOf(windowFunctions);
-        this.functionHandles = ImmutableMap.copyOf(signatures);
         this.hashSymbol = hashSymbol;
         this.preSortedOrderPrefix = preSortedOrderPrefix;
     }
@@ -126,15 +121,9 @@ public class WindowNode
     }
 
     @JsonProperty
-    public Map<Symbol, FunctionCall> getWindowFunctions()
+    public Map<Symbol, Function> getWindowFunctions()
     {
         return windowFunctions;
-    }
-
-    @JsonProperty
-    public Map<Symbol, Signature> getSignatures()
-    {
-        return functionHandles;
     }
 
     @JsonProperty
@@ -313,6 +302,54 @@ public class WindowNode
                     Objects.equals(this.startValue, other.startValue) &&
                     Objects.equals(this.endType, other.endType) &&
                     Objects.equals(this.endValue, other.endValue);
+        }
+    }
+
+    @Immutable
+    public static final class Function
+    {
+        private final FunctionCall functionCall;
+        private final Signature signature;
+
+        @JsonCreator
+        public Function(
+                @JsonProperty("functionCall") FunctionCall functionCall,
+                @JsonProperty("signature") Signature signature)
+        {
+            this.functionCall = requireNonNull(functionCall, "functionCall is null");
+            this.signature = requireNonNull(signature, "Signature is null');");
+        }
+
+        @JsonProperty
+        public FunctionCall getFunctionCall()
+        {
+            return functionCall;
+        }
+
+        @JsonProperty
+        public Signature getSignature()
+        {
+            return signature;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(functionCall, signature);
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            Function other = (Function) obj;
+            return Objects.equals(this.functionCall, other.functionCall) &&
+                    Objects.equals(this.signature, other.signature);
         }
     }
 }
