@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.createAmbiguousAttributeException;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.createMissingAttributeException;
@@ -188,6 +189,11 @@ public class Scope
     public Optional<Scope> getLateralScope()
     {
         return lateralScope;
+    }
+
+    public Predicate<? super QualifiedName> canResolvePredicate(Expression expression)
+    {
+        return input -> tryResolveField(expression, input).isPresent();
     }
 
     public static final class Builder

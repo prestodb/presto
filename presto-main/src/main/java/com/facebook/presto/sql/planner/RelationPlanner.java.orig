@@ -229,8 +229,8 @@ class RelationPlanner
         if (node.getType() != Join.Type.CROSS && node.getType() != Join.Type.IMPLICIT) {
             Expression criteria = analysis.getJoinCriteria(node);
 
-            Scope left = analysis.getScope(node.getLeft());
-            Scope right = analysis.getScope(node.getRight());
+            RelationType left = analysis.getOutputDescriptor(node.getLeft());
+            RelationType right = analysis.getOutputDescriptor(node.getRight());
 
             List<Expression> leftComparisonExpressions = new ArrayList<>();
             List<Expression> rightComparisonExpressions = new ArrayList<>();
@@ -251,14 +251,12 @@ class RelationPlanner
                     Set<QualifiedName> firstDependencies = DependencyExtractor.extractNames(firstExpression, analysis.getColumnReferences());
                     Set<QualifiedName> secondDependencies = DependencyExtractor.extractNames(secondExpression, analysis.getColumnReferences());
 
-                    if (firstDependencies.stream().allMatch(left.canResolvePredicate(firstExpression))
-                            && secondDependencies.stream().allMatch(right.canResolvePredicate(secondExpression))) {
+                    if (firstDependencies.stream().allMatch(left.canResolvePredicate()) && secondDependencies.stream().allMatch(right.canResolvePredicate())) {
                         leftComparisonExpressions.add(firstExpression);
                         rightComparisonExpressions.add(secondExpression);
                         joinConditionComparisonTypes.add(comparisonType);
                     }
-                    else if (firstDependencies.stream().allMatch(right.canResolvePredicate(firstExpression))
-                            && secondDependencies.stream().allMatch(left.canResolvePredicate(secondExpression))) {
+                    else if (firstDependencies.stream().allMatch(right.canResolvePredicate()) && secondDependencies.stream().allMatch(left.canResolvePredicate())) {
                         leftComparisonExpressions.add(secondExpression);
                         rightComparisonExpressions.add(firstExpression);
                         joinConditionComparisonTypes.add(comparisonType.flip());
@@ -308,12 +306,13 @@ class RelationPlanner
             for (Expression complexExpression : complexJoinExpressions) {
                 Set<InPredicate> inPredicates = subqueryPlanner.collectInPredicateSubqueries(complexExpression, node);
                 if (!inPredicates.isEmpty()) {
+<<<<<<< HEAD
                     throw SemanticExceptions.createNotSupportedException(
                             Iterables.getLast(inPredicates),
                             "IN with subquery predicate in join condition");
                 }
 
-                for (ExistsPredicate existsPredicate : subqueryPlanner.collectExistsSubqueries(complexExpression, node)) {
+                for(ExistsPredicate existsPredicate : subqueryPlanner.collectExistsSubqueries(complexExpression, node)) {
                     if (subqueryPlanner.isCorrelated(existsPredicate.getSubquery())) {
                         throw SemanticExceptions.createNotSupportedException(
                                 existsPredicate,
@@ -321,12 +320,18 @@ class RelationPlanner
                     }
                 }
 
-                for (SubqueryExpression subquery : subqueryPlanner.collectScalarSubqueries(complexExpression, node)) {
+                for(SubqueryExpression subquery : subqueryPlanner.collectScalarSubqueries(complexExpression, node)) {
                     if (subqueryPlanner.isCorrelated(subquery.getQuery())) {
                         throw SemanticExceptions.createNotSupportedException(
                                 subquery,
                                 "Correlated scalar subquery in join condition");
                     }
+=======
+                    throw new SemanticException(
+                            NOT_SUPPORTED,
+                            Iterables.getLast(inPredicates),
+                            "IN with subquery predicate in join condition not supported");
+>>>>>>> e4b1e78... Extract collect subqueries methods
                 }
             }
 
