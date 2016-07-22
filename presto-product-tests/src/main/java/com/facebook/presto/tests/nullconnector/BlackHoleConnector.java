@@ -20,16 +20,16 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.util.UUID;
 
-import static com.facebook.presto.tests.TestGroups.NULL_CONNECTOR;
+import static com.facebook.presto.tests.TestGroups.BLACKHOLE_CONNECTOR;
 import static com.teradata.tempto.assertions.QueryAssert.Row.row;
 import static com.teradata.tempto.assertions.QueryAssert.assertThat;
 import static com.teradata.tempto.query.QueryExecutor.query;
 import static java.lang.String.format;
 
-public class NullConnector
+public class BlackHoleConnector
 {
-    @Test(groups = {NULL_CONNECTOR})
-    public void nullConnector()
+    @Test(groups = {BLACKHOLE_CONNECTOR})
+    public void blackHoleConnector()
             throws IOException
     {
         String nullTable = "\"blackhole\".default.nation_" + UUID.randomUUID().toString().replace("-", "");

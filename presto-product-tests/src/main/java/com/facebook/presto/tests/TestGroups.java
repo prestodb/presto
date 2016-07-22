@@ -25,7 +25,7 @@ public final class TestGroups
     public static final String HIVE_CONNECTOR = "hive_connector";
     public static final String SYSTEM_CONNECTOR = "system";
     public static final String JMX_CONNECTOR = "jmx";
-    public static final String NULL_CONNECTOR = "null";
+    public static final String BLACKHOLE_CONNECTOR = "blackhole";
     public static final String SMOKE = "smoke";
     public static final String JDBC = "jdbc";
     public static final String QUERY_ENGINE = "qe";
