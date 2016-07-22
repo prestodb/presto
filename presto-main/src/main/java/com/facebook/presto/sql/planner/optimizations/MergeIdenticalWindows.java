@@ -117,10 +117,6 @@ public class MergeIdenticalWindows
                             .map(WindowNode::getWindowFunctions)
                             .flatMap(map -> map.entrySet().stream())
                             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)),
-                    windows.stream()
-                            .map(WindowNode::getSignatures)
-                            .flatMap(map -> map.entrySet().stream())
-                            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)),
                     canonical.getHashSymbol(),
                     canonical.getPrePartitionedInputs(),
                     canonical.getPreSortedOrderPrefix());

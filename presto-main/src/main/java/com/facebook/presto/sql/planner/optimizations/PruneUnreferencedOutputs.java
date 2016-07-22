@@ -341,23 +341,21 @@ public class PruneUnreferencedOutputs
                 expectedInputs.add(node.getHashSymbol().get());
             }
 
-            ImmutableMap.Builder<Symbol, Signature> functionsBuilder = ImmutableMap.builder();
-            ImmutableMap.Builder<Symbol, FunctionCall> functionCallsBuilder = ImmutableMap.builder();
-            for (Map.Entry<Symbol, FunctionCall> entry : node.getWindowFunctions().entrySet()) {
+            ImmutableMap.Builder<Symbol, WindowNode.Function> functionsBuilder = ImmutableMap.builder();
+            for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
                 Symbol symbol = entry.getKey();
 
                 if (context.get().contains(symbol)) {
-                    FunctionCall call = entry.getValue();
+                    FunctionCall call = entry.getValue().getFunctionCall();
                     expectedInputs.addAll(DependencyExtractor.extractUnique(call));
 
-                    functionCallsBuilder.put(symbol, call);
-                    functionsBuilder.put(symbol, node.getSignatures().get(symbol));
+                    functionsBuilder.put(symbol, new WindowNode.Function(call, entry.getValue().getSignature()));
                 }
             }
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
-            Map<Symbol, Signature> functions = functionsBuilder.build();
+            Map<Symbol, WindowNode.Function> functions = functionsBuilder.build();
 
             if (functions.size() == 0) {
                 return source;
@@ -367,7 +365,6 @@ public class PruneUnreferencedOutputs
                     node.getId(),
                     source,
                     node.getSpecification(),
-                    functionCallsBuilder.build(),
                     functions,
                     node.getHashSymbol(),
                     node.getPrePartitionedInputs(),
