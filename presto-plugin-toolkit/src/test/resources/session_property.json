@@ -1,0 +1,23 @@
+{
+  "sessionProperties": [
+    {
+      "user": "admin",
+      "sessionProperty": ".*",
+      "allow": true
+    },
+    {
+      "user": "alice",
+      "sessionProperty": "dangerous",
+      "allow": false
+    },
+    {
+      "user": "alice",
+      "allow": true
+    },
+    {
+      "user": "bob",
+      "sessionProperty": "safe",
+      "allow": true
+    }
+  ]
+}

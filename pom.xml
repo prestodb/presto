@@ -112,6 +112,7 @@
         <module>presto-docs</module>
         <module>presto-verifier</module>
         <module>presto-testing-server-launcher</module>
+        <module>presto-plugin-toolkit</module>
     </modules>
 
     <dependencyManagement>
@@ -125,6 +126,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-array</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-plugin-toolkit</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
