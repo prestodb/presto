@@ -81,6 +81,11 @@ public final class ValidateDependenciesChecker
     @Override
     public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, Map<Symbol, Type> types)
     {
+        validate(plan);
+    }
+
+    public static void validate(PlanNode plan)
+    {
         plan.accept(new Visitor(), ImmutableList.of());
     }
 

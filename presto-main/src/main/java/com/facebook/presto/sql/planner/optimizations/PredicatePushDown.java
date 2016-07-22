@@ -374,7 +374,8 @@ public class PredicatePushDown
                     if (joinEqualityExpression(node.getLeft().getOutputSymbols()).test(conjunct)) {
                         ComparisonExpression equality = (ComparisonExpression) conjunct;
 
-                        boolean alignedComparison = Iterables.all(DependencyExtractor.extractUnique(equality.getLeft()), in(node.getLeft().getOutputSymbols()));
+                        boolean alignedComparison = Iterables.all(DependencyExtractor.extractUnique(equality.getLeft()), in(node.getLeft().getOutputSymbols()))
+                                && Iterables.all(DependencyExtractor.extractUnique(equality.getRight()), in(node.getRight().getOutputSymbols()));
                         Expression leftExpression = (alignedComparison) ? equality.getLeft() : equality.getRight();
                         Expression rightExpression = (alignedComparison) ? equality.getRight() : equality.getLeft();
 

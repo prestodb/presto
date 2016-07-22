@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.sql.planner.assertions.PlanAssert;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
@@ -186,6 +187,24 @@ public class TestLogicalPlanner
                                                                 ))))))));
     }
 
+    @Test
+    public void testCorrelatedScalarAggregationRewriteToLeftOuterJoin()
+    {
+        assertPlan(
+                "SELECT orderkey FROM orders WHERE EXISTS(SELECT 1 WHERE orderkey = 3)", // EXISTS maps to count(*) = 1
+                anyTree(
+                        filter("count > 0",
+                                anyTree(
+                                        node(AggregationNode.class,
+                                                anyTree(
+                                                        join(LEFT, ImmutableList.of(aliasPair("orderkey", "expr")),
+                                                                anyTree(
+                                                                        tableScan("orders")),
+                                                                anyTree(
+                                                                        node(ValuesNode.class)
+                                                                ))))))));
+    }
+
     private void assertPlan(String sql, PlanMatchPattern pattern)
     {
         assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern);
@@ -198,6 +217,11 @@ public class TestLogicalPlanner
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), actualPlan, pattern);
             return null;
         });
+    }
+
+    private Plan plan(String sql)
+    {
+        return plan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED);
     }
 
     private Plan plan(String sql, LogicalPlanner.Stage stage)
