@@ -214,7 +214,7 @@ S3 Configuration Properties
 Property Name                                Description                                            Default
 ============================================ ====================================================== ==========
 ``hive.s3.use-instance-credentials``         Use the EC2 metadata service to retrieve API           ``true``
-                                             credentials.  This works with IAM roles in EC2.
+                                             credentials. This works with IAM roles in EC2.
 
 ``hive.s3.access-key``                       Default API access key to use
 
@@ -237,7 +237,7 @@ Property Name                                Description                        
 ``hive.s3.encryption-materials-provider``    If set, use S3 client-side encryption and use the
                                              value of this property as the fully qualified name of
                                              a java class which implements the S3 Java SDK's
-                                             ``EncryptionMaterialsProvider`` interface.   If the
+                                             ``EncryptionMaterialsProvider`` interface. If the
                                              class also implements ``Configurable`` from the Hadoop
                                              API, the Hadoop configuration will be passed in after
                                              the object has been created.
@@ -246,7 +246,7 @@ Property Name                                Description                        
 If you are running Presto on Amazon EC2 using EMR or another facility, it is highly recommended that you
 set ``hive.s3.use-instance-credentials`` to ``true`` and use IAM Roles for EC2 to govern access to S3.
 If this is the case, your EC2 instances will need to be assigned an IAM Role which grants appropriate
-access to the data stored in the S3 bucket(s) you wish to use.  This is much cleaner than setting AWS
+access to the data stored in the S3 bucket(s) you wish to use. This is much cleaner than setting AWS
 access and secret keys in the ``hive.s3.access-key`` and ``hive.s3.secret-key`` settings, and also
 allows EC2 to automatically rotate credentials on a regular basis without any additional work on your part.
 
@@ -266,9 +266,9 @@ Property Name                                Description                        
 ``hive.s3.max-client-retries``               Max number of read attempts to retry                   ``3``
 
 ``hive.s3.max-backoff-time``                 Use exponential backoff starting at 1 second up to     ``10 minutes``
-                                             this maximum value when communicating with S3.
+                                             this maximum value when communicating with S3
 
-``hive.s3.max-retry-time``                   Maximum time to retry communicating with S3.           ``10 minutes``
+``hive.s3.max-retry-time``                   Maximum time to retry communicating with S3            ``10 minutes``
 
 ``hive.s3.connect-timeout``                  TCP connection timeout                                 ``5 seconds``
 
@@ -291,20 +291,20 @@ manage AES encryption keys.
 With `S3 server-side encryption <http://docs.aws.amazon.com/AmazonS3/latest/dev/serv-side-encryption.html>`_,
 (known as "SSE-S3" in the Amazon documentation) the S3 infrastructure takes care of all encryption and decryption
 work (with the exception of SSL to the client, assuming you have ``hive.s3.ssl.enabled`` set to ``true``).
-S3 also manages all the encryption keys for you.  To enable this, set ``hive.s3.sse.enabled`` to ``true``.
+S3 also manages all the encryption keys for you. To enable this, set ``hive.s3.sse.enabled`` to ``true``.
 
 With `S3 client-side encryption <http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingClientSideEncryption.html>`_,
-S3 stores encrypted data and the encryption keys are managed outside of the S3 infrastructure.  Data is encrypted
+S3 stores encrypted data and the encryption keys are managed outside of the S3 infrastructure. Data is encrypted
 and decrypted by Presto instead of in the S3 infrastructure. In this case, encryption keys can either by
 managed using the AWS KMS or your own key management system. To use the AWS KMS for key management, set
-``hive.s3.kms-key-id`` to the UUID of a KMS Key.  Your AWS credentials or EC2 IAM Role will need to be
+``hive.s3.kms-key-id`` to the UUID of a KMS Key. Your AWS credentials or EC2 IAM Role will need to be
 granted permission to use the given key as well.
 
 To use a custom encryption key management system, set ``hive.s3.encryption-materials-provider`` to the
 fully qualified name of a class which implements the
 `EncryptionMaterialsProvider <http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/com/amazonaws/services/s3/model/EncryptionMaterialsProvider.html>`_
-interface from the AWS Java SDK.  This class will have to be accessible to the Hive Connector through the
-classpath and must be able to communicate with your custom key management system.  If this class also implements
+interface from the AWS Java SDK. This class will have to be accessible to the Hive Connector through the
+classpath and must be able to communicate with your custom key management system. If this class also implements
 the ``org.apache.hadoop.conf.Configurable`` interface from the Hadoop Java API, then the Hadoop configuration
 will be passed in after the object instance is created and before it is asked to provision or retrieve any
 encryption keys.
