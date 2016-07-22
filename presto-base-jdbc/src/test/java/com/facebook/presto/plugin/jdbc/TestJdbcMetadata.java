@@ -145,6 +145,7 @@ public class TestJdbcMetadata
                 new SchemaTableName("example", "view"),
                 new SchemaTableName("tpch", "orders"),
                 new SchemaTableName("tpch", "lineitem"),
+                new SchemaTableName("exa_ple", "table_with_float_col"),
                 new SchemaTableName("exa_ple", "num_ers")));
 
         // specific schema
@@ -156,7 +157,8 @@ public class TestJdbcMetadata
                 new SchemaTableName("tpch", "orders"),
                 new SchemaTableName("tpch", "lineitem")));
         assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, "exa_ple")), ImmutableSet.of(
-                new SchemaTableName("exa_ple", "num_ers")));
+                new SchemaTableName("exa_ple", "num_ers"),
+                new SchemaTableName("exa_ple", "table_with_float_col")));
 
         // unknown schema
         assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, "unknown")), ImmutableSet.of());
