@@ -19,6 +19,7 @@ import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.IntegerType;
+import com.facebook.presto.spi.type.RealType;
 import com.facebook.presto.spi.type.SmallintType;
 import com.facebook.presto.spi.type.TimeType;
 import com.facebook.presto.spi.type.TimestampType;
@@ -48,6 +49,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
 import static org.joda.time.DateTimeZone.UTC;
 
@@ -149,6 +151,9 @@ public class JdbcRecordCursor
             }
             if (type.equals(IntegerType.INTEGER)) {
                 return (long) resultSet.getInt(field + 1);
+            }
+            if (type.equals(RealType.REAL)) {
+                return (long) floatToRawIntBits(resultSet.getFloat(field + 1));
             }
             if (type.equals(BigintType.BIGINT)) {
                 return resultSet.getLong(field + 1);
