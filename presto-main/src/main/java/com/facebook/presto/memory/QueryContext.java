@@ -63,6 +63,9 @@ public class QueryContext
     @GuardedBy("this")
     private long systemReserved;
 
+    @GuardedBy("this")
+    private SettableFuture<?> outOfMemoryFuture = SettableFuture.create();
+
     public QueryContext(QueryId queryId, DataSize maxMemory, MemoryPool memoryPool, MemoryPool systemMemoryPool, Executor executor)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
@@ -149,6 +152,9 @@ public class QueryContext
 
         if (!isMemoryLimitExceeded()) {
             revocableFuture.set(null);
+            if (outOfMemoryFuture.isDone()) {
+                outOfMemoryFuture = SettableFuture.create();
+            }
         }
     }
 
@@ -198,12 +204,18 @@ public class QueryContext
         return taskContext;
     }
 
+    public synchronized SettableFuture<?> getOutOfMemoryFuture()
+    {
+        return outOfMemoryFuture;
+    }
+
     private synchronized ListenableFuture<?> reserveMemoryUnsafe(long bytes)
     {
         if (willExceedMemoryLimit(bytes)) {
             if (revocableFuture.isDone()) {
                 revocableFuture = SettableFuture.create();
             }
+            outOfMemoryFuture.set(null);
         }
 
         ListenableFuture<?> future = memoryPool.reserve(queryId, bytes);

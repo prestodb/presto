@@ -460,6 +460,11 @@ public class DriverContext
         return executor;
     }
 
+    public boolean hasRevocableMemory()
+    {
+        return revocableMemoryReservation.get() > 0;
+    }
+
     private class BlockedMonitor
             implements Runnable
     {

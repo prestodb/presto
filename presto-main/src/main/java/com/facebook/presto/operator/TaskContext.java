@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AtomicDouble;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -411,5 +412,10 @@ public class TaskContext
                 succinctBytes(outputDataSize),
                 outputPositions,
                 pipelineStats);
+    }
+
+    public synchronized SettableFuture<?> getOutOfMemoryFuture()
+    {
+        return queryContext.getOutOfMemoryFuture();
     }
 }
