@@ -15,7 +15,6 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorManager;
-import com.facebook.presto.metadata.FunctionFactory;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.spi.Plugin;
@@ -215,11 +214,6 @@ public class PluginManager
         for (ConnectorFactory connectorFactory : plugin.getServices(ConnectorFactory.class)) {
             log.info("Registering connector %s", connectorFactory.getName());
             connectorManager.addConnectorFactory(connectorFactory);
-        }
-
-        for (FunctionFactory functionFactory : plugin.getServices(FunctionFactory.class)) {
-            log.info("Registering functions from %s", functionFactory.getClass().getName());
-            metadata.addFunctions(functionFactory.listFunctions());
         }
 
         for (Class<?> functionClass : plugin.getFunctions()) {
