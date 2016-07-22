@@ -28,6 +28,7 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
@@ -38,6 +39,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.operator.aggregation.builder.InMemoryHashAggregationBuilder.toTypes;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 
@@ -378,6 +380,23 @@ public class HashAggregationOperator
         }
         aggregationBuilder.processPage(page);
         aggregationBuilder.updateMemory();
+    }
+
+    @Override
+    public ListenableFuture<?> startMemoryRevoke()
+    {
+        if (aggregationBuilder != null) {
+            return toListenableFuture(aggregationBuilder.startMemoryRevoke());
+        }
+        return NOT_BLOCKED;
+    }
+
+    @Override
+    public void finishMemoryRevoke()
+    {
+        if (aggregationBuilder != null) {
+            aggregationBuilder.finishMemoryRevoke();
+        }
     }
 
     @Override

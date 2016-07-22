@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
@@ -135,9 +136,21 @@ public class InMemoryHashAggregationBuilder
         return full;
     }
 
+    @Override
     public boolean isBusy()
     {
         return false;
+    }
+
+    @Override
+    public CompletableFuture<?> startMemoryRevoke()
+    {
+        return null;
+    }
+
+    @Override
+    public void finishMemoryRevoke()
+    {
     }
 
     public long getSizeInMemory()
