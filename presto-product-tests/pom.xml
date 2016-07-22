@@ -31,6 +31,10 @@
         </dependency>
         <dependency>
             <groupId>com.teradata.tempto</groupId>
+            <artifactId>tempto-ldap</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.teradata.tempto</groupId>
             <artifactId>tempto-runner</artifactId>
         </dependency>
         <dependency>

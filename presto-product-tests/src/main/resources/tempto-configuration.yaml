@@ -20,6 +20,7 @@ databases:
     prepare_statement: USE ${databases.hive.schema}
     table_manager_type: hive
     warehouse_directory_path: /user/hive/warehouse
+    path: /user/hive/warehouse
 
   presto:
     host: localhost
@@ -77,3 +78,8 @@ tests:
   assert:
     float_tolerance: 0.000001
 
+ldap:
+   admin:
+       dn: cn=admin,dc=presto,dc=testldap,dc=com
+       password: admin
+   url: ldap://ldapserver

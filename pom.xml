@@ -783,6 +783,12 @@
 
             <dependency>
                 <groupId>com.teradata.tempto</groupId>
+                <artifactId>tempto-ldap</artifactId>
+                <version>${dep.tempto.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.teradata.tempto</groupId>
                 <artifactId>tempto-runner</artifactId>
                 <version>${dep.tempto.version}</version>
             </dependency>
