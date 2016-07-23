@@ -60,7 +60,7 @@ public class TestMongoPlugin
         ConnectorFactory factory = getOnlyElement(plugin.getLegacyConnectorFactories(new TestingConnectorFactoryContext()));
         Connector connector = factory.create("test", ImmutableMap.of("mongodb.seeds", seed), new ConnectorContext() {});
 
-        Type type = getOnlyElement(plugin.getServices(Type.class));
+        Type type = getOnlyElement(plugin.getTypes());
         assertEquals(type, OBJECT_ID);
 
         connector.shutdown();

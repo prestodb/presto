@@ -189,17 +189,17 @@ public class PluginManager
     {
         plugin.setOptionalConfig(optionalConfig);
 
-        for (BlockEncodingFactory<?> blockEncodingFactory : plugin.getServices(BlockEncodingFactory.class)) {
+        for (BlockEncodingFactory<?> blockEncodingFactory : plugin.getBlockEncodingFactories(blockEncodingManager)) {
             log.info("Registering block encoding %s", blockEncodingFactory.getName());
             blockEncodingManager.addBlockEncodingFactory(blockEncodingFactory);
         }
 
-        for (Type type : plugin.getServices(Type.class)) {
+        for (Type type : plugin.getTypes()) {
             log.info("Registering type %s", type.getTypeSignature());
             typeRegistry.addType(type);
         }
 
-        for (ParametricType parametricType : plugin.getServices(ParametricType.class)) {
+        for (ParametricType parametricType : plugin.getParametricTypes()) {
             log.info("Registering parametric type %s", parametricType.getName());
             typeRegistry.addParametricType(parametricType);
         }
@@ -219,7 +219,7 @@ public class PluginManager
             metadata.addFunctions(extractFunctions(functionClass));
         }
 
-        for (SystemAccessControlFactory accessControlFactory : plugin.getServices(SystemAccessControlFactory.class)) {
+        for (SystemAccessControlFactory accessControlFactory : plugin.getSystemAccessControlFactories()) {
             log.info("Registering system access control %s", accessControlFactory.getName());
             accessControlManager.addSystemAccessControlFactory(accessControlFactory);
         }
