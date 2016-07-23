@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -40,6 +39,12 @@ public class MongoPlugin
     }
 
     @Override
+    public Iterable<Type> getTypes()
+    {
+        return ImmutableList.of(OBJECT_ID);
+    }
+
+    @Override
     public Set<Class<?>> getFunctions()
     {
         return ImmutableSet.of(ObjectIdFunctions.class);
@@ -49,14 +54,5 @@ public class MongoPlugin
     public Iterable<ConnectorFactory> getLegacyConnectorFactories(ConnectorFactoryContext context)
     {
         return ImmutableList.of(new MongoConnectorFactory("mongodb", context.getTypeManager(), optionalConfig));
-    }
-
-    @Override
-    public <T> List<T> getServices(Class<T> type)
-    {
-        if (type == Type.class) {
-            return ImmutableList.of(type.cast(OBJECT_ID));
-        }
-        return ImmutableList.of();
     }
 }
