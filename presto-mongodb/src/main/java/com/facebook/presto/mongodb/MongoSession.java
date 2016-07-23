@@ -496,7 +496,7 @@ public class MongoSession
                 builder.add(metadata);
             }
             else {
-                log.debug("Unable to guess field type from %s : %s", value.getClass().getName(), value);
+                log.debug("Unable to guess field type from %s : %s", value == null ? "null" : value.getClass().getName(), value);
             }
         }
 
