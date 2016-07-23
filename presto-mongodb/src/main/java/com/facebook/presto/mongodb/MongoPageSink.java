@@ -16,16 +16,27 @@ package com.facebook.presto.mongodb;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.Decimals;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.NamedTypeSignature;
-import com.facebook.presto.spi.type.SqlDate;
-import com.facebook.presto.spi.type.SqlTime;
-import com.facebook.presto.spi.type.SqlTimestamp;
-import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
-import com.facebook.presto.spi.type.SqlVarbinary;
+import com.facebook.presto.spi.type.SmallintType;
+import com.facebook.presto.spi.type.TimeType;
+import com.facebook.presto.spi.type.TimestampType;
+import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
+import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.facebook.presto.spi.type.VarbinaryType;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.InsertManyOptions;
@@ -34,8 +45,11 @@ import org.bson.Document;
 import org.bson.types.Binary;
 import org.bson.types.ObjectId;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -44,12 +58,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.mongodb.ObjectIdType.OBJECT_ID;
-import static com.facebook.presto.mongodb.TypeUtils.containsType;
 import static com.facebook.presto.mongodb.TypeUtils.isArrayType;
 import static com.facebook.presto.mongodb.TypeUtils.isMapType;
 import static com.facebook.presto.mongodb.TypeUtils.isRowType;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static java.util.stream.Collectors.toList;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 
 public class MongoPageSink
         implements ConnectorPageSink
@@ -58,7 +71,6 @@ public class MongoPageSink
     private final ConnectorSession session;
     private final SchemaTableName schemaTableName;
     private final List<MongoColumnHandle> columns;
-    private final List<Boolean> requireTranslate;
     private final String implicitPrefix;
 
     public MongoPageSink(MongoClientConfig config,
@@ -71,11 +83,6 @@ public class MongoPageSink
         this.session = session;
         this.schemaTableName = schemaTableName;
         this.columns = columns;
-        this.requireTranslate = columns.stream()
-                .map(c -> containsType(c.getType(), TypeUtils::isDateType,
-                                                    TypeUtils::isMapType, TypeUtils::isRowType,
-                                                    OBJECT_ID::equals, VARBINARY::equals))
-                .collect(toList());
         this.implicitPrefix = config.getImplicitRowFieldPrefix();
     }
 
@@ -91,7 +98,7 @@ public class MongoPageSink
 
             for (int channel = 0; channel < page.getChannelCount(); channel++) {
                 MongoColumnHandle column = columns.get(channel);
-                doc.append(column.getName(), getObjectValue(columns.get(channel).getType(), page.getBlock(channel), position, requireTranslate.get(channel)));
+                doc.append(column.getName(), getObjectValue(columns.get(channel).getType(), page.getBlock(channel), position));
             }
             batch.add(doc);
         }
@@ -100,89 +107,128 @@ public class MongoPageSink
         return NOT_BLOCKED;
     }
 
-    private Object getObjectValue(Type type, Block block, int position, boolean translate)
+    private Object getObjectValue(Type type, Block block, int position)
     {
         if (block.isNull(position)) {
+            if (type.equals(OBJECT_ID)) {
+                return new ObjectId();
+            }
             return null;
         }
 
-        Object value = type.getObjectValue(session, block, position);
-
-        if (translate) {
-            value = translateValue(type, value);
+        if (OBJECT_ID.equals(type)) {
+            return new ObjectId(block.getSlice(position, 0, block.getLength(position)).getBytes());
         }
-
-        return value;
-    }
-
-    private Object translateValue(Type type, Object value)
-    {
-        if (type.equals(OBJECT_ID)) {
-            value = value == null ? new ObjectId() : new ObjectId(((SqlVarbinary) value).getBytes());
+        if (BooleanType.BOOLEAN.equals(type)) {
+            return type.getBoolean(block, position);
         }
-
-        if (value == null) {
-            return null;
+        if (BigintType.BIGINT.equals(type)) {
+            return type.getLong(block, position);
         }
-
-        if (type.getJavaType() == long.class) {
-            if (value instanceof SqlDate) {
-                return new Date(TimeUnit.DAYS.toMillis(((SqlDate) value).getDays()));
-            }
-            if (value instanceof SqlTime) {
-                return new Date(((SqlTime) value).getMillisUtc());
-            }
-            if (value instanceof SqlTimestamp) {
-                return new Date(((SqlTimestamp) value).getMillisUtc());
-            }
-            if (value instanceof SqlTimestampWithTimeZone) {
-                return new Date(((SqlTimestampWithTimeZone) value).getMillisUtc());
-            }
+        if (IntegerType.INTEGER.equals(type)) {
+            return (int) type.getLong(block, position);
         }
-        else if (type.getJavaType() == Slice.class) {
-            if (type.equals(VARBINARY)) {
-                value = new Binary(((SqlVarbinary) value).getBytes());
-            }
+        if (SmallintType.SMALLINT.equals(type)) {
+            return (short) type.getLong(block, position);
         }
-        else if (type.getJavaType() == Block.class) {
-            if (isArrayType(type)) {
-                value = ((List<?>) value).stream()
-                        .map(v -> translateValue(type.getTypeParameters().get(0), v))
-                        .collect(toList());
+        if (TinyintType.TINYINT.equals(type)) {
+            return (byte) type.getLong(block, position);
+        }
+        if (DoubleType.DOUBLE.equals(type)) {
+            return type.getDouble(block, position);
+        }
+        if (type instanceof VarcharType) {
+            return type.getSlice(block, position).toStringUtf8();
+        }
+        if (VarbinaryType.VARBINARY.equals(type)) {
+            return new Binary(type.getSlice(block, position).getBytes());
+        }
+        if (DateType.DATE.equals(type)) {
+            long days = type.getLong(block, position);
+            return new Date(TimeUnit.DAYS.toMillis(days));
+        }
+        if (TimeType.TIME.equals(type)) {
+            long millisUtc = type.getLong(block, position);
+            return new Date(millisUtc);
+        }
+        if (TimestampType.TIMESTAMP.equals(type)) {
+            long millisUtc = type.getLong(block, position);
+            return new Date(millisUtc);
+        }
+        if (TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+            long millisUtc = unpackMillisUtc(type.getLong(block, position));
+            return new Date(millisUtc);
+        }
+        if (type instanceof DecimalType) {
+            // TODO: decimal type might not support yet
+            DecimalType decimalType = (DecimalType) type;
+            BigInteger unscaledValue;
+            if (decimalType.isShort()) {
+                unscaledValue = BigInteger.valueOf(decimalType.getLong(block, position));
             }
-            else if (isMapType(type)) {
-                // map type is converted into list of fixed keys document
-                ImmutableList.Builder<Map<String, Object>> builder = ImmutableList.builder();
-                for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
-                    Map<String, Object> mapValue = new HashMap<>();
-                    mapValue.put("key", translateValue(type.getTypeParameters().get(0), entry.getKey()));
-                    mapValue.put("value", translateValue(type.getTypeParameters().get(1), entry.getValue()));
+            else {
+                unscaledValue = Decimals.decodeUnscaledValue(decimalType.getSlice(block, position));
+            }
+            return new BigDecimal(unscaledValue);
+        }
+        if (isArrayType(type)) {
+            Type elementType = type.getTypeParameters().get(0);
 
-                    builder.add(mapValue);
+            Block arrayBlock = block.getObject(position, Block.class);
+
+            List<Object> list = new ArrayList<>(arrayBlock.getPositionCount());
+            for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
+                Object element = getObjectValue(elementType, arrayBlock, i);
+                list.add(element);
+            }
+
+            return Collections.unmodifiableList(list);
+        }
+        if (isMapType(type)) {
+            Type keyType = type.getTypeParameters().get(0);
+            Type valueType = type.getTypeParameters().get(1);
+
+            Block mapBlock = block.getObject(position, Block.class);
+
+            // map type is converted into list of fixed keys document
+            List<Object> values = new ArrayList<>(mapBlock.getPositionCount() / 2);
+            for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
+                Map<String, Object> mapValue = new HashMap<>();
+                mapValue.put("key", getObjectValue(keyType, mapBlock, i));
+                mapValue.put("value", getObjectValue(valueType, mapBlock, i + 1));
+                values.add(mapValue);
+            }
+
+            return Collections.unmodifiableList(values);
+        }
+        if (isRowType(type)) {
+            Block rowBlock = block.getObject(position, Block.class);
+
+            List<Type> fieldTypes = type.getTypeParameters();
+            if (fieldTypes.size() != rowBlock.getPositionCount()) {
+                throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "Expected row value field count does not match type field count");
+            }
+
+            if (isImplicitRowType(type)) {
+                ArrayList<Object> rowValue = new ArrayList<>();
+                for (int i = 0; i < rowBlock.getPositionCount(); i++) {
+                    Object element = getObjectValue(fieldTypes.get(i), rowBlock, i);
+                    rowValue.add(element);
                 }
-                value = builder.build();
+                return Collections.unmodifiableList(rowValue);
             }
-            else if (isRowType(type)) {
-                List<?> fieldValues = (List<?>) value;
-                if (isImplicitRowType(type)) {
-                    ArrayList<Object> rowValue = new ArrayList<>();
-                    for (int index = 0; index < fieldValues.size(); index++) {
-                        rowValue.add(translateValue(type.getTypeParameters().get(index), fieldValues.get(index)));
-                    }
-                    value = rowValue;
+            else {
+                HashMap<String, Object> rowValue = new HashMap<>();
+                for (int i = 0; i < rowBlock.getPositionCount(); i++) {
+                    rowValue.put(
+                            type.getTypeSignature().getParameters().get(i).getNamedTypeSignature().getName(),
+                            getObjectValue(fieldTypes.get(i), rowBlock, i));
                 }
-                else {
-                    HashMap<String, Object> rowValue = new HashMap<>();
-                    for (int index = 0; index < fieldValues.size(); index++) {
-                        rowValue.put(type.getTypeSignature().getParameters().get(index).getNamedTypeSignature().getName(),
-                                translateValue(type.getTypeParameters().get(index), fieldValues.get(index)));
-                    }
-                    value = rowValue;
-                }
+                return Collections.unmodifiableMap(rowValue);
             }
         }
 
-        return value;
+        throw new PrestoException(NOT_SUPPORTED, "unsupported type: " + type);
     }
 
     private boolean isImplicitRowType(Type type)
