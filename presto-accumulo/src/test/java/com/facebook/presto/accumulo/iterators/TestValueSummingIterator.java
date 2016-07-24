@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.accumulo.iterators;
 
+import com.facebook.presto.accumulo.AccumuloQueryRunner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.Files;
 import io.airlift.log.Logger;
 import org.apache.accumulo.core.client.BatchScanner;
 import org.apache.accumulo.core.client.BatchWriter;
@@ -32,14 +32,11 @@ import org.apache.accumulo.core.iterators.LongCombiner.Type;
 import org.apache.accumulo.core.iterators.LongCombiner.VarLenEncoder;
 import org.apache.accumulo.core.iterators.TypedValueCombiner.Encoder;
 import org.apache.accumulo.core.security.Authorizations;
-import org.apache.accumulo.minicluster.MiniAccumuloCluster;
 import org.apache.hadoop.io.Text;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.Map;
 
 import static java.lang.String.format;
@@ -54,34 +51,21 @@ public class TestValueSummingIterator
     public static final Encoder<Long> VAR_LEN_ENCODER = new VarLenEncoder();
     public static final Encoder<Long> STRING_ENCODER = new StringEncoder();
 
-    private Connector conn = null;
+    private Connector connector = null;
 
     @BeforeClass
     public void setup()
             throws Exception
     {
-        File tmpDir = Files.createTempDir().getAbsoluteFile();
-        Logger.get(getClass()).info("MAC directory is " + tmpDir);
-        MiniAccumuloCluster mac = new MiniAccumuloCluster(tmpDir, "secret");
-        mac.start();
-        conn = mac.getConnector("root", "secret");
-
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            try {
-                mac.stop();
-            }
-            catch (IOException | InterruptedException e) {
-                e.printStackTrace();
-            }
-        }));
+        connector = AccumuloQueryRunner.getAccumuloConnector();
     }
 
     @AfterMethod
     public void cleanup()
             throws Exception
     {
-        if (conn.tableOperations().exists(TABLE_NAME)) {
-            conn.tableOperations().delete(TABLE_NAME);
+        if (connector.tableOperations().exists(TABLE_NAME)) {
+            connector.tableOperations().delete(TABLE_NAME);
         }
     }
 
@@ -89,9 +73,9 @@ public class TestValueSummingIterator
     public void testNoData()
             throws Exception
     {
-        conn.tableOperations().create(TABLE_NAME);
+        connector.tableOperations().create(TABLE_NAME);
 
-        Scanner scanner = conn.createScanner(TABLE_NAME, new Authorizations());
+        Scanner scanner = connector.createScanner(TABLE_NAME, new Authorizations());
         IteratorSetting setting = new IteratorSetting(Integer.MAX_VALUE, ValueSummingIterator.class);
         long expectedSum = 0;
 
@@ -111,8 +95,8 @@ public class TestValueSummingIterator
     public void testNoDataInColumn()
             throws Exception
     {
-        conn.tableOperations().create(TABLE_NAME);
-        BatchWriter writer = conn.createBatchWriter(TABLE_NAME, new BatchWriterConfig());
+        connector.tableOperations().create(TABLE_NAME);
+        BatchWriter writer = connector.createBatchWriter(TABLE_NAME, new BatchWriterConfig());
 
         Mutation m1 = new Mutation("foo1");
         m1.put(b("cf2"), b("cq1"), STRING_ENCODER.encode(1L));
@@ -121,7 +105,7 @@ public class TestValueSummingIterator
 
         writer.close();
 
-        Scanner scanner = conn.createScanner(TABLE_NAME, new Authorizations());
+        Scanner scanner = connector.createScanner(TABLE_NAME, new Authorizations());
         scanner.fetchColumnFamily(t("cf1"));
         IteratorSetting setting = new IteratorSetting(Integer.MAX_VALUE, ValueSummingIterator.class);
         long expectedSum = 0;
@@ -279,8 +263,8 @@ public class TestValueSummingIterator
     private void testSum(Encoder<Long> encoder, Type type, boolean fetchColumn, boolean fetchQualifier)
             throws Exception
     {
-        conn.tableOperations().create(TABLE_NAME);
-        BatchWriter writer = conn.createBatchWriter(TABLE_NAME, new BatchWriterConfig());
+        connector.tableOperations().create(TABLE_NAME);
+        BatchWriter writer = connector.createBatchWriter(TABLE_NAME, new BatchWriterConfig());
 
         Mutation m1 = new Mutation("foo1");
         m1.put(b("cf1"), b("cq1"), encoder.encode(1L));
@@ -305,7 +289,7 @@ public class TestValueSummingIterator
 
         writer.close();
 
-        Scanner scanner = conn.createScanner(TABLE_NAME, new Authorizations());
+        Scanner scanner = connector.createScanner(TABLE_NAME, new Authorizations());
         IteratorSetting setting = new IteratorSetting(Integer.MAX_VALUE, ValueSummingIterator.class);
         long expectedSum;
         if (fetchColumn) {
@@ -349,8 +333,8 @@ public class TestValueSummingIterator
     private void testSumBatch(Encoder<Long> encoder, Type type, boolean fetchColumn, boolean fetchQualifier)
             throws Exception
     {
-        conn.tableOperations().create(TABLE_NAME);
-        BatchWriter writer = conn.createBatchWriter(TABLE_NAME, new BatchWriterConfig());
+        connector.tableOperations().create(TABLE_NAME);
+        BatchWriter writer = connector.createBatchWriter(TABLE_NAME, new BatchWriterConfig());
 
         Mutation m1 = new Mutation("foo1");
         m1.put(b("cf1"), b("cq1"), encoder.encode(1L));
@@ -375,7 +359,7 @@ public class TestValueSummingIterator
 
         writer.close();
 
-        BatchScanner scanner = conn.createBatchScanner(TABLE_NAME, new Authorizations(), 10);
+        BatchScanner scanner = connector.createBatchScanner(TABLE_NAME, new Authorizations(), 10);
         IteratorSetting setting = new IteratorSetting(Integer.MAX_VALUE, ValueSummingIterator.class);
         scanner.setRanges(ImmutableList.of(new Range("foo0", "foo1"), new Range("foo2"), new Range("foo3"), new Range("foo4")));
 
@@ -410,8 +394,8 @@ public class TestValueSummingIterator
     public void testTypeNotSet()
             throws Exception
     {
-        conn.tableOperations().create(TABLE_NAME);
-        Scanner scanner = conn.createScanner(TABLE_NAME, new Authorizations());
+        connector.tableOperations().create(TABLE_NAME);
+        Scanner scanner = connector.createScanner(TABLE_NAME, new Authorizations());
         IteratorSetting setting = new IteratorSetting(Integer.MAX_VALUE, ValueSummingIterator.class);
         scanner.addScanIterator(setting);
         scanner.iterator().next();

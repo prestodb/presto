@@ -12,6 +12,36 @@ Overview
 The Accumulo connector supports reading and writing data from Apache Accumulo.
 Please read this page thoroughly to understand the capabilities and features of the connector.
 
+<<<<<<< b369d8c1c3a4a51e2271764b649287e0b889052a
+=======
+Table of Contents
+~~~~~~~~~~~~~~~~~
+#. `Dependencies <#dependencies>`__
+#. `Installing the Iterator Dependency <#installing-the-iterator-dependency>`__
+#. `Connector Configuration <#connector-configuration>`__
+#. `Unsupported Features <#unsupported-features>`__
+#. `Usage <#usage>`__
+#. `Indexing Columns <#indexing-columns>`__
+#. `Loading Data <#loading-data>`__
+#. `External Tables <#external-tables>`__
+#. `Table Properties <#table-properties>`__
+#. `Session Properties <#session-properties>`__
+#. `Adding Columns <#adding-columns>`__
+#. `Serializers <#serializers>`__
+#. `Metadata Management <#metadata-management>`__
+#. `Converting Table from Internal to External <#converting-table-from-internal-to-external>`__
+#. `Metrics Storage <#metrics-storage>`__
+#. `Timestamp Optimization <#timestamp-optimization>`__
+
+Dependencies
+~~~~~~~~~~~~
+-  Java 1.8 (required for connector)
+-  Java 1.7 (``accumulo.jdk.version == 1.7 ? required : !required``)
+-  Maven
+-  Accumulo
+-  *presto-accumulo-iterators*, from `https://github.com/bloomberg/presto-accumulo <https://github.com/bloomberg/presto-accumulo>`_
+
+>>>>>>> Refactor metrics storage and add timestamp truncates
 Installing the Iterator Dependency
 ----------------------------------
 
@@ -454,23 +484,25 @@ Table property usage example:
       index_columns = 'name,age'
     );
 
-==================== ================ ======================================================================================================
-Property Name        Default Value    Description
-==================== ================ ======================================================================================================
-``column_mapping``   (generated)      Comma-delimited list of column metadata: ``col_name:col_family:col_qualifier,[...]``.
-                                      Required for external tables.  Not setting this property results in auto-generated column names.
-``index_columns``    (none)           A comma-delimited list of Presto columns that are indexed in this table's corresponding index table
-``external``         ``false``        If true, Presto will only do metadata operations for the table.
-                                      Otherwise, Presto will create and drop Accumulo tables where appropriate.
-``locality_groups``  (none)           List of locality groups to set on the Accumulo table. Only valid on internal tables.
-                                      String format is locality group name, colon, comma delimited list of column families in the group.
-                                      Groups are delimited by pipes. Example: ``group1:famA,famB,famC|group2:famD,famE,famF|etc...``
-``row_id``           (first column)   Presto column name that maps to the Accumulo row ID.
-``serializer``       ``default``      Serializer for Accumulo data encodings. Can either be ``default``, ``string``, ``lexicoder``
-                                      or a Java class name. Default is ``default``,
-                                      i.e. the value from ``AccumuloRowSerializer.getDefault()``, i.e. ``lexicoder``.
-``scan_auths``       (user auths)     Scan-time authorizations set on the batch scanner.
-==================== ================ ======================================================================================================
+======================== ================ ======================================================================================================
+Property Name            Default Value    Description
+======================== ================ ======================================================================================================
+``column_mapping``       (generated)      Comma-delimited list of column metadata: ``col_name:col_family:col_qualifier,[...]``.
+                                          Required for external tables.  Not setting this property results in auto-generated column names.
+``index_columns``        (none)           A comma-delimited list of Presto columns that are indexed in this table's corresponding index table
+``external``             ``false``        If true, Presto will only do metadata operations for the table.
+                                          Otherwise, Presto will create and drop Accumulo tables where appropriate.
+``locality_groups``      (none)           List of locality groups to set on the Accumulo table. Only valid on internal tables.
+                                          String format is locality group name, colon, comma delimited list of column families in the group.
+                                          Groups are delimited by pipes. Example: ``group1:famA,famB,famC|group2:famD,famE,famF|etc...``
+``row_id``               (first column)   Presto column name that maps to the Accumulo row ID.
+``serializer``           ``default``      Serializer for Accumulo data encodings. Can either be ``default``, ``string``, ``lexicoder``
+                                          or a Java class name. Default is ``default``,
+                                          i.e. the value from ``AccumuloRowSerializer.getDefault()``, i.e. ``lexicoder``.
+``scan_auths``           (user auths)     Scan-time authorizations set on the batch scanner.
+``metrics_storage``      ``default``      Metrics storage to use for this table.  Can either be 'default', 'accumulo', or a Java class name
+``truncate_timestamps``  ``false``        True to enable truncating of timestamp-type column metrics                                                                                                                                                                       |
+
 
 Session Properties
 ------------------
@@ -480,7 +512,6 @@ Note that session properties are prefixed with the catalog name::
 
     SET SESSION accumulo.column_filter_optimizations_enabled = false;
 
-<<<<<<< 58d6adaada98a8f605337c3904f9ddf0350a580d
 ============================================= ============= =======================================================================================================
 Property Name                                 Default Value Description
 ============================================= ============= =======================================================================================================
@@ -702,3 +733,59 @@ the output of the ``DESCRIBE`` statement.
       index_columns = 'b,c',
       external = true
     );
+
+Metrics Storage
+~~~~~~~~~~~~~~~
+
+The destination system for index metrics is pluggable, with the default
+implementation being stored in Accumulo.  This system was essentially a refactor
+to enable investigating using Redis as a storage system.  A prototype exists,
+however it is not yet stable enough to consider for production use.  Users can
+specify a new storage system using the ``metrics_storage`` table property detailed above.
+
+Truncate Timestamp Metrics
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For ``TIMESTAMP`` columns, metrics can be aggregated further to reduce the amount of
+time spent scanning Accumulo when querying over large timespans (due to the millisecond
+precisiion).  To improve query performance, additional entries can be stored in the metrics
+storage system by pre-aggregating the metrics into incremental thresholds -- second,
+minute, hour, and day. Then, when querying for the cardinality of a time-based column
+range, the time can be split into a mix of small range scans and exact value lookups.
+
+Say that we have a query against the column like so:
+
+.. code-block:: sql
+
+    SELECT * FROM events WHERE recordtime BETWEEN TIMESTAMP '2016-01-02 00:30:00.000' AND '2016-01-07 00:30:00.000'
+
+Without the additional time-based aggregations, this would be a range scan from the
+first time to the last, aggregating potentially millions of time-based keys that
+have millisecond precision.  However, we can split this individual range scan into a
+collection of smaller range scans and single-value queries.  The results of all of
+these queries are then aggregated, and the time it takes to do so is drastically reduced.
+
+
+.. code-block:: text
+
+    2016-01-02 00:30:00.000 -> 2016-01-02 00:59:59.999     (Small range scan)
+    2016-01-02 01:00:00                                    (Exact lookup on hour)
+    2016-01-02 02:00:00                                    (Exact lookup on hour)
+    ...                                                    (Exact lookup on hour)
+    2016-01-02 23:00:00                                    (Exact lookup on hour)
+    2016-01-03                                             (Exact lookup on day)
+    2016-01-04                                             (Exact lookup on day)
+    2016-01-05                                             (Exact lookup on day)
+    2016-01-06                                             (Exact lookup on day)
+    2016-01-07 00:00:00.000 -> 2016-01-07 00:30:00.000     (Small range scan)
+
+To enable this feature, simply add ``truncate_timestamps=true`` as a new table property
+when creating your tables.  The connector will handle the rest!
+
+For existing *external* tables, you can drop the table definition
+and re-create the table with the new property.  Then, run the metrics re-write tool at
+`presto-accumulo-tools <https://github.com/bloomberg/presto-accumulo/tree/master/presto-accumulo-tools>`__.
+This will generate the timestamp metrics for existing entries.
+
+If your table is *internal*,  follow the below instructions to convert it into an
+external table.  You can then add the new table property and run the tool.

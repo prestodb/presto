@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.accumulo.conf;
 
+import com.facebook.presto.accumulo.index.metrics.AccumuloMetricsStorage;
 import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
 import com.facebook.presto.accumulo.serializers.LexicoderRowSerializer;
 import com.facebook.presto.accumulo.serializers.StringRowSerializer;
@@ -26,6 +27,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
+
+import javax.validation.constraints.NotNull;
 
 import java.util.Arrays;
 import java.util.List;
@@ -56,6 +59,9 @@ public final class AccumuloTableProperties
     public static final String ROW_ID = "row_id";
     public static final String SERIALIZER = "serializer";
     public static final String SCAN_AUTHS = "scan_auths";
+    public static final String METRICS_STORAGE = "metrics_storage";
+    public static final String TRUNCATE_TIMESTAMPS = "truncate_timestamps";
+
     private static final Splitter COLON_SPLITTER = Splitter.on(':').omitEmptyStrings().trimResults();
     private static final Splitter COMMA_SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
     private static final Splitter PIPE_SPLITTER = Splitter.on('|').omitEmptyStrings().trimResults();
@@ -114,7 +120,25 @@ public final class AccumuloTableProperties
                 null,
                 false);
 
-        tableProperties = ImmutableList.of(s1, s2, s3, s4, s5, s6, s7);
+        PropertyMetadata<String> s8 =
+                new PropertyMetadata<>(METRICS_STORAGE,
+                        "Metrics storage to use for this table.  Can either be 'default', 'accumulo', or a Java class name. Default is 'default', i.e. the value from MetricsStorage.getDefault(), i.e. 'accumulo'.",
+                        VarcharType.VARCHAR,
+                        String.class,
+                        AccumuloMetricsStorage.class.getCanonicalName(),
+                        false,
+                        x -> x.equals("default") || x.equals("accumulo")
+                                ? AccumuloMetricsStorage.class.getCanonicalName()
+                                : (String) x,
+                        object -> object);
+
+        PropertyMetadata<Boolean> s9 = booleanSessionProperty(
+                TRUNCATE_TIMESTAMPS,
+                "True to enable truncating of timestamp-type column metrics.  Default is false",
+                false,
+                false);
+
+        tableProperties = ImmutableList.of(s1, s2, s3, s4, s5, s6, s7, s8, s9);
     }
 
     public List<PropertyMetadata<?>> getTableProperties()
@@ -130,8 +154,7 @@ public final class AccumuloTableProperties
      * @param tableProperties The map of table properties
      * @return The column mapping, presto name to (accumulo column family, qualifier)
      */
-    public static Optional<Map<String, Pair<String, String>>> getColumnMapping(
-            Map<String, Object> tableProperties)
+    public static Optional<Map<String, Pair<String, String>>> getColumnMapping(Map<String, Object> tableProperties)
     {
         requireNonNull(tableProperties);
 
@@ -247,5 +270,25 @@ public final class AccumuloTableProperties
         @SuppressWarnings("unchecked")
         Boolean external = (Boolean) tableProperties.get(EXTERNAL);
         return external;
+    }
+
+    @NotNull
+    public static String getMetricsStorageClass(Map<String, Object> tableProperties)
+    {
+        requireNonNull(tableProperties);
+
+        @SuppressWarnings("unchecked")
+        String metricsStorage = (String) tableProperties.get(METRICS_STORAGE);
+        return metricsStorage;
+    }
+
+    @NotNull
+    public static Boolean isTruncateTimestampsEnabled(Map<String, Object> tableProperties)
+    {
+        requireNonNull(tableProperties);
+
+        @SuppressWarnings("unchecked")
+        Boolean truncateTimestamps = (Boolean) tableProperties.get(TRUNCATE_TIMESTAMPS);
+        return truncateTimestamps;
     }
 }

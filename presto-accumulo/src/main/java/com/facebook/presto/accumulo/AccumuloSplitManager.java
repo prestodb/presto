@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.accumulo;
 
+import com.facebook.presto.accumulo.conf.AccumuloConfig;
 import com.facebook.presto.accumulo.model.AccumuloColumnConstraint;
 import com.facebook.presto.accumulo.model.AccumuloColumnHandle;
 import com.facebook.presto.accumulo.model.AccumuloSplit;
@@ -32,6 +33,7 @@ import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.TupleDomain.ColumnDomain;
 import com.google.common.collect.ImmutableList;
+import org.apache.accumulo.core.client.Connector;
 
 import javax.inject.Inject;
 
@@ -47,13 +49,19 @@ public class AccumuloSplitManager
 {
     private final String connectorId;
     private final AccumuloClient client;
+    private final AccumuloConfig config;
+    private final Connector connector;
 
     @Inject
     public AccumuloSplitManager(
+            Connector connector,
             AccumuloConnectorId connectorId,
+            AccumuloConfig config,
             AccumuloClient client)
     {
+        this.connector = requireNonNull(connector, "connector is null");
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
+        this.config = requireNonNull(config, "config is null");
         this.client = requireNonNull(client, "client is null");
     }
 
@@ -74,7 +82,7 @@ public class AccumuloSplitManager
         Optional<Domain> rDom = getRangeDomain(rowIdName, layoutHandle.getConstraint());
 
         // Call out to our client to retrieve all tablet split metadata using the row ID domain and the secondary index
-        List<TabletSplitMetadata> tabletSplits = client.getTabletSplits(session, schemaName, tableName, rDom, constraints, tableHandle.getSerializerInstance());
+        List<TabletSplitMetadata> tabletSplits = client.getTabletSplits(session, schemaName, tableName, rDom, constraints, tableHandle.getSerializerInstance(), tableHandle.getMetricsStorageInstance(connector, config), tableHandle.isTruncateTimestamps());
 
         // Pack the tablet split metadata into a connector split
         ImmutableList.Builder<ConnectorSplit> cSplits = ImmutableList.builder();
@@ -128,6 +136,7 @@ public class AccumuloSplitManager
                         columnHandle.getName(),
                         columnHandle.getFamily().get(),
                         columnHandle.getQualifier().get(),
+                        columnHandle.getType(),
                         Optional.of(columnDomain.getDomain()),
                         columnHandle.isIndexed()));
             }

@@ -18,6 +18,7 @@ import com.facebook.presto.accumulo.conf.AccumuloSessionProperties;
 import com.facebook.presto.accumulo.conf.AccumuloTableProperties;
 import com.facebook.presto.accumulo.index.IndexLookup;
 import com.facebook.presto.accumulo.index.Indexer;
+import com.facebook.presto.accumulo.index.metrics.MetricsStorage;
 import com.facebook.presto.accumulo.io.AccumuloPageSink;
 import com.facebook.presto.accumulo.metadata.AccumuloTable;
 import com.facebook.presto.accumulo.metadata.AccumuloView;
@@ -43,7 +44,6 @@ import io.airlift.log.Logger;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.Connector;
-import org.apache.accumulo.core.client.IteratorSetting;
 import org.apache.accumulo.core.client.Scanner;
 import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.PartialKey;
@@ -111,14 +111,11 @@ public class AccumuloClient
         this.auths = connector.securityOperations().getUserAuthorizations(username);
 
         // Create the index lookup utility
-        this.indexLookup = new IndexLookup(connector, config, this.auths);
+        this.indexLookup = new IndexLookup(this.config, connector);
     }
 
     public AccumuloTable createTable(ConnectorTableMetadata meta)
     {
-        // Validate the DDL is something we can handle
-        validateCreateTable(meta);
-
         Map<String, Object> tableProperties = meta.getProperties();
         String rowIdColumn = getRowIdColumn(meta);
 
@@ -133,7 +130,12 @@ public class AccumuloClient
                 rowIdColumn,
                 AccumuloTableProperties.isExternal(tableProperties),
                 AccumuloTableProperties.getSerializerClass(tableProperties),
-                AccumuloTableProperties.getScanAuthorizations(tableProperties));
+                AccumuloTableProperties.getScanAuthorizations(tableProperties),
+                Optional.of(AccumuloTableProperties.getMetricsStorageClass(tableProperties)),
+                AccumuloTableProperties.isTruncateTimestampsEnabled(tableProperties));
+
+        // Validate the DDL is something we can handle
+        validateCreateTable(table, meta);
 
         // First, create the metadata
         metaManager.createTableMetadata(table);
@@ -158,18 +160,19 @@ public class AccumuloClient
     /**
      * Validates the given metadata for a series of conditions to ensure the table is well-formed.
      *
-     * @param meta Table metadata
+     * @param table AccumuloTable
+     * @param meta Presto table metadata
      */
-    private void validateCreateTable(ConnectorTableMetadata meta)
+    private void validateCreateTable(AccumuloTable table, ConnectorTableMetadata meta)
     {
-        validateColumns(meta);
+        validateColumns(table, meta);
         validateLocalityGroups(meta);
-        if (!AccumuloTableProperties.isExternal(meta.getProperties())) {
-            validateInternalTable(meta);
+        if (!table.isExternal()) {
+            validateInternalTable(table);
         }
     }
 
-    private static void validateColumns(ConnectorTableMetadata meta)
+    private static void validateColumns(AccumuloTable table, ConnectorTableMetadata meta)
     {
         // Check all the column types, and throw an exception if the types of a map are complex
         // While it is a rare case, this is not supported by the Accumulo connector
@@ -188,7 +191,7 @@ public class AccumuloClient
         }
 
         // Validate the columns are distinct
-        if (columnNameBuilder.build().size() != meta.getColumns().size()) {
+        if (columnNameBuilder.build().size() != table.getColumns().size()) {
             throw new PrestoException(INVALID_TABLE_PROPERTY, "Duplicate column names are not supported");
         }
 
@@ -208,7 +211,7 @@ public class AccumuloClient
                 throw new PrestoException(INVALID_TABLE_PROPERTY, format("Column familiy/qualifier mapping of %s:%s is reserved", reservedRowIdColumn, reservedRowIdColumn));
             }
         }
-        else if (AccumuloTableProperties.isExternal(meta.getProperties())) {
+        else if (table.isExternal()) {
             // Column mapping is not defined (i.e. use column generation) and table is external
             // But column generation is for internal tables only
             throw new PrestoException(INVALID_TABLE_PROPERTY, "Column generation for external tables is not supported, must specify " + AccumuloTableProperties.COLUMN_MAPPING);
@@ -254,18 +257,14 @@ public class AccumuloClient
         }
     }
 
-    private void validateInternalTable(ConnectorTableMetadata meta)
+    private void validateInternalTable(AccumuloTable table)
     {
-        String table = AccumuloTable.getFullTableName(meta.getTable());
-        String indexTable = Indexer.getIndexTableName(meta.getTable());
-        String metricsTable = Indexer.getMetricsTableName(meta.getTable());
-
-        if (tableManager.exists(table)) {
+        if (tableManager.exists(table.getFullTableName())) {
             throw new PrestoException(ACCUMULO_TABLE_EXISTS, "Cannot create internal table when an Accumulo table already exists");
         }
 
-        if (AccumuloTableProperties.getIndexColumns(meta.getProperties()).isPresent()) {
-            if (tableManager.exists(indexTable) || tableManager.exists(metricsTable)) {
+        if (table.isIndexed()) {
+            if (tableManager.exists(table.getIndexTableName()) || table.getMetricsStorageInstance(connector, config).exists(table.getSchemaTableName())) {
                 throw new PrestoException(ACCUMULO_TABLE_EXISTS, "Internal table is indexed, but the index table and/or index metrics table(s) already exist");
             }
         }
@@ -383,20 +382,11 @@ public class AccumuloClient
             tableManager.createAccumuloTable(table.getIndexTableName());
         }
 
-        // Create index metrics table if it does not exist
-        if (!tableManager.exists(table.getMetricsTableName())) {
-            tableManager.createAccumuloTable(table.getMetricsTableName());
-        }
+        // Set locality groups on index table
+        tableManager.setLocalityGroups(table.getIndexTableName(), Indexer.getLocalityGroups(table));
 
-        // Set locality groups on index and metrics table
-        Map<String, Set<Text>> indexGroups = Indexer.getLocalityGroups(table);
-        tableManager.setLocalityGroups(table.getIndexTableName(), indexGroups);
-        tableManager.setLocalityGroups(table.getMetricsTableName(), indexGroups);
-
-        // Attach iterators to metrics table
-        for (IteratorSetting setting : Indexer.getMetricIterators(table)) {
-            tableManager.setIterator(table.getMetricsTableName(), setting);
-        }
+        // Create the index metrics storage
+        table.getMetricsStorageInstance(connector, config).create(table);
     }
 
     /**
@@ -458,10 +448,7 @@ public class AccumuloClient
                     tableManager.deleteAccumuloTable(indexTableName);
                 }
 
-                String metricsTableName = Indexer.getMetricsTableName(tableName);
-                if (tableManager.exists(metricsTableName)) {
-                    tableManager.deleteAccumuloTable(metricsTableName);
-                }
+                table.getMetricsStorageInstance(connector, config).drop(table);
             }
         }
     }
@@ -484,7 +471,9 @@ public class AccumuloClient
                 oldTable.getRowId(),
                 oldTable.isExternal(),
                 oldTable.getSerializerClassName(),
-                oldTable.getScanAuthorizations());
+                oldTable.getScanAuthorizations(),
+                oldTable.getMetricsStorageClass(),
+                oldTable.isTruncateTimestamps());
 
         // Validate table existence
         if (!tableManager.exists(oldTable.getFullTableName())) {
@@ -526,16 +515,19 @@ public class AccumuloClient
             throw new PrestoException(ACCUMULO_TABLE_EXISTS, format("Table %s already exists", newTable.getIndexTableName()));
         }
 
-        if (!tableManager.exists(oldTable.getMetricsTableName())) {
-            throw new PrestoException(ACCUMULO_TABLE_DNE, format("Table %s does not exist", oldTable.getMetricsTableName()));
+        // Metric storage instance wouldn't have changed
+        MetricsStorage metricsStorage = oldTable.getMetricsStorageInstance(connector, config);
+
+        if (!metricsStorage.exists(oldTable.getSchemaTableName())) {
+            throw new PrestoException(ACCUMULO_TABLE_DNE, format("Metrics storage exists for %s", oldTable.getFullTableName()));
         }
 
-        if (tableManager.exists(newTable.getMetricsTableName())) {
-            throw new PrestoException(ACCUMULO_TABLE_EXISTS, format("Table %s already exists", newTable.getMetricsTableName()));
+        if (metricsStorage.exists(newTable.getSchemaTableName())) {
+            throw new PrestoException(ACCUMULO_TABLE_EXISTS, format("Metrics storage exists for %s", newTable.getFullTableName()));
         }
 
         tableManager.renameAccumuloTable(oldTable.getIndexTableName(), newTable.getIndexTableName());
-        tableManager.renameAccumuloTable(oldTable.getMetricsTableName(), newTable.getMetricsTableName());
+        metricsStorage.rename(oldTable, newTable);
     }
 
     public void createView(SchemaTableName viewName, String viewData)
@@ -599,7 +591,9 @@ public class AccumuloClient
                 table.getRowId().equalsIgnoreCase(source) ? target : table.getRowId(),
                 table.isExternal(),
                 table.getSerializerClassName(),
-                table.getScanAuthorizations());
+                table.getScanAuthorizations(),
+                table.getMetricsStorageClass(),
+                table.isTruncateTimestamps());
 
         // Replace the table metadata
         metaManager.deleteTableMetadata(new SchemaTableName(table.getSchema(), table.getTable()));
@@ -647,6 +641,7 @@ public class AccumuloClient
      * @param rowIdDomain Domain for the row ID
      * @param constraints Column constraints for the query
      * @param serializer Instance of a row serializer
+     * @param truncateTimestamps True if timestamp type metrics are truncated
      * @return List of TabletSplitMetadata objects for Presto
      */
     public List<TabletSplitMetadata> getTabletSplits(
@@ -655,7 +650,9 @@ public class AccumuloClient
             String table,
             Optional<Domain> rowIdDomain,
             List<AccumuloColumnConstraint> constraints,
-            AccumuloRowSerializer serializer)
+            AccumuloRowSerializer serializer,
+            MetricsStorage metricsStorage,
+            boolean truncateTimestamps)
     {
         try {
             String tableName = AccumuloTable.getFullTableName(schema, table);
@@ -672,7 +669,7 @@ public class AccumuloClient
 
                 // Check the secondary index based on the column constraints
                 // If this returns true, return the tablet splits to Presto
-                if (indexLookup.applyIndex(schema, table, session, constraints, rowIdRanges, tabletSplits, serializer, auths)) {
+                if (indexLookup.applyIndex(schema, table, session, constraints, rowIdRanges, tabletSplits, serializer, auths, metricsStorage, truncateTimestamps)) {
                     return tabletSplits;
                 }
             }
@@ -779,12 +776,13 @@ public class AccumuloClient
      */
     private Optional<String> getTabletLocation(String table, Key key)
     {
+        Scanner scanner = null;
         try {
             // Get the Accumulo table ID so we can scan some fun stuff
             String tableId = connector.tableOperations().tableIdMap().get(table);
 
             // Create our scanner against the metadata table, fetching 'loc' family
-            Scanner scanner = connector.createScanner("accumulo.metadata", auths);
+            scanner = connector.createScanner("accumulo.metadata", auths);
             scanner.fetchColumnFamily(new Text("loc"));
 
             // Set the scan range to just this table, from the table ID to the default tablet
@@ -837,7 +835,6 @@ public class AccumuloClient
                         }
                     }
                 }
-                scanner.close();
             }
 
             // If we were unable to find the location for some reason, return the default tablet
@@ -851,21 +848,28 @@ public class AccumuloClient
             LOG.error("Failed to get tablet location, returning dummy location", e);
             return Optional.empty();
         }
+        finally {
+            if (scanner != null) {
+                scanner.close();
+            }
+        }
     }
 
     private Optional<String> getDefaultTabletLocation(String fulltable)
     {
+        Scanner scanner = null;
+
         try {
             String tableId = connector.tableOperations().tableIdMap().get(fulltable);
 
             // Create a scanner over the metadata table, fetching the 'loc' column of the default tablet row
-            Scanner scan = connector.createScanner("accumulo.metadata", connector.securityOperations().getUserAuthorizations(username));
-            scan.fetchColumnFamily(new Text("loc"));
-            scan.setRange(new Range(tableId + '<'));
+            scanner = connector.createScanner("accumulo.metadata", connector.securityOperations().getUserAuthorizations(username));
+            scanner.fetchColumnFamily(new Text("loc"));
+            scanner.setRange(new Range(tableId + '<'));
 
             // scan the entry
             Optional<String> location = Optional.empty();
-            for (Entry<Key, Value> entry : scan) {
+            for (Entry<Key, Value> entry : scanner) {
                 if (location.isPresent()) {
                     throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Scan for default tablet returned more than one entry");
                 }
@@ -873,7 +877,6 @@ public class AccumuloClient
                 location = Optional.of(entry.getValue().toString());
             }
 
-            scan.close();
             return location;
         }
         catch (Exception e) {
@@ -881,6 +884,11 @@ public class AccumuloClient
             // This is purely an optimization, but we will want to log the error.
             LOG.error("Failed to get tablet location, returning dummy location", e);
             return Optional.empty();
+        }
+        finally {
+            if (scanner != null) {
+                scanner.close();
+            }
         }
     }
 

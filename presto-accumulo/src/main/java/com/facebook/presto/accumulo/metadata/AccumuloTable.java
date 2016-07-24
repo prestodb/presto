@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.accumulo.metadata;
 
+import com.facebook.presto.accumulo.conf.AccumuloConfig;
 import com.facebook.presto.accumulo.index.Indexer;
+import com.facebook.presto.accumulo.index.metrics.AccumuloMetricsStorage;
+import com.facebook.presto.accumulo.index.metrics.MetricsStorage;
 import com.facebook.presto.accumulo.model.AccumuloColumnHandle;
 import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -23,6 +26,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import org.apache.accumulo.core.client.Connector;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
@@ -43,6 +47,9 @@ public class AccumuloTable
     private final String serializerClassName;
     private final Optional<String> scanAuthorizations;
     private final List<ColumnMetadata> columnsMetadata;
+    private final Optional<String> metricsStorageClass;
+    private final boolean truncateTimestamps;
+
     private final boolean indexed;
     private final List<AccumuloColumnHandle> columns;
     private final String rowId;
@@ -57,7 +64,9 @@ public class AccumuloTable
             @JsonProperty("rowId") String rowId,
             @JsonProperty("external") boolean external,
             @JsonProperty("serializerClassName") String serializerClassName,
-            @JsonProperty("scanAuthorizations") Optional<String> scanAuthorizations)
+            @JsonProperty("scanAuthorizations") Optional<String> scanAuthorizations,
+            @JsonProperty("metricsStorageClass") Optional<String> metricsStorageClass,
+            @JsonProperty("truncateTimestamps") boolean truncateTimestamps)
     {
         this.external = requireNonNull(external, "external is null");
         this.rowId = requireNonNull(rowId, "rowId is null");
@@ -66,6 +75,8 @@ public class AccumuloTable
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns are null"));
         this.serializerClassName = requireNonNull(serializerClassName, "serializerClassName is null");
         this.scanAuthorizations = scanAuthorizations;
+        this.metricsStorageClass = requireNonNull(metricsStorageClass, "metricsStorageClass is null");
+        this.truncateTimestamps = truncateTimestamps;
 
         boolean indexed = false;
         Optional<Integer> rowIdOrdinal = Optional.empty();
@@ -117,12 +128,6 @@ public class AccumuloTable
     }
 
     @JsonIgnore
-    public String getMetricsTableName()
-    {
-        return Indexer.getMetricsTableName(schema, table);
-    }
-
-    @JsonIgnore
     public String getFullTableName()
     {
         return getFullTableName(schema, table);
@@ -158,6 +163,18 @@ public class AccumuloTable
         return external;
     }
 
+    @JsonProperty
+    public Optional<String> getMetricsStorageClass()
+    {
+        return metricsStorageClass;
+    }
+
+    @JsonProperty
+    public boolean isTruncateTimestamps()
+    {
+        return truncateTimestamps;
+    }
+
     @JsonIgnore
     public boolean isIndexed()
     {
@@ -182,15 +199,21 @@ public class AccumuloTable
     }
 
     @JsonIgnore
-    public static String getFullTableName(String schema, String table)
+    public MetricsStorage getMetricsStorageInstance(Connector connector, AccumuloConfig config)
     {
-        return schema.equals("default") ? table : schema + '.' + table;
+        try {
+            return (MetricsStorage) Class.forName(metricsStorageClass.orElse(AccumuloMetricsStorage.class.getCanonicalName())).getConstructor(Connector.class, AccumuloConfig.class).newInstance(connector, config);
+        }
+        catch (ClassNotFoundException | IllegalAccessException | InstantiationException | InvocationTargetException | NoSuchMethodException e) {
+            e.printStackTrace();
+            throw new PrestoException(VALIDATION, "Configured metrics storage class not found", e);
+        }
     }
 
     @JsonIgnore
-    public static String getFullTableName(SchemaTableName tableName)
+    public static String getFullTableName(String schema, String table)
     {
-        return getFullTableName(tableName.getSchemaName(), tableName.getTableName());
+        return schema.equals("default") ? table : schema + '.' + table;
     }
 
     @JsonIgnore
@@ -210,6 +233,8 @@ public class AccumuloTable
                 .add("external", external)
                 .add("serializerClassName", serializerClassName)
                 .add("scanAuthorizations", scanAuthorizations)
+                .add("metricsStorageClass", metricsStorageClass)
+                .add("truncateTimestamps", truncateTimestamps)
                 .toString();
     }
 }

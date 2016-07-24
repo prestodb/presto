@@ -14,27 +14,23 @@
 package com.facebook.presto.accumulo.index;
 
 import com.facebook.presto.accumulo.Types;
+import com.facebook.presto.accumulo.conf.AccumuloConfig;
+import com.facebook.presto.accumulo.index.metrics.MetricsWriter;
 import com.facebook.presto.accumulo.metadata.AccumuloTable;
 import com.facebook.presto.accumulo.model.AccumuloColumnHandle;
 import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import org.apache.accumulo.core.client.BatchWriter;
-import org.apache.accumulo.core.client.IteratorSetting;
-import org.apache.accumulo.core.client.IteratorSetting.Column;
 import org.apache.accumulo.core.client.MutationsRejectedException;
 import org.apache.accumulo.core.client.TableNotFoundException;
 import org.apache.accumulo.core.data.ColumnUpdate;
 import org.apache.accumulo.core.data.Mutation;
-import org.apache.accumulo.core.iterators.LongCombiner;
-import org.apache.accumulo.core.iterators.TypedValueCombiner;
-import org.apache.accumulo.core.iterators.user.SummingCombiner;
 import org.apache.accumulo.core.security.Authorizations;
 import org.apache.accumulo.core.security.ColumnVisibility;
 import org.apache.commons.lang.ArrayUtils;
@@ -47,14 +43,11 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.ByteBuffer.wrap;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -66,9 +59,7 @@ import static java.util.Objects.requireNonNull;
  * <p>
  * This class is totally not thread safe.
  * <p>
- * Metric mutations are aggregated locally and written to the provided BatchWriter when
- * {@link Indexer#addMetricMutations()} is called.
- * This function must be called explicitly before flushing/closing the MultiTableBatchWriter.
+ * Metric mutations are aggregated locally and must be flushed manually using {@link MetricsWriter#flush()}.
  * <p>
  * Sample usage of an Indexer:
  * <p>
@@ -76,11 +67,12 @@ import static java.util.Objects.requireNonNull;
  * <code>
  * MultiTableBatchWriter multiTableBatchWriter = conn.createMultiTableBatchWriter(new BatchWriterConfig());
  * BatchWriter tableWriter = multiTableBatchWriter.getBatchWriter(table.getFullTableName());
+ * MetricsWriter metricsWriter = table.getMetricsStorageInstance(CONFIG).newWriter(table);
  * Indexer indexer = new Indexer(
  *     userAuths,
  *     table,
  *     multiTableBatchWriter.getBatchWriter(table.getIndexTableName()),
- *     multiTableBatchWriter.getBatchWriter(table.getMetricsTableName()));
+ *     metricsWriter);
  *
  * // Gather the mutations you want to write to the 'normal' data table
  * List&ltMutation&gt; mutationsToNormalTable = // some mutations
@@ -89,12 +81,12 @@ import static java.util.Objects.requireNonNull;
  * // And write them to the indexer as well
  * indexer.index(mutationsToNormalTable)
  *
- * // Add metrics mutations (important!!!) and flush using the MTBW
- * indexer.addMetricsMutations();
+ * // Flush MetricsWriter (important!!!) and flush using the MTBW
+ * metricsWriter.flush();
  * multiTableBatchWriter.flush();
  *
- * // Finished adding all mutations? Make sure you add metrics mutations before closing the MTBW
- * indexer.addMetricsMutations();
+ * // Finished adding all mutations? Make sure you flush metrics before closing the MTBW
+ * metricsWriter.flush();
  * multiTableBatchWriter.close();
  * </code>
  * </pre>
@@ -102,38 +94,32 @@ import static java.util.Objects.requireNonNull;
 @NotThreadSafe
 public class Indexer
 {
-    public static final ByteBuffer METRICS_TABLE_ROW_ID = wrap("___METRICS_TABLE___".getBytes(UTF_8));
-    public static final ByteBuffer METRICS_TABLE_ROWS_CF = wrap("___rows___".getBytes(UTF_8));
-    public static final byte[] CARDINALITY_CQ = "___card___".getBytes(UTF_8);
-    public static final Text CARDINALITY_CQ_AS_TEXT = new Text(CARDINALITY_CQ);
-    public static final Text METRICS_TABLE_ROWS_CF_AS_TEXT = new Text(METRICS_TABLE_ROWS_CF.array());
-    public static final Text METRICS_TABLE_ROWID_AS_TEXT = new Text(METRICS_TABLE_ROW_ID.array());
-    public static final LongCombiner.Type ENCODER_TYPE = LongCombiner.Type.STRING;
-
-    private static final TypedValueCombiner.Encoder<Long> ENCODER = new LongCombiner.StringEncoder();
     private static final byte[] EMPTY_BYTES = new byte[0];
     private static final byte UNDERSCORE = '_';
-    private static final ColumnVisibility EMPTY_COLUMN_VISIBILITY = new ColumnVisibility();
 
     private final BatchWriter indexWriter;
-    private final BatchWriter metricsWriter;
-    private final Map<MetricsKey, AtomicLong> metrics = new HashMap<>();
+    private final MetricsWriter metricsWriter;
     private final Multimap<ByteBuffer, ByteBuffer> indexColumns;
     private final Map<ByteBuffer, Map<ByteBuffer, Type>> indexColumnTypes;
     private final AccumuloRowSerializer serializer;
+    private final boolean truncateTimestamps;
 
     public Indexer(
+            AccumuloConfig config,
             Authorizations auths,
             AccumuloTable table,
             BatchWriter indexWriter,
-            BatchWriter metricsWriter)
+            MetricsWriter metricsWriter)
             throws TableNotFoundException
     {
+        requireNonNull(config, "config is null");
         this.indexWriter = requireNonNull(indexWriter, "indexWriter is null");
         this.metricsWriter = requireNonNull(metricsWriter, "metricsWriter is null");
         requireNonNull(auths, "auths is null");
+        requireNonNull(table, "table is null");
 
         this.serializer = table.getSerializerInstance();
+        this.truncateTimestamps = table.isTruncateTimestamps();
 
         ImmutableMultimap.Builder<ByteBuffer, ByteBuffer> indexColumnsBuilder = ImmutableMultimap.builder();
         Map<ByteBuffer, Map<ByteBuffer, Type>> indexColumnTypesBuilder = new HashMap<>();
@@ -181,7 +167,7 @@ public class Indexer
         checkArgument(mutation.getUpdates().size() > 0, "Mutation must have at least one column update");
 
         // Increment the cardinality for the number of rows in the table
-        incrementMetric(METRICS_TABLE_ROW_ID, METRICS_TABLE_ROWS_CF, EMPTY_COLUMN_VISIBILITY);
+        metricsWriter.incrementRowCount();
 
         // For each column update in this mutation
         for (ColumnUpdate columnUpdate : mutation.getUpdates()) {
@@ -208,11 +194,11 @@ public class Indexer
                         Type elementType = Types.getElementType(type);
                         List<?> elements = serializer.decode(type, columnUpdate.getValue());
                         for (Object element : elements) {
-                            addIndexMutation(wrap(serializer.encode(elementType, element)), indexFamily, visibility, mutation.getRow());
+                            addIndexMutation(wrap(serializer.encode(elementType, element)), indexFamily, visibility, mutation.getRow(), truncateTimestamps && type == TIMESTAMP);
                         }
                     }
                     else {
-                        addIndexMutation(wrap(columnUpdate.getValue()), indexFamily, visibility, mutation.getRow());
+                        addIndexMutation(wrap(columnUpdate.getValue()), indexFamily, visibility, mutation.getRow(), truncateTimestamps && type == TIMESTAMP);
                     }
                 }
             }
@@ -227,7 +213,7 @@ public class Indexer
         }
     }
 
-    private void addIndexMutation(ByteBuffer row, ByteBuffer family, ColumnVisibility visibility, byte[] qualifier)
+    private void addIndexMutation(ByteBuffer row, ByteBuffer family, ColumnVisibility visibility, byte[] qualifier, boolean truncateTimestamp)
             throws MutationsRejectedException
     {
         // Create the mutation and add it to the batch writer
@@ -237,77 +223,7 @@ public class Indexer
 
         // Increment the cardinality metrics for this value of index
         // metrics is a mapping of row ID to column family
-        incrementMetric(row, family, visibility);
-    }
-
-    /**
-     * Increments a metric for the given row, family, and visibility, creating it if necessary.
-     *
-     * @param row Row ID
-     * @param family Column family for the metric
-     * @param visibility Column visibility
-     */
-    private void incrementMetric(ByteBuffer row, ByteBuffer family, ColumnVisibility visibility)
-    {
-        MetricsKey key = new MetricsKey(row, family, visibility);
-        AtomicLong count = metrics.get(key);
-        if (count == null) {
-            count = new AtomicLong(0);
-            metrics.put(key, count);
-        }
-
-        count.incrementAndGet();
-    }
-
-    /**
-     * Writes all locally-aggregated metrics to the metricsWriter provided during construction of the object.
-     */
-    public void addMetricMutations()
-            throws MutationsRejectedException
-    {
-        ImmutableList.Builder<Mutation> mutationBuilder = ImmutableList.builder();
-        // Mapping of column value to column to number of row IDs that contain that value
-        for (Entry<MetricsKey, AtomicLong> entry : metrics.entrySet()) {
-            // Row ID: Column value
-            // Family: columnfamily_columnqualifier
-            // Qualifier: CARDINALITY_CQ
-            // Visibility: Inherited from indexed Mutation
-            // Value: Cardinality
-            Mutation mut = new Mutation(entry.getKey().row.array());
-            mut.put(entry.getKey().family.array(), CARDINALITY_CQ, entry.getKey().visibility, ENCODER.encode(entry.getValue().get()));
-
-            // Add to our list of mutations
-            metricsWriter.addMutation(mut);
-        }
-
-        metrics.clear();
-    }
-
-    /**
-     * Gets a collection of iterator settings that should be added to the metric table for the given Accumulo table. Don't forget! Please!
-     *
-     * @param table Table for retrieving metrics iterators, see AccumuloClient#getTable
-     * @return Collection of iterator settings
-     */
-    public static Collection<IteratorSetting> getMetricIterators(AccumuloTable table)
-    {
-        String cardQualifier = new String(CARDINALITY_CQ);
-        String rowsFamily = new String(METRICS_TABLE_ROWS_CF.array());
-
-        // Build a string for all columns where the summing combiner should be applied,
-        // i.e. all indexed columns
-        ImmutableList.Builder<Column> columnBuilder = ImmutableList.builder();
-        columnBuilder.add(new Column(rowsFamily, cardQualifier));
-        for (String s : getLocalityGroups(table).keySet()) {
-            columnBuilder.add(new Column(s, cardQualifier));
-        }
-
-        // Summing combiner for cardinality columns
-        IteratorSetting s1 = new IteratorSetting(1, SummingCombiner.class);
-        SummingCombiner.setEncodingType(s1, LongCombiner.Type.STRING);
-        SummingCombiner.setColumns(s1, columnBuilder.build());
-
-        return ImmutableList.of(s1);
+        metricsWriter.incrementCardinality(row, family, visibility, truncateTimestamp);
     }
 
     /**
@@ -378,70 +294,5 @@ public class Indexer
     {
         return schema.equals("default") ? table + "_idx_metrics"
                 : schema + '.' + table + "_idx_metrics";
-    }
-
-    /**
-     * Gets the fully-qualified index metrics table name for the given table.
-     *
-     * @param tableName Schema table name
-     * @return Qualified index metrics table name
-     */
-    public static String getMetricsTableName(SchemaTableName tableName)
-    {
-        return getMetricsTableName(tableName.getSchemaName(), tableName.getTableName());
-    }
-
-    /**
-     * Class containing the key for aggregating the local metrics counter.
-     */
-    private static class MetricsKey
-    {
-        private static final ColumnVisibility EMPTY_VISIBILITY = new ColumnVisibility();
-
-        public final ByteBuffer row;
-        public final ByteBuffer family;
-        public final ColumnVisibility visibility;
-
-        public MetricsKey(ByteBuffer row, ByteBuffer family, ColumnVisibility visibility)
-        {
-            requireNonNull(row, "row is null");
-            requireNonNull(family, "family is null");
-            requireNonNull(visibility, "visibility is null");
-            this.row = row;
-            this.family = family;
-            this.visibility = visibility.getExpression() != null ? visibility : EMPTY_VISIBILITY;
-        }
-
-        @Override
-        public boolean equals(Object obj)
-        {
-            if (this == obj) {
-                return true;
-            }
-            if ((obj == null) || (getClass() != obj.getClass())) {
-                return false;
-            }
-
-            MetricsKey other = (MetricsKey) obj;
-            return Objects.equals(this.row, other.row)
-                    && Objects.equals(this.family, other.family)
-                    && Objects.equals(this.visibility, other.visibility);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(row, family, visibility);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("row", new String(row.array(), UTF_8))
-                    .add("family", new String(row.array(), UTF_8))
-                    .add("visibility", visibility.toString())
-                    .toString();
-        }
     }
 }
