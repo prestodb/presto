@@ -54,7 +54,7 @@ public abstract class AbstractBooleanFilter
                 RowFilter filter = (RowFilter) Class.forName(clazz).newInstance();
                 filter.init(this, props, env);
                 filters.add(filter);
-                LOG.info("%s: Added Filter %s", super.toString(), filter);
+                LOG.debug("%s: Added Filter %s", super.toString(), filter);
             }
             catch (Exception ex) {
                 throw new IllegalArgumentException("Failed to deserialize Filter information from JSON value " + entry.getValue(), ex);

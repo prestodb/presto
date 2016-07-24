@@ -173,7 +173,7 @@ public class AccumuloClient
         // Add shutdown hook to stop MAC and cleanup temporary files
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             try {
-                LOG.info("Shutting down MAC");
+                LOG.debug("Shutting down MAC");
                 accumulo.stop();
             }
             catch (IOException | InterruptedException e) {
@@ -182,7 +182,7 @@ public class AccumuloClient
             }
 
             try {
-                LOG.info("Cleaning up MAC directory");
+                LOG.debug("Cleaning up MAC directory");
                 FileUtils.forceDelete(macDir);
             }
             catch (IOException e) {
@@ -466,7 +466,7 @@ public class AccumuloClient
     {
         Optional<Map<String, Set<String>>> groups = AccumuloTableProperties.getLocalityGroups(tableProperties);
         if (!groups.isPresent()) {
-            LOG.info("No locality groups to set");
+            LOG.debug("No locality groups to set");
             return;
         }
 
@@ -485,7 +485,7 @@ public class AccumuloClient
         }
 
         Map<String, Set<Text>> localityGroups = localityGroupsBuilder.build();
-        LOG.info("Setting locality groups: {}", localityGroups);
+        LOG.debug("Setting locality groups: {}", localityGroups);
         tableManager.setLocalityGroups(table.getFullTableName(), localityGroups);
     }
 
@@ -826,7 +826,7 @@ public class AccumuloClient
     {
         try {
             String tableName = AccumuloTable.getFullTableName(schema, table);
-            LOG.info("Getting tablet splits for table %s", tableName);
+            LOG.debug("Getting tablet splits for table %s", tableName);
 
             // Get the initial Range based on the row ID domain
             Collection<Range> rowIdRanges = getRangesFromDomain(rowIdDomain, serializer);
@@ -862,7 +862,7 @@ public class AccumuloClient
             boolean fetchTabletLocations =
                     AccumuloSessionProperties.isOptimizeLocalityEnabled(session);
 
-            LOG.info("Fetching tablet locations: %s", fetchTabletLocations);
+            LOG.debug("Fetching tablet locations: %s", fetchTabletLocations);
 
             for (Range range : splitRanges) {
                 // If locality is enabled, then fetch tablet location
@@ -877,7 +877,7 @@ public class AccumuloClient
             }
 
             // Log some fun stuff and return the tablet splits
-            LOG.info("Number of splits for table %s is %d with %d ranges", tableName,
+            LOG.debug("Number of splits for table %s is %d with %d ranges", tableName,
                     tabletSplits.size(), splitRanges.size());
             return tabletSplits;
         }
@@ -908,7 +908,7 @@ public class AccumuloClient
         if (sessionScanUser != null) {
             Authorizations scanAuths =
                     connector.securityOperations().getUserAuthorizations(sessionScanUser);
-            LOG.info("Using session scan auths for user %s: %s", sessionScanUser, scanAuths);
+            LOG.debug("Using session scan auths for user %s: %s", sessionScanUser, scanAuths);
             return scanAuths;
         }
 
@@ -920,11 +920,11 @@ public class AccumuloClient
         Optional<String> strAuths = accumuloTable.getScanAuthorizations();
         if (strAuths.isPresent()) {
             Authorizations scanAuths = new Authorizations(Iterables.toArray(COMMA_SPLITTER.split(strAuths.get()), String.class));
-            LOG.info("scan_auths table property set, using: %s", scanAuths);
+            LOG.debug("scan_auths table property set, using: %s", scanAuths);
             return scanAuths;
         }
 
-        LOG.info("scan_auths table property not set, using connector auths: %s", this.auths);
+        LOG.debug("scan_auths table property not set, using connector auths: %s", this.auths);
         return this.auths;
     }
 

@@ -142,24 +142,24 @@ public class IndexLookup
     {
         // Early out if index is disabled
         if (!AccumuloSessionProperties.isOptimizeIndexEnabled(session)) {
-            LOG.info("Secondary index is disabled");
+            LOG.debug("Secondary index is disabled");
             return false;
         }
 
-        LOG.info("Secondary index is enabled");
+        LOG.debug("Secondary index is enabled");
 
         // Collect Accumulo ranges for each indexed column constraint
         Multimap<AccumuloColumnConstraint, Range> constraintRanges = getIndexedConstraintRanges(constraints, serializer);
 
         // If there is no constraints on an index column, we again will bail out
         if (constraintRanges.size() == 0) {
-            LOG.info("Query contains no constraints on indexed columns, skipping secondary index");
+            LOG.debug("Query contains no constraints on indexed columns, skipping secondary index");
             return false;
         }
 
         // If metrics are not enabled
         if (!AccumuloSessionProperties.isIndexMetricsEnabled(session)) {
-            LOG.info("Use of index metrics is disabled");
+            LOG.debug("Use of index metrics is disabled");
             // Get the ranges via the index table
             List<Range> indexRanges = getIndexRanges(Indexer.getIndexTableName(schema, table),
                     constraintRanges, rowIdRanges);
@@ -168,17 +168,17 @@ public class IndexLookup
                 // Bin the ranges into TabletMetadataSplits and return true to use the tablet splits
                 binRanges(AccumuloSessionProperties.getNumIndexRowsPerSplit(session), indexRanges,
                         tabletSplits);
-                LOG.info("Number of splits for %s.%s is %d with %d ranges", schema, table,
+                LOG.debug("Number of splits for %s.%s is %d with %d ranges", schema, table,
                         tabletSplits.size(), indexRanges.size());
             }
             else {
-                LOG.info("Query would return no results, returning empty list of splits");
+                LOG.debug("Query would return no results, returning empty list of splits");
             }
 
             return true;
         }
         else {
-            LOG.info("Use of index metrics is enabled");
+            LOG.debug("Use of index metrics is enabled");
             // Get ranges using the metrics
             return getRangesWithMetrics(session, schema, table, constraintRanges, rowIdRanges,
                     tabletSplits);
@@ -243,7 +243,7 @@ public class IndexLookup
             if (cardinalities.size() == 1) {
                 long numEntries = lowestCardinality.getKey();
                 double ratio = ((double) numEntries / (double) numRows);
-                LOG.info(
+                LOG.debug(
                         "Use of index would scan %d of %d rows, ratio %s. Threshold %2f, Using for table? %b",
                         numEntries, numRows, ratio, threshold, ratio < threshold);
                 if (ratio >= threshold) {
@@ -252,21 +252,21 @@ public class IndexLookup
             }
 
             // Else, get the intersection of all row IDs for all column constraints
-            LOG.info("%d indexed columns, intersecting ranges", constraintRanges.size());
+            LOG.debug("%d indexed columns, intersecting ranges", constraintRanges.size());
             indexRanges = getIndexRanges(indexTable, constraintRanges, rowIdRanges);
-            LOG.info("Intersection results in %d ranges from secondary index", indexRanges.size());
+            LOG.debug("Intersection results in %d ranges from secondary index", indexRanges.size());
         }
         else {
             // Else, we don't need to intersect the columns and we can just use the column with the
             // lowest cardinality, so get all those row IDs in a set of ranges.
-            LOG.info("Not intersecting columns, using column with lowest cardinality ");
+            LOG.debug("Not intersecting columns, using column with lowest cardinality ");
             ImmutableMultimap.Builder<AccumuloColumnConstraint, Range> lcBldr = ImmutableMultimap.builder();
             lcBldr.putAll(lowestCardinality.getValue(), constraintRanges.get(lowestCardinality.getValue()));
             indexRanges = getIndexRanges(indexTable, lcBldr.build(), rowIdRanges);
         }
 
         if (indexRanges.size() == 0) {
-            LOG.info("Query would return no results, returning empty list of splits");
+            LOG.debug("Query would return no results, returning empty list of splits");
             return true;
         }
 
@@ -274,7 +274,7 @@ public class IndexLookup
         // of rows
         long numEntries = indexRanges.size();
         double ratio = (double) numEntries / (double) numRows;
-        LOG.info(
+        LOG.debug(
                 "Use of index would scan %d of %d rows, ratio %s. Threshold %2f, Using for table? %b",
                 numEntries, numRows, ratio, threshold, ratio < threshold, table);
 
@@ -283,7 +283,7 @@ public class IndexLookup
             // Bin the ranges into TabletMetadataSplits and return true to use the tablet splits
             binRanges(AccumuloSessionProperties.getNumIndexRowsPerSplit(session), indexRanges,
                     tabletSplits);
-            LOG.info("Number of splits for %s.%s is %d with %d ranges", schema, table,
+            LOG.debug("Number of splits for %s.%s is %d with %d ranges", schema, table,
                     tabletSplits.size(), indexRanges.size());
             return true;
         }
@@ -306,7 +306,7 @@ public class IndexLookup
     {
         double ratio = ((double) smallestCardinality / (double) numRows);
         double threshold = AccumuloSessionProperties.getIndexSmallCardThreshold(session);
-        LOG.info("Smallest cardinality is %d, num rows is %d, ratio is %2f with threshold of %f",
+        LOG.debug("Smallest cardinality is %d, num rows is %d, ratio is %2f with threshold of %f",
                 smallestCardinality, numRows, ratio, threshold);
         return ratio > threshold;
     }
@@ -337,7 +337,7 @@ public class IndexLookup
         }
         scanner.close();
 
-        LOG.info("Number of rows in table is %d", numRows);
+        LOG.debug("Number of rows in table is %d", numRows);
         return numRows;
     }
 
@@ -349,7 +349,6 @@ public class IndexLookup
      * @param rowIDRanges Collection of Ranges based on any predicate from the row ID. Used to drop and row
      * IDs that are not in one of these Ranges
      * @return A collection of Ranges containing row IDs in the main table to scan
-     * @throws TableNotFoundException
      */
     private List<Range> getIndexRanges(String indexTable,
             Multimap<AccumuloColumnConstraint, Range> constraintRanges, Collection<Range> rowIDRanges)
@@ -379,7 +378,7 @@ public class IndexLookup
                 }
             }
 
-            LOG.info("Retrieved %d ranges for column %s", columnRanges.size(),
+            LOG.debug("Retrieved %d ranges for column %s", columnRanges.size(),
                     constraintEntry.getKey().getName());
 
             // If finalRanges is null, we have not yet added any column ranges

@@ -143,7 +143,7 @@ public class ZooKeeperMetadataManager
                 return toAccumuloTable(curator.getData().forPath(getTablePath(stName)));
             }
             else {
-                LOG.info("No metadata for table " + stName);
+                LOG.debug("No metadata for table " + stName);
                 return null;
             }
         }
@@ -193,7 +193,7 @@ public class ZooKeeperMetadataManager
                 return toAccumuloView(curator.getData().forPath(tablePath));
             }
             else {
-                LOG.info("No metadata for view " + stName);
+                LOG.debug("No metadata for view " + stName);
                 return null;
             }
         }

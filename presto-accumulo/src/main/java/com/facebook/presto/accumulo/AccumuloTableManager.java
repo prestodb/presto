@@ -117,7 +117,7 @@ public class AccumuloTableManager
 
         try {
             connector.tableOperations().setLocalityGroups(tableName, groups);
-            LOG.info("Set locality groups for %s to %s", tableName, groups);
+            LOG.debug("Set locality groups for %s to %s", tableName, groups);
         }
         catch (AccumuloException | AccumuloSecurityException e) {
             throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to set locality groups", e);
