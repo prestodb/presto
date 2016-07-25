@@ -162,4 +162,4 @@ ROW
     A structure made up of named fields. The fields may be of any SQL type, and are
     accessed with field reference operator ``.``
 
-    Example: ``my_column.my_field``
+    Example: ``CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))``
