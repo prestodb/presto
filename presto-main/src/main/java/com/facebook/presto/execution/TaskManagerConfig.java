@@ -50,7 +50,7 @@ public class TaskManagerConfig
     private Duration infoMaxAge = new Duration(15, TimeUnit.MINUTES);
 
     private Duration statusRefreshMaxWait = new Duration(1, TimeUnit.SECONDS);
-    private Duration infoUpdateInterval = new Duration(200, TimeUnit.MILLISECONDS);
+    private Duration infoUpdateInterval = new Duration(1, TimeUnit.SECONDS);
 
     private int writerCount = 1;
     private int taskConcurrency = 1;
