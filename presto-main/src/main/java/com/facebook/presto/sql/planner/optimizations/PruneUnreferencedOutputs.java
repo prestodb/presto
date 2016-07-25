@@ -25,6 +25,7 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
+import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -655,6 +656,12 @@ public class PruneUnreferencedOutputs
         public PlanNode visitIntersect(IntersectNode node, RewriteContext<Set<Symbol>> context)
         {
             return new IntersectNode(node.getId(), node.getSources(), node.getSymbolMapping(), ImmutableList.copyOf(node.getSymbolMapping().keySet()));
+        }
+
+        @Override
+        public PlanNode visitExcept(ExceptNode node, RewriteContext<Set<Symbol>> context)
+        {
+            return new ExceptNode(node.getId(), node.getSources(), node.getSymbolMapping(), ImmutableList.copyOf(node.getSymbolMapping().keySet()));
         }
 
         @Override

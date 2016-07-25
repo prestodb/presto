@@ -31,7 +31,7 @@ public final class TestGroups
     public static final String QUERY_ENGINE = "qe";
     public static final String COMPARISON = "comparison";
     public static final String LOGICAL = "logical";
-    public static final String INTERSECT = "intersect";
+    public static final String SET_OPERATION = "set_operation";
     public static final String JSON_FUNCTIONS = "json_functions";
     public static final String URL_FUNCTIONS = "url_functions";
     public static final String ARRAY_FUNCTIONS = "array_functions";

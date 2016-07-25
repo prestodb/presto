@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
+import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -526,6 +527,12 @@ public final class ValidateDependenciesChecker
 
         @Override
         public Void visitIntersect(IntersectNode node, Void context)
+        {
+            return visitSetOperation(node, context);
+        }
+
+        @Override
+        public Void visitExcept(ExceptNode node, Void context)
         {
             return visitSetOperation(node, context);
         }

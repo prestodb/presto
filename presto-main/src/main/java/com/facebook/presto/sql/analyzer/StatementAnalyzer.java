@@ -736,7 +736,11 @@ class StatementAnalyzer
     @Override
     protected RelationType visitExcept(Except node, AnalysisContext context)
     {
-        throw new SemanticException(NOT_SUPPORTED, node, "EXCEPT not yet implemented");
+        if (!node.isDistinct()) {
+            throw new SemanticException(NOT_SUPPORTED, node, "EXCEPT ALL not yet implemented");
+        }
+
+        return visitSetOperation(node, context);
     }
 
     @Override
