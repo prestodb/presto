@@ -37,6 +37,7 @@ import java.util.List;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.Signature.longVariableExpression;
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.function.OperatorType.ADD;
 import static com.facebook.presto.spi.function.OperatorType.DIVIDE;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
@@ -242,40 +243,32 @@ public final class DecimalOperators
     @UsedByGeneratedCode
     public static Slice multiplyShortShortLong(long a, long b)
     {
-        BigInteger aBigInteger = BigInteger.valueOf(a);
-        BigInteger bBigInteger = BigInteger.valueOf(b);
-        return internalMultiplyLongLongLong(aBigInteger, bBigInteger);
+        return multiplyLongLongLong(Decimals.encodeUnscaledValue(a), Decimals.encodeUnscaledValue(b));
     }
 
     @UsedByGeneratedCode
     public static Slice multiplyLongLongLong(Slice a, Slice b)
     {
-        BigInteger aBigInteger = Decimals.decodeUnscaledValue(a);
-        BigInteger bBigInteger = Decimals.decodeUnscaledValue(b);
-        return internalMultiplyLongLongLong(aBigInteger, bBigInteger);
+        try {
+            Slice result = UnscaledDecimal128Arithmetic.multiply(a, b);
+            throwIfOverflows(result);
+            return result;
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
+        }
     }
 
     @UsedByGeneratedCode
     public static Slice multiplyShortLongLong(long a, Slice b)
     {
-        BigInteger aBigInteger = BigInteger.valueOf(a);
-        BigInteger bBigInteger = Decimals.decodeUnscaledValue(b);
-        return internalMultiplyLongLongLong(aBigInteger, bBigInteger);
+        return multiplyLongLongLong(Decimals.encodeUnscaledValue(a), b);
     }
 
     @UsedByGeneratedCode
     public static Slice multiplyLongShortLong(Slice a, long b)
     {
-        BigInteger aBigInteger = Decimals.decodeUnscaledValue(a);
-        BigInteger bBigInteger = BigInteger.valueOf(b);
-        return internalMultiplyLongLongLong(aBigInteger, bBigInteger);
-    }
-
-    private static Slice internalMultiplyLongLongLong(BigInteger aBigInteger, BigInteger bBigInteger)
-    {
-        BigInteger result = aBigInteger.multiply(bBigInteger);
-        checkOverflow(result);
-        return Decimals.encodeUnscaledValue(result);
+        return multiplyLongLongLong(a, Decimals.encodeUnscaledValue(b));
     }
 
     private static SqlScalarFunction decimalDivideOperator()
