@@ -358,6 +358,11 @@ public class ExpressionInterpreter
             }
 
             Object base = process(node.getBase(), context);
+            // if the base part is evaluated to be null, the dereference expression should also be null
+            if (base == null) {
+                return null;
+            }
+
             if (hasUnresolvedValue(base)) {
                 return new DereferenceExpression(toExpression(base, type), node.getFieldName());
             }

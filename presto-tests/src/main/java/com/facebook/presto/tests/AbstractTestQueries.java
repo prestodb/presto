@@ -2646,6 +2646,16 @@ public abstract class AbstractTestQueries
     {
         assertQuery("SELECT COUNT(*) FROM lineitem LEFT JOIN orders ON lineitem.orderkey = orders.orderkey");
         assertQuery("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey");
+
+        // With null base (null row value) in dereference expression
+        assertQuery(
+                "SELECT x.val FROM " +
+                        "(SELECT CAST(ROW(v) as ROW(val integer)) FROM (VALUES 1, 2, 3) t(v)) ta (x) " +
+                        "LEFT OUTER JOIN " +
+                        "(SELECT CAST(ROW(v) as ROW(val integer)) FROM (VALUES 1, 2, 3) t(v)) tb (y) " +
+                        "ON x.val=y.val " +
+                        "WHERE y.val=1",
+                "SELECT 1");
     }
 
     @Test
