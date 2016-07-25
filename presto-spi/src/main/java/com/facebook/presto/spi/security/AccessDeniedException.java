@@ -188,6 +188,11 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot set catalog session property %s.%s%s", catalogName, propertyName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denySetCatalogSessionProperty(String propertyName)
+    {
+        throw new AccessDeniedException(format("Cannot set catalog session property %s", propertyName));
+    }
+
     private static Object formatExtraInfo(String extraInfo)
     {
         if (extraInfo == null || extraInfo.isEmpty()) {
