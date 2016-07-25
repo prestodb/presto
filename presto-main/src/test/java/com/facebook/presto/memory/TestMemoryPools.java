@@ -90,7 +90,7 @@ public class TestMemoryPools
 
         runDriversUntilBlock(drivers);
 
-        assertTrue(pool.getFreeBytes() <= 0);
+        assertTrue(pool.getFreeBytes() <= 0, String.format("Expected empty pool but got [%d]", pool.getFreeBytes()));
 
         pool.free(fakeQueryId, TEN_MEGABYTES);
 
