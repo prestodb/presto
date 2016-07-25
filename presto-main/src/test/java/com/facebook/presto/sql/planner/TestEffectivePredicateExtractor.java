@@ -39,13 +39,11 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.type.UnknownType;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
@@ -286,10 +284,8 @@ public class TestEffectivePredicateExtractor
                 new WindowNode.Specification(
                         ImmutableList.of(A),
                         ImmutableList.of(A),
-                        ImmutableMap.of(A, SortOrder.ASC_NULLS_LAST),
-                        new WindowNode.Frame(WindowFrame.Type.RANGE,
-                                FrameBound.Type.UNBOUNDED_PRECEDING, Optional.empty(),
-                                FrameBound.Type.CURRENT_ROW, Optional.empty())),
+                        ImmutableMap.of(A, SortOrder.ASC_NULLS_LAST)),
+                ImmutableMap.of(),
                 ImmutableMap.of(),
                 Optional.empty(),
                 ImmutableSet.of(),
