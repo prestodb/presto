@@ -45,6 +45,8 @@ public class DereferenceCodeGenerator
         Variable rowBlock = generator.getScope().createTempVariable(Block.class);
         int index = (int) ((ConstantExpression) arguments.get(1)).getValue();
 
+        // clear the wasNull flag before evaluating the row value
+        block.putVariable(wasNull, false);
         block.append(generator.generate(arguments.get(0))).putVariable(rowBlock);
 
         IfStatement ifRowBlockIsNull = new IfStatement("if row block is null...")
@@ -76,7 +78,8 @@ public class DereferenceCodeGenerator
 
         ifFieldIsNull.ifFalse()
                 .comment("otherwise call type.getTYPE(rowBlock, index)")
-                .append(value);
+                .append(value)
+                .putVariable(wasNull, false);
 
         block.append(ifFieldIsNull)
                 .visitLabel(end);
