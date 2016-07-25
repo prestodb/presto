@@ -19,6 +19,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.IntersectNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SetOperationNode;
@@ -76,6 +77,16 @@ public class SetFlatteningOptimizer
             flattenSetOperation(node, context, flattenedSources, flattenedSymbolMap);
 
             return new IntersectNode(node.getId(), flattenedSources.build(), flattenedSymbolMap.build(), ImmutableList.copyOf(flattenedSymbolMap.build().keySet()));
+        }
+
+        @Override
+        public PlanNode visitExcept(ExceptNode node, RewriteContext<Boolean> context)
+        {
+            ImmutableList.Builder<PlanNode> flattenedSources = ImmutableList.builder();
+            ImmutableListMultimap.Builder<Symbol, Symbol> flattenedSymbolMap = ImmutableListMultimap.builder();
+            flattenSetOperation(node, context, flattenedSources, flattenedSymbolMap);
+
+            return new ExceptNode(node.getId(), flattenedSources.build(), flattenedSymbolMap.build(), ImmutableList.copyOf(flattenedSymbolMap.build().keySet()));
         }
 
         private void flattenSetOperation(SetOperationNode node, RewriteContext<Boolean> context, ImmutableList.Builder<PlanNode> flattenedSources, ImmutableListMultimap.Builder<Symbol, Symbol> flattenedSymbolMap)
