@@ -330,11 +330,13 @@ public class PruneUnreferencedOutputs
                     .addAll(node.getPartitionBy())
                     .addAll(node.getOrderBy());
 
-            if (node.getFrame().getStartValue().isPresent()) {
-                expectedInputs.add(node.getFrame().getStartValue().get());
-            }
-            if (node.getFrame().getEndValue().isPresent()) {
-                expectedInputs.add(node.getFrame().getEndValue().get());
+            for (WindowNode.Frame frame : node.getFrames()) {
+                if (frame.getStartValue().isPresent()) {
+                    expectedInputs.add(frame.getStartValue().get());
+                }
+                if (frame.getEndValue().isPresent()) {
+                    expectedInputs.add(frame.getEndValue().get());
+                }
             }
 
             if (node.getHashSymbol().isPresent()) {
@@ -344,12 +346,13 @@ public class PruneUnreferencedOutputs
             ImmutableMap.Builder<Symbol, WindowNode.Function> functionsBuilder = ImmutableMap.builder();
             for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
                 Symbol symbol = entry.getKey();
+                WindowNode.Function function = entry.getValue();
 
                 if (context.get().contains(symbol)) {
-                    FunctionCall call = entry.getValue().getFunctionCall();
+                    FunctionCall call = function.getFunctionCall();
                     expectedInputs.addAll(DependencyExtractor.extractUnique(call));
 
-                    functionsBuilder.put(symbol, new WindowNode.Function(call, entry.getValue().getSignature()));
+                    functionsBuilder.put(symbol, entry.getValue());
                 }
             }
 

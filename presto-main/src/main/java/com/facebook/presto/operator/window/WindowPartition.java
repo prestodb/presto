@@ -16,7 +16,6 @@ package com.facebook.presto.operator.window;
 import com.facebook.presto.operator.PagesHashStrategy;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.function.WindowFunction;
 import com.facebook.presto.spi.function.WindowIndex;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.google.common.primitives.Ints;
@@ -30,6 +29,7 @@ import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
 import static com.facebook.presto.util.Failures.checkCondition;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 public final class WindowPartition
@@ -39,7 +39,7 @@ public final class WindowPartition
     private final int partitionEnd;
 
     private final int[] outputChannels;
-    private final List<WindowFunction> windowFunctions;
+    private final List<FramedWindowFunction> windowFunctions;
     private final FrameInfo frameInfo;
     private final PagesHashStrategy peerGroupHashStrategy;
 
@@ -54,8 +54,7 @@ public final class WindowPartition
             int partitionStart,
             int partitionEnd,
             int[] outputChannels,
-            List<WindowFunction> windowFunctions,
-            FrameInfo frameInfo,
+            List<FramedWindowFunction> windowFunctions,
             PagesHashStrategy peerGroupHashStrategy)
     {
         this.pagesIndex = pagesIndex;
@@ -63,17 +62,24 @@ public final class WindowPartition
         this.partitionEnd = partitionEnd;
         this.outputChannels = outputChannels;
         this.windowFunctions = windowFunctions;
-        this.frameInfo = frameInfo;
+        this.frameInfo = assertSingleFrame(windowFunctions); // TODO remove this when multiple Frames are handled correctly
         this.peerGroupHashStrategy = peerGroupHashStrategy;
 
         // reset functions for new partition
         WindowIndex windowIndex = new PagesWindowIndex(pagesIndex, partitionStart, partitionEnd);
-        for (WindowFunction windowFunction : windowFunctions) {
-            windowFunction.reset(windowIndex);
+        for (FramedWindowFunction framedWindowFunction : windowFunctions) {
+            framedWindowFunction.getFunction().reset(windowIndex);
         }
 
         currentPosition = partitionStart;
         updatePeerGroup();
+    }
+
+    private static FrameInfo assertSingleFrame(List<FramedWindowFunction> windows)
+    {
+        checkArgument(windows.stream().map(FramedWindowFunction::getFrame).distinct().count() == 1,
+                "All window functions have to share the same frame. Distinct frames in single operator are not yet supported.");
+        return windows.iterator().next().getFrame();
     }
 
     public int getPartitionEnd()
@@ -103,12 +109,10 @@ public final class WindowPartition
             updatePeerGroup();
         }
 
-        // compute window frame
         updateFrame();
 
-        // process window functions
-        for (WindowFunction function : windowFunctions) {
-            function.processRow(
+        for (FramedWindowFunction framedFunction : windowFunctions) {
+            framedFunction.getFunction().processRow(
                     pageBuilder.getBlockBuilder(channel),
                     peerGroupStart - partitionStart,
                     peerGroupEnd - partitionStart - 1,

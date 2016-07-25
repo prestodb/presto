@@ -149,20 +149,24 @@ public class TestTypeValidator
                         DOUBLE.getTypeSignature(),
                         ImmutableList.of(DOUBLE.getTypeSignature()),
                         false);
-        FunctionCall function = new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference()));
+        FunctionCall functionCall = new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference()));
+
         WindowNode.Frame frame = new WindowNode.Frame(
                 WindowFrame.Type.RANGE,
                 FrameBound.Type.UNBOUNDED_PRECEDING,
                 Optional.empty(),
                 FrameBound.Type.UNBOUNDED_FOLLOWING,
                 Optional.empty());
-        WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of(), frame);
+
+        WindowNode.Function function = new WindowNode.Function(functionCall, signature, frame);
+
+        WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of());
 
         PlanNode node = new WindowNode(
                 newId(),
                 baseTableScan,
                 specification,
-                ImmutableMap.of(windowSymbol, new WindowNode.Function(function, signature)),
+                ImmutableMap.of(windowSymbol, function),
                 Optional.empty(),
                 ImmutableSet.of(),
                 0);
@@ -311,20 +315,24 @@ public class TestTypeValidator
                         DOUBLE.getTypeSignature(),
                         ImmutableList.of(DOUBLE.getTypeSignature()),
                         false);
-        FunctionCall function = new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnA.toSymbolReference())); // should be columnC
+        FunctionCall functionCall = new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnA.toSymbolReference())); // should be columnC
+
         WindowNode.Frame frame = new WindowNode.Frame(
                 WindowFrame.Type.RANGE,
                 FrameBound.Type.UNBOUNDED_PRECEDING,
                 Optional.empty(),
                 FrameBound.Type.UNBOUNDED_FOLLOWING,
                 Optional.empty());
-        WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of(), frame);
+
+        WindowNode.Function function = new WindowNode.Function(functionCall, signature, frame);
+
+        WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of());
 
         PlanNode node = new WindowNode(
                 newId(),
                 baseTableScan,
                 specification,
-                ImmutableMap.of(windowSymbol, new WindowNode.Function(function, signature)),
+                ImmutableMap.of(windowSymbol, function),
                 Optional.empty(),
                 ImmutableSet.of(),
                 0);
@@ -345,20 +353,24 @@ public class TestTypeValidator
                         BIGINT.getTypeSignature(), // should be DOUBLE
                         ImmutableList.of(DOUBLE.getTypeSignature()),
                         false);
-        FunctionCall function = new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference()));
+        FunctionCall functionCall = new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference()));
+
         WindowNode.Frame frame = new WindowNode.Frame(
                 WindowFrame.Type.RANGE,
                 FrameBound.Type.UNBOUNDED_PRECEDING,
                 Optional.empty(),
                 FrameBound.Type.UNBOUNDED_FOLLOWING,
                 Optional.empty());
-        WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of(), frame);
+
+        WindowNode.Function function = new WindowNode.Function(functionCall, signature, frame);
+
+        WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of());
 
         PlanNode node = new WindowNode(
                 newId(),
                 baseTableScan,
                 specification,
-                ImmutableMap.of(windowSymbol, new WindowNode.Function(function, signature)),
+                ImmutableMap.of(windowSymbol, function),
                 Optional.empty(),
                 ImmutableSet.of(),
                 0);

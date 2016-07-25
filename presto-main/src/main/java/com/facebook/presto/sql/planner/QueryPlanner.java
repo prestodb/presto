@@ -590,8 +590,6 @@ class QueryPlanner
 
             TranslationMap outputTranslations = subPlan.copyTranslations();
 
-            ImmutableMap.Builder<Symbol, WindowNode.Function> functionBuilder = ImmutableMap.builder();
-
             // Rewrite function call in terms of pre-projected inputs
             Expression parametersReplaced = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), windowFunction);
             outputTranslations.addIntermediateMapping(windowFunction, parametersReplaced);
@@ -605,7 +603,8 @@ class QueryPlanner
             }
             outputTranslations.put(parametersReplaced, newSymbol);
 
-            functionBuilder.put(newSymbol, new WindowNode.Function((FunctionCall) rewritten, analysis.getFunctionSignature(windowFunction)));
+            WindowNode.Function function = new WindowNode.Function(
+                    (FunctionCall) rewritten, analysis.getFunctionSignature(windowFunction), frame);
 
             List<Symbol> sourceSymbols = subPlan.getRoot().getOutputSymbols();
             ImmutableList.Builder<Symbol> orderBySymbols = ImmutableList.builder();
@@ -619,9 +618,8 @@ class QueryPlanner
                             new WindowNode.Specification(
                                     partitionBySymbols.build(),
                                     orderBySymbols.build(),
-                                    orderings,
-                                    frame),
-                            functionBuilder.build(),
+                                    orderings),
+                            ImmutableMap.of(newSymbol, function),
                             Optional.empty(),
                             ImmutableSet.of(),
                             0),
