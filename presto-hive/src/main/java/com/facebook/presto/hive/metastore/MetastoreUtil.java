@@ -223,7 +223,7 @@ public class MetastoreUtil
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(table.getDbName())
                 .setTableName(table.getTableName())
-                .setOwner(table.getOwner())
+                .setOwner(nullToEmpty(table.getOwner()))
                 .setTableType(table.getTableType())
                 .setDataColumns(storageDescriptor.getCols().stream()
                         .map(MetastoreUtil::fromMetastoreApiFieldSchema)
