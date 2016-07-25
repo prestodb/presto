@@ -59,6 +59,9 @@ import static com.facebook.presto.spi.type.StandardTypes.SMALLINT;
 import static com.facebook.presto.spi.type.StandardTypes.TINYINT;
 import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.multiply;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.overflows;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Types.checkType;
 import static java.lang.Float.floatToRawIntBits;
@@ -161,7 +164,7 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static Slice booleanToLongDecimal(boolean value, long precision, long scale, long tenToScale)
     {
-        return encodeUnscaledValue(BigInteger.valueOf(value ? tenToScale : 0L));
+        return unscaledDecimal(value ? tenToScale : 0L);
     }
 
     @UsedByGeneratedCode
@@ -207,11 +210,16 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static Slice bigintToLongDecimal(long value, long precision, long scale, long tenToScale)
     {
-        BigInteger decimalBigInteger = BigInteger.valueOf(value).multiply(BigInteger.valueOf(tenToScale));
-        if (overflows(decimalBigInteger, (int) precision)) {
+        try {
+            Slice decimal = multiply(unscaledDecimal(value), unscaledDecimal(tenToScale));
+            if (overflows(decimal, (int) precision)) {
+                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast BIGINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            }
+            return decimal;
+        }
+        catch (ArithmeticException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast BIGINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
         }
-        return encodeUnscaledValue(decimalBigInteger);
     }
 
     @UsedByGeneratedCode
@@ -262,11 +270,16 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static Slice integerToLongDecimal(long value, long precision, long scale, long tenToScale)
     {
-        BigInteger decimalBigInteger = BigInteger.valueOf(value).multiply(BigInteger.valueOf(tenToScale));
-        if (overflows(decimalBigInteger, (int) precision)) {
+        try {
+            Slice decimal = multiply(unscaledDecimal(value), unscaledDecimal(tenToScale));
+            if (overflows(decimal, (int) precision)) {
+                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast INTEGER '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            }
+            return decimal;
+        }
+        catch (ArithmeticException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast INTEGER '%s' to DECIMAL(%s, %s)", value, precision, scale));
         }
-        return encodeUnscaledValue(decimalBigInteger);
     }
 
     @UsedByGeneratedCode
@@ -317,11 +330,16 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static Slice smallintToLongDecimal(long value, long precision, long scale, long tenToScale)
     {
-        BigInteger decimalBigInteger = BigInteger.valueOf(value).multiply(BigInteger.valueOf(tenToScale));
-        if (overflows(decimalBigInteger, (int) precision)) {
+        try {
+            Slice decimal = multiply(unscaledDecimal(value), unscaledDecimal(tenToScale));
+            if (overflows(decimal, (int) precision)) {
+                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast SMALLINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            }
+            return decimal;
+        }
+        catch (ArithmeticException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast SMALLINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
         }
-        return encodeUnscaledValue(decimalBigInteger);
     }
 
     @UsedByGeneratedCode
@@ -372,11 +390,16 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static Slice tinyintToLongDecimal(long value, long precision, long scale, long tenToScale)
     {
-        BigInteger decimalBigInteger = BigInteger.valueOf(value).multiply(BigInteger.valueOf(tenToScale));
-        if (overflows(decimalBigInteger, (int) precision)) {
+        try {
+            Slice decimal = multiply(unscaledDecimal(value), unscaledDecimal(tenToScale));
+            if (overflows(decimal, (int) precision)) {
+                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast TINYINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            }
+            return decimal;
+        }
+        catch (ArithmeticException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast TINYINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
         }
-        return encodeUnscaledValue(decimalBigInteger);
     }
 
     @UsedByGeneratedCode

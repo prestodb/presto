@@ -18,6 +18,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.ArrayType;
 import io.airlift.slice.Slice;
@@ -30,6 +31,7 @@ import java.util.List;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.FloatType.FLOAT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -424,6 +426,28 @@ public final class BlockAssertions
 
         for (int i = start; i < end; i++) {
             TIMESTAMP.writeLong(builder, i);
+        }
+
+        return builder.build();
+    }
+
+    public static Block createShortDecimalSequenceBlock(int start, int end, DecimalType type)
+    {
+        BlockBuilder builder = type.createFixedSizeBlockBuilder(end - start);
+
+        for (int i = start; i < end; ++i) {
+            type.writeLong(builder, i);
+        }
+
+        return builder.build();
+    }
+
+    public static Block createLongDecimalSequenceBlock(int start, int end, DecimalType type)
+    {
+        BlockBuilder builder = type.createFixedSizeBlockBuilder(end - start);
+
+        for (int i = start; i < end; ++i) {
+            type.writeSlice(builder, encodeUnscaledValue(i));
         }
 
         return builder.build();
