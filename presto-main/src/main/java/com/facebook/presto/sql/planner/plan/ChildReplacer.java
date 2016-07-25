@@ -254,6 +254,12 @@ public class ChildReplacer
     }
 
     @Override
+    public PlanNode visitExcept(ExceptNode node, List<PlanNode> newChildren)
+    {
+        return new ExceptNode(node.getId(), newChildren, node.getSymbolMapping(), node.getOutputSymbols());
+    }
+
+    @Override
     public PlanNode visitDelete(DeleteNode node, List<PlanNode> newChildren)
     {
         return new DeleteNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getTarget(), node.getRowId(), node.getOutputSymbols());

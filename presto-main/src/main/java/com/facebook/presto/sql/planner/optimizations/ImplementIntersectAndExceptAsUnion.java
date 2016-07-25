@@ -22,10 +22,12 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IntersectNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SetOperationNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.tree.Cast;
@@ -51,6 +53,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Type.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
@@ -59,7 +62,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 
 /**
- * Converts INTERSECT query into UNION ALL..GROUP BY...WHERE
+ * Converts INTERSECT and EXCEPT queries into UNION ALL..GROUP BY...WHERE
  * Eg:  SELECT a FROM foo INTERSECT SELECT x FROM bar
  * <p/>
  * =>
@@ -77,8 +80,26 @@ import static java.util.stream.Collectors.toMap;
  * ) T1
  * GROUP BY a) T2
  * WHERE foo_cnt >= 1 AND bar_cnt >= 1;
+ *
+ * Eg:  SELECT a FROM foo EXCEPT SELECT x FROM bar
+ * <p/>
+ * =>
+ * <p/>
+ * SELECT a
+ * FROM
+ * (SELECT a,
+ * COUNT(foo_marker) AS foo_cnt,
+ * COUNT(bar_marker) AS bar_cnt
+ * FROM
+ * (
+ * SELECT a, true as foo_marker, null as bar_marker FROM foo
+ * UNION ALL
+ * SELECT x, null as foo_marker, true as bar_marker FROM bar
+ * ) T1
+ * GROUP BY a) T2
+ * WHERE foo_cnt >= 1 AND bar_cnt = 0;
  */
-public class ImplementIntersectAsUnion
+public class ImplementIntersectAndExceptAsUnion
         implements PlanOptimizer
 {
     @Override
@@ -96,7 +117,7 @@ public class ImplementIntersectAsUnion
     private static class Rewriter
             extends SimplePlanRewriter<Void>
     {
-        private static final String INTERSECT_MARKER = "intersect_marker";
+        private static final String MARKER = "marker";
         private static final Signature COUNT_AGGREGATION = new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BOOLEAN));
         private final PlanNodeIdAllocator idAllocator;
         private final SymbolAllocator symbolAllocator;
@@ -114,7 +135,7 @@ public class ImplementIntersectAsUnion
                     .map(rewriteContext::rewrite)
                     .collect(toList());
 
-            List<Symbol> markers = allocateMarkers(sources.size());
+            List<Symbol> markers = allocateSymbols(sources.size(), MARKER, BOOLEAN);
 
             // identity projection for all the fields in each of the sources plus marker columns
             List<PlanNode> withMarkers = appendMarkers(markers, sources, node);
@@ -125,26 +146,52 @@ public class ImplementIntersectAsUnion
             UnionNode union = union(withMarkers, ImmutableList.copyOf(concat(outputs, markers)));
 
             // add count aggregations and filter rows where any of the counts is >= 1
-            AggregationNode aggregation = computeCounts(union, outputs, markers);
-            FilterNode filterNode = addFilter(aggregation);
+            List<Symbol> aggregationOutputs = allocateSymbols(markers.size(), "count", BIGINT);
+            AggregationNode aggregation = computeCounts(union, outputs, markers, aggregationOutputs);
+            FilterNode filterNode = addFilterForIntersect(aggregation);
 
             return project(filterNode, outputs);
         }
 
-        private List<Symbol> allocateMarkers(int count)
+        @Override
+        public PlanNode visitExcept(ExceptNode node, RewriteContext<Void> rewriteContext)
         {
-            ImmutableList.Builder<Symbol> markers = ImmutableList.builder();
-            for (int i = 0; i < count; i++) {
-                markers.add(symbolAllocator.newSymbol(INTERSECT_MARKER, BOOLEAN));
-            }
-            return markers.build();
+            List<PlanNode> sources = node.getSources().stream()
+                    .map(rewriteContext::rewrite)
+                    .collect(toList());
+
+            List<Symbol> markers = allocateSymbols(sources.size(), MARKER, BOOLEAN);
+
+            // identity projection for all the fields in each of the sources plus marker columns
+            List<PlanNode> withMarkers = appendMarkers(markers, sources, node);
+
+            // add a union over all the rewritten sources. The outputs of the union have the same name as the
+            // original except node
+            List<Symbol> outputs = node.getOutputSymbols();
+            UnionNode union = union(withMarkers, ImmutableList.copyOf(concat(outputs, markers)));
+
+            // add count aggregations and filter rows where count for the first source is >= 1 and all others are 0
+            List<Symbol> aggregationOutputs = allocateSymbols(markers.size(), "count", BIGINT);
+            AggregationNode aggregation = computeCounts(union, outputs, markers, aggregationOutputs);
+            FilterNode filterNode = addFilterForExcept(aggregation, aggregationOutputs.get(0), aggregationOutputs.subList(1, aggregationOutputs.size()));
+
+            return project(filterNode, outputs);
         }
 
-        private List<PlanNode> appendMarkers(List<Symbol> markers, List<PlanNode> nodes, IntersectNode intersect)
+        private List<Symbol> allocateSymbols(int count, String nameHint, Type type)
+        {
+            ImmutableList.Builder<Symbol> symbolsBuilder = ImmutableList.builder();
+            for (int i = 0; i < count; i++) {
+                symbolsBuilder.add(symbolAllocator.newSymbol(nameHint, type));
+            }
+            return symbolsBuilder.build();
+        }
+
+        private List<PlanNode> appendMarkers(List<Symbol> markers, List<PlanNode> nodes, SetOperationNode node)
         {
             ImmutableList.Builder<PlanNode> result = ImmutableList.builder();
             for (int i = 0; i < nodes.size(); i++) {
-                result.add(appendMarkers(nodes.get(i), i, markers, intersect.sourceSymbolMap(i)));
+                result.add(appendMarkers(nodes.get(i), i, markers, node.sourceSymbolMap(i)));
             }
             return result.build();
         }
@@ -178,15 +225,14 @@ public class ImplementIntersectAsUnion
 
             return new UnionNode(idAllocator.getNextId(), nodes, outputsToInputs.build(), outputs);
         }
-
-        private AggregationNode computeCounts(UnionNode sourceNode, List<Symbol> originalColumns, List<Symbol> markers)
+        private AggregationNode computeCounts(UnionNode sourceNode, List<Symbol> originalColumns, List<Symbol> markers, List<Symbol> aggregationOutputs)
         {
             ImmutableMap.Builder<Symbol, Signature> signatures = ImmutableMap.builder();
             ImmutableMap.Builder<Symbol, FunctionCall> aggregations = ImmutableMap.builder();
 
-            for (Symbol marker : markers) {
-                Symbol output = symbolAllocator.newSymbol("count", BIGINT);
-                aggregations.put(output, new FunctionCall(QualifiedName.of("count"), ImmutableList.of(marker.toSymbolReference())));
+            for (int i = 0; i < markers.size(); i++) {
+                Symbol output = aggregationOutputs.get(i);
+                aggregations.put(output, new FunctionCall(QualifiedName.of("count"), ImmutableList.of(markers.get(i).toSymbolReference())));
                 signatures.put(output, COUNT_AGGREGATION);
             }
 
@@ -195,7 +241,7 @@ public class ImplementIntersectAsUnion
                     originalColumns,
                     aggregations.build(),
                     signatures.build(),
-                    ImmutableMap.<Symbol, Symbol>of(),
+                    ImmutableMap.of(),
                     ImmutableList.of(originalColumns),
                     Step.SINGLE,
                     Optional.empty(),
@@ -203,12 +249,23 @@ public class ImplementIntersectAsUnion
                     Optional.empty());
         }
 
-        private FilterNode addFilter(AggregationNode aggregation)
+        private FilterNode addFilterForIntersect(AggregationNode aggregation)
         {
             ImmutableList<Expression> predicates = aggregation.getAggregations().keySet().stream()
                     .map(column -> new ComparisonExpression(GREATER_THAN_OR_EQUAL, column.toSymbolReference(), new GenericLiteral("BIGINT", "1")))
                     .collect(toImmutableList());
             return new FilterNode(idAllocator.getNextId(), aggregation, ExpressionUtils.and(predicates));
+        }
+
+        private FilterNode addFilterForExcept(AggregationNode aggregation, Symbol firstSource, List<Symbol> remainingSources)
+        {
+            ImmutableList.Builder<Expression> predicatesBuilder = ImmutableList.builder();
+            predicatesBuilder.add(new ComparisonExpression(GREATER_THAN_OR_EQUAL, firstSource.toSymbolReference(), new GenericLiteral("BIGINT", "1")));
+            for (Symbol symbol : remainingSources) {
+                predicatesBuilder.add(new ComparisonExpression(EQUAL, symbol.toSymbolReference(), new GenericLiteral("BIGINT", "0")));
+            }
+
+            return new FilterNode(idAllocator.getNextId(), aggregation, ExpressionUtils.and(predicatesBuilder.build()));
         }
 
         private ProjectNode project(PlanNode node, List<Symbol> columns)
