@@ -5,7 +5,7 @@ SELECT n_name FROM nation WHERE n_nationkey = 17
 INTERSECT 
 SELECT n_name FROM nation WHERE n_regionkey = 1 
 UNION 
-SELECT n_name from nation WHERE n_regionkey = 2
+SELECT n_name FROM nation WHERE n_regionkey = 2
 --!
 INDIA|
 INDONESIA|
