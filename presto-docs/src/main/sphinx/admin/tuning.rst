@@ -14,6 +14,13 @@ following properties to ensure optimal performance:
   * :ref:`query.initial-hash-partitions <tuning-pref-query>`
   * :ref:`task.concurrency <tuning-pref-task>`
 
+For example, on a 11-node cluster dedicated to Presto (1 Coordinator + 10 Workers) with 8-core CPU and 128GB of RAM per node, you might want to start tuning with following values:
+
+  * `query.max-memory = 200GB`
+  * `query.max-memory-per-node = 32GB`
+  * `query.initial-hash-partitions = 10`
+  * `task.concurrency = 8`
+
 .. _tuning-pref-general:
 
 General properties
