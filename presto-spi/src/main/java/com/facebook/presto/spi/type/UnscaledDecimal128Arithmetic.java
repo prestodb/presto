@@ -20,6 +20,7 @@ import sun.misc.Unsafe;
 
 import java.lang.reflect.Field;
 import java.math.BigInteger;
+import java.nio.ByteOrder;
 
 import static com.facebook.presto.spi.type.Decimals.MAX_PRECISION;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
@@ -42,9 +43,11 @@ public final class UnscaledDecimal128Arithmetic
     private static final long SIGN_LONG_MASK = 1L << 63;
     private static final int SIGN_INT_MASK = 1 << 31;
     private static final int SIGN_BYTE_MASK = 1 << 7;
-    private static final int NUMBER_OF_INTS = 4;
     private static final int NUMBER_OF_LONGS = 2;
     private static final int INT_MASK = 0xFFFFFFFF;
+    /**
+     * Mask to convert signed integer to unsigned long.
+     */
     private static final long LONG_MASK = 0xFFFFFFFFL;
 
     /**
@@ -76,8 +79,13 @@ public final class UnscaledDecimal128Arithmetic
             POWERS_OF_TEN[i] = unscaledDecimal(BigInteger.TEN.pow(i));
         }
 
-        for (int i = 0; i < POWER_FIVES_INT.length; ++i) {
-            POWER_FIVES_INT[i] = BigInteger.valueOf(5).pow(i).intValue();
+        POWER_FIVES_INT[0] = 1;
+        for (int i = 1; i < POWER_FIVES_INT.length; ++i) {
+            POWER_FIVES_INT[i] = POWER_FIVES_INT[i - 1] * 5;
+        }
+
+        if (ByteOrder.nativeOrder().equals(ByteOrder.BIG_ENDIAN)) {
+            throw new IllegalStateException("UnsignedDecimal128Arithmetic is supported on little-endian machines only");
         }
     }
 
@@ -154,12 +162,6 @@ public final class UnscaledDecimal128Arithmetic
         return negative ? -lo : lo;
     }
 
-    public static void copyUnscaledDecimal(Slice from, Slice to)
-    {
-        setRawLong(to, 0, getRawLong(from, 0));
-        setRawLong(to, 1, getRawLong(from, 1));
-    }
-
     public static Slice rescale(Slice decimal, int rescaleFactor)
     {
         if (rescaleFactor == 0) {
@@ -173,6 +175,8 @@ public final class UnscaledDecimal128Arithmetic
         }
         else {
             Slice result = unscaledDecimal();
+            // Scales down for 10**rescaleFactor
+            // (this is equivalent to scaling down with 5**rescaleFactor first, then with 2**rescaleFactor)
             scaleDownFive(decimal, -rescaleFactor, result);
             shiftRightRoundUp(result, -rescaleFactor, result);
             return result;
@@ -198,7 +202,7 @@ public final class UnscaledDecimal128Arithmetic
         int r2 = getInt(right, 2);
         int r3 = getInt(right, 3);
 
-        // the combinations below definitely result in overflow
+        // the combinations below definitely result in an overflow
         if ((r3 != 0 && (l3 | l2 | l1) != 0)
                 || (r2 != 0 && (l3 | l2) != 0)
                 || (r1 != 0 && l3 != 0)) {
@@ -235,11 +239,6 @@ public final class UnscaledDecimal128Arithmetic
         pack(result, z0, z1, z2, z3, negative);
 
         throwIfOverflows(z0, z1, z2, z3);
-    }
-
-    public static boolean overflows(Slice value, int precision)
-    {
-        return precision < MAX_PRECISION && compareUnsigned(value, POWERS_OF_TEN[precision]) >= 0;
     }
 
     public static int compare(Slice left, Slice right)
@@ -335,6 +334,29 @@ public final class UnscaledDecimal128Arithmetic
         return XxHash64.hash(rawLo) ^ XxHash64.hash(unpackUnsignedLong(rawHi));
     }
 
+    public static boolean overflows(Slice value, int precision)
+    {
+        return precision < MAX_PRECISION && compareUnsigned(value, POWERS_OF_TEN[precision]) >= 0;
+    }
+
+    private static void throwIfOverflows(int v0, int v1, int v2, int v3)
+    {
+        if (exceedsOrEqualTenToThirtyEight(v0, v1, v2, v3)) {
+            throwOverflowException();
+        }
+    }
+
+    private static void throwIfOverflows(Slice decimal)
+    {
+        if (exceedsOrEqualTenToThirtyEight(decimal)) {
+            throwOverflowException();
+        }
+    }
+
+    /**
+     * Scale down the value for 5**tenScale (this := this / 5**tenScale). This
+     * method rounds-up, eg 42/5=8, 43/5=9.
+     */
     private static void scaleDownFive(Slice decimal, int fiveScale, Slice result)
     {
         while (true) {
@@ -361,53 +383,90 @@ public final class UnscaledDecimal128Arithmetic
     {
         if (rightShifts == 0) {
             copyUnscaledDecimal(decimal, result);
+            return;
+        }
+
+        int wordShifts = rightShifts / 32;
+        int bitShiftsInWord = rightShifts % 32;
+        int shiftRestore = 32 - bitShiftsInWord;
+
+        // check round-ups before settings values to result.
+        // be aware that result could be the same object as decimal.
+        boolean roundCarry;
+        if (bitShiftsInWord == 0) {
+            roundCarry = roundUp && getInt(decimal, wordShifts - 1) < 0;
         }
         else {
-            final int wordShifts = rightShifts / 32;
-            final int bitShiftsInWord = rightShifts % 32;
-            final int shiftRestore = 32 - bitShiftsInWord;
-
-            // check this because "123 << 32" will be 123.
-            final boolean noRestore = bitShiftsInWord == 0;
-
-            // check round-ups before settings values to result.
-            // be aware that result could be the same object as z.
-            boolean roundCarry;
-            if (bitShiftsInWord == 0) {
-                roundCarry = roundUp && getInt(decimal, wordShifts - 1) < 0;
-            }
-            else {
-                roundCarry = roundUp && (getInt(decimal, wordShifts) & (1 << (bitShiftsInWord - 1))) != 0;
-            }
-
-            // Store negative before settings values to result.
-            boolean negative = isNegative(decimal);
-
-            for (int i = 0; i < NUMBER_OF_INTS; ++i) {
-                int val = 0;
-                if (!noRestore && i + wordShifts + 1 < NUMBER_OF_INTS) {
-                    val = getInt(decimal, i + wordShifts + 1) << shiftRestore;
-                }
-                if (i + wordShifts < NUMBER_OF_INTS) {
-                    val |= (getInt(decimal, i + wordShifts) >>> bitShiftsInWord);
-                }
-
-                if (roundCarry) {
-                    if (val != INT_MASK) {
-                        setRawInt(result, i, val + 1);
-                        roundCarry = false;
-                    }
-                    else {
-                        setRawInt(result, i, 0);
-                    }
-                }
-                else {
-                    setRawInt(result, i, val);
-                }
-            }
-
-            setNegative(result, negative);
+            roundCarry = roundUp && (getInt(decimal, wordShifts) & (1 << (bitShiftsInWord - 1))) != 0;
         }
+
+        // Store negative before settings values to result.
+        boolean negative = isNegative(decimal);
+
+        int v0;
+        int v1;
+        int v2;
+        int v3;
+
+        switch (wordShifts) {
+            case 0:
+                v0 = getInt(decimal, 0);
+                v1 = getInt(decimal, 1);
+                v2 = getInt(decimal, 2);
+                v3 = getInt(decimal, 3);
+                break;
+            case 1:
+                v0 = getInt(decimal, 1);
+                v1 = getInt(decimal, 2);
+                v2 = getInt(decimal, 3);
+                v3 = 0;
+                break;
+            case 2:
+                v0 = getInt(decimal, 2);
+                v1 = getInt(decimal, 3);
+                v2 = 0;
+                v3 = 0;
+                break;
+            case 3:
+                v0 = getInt(decimal, 3);
+                v1 = 0;
+                v2 = 0;
+                v3 = 0;
+                break;
+            default:
+                throw new IllegalArgumentException();
+        }
+
+        if (bitShiftsInWord > 0) {
+            v0 = (v0 >>> bitShiftsInWord) | (v1 << shiftRestore);
+            v1 = (v1 >>> bitShiftsInWord) | (v2 << shiftRestore);
+            v2 = (v2 >>> bitShiftsInWord) | (v3 << shiftRestore);
+            v3 = (v3 >>> bitShiftsInWord);
+        }
+
+        while (roundCarry) {
+            if (v0 != INT_MASK) {
+                v0++;
+                break;
+            }
+            v0 = 0;
+
+            if (v1 != INT_MASK) {
+                v1++;
+                break;
+            }
+            v1 = 0;
+
+            if (v2 != INT_MASK) {
+                v2++;
+                break;
+            }
+            v2 = 0;
+
+            v3++;
+        }
+
+        pack(result, v0, v1, v2, v3, negative);
     }
 
     // visible for testing
@@ -441,26 +500,18 @@ public final class UnscaledDecimal128Arithmetic
         setRawInt(decimal, SIGN_INT_INDEX, v3 | (negative ? SIGN_INT_MASK : 0));
     }
 
+    private static void copyUnscaledDecimal(Slice from, Slice to)
+    {
+        setRawLong(to, 0, getRawLong(from, 0));
+        setRawLong(to, 1, getRawLong(from, 1));
+    }
+
     private static void pack(Slice decimal, int v0, int v1, int v2, int v3, boolean negative)
     {
         setRawInt(decimal, 0, v0);
         setRawInt(decimal, 1, v1);
         setRawInt(decimal, 2, v2);
         setNegative(decimal, v3, negative);
-    }
-
-    private static void throwIfOverflows(int v0, int v1, int v2, int v3)
-    {
-        if (exceedsOrEqualTenToThirtyEight(v0, v1, v2, v3)) {
-            throwOverflowException();
-        }
-    }
-
-    private static void throwIfOverflows(Slice decimal)
-    {
-        if (exceedsOrEqualTenToThirtyEight(decimal)) {
-            throwOverflowException();
-        }
     }
 
     private static boolean exceedsOrEqualTenToThirtyEight(int v0, int v1, int v2, int v3)
@@ -471,14 +522,14 @@ public final class UnscaledDecimal128Arithmetic
         if (v3 >= 0 && v3 < 0x4b3b4ca8) {
             return false;
         }
-        else if (v3 > 0x4b3b4ca8) {
+        else if (v3 != 0x4b3b4ca8) {
             return true;
         }
 
         if (v2 >= 0 && v2 < 0x5a86c47a) {
             return false;
         }
-        else if (v2 > 0x5a86c47a) {
+        else if (v2 != 0x5a86c47a) {
             return true;
         }
 
@@ -494,7 +545,7 @@ public final class UnscaledDecimal128Arithmetic
         if (v3 >= 0 && v3 < 0x4b3b4ca8) {
             return false;
         }
-        else if (v3 > 0x4b3b4ca8) {
+        else if (v3 != 0x4b3b4ca8) {
             return true;
         }
 
@@ -502,7 +553,7 @@ public final class UnscaledDecimal128Arithmetic
         if (v2 >= 0 && v2 < 0x5a86c47a) {
             return false;
         }
-        else if (v2 > 0x5a86c47a) {
+        else if (v2 != 0x5a86c47a) {
             return true;
         }
 
@@ -515,7 +566,6 @@ public final class UnscaledDecimal128Arithmetic
         throw new ArithmeticException("Decimal overflow");
     }
 
-    /* Based on: it.unimi.dsi.fastutil.bytes.ByteArrays.reverse; */
     private static byte[] reverse(final byte[] a)
     {
         final int length = a.length;
@@ -524,7 +574,6 @@ public final class UnscaledDecimal128Arithmetic
             a[length - i - 1] = a[i];
             a[i] = t;
         }
-
         return a;
     }
 
