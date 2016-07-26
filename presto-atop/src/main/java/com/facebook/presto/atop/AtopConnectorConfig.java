@@ -28,11 +28,28 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class AtopConnectorConfig
 {
+    public static final String SECURITY_NONE = "none";
+    public static final String SECURITY_FILE = "file";
+
     private String executablePath = "atop";
     private String timeZone = TimeZone.getDefault().getID();
+    private String security = SECURITY_NONE;
     private Duration readTimeout = new Duration(5, MINUTES);
     private int concurrentReadersPerNode = 1;
     private int maxHistoryDays = 30;
+
+    @NotNull
+    public String getSecurity()
+    {
+        return security;
+    }
+
+    @Config("atop.security")
+    public AtopConnectorConfig setSecurity(String security)
+    {
+        this.security = security;
+        return this;
+    }
 
     @NotNull
     public String getExecutablePath()
