@@ -150,6 +150,16 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Drops the specified schema.
+     *
+     * @throws PrestoException with {@code SCHEMA_NOT_EMPTY} if the schema is not empty
+     */
+    default void dropSchema(ConnectorSession session, String schemaName)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping schemas");
+    }
+
+    /**
      * Creates a table using the specified table metadata.
      */
     default void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)

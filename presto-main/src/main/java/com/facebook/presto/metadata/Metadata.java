@@ -127,6 +127,11 @@ public interface Metadata
     void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties);
 
     /**
+     * Drops the specified schema.
+     */
+    void dropSchema(Session session, CatalogSchemaName schema);
+
+    /**
      * Creates a table using the specified table metadata.
      */
     @NotNull
