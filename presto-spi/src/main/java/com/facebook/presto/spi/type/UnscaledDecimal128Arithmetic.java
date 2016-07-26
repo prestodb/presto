@@ -26,6 +26,7 @@ import static com.facebook.presto.spi.type.Decimals.MAX_PRECISION;
 import static com.facebook.presto.spi.type.Decimals.longTenToNth;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static java.lang.String.format;
 
 /**
  * 128 bit unscaled decimal arithmetic.
@@ -213,6 +214,142 @@ public final class UnscaledDecimal128Arithmetic
         }
         else {
             scaleDownRoundUp(decimal, -rescaleFactor, result);
+        }
+    }
+
+    public static Slice add(Slice left, Slice right)
+    {
+        Slice result = unscaledDecimal();
+        add(left, right, result);
+        return result;
+    }
+
+    public static void add(Slice left, Slice right, Slice result)
+    {
+        if (!(isNegative(left) ^ isNegative(right))) {
+            // either both negative or both positive
+            addUnsigned(left, right, result, isNegative(left));
+        }
+        else {
+            int compare = compareUnsigned(left, right);
+            if (compare > 0) {
+                subtractUnsigned(left, right, result, isNegative(left));
+            }
+            else if (compare < 0) {
+                subtractUnsigned(right, left, result, !(isNegative(left)));
+            }
+            else {
+                clearDecimal(result);
+            }
+        }
+    }
+
+    public static Slice subtract(Slice left, Slice right)
+    {
+        Slice result = unscaledDecimal();
+        subtract(left, right, result);
+        return result;
+    }
+
+    public static void subtract(Slice left, Slice right, Slice result)
+    {
+        if (isNegative(left) ^ isNegative(right)) {
+            // only one is negative
+            addUnsigned(left, right, result, isNegative(left));
+        }
+        else {
+            int compare = compareUnsigned(left, right);
+            if (compare > 0) {
+                subtractUnsigned(left, right, result, isNegative(left) && isNegative(right));
+            }
+            else if (compare < 0) {
+                subtractUnsigned(right, left, result, !(isNegative(left) && isNegative(right)));
+            }
+            else {
+                clearDecimal(result);
+            }
+        }
+    }
+
+    /**
+     * This method ignores signs of the left and right
+     */
+    private static void addUnsigned(Slice left, Slice right, Slice result, boolean resultNegative)
+    {
+        int l0 = getInt(left, 0);
+        int l1 = getInt(left, 1);
+        int l2 = getInt(left, 2);
+        int l3 = getInt(left, 3);
+
+        int r0 = getInt(right, 0);
+        int r1 = getInt(right, 1);
+        int r2 = getInt(right, 2);
+        int r3 = getInt(right, 3);
+
+        long product;
+        product = (l0 & LONG_MASK) + (r0 & LONG_MASK);
+
+        int z0 = (int) product;
+
+        product = (l1 & LONG_MASK) + (r1 & LONG_MASK) + (product >> 32);
+
+        int z1 = (int) product;
+
+        product = (l2 & LONG_MASK) + (r2 & LONG_MASK) + (product >> 32);
+
+        int z2 = (int) product;
+
+        product = (l3 & LONG_MASK) + (r3 & LONG_MASK) + (product >> 32);
+
+        int z3 = (int) product;
+
+        throwIfOverflows(z0, z1, z2, z3);
+
+        pack(result, z0, z1, z2, z3, resultNegative);
+
+        if (product >> 32 != 0) {
+            throwOverflowException();
+        }
+    }
+
+    /**
+     * This method ignores signs of the left and right and assumes that left is greater then right
+     */
+    private static void subtractUnsigned(Slice left, Slice right, Slice result, boolean resultNegative)
+    {
+        int l0 = getInt(left, 0);
+        int l1 = getInt(left, 1);
+        int l2 = getInt(left, 2);
+        int l3 = getInt(left, 3);
+
+        int r0 = getInt(right, 0);
+        int r1 = getInt(right, 1);
+        int r2 = getInt(right, 2);
+        int r3 = getInt(right, 3);
+
+        long product;
+        product = (l0 & LONG_MASK) - (r0 & LONG_MASK);
+
+        int z0 = (int) product;
+
+        product = (l1 & LONG_MASK) - (r1 & LONG_MASK) + (product >> 32);
+
+        int z1 = (int) product;
+
+        product = (l2 & LONG_MASK) - (r2 & LONG_MASK) + (product >> 32);
+
+        int z2 = (int) product;
+
+        product = (l3 & LONG_MASK) - (r3 & LONG_MASK) + (product >> 32);
+
+        int z3 = (int) product;
+
+        throwIfOverflows(z0, z1, z2, z3);
+
+        pack(result, z0, z1, z2, z3, resultNegative);
+
+        if ((product >> 32) != 0) {
+            throw new IllegalStateException(format("Non empty carry over after subtracting [%d]. right > left?", (product >> 32)));
         }
     }
 
@@ -670,6 +807,13 @@ public final class UnscaledDecimal128Arithmetic
             a[i] = t;
         }
         return a;
+    }
+
+    private static void clearDecimal(Slice decimal)
+    {
+        for (int i = 0; i < NUMBER_OF_LONGS; i++) {
+            setRawLong(decimal, i, 0);
+        }
     }
 
     private static int getInt(Slice decimal, int index)

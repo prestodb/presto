@@ -20,6 +20,7 @@ import java.math.BigInteger;
 
 import static com.facebook.presto.spi.type.Decimals.MAX_DECIMAL_UNSCALED_VALUE;
 import static com.facebook.presto.spi.type.Decimals.MIN_DECIMAL_UNSCALED_VALUE;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.add;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.compare;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.divide;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.hash;
@@ -114,6 +115,18 @@ public class TestUnscaledDecimal128Arithmetic
     public void testRescaleOverflows()
     {
         assertRescaleOverflows(unscaledDecimal(1), 38);
+    }
+
+    @Test
+    public void testAdd()
+    {
+        assertEquals(add(unscaledDecimal(0), unscaledDecimal(0)), unscaledDecimal(0));
+        assertEquals(add(unscaledDecimal(1), unscaledDecimal(0)), unscaledDecimal(1));
+        assertEquals(add(unscaledDecimal(1), unscaledDecimal(1)), unscaledDecimal(2));
+
+        assertEquals(add(unscaledDecimal(1L << 32), unscaledDecimal(0)), unscaledDecimal(1L << 32));
+        assertEquals(add(unscaledDecimal(1L << 31), unscaledDecimal(1L << 31)), unscaledDecimal(1L << 32));
+        assertEquals(add(unscaledDecimal(1L << 32), unscaledDecimal(1L << 33)), unscaledDecimal((1L << 32) + (1L << 33)));
     }
 
     @Test
