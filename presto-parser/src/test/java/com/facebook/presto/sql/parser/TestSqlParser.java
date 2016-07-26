@@ -117,6 +117,7 @@ import static com.facebook.presto.sql.QueryUtil.values;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
+import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.negative;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.positive;
 import static java.lang.String.format;
@@ -1530,6 +1531,7 @@ public class TestSqlParser
     private static void assertStatement(String query, Statement expected)
     {
         assertParsed(query, expected, SQL_PARSER.createStatement(query));
+        assertFormattedSql(SQL_PARSER, expected);
     }
 
     private static void assertExpression(String expression, Expression expected)
