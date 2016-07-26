@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.atop;
 
+import com.facebook.presto.plugin.base.security.AllowAllAccessControlModule;
+import com.facebook.presto.plugin.base.security.FileBasedAccessControlModule;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
@@ -23,10 +25,14 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
+import io.airlift.json.JsonModule;
 import io.airlift.node.NodeConfig;
 
 import java.util.Map;
 
+import static com.facebook.presto.atop.AtopConnectorConfig.SECURITY_FILE;
+import static com.facebook.presto.atop.AtopConnectorConfig.SECURITY_NONE;
+import static com.facebook.presto.atop.ConditionalModule.installModuleIf;
 import static java.util.Objects.requireNonNull;
 
 public class AtopConnectorFactory
@@ -67,7 +73,21 @@ public class AtopConnectorFactory
         requireNonNull(requiredConfig, "requiredConfig is null");
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            Bootstrap app = new Bootstrap(new AtopModule(atopFactoryClass, typeManager, nodeManager, nodeConfig, connectorId));
+            Bootstrap app = new Bootstrap(
+                    new AtopModule(atopFactoryClass, typeManager, nodeManager, nodeConfig, connectorId),
+                    installModuleIf(
+                        AtopConnectorConfig.class,
+                            config -> config.getSecurity().equalsIgnoreCase(SECURITY_NONE),
+                            new AllowAllAccessControlModule()
+                    ),
+                    installModuleIf(
+                            AtopConnectorConfig.class,
+                            config -> config.getSecurity().equalsIgnoreCase(SECURITY_FILE),
+                            binder -> {
+                                binder.install(new FileBasedAccessControlModule());
+                                binder.install(new JsonModule());
+                            })
+                    );
 
             Injector injector = app
                     .strictConfig()

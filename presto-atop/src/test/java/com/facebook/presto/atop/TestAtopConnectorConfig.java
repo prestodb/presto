@@ -20,6 +20,8 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.TimeZone;
 
+import static com.facebook.presto.atop.AtopConnectorConfig.SECURITY_FILE;
+import static com.facebook.presto.atop.AtopConnectorConfig.SECURITY_NONE;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
@@ -33,6 +35,7 @@ public class TestAtopConnectorConfig
         assertRecordedDefaults(recordDefaults(AtopConnectorConfig.class)
                 .setExecutablePath("atop")
                 .setConcurrentReadersPerNode(1)
+                .setSecurity(SECURITY_NONE)
                 .setReadTimeout(new Duration(5, MINUTES))
                 .setMaxHistoryDays(30)
                 .setTimeZone(TimeZone.getDefault().getID()));
@@ -45,6 +48,7 @@ public class TestAtopConnectorConfig
                 .put("atop.executable-path", "/test/atop")
                 .put("atop.concurrent-readers-per-node", "10")
                 .put("atop.executable-read-timeout", "1m")
+                .put("atop.security", "file")
                 .put("atop.max-history-days", "10")
                 .put("atop.time-zone", "PST")
                 .build();
@@ -52,6 +56,7 @@ public class TestAtopConnectorConfig
         AtopConnectorConfig expected = new AtopConnectorConfig()
                 .setExecutablePath("/test/atop")
                 .setConcurrentReadersPerNode(10)
+                .setSecurity(SECURITY_FILE)
                 .setReadTimeout(new Duration(1, MINUTES))
                 .setMaxHistoryDays(10)
                 .setTimeZone("PST");
