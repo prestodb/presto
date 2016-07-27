@@ -15,6 +15,10 @@ package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.checkpoint.DecimalStreamCheckpoint;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.Decimals;
+import io.airlift.slice.Slice;
 
 import java.io.IOException;
 import java.math.BigInteger;
@@ -86,20 +90,29 @@ public class DecimalStream
         return result;
     }
 
-    public void nextBigIntegerVector(int items, BigInteger[] vector)
+    public void nextLongDecimalVector(int items, BlockBuilder builder, DecimalType targetType, long[] sourceScale)
             throws IOException
     {
         for (int i = 0; i < items; i++) {
-            vector[i] = nextBigInteger();
+            BigInteger bigInteger = nextBigInteger();
+            BigInteger rescaledDecimal = Decimals.rescale(bigInteger, (int) sourceScale[i], targetType.getScale());
+            Slice slice = Decimals.encodeUnscaledValue(rescaledDecimal);
+            targetType.writeSlice(builder, slice);
         }
     }
 
-    public void nextBigIntegerVector(int items, BigInteger[] vector, boolean[] isNull)
+    public void nextLongDecimalVector(int items, BlockBuilder builder, DecimalType targetType, long[] sourceScale, boolean[] isNull)
             throws IOException
     {
         for (int i = 0; i < items; i++) {
             if (!isNull[i]) {
-                vector[i] = nextBigInteger();
+                BigInteger bigInteger = nextBigInteger();
+                BigInteger rescaledDecimal = Decimals.rescale(bigInteger, (int) sourceScale[i], targetType.getScale());
+                Slice slice = Decimals.encodeUnscaledValue(rescaledDecimal);
+                targetType.writeSlice(builder, slice);
+            }
+            else {
+                builder.appendNull();
             }
         }
     }
@@ -137,20 +150,25 @@ public class DecimalStream
         return result;
     }
 
-    public void nextLongVector(int items, long[] vector)
+    public void nextShortDecimalVector(int items, BlockBuilder builder, DecimalType targetType, long[] sourceScale)
             throws IOException
     {
         for (int i = 0; i < items; i++) {
-            vector[i] = nextLong();
+            long rescaledDecimal = Decimals.rescale(nextLong(), (int) sourceScale[i], targetType.getScale());
+            targetType.writeLong(builder, rescaledDecimal);
         }
     }
 
-    public void nextLongVector(int items, long[] vector, boolean[] isNull)
+    public void nextShortDecimalVector(int items, BlockBuilder builder, DecimalType targetType, long[] sourceScale, boolean[] isNull)
             throws IOException
     {
         for (int i = 0; i < items; i++) {
             if (!isNull[i]) {
-                vector[i] = nextLong();
+                long rescaledDecimal = Decimals.rescale(nextLong(), (int) sourceScale[i], targetType.getScale());
+                targetType.writeLong(builder, rescaledDecimal);
+            }
+            else {
+                builder.appendNull();
             }
         }
     }
