@@ -36,7 +36,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.List;
 
-import static com.facebook.presto.metadata.SignatureBinder.bindVariables;
+import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
@@ -82,8 +82,8 @@ public class DecimalSumAggregation
     @Override
     public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Type inputType = typeManager.getType(getOnlyElement(bindVariables(getSignature().getArgumentTypes(), boundVariables)));
-        Type outputType = typeManager.getType(bindVariables(getSignature().getReturnType(), boundVariables));
+        Type inputType = typeManager.getType(getOnlyElement(applyBoundVariables(getSignature().getArgumentTypes(), boundVariables)));
+        Type outputType = typeManager.getType(applyBoundVariables(getSignature().getReturnType(), boundVariables));
         return generateAggregation(inputType, outputType);
     }
 
