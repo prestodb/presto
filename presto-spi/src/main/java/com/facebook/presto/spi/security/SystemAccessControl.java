@@ -20,6 +20,7 @@ import java.security.Principal;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
@@ -163,9 +164,9 @@ public interface SystemAccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanCreateViewWithSelectFromTable(Identity identity, CatalogSchemaTableName view, CatalogSchemaTableName table)
+    default void checkCanCreateViewWithSelectFromTable(Identity identity, CatalogSchemaTableName table)
     {
-        denyCreateView(view.toString());
+        denyCreateViewWithSelect(table.toString());
     }
 
     /**
@@ -175,7 +176,7 @@ public interface SystemAccessControl
      */
     default void checkCanCreateViewWithSelectFromView(Identity identity, CatalogSchemaTableName view)
     {
-        denyCreateView(view.toString());
+        denyCreateViewWithSelect(view.toString());
     }
 
     /**

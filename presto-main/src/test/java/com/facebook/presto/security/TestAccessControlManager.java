@@ -296,7 +296,7 @@ public class TestAccessControlManager
         }
 
         @Override
-        public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName, SchemaTableName tableName)
+        public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
         {
             throw new UnsupportedOperationException();
         }
