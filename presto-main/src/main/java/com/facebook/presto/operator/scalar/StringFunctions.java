@@ -484,8 +484,9 @@ public final class StringFunctions
     }
 
     @ScalarOperator(OperatorType.CAST)
+    @LiteralParameters("x")
     @SqlType(CodePointsType.NAME)
-    public static int[] castVarcharToCodePoints(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    public static int[] castVarcharToCodePoints(@SqlType("varchar(x)") Slice slice)
     {
         return castToCodePoints(slice);
     }

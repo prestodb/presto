@@ -16,6 +16,7 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -211,8 +212,9 @@ public final class DateTimeFunctions
     }
 
     @ScalarFunction(value = "at_timezone", hidden = true)
+    @LiteralParameters("x")
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
-    public static long timeAtTimeZone(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long timeWithTimeZone, @SqlType(StandardTypes.VARCHAR) Slice zoneId)
+    public static long timeAtTimeZone(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long timeWithTimeZone, @SqlType("varchar(x)") Slice zoneId)
     {
         return packDateTimeWithZone(unpackMillisUtc(timeWithTimeZone), zoneId.toStringUtf8());
     }
@@ -227,8 +229,9 @@ public final class DateTimeFunctions
     }
 
     @ScalarFunction(value = "at_timezone", hidden = true)
+    @LiteralParameters("x")
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
-    public static long timestampAtTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone, @SqlType(StandardTypes.VARCHAR) Slice zoneId)
+    public static long timestampAtTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone, @SqlType("varchar(x)") Slice zoneId)
     {
         return packDateTimeWithZone(unpackMillisUtc(timestampWithTimeZone), zoneId.toStringUtf8());
     }

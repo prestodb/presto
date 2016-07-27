@@ -15,6 +15,7 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -150,7 +151,8 @@ public final class RealOperators
     }
 
     @ScalarOperator(CAST)
-    @SqlType(StandardTypes.VARCHAR)
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
     public static Slice castToVarchar(@SqlType(StandardTypes.REAL) long value)
     {
         return utf8Slice(valueOf(intBitsToFloat((int) value)));

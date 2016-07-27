@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
@@ -59,7 +60,8 @@ public final class JsonOperators
 
     @ScalarOperator(CAST)
     @SqlNullable
-    @SqlType(VARCHAR)
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
     public static Slice castToVarchar(@SqlType(JSON) Slice json)
     {
         try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
@@ -253,6 +255,7 @@ public final class JsonOperators
     }
 
     @ScalarOperator(CAST)
+    @LiteralParameters("x")
     @SqlType(JSON)
     public static Slice castFromVarchar(@SqlType(VARCHAR) Slice slice)
             throws IOException

@@ -65,8 +65,9 @@ public final class LikeFunctions
     }
 
     @ScalarOperator(OperatorType.CAST)
+    @LiteralParameters("x")
     @SqlType(LikePatternType.NAME)
-    public static Regex castVarcharToLikePattern(@SqlType(StandardTypes.VARCHAR) Slice pattern)
+    public static Regex castVarcharToLikePattern(@SqlType("varchar") Slice pattern)
     {
         return likePattern(pattern);
     }
@@ -85,8 +86,9 @@ public final class LikeFunctions
     }
 
     @ScalarFunction
+    @LiteralParameters({"x", "y"})
     @SqlType(LikePatternType.NAME)
-    public static Regex likePattern(@SqlType(StandardTypes.VARCHAR) Slice pattern, @SqlType(StandardTypes.VARCHAR) Slice escape)
+    public static Regex likePattern(@SqlType("varchar(x)") Slice pattern, @SqlType("varchar(y)") Slice escape)
     {
         return likePattern(pattern.toStringUtf8(), getEscapeChar(escape), true);
     }
