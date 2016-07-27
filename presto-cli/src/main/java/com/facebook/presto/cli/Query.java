@@ -212,8 +212,8 @@ public class Query
     private void pageOutput(OutputFormat format, List<String> fieldNames)
             throws IOException
     {
+        ThreadInterruptor clientThread = new ThreadInterruptor();
         try (Pager pager = Pager.create();
-                ThreadInterruptor clientThread = new ThreadInterruptor();
                 Writer writer = createWriter(pager);
                 OutputHandler handler = createOutputHandler(format, writer, fieldNames)) {
             if (!pager.isNullPager()) {
@@ -222,16 +222,23 @@ public class Query
                 pager.getFinishFuture().thenRun(() -> {
                     userAbortedQuery.set(true);
                     ignoreUserInterrupt.set(false);
-                    clientThread.interrupt();
                 });
             }
             handler.processRows(client);
         }
         catch (RuntimeException | IOException e) {
-            if (userAbortedQuery.get() && !(e instanceof QueryAbortedException)) {
+            if (e instanceof QueryAbortedException) {
+                client.close();
+                throw e;
+            }
+            if (userAbortedQuery.get()) {
                 throw new QueryAbortedException(e);
             }
-            throw e;
+        }
+        finally {
+            // call interrupt after we cancel the running query in the catch above
+            clientThread.interrupt();
+            clientThread.close();
         }
     }
 
