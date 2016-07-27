@@ -317,6 +317,7 @@ public class AccessControlManager
     public void checkCanCreateViewWithSelectFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName viewName, QualifiedObjectName tableName)
     {
         requireNonNull(identity, "identity is null");
+        requireNonNull(viewName, "viewName is null");
         requireNonNull(tableName, "tableName is null");
 
         authorizationCheck(() -> systemAccessControl.get().checkCanCreateViewWithSelectFromTable(identity, viewName.asCatalogSchemaTableName(), tableName.asCatalogSchemaTableName()));
