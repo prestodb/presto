@@ -86,13 +86,23 @@ public class TestUnscaledDecimal128Arithmetic
     public void testRescale()
     {
         assertEquals(rescale(unscaledDecimal(10), 0), unscaledDecimal(10L));
+        assertEquals(rescale(unscaledDecimal(10), -20), unscaledDecimal(0L));
         assertEquals(rescale(unscaledDecimal(15), -1), unscaledDecimal(2));
+        assertEquals(rescale(unscaledDecimal(1050), -3), unscaledDecimal(1));
         assertEquals(rescale(unscaledDecimal(15), 1), unscaledDecimal(150));
         assertEquals(rescale(unscaledDecimal(-14), -1), unscaledDecimal(-1));
         assertEquals(rescale(unscaledDecimal(-14), 1), unscaledDecimal(-140));
         assertEquals(rescale(unscaledDecimal(0), 1), unscaledDecimal(0));
         assertEquals(rescale(unscaledDecimal(5), -1), unscaledDecimal(1));
         assertEquals(rescale(unscaledDecimal(10), 10), unscaledDecimal(100000000000L));
+        assertEquals(rescale(unscaledDecimal("150000000000000000000"), -20), unscaledDecimal(2));
+        assertEquals(rescale(unscaledDecimal("-140000000000000000000"), -20), unscaledDecimal(-1));
+        assertEquals(rescale(unscaledDecimal("50000000000000000000"), -20), unscaledDecimal(1));
+        assertEquals(rescale(unscaledDecimal("150500000000000000000"), -18), unscaledDecimal(151));
+        assertEquals(rescale(unscaledDecimal("-140000000000000000000"), -18), unscaledDecimal(-140));
+        assertEquals(rescale(unscaledDecimal(BigInteger.ONE.shiftLeft(63)), -18), unscaledDecimal(9L));
+        assertEquals(rescale(unscaledDecimal(BigInteger.ONE.shiftLeft(62)), -18), unscaledDecimal(5L));
+        assertEquals(rescale(unscaledDecimal(BigInteger.ONE.shiftLeft(62)), -19), unscaledDecimal(0L));
         assertEquals(rescale(MAX_DECIMAL, -1), unscaledDecimal(MAX_DECIMAL_UNSCALED_VALUE.divide(BigInteger.TEN).add(BigInteger.ONE)));
         assertEquals(rescale(MIN_DECIMAL, -10), unscaledDecimal(MIN_DECIMAL_UNSCALED_VALUE.divide(BigInteger.valueOf(10000000000L)).subtract(BigInteger.ONE)));
         assertEquals(rescale(unscaledDecimal(1), 37), unscaledDecimal("10000000000000000000000000000000000000"));
@@ -140,8 +150,7 @@ public class TestUnscaledDecimal128Arithmetic
         assertShiftRight(unscaledDecimal(1L << 31), 32, false, unscaledDecimal(0));
         assertShiftRight(unscaledDecimal(3L << 33), 34, true, unscaledDecimal(2));
         assertShiftRight(unscaledDecimal(3L << 33), 34, false, unscaledDecimal(1));
-        assertShiftRight(unscaledDecimal(BigInteger.valueOf(0x7FFFFFFFFFFFFFFFL).multiply(BigInteger.valueOf(2))), 32, true, unscaledDecimal(1L << 32));
-        assertShiftRight(unscaledDecimal(BigInteger.valueOf(-0x3FFFFFFFFFFFFFFFL).multiply(BigInteger.valueOf(2))), 32, true, unscaledDecimal(-1L << 31));
+        assertShiftRight(unscaledDecimal(BigInteger.valueOf(0x7FFFFFFFFFFFFFFFL).setBit(63).setBit(64)), 1, true, unscaledDecimal(BigInteger.ONE.shiftLeft(64)));
 
         assertShiftRight(MAX_DECIMAL, 1, true, unscaledDecimal(MAX_DECIMAL_UNSCALED_VALUE.shiftRight(1).add(BigInteger.ONE)));
         assertShiftRight(MIN_DECIMAL, 1, true, unscaledDecimal(MAX_DECIMAL_UNSCALED_VALUE.shiftRight(1).add(BigInteger.ONE).negate()));
@@ -151,17 +160,18 @@ public class TestUnscaledDecimal128Arithmetic
     @Test
     public void testDivideCheckRound()
     {
-        assertDivide(unscaledDecimal(0), 10, unscaledDecimal(0));
-        assertDivide(unscaledDecimal(5), 10, unscaledDecimal(0));
-        assertDivide(unscaledDecimal(-5), 10, negateConstructive(unscaledDecimal(0)));
+        assertDivide(unscaledDecimal(0), 10, unscaledDecimal(0), 0);
+        assertDivide(unscaledDecimal(5), 10, unscaledDecimal(0), 5);
+        assertDivide(unscaledDecimal(-5), 10, negateConstructive(unscaledDecimal(0)), 5);
+        assertDivide(unscaledDecimal(50), 100, unscaledDecimal(0), 50);
 
-        assertDivide(unscaledDecimal(99), 10, unscaledDecimal(9));
-        assertDivide(unscaledDecimal(95), 10, unscaledDecimal(9));
-        assertDivide(unscaledDecimal(91), 10, unscaledDecimal(9));
+        assertDivide(unscaledDecimal(99), 10, unscaledDecimal(9), 9);
+        assertDivide(unscaledDecimal(95), 10, unscaledDecimal(9), 5);
+        assertDivide(unscaledDecimal(91), 10, unscaledDecimal(9), 1);
 
-        assertDivide(unscaledDecimal("1000000000000000000000000"), 10, unscaledDecimal("100000000000000000000000"));
-        assertDivide(unscaledDecimal("-1000000000000000000000000"), 3, unscaledDecimal("-333333333333333333333333"));
-        assertDivide(unscaledDecimal("-1000000000000000000000000"), 9, unscaledDecimal("-111111111111111111111111"));
+        assertDivide(unscaledDecimal("1000000000000000000000000"), 10, unscaledDecimal("100000000000000000000000"), 0);
+        assertDivide(unscaledDecimal("-1000000000000000000000000"), 3, unscaledDecimal("-333333333333333333333333"), 1);
+        assertDivide(unscaledDecimal("-1000000000000000000000000"), 9, unscaledDecimal("-111111111111111111111111"), 1);
     }
 
     @Test
@@ -288,11 +298,12 @@ public class TestUnscaledDecimal128Arithmetic
         assertEquals(result, expectedResult);
     }
 
-    private static void assertDivide(Slice decimal, int divisor, Slice expectedResult)
+    private static void assertDivide(Slice decimal, int divisor, Slice expectedResult, int expectedRemainder)
     {
         Slice result = unscaledDecimal();
-        divide(decimal, divisor, result);
+        int remainder = divide(decimal, divisor, result);
         assertEquals(result, expectedResult);
+        assertEquals(remainder, expectedRemainder);
     }
 
     private static Slice negateConstructive(Slice slice)

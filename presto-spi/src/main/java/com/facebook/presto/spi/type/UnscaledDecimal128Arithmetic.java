@@ -23,6 +23,7 @@ import java.math.BigInteger;
 import java.nio.ByteOrder;
 
 import static com.facebook.presto.spi.type.Decimals.MAX_PRECISION;
+import static com.facebook.presto.spi.type.Decimals.longTenToNth;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
@@ -44,7 +45,7 @@ public final class UnscaledDecimal128Arithmetic
     private static final int SIGN_INT_MASK = 1 << 31;
     private static final int SIGN_BYTE_MASK = 1 << 7;
     private static final int NUMBER_OF_LONGS = 2;
-    private static final int INT_MASK = 0xFFFFFFFF;
+    private static final long ALL_BITS_SET_64 = 0xFFFFFFFFFFFFFFFFL;
     /**
      * Mask to convert signed integer to unsigned long.
      */
@@ -53,11 +54,24 @@ public final class UnscaledDecimal128Arithmetic
     /**
      * 5^13 fits in 2^31.
      */
-    private static final int MAX_POWER_FIVE_INT = 13;
+    private static final int MAX_POWER_OF_FIVE_INT = 13;
     /**
      * 5^x. All unsigned values.
      */
-    private static final int[] POWER_FIVES_INT = new int[MAX_POWER_FIVE_INT + 1];
+    private static final int[] POWERS_OF_FIVES_INT = new int[MAX_POWER_OF_FIVE_INT + 1];
+
+    /**
+     * 10^9 fits in 2^31.
+     */
+    private static final int MAX_POWER_OF_TEN_INT = 9;
+    /**
+     * 10^18 fits in 2^63.
+     */
+    private static final int MAX_POWER_OF_TEN_LONG = 18;
+    /**
+     * 10^x. All unsigned values.
+     */
+    private static final int[] POWERS_OF_TEN_INT = new int[MAX_POWER_OF_TEN_INT + 1];
 
     private static final Unsafe unsafe;
 
@@ -79,9 +93,14 @@ public final class UnscaledDecimal128Arithmetic
             POWERS_OF_TEN[i] = unscaledDecimal(BigInteger.TEN.pow(i));
         }
 
-        POWER_FIVES_INT[0] = 1;
-        for (int i = 1; i < POWER_FIVES_INT.length; ++i) {
-            POWER_FIVES_INT[i] = POWER_FIVES_INT[i - 1] * 5;
+        POWERS_OF_FIVES_INT[0] = 1;
+        for (int i = 1; i < POWERS_OF_FIVES_INT.length; ++i) {
+            POWERS_OF_FIVES_INT[i] = POWERS_OF_FIVES_INT[i - 1] * 5;
+        }
+
+        POWERS_OF_TEN_INT[0] = 1;
+        for (int i = 1; i < POWERS_OF_TEN_INT.length; ++i) {
+            POWERS_OF_TEN_INT[i] = POWERS_OF_TEN_INT[i - 1] * 10;
         }
 
         if (ByteOrder.nativeOrder().equals(ByteOrder.BIG_ENDIAN)) {
@@ -162,6 +181,13 @@ public final class UnscaledDecimal128Arithmetic
         return negative ? -lo : lo;
     }
 
+    public static long unscaledDecimalToUnscaledLongUnsafe(Slice decimal)
+    {
+        long lo = getLong(decimal, 0);
+        boolean negative = isNegative(decimal);
+        return negative ? -lo : lo;
+    }
+
     public static Slice rescale(Slice decimal, int rescaleFactor)
     {
         if (rescaleFactor == 0) {
@@ -186,10 +212,7 @@ public final class UnscaledDecimal128Arithmetic
             multiply(decimal, POWERS_OF_TEN[rescaleFactor], result);
         }
         else {
-            // Scales down for 10**rescaleFactor
-            // (this is equivalent to scaling down with 5**rescaleFactor first, then with 2**rescaleFactor)
-            scaleDownFive(decimal, -rescaleFactor, result);
-            shiftRightRoundUp(result, -rescaleFactor, result);
+            scaleDownRoundUp(decimal, -rescaleFactor, result);
         }
     }
 
@@ -363,23 +386,71 @@ public final class UnscaledDecimal128Arithmetic
         }
     }
 
+    private static void scaleDownRoundUp(Slice decimal, int scaleFactor, Slice result)
+    {
+        // optimized path for smaller values
+        long lo = getLong(decimal, 0);
+        long hi = getLong(decimal, 1);
+        if (scaleFactor <= MAX_POWER_OF_TEN_LONG && hi == 0 && lo >= 0) {
+            long divisor = longTenToNth(scaleFactor);
+            long newLo = lo / divisor;
+            if (lo % divisor >= (divisor >> 1)) {
+                newLo++;
+            }
+            pack(result, newLo, 0, isNegative(decimal));
+            return;
+        }
+
+        // Scales down for 10**rescaleFactor.
+        // Because divide by int has limited divisor, we choose code path with the least amount of divisions
+        if ((scaleFactor - 1) / MAX_POWER_OF_FIVE_INT < (scaleFactor - 1) / MAX_POWER_OF_TEN_INT) {
+            // scale down for 10**rescale is equivalent to scaling down with 5**rescaleFactor first, then with 2**rescaleFactor
+            scaleDownFive(decimal, scaleFactor, result);
+            shiftRightRoundUp(result, scaleFactor, result);
+        }
+        else {
+            scaleDownTenRoundUp(decimal, scaleFactor, result);
+        }
+    }
+
     /**
-     * Scale down the value for 5**tenScale (this := this / 5**tenScale). This
-     * method rounds-up, eg 42/5=8, 43/5=9.
+     * Scale down the value for 5**tenScale (this := this / 5**tenScale).
      */
     private static void scaleDownFive(Slice decimal, int fiveScale, Slice result)
     {
         while (true) {
-            int powerFive = Math.min(fiveScale, MAX_POWER_FIVE_INT);
+            int powerFive = Math.min(fiveScale, MAX_POWER_OF_FIVE_INT);
             fiveScale -= powerFive;
 
-            int divisor = POWER_FIVES_INT[powerFive];
+            int divisor = POWERS_OF_FIVES_INT[powerFive];
             divide(decimal, divisor, result);
             decimal = result;
 
             if (fiveScale == 0) {
                 return;
             }
+        }
+    }
+
+    /**
+     * Scale down the value for 10**tenScale (this := this / 5**tenScale). This
+     * method rounds-up, eg 44/10=4, 44/10=5.
+     */
+    private static void scaleDownTenRoundUp(Slice decimal, int tenScale, Slice result)
+    {
+        boolean round;
+        do {
+            int powerTen = Math.min(tenScale, MAX_POWER_OF_TEN_INT);
+            tenScale -= powerTen;
+
+            int divisor = POWERS_OF_TEN_INT[powerTen];
+            round = divideCheckRound(decimal, divisor, result);
+            decimal = result;
+        }
+        while (tenScale > 0);
+
+        if (round) {
+            incrementUnsafe(decimal);
         }
     }
 
@@ -396,98 +467,68 @@ public final class UnscaledDecimal128Arithmetic
             return;
         }
 
-        int wordShifts = rightShifts / 32;
-        int bitShiftsInWord = rightShifts % 32;
-        int shiftRestore = 32 - bitShiftsInWord;
+        int wordShifts = rightShifts / 64;
+        int bitShiftsInWord = rightShifts % 64;
+        int shiftRestore = 64 - bitShiftsInWord;
 
         // check round-ups before settings values to result.
         // be aware that result could be the same object as decimal.
         boolean roundCarry;
         if (bitShiftsInWord == 0) {
-            roundCarry = roundUp && getInt(decimal, wordShifts - 1) < 0;
+            roundCarry = roundUp && getLong(decimal, wordShifts - 1) < 0;
         }
         else {
-            roundCarry = roundUp && (getInt(decimal, wordShifts) & (1 << (bitShiftsInWord - 1))) != 0;
+            roundCarry = roundUp && (getLong(decimal, wordShifts) & (1L << (bitShiftsInWord - 1))) != 0;
         }
 
         // Store negative before settings values to result.
         boolean negative = isNegative(decimal);
 
-        int v0;
-        int v1;
-        int v2;
-        int v3;
+        long lo;
+        long hi;
 
         switch (wordShifts) {
             case 0:
-                v0 = getInt(decimal, 0);
-                v1 = getInt(decimal, 1);
-                v2 = getInt(decimal, 2);
-                v3 = getInt(decimal, 3);
+                lo = getLong(decimal, 0);
+                hi = getLong(decimal, 1);
                 break;
             case 1:
-                v0 = getInt(decimal, 1);
-                v1 = getInt(decimal, 2);
-                v2 = getInt(decimal, 3);
-                v3 = 0;
-                break;
-            case 2:
-                v0 = getInt(decimal, 2);
-                v1 = getInt(decimal, 3);
-                v2 = 0;
-                v3 = 0;
-                break;
-            case 3:
-                v0 = getInt(decimal, 3);
-                v1 = 0;
-                v2 = 0;
-                v3 = 0;
+                lo = getLong(decimal, 1);
+                hi = 0;
                 break;
             default:
                 throw new IllegalArgumentException();
         }
 
         if (bitShiftsInWord > 0) {
-            v0 = (v0 >>> bitShiftsInWord) | (v1 << shiftRestore);
-            v1 = (v1 >>> bitShiftsInWord) | (v2 << shiftRestore);
-            v2 = (v2 >>> bitShiftsInWord) | (v3 << shiftRestore);
-            v3 = (v3 >>> bitShiftsInWord);
+            lo = (lo >>> bitShiftsInWord) | (hi << shiftRestore);
+            hi = (hi >>> bitShiftsInWord);
         }
 
-        while (roundCarry) {
-            if (v0 != INT_MASK) {
-                v0++;
-                break;
+        if (roundCarry) {
+            if (lo != ALL_BITS_SET_64) {
+                lo++;
             }
-            v0 = 0;
-
-            if (v1 != INT_MASK) {
-                v1++;
-                break;
+            else {
+                lo = 0;
+                hi++;
             }
-            v1 = 0;
-
-            if (v2 != INT_MASK) {
-                v2++;
-                break;
-            }
-            v2 = 0;
-
-            v3++;
         }
 
-        pack(result, v0, v1, v2, v3, negative);
+        pack(result, lo, hi, negative);
+    }
+
+    private static boolean divideCheckRound(Slice decimal, int divisor, Slice result)
+    {
+        int remainder = divide(decimal, divisor, result);
+        return (remainder >= (divisor >> 1));
     }
 
     // visible for testing
-    static void divide(Slice decimal, int divisor, Slice result)
+    static int divide(Slice decimal, int divisor, Slice result)
     {
-        long remainder = (getInt(decimal, 3) & LONG_MASK);
-        int z3 = (int) (remainder / divisor);
-        remainder %= divisor;
-
-        remainder = (getInt(decimal, 2) & LONG_MASK) + (remainder << 32);
-        int z2 = (int) (remainder / divisor);
+        long remainder = getLong(decimal, 1);
+        long hi = remainder / divisor;
         remainder %= divisor;
 
         remainder = (getInt(decimal, 1) & LONG_MASK) + (remainder << 32);
@@ -497,17 +538,35 @@ public final class UnscaledDecimal128Arithmetic
         remainder = (getInt(decimal, 0) & LONG_MASK) + (remainder << 32);
         int z0 = (int) (remainder / divisor);
 
-        pack(result, z0, z1, z2, z3, isNegative(decimal));
+        pack(result, z0, z1, hi, isNegative(decimal));
+        return (int) (remainder % divisor);
+    }
+
+    private static void incrementUnsafe(Slice decimal)
+    {
+        long lo = getLong(decimal, 0);
+        if (lo != ALL_BITS_SET_64) {
+            setRawLong(decimal, 0, lo + 1);
+            return;
+        }
+
+        long hi = getLong(decimal, 1);
+        setNegativeLong(decimal, hi + 1, isNegative(decimal));
     }
 
     private static void setNegative(Slice decimal, boolean negative)
     {
-        setNegative(decimal, getInt(decimal, SIGN_INT_INDEX), negative);
+        setNegativeInt(decimal, getInt(decimal, SIGN_INT_INDEX), negative);
     }
 
-    private static void setNegative(Slice decimal, int v3, boolean negative)
+    private static void setNegativeInt(Slice decimal, int v3, boolean negative)
     {
         setRawInt(decimal, SIGN_INT_INDEX, v3 | (negative ? SIGN_INT_MASK : 0));
+    }
+
+    private static void setNegativeLong(Slice decimal, long hi, boolean negative)
+    {
+        setRawLong(decimal, SIGN_LONG_INDEX, hi | (negative ? SIGN_LONG_MASK : 0));
     }
 
     private static void copyUnscaledDecimal(Slice from, Slice to)
@@ -521,7 +580,20 @@ public final class UnscaledDecimal128Arithmetic
         setRawInt(decimal, 0, v0);
         setRawInt(decimal, 1, v1);
         setRawInt(decimal, 2, v2);
-        setNegative(decimal, v3, negative);
+        setNegativeInt(decimal, v3, negative);
+    }
+
+    private static void pack(Slice decimal, int v0, int v1, long hi, boolean negative)
+    {
+        setRawInt(decimal, 0, v0);
+        setRawInt(decimal, 1, v1);
+        setNegativeLong(decimal, hi, negative);
+    }
+
+    private static void pack(Slice decimal, long lo, long hi, boolean negative)
+    {
+        setRawLong(decimal, 0, lo);
+        setNegativeLong(decimal, hi, negative);
     }
 
     public static Slice pack(long low, long high, boolean negative)
