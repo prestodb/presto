@@ -127,7 +127,7 @@ public class DecimalInequalityOperators
                 )
                 .implementation(b -> b
                         .methods("opShortShortLongRescale", "opShortLong", "opLongShort", "opLongLong")
-                        .withExtraParameters(concat(DecimalInequalityOperators::longRescaleExtraParameters, constant(getResultMethodHandle)))
+                        .withExtraParameters(concat(DecimalInequalityOperators::extractScaleParameters, constant(getResultMethodHandle)))
                 )
                 .build();
     }
@@ -153,7 +153,7 @@ public class DecimalInequalityOperators
         return ImmutableList.of(aRescale, bRescale);
     }
 
-    private static List<Object> longRescaleExtraParameters(SpecializeContext context)
+    private static List<Object> extractScaleParameters(SpecializeContext context)
     {
         long aScale = context.getLiteral("a_scale");
         long bScale = context.getLiteral("b_scale");

@@ -25,6 +25,7 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
@@ -46,7 +47,6 @@ import static com.facebook.presto.spi.type.Decimals.bigIntegerTenToNth;
 import static com.facebook.presto.spi.type.Decimals.checkOverflow;
 import static com.facebook.presto.spi.type.Decimals.longTenToNth;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.hash;
 import static java.lang.Integer.max;
 import static java.math.BigInteger.ONE;
 import static java.math.BigInteger.TEN;
@@ -613,7 +613,7 @@ public final class DecimalOperators
         @SqlType("bigint")
         public static long hashCode(@SqlType("decimal(p, s)") Slice value)
         {
-            return hash(value);
+            return UnscaledDecimal128Arithmetic.hash(value);
         }
     }
 }
