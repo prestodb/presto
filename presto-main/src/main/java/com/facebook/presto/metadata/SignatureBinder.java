@@ -58,7 +58,7 @@ public class SignatureBinder
         if (!boundVariables.isPresent()) {
             return Optional.empty();
         }
-        return Optional.of(bindVariables(declaredSignature, boundVariables.get(), actualArgumentTypes.size()));
+        return Optional.of(applyBoundVariables(declaredSignature, boundVariables.get(), actualArgumentTypes.size()));
     }
 
     public Optional<BoundVariables> bindVariables(List<? extends Type> actualArgumentTypes)
@@ -361,11 +361,11 @@ public class SignatureBinder
         return boundVariables.getTypeVariables().keySet().equals(typeVariableConstraints.keySet());
     }
 
-    public static Signature bindVariables(Signature signature, BoundVariables boundVariables, int arity)
+    public static Signature applyBoundVariables(Signature signature, BoundVariables boundVariables, int arity)
     {
         List<TypeSignature> argumentSignatures = fillInMissingVariableArguments(signature.getArgumentTypes(), arity);
-        List<TypeSignature> boundArgumentSignatures = bindVariables(argumentSignatures, boundVariables);
-        TypeSignature boundReturnTypeSignature = bindVariables(signature.getReturnType(), boundVariables);
+        List<TypeSignature> boundArgumentSignatures = applyBoundVariables(argumentSignatures, boundVariables);
+        TypeSignature boundReturnTypeSignature = applyBoundVariables(signature.getReturnType(), boundVariables);
 
         return new Signature(
                 signature.getName(),
@@ -392,18 +392,16 @@ public class SignatureBinder
         return argumentSignatures;
     }
 
-    public static List<TypeSignature> bindVariables(List<TypeSignature> typeSignatures, BoundVariables boundVariables)
+    public static List<TypeSignature> applyBoundVariables(List<TypeSignature> typeSignatures, BoundVariables boundVariables)
     {
         ImmutableList.Builder<TypeSignature> builder = ImmutableList.builder();
         for (TypeSignature typeSignature : typeSignatures) {
-            builder.add(bindVariables(typeSignature, boundVariables));
+            builder.add(applyBoundVariables(typeSignature, boundVariables));
         }
         return builder.build();
     }
 
-    public static TypeSignature bindVariables(
-            TypeSignature typeSignature,
-            BoundVariables boundVariables)
+    public static TypeSignature applyBoundVariables(TypeSignature typeSignature, BoundVariables boundVariables)
     {
         String baseType = typeSignature.getBase();
         if (boundVariables.containsTypeVariable(baseType)) {
@@ -412,28 +410,26 @@ public class SignatureBinder
         }
 
         List<TypeSignatureParameter> parameters = typeSignature.getParameters().stream()
-                .map(typeSignatureParameter -> bindVariables(typeSignatureParameter, boundVariables))
+                .map(typeSignatureParameter -> applyBoundVariables(typeSignatureParameter, boundVariables))
                 .collect(toList());
 
         return new TypeSignature(baseType, parameters);
     }
 
-    private static TypeSignatureParameter bindVariables(
-            TypeSignatureParameter parameter,
-            BoundVariables boundVariables)
+    private static TypeSignatureParameter applyBoundVariables(TypeSignatureParameter parameter, BoundVariables boundVariables)
     {
         ParameterKind parameterKind = parameter.getKind();
         switch (parameterKind) {
             case TYPE: {
                 TypeSignature typeSignature = parameter.getTypeSignature();
-                return TypeSignatureParameter.of(bindVariables(typeSignature, boundVariables));
+                return TypeSignatureParameter.of(applyBoundVariables(typeSignature, boundVariables));
             }
             case NAMED_TYPE: {
                 NamedTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
                 TypeSignature typeSignature = namedTypeSignature.getTypeSignature();
                 return TypeSignatureParameter.of(new NamedTypeSignature(
                         namedTypeSignature.getName(),
-                        bindVariables(typeSignature, boundVariables)));
+                        applyBoundVariables(typeSignature, boundVariables)));
             }
             case VARIABLE: {
                 String variableName = parameter.getVariable();

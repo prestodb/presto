@@ -38,7 +38,7 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
 
-import static com.facebook.presto.metadata.SignatureBinder.bindVariables;
+import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
 import static com.facebook.presto.operator.aggregation.AggregationCompiler.isParameterBlock;
 import static com.facebook.presto.operator.aggregation.AggregationCompiler.isParameterNullable;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
@@ -92,7 +92,7 @@ public class BindableAggregationFunction
     public InternalAggregationFunction specialize(BoundVariables variables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         // bind variables
-        Signature boundSignature = bindVariables(getSignature(), variables, arity);
+        Signature boundSignature = applyBoundVariables(getSignature(), variables, arity);
         List<Type> inputTypes = boundSignature.getArgumentTypes().stream().map(x -> typeManager.getType(x)).collect(toImmutableList());
         Type outputType = typeManager.getType(boundSignature.getReturnType());
 
