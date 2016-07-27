@@ -57,6 +57,7 @@ import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.scalar.FunctionAssertions.createExpression;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -73,8 +74,8 @@ public class BenchmarkDecimalOperators
 {
     private static final int PAGE_SIZE = 30000;
 
-    private static final DecimalType SHORT_DECIMAL_TYPE = DecimalType.createDecimalType(10, 0);
-    private static final DecimalType LONG_DECIMAL_TYPE = DecimalType.createDecimalType(20, 0);
+    private static final DecimalType SHORT_DECIMAL_TYPE = createDecimalType(10, 0);
+    private static final DecimalType LONG_DECIMAL_TYPE = createDecimalType(20, 0);
 
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final Metadata METADATA = createTestMetadataManager();
@@ -127,6 +128,46 @@ public class BenchmarkDecimalOperators
         InequalityBenchmarkState state = new InequalityBenchmarkState();
         state.setup();
         inequalityBenchmark(state);
+    }
+
+    @State(Thread)
+    public static class DecimalToShortDecimalCastBenchmarkState
+            extends BaseState
+    {
+        @Param({"cast(l_38_30 as decimal(8, 0))",
+                "cast(l_26_18 as decimal(8, 0))",
+                "cast(l_20_12 as decimal(8, 0))",
+                "cast(l_20_8 as decimal(8, 0))",
+                "cast(s_17_9 as decimal(8, 0))"})
+        private String expression = "cast(l_38_30 as decimal(8, 0))";
+
+        @Setup
+        public void setup()
+        {
+            addSymbol("l_38_30", createDecimalType(38, 30));
+            addSymbol("l_26_18", createDecimalType(26, 18));
+            addSymbol("l_20_12", createDecimalType(20, 12));
+            addSymbol("l_20_8", createDecimalType(20, 8));
+            addSymbol("s_17_9", createDecimalType(17, 9));
+
+            generateInputPage(10000, 10000, 10000, 10000, 10000);
+            generateProcessor(expression);
+            generatePageBuilder(createDecimalType(8, 0));
+        }
+    }
+
+    @Benchmark
+    public List<Page> decimalToShortDecimalCastBenchmark(DecimalToShortDecimalCastBenchmarkState state)
+    {
+        return execute(state);
+    }
+
+    @Test
+    public void testDecimalToShortDecimalCastBenchmark()
+    {
+        DecimalToShortDecimalCastBenchmarkState state = new DecimalToShortDecimalCastBenchmarkState();
+        state.setup();
+        decimalToShortDecimalCastBenchmark(state);
     }
 
     private List<Page> execute(BaseState state)
