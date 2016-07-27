@@ -25,15 +25,12 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
-import io.airlift.slice.Slice;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.List;
 
@@ -41,7 +38,6 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
 import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
-import static com.facebook.presto.spi.type.Decimals.rescale;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -54,8 +50,6 @@ public class DecimalStreamReader
     private int nextBatchSize;
 
     private boolean[] nullVector = new boolean[0];
-    private long[] shortDecimalVector = new long[0];
-    private BigInteger[] longDecimalVector = new BigInteger[0];
     private long[] scaleVector = new long[0];
 
     @Nonnull
@@ -99,13 +93,52 @@ public class DecimalStreamReader
 
         seekToOffset();
         allocateVectors();
-        readStreamsData(decimalType);
-        Block block = buildDecimalsBlock(decimalType);
+
+        BlockBuilder builder = decimalType.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
+
+        if (presentStream == null) {
+            if (decimalStream == null) {
+                throw new OrcCorruptionException("Value is not null but decimal stream is not present");
+            }
+            if (scaleStream == null) {
+                throw new OrcCorruptionException("Value is not null but scale stream is not present");
+            }
+
+            Arrays.fill(nullVector, false);
+            scaleStream.nextLongVector(nextBatchSize, scaleVector);
+
+            if (decimalType.isShort()) {
+                decimalStream.nextShortDecimalVector(nextBatchSize, builder, decimalType, scaleVector);
+            }
+            else {
+                decimalStream.nextLongDecimalVector(nextBatchSize, builder, decimalType, scaleVector);
+            }
+        }
+        else {
+            int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
+            if (nullValues != nextBatchSize) {
+                if (decimalStream == null) {
+                    throw new OrcCorruptionException("Value is not null but decimal stream is not present");
+                }
+                if (scaleStream == null) {
+                    throw new OrcCorruptionException("Value is not null but scale stream is not present");
+                }
+
+                if (decimalType.isShort()) {
+                    decimalStream.nextShortDecimalVector(nextBatchSize, builder, decimalType, scaleVector, nullVector);
+                }
+                else {
+                    decimalStream.nextLongDecimalVector(nextBatchSize, builder, decimalType, scaleVector, nullVector);
+                }
+
+                scaleStream.nextLongVector(nextBatchSize, scaleVector, nullVector);
+            }
+        }
 
         readOffset = 0;
         nextBatchSize = 0;
 
-        return block;
+        return builder.build();
     }
 
     private void openRowGroup()
@@ -144,86 +177,8 @@ public class DecimalStreamReader
     {
         if (nullVector.length < nextBatchSize) {
             nullVector = new boolean[nextBatchSize];
-            shortDecimalVector = new long[nextBatchSize];
-            longDecimalVector = new BigInteger[nextBatchSize];
             scaleVector = new long[nextBatchSize];
         }
-    }
-
-    private void readStreamsData(DecimalType decimalType)
-            throws IOException
-    {
-        if (presentStream == null) {
-            if (decimalStream == null) {
-                throw new OrcCorruptionException("Value is not null but decimal stream is not present");
-            }
-            if (scaleStream == null) {
-                throw new OrcCorruptionException("Value is not null but scale stream is not present");
-            }
-
-            Arrays.fill(nullVector, false);
-
-            if (decimalType.isShort()) {
-                decimalStream.nextLongVector(nextBatchSize, shortDecimalVector);
-            }
-            else {
-                decimalStream.nextBigIntegerVector(nextBatchSize, longDecimalVector);
-            }
-
-            scaleStream.nextLongVector(nextBatchSize, scaleVector);
-        }
-        else {
-            int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
-            if (nullValues != nextBatchSize) {
-                if (decimalStream == null) {
-                    throw new OrcCorruptionException("Value is not null but decimal stream is not present");
-                }
-                if (scaleStream == null) {
-                    throw new OrcCorruptionException("Value is not null but scale stream is not present");
-                }
-
-                if (decimalType.isShort()) {
-                    decimalStream.nextLongVector(nextBatchSize, shortDecimalVector, nullVector);
-                }
-                else {
-                    decimalStream.nextBigIntegerVector(nextBatchSize, longDecimalVector, nullVector);
-                }
-
-                scaleStream.nextLongVector(nextBatchSize, scaleVector, nullVector);
-            }
-        }
-    }
-
-    private Block buildDecimalsBlock(DecimalType decimalType)
-            throws OrcCorruptionException
-    {
-        BlockBuilder builder = decimalType.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
-
-        if (decimalType.isShort()) {
-            for (int i = 0; i < nextBatchSize; i++) {
-                if (!nullVector[i]) {
-                    long rescaledDecimal = rescale(shortDecimalVector[i], (int) scaleVector[i], decimalType.getScale());
-                    decimalType.writeLong(builder, rescaledDecimal);
-                }
-                else {
-                    builder.appendNull();
-                }
-            }
-        }
-        else {
-            for (int i = 0; i < nextBatchSize; i++) {
-                if (!nullVector[i]) {
-                    BigInteger rescaledDecimal = rescale(longDecimalVector[i], (int) scaleVector[i], decimalType.getScale());
-                    Slice slice = Decimals.encodeUnscaledValue(rescaledDecimal);
-                    decimalType.writeSlice(builder, slice);
-                }
-                else {
-                    builder.appendNull();
-                }
-            }
-        }
-
-        return builder.build();
     }
 
     @Override
