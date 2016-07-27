@@ -23,6 +23,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.ArrayType;
 import io.airlift.slice.Slice;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -434,9 +435,10 @@ public final class BlockAssertions
     public static Block createShortDecimalSequenceBlock(int start, int end, DecimalType type)
     {
         BlockBuilder builder = type.createFixedSizeBlockBuilder(end - start);
+        long base = BigInteger.TEN.pow(type.getScale()).longValue();
 
         for (int i = start; i < end; ++i) {
-            type.writeLong(builder, i);
+            type.writeLong(builder, base * i);
         }
 
         return builder.build();
@@ -445,9 +447,10 @@ public final class BlockAssertions
     public static Block createLongDecimalSequenceBlock(int start, int end, DecimalType type)
     {
         BlockBuilder builder = type.createFixedSizeBlockBuilder(end - start);
+        BigInteger base = BigInteger.TEN.pow(type.getScale());
 
         for (int i = start; i < end; ++i) {
-            type.writeSlice(builder, encodeUnscaledValue(i));
+            type.writeSlice(builder, encodeUnscaledValue(BigInteger.valueOf(i).multiply(base)));
         }
 
         return builder.build();
