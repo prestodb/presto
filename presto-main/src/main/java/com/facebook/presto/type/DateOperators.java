@@ -15,6 +15,7 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
@@ -122,7 +123,8 @@ public final class DateOperators
     }
 
     @ScalarOperator(CAST)
-    @SqlType(StandardTypes.VARCHAR)
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
     public static Slice castToSlice(@SqlType(StandardTypes.DATE) long value)
     {
         return utf8Slice(printDate((int) value));
@@ -130,8 +132,9 @@ public final class DateOperators
 
     @ScalarFunction("date")
     @ScalarOperator(CAST)
+    @LiteralParameters("x")
     @SqlType(StandardTypes.DATE)
-    public static long castFromSlice(@SqlType(StandardTypes.VARCHAR) Slice value)
+    public static long castFromSlice(@SqlType("varchar(x)") Slice value)
     {
         try {
             return parseDate(trim(value).toStringUtf8());
