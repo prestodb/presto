@@ -351,7 +351,7 @@ class StatementAnalyzer
                 analysis,
                 metadata,
                 sqlParser,
-                new ViewAccessControl(accessControl, viewName),
+                new ViewAccessControl(accessControl),
                 session,
                 experimentalSyntaxEnabled
         );
@@ -1438,7 +1438,7 @@ class StatementAnalyzer
             AccessControl viewAccessControl;
             if (owner.isPresent()) {
                 identity = new Identity(owner.get(), Optional.empty());
-                viewAccessControl = new ViewAccessControl(accessControl, name);
+                viewAccessControl = new ViewAccessControl(accessControl);
             }
             else {
                 identity = session.getIdentity();

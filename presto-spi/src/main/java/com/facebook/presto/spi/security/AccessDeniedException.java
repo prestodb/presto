@@ -128,6 +128,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot create view %s%s", viewName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyCreateViewWithSelect(String sourceName)
+    {
+        denyCreateViewWithSelect(sourceName, null);
+    }
+
+    public static void denyCreateViewWithSelect(String sourceName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot create view that selects from %s%s", sourceName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyDropView(String viewName)
     {
         denyDropView(viewName, null);

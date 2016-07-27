@@ -36,6 +36,7 @@ import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.toHivePrivile
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
@@ -160,13 +161,13 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName, SchemaTableName tableName)
+    public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
         if (!checkTablePermission(identity, tableName, SELECT)) {
             denySelectTable(tableName.toString());
         }
         else if (!getGrantOptionForPrivilege(identity, Privilege.SELECT, tableName)) {
-            denyCreateView(viewName.toString());
+            denyCreateViewWithSelect(tableName.toString());
         }
     }
 
@@ -177,7 +178,7 @@ public class SqlStandardAccessControl
             denySelectView(viewName.toString());
         }
         if (!getGrantOptionForPrivilege(identity, Privilege.SELECT, viewName)) {
-            denyCreateView(viewName.toString());
+            denyCreateViewWithSelect(viewName.toString());
         }
     }
 

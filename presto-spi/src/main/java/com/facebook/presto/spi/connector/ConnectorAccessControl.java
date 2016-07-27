@@ -20,6 +20,7 @@ import com.facebook.presto.spi.security.Privilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
@@ -149,9 +150,9 @@ public interface ConnectorAccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName, SchemaTableName tableName)
+    default void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
     {
-        denyCreateView(viewName.toString());
+        denyCreateViewWithSelect(tableName.toString());
     }
 
     /**
@@ -161,7 +162,7 @@ public interface ConnectorAccessControl
      */
     default void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
     {
-        denyCreateView(viewName.toString());
+        denyCreateViewWithSelect(viewName.toString());
     }
 
     /**

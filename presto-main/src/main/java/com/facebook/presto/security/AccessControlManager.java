@@ -314,17 +314,16 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName viewName, QualifiedObjectName tableName)
+    public void checkCanCreateViewWithSelectFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
         requireNonNull(identity, "identity is null");
-        requireNonNull(viewName, "viewName is null");
         requireNonNull(tableName, "tableName is null");
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanCreateViewWithSelectFromTable(identity, viewName.asCatalogSchemaTableName(), tableName.asCatalogSchemaTableName()));
+        authorizationCheck(() -> systemAccessControl.get().checkCanCreateViewWithSelectFromTable(identity, tableName.asCatalogSchemaTableName()));
 
         CatalogAccessControlEntry entry = catalogAccessControl.get(tableName.getCatalogName());
         if (entry != null) {
-            authorizationCheck(() -> entry.getAccessControl().checkCanCreateViewWithSelectFromTable(entry.getTransactionHandle(transactionId), identity, viewName.asSchemaTableName(), tableName.asSchemaTableName()));
+            authorizationCheck(() -> entry.getAccessControl().checkCanCreateViewWithSelectFromTable(entry.getTransactionHandle(transactionId), identity, tableName.asSchemaTableName()));
         }
     }
 
@@ -567,7 +566,7 @@ public class AccessControlManager
         }
 
         @Override
-        public void checkCanCreateViewWithSelectFromTable(Identity identity, CatalogSchemaTableName view,  CatalogSchemaTableName table)
+        public void checkCanCreateViewWithSelectFromTable(Identity identity, CatalogSchemaTableName table)
         {
         }
 
