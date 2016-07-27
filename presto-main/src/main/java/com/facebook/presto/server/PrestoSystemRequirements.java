@@ -55,8 +55,8 @@ final class PrestoSystemRequirements
         String osName = StandardSystemProperty.OS_NAME.value();
         String osArch = StandardSystemProperty.OS_ARCH.value();
         if ("Linux".equals(osName)) {
-	    if (!"amd64".equals(osArch) && !"ppc64le".equals(osArch)) {
-                failRequirement("Presto requires x86-64 (amd64) or ppc64le on Linux (found %s)", osArch);
+            if (!"amd64".equals(osArch) && !"ppc64le".equals(osArch)) {
+              failRequirement("Presto requires x86-64 (amd64) or ppc64le on Linux (found %s)", osArch);
             }
         }
         else if ("Mac OS X".equals(osName)) {
