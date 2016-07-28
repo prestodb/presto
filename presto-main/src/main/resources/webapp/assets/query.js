@@ -36,13 +36,31 @@ var TaskList = React.createClass({
 
         return 0;
     },
+    showPortNumbers: function(tasks) {
+        // check if any host has multiple port numbers
+        var hostToPortNumber = {};
+        for (var i = 0; i < tasks.length; i++) {
+            var taskUri = tasks[i].taskStatus.self;
+            var hostname = getHostname(taskUri);
+            var port = getPort(taskUri);
+            if ((hostname in hostToPortNumber) && (hostToPortNumber[hostname] != port)) {
+                return true;
+            }
+            hostToPortNumber[hostname] = port;
+        }
+
+        return false;
+    },
     render: function() {
         var tasks = this.getTasks(this.props.outputStage);
+        var showPortNumbers = this.showPortNumbers(tasks);
+
         var renderedTasks = tasks.map(function (task) {
             var elapsedTime = parseDuration(task.stats.elapsedTime);
             if (elapsedTime == 0) {
                 elapsedTime = Date.now() - Date.parse(task.stats.createTime);
             }
+
             return (
                     <Tr key={ task.taskStatus.taskId }>
                         <Td column="id" value={ task.taskStatus.taskId }>
@@ -51,7 +69,8 @@ var TaskList = React.createClass({
                             </a>
                         </Td>
                         <Td column="host" value={ getHostname(task.taskStatus.self) }>
-                            { getHostname(task.taskStatus.self) }</Td>
+                            { showPortNumbers ? getHostAndPort(task.taskStatus.self) : getHostname(task.taskStatus.self) }
+                        </Td>
                         <Td column="state" value={ formatState(task.taskStatus.state, task.stats.fullyBlocked) }>
                             { formatState(task.taskStatus.state, task.stats.fullyBlocked) }
                         </Td>
@@ -95,16 +114,16 @@ var TaskList = React.createClass({
                         <Th column="id" sortFunction={this.compareTaskId}>ID</Th>
                         <Th column="host">Host</Th>
                         <Th column="state">State</Th>
+                        <Th column="splitsPending"><span className="glyphicon glyphicon-pause" style={ GLYPHICON_HIGHLIGHT } data-toggle="tooltip" data-placement="top" title="Pending splits"></span></Th>
+                        <Th column="splitsRunning"><span className="glyphicon glyphicon-play" style={ GLYPHICON_HIGHLIGHT } data-toggle="tooltip" data-placement="top" title="Running splits"></span></Th>
+                        <Th column="splitsDone"><span className="glyphicon glyphicon-ok" style={ GLYPHICON_HIGHLIGHT } data-toggle="tooltip" data-placement="top" title="Completed splits"></span></Th>
                         <Th column="rows">Rows</Th>
                         <Th column="rowsSec">Rows/s</Th>
                         <Th column="bytes">Bytes</Th>
                         <Th column="bytesSec">Bytes/s</Th>
-                        <Th column="splitsPending">Pending</Th>
-                        <Th column="splitsRunning">Running</Th>
-                        <Th column="splitsDone">Done</Th>
-                        <Th column="elapsedTime">Elapsed Time</Th>
+                        <Th column="elapsedTime">Elapsed</Th>
                         <Th column="cpuTime">CPU Time</Th>
-                        <Th column="bufferedBytes">Buffered Bytes</Th>
+                        <Th column="bufferedBytes">Buffered</Th>
                 </Thead>
                 { renderedTasks }
             </Table>

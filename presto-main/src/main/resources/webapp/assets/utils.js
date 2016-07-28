@@ -145,6 +145,15 @@ function getHostname(url) {
     return hostname;
 }
 
+function getPort(url) {
+    return new URL(url).port;
+}
+
+function getHostAndPort(url) {
+    var url = new URL(url);
+    return url.hostname + ":" + url.port;
+}
+
 function computeRate(count, ms) {
     if (ms == 0) {
         return 0;

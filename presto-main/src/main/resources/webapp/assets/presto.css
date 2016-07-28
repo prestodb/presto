@@ -339,6 +339,10 @@ pre {
     font-size: 16px;
 }
 
+#tasks {
+    font-size: 15px;
+}
+
 .query-links {
     text-align: right;
     margin-top: 20px;
