@@ -514,6 +514,19 @@ public final class UnscaledDecimal128Arithmetic
         setNegative(decimal, v3, negative);
     }
 
+    public static Slice pack(long low, long high, boolean negative)
+    {
+        Slice decimal = unscaledDecimal();
+        pack(low, high, negative, decimal);
+        return decimal;
+    }
+
+    public static void pack(long low, long high, boolean negative, Slice result)
+    {
+        setRawLong(result, 0, low);
+        setRawLong(result, 1, high | (negative ? SIGN_LONG_MASK : 0));
+    }
+
     private static boolean exceedsOrEqualTenToThirtyEight(int v0, int v1, int v2, int v3)
     {
         // 10**38=
