@@ -29,10 +29,10 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_RANDOM_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.fixedBroadcastPartitioning;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.fixedHashPartitioning;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.fixedRandomPartitioning;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.singlePartition;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -48,7 +48,7 @@ public class TestLocalExchange
     @Test
     public void testGatherSingleWriter()
     {
-        LocalExchange exchange = new LocalExchange(SINGLE_DISTRIBUTION, 8, TYPES, ImmutableList.of(), Optional.empty(), new DataSize(retainedSizeOfPages(99), BYTE));
+        LocalExchange exchange = new LocalExchange(singlePartition(), TYPES, ImmutableList.of(), Optional.empty(), new DataSize(retainedSizeOfPages(99), BYTE));
         assertEquals(exchange.getBufferCount(), 1);
         assertExchangeTotalBufferedBytes(exchange, 0);
 
@@ -108,7 +108,7 @@ public class TestLocalExchange
     @Test
     public void testBroadcast()
     {
-        LocalExchange exchange = new LocalExchange(FIXED_BROADCAST_DISTRIBUTION, 2, TYPES, ImmutableList.of(), Optional.empty());
+        LocalExchange exchange = new LocalExchange(fixedBroadcastPartitioning(2), TYPES, ImmutableList.of(), Optional.empty());
         assertEquals(exchange.getBufferCount(), 2);
         assertExchangeTotalBufferedBytes(exchange, 0);
 
@@ -183,7 +183,7 @@ public class TestLocalExchange
     @Test
     public void testRandom()
     {
-        LocalExchange exchange = new LocalExchange(FIXED_RANDOM_DISTRIBUTION, 2, TYPES, ImmutableList.of(), Optional.empty());
+        LocalExchange exchange = new LocalExchange(fixedRandomPartitioning(2), TYPES, ImmutableList.of(), Optional.empty());
         assertEquals(exchange.getBufferCount(), 2);
         assertExchangeTotalBufferedBytes(exchange, 0);
 
@@ -219,7 +219,7 @@ public class TestLocalExchange
     @Test
     public void testPartition()
     {
-        LocalExchange exchange = new LocalExchange(FIXED_HASH_DISTRIBUTION, 2, TYPES, ImmutableList.of(0), Optional.empty());
+        LocalExchange exchange = new LocalExchange(fixedHashPartitioning(2, ImmutableList.of()), TYPES, ImmutableList.of(0), Optional.empty());
         assertEquals(exchange.getBufferCount(), 2);
         assertExchangeTotalBufferedBytes(exchange, 0);
 
@@ -275,7 +275,7 @@ public class TestLocalExchange
     {
         ImmutableList<BigintType> types = ImmutableList.of(BIGINT);
 
-        LocalExchange exchange = new LocalExchange(FIXED_BROADCAST_DISTRIBUTION, 2, types, ImmutableList.of(), Optional.empty());
+        LocalExchange exchange = new LocalExchange(fixedBroadcastPartitioning(2), types, ImmutableList.of(), Optional.empty());
         assertEquals(exchange.getBufferCount(), 2);
         assertExchangeTotalBufferedBytes(exchange, 0);
 
@@ -309,7 +309,7 @@ public class TestLocalExchange
     @Test
     public void writeUnblockWhenAllReadersFinishAndPagesConsumed()
     {
-        LocalExchange exchange = new LocalExchange(FIXED_BROADCAST_DISTRIBUTION, 2, TYPES, ImmutableList.of(), Optional.empty(), new DataSize(1, BYTE));
+        LocalExchange exchange = new LocalExchange(fixedBroadcastPartitioning(2), TYPES, ImmutableList.of(), Optional.empty(), new DataSize(1, BYTE));
         assertEquals(exchange.getBufferCount(), 2);
         assertExchangeTotalBufferedBytes(exchange, 0);
 

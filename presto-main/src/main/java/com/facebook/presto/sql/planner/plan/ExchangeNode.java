@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Symbol;
@@ -26,9 +25,9 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.fixedBroadcastPartitioning;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.fixedHashPartitioning;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.singlePartition;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
@@ -97,19 +96,26 @@ public class ExchangeNode
         this.inputs = ImmutableList.copyOf(inputs);
     }
 
-    public static ExchangeNode partitionedExchange(PlanNodeId id, Scope scope, PlanNode child, List<Symbol> partitioningColumns, Optional<Symbol> hashColumns)
+    public static ExchangeNode partitionedExchange(PlanNodeId id, Scope scope, PlanNode child, List<Symbol> partitioningColumns, Optional<Symbol> hashColumns, int partitionCount)
     {
-        return partitionedExchange(id, scope, child, partitioningColumns, hashColumns, false);
+        return partitionedExchange(id, scope, child, partitioningColumns, hashColumns, false, partitionCount);
     }
 
-    public static ExchangeNode partitionedExchange(PlanNodeId id, Scope scope, PlanNode child, List<Symbol> partitioningColumns, Optional<Symbol> hashColumns, boolean nullsReplicated)
+    public static ExchangeNode partitionedExchange(
+            PlanNodeId id,
+            Scope scope,
+            PlanNode child,
+            List<Symbol> partitioningColumns,
+            Optional<Symbol> hashColumns,
+            boolean nullsReplicated,
+            int partitionCount)
     {
         return partitionedExchange(
                 id,
                 scope,
                 child,
                 new PartitioningScheme(
-                        Partitioning.create(FIXED_HASH_DISTRIBUTION, partitioningColumns),
+                        fixedHashPartitioning(partitionCount, partitioningColumns),
                         child.getOutputSymbols(),
                         hashColumns,
                         nullsReplicated,
@@ -130,13 +136,13 @@ public class ExchangeNode
                 ImmutableList.of(child.getOutputSymbols()));
     }
 
-    public static ExchangeNode replicatedExchange(PlanNodeId id, Scope scope, PlanNode child)
+    public static ExchangeNode replicatedExchange(PlanNodeId id, Scope scope, PlanNode child, int partitionCount)
     {
         return new ExchangeNode(
                 id,
                 ExchangeNode.Type.REPLICATE,
                 scope,
-                new PartitioningScheme(Partitioning.create(FIXED_BROADCAST_DISTRIBUTION, ImmutableList.of()), child.getOutputSymbols()),
+                new PartitioningScheme(fixedBroadcastPartitioning(partitionCount), child.getOutputSymbols()),
                 ImmutableList.of(child),
                 ImmutableList.of(child.getOutputSymbols()));
     }
@@ -147,7 +153,7 @@ public class ExchangeNode
                 id,
                 ExchangeNode.Type.GATHER,
                 scope,
-                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), child.getOutputSymbols()),
+                new PartitioningScheme(singlePartition(), child.getOutputSymbols()),
                 ImmutableList.of(child),
                 ImmutableList.of(child.getOutputSymbols()));
     }
@@ -158,7 +164,7 @@ public class ExchangeNode
                 id,
                 ExchangeNode.Type.GATHER,
                 scope,
-                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), outputLayout),
+                new PartitioningScheme(singlePartition(), outputLayout),
                 children,
                 children.stream()
                         .map(PlanNode::getOutputSymbols)
