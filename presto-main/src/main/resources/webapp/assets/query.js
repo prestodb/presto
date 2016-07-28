@@ -50,8 +50,8 @@ var TaskList = React.createClass({
                                 { getTaskIdSuffix(task.taskStatus.taskId) }
                             </a>
                         </Td>
-                        <Td column="host" value={ getHostname(task.taskStatus.self) }>
-                            { getHostname(task.taskStatus.self) }</Td>
+                        <Td column="host" value={ getHostURL(task.taskStatus.self) }>
+                            { getHostURL(task.taskStatus.self) }</Td>
                         <Td column="state" value={ formatState(task.taskStatus.state, task.stats.fullyBlocked) }>
                             { formatState(task.taskStatus.state, task.stats.fullyBlocked) }
                         </Td>

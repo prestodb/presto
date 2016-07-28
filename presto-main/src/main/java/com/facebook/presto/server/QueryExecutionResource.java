@@ -36,6 +36,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import java.io.IOException;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -121,7 +122,7 @@ public class QueryExecutionResource
 
                 tasks.add(new Task(taskStatus.getTaskId().toString(),
                         taskStatus.getState().toString(),
-                        taskStatus.getSelf().getHost(),
+                        taskStatus.getSelf(),
                         last - task.getStats().getCreateTime().getMillis(),
                         task.getStats().getTotalCpuTime().roundTo(TimeUnit.MILLISECONDS),
                         task.getStats().getTotalBlockedTime().roundTo(TimeUnit.MILLISECONDS),
@@ -213,7 +214,7 @@ public class QueryExecutionResource
     {
         private final String taskId;
         private final String state;
-        private final String host;
+        private final URI self;
         private final long uptime;
         private final long cpuMillis;
         private final long blockedMillis;
@@ -230,7 +231,7 @@ public class QueryExecutionResource
         public Task(
                 String taskId,
                 String state,
-                String host,
+                URI self,
                 long uptimeMillis,
                 long cpuMillis,
                 long blockedMillis,
@@ -246,7 +247,7 @@ public class QueryExecutionResource
         {
             this.taskId = taskId;
             this.state = state;
-            this.host = host;
+            this.self = self;
             this.uptime = uptimeMillis;
             this.cpuMillis = cpuMillis;
             this.blockedMillis = blockedMillis;
@@ -274,9 +275,9 @@ public class QueryExecutionResource
         }
 
         @JsonProperty
-        public String getHost()
+        public URI getSelf()
         {
-            return host;
+            return self;
         }
 
         @JsonProperty
