@@ -23,15 +23,12 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 
 import static com.facebook.presto.spi.type.RealType.REAL;
-import static com.facebook.presto.testing.AggregationTestUtils.generateInternalAggregationFunction;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 
 @AggregationFunction("sum")
 public final class RealSumAggregation
 {
-    public static final InternalAggregationFunction REAL_SUM = generateInternalAggregationFunction(RealSumAggregation.class);
-
     private RealSumAggregation() {}
 
     @InputFunction

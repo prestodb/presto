@@ -30,12 +30,6 @@ public class AggregationTestUtils
     }
 
     @VisibleForTesting
-    public static InternalAggregationFunction generateInternalAggregationFunction(Class<?> clazz)
-    {
-        return AggregationCompiler.generateAggregationBindableFunction(clazz).specialize(BoundVariables.builder().build(), 0, new TypeRegistry());
-    }
-
-    @VisibleForTesting
     public static InternalAggregationFunction generateInternalAggregationFunction(Class<?> clazz, TypeSignature outputType, List<TypeSignature> inputTypes)
     {
         return generateInternalAggregationFunction(clazz, outputType, inputTypes, new TypeRegistry());
@@ -44,7 +38,7 @@ public class AggregationTestUtils
     @VisibleForTesting
     public static InternalAggregationFunction generateInternalAggregationFunction(Class<?> clazz, TypeSignature outputType, List<TypeSignature> inputTypes, TypeManager typeManager)
     {
-        return generateInternalAggregationFunction(clazz, outputType, inputTypes, typeManager, BoundVariables.builder().build(), 0);
+        return generateInternalAggregationFunction(clazz, outputType, inputTypes, typeManager, BoundVariables.builder().build(), inputTypes.size());
     }
 
     @VisibleForTesting
