@@ -167,19 +167,29 @@ public final class UnscaledDecimal128Arithmetic
         if (rescaleFactor == 0) {
             return decimal;
         }
+        else {
+            Slice result = unscaledDecimal();
+            rescale(decimal, rescaleFactor, result);
+            return result;
+        }
+    }
+
+    public static void rescale(Slice decimal, int rescaleFactor, Slice result)
+    {
+        if (rescaleFactor == 0) {
+            copyUnscaledDecimal(decimal, result);
+        }
         else if (rescaleFactor > 0) {
             if (rescaleFactor >= POWERS_OF_TEN.length) {
                 throwOverflowException();
             }
-            return multiply(decimal, POWERS_OF_TEN[rescaleFactor]);
+            multiply(decimal, POWERS_OF_TEN[rescaleFactor], result);
         }
         else {
-            Slice result = unscaledDecimal();
             // Scales down for 10**rescaleFactor
             // (this is equivalent to scaling down with 5**rescaleFactor first, then with 2**rescaleFactor)
             scaleDownFive(decimal, -rescaleFactor, result);
             shiftRightRoundUp(result, -rescaleFactor, result);
-            return result;
         }
     }
 
