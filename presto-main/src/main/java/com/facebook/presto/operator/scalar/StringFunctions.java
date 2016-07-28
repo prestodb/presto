@@ -98,6 +98,15 @@ public final class StringFunctions
         return countCodePoints(slice);
     }
 
+    @Description("count of code points of the given string")
+    @ScalarFunction("length")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.BIGINT)
+    public static long charLength(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
+    {
+        return x;
+    }
+
     @Description("greedily removes occurrences of a pattern in a string")
     @ScalarFunction
     @LiteralParameters({"x", "y"})
@@ -238,6 +247,15 @@ public final class StringFunctions
         return utf8.slice(indexStart, indexEnd - indexStart);
     }
 
+    @Description("suffix starting at given index")
+    @ScalarFunction("substr")
+    @LiteralParameters("x")
+    @SqlType("char(x)")
+    public static Slice charSubstr(@SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start)
+    {
+        return substr(utf8, start);
+    }
+
     @Description("substring of given length starting at an index")
     @ScalarFunction
     @LiteralParameters("x")
@@ -285,6 +303,15 @@ public final class StringFunctions
         }
 
         return utf8.slice(indexStart, indexEnd - indexStart);
+    }
+
+    @Description("substring of given length starting at an index")
+    @ScalarFunction("substr")
+    @LiteralParameters("x")
+    @SqlType("char(x)")
+    public static Slice charSubstr(@SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
+    {
+        return substr(utf8, start, length);
     }
 
     @ScalarFunction
@@ -451,6 +478,15 @@ public final class StringFunctions
         return SliceUtf8.leftTrim(slice);
     }
 
+    @Description("removes whitespace from the beginning of a string")
+    @ScalarFunction("ltrim")
+    @LiteralParameters("x")
+    @SqlType("char(x)")
+    public static Slice charLeftTrim(@SqlType("char(x)") Slice slice)
+    {
+        return SliceUtf8.leftTrim(slice);
+    }
+
     @Description("removes whitespace from the end of a string")
     @ScalarFunction("rtrim")
     @LiteralParameters("x")
@@ -458,6 +494,15 @@ public final class StringFunctions
     public static Slice rightTrim(@SqlType("varchar(x)") Slice slice)
     {
         return SliceUtf8.rightTrim(slice);
+    }
+
+    @Description("removes whitespace from the end of a string")
+    @ScalarFunction("rtrim")
+    @LiteralParameters("x")
+    @SqlType("char(x)")
+    public static Slice charRightTrim(@SqlType("char(x)") Slice slice)
+    {
+        return rightTrim(slice);
     }
 
     @Description("removes whitespace from the beginning and end of a string")
@@ -469,6 +514,15 @@ public final class StringFunctions
         return SliceUtf8.trim(slice);
     }
 
+    @Description("removes whitespace from the beginning and end of a string")
+    @ScalarFunction("trim")
+    @LiteralParameters("x")
+    @SqlType("char(x)")
+    public static Slice charTrim(@SqlType("char(x)") Slice slice)
+    {
+        return trim(slice);
+    }
+
     @Description("remove the longest string containing only given characters from the beginning of a string")
     @ScalarFunction("ltrim")
     @LiteralParameters("x")
@@ -476,6 +530,15 @@ public final class StringFunctions
     public static Slice leftTrim(@SqlType("varchar(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
     {
         return SliceUtf8.leftTrim(slice, codePointsToTrim);
+    }
+
+    @Description("remove the longest string containing only given characters from the beginning of a string")
+    @ScalarFunction("ltrim")
+    @LiteralParameters("x")
+    @SqlType("char(x)")
+    public static Slice charLeftTrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
+    {
+        return leftTrim(slice, codePointsToTrim);
     }
 
     @Description("remove the longest string containing only given characters from the end of a string")
@@ -487,6 +550,15 @@ public final class StringFunctions
         return SliceUtf8.rightTrim(slice, codePointsToTrim);
     }
 
+    @Description("remove the longest string containing only given characters from the end of a string")
+    @ScalarFunction("rtrim")
+    @LiteralParameters("x")
+    @SqlType("char(x)")
+    public static Slice charRightTrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
+    {
+        return rightTrim(slice, codePointsToTrim);
+    }
+
     @Description("remove the longest string containing only given characters from the beginning and end of a string")
     @ScalarFunction("trim")
     @LiteralParameters("x")
@@ -494,6 +566,15 @@ public final class StringFunctions
     public static Slice trim(@SqlType("varchar(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
     {
         return SliceUtf8.trim(slice, codePointsToTrim);
+    }
+
+    @Description("remove the longest string containing only given characters from the beginning and end of a string")
+    @ScalarFunction("trim")
+    @LiteralParameters("x")
+    @SqlType("char(x)")
+    public static Slice charTrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
+    {
+        return trim(slice, codePointsToTrim);
     }
 
     @ScalarOperator(OperatorType.CAST)
@@ -546,6 +627,15 @@ public final class StringFunctions
         return toLowerCase(slice);
     }
 
+    @Description("converts the string to lower case")
+    @ScalarFunction("lower")
+    @LiteralParameters("x")
+    @SqlType("char(x)")
+    public static Slice charLower(@SqlType("char(x)") Slice slice)
+    {
+        return lower(slice);
+    }
+
     @Description("converts the string to upper case")
     @ScalarFunction
     @LiteralParameters("x")
@@ -553,6 +643,15 @@ public final class StringFunctions
     public static Slice upper(@SqlType("varchar(x)") Slice slice)
     {
         return toUpperCase(slice);
+    }
+
+    @Description("converts the string to upper case")
+    @ScalarFunction("upper")
+    @LiteralParameters("x")
+    @SqlType("char(x)")
+    public static Slice charUpper(@SqlType("char(x)") Slice slice)
+    {
+        return upper(slice);
     }
 
     private static Slice pad(Slice text, long targetLength, Slice padString, int paddingOffset)

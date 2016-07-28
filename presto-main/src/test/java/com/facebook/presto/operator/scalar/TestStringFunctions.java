@@ -29,6 +29,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -60,6 +61,11 @@ public class TestStringFunctions
     public static Slice convertBinaryToVarchar(@SqlType(StandardTypes.VARBINARY) Slice binary)
     {
         return binary;
+    }
+
+    public static String padRight(String s, int n)
+    {
+        return String.format("%1$-" + n + "s", s);
     }
 
     @Test
@@ -119,6 +125,24 @@ public class TestStringFunctions
         assertFunction("LENGTH('hello na\u00EFve world')", BIGINT, 17L);
         assertFunction("LENGTH('\uD801\uDC2Dend')", BIGINT, 4L);
         assertFunction("LENGTH('\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", BIGINT, 7L);
+    }
+
+    @Test
+    public void testCharLength()
+        {
+        assertFunction("LENGTH(CAST('hello' AS CHAR(5)))", BIGINT, 5L);
+        assertFunction("LENGTH(CAST('Quadratically' AS CHAR(13)))", BIGINT, 13L);
+        assertFunction("LENGTH(CAST('' AS CHAR(20)))", BIGINT, 20L);
+        assertFunction("LENGTH(CAST('hello' AS CHAR(20)))", BIGINT, 20L);
+        assertFunction("LENGTH(CAST('Quadratically' AS CHAR(20)))", BIGINT, 20L);
+
+        // Test length for non-ASCII
+        assertFunction("LENGTH(CAST('hello na\u00EFve world' AS CHAR(17)))", BIGINT, 17L);
+        assertFunction("LENGTH(CAST('\uD801\uDC2Dend' AS CHAR(4)))", BIGINT, 4L);
+        assertFunction("LENGTH(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7)))", BIGINT, 7L);
+        assertFunction("LENGTH(CAST('hello na\u00EFve world' AS CHAR(20)))", BIGINT, 20L);
+        assertFunction("LENGTH(CAST('\uD801\uDC2Dend' AS CHAR(20)))", BIGINT, 20L);
+        assertFunction("LENGTH(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(20)))", BIGINT, 20L);
     }
 
     @Test
@@ -276,6 +300,44 @@ public class TestStringFunctions
     }
 
     @Test
+    public void testCharSubstring()
+    {
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5)", createCharType(13), padRight("ratically", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 50)", createCharType(13), padRight("", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -5)", createCharType(13), padRight("cally", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -50)", createCharType(13), padRight("", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 0)", createCharType(13), padRight("", 13));
+
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5, 6)", createCharType(13), padRight("ratica", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5, 10)", createCharType(13), padRight("ratically", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5, 50)", createCharType(13), padRight("ratically", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 50, 10)", createCharType(13), padRight("", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -5, 4)", createCharType(13), padRight("call", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -5, 40)", createCharType(13), padRight("cally", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -50, 4)", createCharType(13), padRight("", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 0, 4)", createCharType(13), padRight("", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5, 0)", createCharType(13), padRight("", 13));
+
+        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 5)", createCharType(13), padRight("ratically", 13));
+        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 50)", createCharType(13), padRight("", 13));
+        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM -5)", createCharType(13), padRight("cally", 13));
+        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM -50)", createCharType(13), padRight("", 13));
+        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 0)", createCharType(13), padRight("", 13));
+
+        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 5 FOR 6)", createCharType(13), padRight("ratica", 13));
+        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 5 FOR 50)", createCharType(13), padRight("ratically", 13));
+        //
+        // Test SUBSTRING for non-ASCII
+        assertFunction("SUBSTRING(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7)) FROM 1 FOR 1)", createCharType(7), padRight("\u4FE1", 7));
+        assertFunction("SUBSTRING(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7)) FROM 3 FOR 5)", createCharType(7), padRight(",\u7231,\u5E0C\u671B", 7));
+        assertFunction("SUBSTRING(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7)) FROM 4)", createCharType(7), padRight("\u7231,\u5E0C\u671B", 7));
+        assertFunction("SUBSTRING(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7)) FROM -2)", createCharType(7), padRight("\u5E0C\u671B", 7));
+        assertFunction("SUBSTRING(CAST('\uD801\uDC2Dend' AS CHAR(4)) FROM 1 FOR 1)", createCharType(4), padRight("\uD801\uDC2D", 4));
+        assertFunction("SUBSTRING(CAST('\uD801\uDC2Dend' AS CHAR(4)) FROM 2 FOR 3)", createCharType(4), padRight("end", 4));
+        assertFunction("SUBSTRING(CAST('\uD801\uDC2Dend' AS CHAR(40)) FROM 2 FOR 3)", createCharType(40), padRight("end", 40));
+    }
+
+    @Test
     public void testSplit()
     {
         assertFunction("SPLIT('a.b.c', '.')", new ArrayType(createVarcharType(5)), ImmutableList.of("a", "b", "c"));
@@ -412,6 +474,21 @@ public class TestStringFunctions
     }
 
     @Test
+    public void testCharLeftTrim()
+    {
+        assertFunction("LTRIM(CAST('' AS CHAR(20)))", createCharType(20), padRight("", 20));
+        assertFunction("LTRIM(CAST('  hello  ' AS CHAR(9)))", createCharType(9), padRight("hello", 9));
+        assertFunction("LTRIM(CAST('  hello' AS CHAR(7)))", createCharType(7), padRight("hello", 7));
+        assertFunction("LTRIM(CAST('hello  ' AS CHAR(7)))", createCharType(7), padRight("hello", 7));
+        assertFunction("LTRIM(CAST(' hello world ' AS CHAR(13)))", createCharType(13), padRight("hello world", 13));
+
+        assertFunction("LTRIM(CAST('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ' AS CHAR(9)))", createCharType(9), padRight("\u4FE1\u5FF5 \u7231 \u5E0C\u671B", 9));
+        assertFunction("LTRIM(CAST(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ' AS CHAR(9)))", createCharType(9), padRight("\u4FE1\u5FF5 \u7231 \u5E0C\u671B", 9));
+        assertFunction("LTRIM(CAST('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B' AS CHAR(9)))", createCharType(9), padRight("\u4FE1\u5FF5 \u7231 \u5E0C\u671B", 9));
+        assertFunction("LTRIM(CAST(' \u2028 \u4FE1\u5FF5 \u7231 \u5E0C\u671B' AS CHAR(10)))", createCharType(10), padRight("\u4FE1\u5FF5 \u7231 \u5E0C\u671B", 10));
+    }
+
+    @Test
     public void testRightTrim()
     {
         assertFunction("RTRIM('')", createVarcharType(0), "");
@@ -425,6 +502,21 @@ public class TestStringFunctions
         assertFunction("RTRIM('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ')", createVarcharType(9), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
         assertFunction("RTRIM(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ')", createVarcharType(9), " \u4FE1\u5FF5 \u7231 \u5E0C\u671B");
         assertFunction("RTRIM('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B')", createVarcharType(9), "  \u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+    }
+
+    @Test
+    public void testCharRightTrim()
+    {
+        assertFunction("RTRIM(CAST('' AS CHAR(20)))", createCharType(20), padRight("", 20));
+        assertFunction("RTRIM(CAST('  hello  ' AS CHAR(9)))", createCharType(9), padRight("  hello", 9));
+        assertFunction("RTRIM(CAST('  hello' AS CHAR(7)))", createCharType(7), padRight("  hello", 7));
+        assertFunction("RTRIM(CAST('hello  ' AS CHAR(7)))", createCharType(7), padRight("hello", 7));
+        assertFunction("RTRIM(CAST(' hello world ' AS CHAR(13)))", createCharType(13), padRight(" hello world", 13));
+
+        assertFunction("RTRIM(CAST('\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 ' AS CHAR(10)))", createCharType(10), padRight("\u4FE1\u5FF5 \u7231 \u5E0C\u671B", 10));
+        assertFunction("RTRIM(CAST('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ' AS CHAR(9)))", createCharType(9), padRight("\u4FE1\u5FF5 \u7231 \u5E0C\u671B", 9));
+        assertFunction("RTRIM(CAST(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ' AS CHAR(9)))", createCharType(9), padRight(" \u4FE1\u5FF5 \u7231 \u5E0C\u671B", 9));
+        assertFunction("RTRIM(CAST('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B' AS CHAR(9)))", createCharType(9), padRight("  \u4FE1\u5FF5 \u7231 \u5E0C\u671B", 9));
     }
 
     @Test
@@ -442,6 +534,22 @@ public class TestStringFunctions
         assertFunction("TRIM(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ')", createVarcharType(9), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
         assertFunction("TRIM('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B')", createVarcharType(9), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
         assertFunction("TRIM(' \u2028 \u4FE1\u5FF5 \u7231 \u5E0C\u671B')", createVarcharType(10), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+    }
+
+    @Test
+    public void testCharTrim()
+    {
+        assertFunction("TRIM(CAST('' AS CHAR(20)))", createCharType(20), padRight("", 20));
+        assertFunction("TRIM(CAST('  hello  ' AS CHAR(9)))", createCharType(9), padRight("hello", 9));
+        assertFunction("TRIM(CAST('  hello' AS CHAR(7)))", createCharType(7), padRight("hello", 7));
+        assertFunction("TRIM(CAST('hello  ' AS CHAR(7)))", createCharType(7), padRight("hello", 7));
+        assertFunction("TRIM(CAST(' hello world ' AS CHAR(13)))", createCharType(13), padRight("hello world", 13));
+
+        assertFunction("TRIM(CAST('\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 ' AS CHAR(10)))", createCharType(10), padRight("\u4FE1\u5FF5 \u7231 \u5E0C\u671B", 10));
+        assertFunction("TRIM(CAST('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ' AS CHAR(9)))", createCharType(9), padRight("\u4FE1\u5FF5 \u7231 \u5E0C\u671B", 9));
+        assertFunction("TRIM(CAST(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ' AS CHAR(9)))", createCharType(9), padRight("\u4FE1\u5FF5 \u7231 \u5E0C\u671B", 9));
+        assertFunction("TRIM(CAST('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B' AS CHAR(9)))", createCharType(9), padRight("\u4FE1\u5FF5 \u7231 \u5E0C\u671B", 9));
+        assertFunction("TRIM(CAST(' \u2028 \u4FE1\u5FF5 \u7231 \u5E0C\u671B' AS CHAR(10)))", createCharType(10), padRight("\u4FE1\u5FF5 \u7231 \u5E0C\u671B", 10));
     }
 
     @Test
@@ -471,6 +579,26 @@ public class TestStringFunctions
         assertFunction("CAST(LTRIM(CONCAT(' ', utf8(from_hex('81')), ' '), ' ') AS VARBINARY)", VARBINARY, varbinary(0x81, ' '));
         assertInvalidFunction("LTRIM('hello world', utf8(from_hex('81')))", "Invalid UTF-8 encoding in characters: �");
         assertInvalidFunction("LTRIM('hello wolrd', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters: 2�");
+    }
+
+    @Test
+    public void testCharLeftTrimParametrized()
+    {
+        assertFunction("LTRIM(CAST('' AS CHAR(1)), '')", createCharType(1), padRight("", 1));
+        assertFunction("LTRIM(CAST('   ' AS CHAR(3)), '')", createCharType(3), padRight("", 3));
+        assertFunction("LTRIM(CAST('  hello  ' AS CHAR(9)), '')", createCharType(9), padRight("  hello", 9));
+        assertFunction("LTRIM(CAST('  hello  ' AS CHAR(9)), ' ')", createCharType(9), padRight("hello", 9));
+        assertFunction("LTRIM(CAST('  hello  ' AS CHAR(9)), 'he ')", createCharType(9), padRight("llo", 9));
+        assertFunction("LTRIM(CAST('  hello' AS CHAR(7)), ' ')", createCharType(7), padRight("hello", 7));
+        assertFunction("LTRIM(CAST('  hello' AS CHAR(7)), 'e h')", createCharType(7), padRight("llo", 7));
+        assertFunction("LTRIM(CAST('hello  ' AS CHAR(7)), 'l')", createCharType(7), padRight("hello", 7));
+        assertFunction("LTRIM(CAST(' hello world ' AS CHAR(13)), ' ')", createCharType(13), padRight("hello world", 13));
+        assertFunction("LTRIM(CAST(' hello world ' AS CHAR(13)), ' eh')", createCharType(13), padRight("llo world", 13));
+        assertFunction("LTRIM(CAST(' hello world ' AS CHAR(13)), ' ehlowrd')", createCharType(13), padRight("", 13));
+        assertFunction("LTRIM(CAST(' hello world ' AS CHAR(13)), ' x')", createCharType(13), padRight("hello world", 13));
+
+        // non latin characters
+        assertFunction("LTRIM(CAST('\u017a\u00f3\u0142\u0107' AS CHAR(4)), '\u00f3\u017a')", createCharType(4), padRight("\u0142\u0107", 4));
     }
 
     private static SqlVarbinary varbinary(int... bytesAsInts)
@@ -511,6 +639,26 @@ public class TestStringFunctions
     }
 
     @Test
+    public void testCharRightTrimParametrized()
+    {
+        assertFunction("RTRIM(CAST('' AS CHAR(1)), '')", createCharType(1), padRight("", 1));
+        assertFunction("RTRIM(CAST('   ' AS CHAR(3)), '')", createCharType(3), padRight("", 3));
+        assertFunction("RTRIM(CAST('  hello  ' AS CHAR(9)), '')", createCharType(9), padRight("  hello", 9));
+        assertFunction("RTRIM(CAST('  hello  ' AS CHAR(9)), ' ')", createCharType(9), padRight("  hello", 9));
+        assertFunction("RTRIM(CAST('  hello  ' AS CHAR(9)), 'he ')", createCharType(9), padRight("  hello", 9));
+        assertFunction("RTRIM(CAST('  hello' AS CHAR(7)), ' ')", createCharType(7), padRight("  hello", 7));
+        assertFunction("RTRIM(CAST('  hello' AS CHAR(7)), 'e h')", createCharType(7), padRight("  hello", 7));
+        assertFunction("RTRIM(CAST('hello  ' AS CHAR(7)), 'l')", createCharType(7), padRight("hello", 7));
+        assertFunction("RTRIM(CAST(' hello world ' AS CHAR(13)), ' ')", createCharType(13), padRight(" hello world", 13));
+        assertFunction("RTRIM(CAST(' hello world ' AS CHAR(13)), ' eh')", createCharType(13), padRight(" hello world", 13));
+        assertFunction("RTRIM(CAST(' hello world ' AS CHAR(13)), ' ehlowrd')", createCharType(13), padRight("", 13));
+        assertFunction("RTRIM(CAST(' hello world ' AS CHAR(13)), ' x')", createCharType(13), padRight(" hello world", 13));
+
+        // non latin characters
+        assertFunction("RTRIM(CAST('\u017a\u00f3\u0142\u0107' AS CHAR(4)), '\u0107\u0142')", createCharType(4), padRight("\u017a\u00f3", 4));
+    }
+
+    @Test
     public void testTrimParametrized()
     {
         assertFunction("TRIM('', '')", createVarcharType(0), "");
@@ -542,6 +690,26 @@ public class TestStringFunctions
     }
 
     @Test
+    public void testCharTrimParametrized()
+    {
+        assertFunction("TRIM(CAST('' AS CHAR(1)), '')", createCharType(1), padRight("", 1));
+        assertFunction("TRIM(CAST('   ' AS CHAR(3)), '')", createCharType(3), padRight("", 3));
+        assertFunction("TRIM(CAST('  hello  ' AS CHAR(9)), '')", createCharType(9), padRight("  hello", 9));
+        assertFunction("TRIM(CAST('  hello  ' AS CHAR(9)), ' ')", createCharType(9), padRight("hello", 9));
+        assertFunction("TRIM(CAST('  hello  ' AS CHAR(9)), 'he ')", createCharType(9), padRight("llo", 9));
+        assertFunction("TRIM(CAST('  hello' AS CHAR(7)), ' ')", createCharType(7), padRight("hello", 7));
+        assertFunction("TRIM(CAST('  hello' AS CHAR(7)), 'e h')", createCharType(7), padRight("llo", 7));
+        assertFunction("TRIM(CAST('hello  ' AS CHAR(7)), 'l')", createCharType(7), padRight("hello", 7));
+        assertFunction("TRIM(CAST(' hello world ' AS CHAR(13)), ' ')", createCharType(13), padRight("hello world", 13));
+        assertFunction("TRIM(CAST(' hello world ' AS CHAR(13)), ' eh')", createCharType(13), padRight("llo world", 13));
+        assertFunction("TRIM(CAST(' hello world ' AS CHAR(13)), ' ehlowrd')", createCharType(13), padRight("", 13));
+        assertFunction("TRIM(CAST(' hello world ' AS CHAR(13)), ' x')", createCharType(13), padRight("hello world", 13));
+
+        // non latin characters
+        assertFunction("TRIM(CAST('\u017a\u00f3\u0142\u0107' AS CHAR(4)), '\u017a\u0107\u0142')", createCharType(4), padRight("\u00f3", 4));
+    }
+
+    @Test
     public void testVarcharToVarcharX()
     {
         assertFunction("LOWER(CAST('HELLO' AS VARCHAR))", createUnboundedVarcharType(), "hello");
@@ -563,6 +731,16 @@ public class TestStringFunctions
     }
 
     @Test
+    public void testCharLower()
+    {
+        assertFunction("LOWER(CAST('' AS CHAR(10)))", createCharType(10), padRight("", 10));
+        assertFunction("LOWER(CAST('Hello World' AS CHAR(11)))", createCharType(11), padRight("hello world", 11));
+        assertFunction("LOWER(CAST('WHAT!!' AS CHAR(6)))", createCharType(6), padRight("what!!", 6));
+        assertFunction("LOWER(CAST('\u00D6STERREICH' AS CHAR(10)))", createCharType(10), padRight(lowerByCodePoint("\u00D6sterreich"), 10));
+        assertFunction("LOWER(CAST('From\uD801\uDC2DTo' AS CHAR(7)))", createCharType(7), padRight(lowerByCodePoint("from\uD801\uDC2Dto"), 7));
+    }
+
+    @Test
     public void testUpper()
     {
         assertFunction("UPPER('')", createVarcharType(0), "");
@@ -574,6 +752,16 @@ public class TestStringFunctions
         assertFunction("CAST(UPPER(utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {(byte) 0xCE}));
         assertFunction("CAST(UPPER('hello' || utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {'H', 'E', 'L', 'L', 'O', (byte) 0xCE}));
         assertFunction("CAST(UPPER(utf8(from_hex('CE')) || 'hello') AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {(byte) 0xCE, 'H', 'E', 'L', 'L', 'O'}));
+    }
+
+    @Test
+    public void testCharUpper()
+    {
+        assertFunction("UPPER(CAST('' AS CHAR(10)))", createCharType(10), padRight("", 10));
+        assertFunction("UPPER(CAST('Hello World' AS CHAR(11)))", createCharType(11), padRight("HELLO WORLD", 11));
+        assertFunction("UPPER(CAST('what!!' AS CHAR(6)))", createCharType(6), padRight("WHAT!!", 6));
+        assertFunction("UPPER(CAST('\u00D6sterreich' AS CHAR(10)))", createCharType(10), padRight(upperByCodePoint("\u00D6") + "STERREICH", 10));
+        assertFunction("UPPER(CAST('From\uD801\uDC2DTo' AS CHAR(7)))", createCharType(7), padRight("FROM" + upperByCodePoint("\uD801\uDC2D") + "TO", 7));
     }
 
     @Test
