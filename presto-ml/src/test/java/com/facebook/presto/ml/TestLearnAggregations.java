@@ -75,9 +75,11 @@ public class TestLearnAggregations
             throws Exception
     {
         Type mapType = typeManager.getParameterizedType("map", ImmutableList.of(TypeSignatureParameter.of(parseTypeSignature(StandardTypes.BIGINT)), TypeSignatureParameter.of(parseTypeSignature(StandardTypes.DOUBLE))));
-        InternalAggregationFunction aggregation =
-                AggregationCompiler.generateAggregationBindableFunction(LearnLibSvmClassifierAggregation.class, ClassifierType.BIGINT_CLASSIFIER.getTypeSignature(), ImmutableList.of(BigintType.BIGINT.getTypeSignature(), mapType.getTypeSignature(), VarcharType.getParametrizedVarcharSignature("x")))
-                        .specialize(BoundVariables.builder().setLongVariable("x", (long) Integer.MAX_VALUE).build(), 1, typeManager);
+        InternalAggregationFunction aggregation = AggregationCompiler.generateAggregationBindableFunction(
+                LearnLibSvmClassifierAggregation.class,
+                ClassifierType.BIGINT_CLASSIFIER.getTypeSignature(),
+                ImmutableList.of(BigintType.BIGINT.getTypeSignature(), mapType.getTypeSignature(), VarcharType.getParametrizedVarcharSignature("x"))
+        ).specialize(BoundVariables.builder().setLongVariable("x", (long) Integer.MAX_VALUE).build(), 3, typeManager);
         assertLearnClassifer(aggregation.bind(ImmutableList.of(0, 1, 2), Optional.empty(), Optional.empty(), 1.0).createAccumulator());
     }
 
