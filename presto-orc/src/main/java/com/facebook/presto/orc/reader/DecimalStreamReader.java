@@ -124,14 +124,19 @@ public class DecimalStreamReader
                     throw new OrcCorruptionException("Value is not null but scale stream is not present");
                 }
 
+                scaleStream.nextLongVector(nextBatchSize, scaleVector, nullVector);
+
                 if (decimalType.isShort()) {
                     decimalStream.nextShortDecimalVector(nextBatchSize, builder, decimalType, scaleVector, nullVector);
                 }
                 else {
                     decimalStream.nextLongDecimalVector(nextBatchSize, builder, decimalType, scaleVector, nullVector);
                 }
-
-                scaleStream.nextLongVector(nextBatchSize, scaleVector, nullVector);
+            }
+            else {
+                for (int i = 0; i < nextBatchSize; i++) {
+                    builder.appendNull();
+                }
             }
         }
 

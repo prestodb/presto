@@ -18,11 +18,12 @@ import com.facebook.presto.orc.checkpoint.DecimalStreamCheckpoint;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
+import com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic;
 import io.airlift.slice.Slice;
 
 import java.io.IOException;
-import java.math.BigInteger;
 
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.rescale;
 import static java.lang.Long.MAX_VALUE;
 
 public class DecimalStream
@@ -48,68 +49,76 @@ public class DecimalStream
         input.seekToCheckpoint(checkpoint.getInputStreamCheckpoint());
     }
 
-    // This comes from the Apache Hive ORC code (see org.apache.hadoop.hive.ql.io.orc.SerializationUtils.java)
-    public BigInteger nextBigInteger()
+    public void nextLongDecimal(Slice result)
             throws IOException
     {
-        BigInteger result = BigInteger.ZERO;
-        long work = 0;
-        int offset = 0;
         long b;
+        long offset = 0;
+        long low = 0;
+        long high = 0;
         do {
             b = input.read();
-            if (b == -1) {
-                throw new OrcCorruptionException("Reading BigInteger past EOF from " + input);
-            }
-            work |= (0x7f & b) << (offset % 63);
-            if (offset >= 126 && (offset != 126 || work > 3)) {
+            if (((offset == 126) &&
+                    (((b & 0x80) > 0) || ((b & 0x7f) > 3)))) {
                 throw new OrcCorruptionException("Decimal exceeds 128 bits");
             }
+            if (offset < 63) {
+                low |= (b & 0x7f) << offset;
+            }
+            else if (offset == 63) {
+                low |= (b & 0x01) << offset;
+                high |= (b & 0x7f) >>> 1;
+            }
+            else {
+                high |= (b & 0x7f) << (offset - 64);
+            }
             offset += 7;
-            // if we've read 63 bits, roll them into the result
-            if (offset == 63) {
-                result = BigInteger.valueOf(work);
-                work = 0;
+        }
+        while ((b & 0x80) > 0);
+
+        boolean negative = (low & 0x01) == 1;
+
+        // drop sign bit
+        low >>>= 1;
+        low |= ((high & 0x1) << 63);
+        high >>>= 1;
+
+        // increment for negative values
+        if (negative) {
+            if (low == 0xFFFFFFFFFFFFFFFFL) {
+                low = 0;
+                high += 1;
             }
-            else if (offset % 63 == 0) {
-                result = result.or(BigInteger.valueOf(work).shiftLeft(offset - 63));
-                work = 0;
+            else {
+                low += 1;
             }
         }
-        while (b >= 0x80);
-        if (work != 0) {
-            result = result.or(BigInteger.valueOf(work).shiftLeft((offset / 63) * 63));
-        }
-        // convert back to a signed number
-        boolean isNegative = result.testBit(0);
-        if (isNegative) {
-            result = result.add(BigInteger.ONE);
-            result = result.negate();
-        }
-        result = result.shiftRight(1);
-        return result;
+
+        UnscaledDecimal128Arithmetic.pack(low, high, negative, result);
     }
 
     public void nextLongDecimalVector(int items, BlockBuilder builder, DecimalType targetType, long[] sourceScale)
             throws IOException
     {
+        Slice decimal = UnscaledDecimal128Arithmetic.unscaledDecimal();
+        Slice rescaledDecimal = UnscaledDecimal128Arithmetic.unscaledDecimal();
         for (int i = 0; i < items; i++) {
-            BigInteger bigInteger = nextBigInteger();
-            BigInteger rescaledDecimal = Decimals.rescale(bigInteger, (int) sourceScale[i], targetType.getScale());
-            Slice slice = Decimals.encodeUnscaledValue(rescaledDecimal);
-            targetType.writeSlice(builder, slice);
+            nextLongDecimal(decimal);
+            rescale(decimal, (int) (targetType.getScale() - sourceScale[i]), rescaledDecimal);
+            targetType.writeSlice(builder, rescaledDecimal);
         }
     }
 
     public void nextLongDecimalVector(int items, BlockBuilder builder, DecimalType targetType, long[] sourceScale, boolean[] isNull)
             throws IOException
     {
+        Slice decimal = UnscaledDecimal128Arithmetic.unscaledDecimal();
+        Slice rescaledDecimal = UnscaledDecimal128Arithmetic.unscaledDecimal();
         for (int i = 0; i < items; i++) {
             if (!isNull[i]) {
-                BigInteger bigInteger = nextBigInteger();
-                BigInteger rescaledDecimal = Decimals.rescale(bigInteger, (int) sourceScale[i], targetType.getScale());
-                Slice slice = Decimals.encodeUnscaledValue(rescaledDecimal);
-                targetType.writeSlice(builder, slice);
+                nextLongDecimal(decimal);
+                rescale(decimal, (int) (targetType.getScale() - sourceScale[i]), rescaledDecimal);
+                targetType.writeSlice(builder, rescaledDecimal);
             }
             else {
                 builder.appendNull();
@@ -154,7 +163,8 @@ public class DecimalStream
             throws IOException
     {
         for (int i = 0; i < items; i++) {
-            long rescaledDecimal = Decimals.rescale(nextLong(), (int) sourceScale[i], targetType.getScale());
+            long value = nextLong();
+            long rescaledDecimal = Decimals.rescale(value, (int) sourceScale[i], targetType.getScale());
             targetType.writeLong(builder, rescaledDecimal);
         }
     }
