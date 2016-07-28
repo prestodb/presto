@@ -23,7 +23,6 @@ import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -70,9 +69,9 @@ import java.util.function.Function;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_RANDOM_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.fixedHashPartitioning;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.fixedRandomPartitioning;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.singlePartition;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.any;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.defaultParallelism;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.exactlyPartitionedOn;
@@ -431,9 +430,10 @@ public class AddLocalExchanges
         {
             StreamPreferredProperties requiredProperties;
             StreamPreferredProperties preferredProperties;
-            if (getTaskWriterCount(session) > 1) {
-                requiredProperties = fixedParallelism();
-                preferredProperties = fixedParallelism();
+            // Force single writer when partition function exists
+            if (getTaskWriterCount(session) > 1 && !node.getPartitioningScheme().isPresent()) {
+                requiredProperties = fixedParallelism(getTaskWriterCount(session));
+                preferredProperties = fixedParallelism(getTaskWriterCount(session));
             }
             else {
                 requiredProperties = singleStream();
@@ -480,7 +480,7 @@ public class AddLocalExchanges
                         idAllocator.getNextId(),
                         GATHER,
                         LOCAL,
-                        new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
+                        new PartitioningScheme(singlePartition(), node.getOutputSymbols()),
                         sources,
                         inputLayouts);
                 return deriveProperties(exchangeNode, inputProperties);
@@ -493,7 +493,7 @@ public class AddLocalExchanges
                         REPARTITION,
                         LOCAL,
                         new PartitioningScheme(
-                                Partitioning.create(FIXED_HASH_DISTRIBUTION, preferredPartitionColumns.get()),
+                                fixedHashPartitioning(getTaskConcurrency(session), preferredPartitionColumns.get()),
                                 node.getOutputSymbols(),
                                 Optional.empty()),
                         sources,
@@ -506,7 +506,7 @@ public class AddLocalExchanges
                     idAllocator.getNextId(),
                     REPARTITION,
                     LOCAL,
-                    new PartitioningScheme(Partitioning.create(FIXED_RANDOM_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
+                    new PartitioningScheme(fixedRandomPartitioning(getTaskConcurrency(session)), node.getOutputSymbols()),
                     sources,
                     inputLayouts);
             ExchangeNode exchangeNode = result;
@@ -622,7 +622,9 @@ public class AddLocalExchanges
                         idAllocator.getNextId(),
                         LOCAL,
                         planWithProperties.getNode(),
-                        new PartitioningScheme(Partitioning.create(FIXED_RANDOM_DISTRIBUTION, ImmutableList.of()), planWithProperties.getNode().getOutputSymbols()));
+                        new PartitioningScheme(
+                                fixedRandomPartitioning(getTaskConcurrency(session)),
+                                planWithProperties.getNode().getOutputSymbols()));
 
                 return deriveProperties(exchangeNode, planWithProperties.getProperties());
             }
@@ -634,7 +636,8 @@ public class AddLocalExchanges
                         LOCAL,
                         planWithProperties.getNode(),
                         requiredPartitionColumns.get(),
-                        Optional.empty());
+                        Optional.empty(),
+                        requiredProperties.getStreamCount().orElse(getTaskConcurrency(session)));
                 return deriveProperties(exchangeNode, planWithProperties.getProperties());
             }
 

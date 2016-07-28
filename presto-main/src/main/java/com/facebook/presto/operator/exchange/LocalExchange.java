@@ -15,7 +15,7 @@ package com.facebook.presto.operator.exchange;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.PartitioningHandle;
+import com.facebook.presto.sql.planner.Partitioning;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 
@@ -26,15 +26,16 @@ import java.io.Closeable;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.operator.exchange.LocalExchangeSink.finishedLocalExchangeSink;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_RANDOM_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.getSystemPartitionCount;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isFixedBroadcastPartitioning;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isFixedHashPartitioning;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isFixedRandomPartitioning;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -65,18 +66,16 @@ public class LocalExchange
     private final Set<LocalExchangeSink> sinks = new HashSet<>();
 
     public LocalExchange(
-            PartitioningHandle partitioning,
-            int defaultConcurrency,
+            Partitioning partitioning,
             List<? extends Type> types,
             List<Integer> partitionChannels,
             Optional<Integer> partitionHashChannel)
     {
-        this(partitioning, defaultConcurrency, types, partitionChannels, partitionHashChannel, DEFAULT_MAX_BUFFERED_BYTES);
+        this(partitioning, types, partitionChannels, partitionHashChannel, DEFAULT_MAX_BUFFERED_BYTES);
     }
 
     public LocalExchange(
-            PartitioningHandle partitioning,
-            int defaultConcurrency,
+            Partitioning partitioning,
             List<? extends Type> types,
             List<Integer> partitionChannels,
             Optional<Integer> partitionHashChannel,
@@ -84,27 +83,10 @@ public class LocalExchange
     {
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
 
-        int bufferCount;
-        if (partitioning.equals(SINGLE_DISTRIBUTION)) {
-            bufferCount = 1;
-            checkArgument(partitionChannels.isEmpty(), "Gather exchange must not have partition channels");
-        }
-        else if (partitioning.equals(FIXED_BROADCAST_DISTRIBUTION)) {
-            bufferCount = defaultConcurrency;
-            checkArgument(partitionChannels.isEmpty(), "Broadcast exchange must not have partition channels");
-        }
-        else if (partitioning.equals(FIXED_RANDOM_DISTRIBUTION)) {
-            bufferCount = defaultConcurrency;
-            checkArgument(partitionChannels.isEmpty(), "Random exchange must not have partition channels");
-        }
-        else if (partitioning.equals(FIXED_HASH_DISTRIBUTION)) {
-            bufferCount = defaultConcurrency;
-            checkArgument(!partitionChannels.isEmpty(), "Partitioned exchange must have partition channels");
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported local exchange partitioning " + partitioning);
-        }
+        OptionalInt partitionCount = getSystemPartitionCount(partitioning);
+        checkArgument(partitionCount.isPresent(), "Unsupported local exchange partitioning %s", partitioning);
 
+        int bufferCount = partitionCount.getAsInt();
         ImmutableList.Builder<LocalExchangeSource> sources = ImmutableList.builder();
         for (int i = 0; i < bufferCount; i++) {
             sources.add(new LocalExchangeSource(types, source -> checkAllSourcesFinished()));
@@ -116,16 +98,17 @@ public class LocalExchange
                 .collect(toImmutableList());
 
         this.memoryManager = new LocalExchangeMemoryManager(maxBufferedBytes.toBytes());
-        if (partitioning.equals(SINGLE_DISTRIBUTION)) {
+        if (bufferCount == 1) {
+            // if there is only one buffer, the partitioning doesn't matter, so choose the most efficient implementation
             exchangerSupplier = () -> new BroadcastExchanger(buffers, memoryManager::updateMemoryUsage);
         }
-        else if (partitioning.equals(FIXED_BROADCAST_DISTRIBUTION)) {
+        else if (isFixedBroadcastPartitioning(partitioning)) {
             exchangerSupplier = () -> new BroadcastExchanger(buffers, memoryManager::updateMemoryUsage);
         }
-        else if (partitioning.equals(FIXED_RANDOM_DISTRIBUTION)) {
+        else if (isFixedRandomPartitioning(partitioning)) {
             exchangerSupplier = () -> new RandomExchanger(buffers, memoryManager::updateMemoryUsage);
         }
-        else if (partitioning.equals(FIXED_HASH_DISTRIBUTION)) {
+        else if (isFixedHashPartitioning(partitioning)) {
             exchangerSupplier = () -> new PartitioningExchanger(buffers, memoryManager::updateMemoryUsage, types, partitionChannels, partitionHashChannel);
         }
         else {
