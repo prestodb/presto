@@ -13,39 +13,54 @@
  */
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.spi.block.array.BooleanArray;
+import com.facebook.presto.spi.block.array.IntArray;
+import com.facebook.presto.spi.block.resource.BlockResourceContext;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.Arrays;
 import java.util.List;
 
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
-import static io.airlift.slice.SizeOf.sizeOf;
 
-public class VariableWidthBlock
+public class ResourceVariableWidthBlock
         extends AbstractVariableWidthBlock
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(VariableWidthBlock.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ResourceVariableWidthBlock.class).instanceSize();
 
-    final int arrayOffset;
-    final int positionCount;
-    final Slice slice;
-    final int[] offsets;
-    final boolean[] valueIsNull;
+    private final int arrayOffset;
+    private final int positionCount;
+    private final Slice slice;
+    private final IntArray offsets;
+    private final BooleanArray valueIsNull;
+    private final BlockResourceContext resourceContext;
 
     private final int retainedSizeInBytes;
     private final int sizeInBytes;
 
-    public VariableWidthBlock(int positionCount, Slice slice, int[] offsets, boolean[] valueIsNull)
+    public static ResourceVariableWidthBlock convert(VariableWidthBlock variableWidthBlock, BlockResourceContext resourceContext)
     {
-        this(0, positionCount, slice, offsets, valueIsNull);
+        int positionCount = variableWidthBlock.positionCount;
+        Slice slice = resourceContext.copyOf(variableWidthBlock.slice, variableWidthBlock.arrayOffset, positionCount);
+        BooleanArray newValueIsNull = resourceContext.newBooleanArray(positionCount);
+        IntArray newOffsets = resourceContext.newIntArray(positionCount);
+        for (int p = 0; p < positionCount; p++) {
+            newOffsets.set(p, variableWidthBlock.getPositionOffset(p));
+            newValueIsNull.set(p, variableWidthBlock.isEntryNull(p));
+        }
+        return new ResourceVariableWidthBlock(variableWidthBlock.positionCount, slice, newOffsets, newValueIsNull, resourceContext);
     }
 
-    VariableWidthBlock(int arrayOffset, int positionCount, Slice slice, int[] offsets, boolean[] valueIsNull)
+    public ResourceVariableWidthBlock(int positionCount, Slice slice, IntArray offsets, BooleanArray valueIsNull, BlockResourceContext resourceContext)
+    {
+        this(0, positionCount, slice, offsets, valueIsNull, resourceContext);
+    }
+
+    ResourceVariableWidthBlock(int arrayOffset, int positionCount, Slice slice, IntArray offsets, BooleanArray valueIsNull, BlockResourceContext resourceContext)
     {
         if (arrayOffset < 0) {
             throw new IllegalArgumentException("arrayOffset is negative");
@@ -61,24 +76,25 @@ public class VariableWidthBlock
         }
         this.slice = slice;
 
-        if (offsets.length - arrayOffset < (positionCount + 1)) {
+        if (offsets.length() - arrayOffset < (positionCount + 1)) {
             throw new IllegalArgumentException("offsets length is less than positionCount");
         }
         this.offsets = offsets;
 
-        if (valueIsNull.length - arrayOffset < positionCount) {
+        if (valueIsNull.length() - arrayOffset < positionCount) {
             throw new IllegalArgumentException("valueIsNull length is less than positionCount");
         }
         this.valueIsNull = valueIsNull;
 
         sizeInBytes = intSaturatedCast(slice.length() + ((Integer.BYTES + Byte.BYTES) * (long) positionCount));
-        retainedSizeInBytes = intSaturatedCast(INSTANCE_SIZE + slice.getRetainedSize() + sizeOf(valueIsNull) + sizeOf(offsets));
+        retainedSizeInBytes = intSaturatedCast(INSTANCE_SIZE + slice.getRetainedSize() + valueIsNull.sizeOf() + offsets.sizeOf());
+        this.resourceContext = resourceContext;
     }
 
     @Override
     protected final int getPositionOffset(int position)
     {
-        return offsets[position + arrayOffset];
+        return offsets.get(position + arrayOffset);
     }
 
     @Override
@@ -91,7 +107,7 @@ public class VariableWidthBlock
     @Override
     protected boolean isEntryNull(int position)
     {
-        return valueIsNull[position + arrayOffset];
+        return valueIsNull.get(position + arrayOffset);
     }
 
     @Override
@@ -119,20 +135,20 @@ public class VariableWidthBlock
 
         int finalLength = positions.stream().mapToInt(this::getLength).sum();
         SliceOutput newSlice = Slices.allocate(finalLength).getOutput();
-        int[] newOffsets = new int[positions.size() + 1];
-        boolean[] newValueIsNull = new boolean[positions.size()];
+        IntArray newOffsets = resourceContext.newIntArray(positions.size() + 1);
+        BooleanArray newValueIsNull = resourceContext.newBooleanArray(positions.size());
 
         for (int i = 0; i < positions.size(); i++) {
             int position = positions.get(i);
             if (isEntryNull(position)) {
-                newValueIsNull[i] = true;
+                newValueIsNull.set(i, true);
             }
             else {
                 newSlice.appendBytes(slice.getBytes(getPositionOffset(position), getLength(position)));
             }
-            newOffsets[i + 1] = newSlice.size();
+            newOffsets.set(i + 1, newSlice.size());
         }
-        return new VariableWidthBlock(positions.size(), newSlice.slice(), newOffsets, newValueIsNull);
+        return new ResourceVariableWidthBlock(positions.size(), newSlice.slice(), newOffsets, newValueIsNull, resourceContext);
     }
 
     @Override
@@ -146,7 +162,7 @@ public class VariableWidthBlock
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
 
-        return new VariableWidthBlock(positionOffset + arrayOffset, length, slice, offsets, valueIsNull);
+        return new ResourceVariableWidthBlock(positionOffset + arrayOffset, length, slice, offsets, valueIsNull, resourceContext);
     }
 
     @Override
@@ -156,15 +172,15 @@ public class VariableWidthBlock
 
         positionOffset += arrayOffset;
 
-        int[] newOffsets = Arrays.copyOfRange(offsets, positionOffset, positionOffset + length + 1);
+        IntArray newOffsets = resourceContext.copyOfRangeIntArray(offsets, positionOffset, positionOffset + length + 1);
         // set new offsets to start from beginning of slice (since we are copying)
-        for (int i = 0; i < newOffsets.length; i++) {
-            newOffsets[i] -= offsets[positionOffset];
+        for (int i = 0; i < newOffsets.length(); i++) {
+            newOffsets.set(i, newOffsets.get(i) - offsets.get(positionOffset));
         }
 
-        Slice newSlice = Slices.copyOf(slice, offsets[positionOffset], newOffsets[length]);
-        boolean[] newValueIsNull = Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length);
-        return new VariableWidthBlock(length, newSlice, newOffsets, newValueIsNull);
+        Slice newSlice = resourceContext.copyOfSlice(slice, offsets.get(positionOffset), newOffsets.get(length));
+        BooleanArray newValueIsNull = resourceContext.copyOfRangeBooleanArray(valueIsNull, positionOffset, positionOffset + length);
+        return new ResourceVariableWidthBlock(length, newSlice, newOffsets, newValueIsNull, resourceContext);
     }
 
     @Override
