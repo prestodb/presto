@@ -16,6 +16,7 @@ package com.facebook.presto.type;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
@@ -138,5 +139,15 @@ public class TestBooleanOperators
         assertFunction("TRUE IS DISTINCT FROM FALSE", BOOLEAN, true);
         assertFunction("FALSE IS DISTINCT FROM NULL", BOOLEAN, true);
         assertFunction("TRUE IS DISTINCT FROM NULL", BOOLEAN, true);
+    }
+
+    @Test
+    public void testIndeterminate()
+    {
+        assertOperator(INDETERMINATE, "cast(null as boolean)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "true", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "false", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "true AND false", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "true OR false", BOOLEAN, false);
     }
 }

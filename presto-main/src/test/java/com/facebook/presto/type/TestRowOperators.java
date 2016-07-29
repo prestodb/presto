@@ -32,6 +32,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -152,6 +153,35 @@ public class TestRowOperators
         assertFunction("row(1, 2.0, TRUE, 'cat', CAST(NULL AS INTEGER)) IS DISTINCT FROM row(1, 2.0, TRUE, 'cat', CAST(NULL AS INTEGER))", BOOLEAN, false);
         assertFunction("row(1, 2.0, TRUE, 'cat') IS DISTINCT FROM row(1, 2.0, TRUE, CAST(NULL AS VARCHAR(3)))", BOOLEAN, true);
         assertFunction("row(1, 2.0, TRUE, CAST(NULL AS VARCHAR(3))) IS DISTINCT FROM row(1, 2.0, TRUE, CAST(NULL AS VARCHAR(3)))", BOOLEAN, false);
+    }
+
+    @Test
+    public void testIndeterminate()
+    {
+        assertOperator(INDETERMINATE, "cast(null as row(col0 bigint))", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row(1)", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "row(null)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row(1,2)", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "row(1,null)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row(null,2)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row(null,null)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row('111',null)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row(null,'222')", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row('111','222')", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "row(row(1), row(2), row(3))", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "row(row(1), row(null), row(3))", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row(row(1), row(cast(null as bigint)), row(3))", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row(row(row(1)), row(2), row(3))", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "row(row(row(null)), row(2), row(3))", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row(row(row(cast(null as boolean))), row(2), row(3))", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row(row(1,2),row(array[3,4,5]))", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "row(row(1,2),row(array[row(3,4)]))", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "row(row(null,2),row(array[row(3,4)]))", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row(row(1,null),row(array[row(3,4)]))", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row(row(1,2),row(array[cast(row(3,4) as row(a integer, b integer)), cast(null as row(a integer, b integer))]))", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row(row(1,2),row(array[row(null,4)]))", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "row(row(1,2),row(array[row(map(array[8], array[9]),4)]))", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "row(row(1,2),row(array[row(map(array[8], array[null]),4)]))", BOOLEAN, true);
     }
 
     @Test

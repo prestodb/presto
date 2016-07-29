@@ -1,0 +1,67 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.operator.scalar;
+
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.IsNull;
+import com.facebook.presto.spi.function.OperatorDependency;
+import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.TypeParameter;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Throwables;
+
+import java.lang.invoke.MethodHandle;
+
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
+import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
+
+@ScalarOperator(INDETERMINATE)
+public final class ArrayIndeterminateOperator
+{
+    private ArrayIndeterminateOperator() {}
+
+    @TypeParameter("T")
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean indeterminate(
+            @OperatorDependency(operator = INDETERMINATE, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T"}) MethodHandle function,
+            @TypeParameter("T") Type type,
+            @SqlType("array(T)") Block block,
+            @IsNull boolean isNull)
+    {
+        if (isNull) {
+            return true;
+        }
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            if (block.isNull(i)) {
+                return true;
+            }
+            try {
+                if ((boolean) function.invoke(readNativeValue(type, block, i), false)) {
+                    return true;
+                }
+            }
+            catch (Throwable t) {
+                Throwables.propagateIfInstanceOf(t, Error.class);
+                Throwables.propagateIfInstanceOf(t, PrestoException.class);
+
+                throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
+            }
+        }
+        return false;
+    }
+}
