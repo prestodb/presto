@@ -251,6 +251,7 @@ public class LocalFileRecordCursor
     @Override
     public void close()
     {
+        reader.close();
     }
 
     private static class FilesReader
@@ -335,6 +336,7 @@ public class LocalFileRecordCursor
                         return fields;
                     }
                 }
+                reader.close();
                 reader = createNextReader();
                 newReader = true;
             }
@@ -349,6 +351,18 @@ public class LocalFileRecordCursor
 
             long millis = ISO_FORMATTER.parseDateTime(fields.get(timestampOrdinalPosition.getAsInt())).getMillis();
             return domain.get().includesNullableValue(millis);
+        }
+
+        public void close()
+        {
+            if (reader != null) {
+                try {
+                    reader.close();
+                }
+                catch (IOException e) {
+                    throw Throwables.propagate(e);
+                }
+            }
         }
     }
 }
