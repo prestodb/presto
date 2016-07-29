@@ -117,6 +117,7 @@ import com.facebook.presto.operator.scalar.TryFunction;
 import com.facebook.presto.operator.scalar.TypeOfFunction;
 import com.facebook.presto.operator.scalar.UrlFunctions;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
+import com.facebook.presto.operator.scalar.WilsonInterval;
 import com.facebook.presto.operator.scalar.WordStemFunction;
 import com.facebook.presto.operator.window.CumulativeDistributionFunction;
 import com.facebook.presto.operator.window.DenseRankFunction;
@@ -590,7 +591,8 @@ public class FunctionRegistry
                 .aggregate(MergeSetDigestAggregation.class)
                 .aggregate(BuildSetDigestAggregation.class)
                 .scalars(SetDigestFunctions.class)
-                .scalars(SetDigestOperators.class);
+                .scalars(SetDigestOperators.class)
+                .scalars(WilsonInterval.class);
 
         switch (featuresConfig.getRegexLibrary()) {
             case JONI:

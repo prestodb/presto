@@ -162,6 +162,19 @@ Mathematical Functions
     array ``bins``. The ``bins`` parameter must be an array of doubles and is
     assumed to be in sorted ascending order.
 
+Statistical Functions
+-----------------------
+
+.. function:: wilson_interval_lower(successes, trials, z) -> double
+
+    Returns the lower bound of the Wilson score interval of a Bernoulli trial process
+    at a confidence specified by the z-score ``z``.
+
+.. function:: wilson_interval_upper(successes, trials, z) -> double
+
+    Returns the upper bound of the Wilson score interval of a Bernoulli trial process
+    at a confidence specified by the z-score ``z``.
+
 Trigonometric Functions
 -----------------------
 

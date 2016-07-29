@@ -1384,4 +1384,22 @@ public class TestMathFunctions
         assertInvalidFunction("normal_cdf(0, 0, 0.1985)", "standardDeviation must > 0");
         assertInvalidFunction("normal_cdf(0, nan(), 0.1985)", "standardDeviation must > 0");
     }
+
+    @Test
+    public void testWilsonInterval()
+    {
+        assertInvalidFunction("wilson_interval_lower(-1, 100, 2.575)", "number of successes must not be negative");
+        assertInvalidFunction("wilson_interval_lower(0, 0, 2.575)", "number of trials must be positive");
+        assertInvalidFunction("wilson_interval_lower(10, 5, 2.575)", "number of successes must not be larger than number of trials");
+        assertInvalidFunction("wilson_interval_lower(0, 100, -1)", "z-score must not be negative");
+
+        assertFunction("wilson_interval_lower(1250, 1310, 1.96e0)", DOUBLE, 0.9414883725395894);
+
+        assertInvalidFunction("wilson_interval_upper(-1, 100, 2.575)", "number of successes must not be negative");
+        assertInvalidFunction("wilson_interval_upper(0, 0, 2.575)", "number of trials must be positive");
+        assertInvalidFunction("wilson_interval_upper(10, 5, 2.575)", "number of successes must not be larger than number of trials");
+        assertInvalidFunction("wilson_interval_upper(0, 100, -1)", "z-score must not be negative");
+
+        assertFunction("wilson_interval_upper(1250, 1310, 1.96e0)", DOUBLE, 0.9642524717143908);
+    }
 }
