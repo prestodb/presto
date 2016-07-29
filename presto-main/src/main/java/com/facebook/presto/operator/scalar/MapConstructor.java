@@ -29,14 +29,20 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.type.MapType;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
+import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
+import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
@@ -45,7 +51,7 @@ public final class MapConstructor
 {
     public static final MapConstructor MAP_CONSTRUCTOR = new MapConstructor();
 
-    private static final MethodHandle METHOD_HANDLE = methodHandle(MapConstructor.class, "createMap", MapType.class, Block.class, Block.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(MapConstructor.class, "createMap", MethodHandle.class, MapType.class, Block.class, Block.class);
     private static final String DESCRIPTION = "Constructs a map from the given key/value arrays";
 
     public MapConstructor()
@@ -85,11 +91,16 @@ public final class MapConstructor
         Type valueType = boundVariables.getTypeVariable("V");
 
         Type mapType = typeManager.getParameterizedType(MAP, ImmutableList.of(TypeSignatureParameter.of(keyType.getTypeSignature()), TypeSignatureParameter.of(valueType.getTypeSignature())));
-        return new ScalarFunctionImplementation(false, ImmutableList.of(false, false), METHOD_HANDLE.bindTo(mapType), isDeterministic());
+        Signature signature = internalOperator(
+                INDETERMINATE.name(),
+                BOOLEAN.getTypeSignature(),
+                ImmutableList.of(keyType.getTypeSignature()));
+        MethodHandle methodHandle = functionRegistry.getScalarFunctionImplementation(signature).getMethodHandle();
+        return new ScalarFunctionImplementation(false, ImmutableList.of(false, false), METHOD_HANDLE.bindTo(methodHandle).bindTo(mapType), isDeterministic());
     }
 
     @UsedByGeneratedCode
-    public static Block createMap(MapType mapType, Block keyBlock, Block valueBlock)
+    public static Block createMap(MethodHandle keyIndeterminate, MapType mapType, Block keyBlock, Block valueBlock)
     {
         BlockBuilder blockBuilder = new InterleavedBlockBuilder(mapType.getTypeParameters(), new BlockBuilderStatus(), keyBlock.getPositionCount() * 2);
 
@@ -98,6 +109,19 @@ public final class MapConstructor
             if (keyBlock.isNull(i)) {
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
             }
+            Object keyObject = readNativeValue(mapType.getKeyType(), keyBlock, i);
+            try {
+                if ((boolean) keyIndeterminate.invoke(keyObject, false)) {
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be indeterminate");
+                }
+            }
+            catch (Throwable t) {
+                Throwables.propagateIfInstanceOf(t, Error.class);
+                Throwables.propagateIfInstanceOf(t, PrestoException.class);
+
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+            }
+
             mapType.getKeyType().appendTo(keyBlock, i, blockBuilder);
             mapType.getValueType().appendTo(valueBlock, i, blockBuilder);
         }

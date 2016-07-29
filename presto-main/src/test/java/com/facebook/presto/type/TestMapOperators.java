@@ -130,8 +130,11 @@ public class TestMapOperators
                 1.0,
                 new SqlTimestamp(100_000, TEST_SESSION.getTimeZoneKey()),
                 100.0));
+        assertFunction("MAP(ARRAY [ARRAY[1]], ARRAY[2])", new MapType(new ArrayType(INTEGER), INTEGER), ImmutableMap.of(ImmutableList.of(1), 2));
 
         assertInvalidFunction("MAP(ARRAY [1], ARRAY [2, 4])", "Key and value arrays must be the same length");
+        assertInvalidFunction("MAP(ARRAY [NULL], ARRAY[2])", "map key cannot be null");
+        assertInvalidFunction("MAP(ARRAY [ARRAY[NULL]], ARRAY[2])", "map key cannot be indeterminate");
     }
 
     @Test
