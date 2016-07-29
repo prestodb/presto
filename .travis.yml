@@ -69,6 +69,10 @@ before_cache:
   # Make the cache stable between builds by removing build output
   - rm -rf $HOME/.m2/repository/com/facebook
 
+before_cache:
+  #make the cache stable between builds by removing build output
+  - rm -rf $HOME/.m2/repository/com/facebook
+
 notifications:
   slack:
     secure: V5eyoGShxFoCcYJcp858vf/T6gC9KeMxL0C1EElcpZRcKBrIVZzvhek3HLHxZOxlghqnvNVsyDtU3u5orkEaAXeXj5c2dN+4XBsAB9oeN5MtQ0Z3VLAhZDqKIW1LzcXrq4DpzM0PkGhjfjum/P94/qFYk0UckPtB6a341AuYRo8=
