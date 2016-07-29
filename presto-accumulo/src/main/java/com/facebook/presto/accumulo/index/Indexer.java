@@ -109,6 +109,7 @@ public class Indexer
     private static final TypedValueCombiner.Encoder<Long> ENCODER = new LongCombiner.StringEncoder();
     private static final byte[] EMPTY_BYTES = new byte[0];
     private static final byte UNDERSCORE = '_';
+    private static final ColumnVisibility EMPTY_COLUMN_VISIBILITY = new ColumnVisibility();
 
     private final AccumuloTable table;
     private final BatchWriter indexWriter;
@@ -182,7 +183,7 @@ public class Indexer
 
         // Increment the cardinality for the number of rows in the table
         ColumnVisibility rowVisibility = new ColumnVisibility(mutation.getUpdates().stream().findAny().get().getColumnVisibility());
-        incrementMetric(METRICS_TABLE_ROW_ID, METRICS_TABLE_ROWS_CF, rowVisibility);
+        incrementMetric(METRICS_TABLE_ROW_ID, METRICS_TABLE_ROWS_CF, EMPTY_COLUMN_VISIBILITY);
 
         // For each column update in this mutation
         for (ColumnUpdate columnUpdate : mutation.getUpdates()) {

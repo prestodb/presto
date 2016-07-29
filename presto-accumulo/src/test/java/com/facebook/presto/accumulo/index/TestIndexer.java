@@ -257,8 +257,7 @@ public class TestIndexer
         iter = scan.iterator();
         assertKeyValuePair(iter.next(), AGE_VALUE, "cf_age", "___card___", "1");
         assertKeyValuePair(iter.next(), AGE_VALUE, "cf_age", "___card___", "private", "1");
-        assertKeyValuePair(iter.next(), Indexer.METRICS_TABLE_ROW_ID.array(), "___rows___", "___card___", "1");
-        assertKeyValuePair(iter.next(), Indexer.METRICS_TABLE_ROW_ID.array(), "___rows___", "___card___", "private", "1");
+        assertKeyValuePair(iter.next(), Indexer.METRICS_TABLE_ROW_ID.array(), "___rows___", "___card___", "2");
         assertKeyValuePair(iter.next(), bytes("abc"), "cf_arr", "___card___", "1");
         assertKeyValuePair(iter.next(), bytes("abc"), "cf_arr", "___card___", "private", "1");
         assertKeyValuePair(iter.next(), M1_FNAME_VALUE, "cf_firstname", "___card___", "1");
@@ -302,9 +301,7 @@ public class TestIndexer
         assertKeyValuePair(iter.next(), AGE_VALUE, "cf_age", "___card___", "1");
         assertKeyValuePair(iter.next(), AGE_VALUE, "cf_age", "___card___", "moreprivate", "1");
         assertKeyValuePair(iter.next(), AGE_VALUE, "cf_age", "___card___", "private", "1");
-        assertKeyValuePair(iter.next(), Indexer.METRICS_TABLE_ROW_ID.array(), "___rows___", "___card___", "1");
-        assertKeyValuePair(iter.next(), Indexer.METRICS_TABLE_ROW_ID.array(), "___rows___", "___card___", "moreprivate", "1");
-        assertKeyValuePair(iter.next(), Indexer.METRICS_TABLE_ROW_ID.array(), "___rows___", "___card___", "private", "1");
+        assertKeyValuePair(iter.next(), Indexer.METRICS_TABLE_ROW_ID.array(), "___rows___", "___card___", "3");
         assertKeyValuePair(iter.next(), bytes("abc"), "cf_arr", "___card___", "1");
         assertKeyValuePair(iter.next(), bytes("abc"), "cf_arr", "___card___", "private", "1");
         assertKeyValuePair(iter.next(), M1_FNAME_VALUE, "cf_firstname", "___card___", "1");
@@ -346,7 +343,7 @@ public class TestIndexer
         scan.addScanIterator(setting);
         Iterator<Entry<Key, Value>> iter = scan.iterator();
         assertTrue(iter.hasNext());
-        assertEquals(iter.next().getValue().get(), "6".getBytes(UTF_8));
+        assertEquals(iter.next().getValue().get(), "8".getBytes(UTF_8));
         assertFalse(iter.hasNext());
 
         scan.close();
@@ -355,7 +352,7 @@ public class TestIndexer
         scan.addScanIterator(setting);
         iter = scan.iterator();
         assertTrue(iter.hasNext());
-        assertEquals(iter.next().getValue().get(), "12".getBytes(UTF_8));
+        assertEquals(iter.next().getValue().get(), "13".getBytes(UTF_8));
         assertFalse(iter.hasNext());
 
         scan.close();
