@@ -14,7 +14,9 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.spi.block.resource.BlockResourceContext;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -83,11 +85,26 @@ public class DriverContext
     private final List<OperatorContext> operatorContexts = new CopyOnWriteArrayList<>();
     private final boolean partitioned;
 
+    private final BlockResourceContext blockResourceContext;
+
     public DriverContext(PipelineContext pipelineContext, Executor executor, boolean partitioned)
     {
         this.pipelineContext = requireNonNull(pipelineContext, "pipelineContext is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.partitioned = partitioned;
+        this.blockResourceContext = createBlockResourceContext(getSession());
+    }
+
+    private BlockResourceContext createBlockResourceContext(Session session)
+    {
+        Boolean spill = session.getProperty("spill", Boolean.class);
+        if (spill == null || !spill) {
+            return null;
+        }
+        else {
+//            String spillDir = session.getProperty("spillDir", String.class);
+            return new SpillBlockResourceContext("/tmp/presto", getTaskId().toString());
+        }
     }
 
     public TaskId getTaskId()
@@ -459,5 +476,10 @@ public class DriverContext
         {
             return nanosBetween(start, System.nanoTime());
         }
+    }
+
+    public BlockResourceContext getBlockResourceContext()
+    {
+        return blockResourceContext;
     }
 }

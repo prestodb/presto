@@ -38,6 +38,7 @@ import static java.lang.String.format;
 
 public final class SystemSessionProperties
 {
+    public static final String SPILL = "spill";
     public static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
     public static final String DISTRIBUTED_JOIN = "distributed_join";
     public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
@@ -219,6 +220,11 @@ public final class SystemSessionProperties
                         COLOCATED_JOIN,
                         "Experimental: Use a colocated join when possible",
                         featuresConfig.isColocatedJoinsEnabled(),
+                        false),
+                booleanSessionProperty(
+                        SPILL,
+                        "Experimental: Enable spill",
+                        featuresConfig.isSpillEnabled(),
                         false));
     }
 
@@ -342,5 +348,10 @@ public final class SystemSessionProperties
     public static Duration getQueryMaxCpuTime(Session session)
     {
         return session.getProperty(QUERY_MAX_CPU_TIME, Duration.class);
+    }
+    
+    public static boolean isSpillEnable(Session session)
+    {
+        return session.getProperty(SPILL, Boolean.class);
     }
 }

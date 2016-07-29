@@ -45,14 +45,22 @@ public class ResourceVariableWidthBlock
     public static ResourceVariableWidthBlock convert(VariableWidthBlock variableWidthBlock, BlockResourceContext resourceContext)
     {
         int positionCount = variableWidthBlock.positionCount;
-        Slice slice = resourceContext.copyOf(variableWidthBlock.slice, variableWidthBlock.arrayOffset, positionCount);
-        BooleanArray newValueIsNull = resourceContext.newBooleanArray(positionCount);
-        IntArray newOffsets = resourceContext.newIntArray(positionCount);
-        for (int p = 0; p < positionCount; p++) {
-            newOffsets.set(p, variableWidthBlock.getPositionOffset(p));
-            newValueIsNull.set(p, variableWidthBlock.isEntryNull(p));
+        int arrayOffset = variableWidthBlock.arrayOffset;
+        int[] offsets = variableWidthBlock.offsets;
+        boolean[] valueIsNull = variableWidthBlock.valueIsNull;
+        Slice slice = variableWidthBlock.slice;
+
+        Slice newSlice = resourceContext.copyOfSlice(slice);
+        BooleanArray newValueIsNull = resourceContext.newBooleanArray(valueIsNull.length);
+        IntArray newOffsets = resourceContext.newIntArray(offsets.length);
+
+        for (int i = 0; i < offsets.length; i++) {
+            newOffsets.set(i, offsets[i]);
         }
-        return new ResourceVariableWidthBlock(variableWidthBlock.positionCount, slice, newOffsets, newValueIsNull, resourceContext);
+        for (int i = 0; i < valueIsNull.length; i++) {
+            newValueIsNull.set(i, valueIsNull[i]);
+        }
+        return new ResourceVariableWidthBlock(arrayOffset, positionCount, newSlice, newOffsets, newValueIsNull, resourceContext);
     }
 
     public ResourceVariableWidthBlock(int positionCount, Slice slice, IntArray offsets, BooleanArray valueIsNull, BlockResourceContext resourceContext)
@@ -87,7 +95,7 @@ public class ResourceVariableWidthBlock
         this.valueIsNull = valueIsNull;
 
         sizeInBytes = intSaturatedCast(slice.length() + ((Integer.BYTES + Byte.BYTES) * (long) positionCount));
-        retainedSizeInBytes = intSaturatedCast(INSTANCE_SIZE + slice.getRetainedSize() + valueIsNull.sizeOf() + offsets.sizeOf());
+        retainedSizeInBytes = intSaturatedCast(INSTANCE_SIZE + slice.getRetainedSize() + valueIsNull.getRetainedSize() + offsets.getRetainedSize());
         this.resourceContext = resourceContext;
     }
 
@@ -186,7 +194,7 @@ public class ResourceVariableWidthBlock
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("VariableWidthBlock{");
+        StringBuilder sb = new StringBuilder("ResourceVariableWidthBlock{");
         sb.append("positionCount=").append(getPositionCount());
         sb.append(", slice=").append(slice);
         sb.append('}');

@@ -44,7 +44,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ExecutionError;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import it.unimi.dsi.fastutil.longs.LongArrayList;
+import com.facebook.presto.spi.block.array.LongArrayList;
 
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;

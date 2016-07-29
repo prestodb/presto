@@ -20,7 +20,7 @@ public interface IntArray
 
     int get(int position);
 
-    int sizeOf();
+    long getRetainedSize();
 
     void set(int position, int value);
 

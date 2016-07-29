@@ -28,6 +28,7 @@ import com.facebook.presto.operator.SimplePagesIndexComparator;
 import com.facebook.presto.operator.SyntheticAddress;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.block.array.LongArrayList;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
@@ -38,7 +39,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ExecutionError;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
-import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.List;

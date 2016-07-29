@@ -14,11 +14,14 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.ExceededMemoryLimitException;
+import com.facebook.presto.RowPagesBuilder;
+import com.facebook.presto.Session;
 import com.facebook.presto.operator.OrderByOperator.OrderByOperatorFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import org.testng.annotations.AfterMethod;
@@ -38,7 +41,9 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
+import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
@@ -190,5 +195,52 @@ public class TestOrderByOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         toPages(operator, input);
+    }
+
+    @Test
+    public void testSpill()
+            throws Exception
+    {
+        String s = createLongString(100);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(VARCHAR, VARCHAR);
+        for (int p = 0; p < 10; p++) {
+            for (int r = 0; r < 100000; r++) {
+                rowPagesBuilder.row(s, s);
+            }
+            rowPagesBuilder.pageBreak();
+        }
+        List<Page> input = rowPagesBuilder.build();
+        
+        Session session = testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema(TINY_SCHEMA_NAME)
+                .setSystemProperties(ImmutableMap.of("spill", "true"))
+                .build();
+
+        DriverContext driverContext = createTaskContext(executor, session, new DataSize(50000, Unit.BYTE))
+                .addPipelineContext(true, true)
+                .addDriverContext();
+
+        OrderByOperatorFactory operatorFactory = new OrderByOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(VARCHAR, VARCHAR),
+                ImmutableList.of(1),
+                10,
+                ImmutableList.of(0),
+                ImmutableList.of(ASC_NULLS_LAST));
+
+        Operator operator = operatorFactory.createOperator(driverContext);
+
+        toPages(operator, input);
+    }
+
+    private String createLongString(int length)
+    {
+        StringBuilder builder = new StringBuilder(length);
+        for (int i = 0; i < length; i++) {
+            builder.append('a');
+        }
+        return builder.toString();
     }
 }

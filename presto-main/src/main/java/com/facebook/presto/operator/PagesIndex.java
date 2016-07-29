@@ -15,9 +15,14 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.ResourceVariableWidthBlock;
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.block.VariableWidthBlock;
+import com.facebook.presto.spi.block.resource.BlockResourceContext;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.OrderingCompiler;
@@ -26,7 +31,7 @@ import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.Swapper;
-import it.unimi.dsi.fastutil.longs.LongArrayList;
+import com.facebook.presto.spi.block.array.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.List;
@@ -65,6 +70,8 @@ public class PagesIndex
     private final List<Type> types;
     private final LongArrayList valueAddresses;
     private final ObjectArrayList<Block>[] channels;
+    private final boolean spill;
+    private final BlockResourceContext resourceContext;
 
     private int nextBlockToCompact;
     private int positionCount;
@@ -73,9 +80,22 @@ public class PagesIndex
 
     public PagesIndex(List<Type> types, int expectedPositions)
     {
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
-        this.valueAddresses = new LongArrayList(expectedPositions);
+        this(types, expectedPositions, null);
+    }
 
+    public PagesIndex(List<Type> types, int expectedPositions, BlockResourceContext resourceContext)
+    {
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+
+        this.spill = resourceContext != null;
+        if (spill) {
+            this.valueAddresses = resourceContext.newLongArrayList(expectedPositions);
+        }
+        else {
+            this.valueAddresses = new LongArrayListNative(expectedPositions);
+        }
+
+        this.resourceContext = resourceContext;
         //noinspection rawtypes
         channels = (ObjectArrayList<Block>[]) new ObjectArrayList[types.size()];
         for (int i = 0; i < channels.length; i++) {
@@ -127,6 +147,9 @@ public class PagesIndex
         int pageIndex = (channels.length > 0) ? channels[0].size() : 0;
         for (int i = 0; i < channels.length; i++) {
             Block block = page.getBlock(i);
+            if (spill) {
+                block = spill(block);
+            }
             channels[i].add(block);
             pagesMemorySize += block.getRetainedSizeInBytes();
         }
@@ -137,6 +160,17 @@ public class PagesIndex
         }
 
         estimatedSize = calculateEstimatedSize();
+    }
+
+    private Block spill(Block block)
+    {
+        if (block == null) {
+            return null;
+        }
+        if (block instanceof VariableWidthBlock) {
+            return ResourceVariableWidthBlock.convert((VariableWidthBlock) block, resourceContext);
+        }
+        throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "Block type [" + block.getClass() + "] of block [" + block + "]");
     }
 
     public DataSize getEstimatedSize()
@@ -167,7 +201,7 @@ public class PagesIndex
     {
         long elementsSize = (channels.length > 0) ? sizeOf(channels[0].elements()) : 0;
         long channelsArraySize = elementsSize * channels.length;
-        long addressesArraySize = sizeOf(valueAddresses.elements());
+        long addressesArraySize = valueAddresses.sizeOf();
         return pagesMemorySize + channelsArraySize + addressesArraySize;
     }
 
@@ -179,10 +213,9 @@ public class PagesIndex
     @Override
     public void swap(int a, int b)
     {
-        long[] elements = valueAddresses.elements();
-        long temp = elements[a];
-        elements[a] = elements[b];
-        elements[b] = temp;
+        long temp = valueAddresses.getLong(a);
+        valueAddresses.setLong(a, valueAddresses.getLong(b));
+        valueAddresses.setLong(b, temp);
     }
 
     public int buildPage(int position, int[] outputChannels, PageBuilder pageBuilder)
@@ -296,9 +329,7 @@ public class PagesIndex
 
     private PagesIndexOrdering createPagesIndexComparator(List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
-        List<Type> sortTypes = sortChannels.stream()
-                .map(types::get)
-                .collect(toImmutableList());
+        List<Type> sortTypes = sortChannels.stream().map(types::get).collect(toImmutableList());
         return orderingCompiler.compilePagesIndexOrdering(sortTypes, sortChannels, sortOrders);
     }
 
@@ -315,8 +346,7 @@ public class PagesIndex
     public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, Optional<Integer> hashChannel, Optional<JoinFilterFunction> joinFilterFunction)
     {
         try {
-            return joinCompiler.compilePagesHashStrategyFactory(types, joinChannels)
-                    .createPagesHashStrategy(ImmutableList.copyOf(channels), hashChannel);
+            return joinCompiler.compilePagesHashStrategyFactory(types, joinChannels).createPagesHashStrategy(ImmutableList.copyOf(channels), hashChannel);
         }
         catch (Exception e) {
             log.error(e, "Lookup source compile failed for types=%s error=%s", types, e);
@@ -340,10 +370,7 @@ public class PagesIndex
             try {
                 LookupSourceFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels);
 
-                LookupSource lookupSource = lookupSourceFactory.createLookupSource(
-                        valueAddresses,
-                        ImmutableList.<List<Block>>copyOf(channels),
-                        hashChannel);
+                LookupSource lookupSource = lookupSourceFactory.createLookupSource(valueAddresses, ImmutableList.<List<Block>>copyOf(channels), hashChannel);
 
                 return lookupSource;
             }
@@ -366,10 +393,6 @@ public class PagesIndex
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("positionCount", positionCount)
-                .add("types", types)
-                .add("estimatedSize", estimatedSize)
-                .toString();
+        return toStringHelper(this).add("positionCount", positionCount).add("types", types).add("estimatedSize", estimatedSize).toString();
     }
 }

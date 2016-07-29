@@ -19,7 +19,7 @@ import com.facebook.presto.spi.block.Block;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.HashCommon;
-import it.unimi.dsi.fastutil.longs.LongArrayList;
+import com.facebook.presto.spi.block.array.LongArrayList;
 
 import java.util.Arrays;
 
@@ -116,7 +116,7 @@ public final class InMemoryJoinHash
             }
         }
 
-        size = sizeOf(addresses.elements()) + pagesHashStrategy.getSizeInBytes() +
+        size = addresses.sizeOf() + pagesHashStrategy.getSizeInBytes() +
                 sizeOf(key) + sizeOf(positionLinks) + sizeOf(positionToHashes);
     }
 

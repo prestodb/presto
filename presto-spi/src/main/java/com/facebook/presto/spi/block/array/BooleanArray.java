@@ -20,7 +20,7 @@ public interface BooleanArray
 
     boolean get(int position);
 
-    int sizeOf();
+    long getRetainedSize();
 
     void set(int position, boolean value);
 

@@ -18,6 +18,7 @@ import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.JoinProbe;
 import com.facebook.presto.operator.JoinProbeFactory;
+import com.facebook.presto.operator.LongArrayListNative;
 import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.Page;
@@ -29,7 +30,7 @@ import com.facebook.presto.sql.gen.JoinCompiler.LookupSourceFactory;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import it.unimi.dsi.fastutil.longs.LongArrayList;
+import com.facebook.presto.spi.block.array.LongArrayList;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -72,7 +73,7 @@ public class TestJoinProbeCompiler
     @DataProvider(name = "hashEnabledValues")
     public static Object[][] hashEnabledValuesProvider()
     {
-        return new Object[][] { { true }, { false } };
+        return new Object[][] {{true}, {false}};
     }
 
     @Test(dataProvider = "hashEnabledValues")
@@ -85,11 +86,8 @@ public class TestJoinProbeCompiler
         LookupSourceFactory lookupSourceFactoryFactory = joinCompiler.compileLookupSourceFactory(types, Ints.asList(0));
 
         // crate hash strategy with a single channel blocks -- make sure there is some overlap in values
-        List<Block> channel = ImmutableList.of(
-                BlockAssertions.createStringSequenceBlock(10, 20),
-                BlockAssertions.createStringSequenceBlock(20, 30),
-                BlockAssertions.createStringSequenceBlock(15, 25));
-        LongArrayList addresses = new LongArrayList();
+        List<Block> channel = ImmutableList.of(BlockAssertions.createStringSequenceBlock(10, 20), BlockAssertions.createStringSequenceBlock(20, 30), BlockAssertions.createStringSequenceBlock(15, 25));
+        LongArrayList addresses = new LongArrayListNative();
         for (int blockIndex = 0; blockIndex < channel.size(); blockIndex++) {
             Block block = channel.get(blockIndex);
             for (int positionIndex = 0; positionIndex < block.getPositionCount(); positionIndex++) {

@@ -130,7 +130,7 @@ public class OrderByOperator
         this.sortChannels = ImmutableList.copyOf(requireNonNull(sortChannels, "sortChannels is null"));
         this.sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
 
-        this.pageIndex = new PagesIndex(sourceTypes, expectedPositions);
+        this.pageIndex = new PagesIndex(sourceTypes, expectedPositions, operatorContext.getBlockResourceContext());
 
         this.pageBuilder = new PageBuilder(this.types);
     }
@@ -177,6 +177,7 @@ public class OrderByOperator
         requireNonNull(page, "page is null");
 
         pageIndex.addPage(page);
+        System.out.println("bytes:" + pageIndex.getEstimatedSize().toBytes());
         operatorContext.setMemoryReservation(pageIndex.getEstimatedSize().toBytes());
     }
 
