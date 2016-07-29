@@ -163,7 +163,10 @@ public class RaptorPageSink
                 pageBuffer.getStoragePageSink().rollback();
             }
             catch (Throwable t) {
-                error.addSuppressed(t);
+                // Self-suppression not permitted
+                if (error != t) {
+                    error.addSuppressed(t);
+                }
             }
         }
         if (error.getSuppressed().length > 0) {
