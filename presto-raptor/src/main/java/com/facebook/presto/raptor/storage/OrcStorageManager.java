@@ -255,7 +255,10 @@ public class OrcStorageManager
                 dataSource.close();
             }
             catch (IOException ex) {
-                e.addSuppressed(ex);
+                // Self-suppression not permitted
+                if (e != ex) {
+                    e.addSuppressed(ex);
+                }
             }
             throw new PrestoException(RAPTOR_ERROR, "Failed to create page source for shard " + shardUuid, e);
         }

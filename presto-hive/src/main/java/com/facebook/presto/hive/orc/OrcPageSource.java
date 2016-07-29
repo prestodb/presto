@@ -326,7 +326,10 @@ public class OrcPageSource
             close();
         }
         catch (RuntimeException e) {
-            throwable.addSuppressed(e);
+            // Self-suppression not permitted
+            if (throwable != e) {
+                throwable.addSuppressed(e);
+            }
         }
     }
 

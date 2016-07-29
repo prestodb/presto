@@ -256,7 +256,10 @@ public class JdbcRecordCursor
             close();
         }
         catch (Exception closeException) {
-            e.addSuppressed(closeException);
+            // Self-suppression not permitted
+            if (e != closeException) {
+                e.addSuppressed(closeException);
+            }
         }
         return Throwables.propagate(e);
     }

@@ -394,7 +394,10 @@ public class SqlQueryScheduler
                 }
                 catch (Throwable t) {
                     queryStateMachine.transitionToFailed(t);
-                    closeError.addSuppressed(t);
+                    // Self-suppression not permitted
+                    if (closeError != t) {
+                        closeError.addSuppressed(t);
+                    }
                 }
             }
             if (closeError.getSuppressed().length > 0) {
