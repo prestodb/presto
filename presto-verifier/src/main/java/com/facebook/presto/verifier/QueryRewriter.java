@@ -21,6 +21,7 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
@@ -147,8 +148,26 @@ public class QueryRewriter
             throws SQLException
     {
         com.facebook.presto.sql.tree.Query createSelectClause = createTableAsSelect.getQuery();
+
         // Rewrite the query to select zero rows, so that we can get the column names and types
-        com.facebook.presto.sql.tree.Query zeroRowsQuery = new com.facebook.presto.sql.tree.Query(createSelectClause.getWith(), createSelectClause.getQueryBody(), ImmutableList.of(), Optional.of("0"), createSelectClause.getApproximate());
+        QueryBody innerQuery = createSelectClause.getQueryBody();
+        com.facebook.presto.sql.tree.Query zeroRowsQuery;
+        if (innerQuery instanceof QuerySpecification) {
+            QuerySpecification querySpecification = (QuerySpecification) innerQuery;
+            innerQuery = new QuerySpecification(
+                    querySpecification.getSelect(),
+                    querySpecification.getFrom(),
+                    querySpecification.getWhere(),
+                    querySpecification.getGroupBy(),
+                    querySpecification.getHaving(),
+                    querySpecification.getOrderBy(),
+                    Optional.of("0"));
+
+            zeroRowsQuery = new com.facebook.presto.sql.tree.Query(createSelectClause.getWith(), innerQuery, ImmutableList.of(), Optional.empty(), createSelectClause.getApproximate());
+        }
+        else {
+            zeroRowsQuery = new com.facebook.presto.sql.tree.Query(createSelectClause.getWith(), innerQuery, ImmutableList.of(), Optional.of("0"), createSelectClause.getApproximate());
+        }
 
         ImmutableList.Builder<Column> columns = ImmutableList.builder();
         try (java.sql.Statement jdbcStatement = connection.createStatement()) {
