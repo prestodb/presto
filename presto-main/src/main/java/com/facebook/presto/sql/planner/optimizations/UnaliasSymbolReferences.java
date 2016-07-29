@@ -27,6 +27,7 @@ import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
+import com.facebook.presto.sql.planner.plan.EnforceUniqueColumns;
 import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -420,6 +421,14 @@ public class UnaliasSymbolReferences
             PlanNode source = context.rewrite(node.getSource());
 
             return new EnforceSingleRowNode(node.getId(), source);
+        }
+
+        @Override
+        public PlanNode visitEnforceUniqueColumns(EnforceUniqueColumns node, RewriteContext<Void> context)
+        {
+            PlanNode source = context.rewrite(node.getSource());
+
+            return new EnforceUniqueColumns(node.getId(), source, node.getMostSigBitsSymbol(), node.getLeastSigBitsSymbol());
         }
 
         @Override

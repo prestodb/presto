@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
+import com.facebook.presto.sql.planner.plan.EnforceUniqueColumns;
 import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -552,6 +553,16 @@ public final class ValidateDependenciesChecker
         }
 
         public Void visitEnforceSingleRow(EnforceSingleRowNode node, List<Symbol> correlation)
+        {
+            node.getSource().accept(this, correlation); // visit child
+
+            verifyUniqueId(node);
+
+            return null;
+        }
+
+        @Override
+        public Void visitEnforceUniqueColumns(EnforceUniqueColumns node, List<Symbol> correlation)
         {
             node.getSource().accept(this, correlation); // visit child
 

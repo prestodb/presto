@@ -21,6 +21,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
+import com.facebook.presto.sql.planner.plan.EnforceUniqueColumns;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
@@ -465,6 +466,15 @@ public final class GraphvizPrinter
 
             node.getInput().accept(this, context);
             node.getSubquery().accept(this, context);
+
+            return null;
+        }
+
+        @Override
+        public Void visitEnforceUniqueColumns(EnforceUniqueColumns node, Void context)
+        {
+            printNode(node, "Unique", NODE_COLORS.get(NodeType.PROJECT));
+            node.getSource().accept(this, context);
 
             return null;
         }
