@@ -828,4 +828,70 @@ public final class MathFunctions
 
         return Math.sqrt(norm);
     }
+
+    @ScalarFunction
+    @Description("binomial confidence interval lower bound using Wilson score")
+    @Nullable
+    @SqlType("double")
+    public static Double wilsonIntervalLower(@SqlType(StandardTypes.DOUBLE) double pos, @SqlType(StandardTypes.DOUBLE) double neg, @SqlType(StandardTypes.DOUBLE) double z)
+    {
+        if (pos < 0 || neg < 0 || z < 0) {
+            return null;
+        }
+
+        if (pos + neg == 0) {
+            return 0.0;
+        }
+
+        double n = pos + neg;
+        double pHat = pos / n;
+
+        double mean = pHat + z * z / (2 * n);
+        double denom = 1 + z * z / n;
+        double err = z * Math.sqrt(pHat * (1 - pHat) / n + z * z / (4 * n * n));
+
+        return (mean - err) / denom;
+    }
+
+    @ScalarFunction
+    @Description("binomial confidence interval lower bound using Wilson score")
+    @Nullable
+    @SqlType("double")
+    public static Double wilsonIntervalLower(@SqlType(StandardTypes.DOUBLE) double pos, @SqlType(StandardTypes.DOUBLE) double neg)
+    {
+        return wilsonIntervalLower(pos, neg, 1.96);
+    }
+
+    @ScalarFunction
+    @Description("binomial confidence interval upper bound using Wilson score")
+    @Nullable
+    @SqlType("double")
+    public static Double wilsonIntervalUpper(@SqlType(StandardTypes.DOUBLE) double pos, @SqlType(StandardTypes.DOUBLE) double neg, @SqlType(StandardTypes.DOUBLE) double z)
+    {
+        if (pos < 0 || neg < 0 || z < 0) {
+            return null;
+        }
+
+        if (pos + neg == 0) {
+            return 1.0;
+        }
+
+        double n = pos + neg;
+        double pHat = pos / n;
+
+        double mean = pHat + z * z / (2 * n);
+        double denom = 1 + z * z / n;
+        double err = z * Math.sqrt(pHat * (1 - pHat) / n + z * z / (4 * n * n));
+
+        return (mean + err) / denom;
+    }
+
+    @ScalarFunction
+    @Description("binomial confidence interval upper bound using Wilson score")
+    @Nullable
+    @SqlType("double")
+    public static Double wilsonIntervalUpper(@SqlType(StandardTypes.DOUBLE) double pos, @SqlType(StandardTypes.DOUBLE) double neg)
+    {
+        return wilsonIntervalUpper(pos, neg, 1.96);
+    }
 }

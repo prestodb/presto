@@ -933,4 +933,13 @@ public class TestMathFunctions
                 DOUBLE,
                 null);
     }
+
+    @Test
+    public void testWilsonInterval()
+    {
+        assertFunction("wilson_interval_lower(1250.0, 60.0, 2.575)", DOUBLE, 0.9369002233452149);
+        assertFunction("wilson_interval_lower(1250.0, 60.0)", DOUBLE, 0.9414883725395894);
+        assertFunction("wilson_interval_upper(1250.0, 60.0, 2.575)", DOUBLE, 0.9669219857120901);
+        assertFunction("wilson_interval_upper(1250.0, 60.0)", DOUBLE, 0.9642524717143908);
+    }
 }
