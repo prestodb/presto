@@ -179,4 +179,9 @@ public class PlanVisitor<C, R>
     {
         return visitPlan(node, context);
     }
+
+    public R visitEnforceUniqueColumns(EnforceUniqueColumns node, C context)
+    {
+        return visitPlan(node, context);
+    }
 }
