@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimeType.TIME;
@@ -370,5 +371,12 @@ public abstract class TestTimestampWithTimeZoneBase
                 "least(TIMESTAMP '2001-01-02 03:04:05.321 +07:09', TIMESTAMP '2001-01-02 01:04:05.321 +02:09')",
                 TIMESTAMP_WITH_TIME_ZONE,
                 new SqlTimestampWithTimeZone(new DateTime(2001, 1, 2, 3, 4, 5, 321, WEIRD_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
+    }
+
+    @Test
+    public void testIndeterminate()
+    {
+        assertOperator(INDETERMINATE, "cast(null as TIMESTAMP WITH TIME ZONE)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "TIMESTAMP '2001-01-02 01:04:05.321 +02:09'", BOOLEAN, false);
     }
 }

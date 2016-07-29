@@ -17,6 +17,7 @@ import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -128,5 +129,12 @@ public class TestIpAddressOperators
 
         assertFunction("IPADDRESS '::1' BETWEEN IPADDRESS '::' AND IPADDRESS '::1234'", BOOLEAN, true);
         assertFunction("IPADDRESS '::2222' BETWEEN IPADDRESS '::' AND IPADDRESS '::1234'", BOOLEAN, false);
+    }
+
+    @Test
+    public void testIndeterminate()
+    {
+        assertOperator(INDETERMINATE, "CAST(null AS IPADDRESS)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "IPADDRESS '::2222'", BOOLEAN, false);
     }
 }

@@ -38,6 +38,7 @@ import java.util.Map;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
@@ -965,6 +966,30 @@ public class TestMapOperators
                 "map_entries(map_from_entries(ARRAY[(1, 'x'), (2, 'y'), (3, 'z')]))",
                 entryType(INTEGER, createVarcharType(1)),
                 ImmutableList.of(ImmutableList.of(1, "x"), ImmutableList.of(2, "y"), ImmutableList.of(3, "z")));
+    }
+
+    @Test
+    public void testIndeterminate()
+    {
+        assertOperator(INDETERMINATE, "cast(null as map(bigint, bigint))", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "map(array[1,2], array[3,4])", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "map(array[1,2], array[1.0,2.0])", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "map(array[1,2], array[null, 3])", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "map(array[1,2], array[null, 3.0])", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "map(array[1,2], array[array[11], array[22]])", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "map(array[1,2], array[array[11], array[null]])", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "map(array[1,2], array[array[11], array[22,null]])", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "map(array[1,2], array[array[11, null], array[22,null]])", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "map(array[1,2], array[array[null], array[null]])", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "map(array[array[1], array[2]], array[array[11], array[22]])", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "map(array[row(1), row(2)], array[array[11], array[22]])", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "map(array[row(1), row(2)], array[array[11], array[22, null]])", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "map(array[1E0, 2E0], array[11E0, null])", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "map(array[1E0, 2E0], array[11E0, 12E0])", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "map(array['a', 'b'], array['c', null])", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "map(array['a', 'b'], array['c', 'd'])", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "map(array[true,false], array[false,true])", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "map(array[true,false], array[false,null])", BOOLEAN, true);
     }
 
     @Test

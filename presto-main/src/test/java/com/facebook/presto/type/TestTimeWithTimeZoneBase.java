@@ -21,6 +21,7 @@ import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
@@ -230,5 +231,12 @@ public abstract class TestTimeWithTimeZoneBase
         assertFunction("cast(TIME '03:04:05.321 +07:09' as varchar)", VARCHAR, "03:04:05.321 +07:09");
         assertFunction("cast(TIME '03:04:05 +07:09' as varchar)", VARCHAR, "03:04:05.000 +07:09");
         assertFunction("cast(TIME '03:04 +07:09' as varchar)", VARCHAR, "03:04:00.000 +07:09");
+    }
+
+    @Test
+    public void testIndeterminate()
+    {
+        assertOperator(INDETERMINATE, "cast(null as TIME WITH TIME ZONE)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "TIME '03:04:05 +07:09'", BOOLEAN, false);
     }
 }

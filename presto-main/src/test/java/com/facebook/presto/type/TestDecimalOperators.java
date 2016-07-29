@@ -18,6 +18,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 
@@ -826,5 +827,16 @@ public class TestDecimalOperators
         assertFunction("coalesce(cast(null as decimal(17,3)), null, cast(null as decimal(12,3)))", createDecimalType(17, 3), null);
         assertDecimalFunction("coalesce(3, 2.1, null, cast(null as decimal(6,3)))", decimal("0000000003.000"));
         assertFunction("coalesce(cast(null as decimal(17,3)), null, cast(null as decimal(12,3)))", createDecimalType(17, 3), null);
+    }
+
+    @Test
+    public void testIndeterminate()
+    {
+        assertOperator(INDETERMINATE, "cast(null as DECIMAL)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "cast(null as DECIMAL(37,3))", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "DECIMAL '.999'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "DECIMAL '18'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "DECIMAL '9.0'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "DECIMAL '12345678901234567.89012345678901234567'", BOOLEAN, false);
     }
 }

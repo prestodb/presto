@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimeType.TIME;
@@ -259,5 +260,12 @@ public abstract class TestTimestampBase
         assertFunction("least(TIMESTAMP '2013-03-30 01:05', TIMESTAMP '2012-03-30 01:05', TIMESTAMP '2012-05-01 01:05')",
                 TIMESTAMP,
                 sqlTimestampOf(2012, 3, 30, 1, 5, 0, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+    }
+
+    @Test
+    public void testIndeterminate()
+    {
+        assertOperator(INDETERMINATE, "cast(null as TIMESTAMP)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "TIMESTAMP '2012-03-30 01:05'", BOOLEAN, false);
     }
 }

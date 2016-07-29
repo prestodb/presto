@@ -23,7 +23,9 @@ import org.testng.annotations.Test;
 import java.util.Base64;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
@@ -420,6 +422,13 @@ public class TestVarbinaryFunctions
         assertFunction("hmac_sha512(CAST('hashme' AS VARBINARY), CAST('key' AS VARBINARY))",
                 VARBINARY, sqlVarbinaryHex("FEFA712B67DED871E1ED987F8B20D6A69EB9FCC87974218B9A1A6D5202B54C18" +
                         "ECDA4839A979DED22F07E0881CF40B762691992D120408F49D6212E112509D72"));
+    }
+
+    @Test
+    public void testIndeterminate()
+    {
+        assertOperator(INDETERMINATE, "cast(null as varbinary)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "X'58'", BOOLEAN, false);
     }
 
     private static String encodeBase64(byte[] value)

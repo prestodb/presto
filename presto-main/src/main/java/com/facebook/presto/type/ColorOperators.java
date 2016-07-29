@@ -20,6 +20,7 @@ import com.facebook.presto.spi.type.StandardTypes;
 
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 
@@ -65,5 +66,12 @@ public final class ColorOperators
             return false;
         }
         return notEqual(left, right);
+    }
+
+    @ScalarOperator(INDETERMINATE)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean indeterminate(@SqlType(ColorType.NAME) long value, @IsNull boolean isNull)
+    {
+        return isNull;
     }
 }
