@@ -32,8 +32,7 @@ public enum AccumuloErrorCode
     NOT_SUPPORTED(1, USER_ERROR),
 
     // Thrown when an Accumulo error is caught that we were not expecting,
-    // such as when a create table operation fails (even though we know it will succeed
-    // due to our validation steps)
+    // such as when a create table operation fails (even though we know it will succeed due to our validation steps)
     UNEXPECTED_ACCUMULO_ERROR(2, EXTERNAL),
 
     // Thrown when a ZooKeeper error is caught due to a failed operation

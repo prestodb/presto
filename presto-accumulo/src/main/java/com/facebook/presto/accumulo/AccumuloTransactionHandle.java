@@ -54,8 +54,8 @@ public class AccumuloTransactionHandle
         if ((obj == null) || (getClass() != obj.getClass())) {
             return false;
         }
-        AccumuloTransactionHandle other = (AccumuloTransactionHandle) obj;
-        return Objects.equals(uuid, other.uuid);
+
+        return Objects.equals(uuid, ((AccumuloTransactionHandle) obj).uuid);
     }
 
     @Override
@@ -67,8 +67,6 @@ public class AccumuloTransactionHandle
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("uuid", uuid)
-                .toString();
+        return toStringHelper(this).add("uuid", uuid).toString();
     }
 }

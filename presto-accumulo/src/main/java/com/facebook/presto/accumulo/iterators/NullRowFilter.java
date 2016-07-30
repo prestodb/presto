@@ -26,6 +26,8 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
+import static java.lang.String.format;
+
 public class NullRowFilter
         extends RowFilter
         implements OptionDescriber
@@ -62,25 +64,19 @@ public class NullRowFilter
     @Override
     public SortedKeyValueIterator<Key, Value> deepCopy(IteratorEnvironment env)
     {
-        // Create a new SingleColumnValueFilter object based on the parent's
-        // deepCopy
         NullRowFilter copy = new NullRowFilter();
-
-        // Replicate all of the current options into the copy
         copy.columnFamily = new Text(this.columnFamily);
         copy.columnQualifier = new Text(this.columnQualifier);
-
-        // Return the copy
         return copy;
     }
 
     @Override
     public IteratorOptions describeOptions()
     {
-        return new IteratorOptions("singlecolumnvaluefilter", "Filter accepts or rejects each Key/Value pair based on the lexicographic comparison of a value stored in a single column family/qualifier",
-                // @formatter:off
-        ImmutableMap.<String, String>builder().put(FAMILY, "column family to match on, required").put(QUALIFIER, "column qualifier to match on, required").build(),
-        // @formatter:on
+        return new IteratorOptions(
+                "singlecolumnvaluefilter",
+                "Filter accepts or rejects each Key/Value pair based on the lexicographic comparison of a value stored in a single column family/qualifier",
+                ImmutableMap.of(FAMILY, "column family to match on, required", QUALIFIER, "column qualifier to match on, required"),
                 null);
     }
 
@@ -89,7 +85,6 @@ public class NullRowFilter
     {
         checkNotNull(FAMILY, options);
         checkNotNull(QUALIFIER, options);
-
         return true;
     }
 
@@ -103,16 +98,14 @@ public class NullRowFilter
     public static Map<String, String> getProperties(String family, String qualifier)
     {
         Map<String, String> opts = new HashMap<>();
-
         opts.put(FAMILY, family);
         opts.put(QUALIFIER, qualifier);
-
         return opts;
     }
 
     @Override
     public String toString()
     {
-        return String.format("NullRowFilter{columnFamily=%s,columnQualifier=%s}", columnFamily, columnQualifier);
+        return format("NullRowFilter{columnFamily=%s,columnQualifier=%s}", columnFamily, columnQualifier);
     }
 }

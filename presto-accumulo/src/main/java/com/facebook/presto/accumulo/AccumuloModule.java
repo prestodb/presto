@@ -48,7 +48,9 @@ public class AccumuloModule
     private final String connectorId;
     private final TypeManager typeManager;
 
-    public AccumuloModule(String connectorId, TypeManager typeManager)
+    public AccumuloModule(
+            String connectorId,
+            TypeManager typeManager)
     {
         this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");

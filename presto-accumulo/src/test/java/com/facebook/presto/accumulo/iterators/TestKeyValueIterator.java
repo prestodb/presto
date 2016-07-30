@@ -25,7 +25,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -33,21 +32,20 @@ import java.util.Map;
 public class TestKeyValueIterator
         implements SortedKeyValueIterator<Key, Value>
 {
-    private List<Pair<Key, Value>> keyValues = new ArrayList<>();
+    private final List<Pair<Key, Value>> keyValues = new ArrayList<>();
     private Iterator<Pair<Key, Value>> iter = null;
     private Pair<Key, Value> currKVP;
 
-    public TestKeyValueIterator()
-    {}
+    public TestKeyValueIterator() {}
 
     public TestKeyValueIterator(Key k, Value v)
     {
-        keyValues.add(new Pair<Key, Value>(k, v));
+        keyValues.add(new Pair<>(k, v));
     }
 
     public TestKeyValueIterator add(Key k, Value v)
     {
-        keyValues.add(new Pair<Key, Value>(k, v));
+        keyValues.add(new Pair<>(k, v));
         return this;
     }
 
@@ -73,14 +71,7 @@ public class TestKeyValueIterator
     public boolean hasTop()
     {
         if (iter == null) {
-            Collections.sort(keyValues, new Comparator<Pair<Key, Value>>()
-            {
-                @Override
-                public int compare(Pair<Key, Value> o1, Pair<Key, Value> o2)
-                {
-                    return o1.getFirst().compareTo(o2.getFirst());
-                }
-            });
+            Collections.sort(keyValues, (Pair<Key, Value> o1, Pair<Key, Value> o2) -> o1.getFirst().compareTo(o2.getFirst()));
 
             iter = keyValues.iterator();
             if (iter.hasNext()) {
@@ -91,11 +82,7 @@ public class TestKeyValueIterator
             return false;
         }
 
-        if (currKVP != null) {
-            return true;
-        }
-
-        return false;
+        return currKVP != null;
     }
 
     @Override

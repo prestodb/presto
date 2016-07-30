@@ -16,7 +16,6 @@ package com.facebook.presto.accumulo;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.AfterClass;
 
 import static org.testng.Assert.assertEquals;
 
@@ -26,13 +25,7 @@ public class TestAccumuloIntegrationSmokeTest
     public TestAccumuloIntegrationSmokeTest()
             throws Exception
     {
-        super(AccumuloQueryRunner.createAccumuloQueryRunner(ImmutableMap.of(), true));
-    }
-
-    @AfterClass
-    public void cleanup()
-    {
-        AccumuloQueryRunner.dropTpchTables(queryRunner, getSession());
+        super(AccumuloQueryRunner.createAccumuloQueryRunner(ImmutableMap.of()));
     }
 
     @Override

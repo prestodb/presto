@@ -28,6 +28,8 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
+import static java.lang.String.format;
+
 public class SingleColumnValueFilter
         extends RowFilter
         implements OptionDescriber
@@ -100,7 +102,6 @@ public class SingleColumnValueFilter
             value = new Value(Hex.decodeHex(options.get(VALUE).toCharArray()));
         }
         catch (DecoderException e) {
-            // should not occur, as validateOptions tries this same thing
             throw new IllegalArgumentException("Error decoding hex value in option", e);
         }
     }
@@ -108,27 +109,29 @@ public class SingleColumnValueFilter
     @Override
     public SortedKeyValueIterator<Key, Value> deepCopy(IteratorEnvironment env)
     {
-        // Create a new SingleColumnValueFilter object based on the parent's
-        // deepCopy
         SingleColumnValueFilter copy = new SingleColumnValueFilter();
-
-        // Replicate all of the current options into the copy
         copy.columnFamily = new Text(this.columnFamily);
         copy.columnQualifier = new Text(this.columnQualifier);
         copy.value = new Value(this.value);
         copy.compareOp = this.compareOp;
-
-        // Return the copy
         return copy;
     }
 
     @Override
     public IteratorOptions describeOptions()
     {
-        return new IteratorOptions("singlecolumnvaluefilter", "Filter accepts or rejects each Key/Value pair based on the lexicographic comparison of a value stored in a single column family/qualifier",
-                // @formatter:off
-        ImmutableMap.<String, String>builder().put(FAMILY, "column family to match on, required").put(QUALIFIER, "column qualifier to match on, required").put(COMPARE_OP, "CompareOp enum type for lexicographic comparison, required").put(VALUE, "Hex-encoded bytes of the value for comparison, required").build(),
-        // @formatter:on
+        return new IteratorOptions(
+                "singlecolumnvaluefilter",
+                "Filter accepts or rejects each Key/Value pair based on the lexicographic comparison of a value stored in a single column family/qualifier",
+                ImmutableMap.of(
+                        FAMILY,
+                        "column family to match on, required",
+                        QUALIFIER,
+                        "column qualifier to match on, required",
+                        COMPARE_OP,
+                        "CompareOp enum type for lexicographic comparison, required",
+                        VALUE,
+                        "Hex-encoded bytes of the value for comparison, required"),
                 null);
     }
 
@@ -168,18 +171,16 @@ public class SingleColumnValueFilter
     public static Map<String, String> getProperties(String family, String qualifier, CompareOp op, byte[] value)
     {
         Map<String, String> opts = new HashMap<>();
-
         opts.put(FAMILY, family);
         opts.put(QUALIFIER, qualifier);
         opts.put(COMPARE_OP, op.toString());
         opts.put(VALUE, Hex.encodeHexString(value));
-
         return opts;
     }
 
     @Override
     public String toString()
     {
-        return String.format("SingleColumnValueFilter{columnFamily=%s,columnQualifier=%s,compareOp=%s,value=%s}", columnFamily, columnQualifier, compareOp, value);
+        return format("SingleColumnValueFilter{columnFamily=%s,columnQualifier=%s,compareOp=%s,value=%s}", columnFamily, columnQualifier, compareOp, value);
     }
 }

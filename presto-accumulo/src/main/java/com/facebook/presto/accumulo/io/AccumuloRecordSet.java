@@ -44,8 +44,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Implementation of a Presto RecordSet, responsible for returning the column types and the
- * RecordCursor to the framework.
+ * Implementation of a Presto RecordSet, responsible for returning the column types and the RecordCursor to the framework.
  *
  * @see AccumuloRecordCursor
  * @see AccumuloRecordSetProvider
@@ -63,15 +62,10 @@ public class AccumuloRecordSet
     private final BatchScanner scanner;
     private final String rowIdName;
 
-    /**
-     * Creates a new instance of {@link AccumuloRecordSet}
-     *
-     * @param session Current client session
-     * @param config Connector configuration
-     * @param split Split to process
-     * @param columnHandles Columns of the table
-     */
-    public AccumuloRecordSet(ConnectorSession session, AccumuloConfig config, AccumuloSplit split,
+    public AccumuloRecordSet(
+            ConnectorSession session,
+            AccumuloConfig config,
+            AccumuloSplit split,
             List<AccumuloColumnHandle> columnHandles)
     {
         requireNonNull(session, "session is null");
@@ -86,8 +80,7 @@ public class AccumuloRecordSet
             this.serializer = split.getSerializerClass().newInstance();
         }
         catch (Exception e) {
-            throw new PrestoException(VALIDATION,
-                    "Failed to factory serializer class.  Is it on the classpath?", e);
+            throw new PrestoException(VALIDATION, "Failed to factory serializer class.  Is it on the classpath?", e);
         }
 
         // Save off the column handles and createa list of the Accumulo types
@@ -101,21 +94,18 @@ public class AccumuloRecordSet
         try {
             // Create the BatchScanner and set the ranges from the split
             Connector conn = AccumuloClient.getAccumuloConnector(config);
-            scanner = conn.createBatchScanner(split.getFullTableName(),
-                    getScanAuthorizations(session, split, config, conn), 10);
+            scanner = conn.createBatchScanner(split.getFullTableName(), getScanAuthorizations(session, split, config, conn), 10);
             scanner.setRanges(split.getRanges());
         }
         catch (Exception e) {
-            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR,
-                    format("Failed to create batch scanner for table %s", split.getFullTableName()), e);
+            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, format("Failed to create batch scanner for table %s", split.getFullTableName()), e);
         }
     }
 
     /**
-     * Gets the scanner authorizations to use for scanning tables.<br>
-     * <br>
-     * In order of priority: session username authorizations, then table property, then the default
-     * connector auths
+     * Gets the scanner authorizations to use for scanning tables.
+     * <p>
+     * In order of priority: session username authorizations, then table property, then the default connector auths.
      *
      * @param session Current session
      * @param split Accumulo split
@@ -125,14 +115,12 @@ public class AccumuloRecordSet
      * @throws AccumuloException If a generic Accumulo error occurs
      * @throws AccumuloSecurityException If a security exception occurs
      */
-    private Authorizations getScanAuthorizations(ConnectorSession session, AccumuloSplit split,
-            AccumuloConfig config, Connector conn)
+    private Authorizations getScanAuthorizations(ConnectorSession session, AccumuloSplit split, AccumuloConfig config, Connector conn)
             throws AccumuloException, AccumuloSecurityException
     {
         String sessionScanUser = AccumuloSessionProperties.getScanUsername(session);
         if (sessionScanUser != null) {
-            Authorizations scanAuths =
-                    conn.securityOperations().getUserAuthorizations(sessionScanUser);
+            Authorizations scanAuths = conn.securityOperations().getUserAuthorizations(sessionScanUser);
             LOG.debug("Using session scanner auths for user %s: %s", sessionScanUser, scanAuths);
             return scanAuths;
         }
@@ -144,8 +132,7 @@ public class AccumuloRecordSet
             return auths;
         }
         else {
-            Authorizations auths =
-                    conn.securityOperations().getUserAuthorizations(config.getUsername());
+            Authorizations auths = conn.securityOperations().getUserAuthorizations(config.getUsername());
             LOG.debug("scan_auths table property not set, using user auths: %s", auths);
             return auths;
         }

@@ -28,36 +28,26 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-/**
- * Jackson object and an implementation of a Presto ColumnHandle. Encapsulates all data referring to
- * a column: name, Accumulo column mapping, type, ordinal, etc.
- */
 public final class AccumuloColumnHandle
         implements ColumnHandle, Comparable<AccumuloColumnHandle>
 {
     private final boolean indexed;
-    private String name;
     private final Optional<String> family;
     private final Optional<String> qualifier;
     private final Type type;
-    private int ordinal;
     private final String comment;
 
-    /**
-     * JSON Creator for a new {@link AccumuloColumnHandle} object
-     *
-     * @param name Presto column name
-     * @param family Accumulo column family, optional if column is row ID
-     * @param qualifier Accumulo column qualifier, optional if column is row ID
-     * @param type Presto type
-     * @param ordinal Ordinal of the column within the row
-     * @param comment Comment for the column
-     * @param indexed True if the column has entries in the index table, false otherwise
-     */
+    private String name;
+    private int ordinal;
+
     @JsonCreator
-    public AccumuloColumnHandle(@JsonProperty("name") String name, @JsonProperty("family") Optional<String> family,
-            @JsonProperty("qualifier") Optional<String> qualifier, @JsonProperty("type") Type type,
-            @JsonProperty("ordinal") int ordinal, @JsonProperty("comment") String comment,
+    public AccumuloColumnHandle(
+            @JsonProperty("name") String name,
+            @JsonProperty("family") Optional<String> family,
+            @JsonProperty("qualifier") Optional<String> qualifier,
+            @JsonProperty("type") Type type,
+            @JsonProperty("ordinal") int ordinal,
+            @JsonProperty("comment") String comment,
             @JsonProperty("indexed") boolean indexed)
     {
         this.name = requireNonNull(name, "name is null");
@@ -122,8 +112,6 @@ public final class AccumuloColumnHandle
     @JsonIgnore
     public ColumnMetadata getColumnMetadata()
     {
-        // TODO Partition key? Technically the row ID would be partitioned, not sure what this does
-        // for Presto, though.
         return new ColumnMetadata(name, type, comment, false);
     }
 
@@ -145,6 +133,7 @@ public final class AccumuloColumnHandle
         if (this == obj) {
             return true;
         }
+
         if ((obj == null) || (getClass() != obj.getClass())) {
             return false;
         }
@@ -162,9 +151,15 @@ public final class AccumuloColumnHandle
     @Override
     public String toString()
     {
-        return toStringHelper(this).add("name", name)
-                .add("columnFamily", family.orElse(null)).add("columnQualifier", qualifier.orElse(null)).add("type", type)
-                .add("ordinal", ordinal).add("comment", comment).add("indexed", indexed).toString();
+        return toStringHelper(this)
+                .add("name", name)
+                .add("columnFamily", family.orElse(null))
+                .add("columnQualifier", qualifier.orElse(null))
+                .add("type", type)
+                .add("ordinal", ordinal)
+                .add("comment", comment)
+                .add("indexed", indexed)
+                .toString();
     }
 
     @Override

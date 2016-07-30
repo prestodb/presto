@@ -40,8 +40,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Presto Connector for Accumulo. Defines several high-level classes for properties, metadata,
- * retrieving splits, providing I/O operations, etc.
+ * Presto Connector for Accumulo.
+ * Defines several high-level classes for properties, metadata, retrieving splits, providing I/O operations, etc.
  */
 public class AccumuloConnector
         implements Connector
@@ -55,24 +55,16 @@ public class AccumuloConnector
     private final AccumuloPageSinkProvider pageSinkProvider;
     private final AccumuloSessionProperties sessionProperties;
     private final AccumuloTableProperties tableProperties;
-
     private final ConcurrentMap<ConnectorTransactionHandle, AccumuloMetadata> transactions = new ConcurrentHashMap<>();
 
-    /**
-     * Creates a new instance of AccumuloConnector, brought to you by Guice.
-     *
-     * @param lifeCycleManager Manages the life cycle
-     * @param metadataFactory Factory for making Metadata
-     * @param splitManager Splits tables into parallel operations for scans
-     * @param recordSetProvider Converts splits into rows of data
-     * @param pageSinkProvider Provides a means to write data to Accumulo via INSERTs
-     * @param sessionProperties Defines all Accumulo session properties
-     * @param tableProperties Defines all Accumulo table properties
-     */
     @Inject
-    public AccumuloConnector(LifeCycleManager lifeCycleManager, AccumuloMetadataFactory metadataFactory,
-            AccumuloSplitManager splitManager, AccumuloRecordSetProvider recordSetProvider,
-            AccumuloPageSinkProvider pageSinkProvider, AccumuloSessionProperties sessionProperties,
+    public AccumuloConnector(
+            LifeCycleManager lifeCycleManager,
+            AccumuloMetadataFactory metadataFactory,
+            AccumuloSplitManager splitManager,
+            AccumuloRecordSetProvider recordSetProvider,
+            AccumuloPageSinkProvider pageSinkProvider,
+            AccumuloSessionProperties sessionProperties,
             AccumuloTableProperties tableProperties)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");

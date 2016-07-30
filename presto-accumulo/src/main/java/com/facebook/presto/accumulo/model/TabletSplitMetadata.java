@@ -25,22 +25,14 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-/**
- * JSON object for holding the Accumulo ranges(s) and the host/port information for a Presto split
- */
 public class TabletSplitMetadata
 {
     private final Optional<String> hostPort;
     private List<Range> ranges;
 
-    /**
-     * JSON creator for a new instance of {@link TabletSplitMetadata}
-     *
-     * @param hostPort Host:port pair of the Accumulo tablet server
-     * @param ranges List of Range objects for a single split
-     */
     @JsonCreator
-    public TabletSplitMetadata(@JsonProperty("hostPort") Optional<String> hostPort,
+    public TabletSplitMetadata(
+            @JsonProperty("hostPort") Optional<String> hostPort,
             @JsonProperty("ranges") List<Range> ranges)
     {
         this.hostPort = requireNonNull(hostPort, "hostPort is null");
@@ -90,7 +82,9 @@ public class TabletSplitMetadata
     @Override
     public String toString()
     {
-        return toStringHelper(this).add("hostPort", hostPort).add("numRanges", ranges.size())
+        return toStringHelper(this)
+                .add("hostPort", hostPort)
+                .add("numRanges", ranges.size())
                 .toString();
     }
 }

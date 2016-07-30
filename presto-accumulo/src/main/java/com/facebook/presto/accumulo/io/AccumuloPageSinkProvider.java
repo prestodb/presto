@@ -29,8 +29,7 @@ import static com.facebook.presto.accumulo.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Page sink provider for Accumulo connector. Creates {@link AccumuloPageSink} objects for output
- * tables (CTAS) and inserts.
+ * Page sink provider for Accumulo connector. Creates {@link AccumuloPageSink} objects for output tables (CTAS) and inserts.
  *
  * @see AccumuloPageSink
  */
@@ -40,31 +39,24 @@ public class AccumuloPageSinkProvider
     private final AccumuloClient client;
     private final AccumuloConfig config;
 
-    /**
-     * Creates a new instance of {@link AccumuloPageSinkProvider}
-     *
-     * @param config Connector configuration
-     * @param client Client to pass along to the created page sinks
-     */
     @Inject
-    public AccumuloPageSinkProvider(AccumuloConfig config, AccumuloClient client)
+    public AccumuloPageSinkProvider(
+            AccumuloConfig config,
+            AccumuloClient client)
     {
         this.client = requireNonNull(client, "client is null");
         this.config = requireNonNull(config, "config is null");
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle,
-            ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
     {
-        AccumuloTableHandle tableHandle =
-                checkType(outputTableHandle, AccumuloTableHandle.class, "tableHandle");
+        AccumuloTableHandle tableHandle = checkType(outputTableHandle, AccumuloTableHandle.class, "tableHandle");
         return new AccumuloPageSink(config, client.getTable(tableHandle.toSchemaTableName()));
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle,
-            ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
     {
         return createPageSink(transactionHandle, session, checkType(insertTableHandle, ConnectorOutputTableHandle.class, "tHandle"));
     }

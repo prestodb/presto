@@ -14,7 +14,6 @@
 package com.facebook.presto.accumulo.model;
 
 import com.facebook.presto.accumulo.Types;
-import com.facebook.presto.accumulo.io.AccumuloPageSink;
 import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
@@ -35,6 +34,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
@@ -54,45 +54,22 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
-/**
- * Class to contain an entire Presto row, made up of {@link Field} objects.
- * <p>
- * Used by {@link AccumuloPageSink} for writing data as well as the
- * test cases.
- */
 public class Row
 {
     private static final DateTimeFormatter DATE_PARSER = ISODateTimeFormat.date();
     private static final DateTimeFormatter TIME_PARSER = DateTimeFormat.forPattern("HH:mm:ss");
     private static final DateTimeFormatter TIMESTAMP_PARSER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
 
-    private List<Field> fields = new ArrayList<>();
+    private final List<Field> fields = new ArrayList<>();
 
-    /**
-     * Creates a new instance of {@link Row}.
-     */
-    public Row()
-    {}
+    public Row() {}
 
-    /**
-     * Copy constructor from one Row to another
-     *
-     * @param row Row, copied
-     */
     public Row(Row row)
     {
         requireNonNull(row, "row is null");
-        for (Field field : row.fields) {
-            fields.add(new Field(field));
-        }
+        fields.addAll(row.fields.stream().map(Field::new).collect(Collectors.toList()));
     }
 
-    /**
-     * Appends the given field to the end of the row
-     *
-     * @param field Field to append
-     * @return this, for fluent programming
-     */
     public Row addField(Field field)
     {
         requireNonNull(field, "field is null");
@@ -100,13 +77,6 @@ public class Row
         return this;
     }
 
-    /**
-     * Appends the a new {@link Field} of the given object and type to the end of the row
-     *
-     * @param value Value of the field
-     * @param type Type of the field
-     * @return this, for fluent programming
-     */
     public Row addField(Object value, Type type)
     {
         requireNonNull(type, "type is null");
@@ -114,13 +84,6 @@ public class Row
         return this;
     }
 
-    /**
-     * Gets the field at the given index
-     *
-     * @param i Index in the row to retrieve
-     * @return Field
-     * @throws IndexOutOfBoundsException If the index is out of bounds
-     */
     public Field getField(int i)
     {
         return fields.get(i);
@@ -136,11 +99,6 @@ public class Row
         return fields;
     }
 
-    /**
-     * Gets the length of the row, i.e. number of fields
-     *
-     * @return Length
-     */
     public int length()
     {
         return fields.size();
@@ -155,8 +113,7 @@ public class Row
     @Override
     public boolean equals(Object obj)
     {
-        return !(obj == null || !(obj instanceof Row))
-                && Objects.equals(this.fields, ((Row) obj).getFields());
+        return !(obj == null || !(obj instanceof Row)) && Objects.equals(this.fields, ((Row) obj).getFields());
     }
 
     @Override
@@ -193,11 +150,7 @@ public class Row
         List<String> fields = builder.addAll(Splitter.on(delimiter).split(str)).build();
 
         if (fields.size() != schema.getLength()) {
-            throw new PrestoException(VALIDATION,
-                    format("Number of split tokens is not equal to schema length.  "
-                                    + "Expected %s received %s. Schema: %s, fields {%s}, delimiter %s",
-                            schema.getLength(), fields.size(), schema,
-                            StringUtils.join(fields, ","), delimiter));
+            throw new PrestoException(VALIDATION, format("Number of split tokens is not equal to schema length. Expected %s received %s. Schema: %s, fields {%s}, delimiter %s", schema.getLength(), fields.size(), schema, StringUtils.join(fields, ","), delimiter));
         }
 
         for (int i = 0; i < fields.size(); ++i) {
@@ -235,10 +188,10 @@ public class Row
             ImmutableMap.Builder<Object, Object> mapBuilder = ImmutableMap.builder();
             for (String element : Splitter.on(',').split(str)) {
                 ImmutableList.Builder<String> builder = ImmutableList.builder();
-                List<String> keyvalue = builder.addAll(Splitter.on("->").split(element)).build();
-                checkArgument(keyvalue.size() == 2, format("Map element %s has %d entries, not 2", element, keyvalue.size()));
+                List<String> keyValue = builder.addAll(Splitter.on("->").split(element)).build();
+                checkArgument(keyValue.size() == 2, format("Map element %s has %d entries, not 2", element, keyValue.size()));
 
-                mapBuilder.put(valueFromString(keyvalue.get(0), keyType), valueFromString(keyvalue.get(1), valueType));
+                mapBuilder.put(valueFromString(keyValue.get(0), keyType), valueFromString(keyValue.get(1), valueType));
             }
             return AccumuloRowSerializer.getBlockFromMap(type, mapBuilder.build());
         }

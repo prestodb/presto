@@ -14,6 +14,7 @@
 package com.facebook.presto.accumulo;
 
 import com.facebook.presto.accumulo.metadata.AccumuloTable;
+import com.facebook.presto.accumulo.metadata.AccumuloView;
 import com.facebook.presto.accumulo.model.AccumuloColumnHandle;
 import com.facebook.presto.accumulo.model.AccumuloTableHandle;
 import com.facebook.presto.accumulo.model.AccumuloTableLayoutHandle;
@@ -59,35 +60,40 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Presto metadata provider for Accumulo. Responsible for creating/dropping/listing tables, schemas,
- * columns, all sorts of goodness. Heavily leverages {@link AccumuloClient}
+ * Presto metadata provider for Accumulo.
+ * Responsible for creating/dropping/listing tables, schemas, columns, all sorts of goodness. Heavily leverages {@link AccumuloClient}.
  */
 public class AccumuloMetadata
         implements ConnectorMetadata
 {
     private final String connectorId;
     private final AccumuloClient client;
-
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
 
     @Inject
-    public AccumuloMetadata(AccumuloConnectorId connectorId, AccumuloClient client)
+    public AccumuloMetadata(
+            AccumuloConnectorId connectorId,
+            AccumuloClient client)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.client = requireNonNull(client, "client is null");
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session,
-            ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
         checkNoRollback();
 
         SchemaTableName tableName = tableMetadata.getTable();
         AccumuloTable table = client.createTable(tableMetadata);
 
-        AccumuloTableHandle handle = new AccumuloTableHandle(connectorId, tableName.getSchemaName(), tableName.getTableName(),
-                table.getRowId(), table.isExternal(), table.getSerializerClassName(),
+        AccumuloTableHandle handle = new AccumuloTableHandle(
+                connectorId,
+                tableName.getSchemaName(),
+                tableName.getTableName(),
+                table.getRowId(),
+                table.isExternal(),
+                table.getSerializerClassName(),
                 table.getScanAuthorizations());
 
         setRollback(() -> rollbackCreateTable(table));
@@ -96,8 +102,7 @@ public class AccumuloMetadata
     }
 
     @Override
-    public void finishCreateTable(ConnectorSession session,
-            ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
+    public void finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         checkType(tableHandle, AccumuloTableHandle.class, "tableHandle");
         clearRollback();
@@ -158,7 +163,10 @@ public class AccumuloMetadata
     {
         ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> builder = ImmutableMap.builder();
         for (SchemaTableName stName : listViews(session, prefix.getSchemaName())) {
-            builder.put(stName, new ConnectorViewDefinition(stName, Optional.empty(), client.getView(stName).getData()));
+            AccumuloView view = client.getView(stName);
+            if (view != null) {
+                builder.put(stName, new ConnectorViewDefinition(stName, Optional.empty(), view.getData()));
+            }
         }
         return builder.build();
     }
@@ -170,7 +178,7 @@ public class AccumuloMetadata
     }
 
     /**
-     * Gets all views in the given schema, or all schemas if null
+     * Gets all views in the given schema, or all schemas if null.
      *
      * @param schemaNameOrNull Schema to list for the views, or null to list all schemas
      * @return List of views
@@ -178,7 +186,6 @@ public class AccumuloMetadata
     private List<SchemaTableName> listViews(String schemaNameOrNull)
     {
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
-
         if (schemaNameOrNull == null) {
             for (String schema : client.getSchemaNames()) {
                 for (String view : client.getViewNames(schema)) {
@@ -196,8 +203,7 @@ public class AccumuloMetadata
     }
 
     @Override
-    public ConnectorInsertTableHandle beginInsert(ConnectorSession session,
-            ConnectorTableHandle tableHandle)
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         checkNoRollback();
         AccumuloTableHandle handle = checkType(tableHandle, AccumuloTableHandle.class, "table");
@@ -236,8 +242,13 @@ public class AccumuloMetadata
                 return null;
             }
 
-            return new AccumuloTableHandle(connectorId, table.getSchema(), table.getTable(),
-                    table.getRowId(), table.isExternal(), table.getSerializerClassName(),
+            return new AccumuloTableHandle(
+                    connectorId,
+                    table.getSchema(),
+                    table.getTable(),
+                    table.getRowId(),
+                    table.isExternal(),
+                    table.getSerializerClassName(),
                     table.getScanAuthorizations());
         }
 
@@ -245,30 +256,28 @@ public class AccumuloMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session,
-            ConnectorTableHandle table, Constraint<ColumnHandle> constraint,
+    public List<ConnectorTableLayoutResult> getTableLayouts(
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            Constraint<ColumnHandle> constraint,
             Optional<Set<ColumnHandle>> desiredColumns)
     {
         AccumuloTableHandle tableHandle = checkType(table, AccumuloTableHandle.class, "table");
-        ConnectorTableLayout layout = new ConnectorTableLayout(
-                new AccumuloTableLayoutHandle(tableHandle, constraint.getSummary()));
+        ConnectorTableLayout layout = new ConnectorTableLayout(new AccumuloTableLayoutHandle(tableHandle, constraint.getSummary()));
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
     }
 
     @Override
-    public ConnectorTableLayout getTableLayout(ConnectorSession session,
-            ConnectorTableLayoutHandle handle)
+    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
     {
         return new ConnectorTableLayout(checkType(handle, AccumuloTableLayoutHandle.class, "layout"));
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(ConnectorSession session,
-            ConnectorTableHandle table)
+    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
         AccumuloTableHandle handle = checkType(table, AccumuloTableHandle.class, "table");
-        checkArgument(handle.getConnectorId().equals(connectorId),
-                "table is not for this connector");
+        checkArgument(handle.getConnectorId().equals(connectorId), "table is not for this connector");
         SchemaTableName tableName = new SchemaTableName(handle.getSchema(), handle.getTable());
         ConnectorTableMetadata metadata = getTableMetadata(tableName);
         if (metadata == null) {
@@ -278,13 +287,10 @@ public class AccumuloMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session,
-            ConnectorTableHandle tableHandle)
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        AccumuloTableHandle handle =
-                checkType(tableHandle, AccumuloTableHandle.class, "tableHandle");
-        checkArgument(handle.getConnectorId().equals(connectorId),
-                "tableHandle is not for this connector");
+        AccumuloTableHandle handle = checkType(tableHandle, AccumuloTableHandle.class, "tableHandle");
+        checkArgument(handle.getConnectorId().equals(connectorId), "tableHandle is not for this connector");
 
         AccumuloTable table = client.getTable(handle.toSchemaTableName());
         if (table == null) {
@@ -299,21 +305,17 @@ public class AccumuloMetadata
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(ConnectorSession session,
-            ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         checkType(tableHandle, AccumuloTableHandle.class, "tableHandle");
         return checkType(columnHandle, AccumuloColumnHandle.class, "columnHandle").getColumnMetadata();
     }
 
     @Override
-    public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle,
-            ColumnHandle source, String target)
+    public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
     {
-        AccumuloTableHandle handle =
-                checkType(tableHandle, AccumuloTableHandle.class, "handle");
-        AccumuloColumnHandle columnHandle =
-                checkType(source, AccumuloColumnHandle.class, "columnHandle");
+        AccumuloTableHandle handle = checkType(tableHandle, AccumuloTableHandle.class, "handle");
+        AccumuloColumnHandle columnHandle = checkType(source, AccumuloColumnHandle.class, "columnHandle");
         AccumuloTable table = client.getTable(handle.toSchemaTableName());
         if (table == null) {
             throw new TableNotFoundException(new SchemaTableName(handle.getSchema(), handle.getTable()));
@@ -387,12 +389,6 @@ public class AccumuloMetadata
         }
     }
 
-    /**
-     * Gets metadata for the given table
-     *
-     * @param tableName Schema and table name
-     * @return Table metadata, or null if schema/table does not exist
-     */
     private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
     {
         if (!client.getSchemaNames().contains(tableName.getSchemaName())) {
@@ -412,13 +408,6 @@ public class AccumuloMetadata
         return null;
     }
 
-    /**
-     * List all tables with the given prefix
-     *
-     * @param session Current client session
-     * @param prefix Table prefix
-     * @return List of table names with the given schema and/or table name, which could be one table
-     */
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
     {
         // List all tables if schema is null

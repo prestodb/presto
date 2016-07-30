@@ -24,8 +24,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 /**
- * This class encapsulates metadata regarding an Accumulo view in Presto. It is a jackson
- * serializable object.
+ * This class encapsulates metadata regarding an Accumulo view in Presto.
  */
 public class AccumuloView
 {
@@ -34,15 +33,11 @@ public class AccumuloView
     private final String data;
     private final SchemaTableName schemaTableName;
 
-    /**
-     * Creates a new instance of {@link AccumuloView}
-     *
-     * @param schema Schema name of the view
-     * @param table Table name of the view
-     * @param data View data
-     */
     @JsonCreator
-    public AccumuloView(@JsonProperty("schema") String schema, @JsonProperty("table") String table, @JsonProperty("data") String data)
+    public AccumuloView(
+            @JsonProperty("schema") String schema,
+            @JsonProperty("table") String table,
+            @JsonProperty("data") String data)
     {
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
@@ -99,7 +94,10 @@ public class AccumuloView
     @Override
     public String toString()
     {
-        return toStringHelper(this).add("schema", schema)
-                .add("table", table).add("data", data).toString();
+        return toStringHelper(this)
+                .add("schema", schema)
+                .add("table", table)
+                .add("data", data)
+                .toString();
     }
 }

@@ -21,7 +21,6 @@ import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeUtils;
 import com.facebook.presto.spi.type.VarcharType;
-import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.apache.accumulo.core.data.Key;
@@ -38,11 +37,11 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 /**
- * Interface for deserializing the data in Accumulo into a Presto row.<br>
- * <br>
+ * Interface for deserializing the data in Accumulo into a Presto row.
+ * <p>
  * Provides a means for end-users of the connector to customize how the data in an Accumulo row gets
- * serialized and deserialized from/to a Presto row.<br>
- * <br>
+ * serialized and deserialized from/to a Presto row.
+ * <p>
  * The workflow of how this class is called by the Accumulo connector for reading data is as
  * follows:
  * <ol>
@@ -64,7 +63,7 @@ import java.util.Map.Entry;
 public interface AccumuloRowSerializer
 {
     /**
-     * Gets the default AccumuloRowSerializer.
+     * Gets the default AccumuloRowSerializer, {@link LexicoderRowSerializer}.
      *
      * @return Default serializer
      */
@@ -74,14 +73,14 @@ public interface AccumuloRowSerializer
     }
 
     /**
-     * Sets the Presto name which maps to the Accumulo row ID
+     * Sets the Presto name which maps to the Accumulo row ID.
      *
      * @param name Presto column name
      */
     void setRowIdName(String name);
 
     /**
-     * Sets the mapping for the Presto column name to Accumulo family and qualifier
+     * Sets the mapping for the Presto column name to Accumulo family and qualifier.
      *
      * @param name Presto name
      * @param family Accumulo family
@@ -90,20 +89,19 @@ public interface AccumuloRowSerializer
     void setMapping(String name, String family, String qualifier);
 
     /**
-     * Sets a Boolean value indicating whether or not only the row ID is going to be retrieved from
-     * the serializer
+     * Sets a Boolean value indicating whether or not only the row ID is going to be retrieved from the serializer.
      *
      * @param rowOnly True if only the row ID is set, false otherwise
      */
     void setRowOnly(boolean rowOnly);
 
     /**
-     * Reset the state of the serializer to prepare for a new set of entries with the same row ID
+     * Reset the state of the serializer to prepare for a new set of entries with the same row ID.
      */
     void reset();
 
     /**
-     * Deserialize the given Accumulo entry, retrieving data for the Presto column
+     * Deserialize the given Accumulo entry, retrieving data for the Presto column.
      *
      * @param entry Entry to deserialize
      * @throws IOException If an IO error occurs during deserialization
@@ -112,7 +110,7 @@ public interface AccumuloRowSerializer
             throws IOException;
 
     /**
-     * Gets a Boolean value indicating whether or not the Presto column is a null value
+     * Gets a Boolean value indicating whether or not the Presto column is a null value.
      *
      * @param name Column name
      * @return True if null, false otherwise.
@@ -120,7 +118,7 @@ public interface AccumuloRowSerializer
     boolean isNull(String name);
 
     /**
-     * Gets the array Block of the given Presto column
+     * Gets the array Block of the given Presto column.
      *
      * @param name Column name
      * @param type Array type
@@ -129,7 +127,7 @@ public interface AccumuloRowSerializer
     Block getArray(String name, Type type);
 
     /**
-     * Encode the given array Block into the given Text object
+     * Encode the given array Block into the given Text object.
      *
      * @param text Text object to set
      * @param type Array type
@@ -138,7 +136,7 @@ public interface AccumuloRowSerializer
     void setArray(Text text, Type type, Block block);
 
     /**
-     * Gets the Boolean value of the given Presto column
+     * Gets the Boolean value of the given Presto column.
      *
      * @param name Column name
      * @return Boolean value
@@ -146,7 +144,7 @@ public interface AccumuloRowSerializer
     boolean getBoolean(String name);
 
     /**
-     * Encode the given Boolean value into the given Text object
+     * Encode the given Boolean value into the given Text object.
      *
      * @param text Text object to set
      * @param value Value to encode
@@ -154,7 +152,7 @@ public interface AccumuloRowSerializer
     void setBoolean(Text text, Boolean value);
 
     /**
-     * Gets the Byte value of the given Presto column
+     * Gets the Byte value of the given Presto column.
      *
      * @param name Column name
      * @return Byte value
@@ -162,7 +160,7 @@ public interface AccumuloRowSerializer
     byte getByte(String name);
 
     /**
-     * Encode the given Byte value into the given Text object
+     * Encode the given Byte value into the given Text object.
      *
      * @param text Text object to set
      * @param value Value to encode
@@ -170,7 +168,7 @@ public interface AccumuloRowSerializer
     void setByte(Text text, Byte value);
 
     /**
-     * Gets the Date value of the given Presto column
+     * Gets the Date value of the given Presto column.
      *
      * @param name Column name
      * @return Date value
@@ -178,7 +176,7 @@ public interface AccumuloRowSerializer
     Date getDate(String name);
 
     /**
-     * Encode the given Date value into the given Text object
+     * Encode the given Date value into the given Text object.
      *
      * @param text Text object to set
      * @param value Value to encode
@@ -186,7 +184,7 @@ public interface AccumuloRowSerializer
     void setDate(Text text, Date value);
 
     /**
-     * Gets the Double value of the given Presto column
+     * Gets the Double value of the given Presto column.
      *
      * @param name Column name
      * @return Double value
@@ -194,7 +192,7 @@ public interface AccumuloRowSerializer
     double getDouble(String name);
 
     /**
-     * Encode the given Double value into the given Text object
+     * Encode the given Double value into the given Text object.
      *
      * @param text Text object to set
      * @param value Value to encode
@@ -202,7 +200,7 @@ public interface AccumuloRowSerializer
     void setDouble(Text text, Double value);
 
     /**
-     * Gets the Float value of the given Presto column
+     * Gets the Float value of the given Presto column.
      *
      * @param name Column name
      * @return Float value
@@ -210,7 +208,7 @@ public interface AccumuloRowSerializer
     float getFloat(String name);
 
     /**
-     * Encode the given Float value into the given Text object
+     * Encode the given Float value into the given Text object.
      *
      * @param text Text object to set
      * @param value Value to encode
@@ -218,7 +216,7 @@ public interface AccumuloRowSerializer
     void setFloat(Text text, Float value);
 
     /**
-     * Gets the Integer value of the given Presto column
+     * Gets the Integer value of the given Presto column.
      *
      * @param name Column name
      * @return Integer value
@@ -226,7 +224,7 @@ public interface AccumuloRowSerializer
     int getInt(String name);
 
     /**
-     * Encode the given Integer value into the given Text object
+     * Encode the given Integer value into the given Text object.
      *
      * @param text Text object to set
      * @param value Value to encode
@@ -234,7 +232,7 @@ public interface AccumuloRowSerializer
     void setInt(Text text, Integer value);
 
     /**
-     * Gets the Long value of the given Presto column
+     * Gets the Long value of the given Presto column.
      *
      * @param name Column name
      * @return Long value
@@ -242,7 +240,7 @@ public interface AccumuloRowSerializer
     long getLong(String name);
 
     /**
-     * Encode the given Long value into the given Text object
+     * Encode the given Long value into the given Text object.
      *
      * @param text Text object to set
      * @param value Value to encode
@@ -250,7 +248,7 @@ public interface AccumuloRowSerializer
     void setLong(Text text, Long value);
 
     /**
-     * Gets the Map value of the given Presto column and Map type
+     * Gets the Map value of the given Presto column and Map type.
      *
      * @param name Column name
      * @param type Map type
@@ -259,7 +257,7 @@ public interface AccumuloRowSerializer
     Block getMap(String name, Type type);
 
     /**
-     * Encode the given map Block into the given Text object
+     * Encode the given map Block into the given Text object.
      *
      * @param text Text object to set
      * @param type Map type
@@ -268,7 +266,7 @@ public interface AccumuloRowSerializer
     void setMap(Text text, Type type, Block block);
 
     /**
-     * Gets the Short value of the given Presto column
+     * Gets the Short value of the given Presto column.
      *
      * @param name Column name
      * @return Short value
@@ -276,7 +274,7 @@ public interface AccumuloRowSerializer
     short getShort(String name);
 
     /**
-     * Encode the given Short value into the given Text object
+     * Encode the given Short value into the given Text object.
      *
      * @param text Text object to set
      * @param value Value to encode
@@ -284,7 +282,7 @@ public interface AccumuloRowSerializer
     void setShort(Text text, Short value);
 
     /**
-     * Gets the Time value of the given Presto column
+     * Gets the Time value of the given Presto column.
      *
      * @param name Column name
      * @return Time value
@@ -292,7 +290,7 @@ public interface AccumuloRowSerializer
     Time getTime(String name);
 
     /**
-     * Encode the given Time value into the given Text object
+     * Encode the given Time value into the given Text object.
      *
      * @param text Text object to set
      * @param value Value to encode
@@ -300,7 +298,7 @@ public interface AccumuloRowSerializer
     void setTime(Text text, Time value);
 
     /**
-     * Gets the Timestamp value of the given Presto column
+     * Gets the Timestamp value of the given Presto column.
      *
      * @param name Column name
      * @return Timestamp value
@@ -308,7 +306,7 @@ public interface AccumuloRowSerializer
     Timestamp getTimestamp(String name);
 
     /**
-     * Encode the given Timestamp value into the given Text object
+     * Encode the given Timestamp value into the given Text object.
      *
      * @param text Text object to set
      * @param value Value to encode
@@ -316,7 +314,7 @@ public interface AccumuloRowSerializer
     void setTimestamp(Text text, Timestamp value);
 
     /**
-     * Gets the Varbinary value of the given Presto column
+     * Gets the Varbinary value of the given Presto column.
      *
      * @param name Column name
      * @return Varbinary value
@@ -324,7 +322,7 @@ public interface AccumuloRowSerializer
     byte[] getVarbinary(String name);
 
     /**
-     * Encode the given byte[] value into the given Text object
+     * Encode the given byte[] value into the given Text object.
      *
      * @param text Text object to set
      * @param value Value to encode
@@ -332,7 +330,7 @@ public interface AccumuloRowSerializer
     void setVarbinary(Text text, byte[] value);
 
     /**
-     * Gets the String value of the given Presto column
+     * Gets the String value of the given Presto column.
      *
      * @param name Column name
      * @return String value
@@ -340,7 +338,7 @@ public interface AccumuloRowSerializer
     String getVarchar(String name);
 
     /**
-     * Encode the given String value into the given Text object
+     * Encode the given String value into the given Text object.
      *
      * @param text Text object to set
      * @param value Value to encode
@@ -540,7 +538,7 @@ public interface AccumuloRowSerializer
     static Block getBlockFromArray(Type elementType, List<?> array)
     {
         BlockBuilder builder = elementType.createBlockBuilder(new BlockBuilderStatus(), array.size());
-        for (Object item : (List<?>) array) {
+        for (Object item : array) {
             writeObject(builder, elementType, item);
         }
         return builder.build();
@@ -558,8 +556,7 @@ public interface AccumuloRowSerializer
         Type keyType = mapType.getTypeParameters().get(0);
         Type valueType = mapType.getTypeParameters().get(1);
 
-        BlockBuilder builder = new InterleavedBlockBuilder(ImmutableList.of(keyType, valueType),
-                new BlockBuilderStatus(), map.size() * 2);
+        BlockBuilder builder = new InterleavedBlockBuilder(ImmutableList.of(keyType, valueType), new BlockBuilderStatus(), map.size() * 2);
 
         for (Entry<?, ?> entry : map.entrySet()) {
             writeObject(builder, keyType, entry.getKey());
@@ -588,12 +585,10 @@ public interface AccumuloRowSerializer
             builder.closeEntry();
         }
         else if (Types.isMapType(type)) {
-            Type keyType = ((MapType) type).getKeyType();
-            Type valueType = ((MapType) type).getValueType();
             BlockBuilder mapBlockBuilder = builder.beginBlockEntry();
             for (Entry<?, ?> entry : ((Map<?, ?>) obj).entrySet()) {
-                writeObject(mapBlockBuilder, keyType, entry.getKey());
-                writeObject(mapBlockBuilder, valueType, entry.getValue());
+                writeObject(mapBlockBuilder, Types.getKeyType(type), entry.getKey());
+                writeObject(mapBlockBuilder, Types.getValueType(type), entry.getValue());
             }
             builder.closeEntry();
         }
@@ -604,7 +599,7 @@ public interface AccumuloRowSerializer
 
     /**
      * Recursive helper function used by {@link AccumuloRowSerializer#getArrayFromBlock} and
-     * {@link AccumuloRowSerializer#getMapFromBlock} to decode the Block into a Java type
+     * {@link AccumuloRowSerializer#getMapFromBlock} to decode the Block into a Java type.
      *
      * @param type Presto type
      * @param block Block to decode

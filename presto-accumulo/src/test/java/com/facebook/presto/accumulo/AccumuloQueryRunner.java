@@ -23,7 +23,6 @@ import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.airlift.tpch.TpchTable;
 import org.apache.accumulo.core.client.Connector;
 import org.apache.hadoop.io.Text;
@@ -41,12 +40,11 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public final class AccumuloQueryRunner
 {
     private static final Logger LOG = Logger.get(AccumuloQueryRunner.class);
+    private static boolean tpchLoaded = false;
 
-    private AccumuloQueryRunner()
-    {}
+    private AccumuloQueryRunner() {}
 
-    public static DistributedQueryRunner createAccumuloQueryRunner(
-            Map<String, String> extraProperties, boolean loadTpch)
+    public static synchronized DistributedQueryRunner createAccumuloQueryRunner(Map<String, String> extraProperties)
             throws Exception
     {
         DistributedQueryRunner queryRunner =
@@ -68,11 +66,11 @@ public final class AccumuloQueryRunner
 
         queryRunner.createCatalog("accumulo", "accumulo", accumuloProperties);
 
-        if (loadTpch) {
+        if (!tpchLoaded) {
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), TpchTable.getTables());
             Connector conn = AccumuloClient.getAccumuloConnector(new AccumuloConfig());
-            conn.tableOperations().addSplits("tpch.orders",
-                    ImmutableSortedSet.of(new Text(new LexicoderRowSerializer().encode(BIGINT, 7500L))));
+            conn.tableOperations().addSplits("tpch.orders", ImmutableSortedSet.of(new Text(new LexicoderRowSerializer().encode(BIGINT, 7500L))));
+            tpchLoaded = true;
         }
 
         return queryRunner;
@@ -84,7 +82,6 @@ public final class AccumuloQueryRunner
             String sourceSchema,
             Session session,
             Iterable<TpchTable<?>> tables)
-            throws Exception
     {
         LOG.info("Loading data from %s.%s...", sourceCatalog, sourceSchema);
         long startTime = System.nanoTime();
@@ -94,18 +91,12 @@ public final class AccumuloQueryRunner
         LOG.info("Loading from %s.%s complete in %s", sourceCatalog, sourceSchema, nanosSince(startTime).toString(SECONDS));
     }
 
-    public static void dropTpchTables(QueryRunner queryRunner, Session session)
-    {
-        for (TpchTable<?> table : TpchTable.getTables()) {
-            @Language("SQL")
-            String sql = format("DROP TABLE IF EXISTS %s", table.getTableName());
-            LOG.info("%s", sql);
-            queryRunner.execute(session, sql);
-        }
-    }
-
-    private static void copyTable(QueryRunner queryRunner, String catalog, Session session,
-            String schema, TpchTable<?> table)
+    private static void copyTable(
+            QueryRunner queryRunner,
+            String catalog,
+            Session session,
+            String schema,
+            TpchTable<?> table)
     {
         QualifiedObjectName source = new QualifiedObjectName(catalog, schema, table.getTableName());
         String target = table.getTableName();
@@ -146,17 +137,5 @@ public final class AccumuloQueryRunner
     public static Session createSession()
     {
         return testSessionBuilder().setCatalog("accumulo").setSchema("tpch").build();
-    }
-
-    public static void main(String[] args)
-            throws Exception
-    {
-        Logging.initialize();
-        Map<String, String> properties = ImmutableMap.of("http-server.http.port", "8080");
-        DistributedQueryRunner queryRunner = createAccumuloQueryRunner(properties, false);
-        Thread.sleep(10);
-        Logger log = Logger.get(AccumuloQueryRunner.class);
-        log.info("======== SERVER STARTED ========");
-        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }

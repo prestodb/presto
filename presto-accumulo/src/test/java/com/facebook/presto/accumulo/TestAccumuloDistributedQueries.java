@@ -18,23 +18,21 @@ import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.accumulo.AccumuloQueryRunner.createAccumuloQueryRunner;
-import static com.facebook.presto.accumulo.AccumuloQueryRunner.dropTpchTables;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 /**
- * Accumulo requires a unique identifier for the rows.  Any row that has a duplicate
- * row ID is effectively an update, overwriting existing values of the row with
- * whatever the new values are. For the lineitem and partsupp tables, there is no
- * unique identifier, so a generated UUID is used in order to prevent overwriting
- * rows of data. This is the same for any test cases that were creating tables
- * with duplicate rows, so some test cases are overriden from the base class
- * and slightly modified to add an additional UUID column.
+ * Accumulo requires a unique identifier for the rows.
+ * Any row that has a duplicate row ID is effectively an update,
+ * overwriting existing values of the row with whatever the new values are.
+ * For the lineitem and partsupp tables, there is no unique identifier,
+ * so a generated UUID is used in order to prevent overwriting rows of data.
+ * This is the same for any test cases that were creating tables with duplicate rows,
+ * so some test cases are overriden from the base class and slightly modified to add an additional UUID column.
  */
 public class TestAccumuloDistributedQueries
         extends AbstractTestDistributedQueries
@@ -42,13 +40,7 @@ public class TestAccumuloDistributedQueries
     public TestAccumuloDistributedQueries()
             throws Exception
     {
-        super(createAccumuloQueryRunner(ImmutableMap.of(), true));
-    }
-
-    @AfterClass
-    public void cleanup()
-    {
-        dropTpchTables(queryRunner, getSession());
+        super(createAccumuloQueryRunner(ImmutableMap.of()));
     }
 
     @Override

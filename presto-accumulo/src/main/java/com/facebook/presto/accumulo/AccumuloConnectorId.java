@@ -47,11 +47,11 @@ public final class AccumuloConnectorId
         if (this == obj) {
             return true;
         }
+
         if ((obj == null) || (getClass() != obj.getClass())) {
             return false;
         }
 
-        AccumuloConnectorId other = (AccumuloConnectorId) obj;
-        return Objects.equals(this.id, other.id);
+        return Objects.equals(this.id, ((AccumuloConnectorId) obj).id);
     }
 }

@@ -37,8 +37,7 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * This class is a light wrapper for Accumulo's Connector object.
- * It will perform the given operation, or throw an exception if an
- * Accumulo- or ZooKeeper-based error occurs.
+ * It will perform the given operation, or throw an exception if an Accumulo- or ZooKeeper-based error occurs.
  */
 public class AccumuloTableManager
 {
@@ -60,8 +59,7 @@ public class AccumuloTableManager
     {
         try {
             // If the table schema is not "default" and the namespace does not exist, create it
-            if (!schema.equals(DEFAULT)
-                    && !connector.namespaceOperations().exists(schema)) {
+            if (!schema.equals(DEFAULT) && !connector.namespaceOperations().exists(schema)) {
                 connector.namespaceOperations().create(schema);
             }
         }
@@ -74,22 +72,11 @@ public class AccumuloTableManager
         }
     }
 
-    /**
-     * Gets a Boolean value indicating whether or not the given table exists
-     *
-     * @param table Table to check for existence
-     * @return True if it exists, false otherwise
-     */
     public boolean exists(String table)
     {
         return connector.tableOperations().exists(table);
     }
 
-    /**
-     * Creates the given Accumulo table
-     *
-     * @param table Accumulo table to create, including namespace (if not default)
-     */
     public void createAccumuloTable(String table)
     {
         try {
@@ -103,12 +90,6 @@ public class AccumuloTableManager
         }
     }
 
-    /**
-     * Sets the locality groups to the given Accumulo table
-     *
-     * @param tableName Accumulo table name
-     * @param groups Locality groups
-     */
     public void setLocalityGroups(String tableName, Map<String, Set<Text>> groups)
     {
         if (groups.size() == 0) {
@@ -127,12 +108,6 @@ public class AccumuloTableManager
         }
     }
 
-    /**
-     * Sets the settings to the given table, first removing any existing iterator of the same name
-     *
-     * @param table Accumulo table
-     * @param setting Settings to set
-     */
     public void setIterator(String table, IteratorSetting setting)
     {
         try {
@@ -152,11 +127,6 @@ public class AccumuloTableManager
         }
     }
 
-    /**
-     * Deletes the Accumulo table
-     *
-     * @param tableName Table to delete
-     */
     public void deleteAccumuloTable(String tableName)
     {
         try {
@@ -170,12 +140,6 @@ public class AccumuloTableManager
         }
     }
 
-    /**
-     * Renames the given Accumulo table to the new name
-     *
-     * @param oldName Old table name
-     * @param newName New table name
-     */
     public void renameAccumuloTable(String oldName, String newName)
     {
         try {

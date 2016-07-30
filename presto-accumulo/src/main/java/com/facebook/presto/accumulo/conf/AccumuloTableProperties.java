@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.inject.Inject;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -44,8 +43,7 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Class contains all table properties for the Accumulo connector. Used when creating a table:
- * <br>
- * <br>
+ * <p>
  * CREATE TABLE foo (a VARCHAR, b INT)
  * WITH (column_mapping = 'b:md:b', external = true);
  */
@@ -64,64 +62,61 @@ public final class AccumuloTableProperties
 
     private final List<PropertyMetadata<?>> tableProperties;
 
-    @Inject
-    public AccumuloTableProperties(AccumuloConfig config)
+    public AccumuloTableProperties()
     {
-        PropertyMetadata<String> s1 = stringSessionProperty(COLUMN_MAPPING,
-                "Comma-delimited list of column metadata: col_name:col_family:col_qualifier,[...]. "
-                        + "Required for external tables. "
-                        + "Not setting this property results in auto-generated column names.",
-                null, false);
+        PropertyMetadata<String> s1 = stringSessionProperty(
+                COLUMN_MAPPING,
+                "Comma-delimited list of column metadata: col_name:col_family:col_qualifier,[...]. Required for external tables. Not setting this property results in auto-generated column names.",
+                null,
+                false);
 
-        PropertyMetadata<String> s2 =
-                stringSessionProperty(INDEX_COLUMNS,
-                        "A comma-delimited list of Presto columns that are indexed in this table's "
-                                + "corresponding index table. Default is no indexed columns.",
-                        "", false);
+        PropertyMetadata<String> s2 = stringSessionProperty(
+                INDEX_COLUMNS,
+                "A comma-delimited list of Presto columns that are indexed in this table's corresponding index table. Default is no indexed columns.",
+                "",
+                false);
 
-        PropertyMetadata<Boolean> s3 = booleanSessionProperty(EXTERNAL,
-                "If true, Presto will only do metadata operations for the table. Else, Presto will "
-                        + "create and drop Accumulo tables where appropriate. Default false.",
-                false, false);
+        PropertyMetadata<Boolean> s3 = booleanSessionProperty(
+                EXTERNAL,
+                "If true, Presto will only do metadata operations for the table. Else, Presto will create and drop Accumulo tables where appropriate. Default false.",
+                false,
+                false);
 
-        PropertyMetadata<String> s4 = stringSessionProperty(LOCALITY_GROUPS,
-                "List of locality groups to set on the Accumulo table. Only valid on internal tables. "
-                        + "String format is locality group name, colon, comma delimited list of Presto "
-                        + "column names in the group. Groups are delimited by pipes. Example: "
-                        + "group1:colA,colB,colC|group2:colD,colE,colF|etc.... Default is no locality groups.",
-                null, false);
+        PropertyMetadata<String> s4 = stringSessionProperty(
+                LOCALITY_GROUPS,
+                "List of locality groups to set on the Accumulo table. Only valid on internal tables. String format is locality group name, colon, comma delimited list of Presto column names in the group. Groups are delimited by pipes. Example: group1:colA,colB,colC|group2:colD,colE,colF|etc.... Default is no locality groups.",
+                null,
+                false);
 
-        PropertyMetadata<String> s5 = stringSessionProperty(ROW_ID,
+        PropertyMetadata<String> s5 = stringSessionProperty(
+                ROW_ID,
                 "Presto column name that maps to the Accumulo row ID. Default is the first column.",
-                null, false);
+                null,
+                false);
 
-        PropertyMetadata<String> s6 =
-                new PropertyMetadata<>(SERIALIZER,
-                        "Serializer for Accumulo data encodings. Can either be 'default', "
-                                + "'string', 'lexicoder', or a Java class name. Default is 'default', i.e. "
-                                + "the value from AccumuloRowSerializer.getDefault(), i.e. 'lexicoder'.",
-                        VarcharType.VARCHAR, String.class,
-                        AccumuloRowSerializer.getDefault().getClass().getName(), false,
-                        x -> x.equals("default")
-                                ? AccumuloRowSerializer.getDefault().getClass().getName()
-                                : (x.equals("string") ? StringRowSerializer.class.getName()
-                                : (x.equals("lexicoder")
-                                ? LexicoderRowSerializer.class.getName()
-                                : (String) x)),
-                        object -> object);
+        PropertyMetadata<String> s6 = new PropertyMetadata<>(
+                SERIALIZER,
+                "Serializer for Accumulo data encodings. Can either be 'default', 'string', 'lexicoder', or a Java class name. Default is 'default', i.e. the value from AccumuloRowSerializer.getDefault(), i.e. 'lexicoder'.",
+                VarcharType.VARCHAR, String.class,
+                AccumuloRowSerializer.getDefault().getClass().getName(),
+                false,
+                x -> x.equals("default")
+                        ? AccumuloRowSerializer.getDefault().getClass().getName()
+                        : (x.equals("string") ? StringRowSerializer.class.getName()
+                        : (x.equals("lexicoder")
+                        ? LexicoderRowSerializer.class.getName()
+                        : (String) x)),
+                object -> object);
 
-        PropertyMetadata<String> s7 = stringSessionProperty(SCAN_AUTHS,
+        PropertyMetadata<String> s7 = stringSessionProperty(
+                SCAN_AUTHS,
                 "Scan-time authorizations set on the batch scanner. Default is all scan authorizations for the user",
-                null, false);
+                null,
+                false);
 
         tableProperties = ImmutableList.of(s1, s2, s3, s4, s5, s6, s7);
     }
 
-    /**
-     * Gets all available table properties
-     *
-     * @return A List of table properties
-     */
     public List<PropertyMetadata<?>> getTableProperties()
     {
         return tableProperties;
@@ -129,9 +124,8 @@ public final class AccumuloTableProperties
 
     /**
      * Gets the value of the column_mapping property, or Optional.empty() if not set.
-     *
-     * Parses the value into a map of Presto column name to a pair of strings,
-     * the Accumulo column family and qualifier.
+     * <p>
+     * Parses the value into a map of Presto column name to a pair of strings, the Accumulo column family and qualifier.
      *
      * @param tableProperties The map of table properties
      * @return The column mapping, presto name to (accumulo column family, qualifier)
@@ -159,12 +153,6 @@ public final class AccumuloTableProperties
         return Optional.of(mapping.build());
     }
 
-    /**
-     * Gets the list of all indexed columns set in the table properties, or Optional.empty() if not set.
-     *
-     * @param tableProperties The map of table properties
-     * @return The list of indexed columns, or an empty list if there are none
-     */
     public static Optional<List<String>> getIndexColumns(Map<String, Object> tableProperties)
     {
         requireNonNull(tableProperties);
@@ -181,7 +169,7 @@ public final class AccumuloTableProperties
     /**
      * Gets the configured locality groups for the table, or Optional.empty() if not set.
      * <p>
-     * All strings are lowercase
+     * All strings are lowercase.
      *
      * @param tableProperties The map of table properties
      * @return Optional map of locality groups
@@ -203,8 +191,7 @@ public final class AccumuloTableProperties
             String[] locGroups = Iterables.toArray(COLON_SPLITTER.split(group), String.class);
 
             if (locGroups.length != 2) {
-                throw new PrestoException(VALIDATION,
-                        "Locality groups string is malformed. See documentation for proper format.");
+                throw new PrestoException(VALIDATION, "Locality groups string is malformed. See documentation for proper format.");
             }
 
             String grpName = locGroups[0];
@@ -220,12 +207,6 @@ public final class AccumuloTableProperties
         return Optional.of(groups.build());
     }
 
-    /**
-     * Gets the configured row ID for the table, or Optional.empty() if not set
-     *
-     * @param tableProperties The map of table properties
-     * @return The row ID, or null if none was specifically set (use the first column)
-     */
     public static Optional<String> getRowId(Map<String, Object> tableProperties)
     {
         requireNonNull(tableProperties);
@@ -235,12 +216,6 @@ public final class AccumuloTableProperties
         return Optional.ofNullable(rowId);
     }
 
-    /**
-     * Gets the scan authorizations, or Optional.empty() if all of the user's scan authorizations should be used
-     *
-     * @param tableProperties The map of table properties
-     * @return The scan authorizations
-     */
     public static Optional<String> getScanAuthorizations(Map<String, Object> tableProperties)
     {
         requireNonNull(tableProperties);
@@ -265,13 +240,6 @@ public final class AccumuloTableProperties
         return serializerClass;
     }
 
-    /**
-     * Gets a Boolean value indicating whether or not this table is external and Presto should only
-     * manage metadata
-     *
-     * @param tableProperties The map of table properties
-     * @return True if the table is external, false otherwise
-     */
     public static boolean isExternal(Map<String, Object> tableProperties)
     {
         requireNonNull(tableProperties);

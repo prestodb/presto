@@ -24,8 +24,7 @@ import static java.lang.String.format;
  */
 public final class Types
 {
-    private Types()
-    {}
+    private Types() {}
 
     /**
      * Validates the given value is an instance of the target class.
@@ -44,36 +43,22 @@ public final class Types
         if (value == null) {
             throw new NullPointerException(format("%s is null", name));
         }
-        checkArgument(target.isInstance(value), "%s must be of type %s, not %s", name,
-                target.getName(), value.getClass().getName());
+        checkArgument(target.isInstance(value), "%s must be of type %s, not %s", name, target.getName(), value.getClass().getName());
         return target.cast(value);
     }
 
-    /**
-     * Gets a Boolean value indicating whether or not the given type is an array.
-     *
-     * @param type The type to check
-     * @return True if the type is an array, else false.
-     */
     public static boolean isArrayType(Type type)
     {
         return type.getTypeSignature().getBase().equals(StandardTypes.ARRAY);
     }
 
-    /**
-     * Gets a Boolean value indicating whether or not the given type is a map.
-     *
-     * @param type The type to check
-     * @return True if the type is a map, else false.
-     */
     public static boolean isMapType(Type type)
     {
         return type.getTypeSignature().getBase().equals(StandardTypes.MAP);
     }
 
     /**
-     * Gets the element type of the given array type. Does not validate that the given type is an
-     * array.
+     * Gets the element type of the given array type. Does not validate that the given type is an array.
      *
      * @param type An array type
      * @return Element type of the array

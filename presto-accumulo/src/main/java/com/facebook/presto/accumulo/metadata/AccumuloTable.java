@@ -34,39 +34,30 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
- * This class encapsulates metadata regarding an Accumulo table in Presto. It is a jackson
- * serializable object.
+ * This class encapsulates metadata regarding an Accumulo table in Presto.
  */
 public class AccumuloTable
 {
-    private boolean indexed;
     private final boolean external;
-    private String rowId;
     private final Integer rowIdOrdinal;
     private final String schema;
-    private String table;
-    private List<AccumuloColumnHandle> columns;
-    private final List<ColumnMetadata> columnsMetadata;
     private final String serializerClassName;
     private final Optional<String> scanAuthorizations;
+    private final List<ColumnMetadata> columnsMetadata;
+
+    private boolean indexed;
+    private String rowId;
+    private String table;
+    private List<AccumuloColumnHandle> columns;
     private SchemaTableName schemaTableName;
 
-    /***
-     * Creates a new instance of AccumuloTable
-     *
-     * @param schema Presto schema (Accumulo namespace)
-     * @param table Presto table (Accumulo table)
-     * @param columns A list of {@link AccumuloColumnHandle} objects for the table
-     * @param rowId The Presto column name that is the Accumulo row ID
-     * @param external Whether or not this table is external, i.e. Presto only manages metadata
-     * @param serializerClassName The qualified Java class name to (de)serialize data from Accumulo
-     * @param scanAuthorizations Scan-time authorizations of the scanner, or null to use all user scan
-     * authorizations
-     */
     @JsonCreator
-    public AccumuloTable(@JsonProperty("schema") String schema, @JsonProperty("table") String table,
+    public AccumuloTable(
+            @JsonProperty("schema") String schema,
+            @JsonProperty("table") String table,
             @JsonProperty("columns") List<AccumuloColumnHandle> columns,
-            @JsonProperty("rowId") String rowId, @JsonProperty("external") boolean external,
+            @JsonProperty("rowId") String rowId,
+            @JsonProperty("external") boolean external,
             @JsonProperty("serializerClassName") String serializerClassName,
             @JsonProperty("scanAuthorizations") Optional<String> scanAuthorizations)
     {
@@ -75,8 +66,7 @@ public class AccumuloTable
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns are null"));
-        this.serializerClassName =
-                requireNonNull(serializerClassName, "serializerClassName is null");
+        this.serializerClassName = requireNonNull(serializerClassName, "serializerClassName is null");
         this.scanAuthorizations = scanAuthorizations;
 
         boolean indexed = false;
@@ -176,8 +166,7 @@ public class AccumuloTable
             // Validate this column does not already exist
             for (AccumuloColumnHandle col : columns) {
                 if (col.getName().equals(newColumn.getName())) {
-                    throw new PrestoException(VALIDATION,
-                            format("Column %s already exists in table", col.getName()));
+                    throw new PrestoException(VALIDATION, format("Column %s already exists in table", col.getName()));
                 }
             }
 
@@ -187,15 +176,14 @@ public class AccumuloTable
             newColumns.add(newColumn);
         }
         else {
-            // Else, iterate through all existing columns, updating the ordinals and inserting the
-            // column at the appropriate place
+            // Else, iterate through all existing columns,
+            // updating the ordinals and inserting the column at the appropriate place
             newColumns = ImmutableList.builder();
             int ordinal = 0;
             for (AccumuloColumnHandle columnHandle : columns) {
                 // Validate this column does not already exist
                 if (columnHandle.getName().equals(newColumn.getName())) {
-                    throw new PrestoException(VALIDATION,
-                            format("Column %s already exists in table", columnHandle.getName()));
+                    throw new PrestoException(VALIDATION, format("Column %s already exists in table", columnHandle.getName()));
                 }
 
                 // Add the new column here
@@ -262,32 +250,16 @@ public class AccumuloTable
             return (AccumuloRowSerializer) Class.forName(serializerClassName).newInstance();
         }
         catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
-            throw new PrestoException(VALIDATION,
-                    "Configured serializer class not found", e);
+            throw new PrestoException(VALIDATION, "Configured serializer class not found", e);
         }
     }
 
-    /**
-     * Gets the full table name of the Accumulo table, i.e. schemaName.tableName. If the schemaName
-     * is 'default', then there is no Accumulo namespace and the table name is all that is returned.
-     *
-     * @param schema Schema name
-     * @param table Table name
-     * @return Full table name
-     */
     @JsonIgnore
     public static String getFullTableName(String schema, String table)
     {
         return schema.equals("default") ? table : schema + '.' + table;
     }
 
-    /**
-     * Gets the full table name of the Accumulo table, i.e. schemaName.tableName. If the schemaName
-     * is 'default', then there is no Accumulo namespace and the table name is all that is returned.
-     *
-     * @param tableName SchemaTableName
-     * @return Full table name
-     */
     @JsonIgnore
     public static String getFullTableName(SchemaTableName tableName)
     {
@@ -309,9 +281,14 @@ public class AccumuloTable
     @Override
     public String toString()
     {
-        return toStringHelper(this).add("schemaName", schema).add("tableName", table)
-                .add("columns", columns).add("rowIdName", rowId).add("external", external)
+        return toStringHelper(this)
+                .add("schemaName", schema)
+                .add("tableName", table)
+                .add("columns", columns)
+                .add("rowIdName", rowId)
+                .add("external", external)
                 .add("serializerClassName", serializerClassName)
-                .add("scanAuthorizations", scanAuthorizations).toString();
+                .add("scanAuthorizations", scanAuthorizations)
+                .toString();
     }
 }

@@ -21,25 +21,15 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-/**
- * An implementation of ConnectorTableLayoutHandle, containing constraints for an active query
- * <p>
- * Can't get this merged into AccumuloTable -.-
- */
 public class AccumuloTableLayoutHandle
         implements ConnectorTableLayoutHandle
 {
     private final AccumuloTableHandle table;
     private final TupleDomain<ColumnHandle> constraint;
 
-    /**
-     * Creates a new instance of {@link AccumuloTableLayoutHandle}
-     *
-     * @param table {@link AccumuloTableHandle}
-     * @param constraint Constraints against the table
-     */
     @JsonCreator
     public AccumuloTableLayoutHandle(@JsonProperty("table") AccumuloTableHandle table,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
@@ -61,27 +51,33 @@ public class AccumuloTableLayoutHandle
     }
 
     @Override
-    public boolean equals(Object o)
+    public boolean equals(Object obj)
     {
-        if (this == o) {
+        if (this == obj) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
+
+        if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        AccumuloTableLayoutHandle that = (AccumuloTableLayoutHandle) o;
-        return Objects.equals(table, that.table);
+
+        AccumuloTableLayoutHandle other = (AccumuloTableLayoutHandle) obj;
+        return Objects.equals(table, other.table)
+                && Objects.equals(constraint, other.constraint);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(table);
+        return Objects.hash(table, constraint);
     }
 
     @Override
     public String toString()
     {
-        return table.toString();
+        return toStringHelper(this)
+                .add("table", table)
+                .add("constraint", constraint)
+                .toString();
     }
 }

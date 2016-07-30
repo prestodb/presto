@@ -30,10 +30,6 @@ import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-/**
- * Implementation of several Presto TableHandles for inserting data, CTAS, and a regular ol' table
- * handle. Contains table metadata!
- */
 public final class AccumuloTableHandle
         implements ConnectorInsertTableHandle, ConnectorOutputTableHandle, ConnectorTableHandle
 {
@@ -45,22 +41,13 @@ public final class AccumuloTableHandle
     private final String serializerClassName;
     private final String table;
 
-    /**
-     * Creates a new instance of {@link AccumuloTableHandle}.
-     *
-     * @param connectorId Presto connector ID
-     * @param schema Presto schema (Accumulo namespace)
-     * @param table Presto table (Accumulo table)
-     * @param rowId The Presto column name that is the Accumulo row ID
-     * @param external Whether or not this table is internal, i.e. managed by Presto
-     * @param serializerClassName The qualified Java class name to (de)serialize data from Accumulo
-     * @param scanAuthorizations Scan-time authorizations of the scanner, or null to use all user scan
-     * authorizations
-     */
     @JsonCreator
-    public AccumuloTableHandle(@JsonProperty("connectorId") String connectorId,
-            @JsonProperty("schema") String schema, @JsonProperty("table") String table,
-            @JsonProperty("rowId") String rowId, @JsonProperty("external") boolean external,
+    public AccumuloTableHandle(
+            @JsonProperty("connectorId") String connectorId,
+            @JsonProperty("schema") String schema,
+            @JsonProperty("table") String table,
+            @JsonProperty("rowId") String rowId,
+            @JsonProperty("external") boolean external,
             @JsonProperty("serializerClassName") String serializerClassName,
             @JsonProperty("scanAuthorizations") Optional<String> scanAuthorizations)
     {
@@ -69,8 +56,7 @@ public final class AccumuloTableHandle
         this.rowId = requireNonNull(rowId, "rowId is null");
         this.scanAuthorizations = scanAuthorizations;
         this.schema = requireNonNull(schema, "schema is null");
-        this.serializerClassName =
-                requireNonNull(serializerClassName, "serializerClassName is null");
+        this.serializerClassName = requireNonNull(serializerClassName, "serializerClassName is null");
         this.table = requireNonNull(table, "table is null");
     }
 
@@ -111,8 +97,7 @@ public final class AccumuloTableHandle
             return (AccumuloRowSerializer) Class.forName(serializerClassName).newInstance();
         }
         catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
-            throw new PrestoException(VALIDATION,
-                    "Configured serializer class not found", e);
+            throw new PrestoException(VALIDATION, "Configured serializer class not found", e);
         }
     }
 
@@ -145,6 +130,7 @@ public final class AccumuloTableHandle
         if (this == obj) {
             return true;
         }
+
         if ((obj == null) || (getClass() != obj.getClass())) {
             return false;
         }
@@ -162,9 +148,14 @@ public final class AccumuloTableHandle
     @Override
     public String toString()
     {
-        return toStringHelper(this).add("connectorId", connectorId).add("schema", schema)
-                .add("table", table).add("rowId", rowId).add("internal", external)
+        return toStringHelper(this)
+                .add("connectorId", connectorId)
+                .add("schema", schema)
+                .add("table", table)
+                .add("rowId", rowId)
+                .add("internal", external)
                 .add("serializerClassName", serializerClassName)
-                .add("scanAuthorizations", scanAuthorizations).toString();
+                .add("scanAuthorizations", scanAuthorizations)
+                .toString();
     }
 }

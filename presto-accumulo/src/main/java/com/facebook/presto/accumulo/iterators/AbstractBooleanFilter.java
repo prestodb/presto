@@ -38,9 +38,9 @@ public abstract class AbstractBooleanFilter
 {
     private static final String FILTER_JAVA_CLASS_NAME = "abstract.boolean.filter.java.class.name";
     private static final Logger LOG = Logger.get(AbstractBooleanFilter.class);
-
-    protected List<RowFilter> filters = new ArrayList<>();
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    protected final List<RowFilter> filters = new ArrayList<>();
 
     @Override
     public void init(SortedKeyValueIterator<Key, Value> source, Map<String, String> options, IteratorEnvironment env)

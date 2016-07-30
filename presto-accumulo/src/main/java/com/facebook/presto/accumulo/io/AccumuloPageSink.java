@@ -65,10 +65,10 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Output class for serializing Presto pages (blocks of rows of data) to Accumulo. This class
- * converts the rows from within a page to a collection of Accumulo Mutations, writing and indexed
- * the rows. Writers are flushed and closed on commit, and if a rollback occurs... we'll you're
- * gonna have a bad time.
+ * Output class for serializing Presto pages (blocks of rows of data) to Accumulo.
+ * This class converts the rows from within a page to a collection of Accumulo Mutations,
+ * writing and indexed the rows. Writers are flushed and closed on commit, and if a rollback occurs...
+ * we'll you're gonna have a bad time.
  *
  * @see AccumuloPageSinkProvider
  */
@@ -82,13 +82,9 @@ public class AccumuloPageSink
     private final List<AccumuloColumnHandle> columns;
     private final int rowIdOrdinal;
 
-    /**
-     * Creates a new instance of {@link AccumuloPageSink}
-     *
-     * @param config Configuration for Accumulo
-     * @param table Table metadata for an Accumulo table
-     */
-    public AccumuloPageSink(AccumuloConfig config, AccumuloTable table)
+    public AccumuloPageSink(
+            AccumuloConfig config,
+            AccumuloTable table)
     {
         requireNonNull(config, "config is null");
         requireNonNull(table, "table is null");
@@ -98,39 +94,40 @@ public class AccumuloPageSink
         // Fetch the row ID ordinal, throwing an exception if not found for safety
         Optional<Integer> ordinal = columns.stream()
                 .filter(columnHandle -> columnHandle.getName().equals(table.getRowId()))
-                .map(AccumuloColumnHandle::getOrdinal).findAny();
+                .map(AccumuloColumnHandle::getOrdinal)
+                .findAny();
 
         if (!ordinal.isPresent()) {
             throw new PrestoException(INTERNAL_ERROR, "Row ID ordinal not found");
         }
 
         this.rowIdOrdinal = ordinal.get();
-
         this.serializer = table.getSerializerInstance();
 
         try {
-            Connector connector = AccumuloClient.getAccumuloConnector(config);
             // Create a BatchWriter to the Accumulo table
+            Connector connector = AccumuloClient.getAccumuloConnector(config);
             BatchWriterConfig conf = new BatchWriterConfig();
             writer = connector.createBatchWriter(table.getFullTableName(), conf);
 
-            // If the table is indexed, create an instance of an Indexer, else null
+            // If the table is indexed, create an instance of an Indexer, else empty
             if (table.isIndexed()) {
-                indexer = Optional.of(new Indexer(connector,
-                        connector.securityOperations().getUserAuthorizations(config.getUsername()),
-                        table, conf));
+                indexer = Optional.of(
+                        new Indexer(
+                                connector,
+                                connector.securityOperations().getUserAuthorizations(config.getUsername()),
+                                table,
+                                conf));
             }
             else {
                 indexer = Optional.empty();
             }
         }
         catch (AccumuloException | AccumuloSecurityException e) {
-            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR,
-                    "Accumulo error when creating BatchWriter and/or Indexer", e);
+            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Accumulo error when creating BatchWriter and/or Indexer", e);
         }
         catch (TableNotFoundException e) {
-            throw new PrestoException(ACCUMULO_TABLE_DNE,
-                    "Accumulo error when creating BatchWriter and/or Indexer, table does not exist", e);
+            throw new PrestoException(ACCUMULO_TABLE_DNE, "Accumulo error when creating BatchWriter and/or Indexer, table does not exist", e);
         }
     }
 
@@ -138,16 +135,12 @@ public class AccumuloPageSink
      * Converts a {@link Row} to an Accumulo mutation.
      *
      * @param row Row object
-     * @param rowIdOrdinal Ordinal in the list of columns that is the row ID. This isn't checked at all, so I
-     * hope you're right. Also, it is expected that the list of column handles is sorted
-     * in ordinal order. This is a very demanding function.
+     * @param rowIdOrdinal Ordinal in the list of columns that is the row ID. This isn't checked at all, so I hope you're right. Also, it is expected that the list of column handles is sorted in ordinal order. This is a very demanding function.
      * @param columns All column handles for the Row, sorted by ordinal.
-     * @param serializer Instance of {@link AccumuloRowSerializer} used to encode the values of the row to
-     * the Mutation
+     * @param serializer Instance of {@link AccumuloRowSerializer} used to encode the values of the row to the Mutation
      * @return Mutation
      */
-    public static Mutation toMutation(Row row, int rowIdOrdinal, List<AccumuloColumnHandle> columns,
-            AccumuloRowSerializer serializer)
+    public static Mutation toMutation(Row row, int rowIdOrdinal, List<AccumuloColumnHandle> columns, AccumuloRowSerializer serializer)
     {
         // Set our value to the row ID
         Text value = new Text();
@@ -163,7 +156,6 @@ public class AccumuloPageSink
 
         // Store row ID in a special column
         mutation.put(ROW_ID_COLUMN, ROW_ID_COLUMN, new Value(value.copyBytes()));
-
         for (AccumuloColumnHandle columnHandle : columns) {
             // Skip the row ID ordinal
             if (columnHandle.getOrdinal() == rowIdOrdinal) {
@@ -183,13 +175,6 @@ public class AccumuloPageSink
         return mutation;
     }
 
-    /**
-     * Sets the value of the given Text object to the encoded value of the given field.
-     *
-     * @param field Value of the field to encode
-     * @param value Text object to set
-     * @param serializer Serializer to use to encode the value
-     */
     private static void setText(Field field, Text value, AccumuloRowSerializer serializer)
     {
         Type type = field.getType();
@@ -254,8 +239,7 @@ public class AccumuloPageSink
                 Type type = columns.get(channel).getType();
 
                 // Read the value from the page and append the field to the row
-                row.addField(TypeUtils.readNativeValue(type, page.getBlock(channel), position),
-                        type);
+                row.addField(TypeUtils.readNativeValue(type, page.getBlock(channel), position), type);
             }
 
             // Convert row to a Mutation
@@ -277,8 +261,7 @@ public class AccumuloPageSink
             else {
                 // Else, this Mutation contains only a row ID and will throw an exception if
                 // added so, we throw one here with a more descriptive message!
-                throw new PrestoException(VALIDATION,
-                        "At least one non-recordkey column must contain a non-null value");
+                throw new PrestoException(VALIDATION, "At least one non-recordkey column must contain a non-null value");
             }
         }
 

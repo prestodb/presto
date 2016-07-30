@@ -14,39 +14,34 @@
 package com.facebook.presto.accumulo.conf;
 
 import com.facebook.presto.accumulo.metadata.AccumuloMetadataManager;
+import com.facebook.presto.accumulo.metadata.ZooKeeperMetadataManager;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
-import org.apache.commons.configuration.ConfigurationException;
-import org.apache.commons.configuration.PropertiesConfiguration;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
-import java.io.File;
-import java.net.URL;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
-import static java.lang.String.format;
 
 /**
  * File-based configuration properties for the Accumulo connector
  */
 public class AccumuloConfig
 {
-    public static final String INSTANCE = "instance";
-    public static final String ZOOKEEPERS = "zookeepers";
-    public static final String USERNAME = "username";
-    public static final String PASSWORD = "password";
-    public static final String ZOOKEEPER_METADATA_ROOT = "zookeeper.metadata.root";
-    public static final String METADATA_MANAGER_CLASS = "metadata.manager.class";
-    public static final String CARDINALITY_CACHE_SIZE = "cardinality.cache.size";
-    public static final String CARDINALITY_CACHE_EXPIRE_DURATION =
-            "cardinality.cache.expire.duration";
-    public static final String MINI_ACCUMULO_CLUSTER =
-            "mini.accumulo.cluster";
+    public static final String INSTANCE = "accumulo.instance";
+    public static final String ZOOKEEPERS = "accumulo.zookeepers";
+    public static final String USERNAME = "accumulo.username";
+    public static final String PASSWORD = "accumulo.password";
+    public static final String ZOOKEEPER_METADATA_ROOT = "accumulo.zookeeper.metadata.root";
+    public static final String METADATA_MANAGER_CLASS = "accumulo.metadata.manager.class";
+    public static final String CARDINALITY_CACHE_SIZE = "accumulo.cardinality.cache.size";
+    public static final String CARDINALITY_CACHE_EXPIRE_DURATION = "accumulo.cardinality.cache.expire.duration";
+    public static final String MINI_ACCUMULO_CLUSTER = "accumulo.mini.accumulo.cluster";
 
     private String instance = null;
     private String zooKeepers = null;
@@ -127,13 +122,12 @@ public class AccumuloConfig
         this.zkMetadataRoot = zkMetadataRoot;
     }
 
-    public AccumuloMetadataManager getMetadataManager()
+    public AccumuloMetadataManager getMetadataManager(TypeManager typeManager)
     {
         try {
             return metaManClass.equals("default")
-                    ? AccumuloMetadataManager.getDefault(this)
-                    : (AccumuloMetadataManager) Class.forName(metaManClass)
-                    .getConstructor(AccumuloConfig.class).newInstance(this);
+                    ? AccumuloMetadataManager.getDefault(this, typeManager)
+                    : (AccumuloMetadataManager) Class.forName(metaManClass).getConstructor(AccumuloConfig.class).newInstance(this);
         }
         catch (Exception e) {
             throw new PrestoException(VALIDATION, "Failed to factory metadata manager from config", e);
@@ -144,7 +138,7 @@ public class AccumuloConfig
     public String getMetadataManagerClass()
     {
         return metaManClass.equals("default")
-                ? AccumuloMetadataManager.getDefault(this).getClass().getCanonicalName()
+                ? ZooKeeperMetadataManager.class.getCanonicalName()
                 : metaManClass;
     }
 
@@ -192,46 +186,5 @@ public class AccumuloConfig
     public void setMiniAccumuloCluster(boolean isMiniAccumuloCluster)
     {
         this.isMiniAccumuloCluster = isMiniAccumuloCluster;
-    }
-
-    public static AccumuloConfig fromFile(File f)
-            throws ConfigurationException
-    {
-        if (!f.exists() || f.isDirectory()) {
-            throw new ConfigurationException(format("File %s does not exist or is a directory", f));
-        }
-        PropertiesConfiguration props = new PropertiesConfiguration(f);
-        props.setThrowExceptionOnMissing(true);
-
-        AccumuloConfig config = new AccumuloConfig();
-        config.setCardinalityCacheExpiration(Duration.valueOf(props.getString(CARDINALITY_CACHE_EXPIRE_DURATION, "5m")));
-        config.setCardinalityCacheSize(props.getInt(CARDINALITY_CACHE_SIZE, 100_000));
-        config.setInstance(props.getString(INSTANCE));
-        config.setMetadataManagerClass(props.getString(METADATA_MANAGER_CLASS, "default"));
-        config.setPassword(props.getString(PASSWORD));
-        config.setUsername(props.getString(USERNAME));
-        config.setZkMetadataRoot(props.getString(ZOOKEEPER_METADATA_ROOT, "/presto-accumulo"));
-        config.setZooKeepers(props.getString(ZOOKEEPERS));
-        config.setMiniAccumuloCluster(props.getBoolean(MINI_ACCUMULO_CLUSTER, false));
-        return config;
-    }
-
-    public static AccumuloConfig fromURL(URL url)
-            throws ConfigurationException
-    {
-        PropertiesConfiguration props = new PropertiesConfiguration(url);
-        props.setThrowExceptionOnMissing(true);
-
-        AccumuloConfig config = new AccumuloConfig();
-        config.setCardinalityCacheExpiration(Duration.valueOf(props.getString(CARDINALITY_CACHE_EXPIRE_DURATION, "5m")));
-        config.setCardinalityCacheSize(props.getInt(CARDINALITY_CACHE_SIZE, 100_000));
-        config.setInstance(props.getString(INSTANCE));
-        config.setMetadataManagerClass(props.getString(METADATA_MANAGER_CLASS, "default"));
-        config.setPassword(props.getString(PASSWORD));
-        config.setUsername(props.getString(USERNAME));
-        config.setZkMetadataRoot(props.getString(ZOOKEEPER_METADATA_ROOT, "/presto-accumulo"));
-        config.setZooKeepers(props.getString(ZOOKEEPERS));
-        config.setMiniAccumuloCluster(props.getBoolean(MINI_ACCUMULO_CLUSTER, false));
-        return config;
     }
 }

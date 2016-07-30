@@ -24,90 +24,41 @@ import static com.facebook.presto.accumulo.AccumuloErrorCode.COLUMN_NOT_FOUND;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 
-/**
- * Class to define the schema of a Row, stored as a list of {@link AccumuloColumnHandle}.
- */
 public class RowSchema
 {
-    private List<AccumuloColumnHandle> columns = new ArrayList<>();
+    private final List<AccumuloColumnHandle> columns = new ArrayList<>();
 
-    /**
-     * Gets a new instance of RowSchema.
-     *
-     * @return A new RowSchema
-     */
-    public static RowSchema newRowSchema()
-    {
-        return new RowSchema();
-    }
-
-    /**
-     * Adds the Row ID column to the schema
-     *
-     * @param name Name of the row ID column
-     * @param type Presto type of the column
-     * @return this, for chaining
-     */
     public RowSchema addRowId(String name, Type type)
     {
-        columns.add(new AccumuloColumnHandle(name, Optional.empty(), Optional.empty(), type, columns.size(),
-                "Accumulo row ID", false));
+        columns.add(new AccumuloColumnHandle(name, Optional.empty(), Optional.empty(), type, columns.size(), "Accumulo row ID", false));
         return this;
     }
 
-    /**
-     * Appends a new non-indexed column to the end of the schema.
-     *
-     * @param prestoName Presto column name
-     * @param family Accumulo column family, optional if column is row ID
-     * @param qualifier Accumulo column qualifier, optional if column is row ID
-     * @param type Presto type of the column
-     * @return this, for schema
-     */
     public RowSchema addColumn(String prestoName, Optional<String> family, Optional<String> qualifier, Type type)
     {
         return addColumn(prestoName, family, qualifier, type, false);
     }
 
-    /**
-     * Appends a new column to the end of the schema.
-     *
-     * @param prestoName Presto column name
-     * @param family Accumulo column family, optional if column is row ID
-     * @param qualifier Accumulo column qualifier, optional if column is row ID
-     * @param type Presto type of the column
-     * @param indexed True if indexed, false otherwise
-     * @return this, for schema
-     */
-    public RowSchema addColumn(String prestoName, Optional<String> family, Optional<String> qualifier, Type type,
-            boolean indexed)
+    public RowSchema addColumn(String prestoName, Optional<String> family, Optional<String> qualifier, Type type, boolean indexed)
     {
-        columns.add(new AccumuloColumnHandle(prestoName, family, qualifier, type,
-                columns.size(),
-                format("Accumulo column %s:%s. Indexed: %b", family, qualifier, indexed),
-                indexed));
+        columns.add(
+                new AccumuloColumnHandle(
+                        prestoName,
+                        family,
+                        qualifier,
+                        type,
+                        columns.size(),
+                        format("Accumulo column %s:%s. Indexed: %b", family, qualifier, indexed),
+                        indexed));
         return this;
     }
 
-    /**
-     * Gets the column handle at the given zero-based indexed
-     *
-     * @param i Index to retrieve
-     * @return The column handle
-     */
     public AccumuloColumnHandle getColumn(int i)
     {
         checkArgument(i >= 0 && i < columns.size(), "column index must be non-negative and less than length");
         return columns.get(i);
     }
 
-    /**
-     * Gets the column handle that matches the given Presto column name
-     *
-     * @param name Presto column name
-     * @return The column handle
-     * @throws PrestoException If the column is not found
-     */
     public AccumuloColumnHandle getColumn(String name)
     {
         for (AccumuloColumnHandle columnHandle : columns) {
@@ -116,42 +67,35 @@ public class RowSchema
             }
         }
 
-        throw new PrestoException(COLUMN_NOT_FOUND, format("No column with name %s", name));
+        throw new PrestoException(COLUMN_NOT_FOUND, "No column with name " + name);
     }
 
-    /**
-     * Gets all column handles in the schema
-     *
-     * @return Column handle
-     */
     public List<AccumuloColumnHandle> getColumns()
     {
         return columns;
     }
 
-    /**
-     * Gets the length of the schema, i.e. number of fields
-     *
-     * @return Length of the schema
-     */
     public int getLength()
     {
         return columns.size();
     }
 
     /**
-     * Creates a new {@link RowSchema} from a list of {@link AccumuloColumnHandle} objects. Does not
-     * validate the schema.
+     * Creates a new {@link RowSchema} from a list of {@link AccumuloColumnHandle} objects. Does not validate the schema.
      *
      * @param columns Column handles
      * @return Row schema
      */
     public static RowSchema fromColumns(List<AccumuloColumnHandle> columns)
     {
-        RowSchema schema = RowSchema.newRowSchema();
+        RowSchema schema = new RowSchema();
         for (AccumuloColumnHandle columnHandle : columns) {
-            schema.addColumn(columnHandle.getName(), columnHandle.getFamily(),
-                    columnHandle.getQualifier(), columnHandle.getType(), columnHandle.isIndexed());
+            schema.addColumn(
+                    columnHandle.getName(),
+                    columnHandle.getFamily(),
+                    columnHandle.getQualifier(),
+                    columnHandle.getType(),
+                    columnHandle.isIndexed());
         }
         return schema;
     }
@@ -161,7 +105,10 @@ public class RowSchema
     {
         StringBuilder builder = new StringBuilder("{");
         for (AccumuloColumnHandle columnHandle : columns) {
-            builder.append(columnHandle.getName()).append(' ').append(columnHandle.getType()).append(',');
+            builder.append(columnHandle.getName())
+                    .append(' ')
+                    .append(columnHandle.getType())
+                    .append(',');
         }
 
         if (builder.length() > 1) {

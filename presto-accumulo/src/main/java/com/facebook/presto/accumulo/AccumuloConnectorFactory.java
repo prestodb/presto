@@ -15,6 +15,7 @@ package com.facebook.presto.accumulo;
 
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
@@ -27,9 +28,6 @@ import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
-/**
- * Factory for creating an {@link AccumuloConnector}
- */
 public class AccumuloConnectorFactory
         implements ConnectorFactory
 {
@@ -40,8 +38,7 @@ public class AccumuloConnectorFactory
     public AccumuloConnectorFactory(TypeManager typeManager, Map<String, String> optionalConfig)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.optionalConfig =
-                ImmutableMap.copyOf(requireNonNull(optionalConfig, "optionalConfig is null"));
+        this.optionalConfig = ImmutableMap.copyOf(requireNonNull(optionalConfig, "optionalConfig is null"));
     }
 
     @Override
@@ -51,20 +48,19 @@ public class AccumuloConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> requiredConfig)
+    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
     {
         requireNonNull(connectorId, "connectorId is null");
-        requireNonNull(requiredConfig, "requiredConfig is null");
+        requireNonNull(config, "requiredConfig is null");
+        requireNonNull(context, "context is null");
 
         try {
             // A plugin is not required to use Guice; it is just very convenient
             // Unless you don't really know how to Guice, then it is less convenient
             Bootstrap app = new Bootstrap(new JsonModule(), new AccumuloModule(connectorId, typeManager));
-
             Injector injector = app.strictConfig().doNotInitializeLogging()
-                    .setRequiredConfigurationProperties(requiredConfig)
+                    .setRequiredConfigurationProperties(config)
                     .setOptionalConfigurationProperties(optionalConfig).initialize();
-
             return injector.getInstance(AccumuloConnector.class);
         }
         catch (Exception e) {

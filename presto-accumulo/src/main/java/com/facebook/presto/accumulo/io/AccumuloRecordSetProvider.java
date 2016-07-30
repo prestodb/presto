@@ -34,8 +34,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Implementation of a ConnectorRecordSetProvider for Accumulo. Generates {@link AccumuloRecordSet}
- * objects for a provided split.
+ * Implementation of a ConnectorRecordSetProvider for Accumulo. Generates {@link AccumuloRecordSet} objects for a provided split.
  *
  * @see AccumuloRecordSet
  * @see AccumuloRecordCursor
@@ -47,7 +46,9 @@ public class AccumuloRecordSetProvider
     private final AccumuloConfig config;
 
     @Inject
-    public AccumuloRecordSetProvider(AccumuloConnectorId connectorId, AccumuloConfig config)
+    public AccumuloRecordSetProvider(
+            AccumuloConnectorId connectorId,
+            AccumuloConfig config)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.config = requireNonNull(config, "config is null");

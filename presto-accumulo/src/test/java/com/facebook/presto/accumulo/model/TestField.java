@@ -202,7 +202,7 @@ public class TestField
             throws Exception
     {
         Type type = TIME;
-        Time expected = new Time(new GregorianCalendar(1999, 0, 1, 12, 30, 00).getTime().getTime());
+        Time expected = new Time(new GregorianCalendar(1999, 0, 1, 12, 30, 0).getTime().getTime());
         Field f1 = new Field(expected, type);
         assertEquals(f1.getTime(), expected);
         assertEquals(f1.getObject(), expected);
@@ -218,7 +218,7 @@ public class TestField
             throws Exception
     {
         Type type = TIMESTAMP;
-        Timestamp expected = new Timestamp(new GregorianCalendar(1999, 0, 1, 12, 30, 00).getTime().getTime());
+        Timestamp expected = new Timestamp(new GregorianCalendar(1999, 0, 1, 12, 30, 0).getTime().getTime());
         Field f1 = new Field(expected, type);
         assertEquals(f1.getTimestamp(), expected);
         assertEquals(f1.getObject(), expected);

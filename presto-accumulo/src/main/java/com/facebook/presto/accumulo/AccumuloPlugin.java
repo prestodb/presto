@@ -13,60 +13,40 @@
  */
 package com.facebook.presto.accumulo;
 
-import com.facebook.presto.metadata.FunctionFactory;
+import com.facebook.presto.accumulo.udf.AccumuloStringFunctions;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
-import javax.inject.Inject;
-
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
-/**
- * Main extension point for Accumulo connector for Presto. Provides services related to Accumulo to
- * Presto, such as the connector itself and any defined UDFs.
- */
 public class AccumuloPlugin
         implements Plugin
 {
-    private TypeManager typeManager;
     private Map<String, String> optionalConfig = ImmutableMap.of();
 
     @Override
     public void setOptionalConfig(Map<String, String> optionalConfig)
     {
-        this.optionalConfig =
-                ImmutableMap.copyOf(requireNonNull(optionalConfig, "optionalConfig is null"));
-    }
-
-    @Inject
-    public void setTypeManager(TypeManager typeManager)
-    {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-    }
-
-    public Map<String, String> getOptionalConfig()
-    {
-        return optionalConfig;
+        this.optionalConfig = ImmutableMap.copyOf(requireNonNull(optionalConfig, "optionalConfig is null"));
     }
 
     @Override
-    public <T> List<T> getServices(Class<T> type)
+    public Set<Class<?>> getFunctions()
     {
-        if (type == ConnectorFactory.class) {
-            return ImmutableList
-                    .of(type.cast(new AccumuloConnectorFactory(typeManager, getOptionalConfig())));
-        }
+        return ImmutableSet.<Class<?>>builder().add(AccumuloStringFunctions.class).build();
+    }
 
-        if (type == FunctionFactory.class) {
-            return ImmutableList.of(type.cast(new AccumuloFunctionFactory()));
-        }
-
-        return ImmutableList.of();
+    @Override
+    public Iterable<ConnectorFactory> getConnectorFactories(ConnectorFactoryContext context)
+    {
+        requireNonNull(context, "context is null");
+        return ImmutableList.of(new AccumuloConnectorFactory(context.getTypeManager(), optionalConfig));
     }
 }
