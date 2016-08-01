@@ -49,6 +49,7 @@ import static com.facebook.presto.spi.type.Decimals.checkOverflow;
 import static com.facebook.presto.spi.type.Decimals.longTenToNth;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.rescale;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.throwIfOverflows;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static java.lang.Integer.max;
 import static java.math.BigInteger.ONE;
@@ -141,6 +142,7 @@ public final class DecimalOperators
             }
 
             UnscaledDecimal128Arithmetic.add(left, right, left);
+            throwIfOverflows(left);
             return left;
         }
         catch (ArithmeticException e) {
@@ -218,6 +220,7 @@ public final class DecimalOperators
                 rescale(b, rescale, tmp);
                 UnscaledDecimal128Arithmetic.subtract(a, tmp, tmp);
             }
+            throwIfOverflows(tmp);
             return tmp;
         }
         catch (ArithmeticException e) {
@@ -263,7 +266,9 @@ public final class DecimalOperators
     public static Slice multiplyLongLongLong(Slice a, Slice b)
     {
         try {
-            return UnscaledDecimal128Arithmetic.multiply(a, b);
+            Slice result = UnscaledDecimal128Arithmetic.multiply(a, b);
+            throwIfOverflows(result);
+            return result;
         }
         catch (ArithmeticException e) {
             throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);

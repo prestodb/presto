@@ -272,7 +272,7 @@ public final class UnscaledDecimal128Arithmetic
     }
 
     /**
-     * This method ignores signs of the left and right
+     * This method ignores signs of the left and right.
      */
     private static void addUnsigned(Slice left, Slice right, Slice result, boolean resultNegative)
     {
@@ -302,8 +302,6 @@ public final class UnscaledDecimal128Arithmetic
         product = (l3 & LONG_MASK) + (r3 & LONG_MASK) + (product >> 32);
 
         int z3 = (int) product;
-
-        throwIfOverflows(z0, z1, z2, z3);
 
         pack(result, z0, z1, z2, z3, resultNegative);
 
@@ -343,8 +341,6 @@ public final class UnscaledDecimal128Arithmetic
         product = (l3 & LONG_MASK) - (r3 & LONG_MASK) + (product >> 32);
 
         int z3 = (int) product;
-
-        throwIfOverflows(z0, z1, z2, z3);
 
         pack(result, z0, z1, z2, z3, resultNegative);
 
@@ -407,8 +403,6 @@ public final class UnscaledDecimal128Arithmetic
 
         boolean negative = isNegative(left) ^ isNegative(right);
         pack(result, z0, z1, z2, z3, negative);
-
-        throwIfOverflows(z0, z1, z2, z3);
     }
 
     public static int compare(Slice left, Slice right)
@@ -506,19 +500,22 @@ public final class UnscaledDecimal128Arithmetic
 
     public static boolean overflows(Slice value, int precision)
     {
+        if (precision == MAX_PRECISION) {
+            return exceedsOrEqualTenToThirtyEight(value);
+        }
         return precision < MAX_PRECISION && compareUnsigned(value, POWERS_OF_TEN[precision]) >= 0;
+    }
+
+    public static void throwIfOverflows(Slice decimal)
+    {
+        if (exceedsOrEqualTenToThirtyEight(decimal)) {
+            throwOverflowException();
+        }
     }
 
     private static void throwIfOverflows(int v0, int v1, int v2, int v3)
     {
         if (exceedsOrEqualTenToThirtyEight(v0, v1, v2, v3)) {
-            throwOverflowException();
-        }
-    }
-
-    private static void throwIfOverflows(Slice decimal)
-    {
-        if (exceedsOrEqualTenToThirtyEight(decimal)) {
             throwOverflowException();
         }
     }
@@ -698,6 +695,9 @@ public final class UnscaledDecimal128Arithmetic
 
     private static void setNegativeInt(Slice decimal, int v3, boolean negative)
     {
+        if (v3 < 0) {
+            throwOverflowException();
+        }
         setRawInt(decimal, SIGN_INT_INDEX, v3 | (negative ? SIGN_INT_MASK : 0));
     }
 
@@ -771,26 +771,18 @@ public final class UnscaledDecimal128Arithmetic
     private static boolean exceedsOrEqualTenToThirtyEight(Slice decimal)
     {
         // 10**38=
-        // v0=0(0),v1=160047680(98a22400),v2=1518781562(5a86c47a),v3=1262177448(4b3b4ca8)
-
-        int v3 = getInt(decimal, 3);
-        if (v3 >= 0 && v3 < 0x4b3b4ca8) {
+        // i0 = 0(0), i1 = 160047680(98a22400), i2 = 1518781562(5a86c47a), i3 = 1262177448(4b3b4ca8)
+        // low = 0x98a2240000000000l, high = 0x4b3b4ca85a86c47al
+        long high = getLong(decimal, 1);
+        if (high >= 0 && high < 0x4b3b4ca85a86c47aL) {
             return false;
         }
-        else if (v3 != 0x4b3b4ca8) {
+        else if (high != 0x4b3b4ca85a86c47aL) {
             return true;
         }
 
-        int v2 = getInt(decimal, 2);
-        if (v2 >= 0 && v2 < 0x5a86c47a) {
-            return false;
-        }
-        else if (v2 != 0x5a86c47a) {
-            return true;
-        }
-
-        int v1 = getInt(decimal, 1);
-        return v1 < 0 || v1 >= 0x098a2240;
+        long low = getLong(decimal, 0);
+        return low < 0 || low >= 0x098a224000000000L;
     }
 
     private static void throwOverflowException()

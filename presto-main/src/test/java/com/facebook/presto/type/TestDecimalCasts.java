@@ -64,6 +64,9 @@ public class TestDecimalCasts
         assertDecimalFunction("CAST(1234567890 AS DECIMAL(20, 10))", decimal("1234567890.0000000000"));
         assertDecimalFunction("CAST(-1234567890 AS DECIMAL(20, 10))", decimal("-1234567890.0000000000"));
 
+        //reenable this test after fixing https://github.com/prestodb/presto/issues/5775
+        //assertDecimalFunction("CAST(17014000 AS DECIMAL(38,30))" , decimal("17014000.000000000000000000000000000000"));
+
         assertInvalidCast("CAST(1234567890 AS DECIMAL(17,10))", "Cannot cast INTEGER '1234567890' to DECIMAL(17, 10)");
         assertInvalidCast("CAST(123 AS DECIMAL(2,1))", "Cannot cast INTEGER '123' to DECIMAL(2, 1)");
         assertInvalidCast("CAST(-123 AS DECIMAL(2,1))", "Cannot cast INTEGER '-123' to DECIMAL(2, 1)");

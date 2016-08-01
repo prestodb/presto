@@ -73,10 +73,11 @@ public class TestDecimalOperators
         assertInvalidFunction("DECIMAL '-99999999999999999999999999999999999999' + DECIMAL '-99999999999999999999999999999999999999'", NUMERIC_VALUE_OUT_OF_RANGE);
 
         // max supported value for rescaling
-        // this could be working if rescaling would allow overflowed values that exceed 10^38 but still fit in 127 bits.
-        // 17009999999999999555071686465793556480 * 10 is an example of such number. Both arguments and result can be stored using DECIMAL(38,0) or DECIMAL(38,1)
-        // but because we have to downscale DECIMAL(38, 0) to DECIMAL(38, 1), result of this downscaling is detected as an overflow error.
-        assertInvalidFunction("DECIMAL '17009999999999999555071686465793556480' - DECIMAL '7009999999999999555071686465793556480.1'", NUMERIC_VALUE_OUT_OF_RANGE);
+        // this works because rescaling allows overflowed values that exceed 10^38 but still fit in 127 bits.
+        // 17014000000000000000000000000000000000 * 10 is an example of such number. Both arguments and result can be stored using DECIMAL(38,0) or DECIMAL(38,1)
+        assertDecimalFunction("DECIMAL '17014000000000000000000000000000000000' + DECIMAL '-7014000000000000000000000000000000000.1'", decimal("9999999999999999999999999999999999999.9"));
+        // 17015000000000000000000000000000000000 on the other hand is too large and rescaled to DECIMAL(38,1) it does not fit in in 127 bits
+        assertInvalidFunction("DECIMAL '17015000000000000000000000000000000000' + DECIMAL '-7015000000000000000000000000000000000.1'", NUMERIC_VALUE_OUT_OF_RANGE);
     }
 
     @Test
@@ -125,6 +126,13 @@ public class TestDecimalOperators
         assertInvalidFunction("DECIMAL '-1' - DECIMAL '99999999999999999999999999999999999999'", NUMERIC_VALUE_OUT_OF_RANGE);
         assertInvalidFunction("DECIMAL '99999999999999999999999999999999999999' - DECIMAL '.1'", NUMERIC_VALUE_OUT_OF_RANGE);
         assertInvalidFunction("DECIMAL '-99999999999999999999999999999999999999' - DECIMAL '99999999999999999999999999999999999999'", NUMERIC_VALUE_OUT_OF_RANGE);
+
+        // max supported value for rescaling
+        // this works because rescaling allows overflowed values that exceed 10^38 but still fit in 127 bits.
+        // 17014000000000000000000000000000000000 * 10 is an example of such number. Both arguments and result can be stored using DECIMAL(38,0) or DECIMAL(38,1)
+        assertDecimalFunction("DECIMAL '17014000000000000000000000000000000000' - DECIMAL '7014000000000000000000000000000000000.1'", decimal("9999999999999999999999999999999999999.9"));
+        // 17015000000000000000000000000000000000 on the other hand is too large and rescaled to DECIMAL(38,1) it does not fit in in 127 bits
+        assertInvalidFunction("DECIMAL '17015000000000000000000000000000000000' - DECIMAL '7015000000000000000000000000000000000.1'", NUMERIC_VALUE_OUT_OF_RANGE);
     }
 
     @Test
@@ -430,6 +438,11 @@ public class TestDecimalOperators
         assertFunction("DECIMAL '00000000037.0000000000000000000000' < DECIMAL '38.0000000000000000000000'", BOOLEAN, true);
         assertFunction("DECIMAL '00000000037.0000000000000000000000' < DECIMAL '000000000037.00000000000000000000001'", BOOLEAN, true);
         assertFunction("DECIMAL '-00000000000100.000000000000' < DECIMAL '0000000020.0000000000000'", BOOLEAN, true);
+
+        // max supported value for rescaling
+        // this works because rescaling allows overflowed values that exceed 10^38 but still fit in 127 bits.
+        // 17014000000000000000000000000000000000 * 10 is an example of such number. Both arguments and result can be stored using DECIMAL(38,0) or DECIMAL(38,1)
+        assertFunction("DECIMAL '17014000000000000000000000000000000000' < DECIMAL '7014000000000000000000000000000000000.1'", BOOLEAN, false);
     }
 
     @Test
