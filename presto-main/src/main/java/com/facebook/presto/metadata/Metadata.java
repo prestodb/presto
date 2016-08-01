@@ -132,6 +132,11 @@ public interface Metadata
     void dropSchema(Session session, CatalogSchemaName schema);
 
     /**
+     * Renames the specified schema.
+     */
+    void renameSchema(Session session, CatalogSchemaName source, String target);
+
+    /**
      * Creates a table using the specified table metadata.
      */
     @NotNull

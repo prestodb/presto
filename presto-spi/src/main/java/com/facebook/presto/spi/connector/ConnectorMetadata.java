@@ -160,6 +160,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Renames the specified schema.
+     */
+    default void renameSchema(ConnectorSession session, String source, String target)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
+    }
+
+    /**
      * Creates a table using the specified table metadata.
      */
     default void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)

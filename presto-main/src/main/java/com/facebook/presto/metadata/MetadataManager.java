@@ -489,6 +489,15 @@ public class MetadataManager
     }
 
     @Override
+    public void renameSchema(Session session, CatalogSchemaName source, String target)
+    {
+        ConnectorEntry entry = connectorsByCatalog.get(source.getCatalogName());
+        checkArgument(entry != null, "Catalog %s does not exist", source.getCatalogName());
+        ConnectorMetadata metadata = entry.getMetadataForWrite(session);
+        metadata.renameSchema(session.toConnectorSession(entry.getConnectorId()), source.getSchemaName(), target);
+    }
+
+    @Override
     public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
     {
         ConnectorEntry entry = connectorsByCatalog.get(catalogName);
