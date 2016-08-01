@@ -424,7 +424,7 @@ public final class GraphvizPrinter
         public Void visitEnforceSingleRow(EnforceSingleRowNode node, Void context)
         {
             printNode(node, "Scalar", NODE_COLORS.get(NodeType.PROJECT));
-            return null;
+            return node.getSource().accept(this, context);
         }
 
         @Override
