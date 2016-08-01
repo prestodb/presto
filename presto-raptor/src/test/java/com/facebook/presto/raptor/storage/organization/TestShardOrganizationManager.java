@@ -110,8 +110,9 @@ public class TestShardOrganizationManager
         assertEquals(actual, ImmutableSet.of(table1, table2));
 
         // update the start times and test that the tables are discovered after interval seconds
-        organizerDao.updateLastStartTime("node1", table1, System.currentTimeMillis());
-        organizerDao.updateLastStartTime("node1", table2, System.currentTimeMillis());
+        long updateTime = System.currentTimeMillis();
+        organizerDao.updateLastStartTime("node1", table1, updateTime);
+        organizerDao.updateLastStartTime("node1", table2, updateTime);
 
         // wait for some time (interval time) for the tables to be eligible for organization
         long start = System.nanoTime();
