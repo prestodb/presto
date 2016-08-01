@@ -49,13 +49,17 @@ public class Decimals
 
     private static final Pattern DECIMAL_PATTERN = Pattern.compile("(\\+?|-?)((0*)(\\d*))(\\.(\\d+))?");
 
-    private static final int POWERS_OF_TEN_TABLE_LENGTH = 100;
-    private static final long[] LONG_POWERS_OF_TEN = new long[POWERS_OF_TEN_TABLE_LENGTH];
-    private static final BigInteger[] BIG_INTEGER_POWERS_OF_TEN = new BigInteger[POWERS_OF_TEN_TABLE_LENGTH];
+    private static final int LONG_POWERS_OF_TEN_TABLE_LENGTH = 18;
+    private static final int BIG_INTEGER_POWERS_OF_TEN_TABLE_LENGTH = 100;
+    private static final long[] LONG_POWERS_OF_TEN = new long[LONG_POWERS_OF_TEN_TABLE_LENGTH];
+    private static final BigInteger[] BIG_INTEGER_POWERS_OF_TEN = new BigInteger[BIG_INTEGER_POWERS_OF_TEN_TABLE_LENGTH];
 
     static {
         for (int i = 0; i < LONG_POWERS_OF_TEN.length; ++i) {
             LONG_POWERS_OF_TEN[i] = round(pow(10, i));
+        }
+
+        for (int i = 0; i < BIG_INTEGER_POWERS_OF_TEN.length; ++i) {
             BIG_INTEGER_POWERS_OF_TEN[i] = TEN.pow(i);
         }
     }
