@@ -48,6 +48,8 @@ import static org.testng.Assert.assertTrue;
 public class TestMySqlDistributedQueries
         extends AbstractTestQueries
 {
+    private static final String CHARACTER_SET_UTF8 = "CHARACTER SET utf8";
+
     private final TestingMySqlServer mysqlServer;
 
     public TestMySqlDistributedQueries()
@@ -122,6 +124,22 @@ public class TestMySqlDistributedQueries
                 .execute(queryRunner, mysqlCreateAndInsert("tpch.mysql_test_parameterized_varchar"));
     }
 
+    @Test
+    public void testMySqlCreatedParameterizedVarcharUnicode()
+            throws Exception
+    {
+        String sampleUnicodeText = "\u653b\u6bbb\u6a5f\u52d5\u968a";
+        DataTypeTest.create()
+                .addRoundTrip(stringDataType("tinytext " + CHARACTER_SET_UTF8, createVarcharType(255)), sampleUnicodeText)
+                .addRoundTrip(stringDataType("text " + CHARACTER_SET_UTF8, createVarcharType(65535)), sampleUnicodeText)
+                .addRoundTrip(stringDataType("mediumtext " + CHARACTER_SET_UTF8, createVarcharType(16777215)), sampleUnicodeText)
+                .addRoundTrip(stringDataType("longtext " + CHARACTER_SET_UTF8, createUnboundedVarcharType()), sampleUnicodeText)
+                .addRoundTrip(varcharDataType(sampleUnicodeText.length(), CHARACTER_SET_UTF8), sampleUnicodeText)
+                .addRoundTrip(varcharDataType(32, CHARACTER_SET_UTF8), sampleUnicodeText)
+                .addRoundTrip(varcharDataType(20000, CHARACTER_SET_UTF8), sampleUnicodeText)
+                .execute(queryRunner, mysqlCreateAndInsert("tpch.mysql_test_parameterized_varchar_unicode"));
+    }
+
     private DataSetup prestoCreateAsSelect(String tableNamePrefix)
     {
         return new CreateAsSelectDataSetup(new PrestoSqlExecutor(queryRunner), tableNamePrefix);
@@ -129,7 +147,7 @@ public class TestMySqlDistributedQueries
 
     private DataSetup mysqlCreateAndInsert(String tableNamePrefix)
     {
-        JdbcSqlExecutor mysqlUnicodeExecutor = new JdbcSqlExecutor(mysqlServer.getJdbcUrl());
+        JdbcSqlExecutor mysqlUnicodeExecutor = new JdbcSqlExecutor(mysqlServer.getJdbcUrl() + "&useUnicode=true&characterEncoding=utf8");
         return new CreateAndInsertDataSetup(mysqlUnicodeExecutor, tableNamePrefix);
     }
 
