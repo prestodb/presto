@@ -47,7 +47,7 @@ public class DataTypeTest
     public void execute(QueryRunner prestoExecutor, DataSetup dataSetup)
     {
         List<Type> expectedTypes = inputs.stream().map(Input::getPrestoResultType).collect(toList());
-        List<Object> expectedResults = inputs.stream().map(Input::getValue).collect(toList());
+        List<Object> expectedResults = inputs.stream().map(Input::toPrestoQueryResult).collect(toList());
         try (TestTable testTable = dataSetup.setupTestTable(unmodifiableList(inputs))) {
             MaterializedResult materializedRows = prestoExecutor.execute("SELECT * from " + testTable.getName());
             assertEquals(expectedTypes, materializedRows.getTypes());
@@ -77,9 +77,9 @@ public class DataTypeTest
             return dataType.getPrestoResultType();
         }
 
-        Object getValue()
+        Object toPrestoQueryResult()
         {
-            return value;
+            return dataType.toPrestoQueryResult(value);
         }
 
         String toLiteral()
