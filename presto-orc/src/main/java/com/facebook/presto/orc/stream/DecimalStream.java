@@ -163,7 +163,8 @@ public class DecimalStream
             throws IOException
     {
         for (int i = 0; i < items; i++) {
-            long rescaledDecimal = Decimals.rescale(nextLong(), (int) sourceScale[i], targetType.getScale());
+            long value = nextLong();
+            long rescaledDecimal = Decimals.rescale(value, (int) sourceScale[i], targetType.getScale());
             targetType.writeLong(builder, rescaledDecimal);
         }
     }
