@@ -15,7 +15,6 @@ package com.facebook.presto.spi.block.array;
 
 public interface IntArray
 {
-
     int length();
 
     int get(int position);
@@ -24,4 +23,5 @@ public interface IntArray
 
     void set(int position, int value);
 
+    void fill(int value);
 }

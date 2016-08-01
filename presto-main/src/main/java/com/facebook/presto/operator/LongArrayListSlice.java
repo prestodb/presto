@@ -23,9 +23,7 @@ import java.util.List;
 public class LongArrayListSlice
         implements LongArrayList
 {
-
     private static final int LONG_BYTES = 8;
-
     private final int expectedPositionsPerSlice;
     private final BlockResourceContext blockResourceContext;
     private final List<Slice> slices = new ArrayList<>();
@@ -127,5 +125,11 @@ public class LongArrayListSlice
             data[i] = getLong(i);
         }
         return data;
+    }
+
+    @Override
+    public BlockResourceContext getBlockResourceContext()
+    {
+        return blockResourceContext;
     }
 }

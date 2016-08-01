@@ -91,6 +91,7 @@ public final class SettableLookupSourceSupplier
 
             // transfer lookup source memory to task context
             long lookupSourceSizeInBytes = lookupSource.getInMemorySizeInBytes();
+            System.out.println(lookupSourceSizeInBytes);
             operatorContext.transferMemoryToTaskContext(lookupSourceSizeInBytes);
 
             // when all references are released, free the task memory

@@ -19,7 +19,6 @@ import io.airlift.slice.Slice;
 public class BooleanArraySlice
         implements BooleanArray
 {
-
     private final long retainedSize;
     private final int length;
     private final Slice slice;
@@ -54,5 +53,4 @@ public class BooleanArraySlice
     {
         slice.setByte(position, value ? 1 : 0);
     }
-
 }

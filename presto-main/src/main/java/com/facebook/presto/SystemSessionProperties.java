@@ -349,7 +349,7 @@ public final class SystemSessionProperties
     {
         return session.getProperty(QUERY_MAX_CPU_TIME, Duration.class);
     }
-    
+
     public static boolean isSpillEnable(Session session)
     {
         return session.getProperty(SPILL, Boolean.class);

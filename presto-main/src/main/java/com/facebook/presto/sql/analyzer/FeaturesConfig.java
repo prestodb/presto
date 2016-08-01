@@ -262,7 +262,7 @@ public class FeaturesConfig
     {
         return spillEnabled;
     }
-    
+
     @Config("spill")
     public FeaturesConfig setSpillEnabled(boolean spillEnabled)
     {

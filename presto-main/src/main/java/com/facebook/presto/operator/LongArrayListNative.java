@@ -14,12 +14,12 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.array.LongArrayList;
+import com.facebook.presto.spi.block.resource.BlockResourceContext;
 import io.airlift.slice.SizeOf;
 
 public class LongArrayListNative
         implements LongArrayList
 {
-
     private final it.unimi.dsi.fastutil.longs.LongArrayList internal;
 
     public LongArrayListNative()
@@ -74,4 +74,9 @@ public class LongArrayListNative
         return internal.toLongArray(null);
     }
 
+    @Override
+    public BlockResourceContext getBlockResourceContext()
+    {
+        return new HeapBlockResourceContext();
+    }
 }

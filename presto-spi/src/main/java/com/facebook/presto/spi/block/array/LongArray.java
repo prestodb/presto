@@ -13,23 +13,13 @@
  */
 package com.facebook.presto.spi.block.array;
 
-import com.facebook.presto.spi.block.resource.BlockResourceContext;
-
-public interface LongArrayList
+public interface LongArray
 {
-    BlockResourceContext getBlockResourceContext();
+    int length();
 
-    void clear();
+    long get(int position);
 
-    boolean add(long value);
+    long getRetainedSize();
 
-    long getLong(int index);
-
-    void setLong(int index, long value);
-
-    long sizeOf();
-
-    int size();
-
-    long[] toLongArray();
+    void set(int position, long value);
 }

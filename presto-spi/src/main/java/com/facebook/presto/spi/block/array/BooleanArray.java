@@ -15,7 +15,6 @@ package com.facebook.presto.spi.block.array;
 
 public interface BooleanArray
 {
-
     int length();
 
     boolean get(int position);
@@ -23,5 +22,4 @@ public interface BooleanArray
     long getRetainedSize();
 
     void set(int position, boolean value);
-
 }

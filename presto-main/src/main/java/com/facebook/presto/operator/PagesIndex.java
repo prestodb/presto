@@ -19,19 +19,22 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.LongArrayBlock;
+import com.facebook.presto.spi.block.ResourceLongArrayBlock;
 import com.facebook.presto.spi.block.ResourceVariableWidthBlock;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.block.VariableWidthBlock;
+import com.facebook.presto.spi.block.array.LongArrayList;
 import com.facebook.presto.spi.block.resource.BlockResourceContext;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
+import com.facebook.presto.sql.gen.JoinCompiler.LookupSourceFactory;
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.Swapper;
-import com.facebook.presto.spi.block.array.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.List;
@@ -40,7 +43,6 @@ import java.util.Optional;
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
-import static com.facebook.presto.sql.gen.JoinCompiler.LookupSourceFactory;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -169,6 +171,9 @@ public class PagesIndex
         }
         if (block instanceof VariableWidthBlock) {
             return ResourceVariableWidthBlock.convert((VariableWidthBlock) block, resourceContext);
+        }
+        else if (block instanceof LongArrayBlock) {
+            return ResourceLongArrayBlock.convert((LongArrayBlock) block, resourceContext);
         }
         throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "Block type [" + block.getClass() + "] of block [" + block + "]");
     }

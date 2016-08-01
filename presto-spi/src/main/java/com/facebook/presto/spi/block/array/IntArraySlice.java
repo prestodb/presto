@@ -24,7 +24,7 @@ public class IntArraySlice
 
     public IntArraySlice(Slice slice)
     {
-        this.length = slice.length();
+        this.length = slice.length() / 4;
         this.slice = slice;
         retainedSize = slice.getRetainedSize();
     }
@@ -53,4 +53,11 @@ public class IntArraySlice
         slice.setInt(position * 4, value);
     }
 
+    @Override
+    public void fill(int value)
+    {
+        for (int i = 0; i < length; i++) {
+            set(i, value);
+        }
+    }
 }

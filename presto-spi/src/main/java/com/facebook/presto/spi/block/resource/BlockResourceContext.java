@@ -15,11 +15,13 @@ package com.facebook.presto.spi.block.resource;
 
 import com.facebook.presto.spi.block.array.BooleanArray;
 import com.facebook.presto.spi.block.array.IntArray;
+import com.facebook.presto.spi.block.array.LongArray;
 import com.facebook.presto.spi.block.array.LongArrayList;
 import io.airlift.slice.Slice;
 
 public interface BlockResourceContext
 {
+    LongArrayList newLongArrayList(int expectedPositions);
 
     BooleanArray newBooleanArray(int size);
 
@@ -35,6 +37,9 @@ public interface BlockResourceContext
 
     Slice copyOfSlice(Slice slice);
 
-    LongArrayList newLongArrayList(int expectedPositions);
+    LongArray newLongArray(int length);
 
+    LongArray copyOfRangeLongArray(LongArray values, int offset, int length);
+
+    void cleanup();
 }

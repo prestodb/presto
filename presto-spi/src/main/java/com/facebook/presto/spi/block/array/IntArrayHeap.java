@@ -53,4 +53,11 @@ public class IntArrayHeap
         array[position] = value;
     }
 
+    @Override
+    public void fill(int value)
+    {
+        for (int i = 0; i < length; i++) {
+            set(i, value);
+        }
+    }
 }

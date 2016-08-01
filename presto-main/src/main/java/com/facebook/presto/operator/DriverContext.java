@@ -14,7 +14,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.block.resource.BlockResourceContext;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -29,6 +28,7 @@ import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.io.File;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
 import java.util.List;
@@ -52,39 +52,28 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 public class DriverContext
 {
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
-
     private final PipelineContext pipelineContext;
     private final Executor executor;
-
     private final AtomicBoolean finished = new AtomicBoolean();
-
     private final DateTime createdTime = DateTime.now();
     private final long createNanos = System.nanoTime();
-
     private final AtomicLong startNanos = new AtomicLong();
     private final AtomicLong endNanos = new AtomicLong();
-
     private final AtomicLong intervalWallStart = new AtomicLong();
     private final AtomicLong intervalCpuStart = new AtomicLong();
     private final AtomicLong intervalUserStart = new AtomicLong();
-
     private final AtomicLong processCalls = new AtomicLong();
     private final AtomicLong processWallNanos = new AtomicLong();
     private final AtomicLong processCpuNanos = new AtomicLong();
     private final AtomicLong processUserNanos = new AtomicLong();
-
     private final AtomicReference<BlockedMonitor> blockedMonitor = new AtomicReference<>();
     private final AtomicLong blockedWallNanos = new AtomicLong();
-
     private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
     private final AtomicReference<DateTime> executionEndTime = new AtomicReference<>();
-
     private final AtomicLong memoryReservation = new AtomicLong();
     private final AtomicLong systemMemoryReservation = new AtomicLong();
-
     private final List<OperatorContext> operatorContexts = new CopyOnWriteArrayList<>();
     private final boolean partitioned;
-
     private final BlockResourceContext blockResourceContext;
 
     public DriverContext(PipelineContext pipelineContext, Executor executor, boolean partitioned)
@@ -102,8 +91,10 @@ public class DriverContext
             return null;
         }
         else {
-//            String spillDir = session.getProperty("spillDir", String.class);
-            return new SpillBlockResourceContext("/tmp/presto", getTaskId().toString());
+            String dataDir = System.getProperty("node.data-dir", "/tmp/presto");
+            File spillDir = new File(dataDir, "spill");
+            File dir = new File(spillDir, getTaskId().toString());
+            return new SpillBlockResourceContext(dir);
         }
     }
 
@@ -120,11 +111,9 @@ public class DriverContext
     public OperatorContext addOperatorContext(int operatorId, PlanNodeId planNodeId, String operatorType, long maxMemoryReservation)
     {
         checkArgument(operatorId >= 0, "operatorId is negative");
-
         for (OperatorContext operatorContext : operatorContexts) {
             checkArgument(operatorId != operatorContext.getOperatorId(), "A context already exists for operatorId %s", operatorId);
         }
-
         OperatorContext operatorContext = new OperatorContext(operatorId, planNodeId, operatorType, this, executor, maxMemoryReservation);
         operatorContexts.add(operatorContext);
         return operatorContext;
@@ -151,7 +140,6 @@ public class DriverContext
             pipelineContext.start();
             executionStartTime.set(DateTime.now());
         }
-
         intervalWallStart.set(System.nanoTime());
         intervalCpuStart.set(currentThreadCpuTime());
         intervalUserStart.set(currentThreadUserTime());
@@ -168,14 +156,11 @@ public class DriverContext
     public void recordBlocked(ListenableFuture<?> blocked)
     {
         requireNonNull(blocked, "blocked is null");
-
         BlockedMonitor monitor = new BlockedMonitor();
-
         BlockedMonitor oldMonitor = blockedMonitor.getAndSet(monitor);
         if (oldMonitor != null) {
             oldMonitor.run();
         }
-
         blocked.addListener(monitor, executor);
     }
 
@@ -187,17 +172,17 @@ public class DriverContext
         }
         executionEndTime.set(DateTime.now());
         endNanos.set(System.nanoTime());
-
         freeMemory(memoryReservation.get());
-
         pipelineContext.driverFinished(this);
+        if (blockResourceContext != null) {
+            blockResourceContext.cleanup();
+        }
     }
 
     public void failed(Throwable cause)
     {
         pipelineContext.failed(cause);
         finished.set(true);
-
         freeMemory(memoryReservation.get());
     }
 
@@ -333,13 +318,11 @@ public class DriverContext
         long totalScheduledTime = processWallNanos.get();
         long totalCpuTime = processCpuNanos.get();
         long totalUserTime = processUserNanos.get();
-
         long totalBlockedTime = blockedWallNanos.get();
         BlockedMonitor blockedMonitor = this.blockedMonitor.get();
         if (blockedMonitor != null) {
             totalBlockedTime += blockedMonitor.getBlockedTime();
         }
-
         List<OperatorStats> operators = ImmutableList.copyOf(transform(operatorContexts, OperatorContext::getOperatorStats));
         OperatorStats inputOperator = getFirst(operators, null);
         DataSize rawInputDataSize;
@@ -353,10 +336,8 @@ public class DriverContext
             rawInputDataSize = inputOperator.getInputDataSize();
             rawInputPositions = inputOperator.getInputPositions();
             rawInputReadTime = inputOperator.getAddInputWall();
-
             processedInputDataSize = inputOperator.getOutputDataSize();
             processedInputPositions = inputOperator.getOutputPositions();
-
             OperatorStats outputOperator = requireNonNull(getLast(operators, null));
             outputDataSize = outputOperator.getOutputDataSize();
             outputPositions = outputOperator.getOutputPositions();
@@ -365,20 +346,16 @@ public class DriverContext
             rawInputDataSize = new DataSize(0, BYTE);
             rawInputPositions = 0;
             rawInputReadTime = new Duration(0, MILLISECONDS);
-
             processedInputDataSize = new DataSize(0, BYTE);
             processedInputPositions = 0;
-
             outputDataSize = new DataSize(0, BYTE);
             outputPositions = 0;
         }
-
         long startNanos = this.startNanos.get();
         if (startNanos < createNanos) {
             startNanos = System.nanoTime();
         }
         Duration queuedTime = new Duration(startNanos - createNanos, NANOSECONDS);
-
         long endNanos = this.endNanos.get();
         Duration elapsedTime;
         if (endNanos >= startNanos) {
@@ -387,15 +364,12 @@ public class DriverContext
         else {
             elapsedTime = new Duration(0, NANOSECONDS);
         }
-
         ImmutableSet.Builder<BlockedReason> builder = ImmutableSet.builder();
-
         for (OperatorStats operator : operators) {
             if (operator.getBlockedReason().isPresent()) {
                 builder.add(operator.getBlockedReason().get());
             }
         }
-
         return new DriverStats(
                 createdTime,
                 executionStartTime.get(),

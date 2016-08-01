@@ -17,6 +17,8 @@ import com.facebook.presto.spi.block.array.BooleanArray;
 import com.facebook.presto.spi.block.array.BooleanArrayHeap;
 import com.facebook.presto.spi.block.array.IntArray;
 import com.facebook.presto.spi.block.array.IntArrayHeap;
+import com.facebook.presto.spi.block.array.LongArray;
+import com.facebook.presto.spi.block.array.LongArrayHeap;
 import com.facebook.presto.spi.block.array.LongArrayList;
 import com.facebook.presto.spi.block.resource.BlockResourceContext;
 import io.airlift.slice.Slice;
@@ -25,7 +27,6 @@ import io.airlift.slice.Slices;
 public class HeapBlockResourceContext
         implements BlockResourceContext
 {
-
     @Override
     public BooleanArray newBooleanArray(int size)
     {
@@ -78,4 +79,22 @@ public class HeapBlockResourceContext
         return null;
     }
 
+    @Override
+    public void cleanup()
+    {
+        // TODO Auto-generated method stub
+    }
+
+    @Override
+    public LongArray newLongArray(int length)
+    {
+        return new LongArrayHeap(length);
+    }
+
+    @Override
+    public LongArray copyOfRangeLongArray(LongArray values, int offset, int length)
+    {
+        // TODO Auto-generated method stub
+        return null;
+    }
 }

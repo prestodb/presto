@@ -13,34 +13,51 @@
  */
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.spi.block.array.BooleanArray;
+import com.facebook.presto.spi.block.array.LongArray;
+import com.facebook.presto.spi.block.resource.BlockResourceContext;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.Arrays;
 import java.util.List;
 
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
-import static io.airlift.slice.SizeOf.sizeOf;
 
-public class LongArrayBlock
+public class ResourceLongArrayBlock
         implements Block
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongArrayBlock.class).instanceSize();
-
-    final int arrayOffset;
-    final int positionCount;
-    final boolean[] valueIsNull;
-    final long[] values;
-
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ResourceLongArrayBlock.class).instanceSize();
+    private final int arrayOffset;
+    private final int positionCount;
+    private final BooleanArray valueIsNull;
+    private final LongArray values;
+    private final BlockResourceContext resourceContext;
     private final int sizeInBytes;
     private final int retainedSizeInBytes;
 
-    public LongArrayBlock(int positionCount, boolean[] valueIsNull, long[] values)
+    public static Block convert(LongArrayBlock block, BlockResourceContext resourceContext)
     {
-        this(0, positionCount, valueIsNull, values);
+        int arrayOffset = block.arrayOffset;
+        int positionCount = block.positionCount;
+        boolean[] valueIsNull = block.valueIsNull;
+        long[] values = block.values;
+        BooleanArray newValueIsNull = resourceContext.newBooleanArray(valueIsNull.length);
+        LongArray newValues = resourceContext.newLongArray(values.length);
+        for (int i = 0; i < values.length; i++) {
+            newValues.set(i, values[i]);
+        }
+        for (int i = 0; i < valueIsNull.length; i++) {
+            newValueIsNull.set(i, valueIsNull[i]);
+        }
+        return new ResourceLongArrayBlock(arrayOffset, positionCount, newValueIsNull, newValues, resourceContext);
     }
 
-    LongArrayBlock(int arrayOffset, int positionCount, boolean[] valueIsNull, long[] values)
+    public ResourceLongArrayBlock(int positionCount, BooleanArray valueIsNull, LongArray values, BlockResourceContext resourceContext)
+    {
+        this(0, positionCount, valueIsNull, values, resourceContext);
+    }
+
+    ResourceLongArrayBlock(int arrayOffset, int positionCount, BooleanArray valueIsNull, LongArray values, BlockResourceContext resourceContext)
     {
         if (arrayOffset < 0) {
             throw new IllegalArgumentException("arrayOffset is negative");
@@ -50,19 +67,17 @@ public class LongArrayBlock
             throw new IllegalArgumentException("positionCount is negative");
         }
         this.positionCount = positionCount;
-
-        if (values.length - arrayOffset < positionCount) {
+        if (values.length() - arrayOffset < positionCount) {
             throw new IllegalArgumentException("values length is less than positionCount");
         }
         this.values = values;
-
-        if (valueIsNull.length - arrayOffset < positionCount) {
+        if (valueIsNull.length() - arrayOffset < positionCount) {
             throw new IllegalArgumentException("isNull length is less than positionCount");
         }
         this.valueIsNull = valueIsNull;
-
         sizeInBytes = intSaturatedCast((Long.BYTES + Byte.BYTES) * (long) positionCount);
-        retainedSizeInBytes = intSaturatedCast(INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values));
+        retainedSizeInBytes = intSaturatedCast(INSTANCE_SIZE + valueIsNull.getRetainedSize() + values.getRetainedSize());
+        this.resourceContext = resourceContext;
     }
 
     @Override
@@ -96,64 +111,67 @@ public class LongArrayBlock
         if (offset != 0) {
             throw new IllegalArgumentException("offset must be zero");
         }
-        return values[position + arrayOffset];
+        return values.get(position + arrayOffset);
     }
 
     @Override
     public boolean isNull(int position)
     {
         checkReadablePosition(position);
-        return valueIsNull[position + arrayOffset];
+        return valueIsNull.get(position + arrayOffset);
     }
 
     @Override
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
         checkReadablePosition(position);
-        blockBuilder.writeLong(values[position + arrayOffset]);
+        blockBuilder.writeLong(values.get(position + arrayOffset));
     }
 
     @Override
     public Block getSingleValueBlock(int position)
     {
         checkReadablePosition(position);
-        return new LongArrayBlock(
+        LongArray newLongArray = resourceContext.newLongArray(1);
+        BooleanArray newBooleanArray = resourceContext.newBooleanArray(1);
+        newBooleanArray.set(0, valueIsNull.get(position + arrayOffset));
+        newLongArray.set(0, values.get(position + arrayOffset));
+        return new ResourceLongArrayBlock(
                 1,
-                new boolean[] {valueIsNull[position + arrayOffset]},
-                new long[] {values[position + arrayOffset]});
+                newBooleanArray,
+                newLongArray,
+                resourceContext);
     }
 
     @Override
     public Block copyPositions(List<Integer> positions)
     {
-        boolean[] newValueIsNull = new boolean[positions.size()];
-        long[] newValues = new long[positions.size()];
+        BooleanArray newValueIsNull = resourceContext.newBooleanArray(positions.size());
+        LongArray newValues = resourceContext.newLongArray(positions.size());
         for (int i = 0; i < positions.size(); i++) {
             int position = positions.get(i);
             checkReadablePosition(position);
-            newValueIsNull[i] = valueIsNull[position + arrayOffset];
-            newValues[i] = values[position + arrayOffset];
+            newValueIsNull.set(i, valueIsNull.get(position + arrayOffset));
+            newValues.set(i, values.get(position + arrayOffset));
         }
-        return new LongArrayBlock(positions.size(), newValueIsNull, newValues);
+        return new ResourceLongArrayBlock(positions.size(), newValueIsNull, newValues, resourceContext);
     }
 
     @Override
     public Block getRegion(int positionOffset, int length)
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
-
-        return new LongArrayBlock(positionOffset + arrayOffset, length, valueIsNull, values);
+        return new ResourceLongArrayBlock(positionOffset + arrayOffset, length, valueIsNull, values, resourceContext);
     }
 
     @Override
     public Block copyRegion(int positionOffset, int length)
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
-
         positionOffset += arrayOffset;
-        boolean[] newValueIsNull = Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length);
-        long[] newValues = Arrays.copyOfRange(values, positionOffset, positionOffset + length);
-        return new LongArrayBlock(length, newValueIsNull, newValues);
+        BooleanArray newValueIsNull = resourceContext.copyOfRangeBooleanArray(valueIsNull, positionOffset, positionOffset + length);
+        LongArray newValues = resourceContext.copyOfRangeLongArray(values, positionOffset, positionOffset + length);
+        return new ResourceLongArrayBlock(length, newValueIsNull, newValues, resourceContext);
     }
 
     @Override
@@ -165,7 +183,7 @@ public class LongArrayBlock
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("LongArrayBlock{");
+        StringBuilder sb = new StringBuilder("ResourceLongArrayBlock{");
         sb.append("positionCount=").append(getPositionCount());
         sb.append('}');
         return sb.toString();

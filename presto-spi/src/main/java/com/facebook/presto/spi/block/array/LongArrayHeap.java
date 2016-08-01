@@ -15,17 +15,17 @@ package com.facebook.presto.spi.block.array;
 
 import io.airlift.slice.SizeOf;
 
-public class BooleanArrayHeap
-        implements BooleanArray
+public class LongArrayHeap
+        implements LongArray
 {
-    private long retainedSize;
-    private int length;
-    private boolean[] array;
+    private final int length;
+    private final long[] array;
+    private final long retainedSize;
 
-    public BooleanArrayHeap(int length)
+    public LongArrayHeap(int length)
     {
         this.length = length;
-        this.array = new boolean[length];
+        this.array = new long[length];
         retainedSize = SizeOf.sizeOf(array);
     }
 
@@ -36,7 +36,7 @@ public class BooleanArrayHeap
     }
 
     @Override
-    public boolean get(int position)
+    public long get(int position)
     {
         return array[position];
     }
@@ -48,7 +48,7 @@ public class BooleanArrayHeap
     }
 
     @Override
-    public void set(int position, boolean value)
+    public void set(int position, long value)
     {
         array[position] = value;
     }

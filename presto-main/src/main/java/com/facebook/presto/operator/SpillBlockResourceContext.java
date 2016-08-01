@@ -19,7 +19,9 @@ import com.facebook.presto.spi.block.array.BooleanArray;
 import com.facebook.presto.spi.block.array.BooleanArraySlice;
 import com.facebook.presto.spi.block.array.IntArray;
 import com.facebook.presto.spi.block.array.IntArraySlice;
+import com.facebook.presto.spi.block.array.LongArray;
 import com.facebook.presto.spi.block.array.LongArrayList;
+import com.facebook.presto.spi.block.array.LongArraySlice;
 import com.facebook.presto.spi.block.resource.BlockResourceContext;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -37,15 +39,13 @@ import java.util.UUID;
 public class SpillBlockResourceContext
         implements BlockResourceContext
 {
-
     private final File dir;
     private final List<ByteBuffer> buffers = new ArrayList<>();
 
-    public SpillBlockResourceContext(String spillDir, String taskId)
+    public SpillBlockResourceContext(File dir)
     {
-        File file = new File(spillDir);
-        dir = new File(file, taskId);
-        dir.mkdirs();
+        this.dir = dir;
+        this.dir.mkdirs();
     }
 
     @Override
@@ -70,6 +70,19 @@ public class SpillBlockResourceContext
 
     @Override
     public IntArray copyOfRangeIntArray(IntArray intArray, int offset, int length)
+    {
+        throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "not impl");
+    }
+
+    @Override
+    public LongArray newLongArray(int size)
+    {
+        Slice slice = createOffHeapSlice(size * 8);
+        return new LongArraySlice(slice);
+    }
+
+    @Override
+    public LongArray copyOfRangeLongArray(LongArray values, int offset, int length)
     {
         throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "not impl");
     }
@@ -159,4 +172,22 @@ public class SpillBlockResourceContext
         }
     }
 
+    @Override
+    public void cleanup()
+    {
+        rmr(dir);
+    }
+
+    private static void rmr(File file)
+    {
+        if (!file.exists()) {
+            return;
+        }
+        if (file.isDirectory()) {
+            for (File f : file.listFiles()) {
+                rmr(f);
+            }
+        }
+        file.delete();
+    }
 }

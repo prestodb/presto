@@ -140,7 +140,7 @@ public class HashBuilderOperator
         this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
         this.filterFunction = requireNonNull(filterFunction, "filterFunction is null");
 
-        this.pagesIndex = new PagesIndex(lookupSourceSupplier.getTypes(), expectedPositions);
+        this.pagesIndex = new PagesIndex(lookupSourceSupplier.getTypes(), expectedPositions, operatorContext.getBlockResourceContext());
     }
 
     @Override
@@ -190,6 +190,7 @@ public class HashBuilderOperator
         if (!operatorContext.trySetMemoryReservation(pagesIndex.getEstimatedSize().toBytes())) {
             pagesIndex.compact();
         }
+        System.out.println(pagesIndex.getEstimatedSize().toBytes());
         operatorContext.setMemoryReservation(pagesIndex.getEstimatedSize().toBytes());
         operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
     }
