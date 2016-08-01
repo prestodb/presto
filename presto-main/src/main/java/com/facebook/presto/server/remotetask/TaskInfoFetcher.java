@@ -138,20 +138,15 @@ public class TaskInfoFetcher
 
     public synchronized void abort(TaskStatus taskStatus)
     {
-        updateTaskInfo(taskInfo.get().withTaskStatus(taskStatus));
+        updateTaskInfo(getTaskInfo().withTaskStatus(taskStatus));
         // For aborted tasks we do not care about the final task info, so stop the info fetcher
         stop();
     }
 
     public synchronized void taskStatusDone(TaskStatus taskStatus)
     {
-        if (running && !isDone(getTaskInfo())) {
-            // try to get the last task status from the remote task
-            taskStatusDone.set(taskStatus);
-        }
-        else {
-            getTaskInfo().withTaskStatus(taskStatus);
-        }
+        taskStatusDone.set(taskStatus);
+        updateTaskInfo(getTaskInfo().withTaskStatus(taskStatus));
     }
 
     private synchronized void stop()
@@ -259,7 +254,7 @@ public class TaskInfoFetcher
                 log.error("%s taskStatus done but taskInfo is not", taskId);
 
                 // Since the task is already done, update the task status
-                updateTaskInfo(taskInfo.get().withTaskStatus(taskStatusDone.get()));
+                updateTaskInfo(getTaskInfo().withTaskStatus(taskStatusDone.get()));
             }
 
             if (lastRequest.get()) {
@@ -284,7 +279,7 @@ public class TaskInfoFetcher
             catch (Error e) {
                 // if task status is already done, ignore this failure, update the task status and stop fetching
                 if (taskStatusDone.get() != null) {
-                    updateTaskInfo(taskInfo.get().withTaskStatus(taskStatusDone.get()));
+                    updateTaskInfo(getTaskInfo().withTaskStatus(taskStatusDone.get()));
                     stop();
                 }
                 onFail.accept(e);
@@ -302,7 +297,7 @@ public class TaskInfoFetcher
         try (SetThreadName ignored = new SetThreadName("TaskInfoFetcher-%s", taskId)) {
             // if task status is already done, ignore this failure, update the task status and stop fetching
             if (taskStatusDone.get() != null) {
-                updateTaskInfo(taskInfo.get().withTaskStatus(taskStatusDone.get()));
+                updateTaskInfo(getTaskInfo().withTaskStatus(taskStatusDone.get()));
                 stop();
             }
             updateStats(currentRequestStartNanos.get());
