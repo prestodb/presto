@@ -80,7 +80,7 @@ import static com.facebook.presto.operator.aggregation.state.StateCompilerUtils.
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
@@ -161,7 +161,7 @@ public class StateCompiler
 
         Type type;
         if (fields.size() > 1) {
-            type = VARCHAR;
+            type = VARBINARY;
         }
         else {
             Class<?> stackType = fields.get(0).getType();
@@ -178,7 +178,7 @@ public class StateCompiler
                 type = BIGINT;
             }
             else if (stackType == Slice.class) {
-                type = VARCHAR;
+                type = VARBINARY;
             }
             else {
                 throw new IllegalArgumentException("Unsupported type: " + stackType);

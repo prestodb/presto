@@ -90,6 +90,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.spi.spiller.SpillerFactory;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.MappedRecordSet;
 import com.facebook.presto.split.PageSinkManager;
@@ -173,6 +174,8 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.getMaxEntriesBeforeSpill;
+import static com.facebook.presto.SystemSessionProperties.getOperatorMemoryLimitBeforeSpill;
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
@@ -231,6 +234,7 @@ public class LocalExecutionPlanner
     private final IndexJoinLookupStats indexJoinLookupStats;
     private final DataSize maxPartialAggregationMemorySize;
     private final DataSize maxPagePartitioningBufferSize;
+    private final SpillerFactory spillerFactory;
 
     @Inject
     public LocalExecutionPlanner(
@@ -245,7 +249,8 @@ public class LocalExecutionPlanner
             ExpressionCompiler compiler,
             IndexJoinLookupStats indexJoinLookupStats,
             CompilerConfig compilerConfig,
-            TaskManagerConfig taskManagerConfig)
+            TaskManagerConfig taskManagerConfig,
+            SpillerFactory spillerFactory)
     {
         requireNonNull(compilerConfig, "compilerConfig is null");
         this.queryPerformanceFetcher = requireNonNull(queryPerformanceFetcher, "queryPerformanceFetcher is null");
@@ -259,6 +264,7 @@ public class LocalExecutionPlanner
         this.compiler = requireNonNull(compiler, "compiler is null");
         this.indexJoinLookupStats = requireNonNull(indexJoinLookupStats, "indexJoinLookupStats is null");
         this.maxIndexMemorySize = requireNonNull(taskManagerConfig, "taskManagerConfig is null").getMaxIndexMemoryUsage();
+        this.spillerFactory = requireNonNull(spillerFactory, "spillerFactory is null");
         this.maxPartialAggregationMemorySize = taskManagerConfig.getMaxPartialAggregationMemoryUsage();
         this.maxPagePartitioningBufferSize = taskManagerConfig.getMaxPagePartitioningBufferSize();
 
@@ -867,7 +873,10 @@ public class LocalExecutionPlanner
                 return planGlobalAggregation(context.getNextOperatorId(), node, source);
             }
 
-            return planGroupByAggregation(node, source, context.getNextOperatorId());
+            DataSize memoryLimitBeforeSpill = getOperatorMemoryLimitBeforeSpill(context.getSession());
+            long maxEntriesBeforeSpill = getMaxEntriesBeforeSpill(context.getSession());
+
+            return planGroupByAggregation(node, source, context.getNextOperatorId(), memoryLimitBeforeSpill, maxEntriesBeforeSpill);
         }
 
         @Override
@@ -1828,7 +1837,7 @@ public class LocalExecutionPlanner
             return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
         }
 
-        private PhysicalOperation planGroupByAggregation(AggregationNode node, PhysicalOperation source, int operatorId)
+        private PhysicalOperation planGroupByAggregation(AggregationNode node, PhysicalOperation source, int operatorId, DataSize memoryLimitBeforeSpill, long maxEntriesBeforeSpill)
         {
             List<Symbol> groupBySymbols = node.getGroupBy();
 
@@ -1871,6 +1880,12 @@ public class LocalExecutionPlanner
                     .map(entry -> source.getTypes().get(entry))
                     .collect(toImmutableList());
 
+            if (maxEntriesBeforeSpill > 0 || memoryLimitBeforeSpill.toBytes() > 0) {
+                if (!groupByTypes.stream().allMatch(Type::isOrderable)) {
+                    throw new UnsupportedOperationException("Spilling requires all types in GROUP BY key to be orderable");
+                }
+            }
+
             Optional<Integer> hashChannel = node.getHashSymbol().map(channelGetter(source));
 
             OperatorFactory operatorFactory = new HashAggregationOperatorFactory(
@@ -1882,7 +1897,10 @@ public class LocalExecutionPlanner
                     accumulatorFactories,
                     hashChannel,
                     10_000,
-                    maxPartialAggregationMemorySize);
+                    maxPartialAggregationMemorySize,
+                    maxEntriesBeforeSpill,
+                    memoryLimitBeforeSpill,
+                    Optional.of(spillerFactory));
 
             return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
         }

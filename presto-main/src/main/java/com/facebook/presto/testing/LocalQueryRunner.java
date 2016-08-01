@@ -73,6 +73,7 @@ import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
+import com.facebook.presto.operator.spiller.BinarySpillerFactory;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -83,6 +84,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.spiller.SpillerFactory;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
@@ -128,13 +130,16 @@ import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.type.TypeUtils;
 import com.facebook.presto.util.FinalizerService;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.io.Closer;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -185,6 +190,7 @@ public class LocalQueryRunner
     private final NodePartitioningManager nodePartitioningManager;
     private final PageSinkManager pageSinkManager;
     private final TransactionManager transactionManager;
+    private final SpillerFactory spillerFactory;
 
     private final ExpressionCompiler compiler;
     private final ConnectorManager connectorManager;
@@ -300,6 +306,8 @@ public class LocalQueryRunner
                 .put(Commit.class, new CommitTask())
                 .put(Rollback.class, new RollbackTask())
                 .build();
+
+        this.spillerFactory = new BinarySpillerFactory(blockEncodingSerde, featuresConfig);
     }
 
     public static LocalQueryRunner queryRunnerWithInitialTransaction(Session defaultSession)
@@ -454,7 +462,7 @@ public class LocalQueryRunner
     private MaterializedResult executeInternal(Session session, @Language("SQL") String sql)
     {
         lock.readLock().lock();
-        try {
+        try (Closer closer = Closer.create()) {
             AtomicReference<MaterializedResult.Builder> builder = new AtomicReference<>();
             PageConsumerOutputFactory outputFactory = new PageConsumerOutputFactory(types -> {
                 builder.compareAndSet(null, MaterializedResult.resultBuilder(session, types));
@@ -462,7 +470,9 @@ public class LocalQueryRunner
             });
 
             TaskContext taskContext = createTaskContext(executor, session);
+
             List<Driver> drivers = createDrivers(session, sql, outputFactory, taskContext);
+            drivers.stream().map(closer::register);
 
             boolean done = false;
             while (!done) {
@@ -478,6 +488,9 @@ public class LocalQueryRunner
 
             verify(builder.get() != null, "Output operator was not created");
             return builder.get().build();
+        }
+        catch (IOException e) {
+            throw Throwables.propagate(e);
         }
         finally {
             lock.readLock().unlock();
@@ -520,7 +533,8 @@ public class LocalQueryRunner
                 compiler,
                 new IndexJoinLookupStats(),
                 new CompilerConfig().setInterpreterEnabled(false), // make sure tests fail if compiler breaks
-                new TaskManagerConfig().setTaskConcurrency(4));
+                new TaskManagerConfig().setTaskConcurrency(4),
+                spillerFactory);
 
         // plan query
         LocalExecutionPlan localExecutionPlan = executionPlanner.plan(

@@ -133,6 +133,26 @@ public class MultiChannelGroupByHash
     }
 
     @Override
+    public int compare(int leftGroupId, int rightGroupId)
+    {
+        long leftAddress = groupAddressByGroupId.get(leftGroupId);
+        int leftBlockIndex = decodeSliceIndex(leftAddress);
+        int leftPosition = decodePosition(leftAddress);
+        long rightAdrress = groupAddressByGroupId.get(rightGroupId);
+        int rightBlockIndex = decodeSliceIndex(rightAdrress);
+        int rightPosition = decodePosition(rightAdrress);
+
+        for (int column = 0; column < channels.length; column++) {
+            int compare = types.get(column).compareTo(channelBuilders.get(column).get(leftBlockIndex), leftPosition,
+                    channelBuilders.get(column).get(rightBlockIndex), rightPosition);
+            if (compare != 0) {
+                return compare;
+            }
+        }
+        return 0;
+    }
+
+    @Override
     public long getEstimatedSize()
     {
         return (sizeOf(channelBuilders.get(0).elements()) * channelBuilders.size()) +
