@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.Partition;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -23,11 +24,13 @@ public class HivePartitionMetadata
 {
     private final Optional<Partition> partition;
     private final HivePartition hivePartition;
+    private final Map<Integer, HiveType> mismatchColumnTypes;
 
-    HivePartitionMetadata(HivePartition hivePartition, Optional<Partition> partition)
+    HivePartitionMetadata(HivePartition hivePartition, Optional<Partition> partition, Map<Integer, HiveType> mismatchColumnTypes)
     {
         this.partition = requireNonNull(partition, "partition is null");
         this.hivePartition = requireNonNull(hivePartition, "hivePartition is null");
+        this.mismatchColumnTypes = requireNonNull(mismatchColumnTypes, "mismatchColumnTypes is null");
     }
 
     public HivePartition getHivePartition()
@@ -41,5 +44,10 @@ public class HivePartitionMetadata
     public Optional<Partition> getPartition()
     {
         return partition;
+    }
+
+    public Map<Integer, HiveType> getMismatchColumnTypes()
+    {
+        return mismatchColumnTypes;
     }
 }

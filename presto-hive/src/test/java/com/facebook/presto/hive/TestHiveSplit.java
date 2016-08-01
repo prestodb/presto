@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
@@ -50,7 +51,8 @@ public class TestHiveSplit
                 addresses,
                 OptionalInt.empty(),
                 true,
-                TupleDomain.<HiveColumnHandle>all());
+                TupleDomain.<HiveColumnHandle>all(),
+                ImmutableMap.of(1, HiveType.HIVE_STRING));
 
         String json = codec.toJson(expected);
         HiveSplit actual = codec.fromJson(json);
