@@ -18,10 +18,10 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestQueries;
 import com.facebook.presto.tests.datatype.CreateAndInsertDataSetup;
 import com.facebook.presto.tests.datatype.CreateAsSelectDataSetup;
+import com.facebook.presto.tests.datatype.DataSetup;
 import com.facebook.presto.tests.datatype.DataTypeTest;
 import com.facebook.presto.tests.sql.JdbcSqlExecutor;
 import com.facebook.presto.tests.sql.PrestoSqlExecutor;
-import com.facebook.presto.tests.sql.SqlExecutor;
 import io.airlift.testing.mysql.TestingMySqlServer;
 import io.airlift.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
@@ -37,8 +37,10 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.tests.datatype.DataType.charDataType;
 import static com.facebook.presto.tests.datatype.DataType.stringDataType;
 import static com.facebook.presto.tests.datatype.DataType.varcharDataType;
+import static com.google.common.base.Strings.repeat;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -97,7 +99,6 @@ public class TestMySqlDistributedQueries
     public void testPrestoCreatedParametrizedVarchar()
             throws Exception
     {
-        PrestoSqlExecutor presto = new PrestoSqlExecutor(queryRunner);
         DataTypeTest.create()
                 .addRoundTrip(stringDataType("varchar(10)", createVarcharType(255)), "text_a")
                 .addRoundTrip(stringDataType("varchar(255)", createVarcharType(255)), "text_b")
@@ -108,14 +109,13 @@ public class TestMySqlDistributedQueries
                 .addRoundTrip(stringDataType("varchar(16777216)", createUnboundedVarcharType()), "text_g")
                 .addRoundTrip(stringDataType("varchar(" + VarcharType.MAX_LENGTH + ")", createUnboundedVarcharType()), "text_h")
                 .addRoundTrip(stringDataType("varchar", createUnboundedVarcharType()), "unbounded")
-                .execute(queryRunner, new CreateAsSelectDataSetup(presto, "presto_test_parameterized_varchar"));
+                .execute(queryRunner, prestoCreateAsSelect("presto_test_parameterized_varchar"));
     }
 
     @Test
     public void testMySqlCreatedParametrizedVarchar()
             throws Exception
     {
-        SqlExecutor mysql = new JdbcSqlExecutor(mysqlServer.getJdbcUrl());
         DataTypeTest.create()
                 .addRoundTrip(stringDataType("tinytext", createVarcharType(255)), "a")
                 .addRoundTrip(stringDataType("text", createVarcharType(65535)), "b")
@@ -123,14 +123,13 @@ public class TestMySqlDistributedQueries
                 .addRoundTrip(stringDataType("longtext", createUnboundedVarcharType()), "d")
                 .addRoundTrip(varcharDataType(32), "e")
                 .addRoundTrip(varcharDataType(20000), "f")
-                .execute(queryRunner, new CreateAndInsertDataSetup(mysql, "tpch.mysql_test_parameterized_varchar"));
+                .execute(queryRunner, mysqlCreateAndInsert("tpch.mysql_test_parameterized_varchar"));
     }
 
     @Test
     public void testMySqlCreatedParametrizedVarcharUnicode()
             throws Exception
     {
-        SqlExecutor mysql = new JdbcSqlExecutor(mysqlServer.getJdbcUrl() + "&useUnicode=true&characterEncoding=utf8");
         String sampleUnicodeText = "攻殻機動隊";
         DataTypeTest.create()
                 .addRoundTrip(stringDataType("tinytext " + CHARACTER_SET_UTF8, createVarcharType(255)), sampleUnicodeText)
@@ -140,7 +139,55 @@ public class TestMySqlDistributedQueries
                 .addRoundTrip(varcharDataType(sampleUnicodeText.length(), CHARACTER_SET_UTF8), sampleUnicodeText)
                 .addRoundTrip(varcharDataType(32, CHARACTER_SET_UTF8), sampleUnicodeText)
                 .addRoundTrip(varcharDataType(20000, CHARACTER_SET_UTF8), sampleUnicodeText)
-                .execute(queryRunner, new CreateAndInsertDataSetup(mysql, "tpch.mysql_test_parameterized_varchar_unicode"));
+                .execute(queryRunner, mysqlCreateAndInsert("tpch.mysql_test_parameterized_varchar_unicode"));
+    }
+
+    @Test
+    public void testPrestoCreatedParametrizedChar()
+            throws Exception
+    {
+        mysqlCharTypeTest().execute(queryRunner, prestoCreateAsSelect("mysql_test_parameterized_char"));
+    }
+
+    @Test
+    public void testMySqlCreatedParametrizedChar()
+            throws Exception
+    {
+        mysqlCharTypeTest().execute(queryRunner, mysqlCreateAndInsert("tpch.mysql_test_parameterized_char"));
+    }
+
+    private DataTypeTest mysqlCharTypeTest()
+    {
+        return DataTypeTest.create()
+                .addRoundTrip(charDataType("char", 1), "")
+                .addRoundTrip(charDataType("char", 1), "a")
+                .addRoundTrip(charDataType(1), "")
+                .addRoundTrip(charDataType(1), "a")
+                .addRoundTrip(charDataType(8), "abc")
+                .addRoundTrip(charDataType(8), "12345678")
+                .addRoundTrip(charDataType(255), repeat("a", 255));
+    }
+
+    @Test
+    public void testMySqlCreatedParametrizedCharUnicode()
+            throws Exception
+    {
+        DataTypeTest.create()
+                .addRoundTrip(charDataType(1, CHARACTER_SET_UTF8), "攻")
+                .addRoundTrip(charDataType(5, CHARACTER_SET_UTF8), "攻殻")
+                .addRoundTrip(charDataType(5, CHARACTER_SET_UTF8), "攻殻機動隊")
+                .execute(queryRunner, mysqlCreateAndInsert("tpch.mysql_test_parameterized_varchar"));
+    }
+
+    private DataSetup prestoCreateAsSelect(String tableNamePrefix)
+    {
+        return new CreateAsSelectDataSetup(new PrestoSqlExecutor(queryRunner), tableNamePrefix);
+    }
+
+    private DataSetup mysqlCreateAndInsert(String tableNamePrefix)
+    {
+        JdbcSqlExecutor mysqlUnicodeExecutor = new JdbcSqlExecutor(mysqlServer.getJdbcUrl() + "&useUnicode=true&characterEncoding=utf8");
+        return new CreateAndInsertDataSetup(mysqlUnicodeExecutor, tableNamePrefix);
     }
 
     @Override
