@@ -20,6 +20,7 @@ import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
@@ -50,6 +51,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -480,6 +482,7 @@ public class BaseJdbcClient
                 return DOUBLE;
             case Types.CHAR:
             case Types.NCHAR:
+                return createCharType(min(columnSize, CharType.MAX_LENGTH));
             case Types.VARCHAR:
             case Types.NVARCHAR:
             case Types.LONGVARCHAR:
@@ -506,6 +509,12 @@ public class BaseJdbcClient
                 return "varchar";
             }
             return "varchar(" + ((VarcharType) type).getLength() + ")";
+        }
+        if (type instanceof CharType) {
+            if (((CharType) type).getLength() == CharType.MAX_LENGTH) {
+                return "char";
+            }
+            return "char(" + ((CharType) type).getLength() + ")";
         }
 
         String sqlType = SQL_TYPES.get(type);
