@@ -32,6 +32,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
@@ -118,6 +119,7 @@ public final class TaskTestUtils
                 new PageSinkManager(),
                 new MockExchangeClientSupplier(),
                 new ExpressionCompiler(metadata),
+                new JoinFilterFunctionCompiler(metadata),
                 new IndexJoinLookupStats(),
                 new CompilerConfig(),
                 new TaskManagerConfig());
