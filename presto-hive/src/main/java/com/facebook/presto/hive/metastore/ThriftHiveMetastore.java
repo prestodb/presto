@@ -217,7 +217,7 @@ public class ThriftHiveMetastore
             return retry()
                     .stopOn(UnknownDBException.class)
                     .stopOnIllegalExceptions()
-                    .run("getAllViews", stats.getAllViews().wrap(() -> {
+                    .run("getAllViews", stats.getGetAllViews().wrap(() -> {
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
                             String filter = HIVE_FILTER_FIELD_PARAMS + PRESTO_VIEW_FLAG + " = \"true\"";
                             return Optional.of(client.getTableNamesByFilter(databaseName, filter));

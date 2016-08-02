@@ -60,7 +60,7 @@ public class ThriftHiveMetastoreStats
 
     @Managed
     @Nested
-    public HiveMetastoreApiStats getAllViews()
+    public HiveMetastoreApiStats getGetAllViews()
     {
         return getAllViews;
     }
