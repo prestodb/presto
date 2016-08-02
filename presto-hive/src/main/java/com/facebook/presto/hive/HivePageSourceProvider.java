@@ -32,6 +32,7 @@ import org.joda.time.DateTimeZone;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
@@ -85,6 +86,7 @@ public class HivePageSourceProvider
 
         List<HivePartitionKey> partitionKeys = hiveSplit.getPartitionKeys();
         List<HiveColumnHandle> hiveColumns = ImmutableList.copyOf(transform(columns, HiveColumnHandle::toHiveColumnHandle));
+        Map<Integer, HiveType> mismatchColumnTypes = hiveSplit.getMismatchColumnTypes();
 
         for (HivePageSourceFactory pageSourceFactory : pageSourceFactories) {
             Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
@@ -104,7 +106,7 @@ public class HivePageSourceProvider
             }
         }
 
-        HiveRecordCursor recordCursor = getHiveRecordCursor(clientId, session, configuration, path, start, length, schema, effectivePredicate, partitionKeys, hiveColumns);
+        HiveRecordCursor recordCursor = getHiveRecordCursor(clientId, session, configuration, path, start, length, schema, effectivePredicate, partitionKeys, hiveColumns, mismatchColumnTypes);
         if (recordCursor != null) {
             List<Type> columnTypes = ImmutableList.copyOf(transform(hiveColumns, input -> typeManager.getType(input.getTypeSignature())));
             return new RecordPageSource(columnTypes, recordCursor);
@@ -123,7 +125,8 @@ public class HivePageSourceProvider
             Properties schema,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             List<HivePartitionKey> partitionKeys,
-            List<HiveColumnHandle> hiveColumns)
+            List<HiveColumnHandle> hiveColumns,
+            Map<Integer, HiveType> mismatchColumnTypes)
     {
         for (HiveRecordCursorProvider provider : cursorProviders) {
             Optional<HiveRecordCursor> cursor = provider.createHiveRecordCursor(
@@ -138,7 +141,8 @@ public class HivePageSourceProvider
                     partitionKeys,
                     effectivePredicate,
                     hiveStorageTimeZone,
-                    typeManager);
+                    typeManager,
+                    mismatchColumnTypes);
             if (cursor.isPresent()) {
                 return cursor.get();
             }

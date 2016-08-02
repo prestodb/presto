@@ -44,6 +44,7 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
@@ -344,7 +345,8 @@ public enum FileFormat
                         ImmutableList.<HivePartitionKey>of(),
                         TupleDomain.all(),
                         DateTimeZone.forID(session.getTimeZoneKey().getId()),
-                        TYPE_MANAGER)
+                        TYPE_MANAGER,
+                        ImmutableMap.of())
                 .get();
         return new RecordPageSource(columnTypes, recordCursor);
     }

@@ -19,6 +19,7 @@ import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.hive.HiveRecordCursor;
 import com.facebook.presto.hive.HiveRecordCursorProvider;
+import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
@@ -30,6 +31,7 @@ import org.joda.time.DateTimeZone;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
@@ -74,7 +76,8 @@ public class ParquetRecordCursorProvider
             List<HivePartitionKey> partitionKeys,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            Map<Integer, HiveType> mismatchColumnTypes)
     {
         if (!PARQUET_SERDE_CLASS_NAMES.contains(getDeserializerClassName(schema))) {
             return Optional.empty();

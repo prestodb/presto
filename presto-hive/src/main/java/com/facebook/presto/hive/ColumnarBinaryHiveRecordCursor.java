@@ -141,7 +141,8 @@ class ColumnarBinaryHiveRecordCursor<K>
             List<HivePartitionKey> partitionKeys,
             List<HiveColumnHandle> columns,
             DateTimeZone hiveStorageTimeZone,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            Map<Integer, Type> mismatchColumnTypes)
     {
         requireNonNull(recordReader, "recordReader is null");
         checkArgument(totalBytes >= 0, "totalBytes is negative");

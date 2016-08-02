@@ -25,6 +25,7 @@ import org.apache.hadoop.mapred.RecordReader;
 import org.joda.time.DateTimeZone;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
@@ -55,7 +56,8 @@ public class ColumnarTextHiveRecordCursorProvider
             List<HivePartitionKey> partitionKeys,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            Map<Integer, HiveType> mismatchColumnTypes)
     {
         if (!isDeserializerClass(schema, ColumnarSerDe.class)) {
             return Optional.empty();
