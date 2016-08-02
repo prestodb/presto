@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.parquet;
 
-import io.airlift.compress.Decompressor;
 import io.airlift.compress.snappy.SnappyDecompressor;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -30,6 +29,8 @@ import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
 public final class ParquetCompressionUtils
 {
+    private static final int GZIP_BUFFER_SIZE = 8 * 1024;
+
     private ParquetCompressionUtils() {}
 
     public static Slice decompress(CompressionCodecName codec, Slice input, int uncompressedSize)
@@ -71,7 +72,7 @@ public final class ParquetCompressionUtils
     {
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(uncompressedSize);
         byte[] buffer = new byte[uncompressedSize];
-        try (InputStream gzipInputStream = new GZIPInputStream(input.getInput())) {
+        try (InputStream gzipInputStream = new GZIPInputStream(input.getInput(), GZIP_BUFFER_SIZE)) {
             int bytesRead;
             while ((bytesRead = gzipInputStream.read(buffer)) != -1) {
                 sliceOutput.write(buffer, 0, bytesRead);
