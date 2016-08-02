@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.hive.SchemaAlreadyExistsException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.base.MoreObjects;
@@ -45,9 +48,11 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
+import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.FileUtils.deleteRecursively;
@@ -84,18 +89,68 @@ public class InMemoryHiveMetastore
         checkArgument(baseDirectory.mkdirs(), "Could not create base directory");
     }
 
+    @Override
     public synchronized void createDatabase(Database database)
     {
         requireNonNull(database, "database is null");
 
-        File directory = new File(URI.create(database.getLocationUri()));
+        File directory;
+        if (database.getLocationUri() != null) {
+            directory = new File(URI.create(database.getLocationUri()));
+        }
+        else {
+            // use Hive default naming convention
+            directory = new File(baseDirectory, database.getName() + ".db");
+            database = database.deepCopy();
+            database.setLocationUri(directory.toURI().toString());
+        }
+
         checkArgument(!directory.exists(), "Database directory already exists");
         checkArgument(isParentDir(directory, baseDirectory), "Database directory must be inside of the metastore base directory");
         checkArgument(directory.mkdirs(), "Could not create database directory");
 
         if (databases.putIfAbsent(database.getName(), database) != null) {
-            throw new IllegalArgumentException("Database " + database.getName() + " already exists");
+            throw new SchemaAlreadyExistsException(database.getName());
         }
+    }
+
+    @Override
+    public synchronized void dropDatabase(String databaseName)
+    {
+        if (!databases.containsKey(databaseName)) {
+            throw new SchemaNotFoundException(databaseName);
+        }
+        if (!getAllTables(databaseName).orElse(ImmutableList.of()).isEmpty()) {
+            throw new PrestoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + databaseName);
+        }
+        databases.remove(databaseName);
+    }
+
+    @Override
+    public synchronized void alterDatabase(String databaseName, Database newDatabase)
+    {
+        String newDatabaseName = newDatabase.getName();
+
+        if (databaseName.equals(newDatabaseName)) {
+            if (databases.replace(databaseName, newDatabase) == null) {
+                throw new SchemaNotFoundException(databaseName);
+            }
+            return;
+        }
+
+        Database database = databases.get(databaseName);
+        if (database == null) {
+            throw new SchemaNotFoundException(databaseName);
+        }
+        if (databases.putIfAbsent(newDatabaseName, database) != null) {
+            throw new SchemaAlreadyExistsException(newDatabaseName);
+        }
+        databases.remove(databaseName);
+
+        rewriteKeys(relations, name -> new SchemaTableName(newDatabaseName, name.getTableName()));
+        rewriteKeys(views, name -> new SchemaTableName(newDatabaseName, name.getTableName()));
+        rewriteKeys(partitions, name -> name.withSchemaName(newDatabaseName));
+        rewriteKeys(tablePrivileges, name -> name.withDatabase(newDatabaseName));
     }
 
     @Override
@@ -498,6 +553,11 @@ public class InMemoryHiveMetastore
                     this.partitionName.equals(partitionName);
         }
 
+        public PartitionName withSchemaName(String schemaName)
+        {
+            return new PartitionName(schemaName, tableName, partitionValues, partitionName);
+        }
+
         @Override
         public int hashCode()
         {
@@ -541,6 +601,11 @@ public class InMemoryHiveMetastore
             this.database = requireNonNull(database, "database is null");
         }
 
+        public PrincipalTableKey withDatabase(String database)
+        {
+            return new PrincipalTableKey(principalName, principalType, table, database);
+        }
+
         @Override
         public boolean equals(Object o)
         {
@@ -572,6 +637,16 @@ public class InMemoryHiveMetastore
                     .add("table", table)
                     .add("database", database)
                     .toString();
+        }
+    }
+
+    private static <K, V> void rewriteKeys(Map<K, V> map, Function<K, K> keyRewriter)
+    {
+        for (K key : ImmutableSet.copyOf(map.keySet())) {
+            K newKey = keyRewriter.apply(key);
+            if (!newKey.equals(key)) {
+                map.put(newKey, map.remove(key));
+            }
         }
     }
 }

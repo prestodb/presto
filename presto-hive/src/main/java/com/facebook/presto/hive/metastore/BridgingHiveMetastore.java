@@ -16,6 +16,7 @@ package com.facebook.presto.hive.metastore;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.HiveUtil;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.collect.ImmutableMap;
@@ -87,6 +88,27 @@ public class BridgingHiveMetastore
     public Optional<List<String>> getAllViews(String databaseName)
     {
         return delegate.getAllViews(databaseName);
+    }
+
+    @Override
+    public void createDatabase(Database database)
+    {
+        delegate.createDatabase(database);
+    }
+
+    @Override
+    public void dropDatabase(String databaseName)
+    {
+        delegate.dropDatabase(databaseName);
+    }
+
+    @Override
+    public void renameDatabase(String databaseName, String newDatabaseName)
+    {
+        Database database = delegate.getDatabase(databaseName)
+                .orElseThrow(() -> new SchemaNotFoundException(databaseName));
+        database.setName(newDatabaseName);
+        delegate.alterDatabase(databaseName, database);
     }
 
     @Override

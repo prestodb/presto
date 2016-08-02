@@ -125,6 +125,7 @@ public class HiveConnectorFactory
                     new ClassLoaderSafeNodePartitioningProvider(connectorDistributionProvider, classLoader),
                     ImmutableSet.of(),
                     hiveSessionProperties.getSessionProperties(),
+                    HiveSchemaProperties.SCHEMA_PROPERTIES,
                     hiveTableProperties.getTableProperties(),
                     accessControl,
                     classLoader);
