@@ -1445,7 +1445,7 @@ public class HiveMetadata
                 hiveBucketHandle.getColumns().stream()
                         .map(HiveColumnHandle::getHiveType)
                         .collect(Collectors.toList()));
-        List<String> partitionColumns = hivePartitionResult.getPartitionColumns().stream()
+        List<String> partitionColumns = hiveBucketHandle.getColumns().stream()
                 .map(HiveColumnHandle::getName)
                 .collect(Collectors.toList());
         return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitionColumns));
