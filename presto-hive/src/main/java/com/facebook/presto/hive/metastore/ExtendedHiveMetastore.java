@@ -37,6 +37,12 @@ public interface ExtendedHiveMetastore
 
     Optional<List<String>> getAllViews(String databaseName);
 
+    void createDatabase(Database database);
+
+    void dropDatabase(String databaseName);
+
+    void renameDatabase(String databaseName, String newDatabaseName);
+
     void createTable(Table table, PrincipalPrivilegeSet principalPrivilegeSet);
 
     void dropTable(String databaseName, String tableName, boolean deleteData);

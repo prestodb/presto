@@ -57,6 +57,7 @@ import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.TableType;
+import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
@@ -114,8 +115,10 @@ import static com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore.
 import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.hive.util.Types.checkType;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
@@ -372,6 +375,45 @@ public class HiveMetadata
     {
         checkType(tableHandle, HiveTableHandle.class, "tableHandle");
         return checkType(columnHandle, HiveColumnHandle.class, "columnHandle").getColumnMetadata(typeManager);
+    }
+
+    @Override
+    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    {
+        Database database = new Database();
+        database.setName(schemaName);
+
+        HiveSchemaProperties.getLocation(properties).ifPresent(locationUri -> {
+            try {
+                hdfsEnvironment.getFileSystem(session.getUser(), new Path(locationUri));
+            }
+            catch (IOException e) {
+                throw new PrestoException(INVALID_SCHEMA_PROPERTY, "Invalid location URI: " + locationUri, e);
+            }
+            database.setLocationUri(locationUri);
+        });
+
+        database.setOwnerType(PrincipalType.USER);
+        database.setOwnerName(session.getUser());
+
+        metastore.createDatabase(database);
+    }
+
+    @Override
+    public void dropSchema(ConnectorSession session, String schemaName)
+    {
+        // basic sanity check to provide a better error message
+        if (!listTables(session, schemaName).isEmpty() ||
+                !listViews(session, schemaName).isEmpty()) {
+            throw new PrestoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schemaName);
+        }
+        metastore.dropDatabase(schemaName);
+    }
+
+    @Override
+    public void renameSchema(ConnectorSession session, String source, String target)
+    {
+        metastore.renameDatabase(source, target);
     }
 
     @Override

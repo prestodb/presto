@@ -30,6 +30,12 @@ public interface HiveMetastore
 {
     String DEFAULT_DATABASE_NAME = "default";
 
+    void createDatabase(Database database);
+
+    void dropDatabase(String databaseName);
+
+    void alterDatabase(String databaseName, Database database);
+
     void createTable(Table table);
 
     void dropTable(String databaseName, String tableName, boolean deleteData);

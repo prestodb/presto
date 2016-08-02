@@ -316,6 +316,46 @@ public class CachingHiveMetastore
     }
 
     @Override
+    public void createDatabase(Database database)
+    {
+        try {
+            delegate.createDatabase(database);
+        }
+        finally {
+            invalidateDatabase(database.getName());
+        }
+    }
+
+    @Override
+    public void dropDatabase(String databaseName)
+    {
+        try {
+            delegate.dropDatabase(databaseName);
+        }
+        finally {
+            invalidateDatabase(databaseName);
+        }
+    }
+
+    @Override
+    public void renameDatabase(String databaseName, String newDatabaseName)
+    {
+        try {
+            delegate.renameDatabase(databaseName, newDatabaseName);
+        }
+        finally {
+            invalidateDatabase(databaseName);
+            invalidateDatabase(newDatabaseName);
+        }
+    }
+
+    protected void invalidateDatabase(String databaseName)
+    {
+        databaseCache.invalidate(databaseName);
+        databaseNamesCache.invalidateAll();
+    }
+
+    @Override
     public void createTable(Table table, PrincipalPrivilegeSet principalPrivilegeSet)
     {
         try {

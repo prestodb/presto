@@ -52,6 +52,7 @@ public class HiveConnector
     private final ConnectorNodePartitioningProvider nodePartitioningProvider;
     private final Set<SystemTable> systemTables;
     private final List<PropertyMetadata<?>> sessionProperties;
+    private final List<PropertyMetadata<?>> schemaProperties;
     private final List<PropertyMetadata<?>> tableProperties;
     private final ConnectorAccessControl accessControl;
     private final ClassLoader classLoader;
@@ -68,6 +69,7 @@ public class HiveConnector
             ConnectorNodePartitioningProvider nodePartitioningProvider,
             Set<SystemTable> systemTables,
             List<PropertyMetadata<?>> sessionProperties,
+            List<PropertyMetadata<?>> schemaProperties,
             List<PropertyMetadata<?>> tableProperties,
             ConnectorAccessControl accessControl,
             ClassLoader classLoader)
@@ -81,6 +83,7 @@ public class HiveConnector
         this.nodePartitioningProvider = requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
         this.systemTables = ImmutableSet.copyOf(requireNonNull(systemTables, "systemTables is null"));
         this.sessionProperties = ImmutableList.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
+        this.schemaProperties = ImmutableList.copyOf(requireNonNull(schemaProperties, "schemaProperties is null"));
         this.tableProperties = ImmutableList.copyOf(requireNonNull(tableProperties, "tableProperties is null"));
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
@@ -128,6 +131,12 @@ public class HiveConnector
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getSchemaProperties()
+    {
+        return schemaProperties;
     }
 
     @Override

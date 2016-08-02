@@ -108,6 +108,20 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testSchemaOperations()
+    {
+        assertUpdate("CREATE SCHEMA new_schema");
+
+        assertUpdate("CREATE TABLE new_schema.test (x bigint)");
+
+        assertQueryFails("DROP SCHEMA new_schema", "Schema not empty: new_schema");
+
+        assertUpdate("DROP TABLE new_schema.test");
+
+        assertUpdate("DROP SCHEMA new_schema");
+    }
+
+    @Test
     public void testInformationSchemaTablesWithoutEqualityConstraint()
             throws Exception
     {

@@ -209,6 +209,21 @@ public class SemiTransactionalHiveMetastore
         return delegate.getAllViews(databaseName);
     }
 
+    public synchronized void createDatabase(Database database)
+    {
+        setExclusive((delegate, hdfsEnvironment) -> delegate.createDatabase(database));
+    }
+
+    public synchronized void dropDatabase(String schemaName)
+    {
+        setExclusive((delegate, hdfsEnvironment) -> delegate.dropDatabase(schemaName));
+    }
+
+    public synchronized void renameDatabase(String source, String target)
+    {
+        setExclusive((delegate, hdfsEnvironment) -> delegate.renameDatabase(source, target));
+    }
+
     /**
      * {@code currentLocation} needs to be supplied if a writePath exists for the table.
      */

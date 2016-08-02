@@ -67,8 +67,7 @@ public final class HiveBenchmarkQueryRunner
         // add hive
         File hiveDir = new File(tempDir, "hive_data");
         InMemoryHiveMetastore metastore = new InMemoryHiveMetastore(hiveDir);
-        File tpchDataDir = new File(hiveDir, "tpch");
-        metastore.createDatabase(new Database("tpch", null, tpchDataDir.toURI().toString(), null));
+        metastore.createDatabase(new Database("tpch", null, null, null));
 
         HiveConnectorFactory hiveConnectorFactory = new HiveConnectorFactory(
                 "hive",

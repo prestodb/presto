@@ -23,6 +23,7 @@ import com.facebook.presto.tpch.TpchPlugin;
 import com.facebook.presto.tpch.testing.SampledTpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.tpch.TpchTable;
@@ -97,6 +98,8 @@ public final class HiveQueryRunner
             metastore.createDatabase(createDatabaseMetastoreObject(baseDir, TPCH_SAMPLED_SCHEMA));
             metastore.createDatabase(createDatabaseMetastoreObject(baseDir, TPCH_BUCKETED_SCHEMA));
             queryRunner.installPlugin(new HivePlugin(HIVE_CATALOG, new BridgingHiveMetastore(metastore)));
+
+            metastore.setUserRoles(createSession().getUser(), ImmutableSet.of("admin"));
 
             Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
                     .putAll(extraHiveProperties)
