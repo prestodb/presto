@@ -84,7 +84,7 @@ public class TestInsertIntoHiveTable
                 "timestamp '2015-05-10 12:15:35.123', " +
                 "date '2015-05-10', " +
                 "'ala ma kota', " +
-                "'ala ma kota', " +
+                "'ala ma kot', " +
                 "true, " +
                 "from_base64('a290IGJpbmFybnk=')" +
                 ")");
@@ -144,7 +144,7 @@ public class TestInsertIntoHiveTable
                 "timestamp '2015-05-10 12:15:35.123', " +
                 "date '2015-05-10', " +
                 "'ala ma kota', " +
-                "'ala ma kota', " +
+                "'ala ma kot', " +
                 "'ala ma', " +
                 "true, " +
                 "from_base64('a290IGJpbmFybnk=')" +
