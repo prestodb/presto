@@ -169,6 +169,10 @@ public class ErrorMessages
     private static void serverNotFoundErrorMessage(StringBuilder builder, ClientSession session)
     {
         builder.append(PRESTO_COORDINATOR_NOT_FOUND);
+        if (session.isQuiet()) {
+            return;
+        }
+
         Tip.Builder tipsBuilder = Tip.builder();
         tipsBuilder.addTip(Tip.VERIFY_PRESTO_RUNNING, session.getServer())
                 .addTip(Tip.DEFINE_SERVER_AS_CLI_PARAM)
@@ -182,6 +186,10 @@ public class ErrorMessages
     private static void serverStartingUpErrorMessage(StringBuilder builder, ClientSession session)
     {
         builder.append(PRESTO_STARTING_UP);
+        if (session.isQuiet()) {
+            return;
+        }
+
         Tip.Builder tipsBuilder = Tip.builder();
         tipsBuilder.addTip(Tip.WAIT_FOR_INITIALIZATION);
         if (!session.isDebug()) {
@@ -193,6 +201,10 @@ public class ErrorMessages
     private static void serverShuttingDownErrorMessage(StringBuilder builder, ClientSession session)
     {
         builder.append(PRESTO_SHUTTING_DOWN);
+        if (session.isQuiet()) {
+            return;
+        }
+
         Tip.Builder tipsBuilder = Tip.builder();
         tipsBuilder.addTip(Tip.WAIT_FOR_SERVER_RESTART)
                 .addTip(Tip.START_SERVER_AGAIN);
@@ -205,6 +217,10 @@ public class ErrorMessages
     private static void serverFileNotFoundErrorMessage(StringBuilder builder, ClientSession session)
     {
         builder.append(PRESTO_COORDINATOR_404);
+        if (session.isQuiet()) {
+            return;
+        }
+
         Tip.Builder tipsBuilder = Tip.builder();
         tipsBuilder.addTip(Tip.VERIFY_PRESTO_RUNNING, session.getServer())
                 .addTip(Tip.DEFINE_SERVER_AS_CLI_PARAM)
