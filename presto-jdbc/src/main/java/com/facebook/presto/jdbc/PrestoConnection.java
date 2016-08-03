@@ -600,6 +600,7 @@ public class PrestoConnection
                 ImmutableMap.copyOf(allProperties),
                 transactionId.get(),
                 false,
+                false,
                 new Duration(2, MINUTES));
 
         return queryExecutor.startQuery(session, sql);
