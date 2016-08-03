@@ -68,7 +68,7 @@ public class TestTablePartitioningSelect
     private static String buildSingleIntColumnPartitionedTableDDL(String fileFormat, Optional<String> rowFormat)
     {
         StringBuilder sb = new StringBuilder();
-        sb.append("CREATE EXTERNAL TABLE %NAME%(");
+        sb.append("CREATE %EXTERNAL% TABLE %NAME%(");
         sb.append("   col INT");
         sb.append(") ");
         sb.append("PARTITIONED BY (part_col INT) ");

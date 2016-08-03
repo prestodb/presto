@@ -1,5 +1,5 @@
 -- type: hive
-CREATE EXTERNAL TABLE %NAME%(
+CREATE %EXTERNAL% TABLE %NAME%(
   c_bigint bigint,
   c_double double,
   c_string string,
@@ -11,5 +11,3 @@ CREATE EXTERNAL TABLE %NAME%(
 )
 ROW FORMAT DELIMITED FIELDS TERMINATED BY '|'
 STORED AS TEXTFILE
-LOCATION '%LOCATION%'
-TBLPROPERTIES('serialization.null.format'='#')
