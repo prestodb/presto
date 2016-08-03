@@ -77,7 +77,7 @@ public abstract class AbstractTestingPrestoClient<T>
     {
         ResultsSession<T> resultsSession = getResultSession(session);
 
-        ClientSession clientSession = toClientSession(session, prestoServer.getBaseUrl(), true, new Duration(2, TimeUnit.MINUTES));
+        ClientSession clientSession = toClientSession(session, prestoServer.getBaseUrl(), true, false, new Duration(2, TimeUnit.MINUTES));
 
         try (StatementClient client = new StatementClient(httpClient, clientSession, sql)) {
             while (client.isValid()) {
@@ -113,7 +113,7 @@ public abstract class AbstractTestingPrestoClient<T>
         }
     }
 
-    private static ClientSession toClientSession(Session session, URI server, boolean debug, Duration clientRequestTimeout)
+    private static ClientSession toClientSession(Session session, URI server, boolean debug, boolean quiet, Duration clientRequestTimeout)
     {
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         properties.putAll(session.getSystemProperties());
@@ -137,6 +137,7 @@ public abstract class AbstractTestingPrestoClient<T>
                 session.getIdentity().getRoles(),
                 session.getTransactionId().map(Object::toString).orElse(null),
                 debug,
+                quiet,
                 clientRequestTimeout);
     }
 
