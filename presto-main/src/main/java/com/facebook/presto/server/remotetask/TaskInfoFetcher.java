@@ -214,8 +214,12 @@ public class TaskInfoFetcher
     {
         try (SetThreadName ignored = new SetThreadName("TaskInfoFetcher-%s", taskId)) {
             lastUpdateNanos.set(System.nanoTime());
-            updateStats(currentRequestStartNanos.get());
 
+            long startNanos;
+            synchronized (this) {
+                startNanos = this.currentRequestStartNanos.get();
+            }
+            updateStats(startNanos);
             errorTracker.requestSucceeded();
             updateTaskInfo(newValue);
         }
@@ -226,7 +230,6 @@ public class TaskInfoFetcher
     {
         try (SetThreadName ignored = new SetThreadName("TaskInfoFetcher-%s", taskId)) {
             lastUpdateNanos.set(System.nanoTime());
-            updateStats(currentRequestStartNanos.get());
 
             try {
                 // if task not already done, record error
@@ -248,7 +251,6 @@ public class TaskInfoFetcher
     public void fatal(Throwable cause)
     {
         try (SetThreadName ignored = new SetThreadName("TaskInfoFetcher-%s", taskId)) {
-            updateStats(currentRequestStartNanos.get());
             onFail.accept(cause);
         }
     }
