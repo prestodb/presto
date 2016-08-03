@@ -50,7 +50,6 @@ public class TaskInfo
             @JsonProperty("outputBuffers") OutputBufferInfo outputBuffers,
             @JsonProperty("noMoreSplits") Set<PlanNodeId> noMoreSplits,
             @JsonProperty("stats") TaskStats stats,
-
             @JsonProperty("needsPlan") boolean needsPlan)
     {
         this.taskStatus = requireNonNull(taskStatus, "taskStatus is null");
