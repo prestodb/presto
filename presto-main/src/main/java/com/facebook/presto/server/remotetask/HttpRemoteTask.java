@@ -592,7 +592,7 @@ public final class HttpRemoteTask
     /**
      * Move the task directly to the failed state if there was a failure in this task
      */
-    void failTask(Throwable cause)
+    private void failTask(Throwable cause)
     {
         TaskStatus taskStatus = getTaskStatus();
         if (!taskStatus.getState().isDone()) {
