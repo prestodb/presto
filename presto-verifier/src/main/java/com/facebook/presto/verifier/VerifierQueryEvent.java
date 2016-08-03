@@ -25,6 +25,7 @@ public class VerifierQueryEvent
     private final String suite;
     private final String runId;
     private final String source;
+    private final String user;
     private final String name;
     private final boolean failed;
 
@@ -46,6 +47,7 @@ public class VerifierQueryEvent
             String suite,
             String runId,
             String source,
+            String user,
             String name,
             boolean failed,
             String testCatalog,
@@ -63,6 +65,7 @@ public class VerifierQueryEvent
         this.suite = suite;
         this.runId = runId;
         this.source = source;
+        this.user = user;
         this.name = name;
         this.failed = failed;
 
@@ -97,6 +100,12 @@ public class VerifierQueryEvent
     public String getSource()
     {
         return source;
+    }
+
+    @EventField
+    public String getUser()
+    {
+        return user;
     }
 
     @EventField

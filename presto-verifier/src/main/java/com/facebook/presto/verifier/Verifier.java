@@ -210,6 +210,7 @@ public class Verifier
                 queryPair.getSuite(),
                 config.getRunId(),
                 config.getSource(),
+                config.getUser(),
                 queryPair.getName(),
                 !validator.valid(),
                 queryPair.getTest().getCatalog(),
