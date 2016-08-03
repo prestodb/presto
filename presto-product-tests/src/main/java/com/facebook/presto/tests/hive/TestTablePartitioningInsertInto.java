@@ -43,7 +43,7 @@ public class TestTablePartitioningInsertInto
     private static final HiveTableDefinition PARTITIONED_NATION =
             HiveTableDefinition.builder(PARTITIONED_NATION_NAME)
                     .setCreateTableDDLTemplate("" +
-                            "CREATE EXTERNAL TABLE %NAME%(" +
+                            "CREATE %EXTERNAL% TABLE %NAME%(" +
                             "   p_nationkey     BIGINT," +
                             "   p_name          STRING," +
                             "   p_comment       STRING) " +
@@ -57,13 +57,12 @@ public class TestTablePartitioningInsertInto
     private static final HiveTableDefinition TARGET_NATION =
             HiveTableDefinition.builder(TARGET_NATION_NAME)
                     .setCreateTableDDLTemplate("" +
-                            "CREATE EXTERNAL TABLE %NAME%(" +
+                            "CREATE %EXTERNAL% TABLE %NAME%(" +
                             "   p_nationkey     BIGINT," +
                             "   p_name          STRING," +
                             "   p_comment       STRING," +
                             "   p_regionkey     INT) " +
-                            "ROW FORMAT DELIMITED FIELDS TERMINATED BY '|' " +
-                            "LOCATION '%LOCATION%'")
+                            "ROW FORMAT DELIMITED FIELDS TERMINATED BY '|'")
                     .setNoData()
                     .build();
 

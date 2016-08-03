@@ -1,5 +1,5 @@
 -- delimiter: |; trimValues:true; types: LONGNVARCHAR|LONGNVARCHAR|LONGNVARCHAR
 n_nationkey | bigint  | |
-n_name      | varchar | |
+n_name      | varchar(25) | |
 n_regionkey | bigint  | |
-n_comment   | varchar | |
+n_comment   | varchar(152) | |
