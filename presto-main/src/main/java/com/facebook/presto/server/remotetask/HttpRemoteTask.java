@@ -381,10 +381,9 @@ public final class HttpRemoteTask
         return taskStatusFetcher.getStateChange(taskStatus);
     }
 
-    private synchronized void updateTaskInfo(TaskInfo newValue, List<TaskSource> sources)
+    private synchronized void processTaskUpdate(TaskInfo newValue, List<TaskSource> sources)
     {
-        taskStatusFetcher.updateTaskStatus(newValue.getTaskStatus());
-        taskInfoFetcher.updateTaskInfo(newValue);
+        updateTaskInfo(newValue);
 
         // remove acknowledged splits, which frees memory
         for (TaskSource source : sources) {
@@ -401,6 +400,12 @@ public final class HttpRemoteTask
         }
 
         partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
+    }
+
+    private void updateTaskInfo(TaskInfo taskInfo)
+    {
+        taskStatusFetcher.updateTaskStatus(taskInfo.getTaskStatus());
+        taskInfoFetcher.updateTaskInfo(taskInfo);
     }
 
     private void scheduleUpdate()
@@ -641,7 +646,7 @@ public final class HttpRemoteTask
                         currentRequestStartNanos = HttpRemoteTask.this.currentRequestStartNanos;
                     }
                     updateStats(currentRequestStartNanos);
-                    updateTaskInfo(value, sources);
+                    processTaskUpdate(value, sources);
                     updateErrorTracker.requestSucceeded();
                 }
                 finally {
