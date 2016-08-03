@@ -50,7 +50,7 @@
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.22</dep.slice.version>
         <dep.aws-sdk.version>1.9.40</dep.aws-sdk.version>
-        <dep.tempto.version>1.8</dep.tempto.version>
+        <dep.tempto.version>1.12</dep.tempto.version>
 
         <!--
         Versions newer than 6.9 appear to have an issue where the @BeforeClass method in
