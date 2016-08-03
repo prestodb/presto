@@ -584,6 +584,13 @@ public final class HttpRemoteTask
                 // record failure
                 if (cleanupBackoff.failure()) {
                     logError(t, "Unable to %s task at %s", action, request.getUri());
+                    // Update the taskInfo with the new taskStatus.
+                    // This is required because the query state machine depends on TaskInfo (instead of task status)
+                    // to transition its own state.
+                    // Also, since this TaskInfo is updated in the client the "finalInfo" flag will not be set,
+                    // indicating that the stats are stale.
+                    // TODO: Update the query state machine and stage state machine to depend on TaskStatus instead
+                    updateTaskInfo(getTaskInfo().withTaskStatus(getTaskStatus()));
                     return;
                 }
 

@@ -254,13 +254,15 @@ public class SqlTask
         TaskStats taskStats = getTaskStats(taskHolder);
         Set<PlanNodeId> noMoreSplits = getNoMoreSplits(taskHolder);
 
+        TaskStatus taskStatus = createTaskStatus(taskHolder);
         return new TaskInfo(
-                createTaskStatus(taskHolder),
+                taskStatus,
                 lastHeartbeat.get(),
                 outputBuffer.getInfo(),
                 noMoreSplits,
                 taskStats,
-                needsPlan.get());
+                needsPlan.get(),
+                taskStatus.getState().isDone());
     }
 
     public CompletableFuture<TaskStatus> getTaskStatus(TaskState callersCurrentState)
