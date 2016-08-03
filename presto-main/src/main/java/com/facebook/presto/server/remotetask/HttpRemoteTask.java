@@ -447,10 +447,7 @@ public final class HttpRemoteTask
                 sources,
                 outputBuffers.get());
 
-        HttpUriBuilder uriBuilder = uriBuilderFrom(taskStatus.getSelf());
-        if (summarizeTaskInfo) {
-            uriBuilder.addParameter("summarize");
-        }
+        HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus);
         Request request = preparePost()
                 .setUri(uriBuilder.build())
                 .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
@@ -501,10 +498,7 @@ public final class HttpRemoteTask
             }
 
             // send cancel to task and ignore response
-            HttpUriBuilder uriBuilder = uriBuilderFrom(taskStatus.getSelf()).addParameter("abort", "false");
-            if (summarizeTaskInfo) {
-                uriBuilder.addParameter("summarize");
-            }
+            HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus).addParameter("abort", "false");
             Request request = prepareDelete()
                     .setUri(uriBuilder.build())
                     .build();
@@ -551,10 +545,7 @@ public final class HttpRemoteTask
             taskInfoFetcher.abort(status);
 
             // send abort to task and ignore response
-            HttpUriBuilder uriBuilder = uriBuilderFrom(getTaskStatus().getSelf());
-            if (summarizeTaskInfo) {
-                uriBuilder.addParameter("summarize");
-            }
+            HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());
             Request request = prepareDelete()
                     .setUri(uriBuilder.build())
                     .build();
@@ -609,6 +600,15 @@ public final class HttpRemoteTask
         }
 
         abort(failWith(getTaskStatus(), FAILED, ImmutableList.of(toFailure(cause))));
+    }
+
+    private HttpUriBuilder getHttpUriBuilder(TaskStatus taskStatus)
+    {
+        HttpUriBuilder uriBuilder = uriBuilderFrom(taskStatus.getSelf());
+        if (summarizeTaskInfo) {
+            uriBuilder.addParameter("summarize");
+        }
+        return uriBuilder;
     }
 
     @Override
