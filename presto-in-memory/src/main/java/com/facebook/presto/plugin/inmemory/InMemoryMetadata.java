@@ -26,6 +26,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
@@ -40,8 +41,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static com.facebook.presto.plugin.inmemory.InMemoryInsertTableHandle.IN_MEMORY_INSERT_TABLE_HANDLE;
 import static com.facebook.presto.plugin.inmemory.Types.checkType;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -53,11 +54,13 @@ public class InMemoryMetadata
     public static final String SCHEMA_NAME = "default";
 
     private final String connectorId;
+    private final InMemoryPagesStore pagesStore;
     private final Map<String, InMemoryTableHandle> tables = new ConcurrentHashMap<>();
 
-    public InMemoryMetadata(String connectorId)
+    public InMemoryMetadata(String connectorId, InMemoryPagesStore pagesStore)
     {
         this.connectorId = connectorId;
+        this.pagesStore = requireNonNull(pagesStore, "pagesStore is null");
     }
 
     @Override
@@ -116,8 +119,9 @@ public class InMemoryMetadata
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        InMemoryTableHandle inMemoryTableHandle = checkType(tableHandle, InMemoryTableHandle.class, "tableHandle");
-        tables.remove(inMemoryTableHandle.getTableName());
+        // TODO: implement this method. Problem is that data are distributed across the cluster and this method
+        // is only being invoked on the coordinator
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping tables");
     }
 
     @Override
@@ -132,6 +136,7 @@ public class InMemoryMetadata
         );
         tables.remove(oldTableHandle.getTableName());
         tables.put(newTableName.getTableName(), newTableHandle);
+        pagesStore.rename(oldTableHandle.toSchemaTableName(), newTableHandle.toSchemaTableName());
     }
 
     @Override
@@ -158,7 +163,8 @@ public class InMemoryMetadata
     @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return IN_MEMORY_INSERT_TABLE_HANDLE;
+        InMemoryTableHandle inMemoryTableHandle = checkType(tableHandle, InMemoryTableHandle.class, "tableHandle");
+        return new InMemoryInsertTableHandle(inMemoryTableHandle);
     }
 
     @Override

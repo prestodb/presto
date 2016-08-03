@@ -58,12 +58,13 @@ public class InMemoryConnectorFactory
     public Connector create(String connectorId, Map<String, String> requiredConfig, ConnectorContext context)
     {
         int splitsPerNode = getSplitsPerNode(requiredConfig);
+        InMemoryPagesStore pagesStore = new InMemoryPagesStore();
 
         return new InMemoryConnector(
-                new InMemoryMetadata(connectorId),
+                new InMemoryMetadata(connectorId, pagesStore),
                 new InMemorySplitManager(connectorId, nodeManager, splitsPerNode),
-                new InMemoryPageSourceProvider(),
-                new InMemoryPageSinkProvider());
+                new InMemoryPageSourceProvider(pagesStore),
+                new InMemoryPageSinkProvider(pagesStore));
     }
 
     private int getSplitsPerNode(Map<String, String> properties)

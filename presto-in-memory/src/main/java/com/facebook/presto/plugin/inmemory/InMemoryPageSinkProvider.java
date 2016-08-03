@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -28,27 +29,51 @@ import io.airlift.slice.Slice;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 
+import static com.facebook.presto.plugin.inmemory.Types.checkType;
+import static java.util.Objects.requireNonNull;
+
 public class InMemoryPageSinkProvider
         implements ConnectorPageSinkProvider
 {
+    private final InMemoryPagesStore pagesStore;
+
+    public InMemoryPageSinkProvider(InMemoryPagesStore pagesStore)
+    {
+        this.pagesStore = requireNonNull(pagesStore, "pagesStore is null");
+    }
+
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
     {
-        return new NoOpConnectorPageSink();
+        InMemoryOutputTableHandle inMemoryOutputTableHandle = checkType(outputTableHandle, InMemoryOutputTableHandle.class, "outputTableHandle");
+        SchemaTableName schemaTableName = inMemoryOutputTableHandle.getTable().toSchemaTableName();
+        return new InMemoryPageSink(pagesStore, schemaTableName);
     }
 
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
     {
-        return new NoOpConnectorPageSink();
+        InMemoryInsertTableHandle inMemoryInsertTableHandle = checkType(insertTableHandle, InMemoryInsertTableHandle.class, "insertTableHandle");
+        SchemaTableName schemaTableName = inMemoryInsertTableHandle.getTable().toSchemaTableName();
+        return new InMemoryPageSink(pagesStore, schemaTableName);
     }
 
-    private static class NoOpConnectorPageSink
+    private static class InMemoryPageSink
             implements ConnectorPageSink
     {
+        private final InMemoryPagesStore pagesStore;
+        private final SchemaTableName schemaTableName;
+
+        public InMemoryPageSink(InMemoryPagesStore pagesStore, SchemaTableName schemaTableName)
+        {
+            this.pagesStore = requireNonNull(pagesStore, "pagesStore is null");
+            this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+        }
+
         @Override
         public CompletableFuture<?> appendPage(Page page, Block sampleWeightBlock)
         {
+            pagesStore.add(schemaTableName, page);
             return NOT_BLOCKED;
         }
 

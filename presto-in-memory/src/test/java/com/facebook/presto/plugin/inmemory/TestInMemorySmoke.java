@@ -20,9 +20,8 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.Iterables;
-import org.testng.annotations.AfterTest;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import java.sql.SQLException;
@@ -39,24 +38,17 @@ public class TestInMemorySmoke
 {
     private QueryRunner queryRunner;
 
-    @BeforeTest
+    @BeforeMethod
     public void setUp()
             throws Exception
     {
         queryRunner = createQueryRunner();
     }
 
-    @AfterTest
+    @AfterMethod
     public void tearDown()
     {
-        assertThatNoInMemoryTableIsCreated();
         queryRunner.close();
-    }
-
-    @BeforeMethod
-    public void methodSetUp()
-    {
-        assertThatNoInMemoryTableIsCreated();
     }
 
     @Test
@@ -72,37 +64,34 @@ public class TestInMemorySmoke
         catch (RuntimeException ex) { // it has to RuntimeException as FailureInfo$FailureException is private
             assertTrue(ex.getMessage().equals("line 1:1: Destination table 'inmemory.default.nation' already exists"));
         }
-        finally {
-            assertThatQueryReturnsValue("DROP TABLE nation", true);
-        }
     }
 
-    @Test(enabled = false)
+    @Test
     public void inMemoryConnectorUsage()
             throws SQLException
     {
         assertThatQueryReturnsValue("CREATE TABLE nation as SELECT * FROM tpch.tiny.nation", 25L);
-        try {
-            List<QualifiedObjectName> tableNames = listInMemoryTables();
-            assertTrue(tableNames.size() == 1, "Expected only one table.");
-            assertTrue(tableNames.get(0).getObjectName().equals("nation"), "Expected 'nation' table.");
 
-            assertThatQueryReturnsSameValueAs("SELECT * FROM nation", "SELECT * FROM tpch.tiny.nation");
+        List<QualifiedObjectName> tableNames = listInMemoryTables();
+        assertTrue(tableNames.size() == 1, "Expected only one table.");
+        assertTrue(tableNames.get(0).getObjectName().equals("nation"), "Expected 'nation' table.");
 
-            assertThatQueryReturnsValue("INSERT INTO nation SELECT * FROM tpch.tiny.nation", 25L);
+        assertThatQueryReturnsSameValueAs("SELECT * FROM nation ORDER BY nationkey", "SELECT * FROM tpch.tiny.nation ORDER BY nationkey");
 
-            assertThatQueryReturnsValue("INSERT INTO nation SELECT * FROM tpch.tiny.nation", 25L);
+        assertThatQueryReturnsValue("INSERT INTO nation SELECT * FROM tpch.tiny.nation", 25L);
 
-            assertThatQueryReturnsValue("SELECT count(*) FROM nation", 75L);
-        }
-        finally {
-            assertThatQueryReturnsValue("DROP TABLE nation", true);
-        }
+        assertThatQueryReturnsValue("INSERT INTO nation SELECT * FROM tpch.tiny.nation", 25L);
+
+        assertThatQueryReturnsValue("SELECT count(*) FROM nation", 75L);
     }
 
-    private void assertThatNoInMemoryTableIsCreated()
+    @Test
+    public void selectSingleRow()
+            throws SQLException
     {
-        assertTrue(listInMemoryTables().size() == 0, "No inmemory tables expected");
+        assertThatQueryReturnsValue("CREATE TABLE nation as SELECT * FROM tpch.tiny.nation", 25L);
+
+        assertThatQueryReturnsSameValueAs("SELECT * FROM nation WHERE nationkey = 1", "SELECT * FROM tpch.tiny.nation WHERE nationkey = 1");
     }
 
     private List<QualifiedObjectName> listInMemoryTables()

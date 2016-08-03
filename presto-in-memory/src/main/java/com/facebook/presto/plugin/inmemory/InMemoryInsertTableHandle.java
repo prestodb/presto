@@ -15,10 +15,23 @@
 package com.facebook.presto.plugin.inmemory;
 
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-// HACK: this class is an enum to make this class to be auto serializable
-public enum InMemoryInsertTableHandle
+public final class InMemoryInsertTableHandle
         implements ConnectorInsertTableHandle
 {
-    IN_MEMORY_INSERT_TABLE_HANDLE
+    private final InMemoryTableHandle table;
+
+    @JsonCreator
+    public InMemoryInsertTableHandle(@JsonProperty("table") InMemoryTableHandle table)
+    {
+        this.table = table;
+    }
+
+    @JsonProperty
+    public InMemoryTableHandle getTable()
+    {
+        return table;
+    }
 }

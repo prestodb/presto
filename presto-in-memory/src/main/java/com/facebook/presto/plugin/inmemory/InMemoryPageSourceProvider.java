@@ -19,17 +19,26 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.FixedPageSource;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
 import static com.facebook.presto.plugin.inmemory.Types.checkType;
+import static java.util.Objects.requireNonNull;
 
 public final class InMemoryPageSourceProvider
         implements ConnectorPageSourceProvider
 {
+    private final InMemoryPagesStore pagesStore;
+
+    public InMemoryPageSourceProvider(InMemoryPagesStore pagesStore)
+    {
+        this.pagesStore = requireNonNull(pagesStore, "pagesStore is null");
+    }
+
     @Override
     public ConnectorPageSource createPageSource(
             ConnectorTransactionHandle transactionHandle,
@@ -38,6 +47,12 @@ public final class InMemoryPageSourceProvider
             List<ColumnHandle> columns)
     {
         InMemorySplit inMemorySplit = checkType(split, InMemorySplit.class, "split");
-        return new FixedPageSource(ImmutableList.of());
+        SchemaTableName schemaTableName = inMemorySplit.getTableHandle().toSchemaTableName();
+        int partNumber = inMemorySplit.getPartNumber();
+        int totalParts = inMemorySplit.getTotalPartsPerWorker();
+
+        List<Page> pages = pagesStore.getPages(schemaTableName, partNumber, totalParts);
+
+        return new FixedPageSource(pages);
     }
 }
