@@ -29,7 +29,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.ChildReplacer;
+import com.facebook.presto.sql.planner.plan.EnforceUniqueColumns;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
@@ -77,6 +77,7 @@ import static com.facebook.presto.sql.ExpressionUtils.stripNonDeterministicConju
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.DeterminismEvaluator.isDeterministic;
 import static com.facebook.presto.sql.planner.EqualityInference.createEqualityInference;
+import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
@@ -230,7 +231,7 @@ public class PredicatePushDown
 
             PlanNode output = node;
             if (rewrittenSource != node.getSource()) {
-                output = ChildReplacer.replaceChildren(node, ImmutableList.of(rewrittenSource));
+                output = replaceChildren(node, ImmutableList.of(rewrittenSource));
             }
 
             // All other conjuncts, if any, will be in the filter node.
@@ -928,6 +929,12 @@ public class PredicatePushDown
 
         @Override
         public PlanNode visitSample(SampleNode node, RewriteContext<Expression> context)
+        {
+            return context.defaultRewrite(node, context.get());
+        }
+
+        @Override
+        public PlanNode visitEnforceUniqueColumns(EnforceUniqueColumns node, RewriteContext<Expression> context)
         {
             return context.defaultRewrite(node, context.get());
         }
