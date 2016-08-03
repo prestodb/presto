@@ -46,7 +46,6 @@ import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
-import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -87,7 +86,6 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.preparePost;
-import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -529,6 +527,15 @@ public final class HttpRemoteTask
 
         taskStatusFetcher.stop();
         taskInfoFetcher.taskStatusDone(getTaskStatus());
+
+        // The remote task is likely to get a delete from the PageBufferClient first.
+        // We send an additional delete anyway to get the final TaskInfo
+        HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());
+        Request request = prepareDelete()
+                .setUri(uriBuilder.build())
+                .build();
+
+        scheduleAsyncCleanupRequest(new Backoff(MAX_CLEANUP_RETRY_TIME), request, "cleanup");
     }
 
     @Override
@@ -549,7 +556,7 @@ public final class HttpRemoteTask
             taskStatusFetcher.updateTaskStatus(status);
             taskInfoFetcher.abort(status);
 
-            // send abort to task and ignore response
+            // send abort to task
             HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());
             Request request = prepareDelete()
                     .setUri(uriBuilder.build())
@@ -560,12 +567,12 @@ public final class HttpRemoteTask
 
     private void scheduleAsyncCleanupRequest(Backoff cleanupBackoff, Request request, String action)
     {
-        Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), new FutureCallback<StatusResponse>()
+        Futures.addCallback(httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec)), new FutureCallback<JsonResponse<TaskInfo>>()
         {
             @Override
-            public void onSuccess(StatusResponse result)
+            public void onSuccess(JsonResponse<TaskInfo> result)
             {
-                // assume any response is good enough
+                updateTaskInfo(result.getValue());
             }
 
             @Override

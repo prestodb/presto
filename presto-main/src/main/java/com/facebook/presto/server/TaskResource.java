@@ -204,17 +204,17 @@ public class TaskResource
 
     @DELETE
     @Path("{taskId}")
-    public void deleteTask(@PathParam("taskId") TaskId taskId,
+    @Produces(MediaType.APPLICATION_JSON)
+    public TaskInfo deleteTask(@PathParam("taskId") TaskId taskId,
             @QueryParam("abort") @DefaultValue("true") boolean abort,
             @Context UriInfo uriInfo)
     {
         requireNonNull(taskId, "taskId is null");
 
         if (abort) {
-            taskManager.abortTask(taskId);
-            return;
+            return taskManager.abortTask(taskId);
         }
-        taskManager.cancelTask(taskId);
+        return taskManager.cancelTask(taskId);
     }
 
     @GET
