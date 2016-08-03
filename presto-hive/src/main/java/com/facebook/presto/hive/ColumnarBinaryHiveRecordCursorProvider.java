@@ -73,7 +73,8 @@ public class ColumnarBinaryHiveRecordCursorProvider
                 partitionKeys,
                 columns,
                 hiveStorageTimeZone,
-                typeManager));
+                typeManager,
+                mismatchColumnTypes));
     }
 
     @SuppressWarnings("unchecked")
