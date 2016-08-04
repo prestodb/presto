@@ -213,11 +213,8 @@ public class TaskInfoFetcher
 
         HttpUriBuilder httpUriBuilder = uriBuilderFrom(taskStatus.getSelf());
         // if this is the last request, don't summarize, get the complete taskInfo
-        URI uri = lastRequest.get() ? httpUriBuilder.build() : httpUriBuilder.addParameter("summarize").build();
+        URI uri = !lastRequest.get() || summarizeTaskInfo ? httpUriBuilder.addParameter("summarize").build() : httpUriBuilder.build();
 
-        if (summarizeTaskInfo) {
-            httpUriBuilder.addParameter("summarize");
-        }
         Request request = prepareGet()
                 .setUri(uri)
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
