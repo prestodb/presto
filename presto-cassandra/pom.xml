@@ -262,6 +262,11 @@
                     <groupId>com.datastax.cassandra</groupId>
                     <artifactId>cassandra-driver-core</artifactId>
                 </exclusion>
+                <exclusion>
+                    <!-- conflicts with version brought in by presto-main, etc -->
+                    <groupId>com.sun.xml.bind</groupId>
+                    <artifactId>jaxb-impl</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 
