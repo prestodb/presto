@@ -18,7 +18,7 @@ Description
 
 Grants the specified privileges to the specified grantee.
 
-Specifying ``ALL PRIVILEGES`` grants ``DELETE``, ``INSERT`` and ``SELECT`` privileges.
+Specifying ``ALL PRIVILEGES`` grants :doc:`delete`, :doc:`insert` and :doc:`select` privileges.
 
 Specifying ``PUBLIC`` grants privileges to all grantees.
 
@@ -37,7 +37,7 @@ Grant ``SELECT`` privilege on the table ``nation`` to user ``alice``, additional
 
     GRANT SELECT ON nation TO alice WITH GRANT OPTION;
 
-GRANT ``SELECT`` privilege on the table ``orders`` to everyone::
+Grant ``SELECT`` privilege on the table ``orders`` to everyone::
 
     GRANT SELECT ON orders TO PUBLIC;
 
@@ -46,3 +46,8 @@ Limitations
 
 Some connectors have no support for ``GRANT``.
 See connector documentation for more details.
+
+See Also
+--------
+
+:doc:`revoke`

@@ -49,6 +49,11 @@ Create the table ``orders_by_date`` if it does not already exist::
 Create a new ``empty_nation`` table with the same schema as ``nation`` and no data::
 
     CREATE TABLE empty_nation AS
-    SELECT * 
-    FROM nation 
+    SELECT *
+    FROM nation
     WITH NO DATA
+
+See Also
+--------
+
+:doc:`create-table`, :doc:`select`

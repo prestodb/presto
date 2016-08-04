@@ -22,3 +22,8 @@ Examples
 
     SET SESSION optimize_hash_generation = true;
     SET SESSION hive.optimized_reader_enabled = true;
+
+See Also
+--------
+
+:doc:`reset-session`, :doc:`show-session`
