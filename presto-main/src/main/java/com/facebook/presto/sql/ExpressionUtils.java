@@ -45,7 +45,6 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
 
 public final class ExpressionUtils
 {
@@ -185,9 +184,9 @@ public final class ExpressionUtils
 
     public static Expression stripNonDeterministicConjuncts(Expression expression)
     {
-        Set<Expression> conjuncts = extractConjuncts(expression).stream()
+        List<Expression> conjuncts = extractConjuncts(expression).stream()
                 .filter(DeterminismEvaluator::isDeterministic)
-                .collect(toSet());
+                .collect(toList());
 
         return combineConjuncts(conjuncts);
     }
