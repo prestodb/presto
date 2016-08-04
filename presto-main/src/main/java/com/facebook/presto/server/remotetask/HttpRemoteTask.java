@@ -526,7 +526,6 @@ public final class HttpRemoteTask
         }
 
         taskStatusFetcher.stop();
-        taskInfoFetcher.taskStatusDone(getTaskStatus());
 
         // The remote task is likely to get a delete from the PageBufferClient first.
         // We send an additional delete anyway to get the final TaskInfo
@@ -554,7 +553,6 @@ public final class HttpRemoteTask
 
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             taskStatusFetcher.updateTaskStatus(status);
-            taskInfoFetcher.abort(status);
 
             // send abort to task
             HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());
