@@ -86,24 +86,16 @@ final class PrestoSystemRequirements
             failRequirement("Java version not defined");
         }
 
-        String[] versionParts = javaVersion.split("_");
-        if (versionParts.length != 2) {
-            failRequirement("Java version has an unknown format: %s", javaVersion);
+        JavaVersion version = JavaVersion.parse(javaVersion);
+        if (version.getMajor() == 8 && version.getUpdate().isPresent() && version.getUpdate().getAsInt() >= 60) {
+            return;
         }
 
-        String majorVersion = versionParts[0];
-        int minorVersion = 0;
-        try {
-            minorVersion = Integer.parseInt(versionParts[1]);
-        }
-        catch (NumberFormatException e) {
-            failRequirement("Java minor version is not a number: %s", javaVersion);
+        if (version.getMajor() == 9) {
+            return;
         }
 
-        if ((majorVersion.compareTo("1.8.0") < 0) ||
-                ((majorVersion.compareTo("1.8.0") == 0) && (minorVersion < 60))) {
-            failRequirement("Presto requires Java 8u60+ (found %s)", javaVersion);
-        }
+        failRequirement("Presto requires Java 8u60+ (found %s)", javaVersion);
     }
 
     private static void verifyUsingG1Gc()
