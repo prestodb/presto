@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.inmemory;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.block.Block;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -41,7 +42,7 @@ public class InMemoryPagesStore
         tablePages.add(page);
     }
 
-    public synchronized List<Page> getPages(SchemaTableName schemaTableName, int partNumber, int totalParts)
+    public synchronized List<Page> getPages(SchemaTableName schemaTableName, int partNumber, int totalParts, List<Integer> columnIndexes)
     {
         checkState(pages.containsKey(schemaTableName));
 
@@ -49,7 +50,7 @@ public class InMemoryPagesStore
         ImmutableList.Builder<Page> partitionedPages = ImmutableList.builder();
 
         for (int i = partNumber; i < tablePages.size(); i += totalParts) {
-            partitionedPages.add(tablePages.get(i));
+            partitionedPages.add(reorderPage(tablePages.get(i), columnIndexes));
         }
 
         return partitionedPages.build();
@@ -70,5 +71,17 @@ public class InMemoryPagesStore
     public synchronized boolean contains(SchemaTableName schemaTableName)
     {
         return pages.containsKey(schemaTableName);
+    }
+
+    private static Page reorderPage(Page page, List<Integer> columnIndexes)
+    {
+        Block[] blocks = page.getBlocks();
+        Block[] outputBlocks = new Block[columnIndexes.size()];
+
+        for (int i = 0; i < columnIndexes.size(); i++) {
+            outputBlocks[i] = blocks[columnIndexes.get(i)];
+        }
+
+        return new Page(page.getPositionCount(), outputBlocks);
     }
 }

@@ -19,7 +19,9 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 
+import java.util.List;
 import java.util.Objects;
 
 public final class InMemoryColumnHandle
@@ -27,19 +29,22 @@ public final class InMemoryColumnHandle
 {
     private final String name;
     private final Type columnType;
+    private final int columnIndex;
 
-    public InMemoryColumnHandle(ColumnMetadata columnMetadata)
+    public InMemoryColumnHandle(ColumnMetadata columnMetadata, int columnIndex)
     {
-        this(columnMetadata.getName(), columnMetadata.getType());
+        this(columnMetadata.getName(), columnMetadata.getType(), columnIndex);
     }
 
     @JsonCreator
     public InMemoryColumnHandle(
             @JsonProperty("name") String name,
-            @JsonProperty("columnType") Type columnType)
+            @JsonProperty("columnType") Type columnType,
+            @JsonProperty("columnIndex") int columnIndex)
     {
         this.name = name;
         this.columnType = columnType;
+        this.columnIndex = columnIndex;
     }
 
     @JsonProperty
@@ -52,6 +57,12 @@ public final class InMemoryColumnHandle
     public Type getColumnType()
     {
         return columnType;
+    }
+
+    @JsonProperty
+    public int getColumnIndex()
+    {
+        return columnIndex;
     }
 
     public ColumnMetadata toColumnMetadata()
@@ -76,6 +87,18 @@ public final class InMemoryColumnHandle
         }
         InMemoryColumnHandle other = (InMemoryColumnHandle) obj;
         return Objects.equals(this.name, other.name) &&
-                Objects.equals(this.columnType, other.columnType);
+                Objects.equals(this.columnType, other.columnType) &&
+                Objects.equals(this.columnIndex, other.columnIndex);
+    }
+
+    public static List<InMemoryColumnHandle> extractColumnHandles(List<ColumnMetadata> columns)
+    {
+        ImmutableList.Builder<InMemoryColumnHandle> columnHandles = ImmutableList.builder();
+        int columnIndex = 0;
+        for (ColumnMetadata column : columns) {
+            columnHandles.add(new InMemoryColumnHandle(column, columnIndex));
+            columnIndex++;
+        }
+        return columnHandles.build();
     }
 }

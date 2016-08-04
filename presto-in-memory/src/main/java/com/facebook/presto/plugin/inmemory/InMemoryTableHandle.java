@@ -38,9 +38,7 @@ public final class InMemoryTableHandle
         this(connectorId,
                 tableMetadata.getTable().getSchemaName(),
                 tableMetadata.getTable().getTableName(),
-                tableMetadata.getColumns().stream()
-                        .map(InMemoryColumnHandle::new)
-                        .collect(toList()));
+                InMemoryColumnHandle.extractColumnHandles(tableMetadata.getColumns()));
     }
 
     @JsonCreator

@@ -28,6 +28,7 @@ import java.util.List;
 
 import static com.facebook.presto.plugin.inmemory.Types.checkType;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public final class InMemoryPageSourceProvider
         implements ConnectorPageSourceProvider
@@ -51,7 +52,10 @@ public final class InMemoryPageSourceProvider
         int partNumber = inMemorySplit.getPartNumber();
         int totalParts = inMemorySplit.getTotalPartsPerWorker();
 
-        List<Page> pages = pagesStore.getPages(schemaTableName, partNumber, totalParts);
+        List<Integer> columnIndexes = columns.stream()
+                .map(value -> checkType(value, InMemoryColumnHandle.class, "columns"))
+                .map(InMemoryColumnHandle::getColumnIndex).collect(toList());
+        List<Page> pages = pagesStore.getPages(schemaTableName, partNumber, totalParts, columnIndexes);
 
         return new FixedPageSource(pages);
     }
