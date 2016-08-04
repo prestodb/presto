@@ -68,3 +68,8 @@ Distributed plan:
              - TableScan[tpch:tpch:nation:sf0.01, original constraint=true] => [regionkey:bigint]
                      LAYOUT: tpch:nation:sf0.01
                      regionkey := tpch:regionkey
+
+See Also
+--------
+
+:doc:`explain-analyze`

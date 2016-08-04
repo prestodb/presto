@@ -50,3 +50,8 @@ Create the table ``orders`` if it does not already exist::
       totalprice double,
       orderdate date
     )
+
+See Also
+--------
+
+:doc:`alter-table`, :doc:`drop-table`, :doc:`create-table-as`, :doc:`show-create-table`

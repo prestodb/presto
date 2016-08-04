@@ -47,3 +47,8 @@ That column will be ``null``::
 
     INSERT INTO nation (nationkey, name, regionkey) 
     VALUES (26, 'POLAND', 3);
+
+See Also
+--------
+
+:doc:`values`

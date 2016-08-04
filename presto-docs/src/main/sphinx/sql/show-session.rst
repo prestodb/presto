@@ -13,3 +13,8 @@ Description
 -----------
 
 List the current session properties.
+
+See Also
+--------
+
+:doc:`reset-session`, :doc:`set-session`

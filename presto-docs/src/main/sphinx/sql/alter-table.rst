@@ -30,3 +30,8 @@ Add column ``zip`` to the ``users`` table::
 Rename column ``id`` to ``user_id`` in the ``users`` table::
 
     ALTER TABLE users RENAME COLUMN id TO user_id;
+
+See Also
+--------
+
+:doc:`create-table`
