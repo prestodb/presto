@@ -13,9 +13,14 @@
  */
 package com.facebook.presto.plugin.postgresql;
 
-import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tests.AbstractTestQueries;
+import com.facebook.presto.tests.datatype.CreateAndInsertDataSetup;
+import com.facebook.presto.tests.datatype.CreateAsSelectDataSetup;
+import com.facebook.presto.tests.datatype.DataSetup;
+import com.facebook.presto.tests.datatype.DataType;
+import com.facebook.presto.tests.datatype.DataTypeTest;
+import com.facebook.presto.tests.sql.JdbcSqlExecutor;
+import com.facebook.presto.tests.sql.PrestoSqlExecutor;
 import io.airlift.testing.postgresql.TestingPostgreSqlServer;
 import io.airlift.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
@@ -26,13 +31,11 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.function.Function;
 
 import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.facebook.presto.tests.datatype.DataType.varcharDataType;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -85,48 +88,82 @@ public class TestPostgreSqlDistributedQueries
     }
 
     @Test
-    public void testPrestoCreatedParameterizedVarchar()
+    public void testPrestoCreatedParametrizedVarchar()
             throws Exception
     {
-        assertUpdate("CREATE TABLE presto_test_parameterized_varchar AS SELECT " +
-                "CAST('a' AS varchar(255)) text_a," +
-                "CAST('b' AS varchar(20000)) text_b," +
-                "CAST('unbounded' AS varchar) text_unbounded", 1);
-        assertTrue(queryRunner.tableExists(getSession(), "presto_test_parameterized_varchar"));
-        assertTableColumnNames("presto_test_parameterized_varchar", "text_a", "text_b", "text_unbounded");
-
-        MaterializedResult materializedRows = computeActual("SELECT * from presto_test_parameterized_varchar");
-        assertEquals(materializedRows.getTypes().get(0), createVarcharType(255));
-        assertEquals(materializedRows.getTypes().get(1), createVarcharType(20000));
-        assertEquals(materializedRows.getTypes().get(2), createUnboundedVarcharType());
-
-        MaterializedRow row = getOnlyElement(materializedRows);
-        assertEquals(row.getField(0), "a");
-        assertEquals(row.getField(1), "b");
-        assertEquals(row.getField(2), "unbounded");
-        assertUpdate("DROP TABLE presto_test_parameterized_varchar");
+        varcharDataTypeTest().execute(queryRunner, prestoCreateAsSelect("presto_test_parameterized_varchar"));
     }
 
     @Test
-    public void testPostgreSqlCreatedParameterizedVarchar()
+    public void testPostgreSqlCreatedParametrizedVarchar()
             throws Exception
     {
-        execute("CREATE TABLE tpch.postgresql_test_parameterized_varchar (" +
-                "text_a varchar(32), " +
-                "text_b varchar(20000), " +
-                "text_c text)");
-        execute("INSERT INTO tpch.postgresql_test_parameterized_varchar VALUES('a', 'b', 'c')");
+        varcharDataTypeTest().execute(queryRunner, postgresCreateAndInsert("tpch.postgresql_test_parameterized_varchar"));
+    }
 
-        MaterializedResult materializedRows = computeActual("SELECT * from postgresql_test_parameterized_varchar");
-        assertEquals(materializedRows.getTypes().get(0), createVarcharType(32));
-        assertEquals(materializedRows.getTypes().get(1), createVarcharType(20000));
-        assertEquals(materializedRows.getTypes().get(2), createUnboundedVarcharType());
+    private DataTypeTest varcharDataTypeTest()
+    {
+        return DataTypeTest.create()
+                .addRoundTrip(varcharDataType(10), "text_a")
+                .addRoundTrip(varcharDataType(255), "text_b")
+                .addRoundTrip(varcharDataType(65535), "text_d")
+                .addRoundTrip(varcharDataType(10485760), "text_f")
+                .addRoundTrip(varcharDataType(), "unbounded");
+    }
 
-        MaterializedRow row = getOnlyElement(materializedRows);
-        assertEquals(row.getField(0), "a");
-        assertEquals(row.getField(1), "b");
-        assertEquals(row.getField(2), "c");
-        assertUpdate("DROP TABLE postgresql_test_parameterized_varchar");
+    @Test
+    public void testPrestoCreatedParametrizedVarcharUnicode()
+            throws Exception
+    {
+        unicodeVarcharDateTypeTest().execute(queryRunner, prestoCreateAsSelect("postgresql_test_parameterized_varchar_unicode"));
+    }
+
+    @Test
+    public void testPostgreSqlCreatedParametrizedVarcharUnicode()
+            throws Exception
+    {
+        unicodeVarcharDateTypeTest().execute(queryRunner, postgresCreateAndInsert("tpch.postgresql_test_parameterized_varchar_unicode"));
+    }
+
+    @Test
+    public void testPrestoCreatedParametrizedCharUnicode()
+            throws Exception
+    {
+        unicodeDataTypeTest(DataType::charDataType).execute(queryRunner, prestoCreateAsSelect("postgresql_test_parameterized_char_unicode"));
+    }
+
+    @Test
+    public void testPostgreSqlCreatedParametrizedCharUnicode()
+            throws Exception
+    {
+        unicodeDataTypeTest(DataType::charDataType).execute(queryRunner, postgresCreateAndInsert("tpch.postgresql_test_parameterized_char_unicode"));
+    }
+
+    private DataTypeTest unicodeVarcharDateTypeTest()
+    {
+        return unicodeDataTypeTest(DataType::varcharDataType).addRoundTrip(varcharDataType(), "Ну, погоди!");
+    }
+
+    private DataTypeTest unicodeDataTypeTest(Function<Integer, DataType<String>> dataTypeFactory)
+    {
+        String sampleUnicodeText = "攻殻機動隊";
+        String sampleFourByteUnicodeCharacter = "\uD83D\uDE02";
+
+        return DataTypeTest.create()
+                .addRoundTrip(dataTypeFactory.apply(sampleUnicodeText.length()), sampleUnicodeText)
+                .addRoundTrip(dataTypeFactory.apply(32), sampleUnicodeText)
+                .addRoundTrip(dataTypeFactory.apply(20000), sampleUnicodeText)
+                .addRoundTrip(dataTypeFactory.apply(1), sampleFourByteUnicodeCharacter);
+    }
+
+    private DataSetup prestoCreateAsSelect(String tableNamePrefix)
+    {
+        return new CreateAsSelectDataSetup(new PrestoSqlExecutor(queryRunner), tableNamePrefix);
+    }
+
+    private DataSetup postgresCreateAndInsert(String tableNamePrefix)
+    {
+        return new CreateAndInsertDataSetup(new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl()), tableNamePrefix);
     }
 
     private void execute(String sql)

@@ -71,6 +71,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.charParitionKey;
 import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.getDecimalType;
@@ -88,6 +89,8 @@ import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.p
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.Chars.isCharType;
+import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
@@ -224,6 +227,9 @@ public class ParquetHiveRecordCursor
                 }
                 else if (isVarcharType(type)) {
                     slices[columnIndex] = varcharPartitionKey(partitionKeyValue, columnName, type);
+                }
+                else if (isCharType(type)) {
+                    slices[columnIndex] = charParitionKey(partitionKeyValue, columnName, type);
                 }
                 else if (type.equals(TIMESTAMP)) {
                     longs[columnIndex] = timestampPartitionKey(partitionKey.getValue(), hiveStorageTimeZone, columnName);
@@ -681,6 +687,9 @@ public class ParquetHiveRecordCursor
             }
             else if (isVarcharType(type)) {
                 slices[fieldIndex] = truncateToLength(wrappedBuffer(value.getBytes()), type);
+            }
+            else if (isCharType(type)) {
+                slices[fieldIndex] = trimSpacesAndTruncateToLength(wrappedBuffer(value.getBytes()), type);
             }
             else {
                 slices[fieldIndex] = wrappedBuffer(value.getBytes());
@@ -1370,6 +1379,9 @@ public class ParquetHiveRecordCursor
             }
             else if (isVarcharType(type)) {
                 type.writeSlice(builder, truncateToLength(wrappedBuffer(value.getBytes()), type));
+            }
+            else if (isCharType(type)) {
+                type.writeSlice(builder, trimSpacesAndTruncateToLength(wrappedBuffer(value.getBytes()), type));
             }
             else {
                 type.writeSlice(builder, wrappedBuffer(value.getBytes()));

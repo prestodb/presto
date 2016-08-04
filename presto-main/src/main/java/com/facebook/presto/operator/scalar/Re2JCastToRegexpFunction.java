@@ -41,9 +41,19 @@ public class Re2JCastToRegexpFunction
     private final int dfaStatesLimit;
     private final int dfaRetries;
 
-    public Re2JCastToRegexpFunction(int dfaStatesLimit, int dfaRetries)
+    public static SqlOperator castVarcharToRe2JRegexp(int dfaStatesLimit, int dfaRetries)
     {
-        super(CAST, emptyList(), emptyList(), parseTypeSignature(Re2JRegexpType.NAME), ImmutableList.of(parseTypeSignature("varchar(x)", ImmutableSet.of("x"))));
+        return new Re2JCastToRegexpFunction("varchar(x)", dfaStatesLimit, dfaRetries);
+    }
+
+    public static SqlOperator castCharToRe2JRegexp(int dfaStatesLimit, int dfaRetries)
+    {
+        return new Re2JCastToRegexpFunction("char(x)", dfaStatesLimit, dfaRetries);
+    }
+
+    private Re2JCastToRegexpFunction(String sourceType, int dfaStatesLimit, int dfaRetries)
+    {
+        super(CAST, emptyList(), emptyList(), parseTypeSignature(Re2JRegexpType.NAME), ImmutableList.of(parseTypeSignature(sourceType, ImmutableSet.of("x"))));
         this.dfaStatesLimit = dfaStatesLimit;
         this.dfaRetries = dfaRetries;
     }

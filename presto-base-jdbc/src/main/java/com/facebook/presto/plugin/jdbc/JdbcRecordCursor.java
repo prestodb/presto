@@ -16,6 +16,7 @@ package com.facebook.presto.plugin.jdbc;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.SmallintType;
@@ -192,7 +193,7 @@ public class JdbcRecordCursor
         checkState(!closed, "cursor is closed");
         try {
             Type type = getType(field);
-            if (type instanceof VarcharType) {
+            if (type instanceof VarcharType || type instanceof CharType) {
                 return utf8Slice(resultSet.getString(field + 1));
             }
             if (type.equals(VarbinaryType.VARBINARY)) {

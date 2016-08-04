@@ -16,6 +16,7 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
@@ -70,7 +71,15 @@ public final class JsonFunctions
 
     @ScalarOperator(OperatorType.CAST)
     @SqlType(JsonPathType.NAME)
-    public static JsonPath castToJsonPath(@SqlType(StandardTypes.VARCHAR) Slice pattern)
+    public static JsonPath castVarcharToJsonPath(@SqlType(StandardTypes.VARCHAR) Slice pattern)
+    {
+        return new JsonPath(pattern.toStringUtf8());
+    }
+
+    @ScalarOperator(OperatorType.CAST)
+    @LiteralParameters("x")
+    @SqlType(JsonPathType.NAME)
+    public static JsonPath castCharToJsonPath(@SqlType("char(x)") Slice pattern)
     {
         return new JsonPath(pattern.toStringUtf8());
     }

@@ -20,6 +20,7 @@ import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
@@ -33,9 +34,12 @@ import java.util.Map;
 import java.util.function.Function;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.Chars.isCharType;
+import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
 import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
+import static com.facebook.presto.spi.type.Decimals.rescale;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -107,10 +111,13 @@ public class TupleDomainOrcPredicate<C>
             }
         }
         else if (isShortDecimal(type)) {
-            return createDomain(type, hasNullValue, columnStatistics.getDecimalStatistics(), value -> value.unscaledValue().longValue());
+            return createDomain(type, hasNullValue, columnStatistics.getDecimalStatistics(), value -> rescale(value, (DecimalType) type).unscaledValue().longValue());
         }
         else if (isLongDecimal(type)) {
-            return createDomain(type, hasNullValue, columnStatistics.getDecimalStatistics(), value -> encodeUnscaledValue(value.unscaledValue()));
+            return createDomain(type, hasNullValue, columnStatistics.getDecimalStatistics(), value -> encodeUnscaledValue(rescale(value, (DecimalType) type).unscaledValue()));
+        }
+        else if (isCharType(type) && columnStatistics.getStringStatistics() != null) {
+            return createDomain(type, hasNullValue, columnStatistics.getStringStatistics(), value -> trimSpacesAndTruncateToLength(value, type));
         }
         else if (type.getTypeSignature().getBase().equals(StandardTypes.DATE) && columnStatistics.getDateStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getDateStatistics(), value -> (long) value);
