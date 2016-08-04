@@ -52,3 +52,8 @@ Create a new ``empty_nation`` table with the same schema as ``nation`` and no da
     SELECT * 
     FROM nation 
     WITH NO DATA
+
+See Also
+--------
+
+:doc:`create-table`, :doc:`select`
