@@ -301,11 +301,11 @@ public final class UnscaledDecimal128Arithmetic
 
         product = (l3 & LONG_MASK) + (r3 & LONG_MASK) + (product >> 32);
 
-        int z3 = (int) product;
+        int z3 = (int) product & (~SIGN_INT_MASK);
 
         pack(result, z0, z1, z2, z3, resultNegative);
 
-        if (product >> 32 != 0) {
+        if (product >> 31 != 0) {
             throwOverflowException();
         }
     }
