@@ -29,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 @EventType("SplitCompletion")
-public class SplitCompletionEvent
+public class SplitCompletionEvent implements QueryEvent
 {
     private final QueryId queryId;
     private final StageId stageId;

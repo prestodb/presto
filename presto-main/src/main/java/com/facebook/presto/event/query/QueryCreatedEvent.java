@@ -24,7 +24,7 @@ import java.net.URI;
 
 @Immutable
 @EventType("QueryCreated")
-public class QueryCreatedEvent
+public class QueryCreatedEvent implements QueryEvent
 {
     private final QueryId queryId;
     private final String transactionId;
