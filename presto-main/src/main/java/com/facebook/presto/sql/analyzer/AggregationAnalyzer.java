@@ -65,7 +65,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_MISMATCH_GROUPING_AND_GROUPING_SET;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_AGGREGATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
@@ -461,7 +461,7 @@ class AggregationAnalyzer
                     .collect(Collectors.toList());
             if (!argumentsNotInGroupBy.isEmpty()) {
                 throw new SemanticException(
-                        COLUMN_MISMATCH_GROUPING_AND_GROUPING_SET,
+                        INVALID_PROCEDURE_ARGUMENTS,
                         node,
                         "The following GROUPING() argument(s) '%s' is (are) not in the query's GROUP BY columns '%s'",
                         argumentsNotInGroupBy,

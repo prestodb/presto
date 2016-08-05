@@ -286,30 +286,7 @@ class QueryPlanner
             Symbol symbol = symbolAllocator.newSymbol(expression, analysis.getTypeWithCoercions(expression));
 
             if (expression instanceof GroupingOperation && node instanceof QuerySpecification) {
-                FunctionCall rewrittenExpression = subPlan.rewriteGroupingOperationToFunctionCall((GroupingOperation) expression, (QuerySpecification) node);
-                ImmutableList.Builder<Expression> outputExpressionBuilder = ImmutableList.builder();
-                outputExpressionBuilder.addAll(analysis.getOutputExpressions(node).stream()
-                        .filter((outputExpression) -> !(outputExpression instanceof GroupingOperation))
-                        .collect(Collectors.toList()));
-                outputExpressionBuilder.add(rewrittenExpression);
-                analysis.setOutputExpressions(node, outputExpressionBuilder.build());
-
-                IdentityHashMap<Expression, Type> expressionTypes = new IdentityHashMap<>();
-                IdentityHashMap<FunctionCall, Signature> functionSignatures = new IdentityHashMap<>();
-                List<TypeSignature> functionTypes = Arrays.asList(
-                        BIGINT.getTypeSignature(),
-                        (new ArrayType(INTEGER)).getTypeSignature(),
-                        (new ArrayType(new ArrayType(INTEGER))).getTypeSignature()
-                );
-                Signature functionSignature = resolveFunction(rewrittenExpression, false, functionTypes, metadata.getFunctionRegistry());
-
-                expressionTypes.put(rewrittenExpression, BIGINT);
-                functionSignatures.put(rewrittenExpression, functionSignature);
-
-                analysis.addTypes(expressionTypes);
-                analysis.addFunctionSignatures(functionSignatures);
-
-                expression = rewrittenExpression;
+                expression = rewriteGroupingOperation(subPlan, node, expression);
             }
             projections.put(symbol, subPlan.rewrite(expression));
             outputTranslations.put(expression, symbol);
@@ -321,6 +298,35 @@ class QueryPlanner
         }
 
         return new PlanBuilder(outputTranslations, new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), projections.build()), subPlan.getSampleWeight());
+    }
+
+    private Expression rewriteGroupingOperation(PlanBuilder subPlan, Node node, Expression expression)
+    {
+        FunctionCall rewrittenExpression = subPlan.rewriteGroupingOperationToFunctionCall((GroupingOperation) expression, (QuerySpecification) node);
+        ImmutableList.Builder<Expression> outputExpressionBuilder = ImmutableList.builder();
+        outputExpressionBuilder.addAll(analysis.getOutputExpressions(node).stream()
+                .filter((outputExpression) -> !(outputExpression instanceof GroupingOperation))
+                .collect(Collectors.toList()));
+        outputExpressionBuilder.add(rewrittenExpression);
+        analysis.setOutputExpressions(node, outputExpressionBuilder.build());
+
+        IdentityHashMap<Expression, Type> expressionTypes = new IdentityHashMap<>();
+        IdentityHashMap<FunctionCall, Signature> functionSignatures = new IdentityHashMap<>();
+        List<TypeSignature> functionTypes = Arrays.asList(
+                BIGINT.getTypeSignature(),
+                (new ArrayType(INTEGER)).getTypeSignature(),
+                (new ArrayType(new ArrayType(INTEGER))).getTypeSignature()
+        );
+        Signature functionSignature = resolveFunction(rewrittenExpression, false, functionTypes, metadata.getFunctionRegistry());
+
+        expressionTypes.put(rewrittenExpression, INTEGER);
+        functionSignatures.put(rewrittenExpression, functionSignature);
+
+        analysis.addTypes(expressionTypes);
+        analysis.addFunctionSignatures(functionSignatures);
+
+        expression = rewrittenExpression;
+        return expression;
     }
 
     private Map<Symbol, Expression> coerce(Iterable<? extends Expression> expressions, PlanBuilder subPlan, TranslationMap translations)

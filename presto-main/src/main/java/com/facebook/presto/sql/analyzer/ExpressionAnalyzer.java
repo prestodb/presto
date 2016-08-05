@@ -938,8 +938,8 @@ public class ExpressionAnalyzer
             for (Expression columnArgument : node.getGroupingColumns()) {
                 process(columnArgument, context);
             }
-            expressionTypes.put(node, BIGINT);
-            return BIGINT;
+            expressionTypes.put(node, INTEGER);
+            return INTEGER;
         }
 
         @Override
