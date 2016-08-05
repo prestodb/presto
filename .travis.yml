@@ -32,6 +32,7 @@ before_install:
   # This section can be removed once travis get equipped with docker 1.10 and docker-compose 1.6
   - |
     if [ -v PRODUCT_TESTS ] || [ -v INTEGRATION_TESTS ]; then
+      docker rm $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q hadoop-master)
       sudo apt-get update
       sudo apt-get -o "Dpkg::Options::=--force-confold" -y install docker-engine
       sudo rm /usr/local/bin/docker-compose
