@@ -24,6 +24,7 @@ import javax.management.JMException;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.String.format;
 import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
@@ -37,7 +38,7 @@ public class JmxPeriodicSampler
 
     private final JmxHistoricalData jmxHistoricalData;
     private final JmxRecordSetProvider jmxRecordSetProvider;
-    private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor();
+    private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("jmx-history-%s"));
     private final long period;
     private final List<JmxTableHandle> tableHandles;
     private long lastDumpTimestamp;
@@ -69,8 +70,10 @@ public class JmxPeriodicSampler
     @PostConstruct
     public void start()
     {
-        lastDumpTimestamp = roundToPeriod(currentTimeMillis());
-        schedule();
+        if (tableHandles.size() > 0) {
+            lastDumpTimestamp = roundToPeriod(currentTimeMillis());
+            schedule();
+        }
     }
 
     private void schedule()
@@ -109,8 +112,8 @@ public class JmxPeriodicSampler
                         dumpTimestamp);
                 jmxHistoricalData.addRow(tableHandle.getObjectName(), row);
             }
-            catch (JMException ex) {
-                log.error(ex, "Error in JmxHistoryDumper thread");
+            catch (JMException exception) {
+                log.error(exception, "Error reading jmx records");
             }
         }
 
