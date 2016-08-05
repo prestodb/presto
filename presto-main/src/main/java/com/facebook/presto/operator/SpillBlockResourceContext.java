@@ -35,7 +35,6 @@ import java.nio.channels.FileChannel.MapMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-
 public class SpillBlockResourceContext
         implements BlockResourceContext
 {
@@ -166,6 +165,7 @@ public class SpillBlockResourceContext
     private ByteBuffer createMappedByteBuffer()
     {
         try {
+            // @TODO use NIO 2 with SPARSE flag.
             try (RandomAccessFile file = new RandomAccessFile(new File(dir, UUID.randomUUID().toString()), "rw")) {
                 file.setLength(Integer.MAX_VALUE);
                 MappedByteBuffer byteBuffer = file.getChannel().map(MapMode.READ_WRITE, 0, Integer.MAX_VALUE);
