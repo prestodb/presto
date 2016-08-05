@@ -53,11 +53,17 @@ public class TestOrderByOperator
     private ExecutorService executor;
     private DriverContext driverContext;
 
+    private static final Session TEST_SESSION_SPILL = testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema(TINY_SCHEMA_NAME)
+                .setSystemProperties(ImmutableMap.of("spill", "true"))
+                .build();
+
     @BeforeMethod
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
-        driverContext = createTaskContext(executor, TEST_SESSION)
+        driverContext = createTaskContext(executor, TEST_SESSION_SPILL)
                 .addPipelineContext(true, true)
                 .addDriverContext();
     }
@@ -210,7 +216,7 @@ public class TestOrderByOperator
             rowPagesBuilder.pageBreak();
         }
         List<Page> input = rowPagesBuilder.build();
-        
+
         Session session = testSessionBuilder()
                 .setCatalog("tpch")
                 .setSchema(TINY_SCHEMA_NAME)
@@ -233,6 +239,7 @@ public class TestOrderByOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         toPages(operator, input);
+//        driverContext.finished();
     }
 
     private String createLongString(int length)

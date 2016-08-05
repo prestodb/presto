@@ -38,7 +38,7 @@ public class LongArraySlice
     @Override
     public long get(int position)
     {
-        return slice.getInt(position * 8);
+        return slice.getLong(position * 8);
     }
 
     @Override

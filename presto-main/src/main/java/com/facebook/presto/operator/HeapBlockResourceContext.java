@@ -75,8 +75,7 @@ public class HeapBlockResourceContext
     @Override
     public Slice newSlice(int length)
     {
-        // TODO Auto-generated method stub
-        return null;
+        return Slices.allocate(length);
     }
 
     @Override

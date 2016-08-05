@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.RowPagesBuilder;
+import com.facebook.presto.Session;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
 import com.facebook.presto.operator.ParallelHashBuildOperator.ParallelHashBuildOperatorFactory;
 import com.facebook.presto.operator.ValuesOperator.ValuesOperatorFactory;
@@ -49,6 +50,8 @@ import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEqual
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.fixedHashPartitioning;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.google.common.collect.Iterables.concat;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -58,6 +61,11 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 public class TestHashJoinOperator
 {
     private static final int PARTITION_COUNT = 4;
+    private static final Session TEST_SESSION_SPILL = testSessionBuilder()
+            .setCatalog("tpch")
+            .setSchema(TINY_SCHEMA_NAME)
+            .setSystemProperties(ImmutableMap.of("spill", "true"))
+            .build();
 
     private ExecutorService executor;
 
@@ -77,21 +85,29 @@ public class TestHashJoinOperator
     public static Object[][] hashEnabledValuesProvider()
     {
         return new Object[][] {
-                {true, true, true},
-                {true, true, false},
-                {true, false, true},
-                {true, false, false},
-                {false, true, true},
-                {false, true, false},
-                {false, false, true},
-                {false, false, false}};
+                {true, true, true, true},
+                {true, true, true, false},
+                {true, true, false, true},
+                {true, true, false, false},
+                {true, false, true, true},
+                {true, false, true, false},
+                {true, false, false, true},
+                {true, false, false, false},
+                {false, true, true, true},
+                {false, true, true, false},
+                {false, true, false, true},
+                {false, true, false, false},
+                {false, false, true, true},
+                {false, false, true, false},
+                {false, false, false, true},
+                {false, false, false, false}};
     }
 
     @Test(dataProvider = "hashEnabledValues")
-    public void testInnerJoin(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    public void testInnerJoin(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean spill)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext();
+        TaskContext taskContext = createTaskContext(spill);
 
         // build
         RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), ImmutableList.of(VARCHAR, BIGINT, BIGINT))
@@ -133,10 +149,10 @@ public class TestHashJoinOperator
     }
 
     @Test(dataProvider = "hashEnabledValues")
-    public void testInnerJoinWithNullProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    public void testInnerJoinWithNullProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean spill)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext();
+        TaskContext taskContext = createTaskContext(spill);
 
         // build
         List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR);
@@ -178,10 +194,10 @@ public class TestHashJoinOperator
     }
 
     @Test(dataProvider = "hashEnabledValues")
-    public void testInnerJoinWithNullBuild(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    public void testInnerJoinWithNullBuild(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean spill)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext();
+        TaskContext taskContext = createTaskContext(spill);
 
         // build
         List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR);
@@ -223,10 +239,10 @@ public class TestHashJoinOperator
     }
 
     @Test(dataProvider = "hashEnabledValues")
-    public void testInnerJoinWithNullOnBothSides(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    public void testInnerJoinWithNullOnBothSides(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean spill)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext();
+        TaskContext taskContext = createTaskContext(spill);
 
         // build
         List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR);
@@ -269,10 +285,10 @@ public class TestHashJoinOperator
     }
 
     @Test(dataProvider = "hashEnabledValues")
-    public void testProbeOuterJoin(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    public void testProbeOuterJoin(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean spill)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext();
+        TaskContext taskContext = createTaskContext(spill);
 
         // build
         List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
@@ -320,10 +336,10 @@ public class TestHashJoinOperator
     }
 
     @Test(dataProvider = "hashEnabledValues")
-    public void testProbeOuterJoinWithFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    public void testProbeOuterJoinWithFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean spill)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext();
+        TaskContext taskContext = createTaskContext(spill);
 
         JoinFilterFunction filterFunction = new TestJoinFilterFunction((
                 (leftPosition, leftBlocks, rightPosition, rightBlocks) -> BIGINT.getLong(rightBlocks[1], rightPosition) >= 1025));
@@ -375,10 +391,10 @@ public class TestHashJoinOperator
     }
 
     @Test(dataProvider = "hashEnabledValues")
-    public void testOuterJoinWithNullProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    public void testOuterJoinWithNullProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean spill)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext();
+        TaskContext taskContext = createTaskContext(spill);
 
         // build
         List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR);
@@ -421,10 +437,10 @@ public class TestHashJoinOperator
     }
 
     @Test(dataProvider = "hashEnabledValues")
-    public void testOuterJoinWithNullProbeAndFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    public void testOuterJoinWithNullProbeAndFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean spill)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext();
+        TaskContext taskContext = createTaskContext(spill);
 
         JoinFilterFunction filterFunction = new TestJoinFilterFunction((
                 (leftPosition, leftBlocks, rightPosition, rightBlocks) -> VARCHAR.getSlice(rightBlocks[0], rightPosition).toStringAscii().equals("a")));
@@ -470,10 +486,10 @@ public class TestHashJoinOperator
     }
 
     @Test(dataProvider = "hashEnabledValues")
-    public void testOuterJoinWithNullBuild(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    public void testOuterJoinWithNullBuild(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean spill)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext();
+        TaskContext taskContext = createTaskContext(spill);
 
         // build
         List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR);
@@ -515,10 +531,10 @@ public class TestHashJoinOperator
     }
 
     @Test(dataProvider = "hashEnabledValues")
-    public void testOuterJoinWithNullBuildAndFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    public void testOuterJoinWithNullBuildAndFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean spill)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext();
+        TaskContext taskContext = createTaskContext(spill);
 
         JoinFilterFunction filterFunction = new TestJoinFilterFunction((
                 (leftPosition, leftBlocks, rightPosition, rightBlocks) ->
@@ -564,10 +580,10 @@ public class TestHashJoinOperator
     }
 
     @Test(dataProvider = "hashEnabledValues")
-    public void testOuterJoinWithNullOnBothSides(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    public void testOuterJoinWithNullOnBothSides(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean spill)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext();
+        TaskContext taskContext = createTaskContext(spill);
 
         // build
         RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), ImmutableList.of(VARCHAR))
@@ -610,10 +626,10 @@ public class TestHashJoinOperator
     }
 
     @Test(dataProvider = "hashEnabledValues")
-    public void testOuterJoinWithNullOnBothSidesAndFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    public void testOuterJoinWithNullOnBothSidesAndFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean spill)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext();
+        TaskContext taskContext = createTaskContext(spill);
 
         JoinFilterFunction filterFunction = new TestJoinFilterFunction((
                 (leftPosition, leftBlocks, rightPosition, rightBlocks) ->
@@ -660,9 +676,12 @@ public class TestHashJoinOperator
     }
 
     @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of.*", dataProvider = "hashEnabledValues")
-    public void testMemoryLimit(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    public void testMemoryLimit(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean spill)
             throws Exception
     {
+//        if (spill) {
+//            throw ExceededMemoryLimitException.exceededGlobalLimit(new DataSize(100, BYTE));
+//        }
         TaskContext taskContext = TestingTaskContext.createTaskContext(executor, TEST_SESSION, new DataSize(100, BYTE));
 
         RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), ImmutableList.of(VARCHAR, BIGINT, BIGINT))
@@ -670,9 +689,29 @@ public class TestHashJoinOperator
         buildHash(parallelBuild, taskContext, Ints.asList(0), buildPages, Optional.empty());
     }
 
-    private TaskContext createTaskContext()
+    @Test(dataProvider = "hashEnabledValues")
+    public void testSpill(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean spill)
+            throws Exception
     {
-        return TestingTaskContext.createTaskContext(executor, TEST_SESSION);
+        if (!spill) {
+            return;
+        }
+        //@TODO make size == 50000
+        TaskContext taskContext = TestingTaskContext.createTaskContext(executor, TEST_SESSION_SPILL, new DataSize(5000000, BYTE));
+
+        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), ImmutableList.of(VARCHAR, BIGINT, BIGINT))
+                .addSequencePage(100000, 20, 30, 40);
+        buildHash(parallelBuild, taskContext, Ints.asList(0), buildPages, Optional.empty());
+    }
+
+    private TaskContext createTaskContext(boolean spill)
+    {
+        if (spill) {
+            return TestingTaskContext.createTaskContext(executor, TEST_SESSION_SPILL);
+        }
+        else {
+            return TestingTaskContext.createTaskContext(executor, TEST_SESSION);
+        }
     }
 
     private static List<Integer> getHashChannels(RowPagesBuilder probe, RowPagesBuilder build)
@@ -707,6 +746,7 @@ public class TestHashJoinOperator
             while (!driver.isFinished()) {
                 driver.process();
             }
+            collectDriverContext.finished();
 
             // build hash tables
             LocalExchangeSourceOperatorFactory sourceOperatorFactory = new LocalExchangeSourceOperatorFactory(0, new PlanNodeId("source"), localExchange);
@@ -731,6 +771,7 @@ public class TestHashJoinOperator
                 while (!buildDriver.isFinished()) {
                     buildDriver.process();
                 }
+                buildDriverContext.finished();
             }
 
             return buildOperatorFactory.getLookupSourceSupplier();
@@ -757,6 +798,7 @@ public class TestHashJoinOperator
             while (!driver.isFinished()) {
                 driver.process();
             }
+            driverContext.finished();
             return hashBuilderOperatorFactory.getLookupSourceSupplier();
         }
     }

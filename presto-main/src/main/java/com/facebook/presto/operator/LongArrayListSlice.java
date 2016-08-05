@@ -47,8 +47,8 @@ public class LongArrayListSlice
         int index = size;
         int sliceIndex = getSliceIndex(index);
         createSliceIfNeeded(sliceIndex);
-        int internalSlicePosition = getInternalSlicePosition(index);
         Slice slice = slices.get(sliceIndex);
+        int internalSlicePosition = getInternalSlicePosition(index);
         slice.setLong(internalSlicePosition * LONG_BYTES, value);
         size++;
         return true;

@@ -113,12 +113,18 @@ public class SpillBlockResourceContext
 
     private Slice createOffHeapSlice(int length)
     {
+        if (length == 0) {
+            return Slices.EMPTY_SLICE;
+        }
         ByteBuffer offHeapBuffer = getCreateOffHeapByteBuffer(length);
         return Slices.wrappedBuffer(offHeapBuffer);
     }
 
     private Slice createAndCopyOffHeapSlice(Slice slice, int offset, int length)
     {
+        if (length == 0) {
+            return Slices.EMPTY_SLICE;
+        }
         ByteBuffer offHeapBuffer = getCreateOffHeapByteBuffer(length);
         // write slice data
         Slice offHeapSlice = Slices.wrappedBuffer(offHeapBuffer);

@@ -190,7 +190,7 @@ public class HashBuilderOperator
         if (!operatorContext.trySetMemoryReservation(pagesIndex.getEstimatedSize().toBytes())) {
             pagesIndex.compact();
         }
-        System.out.println(pagesIndex.getEstimatedSize().toBytes());
+//        System.out.println(pagesIndex.getEstimatedSize().toBytes());
         operatorContext.setMemoryReservation(pagesIndex.getEstimatedSize().toBytes());
         operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
     }
