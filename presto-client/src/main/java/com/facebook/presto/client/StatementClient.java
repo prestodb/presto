@@ -51,7 +51,6 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_TRANSACTION_
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_DEALLOCATED_PREPARE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_ROLE;
@@ -79,6 +78,7 @@ public class StatementClient
 {
     private static final MediaType MEDIA_TYPE_JSON = MediaType.parse("application/json; charset=utf-8");
     private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
+    private static final JsonCodec<QuerySubmission> QUERY_SUBMISSION_CODEC = jsonCodec(QuerySubmission.class);
 
     private static final Splitter SESSION_HEADER_SPLITTER = Splitter.on('=').limit(2).trimResults();
     private static final String USER_AGENT_VALUE = StatementClient.class.getSimpleName() +
@@ -134,7 +134,8 @@ public class StatementClient
         url = url.newBuilder().encodedPath("/v1/statement").build();
 
         Request.Builder builder = prepareRequest(url)
-                .post(RequestBody.create(MEDIA_TYPE_JSON, query));
+                .post(RequestBody.create(MEDIA_TYPE_JSON, QUERY_SUBMISSION_CODEC.toJson(new QuerySubmission(query, session.getPreparedStatements()))));
+        builder.addHeader(PrestoHeaders.PRESTO_PREPARED_STATEMENT_IN_BODY, "true");
 
         if (session.getSource() != null) {
             builder.addHeader(PRESTO_SOURCE, session.getSource());
@@ -161,11 +162,6 @@ public class StatementClient
         Map<String, SelectedRole> roles = session.getRoles();
         for (Entry<String, SelectedRole> entry : roles.entrySet()) {
             builder.addHeader(PrestoHeaders.PRESTO_ROLE, entry.getKey() + '=' + urlEncode(entry.getValue().toString()));
-        }
-
-        Map<String, String> statements = session.getPreparedStatements();
-        for (Entry<String, String> entry : statements.entrySet()) {
-            builder.addHeader(PRESTO_PREPARED_STATEMENT, urlEncode(entry.getKey()) + "=" + urlEncode(entry.getValue()));
         }
 
         builder.addHeader(PRESTO_TRANSACTION_ID, session.getTransactionId() == null ? "NONE" : session.getTransactionId());

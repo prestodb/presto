@@ -192,7 +192,7 @@ public class BenchmarkQueryRunner
     private StatementStats execute(ClientSession session, String name, String query)
     {
         // start query
-        StatementClient client = new StatementClient(okHttpClient, session, query);
+        StatementClient client = new StatementClient(okHttpClient,  session, query);
 
         // read query output
         while (client.isValid() && client.advance()) {
