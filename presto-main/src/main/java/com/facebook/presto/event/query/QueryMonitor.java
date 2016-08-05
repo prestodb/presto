@@ -172,7 +172,8 @@ public class QueryMonitor
                                     queryStats.getPeakMemoryReservation().toBytes(),
                                     queryStats.getRawInputDataSize().toBytes(),
                                     queryStats.getRawInputPositions(),
-                                    queryStats.getCompletedDrivers()),
+                                    queryStats.getCompletedDrivers(),
+                                    queryInfo.isCompleteInfo()),
                             new QueryContext(
                                     queryInfo.getSession().getUser(),
                                     queryInfo.getSession().getPrincipal(),

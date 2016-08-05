@@ -64,6 +64,7 @@ public class QueryInfo
     private final ErrorCode errorCode;
     private final Set<Input> inputs;
     private final Optional<Output> output;
+    private final boolean completeInfo;
 
     @JsonCreator
     public QueryInfo(
@@ -87,7 +88,8 @@ public class QueryInfo
             @JsonProperty("failureInfo") FailureInfo failureInfo,
             @JsonProperty("errorCode") ErrorCode errorCode,
             @JsonProperty("inputs") Set<Input> inputs,
-            @JsonProperty("output") Optional<Output> output)
+            @JsonProperty("output") Optional<Output> output,
+            @JsonProperty("completeInfo") boolean completeInfo)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(session, "session is null");
@@ -127,6 +129,7 @@ public class QueryInfo
         this.errorCode = errorCode;
         this.inputs = ImmutableSet.copyOf(inputs);
         this.output = output;
+        this.completeInfo = completeInfo;
     }
 
     @JsonProperty
@@ -279,5 +282,10 @@ public class QueryInfo
                 .add("state", state)
                 .add("fieldNames", fieldNames)
                 .toString();
+    }
+
+    public boolean isCompleteInfo()
+    {
+        return completeInfo;
     }
 }

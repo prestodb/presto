@@ -101,7 +101,8 @@ public class MockQueryExecution
                 null,
                 null,
                 ImmutableSet.of(),
-                Optional.empty());
+                Optional.empty(),
+                state.isDone());
     }
 
     @Override

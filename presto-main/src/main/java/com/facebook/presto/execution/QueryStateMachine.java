@@ -259,6 +259,7 @@ public class QueryStateMachine
         boolean fullyBlocked = rootStage.isPresent();
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
+        boolean completeInfo = true;
         for (StageInfo stageInfo : getAllStages(rootStage)) {
             StageStats stageStats = stageInfo.getStageStats();
             totalTasks += stageStats.getTotalTasks();
@@ -291,6 +292,7 @@ public class QueryStateMachine
                 processedInputDataSize += stageStats.getProcessedInputDataSize().toBytes();
                 processedInputPositions += stageStats.getProcessedInputPositions();
             }
+            completeInfo = completeInfo && stageInfo.isCompleteInfo();
         }
 
         if (rootStage.isPresent()) {
@@ -358,7 +360,8 @@ public class QueryStateMachine
                 failureInfo,
                 errorCode,
                 inputs.get(),
-                output.get());
+                output.get(),
+                completeInfo);
     }
 
     public VersionedMemoryPoolId getMemoryPool()
