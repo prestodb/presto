@@ -58,14 +58,14 @@ import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonRespo
 import static io.airlift.http.client.HttpStatus.Family;
 import static io.airlift.http.client.HttpStatus.familyForStatusCode;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.preparePost;
-import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -96,11 +96,18 @@ public class StatementClient
     private final TimeZoneKey timeZone;
     private final long requestTimeoutNanos;
     private final String user;
+    private final JsonCodec<QuerySubmission> querySubmissionCodec;
 
     public StatementClient(HttpClient httpClient, JsonCodec<QueryResults> queryResultsCodec, ClientSession session, String query)
     {
+        this(httpClient, queryResultsCodec, jsonCodec(QuerySubmission.class), session, query);
+    }
+
+    public StatementClient(HttpClient httpClient, JsonCodec<QueryResults> queryResultsCodec, JsonCodec<QuerySubmission> querySubmissionCodec, ClientSession session, String query)
+    {
         requireNonNull(httpClient, "httpClient is null");
         requireNonNull(queryResultsCodec, "queryResultsCodec is null");
+        requireNonNull(querySubmissionCodec, "querySubmissionCodec is null");
         requireNonNull(session, "session is null");
         requireNonNull(query, "query is null");
 
@@ -111,6 +118,7 @@ public class StatementClient
         this.query = query;
         this.requestTimeoutNanos = session.getClientRequestTimeout().roundTo(NANOSECONDS);
         this.user = session.getUser();
+        this.querySubmissionCodec = querySubmissionCodec;
 
         Request request = buildQueryRequest(session, query);
         JsonResponse<QueryResults> response = httpClient.execute(request, responseHandler);
@@ -125,7 +133,8 @@ public class StatementClient
     private Request buildQueryRequest(ClientSession session, String query)
     {
         Request.Builder builder = prepareRequest(preparePost(), uriBuilderFrom(session.getServer()).replacePath("/v1/statement").build())
-                .setBodyGenerator(createStaticBodyGenerator(query, UTF_8));
+                .setBodyGenerator(jsonBodyGenerator(querySubmissionCodec, new QuerySubmission(query, session.getPreparedStatements())));
+        builder.setHeader(PrestoHeaders.PRESTO_PREPARED_STATEMENT_IN_BODY, "true");
 
         if (session.getSource() != null) {
             builder.setHeader(PrestoHeaders.PRESTO_SOURCE, session.getSource());
@@ -147,11 +156,6 @@ public class StatementClient
         Map<String, String> property = session.getProperties();
         for (Entry<String, String> entry : property.entrySet()) {
             builder.addHeader(PrestoHeaders.PRESTO_SESSION, entry.getKey() + "=" + entry.getValue());
-        }
-
-        Map<String, String> statements = session.getPreparedStatements();
-        for (Entry<String, String> entry : statements.entrySet()) {
-            builder.addHeader(PrestoHeaders.PRESTO_PREPARED_STATEMENT, urlEncode(entry.getKey()) + "=" + urlEncode(entry.getValue()));
         }
 
         builder.setHeader(PrestoHeaders.PRESTO_TRANSACTION_ID, session.getTransactionId() == null ? "NONE" : session.getTransactionId());

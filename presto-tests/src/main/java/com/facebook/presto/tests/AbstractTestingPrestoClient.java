@@ -18,6 +18,7 @@ import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.client.QuerySubmission;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedObjectName;
@@ -52,6 +53,7 @@ public abstract class AbstractTestingPrestoClient<T>
         implements Closeable
 {
     private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
+    private static final JsonCodec<QuerySubmission> QUERY_SUBMISSION_CODEC = jsonCodec(QuerySubmission.class);
 
     private final TestingPrestoServer prestoServer;
     private final Session defaultSession;
@@ -89,7 +91,7 @@ public abstract class AbstractTestingPrestoClient<T>
 
         ClientSession clientSession = toClientSession(session, prestoServer.getBaseUrl(), true, new Duration(2, TimeUnit.MINUTES));
 
-        try (StatementClient client = new StatementClient(httpClient, QUERY_RESULTS_CODEC, clientSession, sql)) {
+        try (StatementClient client = new StatementClient(httpClient, QUERY_RESULTS_CODEC, QUERY_SUBMISSION_CODEC, clientSession, sql)) {
             while (client.isValid()) {
                 QueryResults results = client.current();
 
