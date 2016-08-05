@@ -15,9 +15,13 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.TriStateBooleanState;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.CombineFunction;
+import com.facebook.presto.spi.function.InputFunction;
+import com.facebook.presto.spi.function.OutputFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.type.SqlType;
 
 import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.FALSE_VALUE;
 import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.NULL_VALUE;
@@ -29,7 +33,6 @@ public final class BooleanAndAggregation
     private BooleanAndAggregation() {}
 
     @InputFunction
-    @IntermediateInputFunction
     public static void booleanAnd(TriStateBooleanState state, @SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         // if the value is false, the result is false
@@ -41,6 +44,18 @@ public final class BooleanAndAggregation
             if (state.getByte() == NULL_VALUE) {
                 state.setByte(TRUE_VALUE);
             }
+        }
+    }
+
+    @CombineFunction
+    public static void combine(TriStateBooleanState state, TriStateBooleanState otherState)
+    {
+        if (state.getByte() == NULL_VALUE) {
+            state.setByte(otherState.getByte());
+            return;
+        }
+        if (otherState.getByte() == FALSE_VALUE) {
+            state.setByte(FALSE_VALUE);
         }
     }
 

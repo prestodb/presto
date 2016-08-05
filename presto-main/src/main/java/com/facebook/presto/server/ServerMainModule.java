@@ -236,8 +236,10 @@ public class ServerMainModule
         binder.bind(TaskManager.class).to(SqlTaskManager.class).in(Scopes.SINGLETON);
 
         // workaround for CodeCache GC issue
-        configBinder(binder).bindConfig(CodeCacheGcConfig.class);
-        binder.bind(CodeCacheGcTrigger.class).in(Scopes.SINGLETON);
+        if (JavaVersion.current().getMajor() == 8) {
+            configBinder(binder).bindConfig(CodeCacheGcConfig.class);
+            binder.bind(CodeCacheGcTrigger.class).in(Scopes.SINGLETON);
+        }
 
         configBinder(binder).bindConfig(MemoryManagerConfig.class);
         configBinder(binder).bindConfig(NodeMemoryConfig.class);
@@ -391,9 +393,9 @@ public class ServerMainModule
 
     @Provides
     @Singleton
-    public ServerInfo createServerInfo(NodeVersion nodeVersion, NodeInfo nodeInfo)
+    public ServerInfo createServerInfo(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig)
     {
-        return new ServerInfo(nodeVersion, nodeInfo.getEnvironment());
+        return new ServerInfo(nodeVersion, nodeInfo.getEnvironment(), serverConfig.isCoordinator());
     }
 
     @Provides

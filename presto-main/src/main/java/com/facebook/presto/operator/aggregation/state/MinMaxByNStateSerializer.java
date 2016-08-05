@@ -17,6 +17,7 @@ import com.facebook.presto.operator.aggregation.BlockComparator;
 import com.facebook.presto.operator.aggregation.TypedKeyValueHeap;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.type.Type;
 
 public class MinMaxByNStateSerializer
@@ -56,9 +57,6 @@ public class MinMaxByNStateSerializer
     @Override
     public void deserialize(Block block, int index, MinMaxByNState state)
     {
-        if (block.isNull(index)) {
-            return;
-        }
         Block currentBlock = (Block) serializedType.getObject(block, index);
         state.setTypedKeyValueHeap(TypedKeyValueHeap.deserialize(currentBlock, keyType, valueType, blockComparator));
     }

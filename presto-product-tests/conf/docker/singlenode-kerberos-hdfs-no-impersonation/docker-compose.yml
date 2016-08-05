@@ -1,34 +1,6 @@
 version: '2'
 services:
-  hadoop-master:
-    extends:
-      file: ../common/kerberos.yml
-      service: hadoop-master-kerberos
 
   presto-master:
-    extends:
-      file: ../common/kerberos.yml
-      service: presto-master-kerberos
     volumes:
       - ../../../../presto-product-tests/conf/presto/etc/environment-specific-catalogs/singlenode-kerberos-hdfs-no-impersonation/hive.properties:/docker/volumes/presto/presto-product-tests/conf/presto/etc/catalog/hive.properties
-    depends_on:
-       - hadoop-master
-
-  application-runner:
-    extends:
-      file: ../common/kerberos.yml
-      service: application-runner-kerberos
-    depends_on:
-      - 'presto-master'
-    volumes_from:
-      - presto-master
-
-  postgres:
-    extends:
-      file: ../common/jdbc_db.yml
-      service: postgres-common
-
-  mysql:
-    extends:
-      file: ../common/jdbc_db.yml
-      service: mysql-common

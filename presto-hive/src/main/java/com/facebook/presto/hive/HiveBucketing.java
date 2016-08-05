@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
@@ -24,7 +25,6 @@ import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.ql.io.DefaultHivePartitioner;
 import org.apache.hadoop.hive.ql.io.HiveKey;
 import org.apache.hadoop.hive.ql.metadata.HiveException;
@@ -81,22 +81,22 @@ final class HiveBucketing
 
     private HiveBucketing() {}
 
-    public static int getHiveBucket(List<TypeInfo> types, Page page, int position, int bucketCount)
+    public static int getHiveBucket(List<TypeInfo> types, Page page, int position, int bucketCount, boolean forceIntegralToBigint)
     {
-        return (getBucketHashCode(types, page, position) & Integer.MAX_VALUE) % bucketCount;
+        return (getBucketHashCode(types, page, position, forceIntegralToBigint) & Integer.MAX_VALUE) % bucketCount;
     }
 
-    private static int getBucketHashCode(List<TypeInfo> types, Page page, int position)
+    private static int getBucketHashCode(List<TypeInfo> types, Page page, int position, boolean forceIntegralToBigint)
     {
         int result = 0;
         for (int i = 0; i < page.getChannelCount(); i++) {
-            int fieldHash = hash(types.get(i), page.getBlock(i), position);
+            int fieldHash = hash(types.get(i), page.getBlock(i), position, forceIntegralToBigint);
             result = result * 31 + fieldHash;
         }
         return result;
     }
 
-    private static int hash(TypeInfo type, Block block, int position)
+    private static int hash(TypeInfo type, Block block, int position, boolean forceIntegralToBigint)
     {
         // This function mirrors the behavior of function hashCode in
         // HIVE-12025 ba83fd7bff serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java
@@ -112,7 +112,7 @@ final class HiveBucketing
             case PRIMITIVE: {
                 PrimitiveTypeInfo typeInfo = (PrimitiveTypeInfo) type;
                 PrimitiveCategory primitiveCategory = typeInfo.getPrimitiveCategory();
-                Type prestoType = requireNonNull(HiveType.getPrimitiveType(typeInfo));
+                Type prestoType = requireNonNull(HiveType.getPrimitiveType(typeInfo, forceIntegralToBigint));
                 switch (primitiveCategory) {
                     case BOOLEAN:
                         return prestoType.getBoolean(block, position) ? 1 : 0;
@@ -152,7 +152,7 @@ final class HiveBucketing
                 Block elementsBlock = block.getObject(position, Block.class);
                 int result = 0;
                 for (int i = 0; i < elementsBlock.getPositionCount(); i++) {
-                    result = result * 31 + hash(elementTypeInfo, elementsBlock, i);
+                    result = result * 31 + hash(elementTypeInfo, elementsBlock, i, forceIntegralToBigint);
                 }
                 return result;
             }
@@ -163,7 +163,7 @@ final class HiveBucketing
                 Block elementsBlock = block.getObject(position, Block.class);
                 int result = 0;
                 for (int i = 0; i < elementsBlock.getPositionCount(); i += 2) {
-                    result += hash(keyTypeInfo, elementsBlock, i) ^ hash(valueTypeInfo, elementsBlock, i + 1);
+                    result += hash(keyTypeInfo, elementsBlock, i, forceIntegralToBigint) ^ hash(valueTypeInfo, elementsBlock, i + 1, forceIntegralToBigint);
                 }
                 return result;
             }
@@ -182,14 +182,14 @@ final class HiveBucketing
         return result;
     }
 
-    public static Optional<HiveBucketHandle> getHiveBucketHandle(String connectorId, Table table)
+    public static Optional<HiveBucketHandle> getHiveBucketHandle(String connectorId, Table table, boolean forceIntegralToBigint)
     {
-        Optional<HiveBucketProperty> hiveBucketProperty = HiveBucketProperty.fromStorageDescriptor(table.getSd(), table.getTableName());
+        Optional<HiveBucketProperty> hiveBucketProperty = table.getStorage().getBucketProperty();
         if (!hiveBucketProperty.isPresent()) {
             return Optional.empty();
         }
 
-        Map<String, HiveColumnHandle> map = getNonPartitionKeyColumnHandles(connectorId, table).stream()
+        Map<String, HiveColumnHandle> map = getNonPartitionKeyColumnHandles(connectorId, table, forceIntegralToBigint).stream()
                 .collect(Collectors.toMap(HiveColumnHandle::getName, identity()));
 
         List<HiveColumnHandle> bucketColumns = hiveBucketProperty.get().getBucketedBy().stream()
@@ -201,13 +201,11 @@ final class HiveBucketing
 
     public static Optional<HiveBucket> getHiveBucket(Table table, Map<ColumnHandle, NullableValue> bindings)
     {
-        if (!table.getSd().isSetBucketCols() || table.getSd().getBucketCols().isEmpty() ||
-                !table.getSd().isSetNumBuckets() || (table.getSd().getNumBuckets() <= 0) ||
-                bindings.isEmpty()) {
+        if (!table.getStorage().getBucketProperty().isPresent() || bindings.isEmpty()) {
             return Optional.empty();
         }
 
-        List<String> bucketColumns = table.getSd().getBucketCols();
+        List<String> bucketColumns = table.getStorage().getBucketProperty().get().getBucketedBy();
         Map<String, ObjectInspector> objectInspectors = new HashMap<>();
 
         // Get column name to object inspector mapping
@@ -246,7 +244,7 @@ final class HiveBucketing
             columnBindings.add(immutableEntry(objectInspectors.get(column), bucketBindings.get(column)));
         }
 
-        return getHiveBucket(columnBindings.build(), table.getSd().getNumBuckets());
+        return getHiveBucket(columnBindings.build(), table.getStorage().getBucketProperty().get().getBucketCount());
     }
 
     public static Optional<HiveBucket> getHiveBucket(List<Entry<ObjectInspector, Object>> columnBindings, int bucketCount)

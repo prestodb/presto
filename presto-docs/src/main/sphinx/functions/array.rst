@@ -29,6 +29,10 @@ Array Functions
 
     Returns an array of the elements in the intersection of ``x`` and ``y``, without duplicates.
 
+.. function:: array_union(x, y) -> array
+
+    Returns an array of the elements in the union of ``x`` and ``y``, without duplicates.
+
 .. function:: array_join(x, delimiter, null_replacement) -> varchar
 
     Concatenates the elements of the given array using the delimiter and an optional string to replace nulls.
@@ -76,6 +80,11 @@ Array Functions
 .. function:: flatten(x) -> array
 
     Flattens an ``array(array(T))`` to an ``array(T)`` by concatenating the contained arrays.
+
+.. function:: reverse(x) -> array
+    :noindex:
+
+    Returns an array which has the reversed order of array ``x``.
 
 .. function:: sequence(start, stop) -> array<bigint>
 

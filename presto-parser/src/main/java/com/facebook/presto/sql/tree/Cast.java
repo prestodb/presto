@@ -34,7 +34,7 @@ public final class Cast
 
     public Cast(Expression expression, String type, boolean safe)
     {
-        this(Optional.empty(), expression, type, false, false);
+        this(Optional.empty(), expression, type, safe, false);
     }
 
     public Cast(Expression expression, String type, boolean safe, boolean typeOnly)

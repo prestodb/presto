@@ -14,11 +14,13 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.benchmark.HandTpchQuery1.TpchQuery1Operator.TpchQuery1OperatorFactory;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
+import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
@@ -35,10 +37,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static com.facebook.presto.operator.aggregation.AverageAggregations.DOUBLE_AVERAGE;
-import static com.facebook.presto.operator.aggregation.AverageAggregations.LONG_AVERAGE;
-import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
-import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
+import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -49,9 +49,23 @@ import static java.util.Objects.requireNonNull;
 public class HandTpchQuery1
         extends AbstractSimpleOperatorBenchmark
 {
+    private final InternalAggregationFunction longAverage;
+    private final InternalAggregationFunction doubleAverage;
+    private final InternalAggregationFunction doubleSum;
+    private final InternalAggregationFunction countFunction;
+
     public HandTpchQuery1(LocalQueryRunner localQueryRunner)
     {
         super(localQueryRunner, "hand_tpch_query_1", 1, 5);
+
+        longAverage = localQueryRunner.getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("avg", AGGREGATE, DOUBLE.getTypeSignature(), BIGINT.getTypeSignature()));
+        doubleAverage = localQueryRunner.getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("avg", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
+        doubleSum = localQueryRunner.getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("sum", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
+        countFunction = localQueryRunner.getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("count", AGGREGATE, BIGINT.getTypeSignature()));
     }
 
     @Override
@@ -99,13 +113,13 @@ public class HandTpchQuery1
                 Ints.asList(0, 1),
                 Step.SINGLE,
                 ImmutableList.of(
-                        DOUBLE_SUM.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0),
-                        DOUBLE_SUM.bind(ImmutableList.of(3), Optional.empty(), Optional.empty(), 1.0),
-                        DOUBLE_SUM.bind(ImmutableList.of(4), Optional.empty(), Optional.empty(), 1.0),
-                        LONG_AVERAGE.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0),
-                        DOUBLE_AVERAGE.bind(ImmutableList.of(5), Optional.empty(), Optional.empty(), 1.0),
-                        DOUBLE_AVERAGE.bind(ImmutableList.of(6), Optional.empty(), Optional.empty(), 1.0),
-                        COUNT.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0)
+                        doubleSum.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0),
+                        doubleSum.bind(ImmutableList.of(3), Optional.empty(), Optional.empty(), 1.0),
+                        doubleSum.bind(ImmutableList.of(4), Optional.empty(), Optional.empty(), 1.0),
+                        longAverage.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0),
+                        doubleAverage.bind(ImmutableList.of(5), Optional.empty(), Optional.empty(), 1.0),
+                        doubleAverage.bind(ImmutableList.of(6), Optional.empty(), Optional.empty(), 1.0),
+                        countFunction.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0)
                         ),
                 Optional.empty(),
                 10_000,

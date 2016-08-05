@@ -324,6 +324,7 @@ class ParquetPageSource
             close();
         }
         catch (RuntimeException e) {
+            // Self-suppression not permitted
             if (e != throwable) {
                 throwable.addSuppressed(e);
             }

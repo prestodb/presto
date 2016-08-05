@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
@@ -33,10 +35,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.JavaUtils;
-import org.apache.hadoop.hive.metastore.api.FieldSchema;
-import org.apache.hadoop.hive.metastore.api.MetaException;
-import org.apache.hadoop.hive.metastore.api.Partition;
-import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
@@ -60,6 +58,8 @@ import org.joda.time.format.DateTimeParser;
 import org.joda.time.format.DateTimePrinter;
 import org.joda.time.format.ISODateTimeFormat;
 
+import javax.annotation.Nullable;
+
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
@@ -79,6 +79,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_SERDE_NOT_FOUND;
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.RetryDriver.retry;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -92,8 +93,6 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
-import static com.google.common.base.Strings.emptyToNull;
-import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Lists.transform;
 import static java.lang.Byte.parseByte;
@@ -104,8 +103,7 @@ import static java.lang.Short.parseShort;
 import static java.lang.String.format;
 import static java.math.BigDecimal.ROUND_UNNECESSARY;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getTableMetadata;
-import static org.apache.hadoop.hive.metastore.Warehouse.makePartName;
+import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.DECIMAL_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
@@ -287,7 +285,7 @@ public final class HiveUtil
 
     public static List<? extends StructField> getTableStructFields(Table table)
     {
-        return getTableObjectInspector(getTableMetadata(table)).getAllStructFieldRefs();
+        return getTableObjectInspector(getHiveSchema(table)).getAllStructFieldRefs();
     }
 
     public static boolean isDeserializerClass(Properties schema, Class<?> deserializerClass)
@@ -653,29 +651,29 @@ public final class HiveUtil
         return checkType(tableHandle, HiveTableHandle.class, "tableHandle").getSchemaTableName();
     }
 
-    public static List<HiveColumnHandle> hiveColumnHandles(String connectorId, Table table)
+    public static List<HiveColumnHandle> hiveColumnHandles(String connectorId, Table table, boolean forceIntegralToBigint)
     {
         ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
 
         // add the data fields first
-        columns.addAll(getNonPartitionKeyColumnHandles(connectorId, table));
+        columns.addAll(getNonPartitionKeyColumnHandles(connectorId, table, forceIntegralToBigint));
 
         // add the partition keys last (like Hive does)
-        columns.addAll(getPartitionKeyColumnHandles(connectorId, table));
+        columns.addAll(getPartitionKeyColumnHandles(connectorId, table, forceIntegralToBigint));
 
         return columns.build();
     }
 
-    public static List<HiveColumnHandle> getNonPartitionKeyColumnHandles(String connectorId, Table table)
+    public static List<HiveColumnHandle> getNonPartitionKeyColumnHandles(String connectorId, Table table, boolean forceIntegralToBigint)
     {
         ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
 
         int hiveColumnIndex = 0;
-        for (FieldSchema field : table.getSd().getCols()) {
+        for (Column field : table.getDataColumns()) {
             // ignore unsupported types rather than failing
-            HiveType hiveType = HiveType.valueOf(field.getType());
+            HiveType hiveType = field.getType();
             if (hiveType.isSupportedType()) {
-                columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveType, hiveType.getTypeSignature(), hiveColumnIndex, false));
+                columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveType, hiveType.getTypeSignature(forceIntegralToBigint), hiveColumnIndex, false));
             }
             hiveColumnIndex++;
         }
@@ -683,30 +681,20 @@ public final class HiveUtil
         return columns.build();
     }
 
-    public static List<HiveColumnHandle> getPartitionKeyColumnHandles(String connectorId, Table table)
+    public static List<HiveColumnHandle> getPartitionKeyColumnHandles(String connectorId, Table table, boolean forceIntegralToBigint)
     {
         ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
 
-        List<FieldSchema> partitionKeys = table.getPartitionKeys();
-        for (FieldSchema field : partitionKeys) {
-            HiveType hiveType = HiveType.valueOf(field.getType());
+        List<Column> partitionKeys = table.getPartitionColumns();
+        for (Column field : partitionKeys) {
+            HiveType hiveType = field.getType();
             if (!hiveType.isSupportedType()) {
-                throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type %s found in partition keys of table %s.%s", hiveType, table.getDbName(), table.getTableName()));
+                throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type %s found in partition keys of table %s.%s", hiveType, table.getDatabaseName(), table.getTableName()));
             }
-            columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveType, hiveType.getTypeSignature(), -1, true));
+            columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveType, hiveType.getTypeSignature(forceIntegralToBigint), -1, true));
         }
 
         return columns.build();
-    }
-
-    public static String createPartitionName(Partition partition, Table table)
-    {
-        try {
-            return makePartName(table.getPartitionKeys(), partition.getValues());
-        }
-        catch (MetaException e) {
-            throw new PrestoException(HIVE_INVALID_METADATA, e);
-        }
     }
 
     public static Slice base64Decode(byte[] bytes)
@@ -721,17 +709,41 @@ public final class HiveUtil
         }
     }
 
-    public static String annotateColumnComment(String comment, boolean partitionKey)
+    @Nullable
+    public static String annotateColumnComment(Optional<String> comment, boolean partitionKey)
     {
-        comment = nullToEmpty(comment).trim();
+        String normalizedComment = comment.orElse("").trim();
         if (partitionKey) {
-            if (comment.isEmpty()) {
-                comment = "Partition Key";
+            if (normalizedComment.isEmpty()) {
+                normalizedComment = "Partition Key";
             }
             else {
-                comment = "Partition Key: " + comment;
+                normalizedComment = "Partition Key: " + normalizedComment;
             }
         }
-        return emptyToNull(comment);
+        return normalizedComment.isEmpty() ? null : normalizedComment;
+    }
+
+    public static List<String> toPartitionValues(String partitionName)
+    {
+        // mimics Warehouse.makeValsFromName
+        ImmutableList.Builder<String> resultBuilder = ImmutableList.builder();
+        int start = 0;
+        while (true) {
+            while (start < partitionName.length() && partitionName.charAt(start) != '=') {
+                start++;
+            }
+            start++;
+            int end = start;
+            while (end < partitionName.length() && partitionName.charAt(end) != '/') {
+                end++;
+            }
+            if (start > partitionName.length()) {
+                break;
+            }
+            resultBuilder.add(unescapePathName(partitionName.substring(start, end)));
+            start = end + 1;
+        }
+        return resultBuilder.build();
     }
 }

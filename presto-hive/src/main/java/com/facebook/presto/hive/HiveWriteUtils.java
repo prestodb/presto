@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.metastore.HiveMetastore;
+import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.Partition;
+import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -42,11 +45,6 @@ import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.hive.metastore.api.Database;
-import org.apache.hadoop.hive.metastore.api.Order;
-import org.apache.hadoop.hive.metastore.api.Partition;
-import org.apache.hadoop.hive.metastore.api.SkewedInfo;
-import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
-import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
 import org.apache.hadoop.hive.serde2.io.DateWritable;
@@ -90,7 +88,6 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static com.facebook.presto.hive.HiveSplitManager.PRESTO_OFFLINE;
@@ -98,6 +95,7 @@ import static com.facebook.presto.hive.HiveUtil.checkCondition;
 import static com.facebook.presto.hive.HiveUtil.isArrayType;
 import static com.facebook.presto.hive.HiveUtil.isMapType;
 import static com.facebook.presto.hive.HiveUtil.isRowType;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -105,7 +103,6 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toList;
-import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getProtectMode;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.getPrimitiveJavaObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.getPrimitiveWritableObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaBooleanObjectInspector;
@@ -294,21 +291,21 @@ public final class HiveWriteUtils
     public static void checkTableIsWritable(Table table)
     {
         checkWritable(
-                new SchemaTableName(table.getDbName(), table.getTableName()),
+                new SchemaTableName(table.getDatabaseName(), table.getTableName()),
                 Optional.empty(),
                 getProtectMode(table),
                 table.getParameters(),
-                table.getSd());
+                table.getStorage());
     }
 
     public static void checkPartitionIsWritable(String partitionName, Partition partition)
     {
         checkWritable(
-                new SchemaTableName(partition.getDbName(), partition.getTableName()),
+                new SchemaTableName(partition.getDatabaseName(), partition.getTableName()),
                 Optional.of(partitionName),
                 getProtectMode(partition),
                 partition.getParameters(),
-                partition.getSd());
+                partition.getStorage());
     }
 
     private static void checkWritable(
@@ -316,7 +313,7 @@ public final class HiveWriteUtils
             Optional<String> partitionName,
             ProtectMode protectMode,
             Map<String, String> parameters,
-            StorageDescriptor storageDescriptor)
+            Storage storage)
     {
         String tablePartitionDescription = "Table '" + tableName + "'";
         if (partitionName.isPresent()) {
@@ -338,25 +335,18 @@ public final class HiveWriteUtils
             throw new HiveReadOnlyException(tableName, partitionName);
         }
 
-        // verify storage descriptor is valid
-        if (storageDescriptor == null) {
-            throw new PrestoException(HIVE_INVALID_METADATA, format("%s does not contain a valid storage descriptor", tablePartitionDescription));
-        }
-
         // verify sorting
-        List<Order> sortColumns = storageDescriptor.getSortCols();
-        if (sortColumns != null && !sortColumns.isEmpty()) {
+        if (storage.isSorted()) {
             throw new PrestoException(NOT_SUPPORTED, format("Inserting into bucketed sorted tables is not supported. %s", tablePartitionDescription));
         }
 
         // verify skew info
-        SkewedInfo skewedInfo = storageDescriptor.getSkewedInfo();
-        if (skewedInfo != null && skewedInfo.getSkewedColNames() != null && !skewedInfo.getSkewedColNames().isEmpty()) {
+        if (storage.isSkewed()) {
             throw new PrestoException(NOT_SUPPORTED, format("Inserting into bucketed tables with skew is not supported. %s", tablePartitionDescription));
         }
     }
 
-    public static Path getTableDefaultLocation(String user, HiveMetastore metastore, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName)
+    public static Path getTableDefaultLocation(String user, ExtendedHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName)
     {
         String location = getDatabase(metastore, schemaName).getLocationUri();
         if (isNullOrEmpty(location)) {
@@ -376,7 +366,7 @@ public final class HiveWriteUtils
         return new Path(databasePath, tableName);
     }
 
-    private static Database getDatabase(HiveMetastore metastore, String database)
+    private static Database getDatabase(ExtendedHiveMetastore metastore, String database)
     {
         return metastore.getDatabase(database).orElseThrow(() -> new SchemaNotFoundException(database));
     }
@@ -485,7 +475,7 @@ public final class HiveWriteUtils
                 return isWritableType(listTypeInfo.getListElementTypeInfo());
             case STRUCT:
                 StructTypeInfo structTypeInfo = checkType(typeInfo, StructTypeInfo.class, "typeInfo");
-                return structTypeInfo.getAllStructFieldTypeInfos().stream().allMatch(HiveType::isSupportedType);
+                return structTypeInfo.getAllStructFieldTypeInfos().stream().allMatch(HiveWriteUtils::isWritableType);
         }
         return false;
     }

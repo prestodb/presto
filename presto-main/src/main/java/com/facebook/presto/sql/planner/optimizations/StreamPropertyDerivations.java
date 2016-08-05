@@ -73,7 +73,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValues;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isFixedRandomPartitioning;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_RANDOM_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.FIXED;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.MULTIPLE;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
@@ -248,7 +248,7 @@ final class StreamPropertyDerivations
                 case GATHER:
                     return StreamProperties.singleStream();
                 case REPARTITION:
-                    if (isFixedRandomPartitioning(node.getPartitioningScheme().getPartitioning())) {
+                    if (node.getPartitioningScheme().getPartitioning().getHandle().equals(FIXED_RANDOM_DISTRIBUTION)) {
                         return new StreamProperties(FIXED, false, Optional.empty(), false);
                     }
                     return new StreamProperties(

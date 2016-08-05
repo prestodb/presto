@@ -22,7 +22,6 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -39,7 +38,6 @@ public class EnforceSingleRowNode
         super(id);
 
         this.source = requireNonNull(source, "source is null");
-        checkArgument(source.getOutputSymbols().size() == 1, "Scalar node can output only one symbol but got: %s", source.getOutputSymbols());
     }
 
     @Override

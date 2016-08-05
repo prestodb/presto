@@ -319,7 +319,6 @@ public class BaseJdbcClient
                     table,
                     columnNames.build(),
                     columnTypes.build(),
-                    tableMetadata.getOwner(),
                     temporaryName,
                     connectionUrl,
                     fromProperties(connectionProperties));

@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
+import com.facebook.presto.array.BlockBigArray;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.util.array.BlockBigArray;
+import com.facebook.presto.spi.function.AccumulatorStateFactory;
 
 public class MaxOrMinByStateFactory
         implements AccumulatorStateFactory<MaxOrMinByState>

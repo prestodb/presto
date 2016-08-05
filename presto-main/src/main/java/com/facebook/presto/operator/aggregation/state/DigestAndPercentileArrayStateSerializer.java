@@ -15,6 +15,7 @@ package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
@@ -61,21 +62,19 @@ public class DigestAndPercentileArrayStateSerializer
     @Override
     public void deserialize(Block block, int index, DigestAndPercentileArrayState state)
     {
-        if (!block.isNull(index)) {
-            SliceInput input = VARBINARY.getSlice(block, index).getInput();
+        SliceInput input = VARBINARY.getSlice(block, index).getInput();
 
-            // read digest
-            state.setDigest(QuantileDigest.deserialize(input));
-            state.addMemoryUsage(state.getDigest().estimatedInMemorySizeInBytes());
+        // read digest
+        state.setDigest(QuantileDigest.deserialize(input));
+        state.addMemoryUsage(state.getDigest().estimatedInMemorySizeInBytes());
 
-            // read number of percentiles
-            long numPercentiles = input.readLong();
+        // read number of percentiles
+        long numPercentiles = input.readLong();
 
-            ImmutableList.Builder<Double> percentilesListBuilder = ImmutableList.builder();
-            for (int i = 0; i < numPercentiles; i++) {
-                percentilesListBuilder.add(input.readDouble());
-            }
-            state.setPercentiles(percentilesListBuilder.build());
+        ImmutableList.Builder<Double> percentilesListBuilder = ImmutableList.builder();
+        for (int i = 0; i < numPercentiles; i++) {
+            percentilesListBuilder.add(input.readDouble());
         }
+        state.setPercentiles(percentilesListBuilder.build());
     }
 }

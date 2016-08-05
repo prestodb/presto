@@ -13,9 +13,6 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.state.AccumulatorState;
-import com.facebook.presto.operator.aggregation.state.AccumulatorStateFactory;
-import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
 import com.facebook.presto.operator.aggregation.state.LongState;
 import com.facebook.presto.operator.aggregation.state.NullableLongState;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
@@ -23,6 +20,9 @@ import com.facebook.presto.operator.aggregation.state.VarianceState;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.function.AccumulatorState;
+import com.facebook.presto.spi.function.AccumulatorStateFactory;
+import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.VarcharType;
 import org.testng.annotations.Test;
@@ -52,13 +52,12 @@ public class TestStateCompiler
 
         Block block = builder.build();
 
+        assertEquals(block.isNull(0), false);
         assertEquals(BIGINT.getLong(block, 0), state.getLong());
         serializer.deserialize(block, 0, deserializedState);
         assertEquals(deserializedState.getLong(), state.getLong());
 
-        assertEquals(block.isNull(1), state.isNull());
-        serializer.deserialize(block, 1, deserializedState);
-        assertEquals(deserializedState.isNull(), state.isNull());
+        assertEquals(block.isNull(1), true);
     }
 
     @Test

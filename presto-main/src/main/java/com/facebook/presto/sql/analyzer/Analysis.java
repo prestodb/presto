@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -50,7 +51,7 @@ import static java.util.Objects.requireNonNull;
 
 public class Analysis
 {
-    private Statement statement;
+    private final Statement statement;
     private String updateType;
 
     private final IdentityHashMap<Table, Query> namedQueries = new IdentityHashMap<>();
@@ -70,6 +71,7 @@ public class Analysis
     private final IdentityHashMap<Join, Expression> joins = new IdentityHashMap<>();
     private final ListMultimap<Node, InPredicate> inPredicatesSubqueries = ArrayListMultimap.create();
     private final ListMultimap<Node, SubqueryExpression> scalarSubqueries = ArrayListMultimap.create();
+    private final ListMultimap<Node, ExistsPredicate> existsSubqueries = ArrayListMultimap.create();
 
     private final IdentityHashMap<Table, TableHandle> tables = new IdentityHashMap<>();
 
@@ -91,14 +93,14 @@ public class Analysis
 
     private Optional<Insert> insert = Optional.empty();
 
+    public Analysis(Statement statement)
+    {
+        this.statement = statement;
+    }
+
     public Statement getStatement()
     {
         return statement;
-    }
-
-    public void setStatement(Statement statement)
-    {
-        this.statement = statement;
     }
 
     public String getUpdateType()
@@ -255,6 +257,7 @@ public class Analysis
     {
         this.inPredicatesSubqueries.putAll(node, expressionAnalysis.getSubqueryInPredicates());
         this.scalarSubqueries.putAll(node, expressionAnalysis.getScalarSubqueries());
+        this.existsSubqueries.putAll(node, expressionAnalysis.getExistsSubqueries());
     }
 
     public List<InPredicate> getInPredicateSubqueries(Node node)
@@ -269,6 +272,14 @@ public class Analysis
     {
         if (scalarSubqueries.containsKey(node)) {
             return scalarSubqueries.get(node);
+        }
+        return ImmutableList.of();
+    }
+
+    public List<ExistsPredicate> getExistsSubqueries(Node node)
+    {
+        if (existsSubqueries.containsKey(node)) {
+            return existsSubqueries.get(node);
         }
         return ImmutableList.of();
     }

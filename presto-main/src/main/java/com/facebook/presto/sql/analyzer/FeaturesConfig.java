@@ -46,6 +46,7 @@ public class FeaturesConfig
     private boolean optimizeHashGeneration = true;
     private boolean optimizeSingleDistinct = true;
     private boolean pushTableWriteThroughUnion = true;
+    private boolean legacyArrayAgg;
 
     private String processingOptimization = ProcessingOptimization.DISABLED;
     private boolean dictionaryAggregation;
@@ -111,6 +112,18 @@ public class FeaturesConfig
     public boolean isDistributedJoinsEnabled()
     {
         return distributedJoinsEnabled;
+    }
+
+    @Config("deprecated.legacy-array-agg")
+    public FeaturesConfig setLegacyArrayAgg(boolean legacyArrayAgg)
+    {
+        this.legacyArrayAgg = legacyArrayAgg;
+        return this;
+    }
+
+    public boolean isLegacyArrayAgg()
+    {
+        return legacyArrayAgg;
     }
 
     @Config("distributed-joins-enabled")

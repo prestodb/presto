@@ -16,13 +16,17 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.Description;
-import com.facebook.presto.operator.aggregation.state.AccumulatorState;
-import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
+import com.facebook.presto.spi.function.AccumulatorState;
+import com.facebook.presto.spi.function.AccumulatorStateSerializer;
+import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.CombineFunction;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.InputFunction;
+import com.facebook.presto.spi.function.LiteralParameters;
+import com.facebook.presto.spi.function.OutputFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.type.LiteralParameters;
-import com.facebook.presto.type.SqlType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -143,16 +147,6 @@ public class AggregationCompiler
         }
     }
 
-    public static Method getIntermediateInputFunction(Class<?> clazz, Class<?> stateClass)
-    {
-        for (Method method : findPublicStaticMethodsWithAnnotation(clazz, IntermediateInputFunction.class)) {
-            if (method.getParameterTypes()[0] == stateClass) {
-                return method;
-            }
-        }
-        return null;
-    }
-
     public static Method getCombineFunction(Class<?> clazz, Class<?> stateClass)
     {
         for (Method method : findPublicStaticMethodsWithAnnotation(clazz, CombineFunction.class)) {
@@ -160,7 +154,7 @@ public class AggregationCompiler
                 return method;
             }
         }
-        return null;
+        throw new IllegalArgumentException(String.format("No method with @CombineFunction annotation found in class %s for %s", clazz.toGenericString(), stateClass.toGenericString()));
     }
 
     private static List<Method> getOutputFunctions(Class<?> clazz, Class<?> stateClass)

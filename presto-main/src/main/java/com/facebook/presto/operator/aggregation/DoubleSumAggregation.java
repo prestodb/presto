@@ -15,25 +15,36 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.CombineFunction;
+import com.facebook.presto.spi.function.InputFunction;
+import com.facebook.presto.spi.function.OutputFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.type.SqlType;
-
-import static com.facebook.presto.testing.AggregationTestUtils.generateInternalAggregationFunction;
 
 @AggregationFunction("sum")
 public final class DoubleSumAggregation
 {
-    public static final InternalAggregationFunction DOUBLE_SUM = generateInternalAggregationFunction(DoubleSumAggregation.class);
-
     private DoubleSumAggregation() {}
 
     @InputFunction
-    @IntermediateInputFunction
     public static void sum(NullableDoubleState state, @SqlType(StandardTypes.DOUBLE) double value)
     {
         state.setNull(false);
         state.setDouble(state.getDouble() + value);
+    }
+
+    @CombineFunction
+    public static void combine(NullableDoubleState state, NullableDoubleState otherState)
+    {
+        if (state.isNull()) {
+            state.setNull(false);
+            state.setDouble(otherState.getDouble());
+            return;
+        }
+
+        state.setDouble(state.getDouble() + otherState.getDouble());
     }
 
     @OutputFunction(StandardTypes.DOUBLE)

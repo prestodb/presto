@@ -31,6 +31,7 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.max;
 import static java.lang.Runtime.getRuntime;
+import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -53,6 +54,8 @@ public class TestStorageManagerConfig
                 .setRecoveryThreads(10)
                 .setOrganizationThreads(5)
                 .setCompactionEnabled(true)
+                .setOrganizationEnabled(true)
+                .setOrganizationInterval(new Duration(7, DAYS))
                 .setMaxShardRows(1_000_000)
                 .setMaxShardSize(new DataSize(256, MEGABYTE))
                 .setMaxBufferSize(new DataSize(256, MEGABYTE))
@@ -72,6 +75,8 @@ public class TestStorageManagerConfig
                 .put("storage.missing-shard-discovery-interval", "4m")
                 .put("storage.compaction-enabled", "false")
                 .put("storage.compaction-interval", "4h")
+                .put("storage.organization-enabled", "false")
+                .put("storage.organization-interval", "4h")
                 .put("storage.ejector-interval", "9h")
                 .put("storage.max-recovery-threads", "12")
                 .put("storage.max-organization-threads", "12")
@@ -91,6 +96,8 @@ public class TestStorageManagerConfig
                 .setMissingShardDiscoveryInterval(new Duration(4, MINUTES))
                 .setCompactionEnabled(false)
                 .setCompactionInterval(new Duration(4, HOURS))
+                .setOrganizationEnabled(false)
+                .setOrganizationInterval(new Duration(4, HOURS))
                 .setShardEjectorInterval(new Duration(9, HOURS))
                 .setRecoveryThreads(12)
                 .setOrganizationThreads(12)

@@ -15,6 +15,7 @@ package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -54,15 +55,13 @@ public class DigestAndPercentileStateSerializer
     @Override
     public void deserialize(Block block, int index, DigestAndPercentileState state)
     {
-        if (!block.isNull(index)) {
-            SliceInput input = VARCHAR.getSlice(block, index).getInput();
+        SliceInput input = VARCHAR.getSlice(block, index).getInput();
 
-            // read digest
-            state.setDigest(QuantileDigest.deserialize(input));
-            state.addMemoryUsage(state.getDigest().estimatedInMemorySizeInBytes());
+        // read digest
+        state.setDigest(QuantileDigest.deserialize(input));
+        state.addMemoryUsage(state.getDigest().estimatedInMemorySizeInBytes());
 
-            // read percentile
-            state.setPercentile(input.readDouble());
-        }
+        // read percentile
+        state.setPercentile(input.readDouble());
     }
 }

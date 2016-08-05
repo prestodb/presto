@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.metastore.HiveMetastore;
+import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
@@ -36,6 +36,7 @@ import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.toHivePrivile
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
@@ -56,12 +57,12 @@ public class SqlStandardAccessControl
     private static final String INFORMATION_SCHEMA_NAME = "information_schema";
 
     private final String connectorId;
-    private final HiveMetastore metastore;
+    private final ExtendedHiveMetastore metastore;
     private final boolean allowDropTable;
     private final boolean allowRenameTable;
 
     @Inject
-    public SqlStandardAccessControl(HiveConnectorId connectorId, HiveMetastore metastore, HiveClientConfig hiveClientConfig)
+    public SqlStandardAccessControl(HiveConnectorId connectorId, ExtendedHiveMetastore metastore, HiveClientConfig hiveClientConfig)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -162,16 +163,22 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
-        if (!checkTablePermission(identity, tableName, SELECT) || !getGrantOptionForPrivilege(identity, Privilege.SELECT, tableName)) {
+        if (!checkTablePermission(identity, tableName, SELECT)) {
             denySelectTable(tableName.toString());
+        }
+        else if (!getGrantOptionForPrivilege(identity, Privilege.SELECT, tableName)) {
+            denyCreateViewWithSelect(tableName.toString());
         }
     }
 
     @Override
     public void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
     {
-        if (!checkTablePermission(identity, viewName, SELECT) || !getGrantOptionForPrivilege(identity, Privilege.SELECT, viewName)) {
+        if (!checkTablePermission(identity, viewName, SELECT)) {
             denySelectView(viewName.toString());
+        }
+        if (!getGrantOptionForPrivilege(identity, Privilege.SELECT, viewName)) {
+            denyCreateViewWithSelect(viewName.toString());
         }
     }
 

@@ -16,34 +16,23 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.operator.aggregation.state.DigestAndPercentileArrayState;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.CombineFunction;
+import com.facebook.presto.spi.function.InputFunction;
+import com.facebook.presto.spi.function.OutputFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.SqlType;
-import com.google.common.collect.ImmutableList;
 import io.airlift.stats.QuantileDigest;
 
 import java.util.List;
 
-import static com.facebook.presto.operator.aggregation.LongDoubleConverterUtil.doubleToSortableLong;
-import static com.facebook.presto.operator.aggregation.LongDoubleConverterUtil.sortableLongToDouble;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.operator.aggregation.FloatingPointBitsConverterUtil.doubleToSortableLong;
+import static com.facebook.presto.operator.aggregation.FloatingPointBitsConverterUtil.sortableLongToDouble;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.testing.AggregationTestUtils.generateInternalAggregationFunction;
 
 @AggregationFunction("approx_percentile")
 public final class ApproximateDoublePercentileArrayAggregations
 {
-    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION =
-            generateInternalAggregationFunction(
-                    ApproximateDoublePercentileArrayAggregations.class,
-                    new ArrayType(DOUBLE).getTypeSignature(),
-                    ImmutableList.of(DOUBLE.getTypeSignature(), new ArrayType(DOUBLE).getTypeSignature()));
-    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION =
-            generateInternalAggregationFunction(
-                    ApproximateDoublePercentileArrayAggregations.class,
-                    new ArrayType(DOUBLE).getTypeSignature(),
-                    ImmutableList.of(DOUBLE.getTypeSignature(), BIGINT.getTypeSignature(), new ArrayType(DOUBLE).getTypeSignature()));
-
     private ApproximateDoublePercentileArrayAggregations() {}
 
     @InputFunction

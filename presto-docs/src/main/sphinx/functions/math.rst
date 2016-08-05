@@ -34,6 +34,12 @@ Mathematical Functions
 
     Returns ``x`` rounded up to the nearest integer.
 
+.. function:: cosine_similarity(x, y) -> double
+
+    Returns the cosine similarity between the sparse vectors ``x`` and ``y``::
+
+        SELECT cosine_similarity(MAP(ARRAY['a'], ARRAY[1.0]), MAP(ARRAY['a'], ARRAY[2.0])); -- 1.0
+
 .. function:: degrees(x) -> double
 
     Converts angle ``x`` in radians to degrees.

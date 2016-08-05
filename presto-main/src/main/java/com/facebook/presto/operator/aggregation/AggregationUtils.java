@@ -50,6 +50,16 @@ public final class AggregationUtils
         state.setSumY(state.getSumY() + y);
     }
 
+    public static double getCovarianceSample(CovarianceState state)
+    {
+        return (state.getSumXY() - state.getSumX() * state.getSumY() / state.getCount()) / (state.getCount() - 1);
+    }
+
+    public static double getCovariancePopulation(CovarianceState state)
+    {
+        return (state.getSumXY() - state.getSumX() * state.getSumY() / state.getCount()) / state.getCount();
+    }
+
     public static void updateCorrelationState(CorrelationState state, double x, double y)
     {
         updateCovarianceState(state, x, y);
@@ -57,10 +67,42 @@ public final class AggregationUtils
         state.setSumYSquare(state.getSumYSquare() + y * y);
     }
 
+    public static double getCorrelation(CorrelationState state)
+    {
+        // Math comes from ISO9075-2:2011(E) 10.9 General Rules 7 c x
+        double dividend = state.getCount() * state.getSumXY() - state.getSumX() * state.getSumY();
+        dividend = dividend * dividend;
+        double divisor1 = state.getCount() * state.getSumXSquare() - state.getSumX() * state.getSumX();
+        double divisor2 = state.getCount() * state.getSumYSquare() - state.getSumY() * state.getSumY();
+
+        // divisor1 and divisor2 deliberately not checked for zero because the result can be Infty or NaN even if they are both not zero
+        return dividend / divisor1 / divisor2; // When the left expression yields a finite value, dividend / (divisor1 * divisor2) can yield Infty or NaN.
+    }
+
     public static void updateRegressionState(RegressionState state, double x, double y)
     {
         updateCovarianceState(state, x, y);
         state.setSumXSquare(state.getSumXSquare() + x * x);
+    }
+
+    public static double getRegressionSlope(RegressionState state)
+    {
+        // Math comes from ISO9075-2:2011(E) 10.9 General Rules 7 c xii
+        double dividend = state.getCount() * state.getSumXY() - state.getSumX() * state.getSumY();
+        double divisor = state.getCount() * state.getSumXSquare() - state.getSumX() * state.getSumX();
+
+        // divisor deliberately not checked for zero because the result can be Infty or NaN even if it is not zero
+        return dividend / divisor;
+    }
+
+    public static double getRegressionIntercept(RegressionState state)
+    {
+        // Math comes from ISO9075-2:2011(E) 10.9 General Rules 7 c xiii
+        double dividend = state.getSumY() * state.getSumXSquare() - state.getSumX() * state.getSumXY();
+        double divisor = state.getCount() * state.getSumXSquare() - state.getSumX() * state.getSumX();
+
+        // divisor deliberately not checked for zero because the result can be Infty or NaN even if it is not zero
+        return dividend / divisor;
     }
 
     public static void mergeVarianceState(VarianceState state, VarianceState otherState)

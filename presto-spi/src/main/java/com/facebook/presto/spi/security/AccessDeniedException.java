@@ -128,6 +128,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot create view %s%s", viewName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyCreateViewWithSelect(String sourceName)
+    {
+        denyCreateViewWithSelect(sourceName, null);
+    }
+
+    public static void denyCreateViewWithSelect(String sourceName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot create view that selects from %s%s", sourceName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyDropView(String viewName)
     {
         denyDropView(viewName, null);
@@ -186,6 +196,11 @@ public class AccessDeniedException
     public static void denySetCatalogSessionProperty(String catalogName, String propertyName, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot set catalog session property %s.%s%s", catalogName, propertyName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denySetCatalogSessionProperty(String propertyName)
+    {
+        throw new AccessDeniedException(format("Cannot set catalog session property %s", propertyName));
     }
 
     private static Object formatExtraInfo(String extraInfo)

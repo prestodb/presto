@@ -196,7 +196,7 @@ public class TestShardCleaner
         TestingShardDao shardDao = dbi.onDemand(TestingShardDao.class);
         MetadataDao metadataDao = dbi.onDemand(MetadataDao.class);
 
-        long tableId = metadataDao.insertTable("test", "test", false, null);
+        long tableId = metadataDao.insertTable("test", "test", false, false, null, 0);
 
         UUID shard1 = randomUUID();
         UUID shard2 = randomUUID();

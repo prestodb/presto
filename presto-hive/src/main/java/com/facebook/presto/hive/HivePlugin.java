@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.metastore.HiveMetastore;
+import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.Plugin;
@@ -36,7 +36,7 @@ public class HivePlugin
 {
     private final String name;
     private Map<String, String> optionalConfig = ImmutableMap.of();
-    private HiveMetastore metastore;
+    private ExtendedHiveMetastore metastore;
     private TypeManager typeManager;
     private PageIndexerFactory pageIndexerFactory;
     private NodeManager nodeManager;
@@ -46,7 +46,7 @@ public class HivePlugin
         this(name, null);
     }
 
-    public HivePlugin(String name, HiveMetastore metastore)
+    public HivePlugin(String name, ExtendedHiveMetastore metastore)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;

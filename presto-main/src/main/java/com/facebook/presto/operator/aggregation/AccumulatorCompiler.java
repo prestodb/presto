@@ -26,11 +26,11 @@ import com.facebook.presto.bytecode.control.ForLoop;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.operator.aggregation.state.AccumulatorStateFactory;
-import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AccumulatorStateFactory;
+import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.facebook.presto.sql.gen.CompilerOperations;
@@ -137,12 +137,7 @@ public class AccumulatorCompiler
         generateGetIntermediateType(definition, callSiteBinder, stateSerializer.getSerializedType());
         generateGetFinalType(definition, callSiteBinder, metadata.getOutputType());
 
-        if (metadata.getIntermediateInputFunction() == null) {
-            generateAddIntermediateAsCombine(definition, stateField, stateSerializerField, stateFactoryField, metadata.getCombineFunction(), stateFactory.getSingleStateClass(), callSiteBinder, grouped);
-        }
-        else {
-            generateAddIntermediateAsIntermediateInput(definition, stateField, metadata.getIntermediateInputMetadata(), metadata.getIntermediateInputFunction(), callSiteBinder, grouped);
-        }
+        generateAddIntermediateAsCombine(definition, stateField, stateSerializerField, stateFactoryField, metadata.getCombineFunction(), stateFactory.getSingleStateClass(), callSiteBinder, grouped);
 
         if (grouped) {
             generateGroupedEvaluateIntermediate(definition, stateSerializerField, stateField);
@@ -549,39 +544,6 @@ public class AccumulatorCompiler
                 "addIntermediate",
                 type(void.class),
                 parameters.build());
-    }
-
-    private static void generateAddIntermediateAsIntermediateInput(
-            ClassDefinition definition,
-            FieldDefinition stateField,
-            List<ParameterMetadata> parameterMetadatas,
-            MethodHandle intermediateInputFunction,
-            CallSiteBinder callSiteBinder,
-            boolean grouped)
-    {
-        MethodDefinition method = declareAddIntermediate(definition, grouped);
-        Scope scope = method.getScope();
-        BytecodeBlock body = method.getBody();
-
-        if (grouped) {
-            generateEnsureCapacity(scope, stateField, body);
-        }
-
-        Variable positionVariable = scope.declareVariable(int.class, "position");
-
-        BytecodeBlock loopBody = generateInvokeInputFunction(scope, stateField, positionVariable, null, ImmutableList.of(scope.getVariable("block")), parameterMetadatas, intermediateInputFunction, callSiteBinder, grouped);
-
-        if (grouped) {
-            // skip rows with null group id
-            IfStatement ifStatement = new IfStatement("if (!groupIdsBlock.isNull(position))")
-                    .condition(not(scope.getVariable("groupIdsBlock").invoke("isNull", boolean.class, positionVariable)))
-                    .ifTrue(loopBody);
-
-            loopBody = new BytecodeBlock().append(ifStatement);
-        }
-
-        body.append(generateBlockNonNullPositionForLoop(scope, positionVariable, loopBody))
-                .ret();
     }
 
     // Generates a for-loop with a local variable named "position" defined, with the current position in the block,

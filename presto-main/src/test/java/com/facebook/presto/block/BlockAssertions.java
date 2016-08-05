@@ -31,6 +31,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.FloatType.FLOAT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
@@ -39,6 +40,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.wrappedIntArray;
+import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 
@@ -317,6 +319,38 @@ public final class BlockAssertions
 
         for (int i = start; i < end; i++) {
             BOOLEAN.writeBoolean(builder, i % 2 == 0);
+        }
+
+        return builder.build();
+    }
+
+    public static Block createFloatsBlock(Float... values)
+    {
+        requireNonNull(values, "varargs 'values' is null");
+
+        return createFloatsBlock(Arrays.asList(values));
+    }
+
+    private static Block createFloatsBlock(Iterable<Float> values)
+    {
+        BlockBuilder builder = FLOAT.createBlockBuilder(new BlockBuilderStatus(), 100);
+        for (Float value : values) {
+            if (value == null) {
+                builder.appendNull();
+            }
+            else {
+                FLOAT.writeLong(builder, floatToRawIntBits(value));
+            }
+        }
+        return builder.build();
+    }
+
+    public static Block createFloatSequenceBlock(int start, int end)
+    {
+        BlockBuilder builder = FLOAT.createFixedSizeBlockBuilder(end - start);
+
+        for (int i = start; i < end; i++) {
+            FLOAT.writeLong(builder, floatToRawIntBits((float) i));
         }
 
         return builder.build();

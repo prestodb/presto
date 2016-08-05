@@ -13,16 +13,14 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.state.AccumulatorStateFactory;
-import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AccumulatorStateFactory;
+import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
-
-import javax.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -44,10 +42,6 @@ public class AggregationMetadata
     private final String name;
     private final List<ParameterMetadata> inputMetadata;
     private final MethodHandle inputFunction;
-    private final List<ParameterMetadata> intermediateInputMetadata;
-    @Nullable
-    private final MethodHandle intermediateInputFunction;
-    @Nullable
     private final MethodHandle combineFunction;
     private final MethodHandle outputFunction;
     private final AccumulatorStateSerializer<?> stateSerializer;
@@ -59,9 +53,7 @@ public class AggregationMetadata
             String name,
             List<ParameterMetadata> inputMetadata,
             MethodHandle inputFunction,
-            @Nullable List<ParameterMetadata> intermediateInputMetadata,
-            @Nullable MethodHandle intermediateInputFunction,
-            @Nullable MethodHandle combineFunction,
+            MethodHandle combineFunction,
             MethodHandle outputFunction,
             Class<?> stateInterface,
             AccumulatorStateSerializer<?> stateSerializer,
@@ -71,32 +63,16 @@ public class AggregationMetadata
     {
         this.outputType = requireNonNull(outputType);
         this.inputMetadata = ImmutableList.copyOf(requireNonNull(inputMetadata, "inputMetadata is null"));
-        checkArgument((intermediateInputFunction == null) == (intermediateInputMetadata == null), "intermediate input parameters must be specified iff an intermediate function is provided");
-        if (intermediateInputMetadata != null) {
-            this.intermediateInputMetadata = ImmutableList.copyOf(intermediateInputMetadata);
-        }
-        else {
-            this.intermediateInputMetadata = null;
-        }
         this.name = requireNonNull(name, "name is null");
         this.inputFunction = requireNonNull(inputFunction, "inputFunction is null");
-        checkArgument(combineFunction == null || intermediateInputFunction == null, "Aggregation cannot have both a combine and a intermediate input method");
-        checkArgument(combineFunction != null || intermediateInputFunction != null, "Aggregation must have either a combine or a intermediate input method");
-        this.intermediateInputFunction = intermediateInputFunction;
-        this.combineFunction = combineFunction;
+        this.combineFunction = requireNonNull(combineFunction, "combineFunction is null");
         this.outputFunction = requireNonNull(outputFunction, "outputFunction is null");
         this.stateSerializer = requireNonNull(stateSerializer, "stateSerializer is null");
         this.stateFactory = requireNonNull(stateFactory, "stateFactory is null");
         this.approximate = approximate;
 
         verifyInputFunctionSignature(inputFunction, inputMetadata, stateInterface);
-        if (intermediateInputFunction != null) {
-            checkArgument(countInputChannels(intermediateInputMetadata) == 1, "Intermediate input function may only have one input channel");
-            verifyInputFunctionSignature(intermediateInputFunction, intermediateInputMetadata, stateInterface);
-        }
-        if (combineFunction != null) {
-            verifyCombineFunction(combineFunction, stateInterface);
-        }
+        verifyCombineFunction(combineFunction, stateInterface);
         if (approximate) {
             verifyApproximateOutputFunction(outputFunction, stateInterface);
         }
@@ -115,11 +91,6 @@ public class AggregationMetadata
         return inputMetadata;
     }
 
-    public List<ParameterMetadata> getIntermediateInputMetadata()
-    {
-        return intermediateInputMetadata;
-    }
-
     public String getName()
     {
         return name;
@@ -130,13 +101,6 @@ public class AggregationMetadata
         return inputFunction;
     }
 
-    @Nullable
-    public MethodHandle getIntermediateInputFunction()
-    {
-        return intermediateInputFunction;
-    }
-
-    @Nullable
     public MethodHandle getCombineFunction()
     {
         return combineFunction;

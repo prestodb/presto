@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.metastore.HiveMetastore;
+import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -32,7 +33,6 @@ import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.metastore.ProtectMode;
-import org.apache.hadoop.hive.metastore.api.Table;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
@@ -63,6 +63,7 @@ public class HivePartitionManager
     private final String connectorId;
     private final DateTimeZone timeZone;
     private final boolean assumeCanonicalPartitionKeys;
+    private final boolean forceIntegralToBigint;
     private final int domainCompactionThreshold;
     private final TypeManager typeManager;
 
@@ -77,6 +78,7 @@ public class HivePartitionManager
                 hiveClientConfig.getDateTimeZone(),
                 hiveClientConfig.getMaxOutstandingSplits(),
                 hiveClientConfig.isAssumeCanonicalPartitionKeys(),
+                hiveClientConfig.isForceIntegralToBigint(),
                 hiveClientConfig.getDomainCompactionThreshold());
     }
 
@@ -86,27 +88,29 @@ public class HivePartitionManager
             DateTimeZone timeZone,
             int maxOutstandingSplits,
             boolean assumeCanonicalPartitionKeys,
+            boolean forceIntegralToBigint,
             int domainCompactionThreshold)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
         checkArgument(maxOutstandingSplits >= 1, "maxOutstandingSplits must be at least 1");
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
+        this.forceIntegralToBigint = forceIntegralToBigint;
         checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
         this.domainCompactionThreshold = domainCompactionThreshold;
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
-    public HivePartitionResult getPartitions(ConnectorSession session, HiveMetastore metastore, ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> effectivePredicate)
+    public HivePartitionResult getPartitions(ConnectorSession session, ExtendedHiveMetastore metastore, ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> effectivePredicate)
     {
         HiveTableHandle hiveTableHandle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
         requireNonNull(effectivePredicate, "effectivePredicate is null");
 
         SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
         Table table = getTable(metastore, tableName);
-        Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(connectorId, table);
+        Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(connectorId, table, forceIntegralToBigint);
 
-        List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(connectorId, table);
+        List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(connectorId, table, forceIntegralToBigint);
         Optional<HiveBucketing.HiveBucket> bucket = getHiveBucket(table, TupleDomain.extractFixedValues(effectivePredicate).get());
 
         TupleDomain<HiveColumnHandle> compactEffectivePredicate = toCompactTupleDomain(effectivePredicate, domainCompactionThreshold);
@@ -183,7 +187,7 @@ public class HivePartitionManager
         return Optional.of(builder.build());
     }
 
-    private Table getTable(HiveMetastore metastore, SchemaTableName tableName)
+    private Table getTable(ExtendedHiveMetastore metastore, SchemaTableName tableName)
     {
         Optional<Table> target = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
         if (!target.isPresent()) {
@@ -204,7 +208,7 @@ public class HivePartitionManager
         return table;
     }
 
-    private List<String> getFilteredPartitionNames(HiveMetastore metastore, SchemaTableName tableName, List<HiveColumnHandle> partitionKeys, TupleDomain<ColumnHandle> effectivePredicate)
+    private List<String> getFilteredPartitionNames(ExtendedHiveMetastore metastore, SchemaTableName tableName, List<HiveColumnHandle> partitionKeys, TupleDomain<ColumnHandle> effectivePredicate)
     {
         checkArgument(effectivePredicate.getDomains().isPresent());
 

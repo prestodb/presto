@@ -16,7 +16,7 @@ databases:
 
   presto:
     host: presto-master
-    jdbc_user: jdbc_presto_user
+    jdbc_user: hive
     cli_server_address: https://${databases.presto.host}:7778
     cli_authentication: true
     cli_kerberos_principal: presto-client/presto-master@LABS.TERADATA.COM

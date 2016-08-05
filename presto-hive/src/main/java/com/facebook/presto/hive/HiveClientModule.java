@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
+import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveMetastore;
+import com.facebook.presto.hive.metastore.ThriftHiveMetastore;
 import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
@@ -48,12 +51,12 @@ public class HiveClientModule
         implements Module
 {
     private final String connectorId;
-    private final HiveMetastore metastore;
+    private final ExtendedHiveMetastore metastore;
     private final TypeManager typeManager;
     private final PageIndexerFactory pageIndexerFactory;
     private final NodeManager nodeManager;
 
-    public HiveClientModule(String connectorId, HiveMetastore metastore, TypeManager typeManager, PageIndexerFactory pageIndexerFactory, NodeManager nodeManager)
+    public HiveClientModule(String connectorId, ExtendedHiveMetastore metastore, TypeManager typeManager, PageIndexerFactory pageIndexerFactory, NodeManager nodeManager)
     {
         this.connectorId = connectorId;
         this.metastore = metastore;
@@ -66,6 +69,7 @@ public class HiveClientModule
     public void configure(Binder binder)
     {
         binder.bind(HiveConnectorId.class).toInstance(new HiveConnectorId(connectorId));
+        binder.bind(TypeTranslator.class).toInstance(new HiveTypeTranslator());
 
         binder.bind(HdfsConfigurationUpdater.class).in(Scopes.SINGLETON);
         binder.bind(HdfsConfiguration.class).to(HiveHdfsConfiguration.class).in(Scopes.SINGLETON);
@@ -77,11 +81,13 @@ public class HiveClientModule
         binder.bind(HiveTableProperties.class).in(Scopes.SINGLETON);
 
         if (metastore != null) {
-            binder.bind(HiveMetastore.class).toInstance(metastore);
+            binder.bind(ExtendedHiveMetastore.class).toInstance(metastore);
         }
         else {
-            binder.bind(HiveMetastore.class).to(CachingHiveMetastore.class).in(Scopes.SINGLETON);
-            newExporter(binder).export(HiveMetastore.class)
+            binder.bind(HiveMetastore.class).to(ThriftHiveMetastore.class).in(Scopes.SINGLETON);
+            binder.bind(ExtendedHiveMetastore.class).annotatedWith(ForCachingHiveMetastore.class).to(BridgingHiveMetastore.class).in(Scopes.SINGLETON);
+            binder.bind(ExtendedHiveMetastore.class).to(CachingHiveMetastore.class).in(Scopes.SINGLETON);
+            newExporter(binder).export(ExtendedHiveMetastore.class)
                     .as(generatedNameOf(CachingHiveMetastore.class, connectorId));
         }
 
@@ -130,7 +136,7 @@ public class HiveClientModule
         return newCachedThreadPool(daemonThreadsNamed("hive-" + hiveClientId + "-%s"));
     }
 
-    @ForHiveMetastore
+    @ForCachingHiveMetastore
     @Singleton
     @Provides
     public ExecutorService createCachingHiveMetastoreExecutor(HiveConnectorId hiveClientId, HiveClientConfig hiveClientConfig)

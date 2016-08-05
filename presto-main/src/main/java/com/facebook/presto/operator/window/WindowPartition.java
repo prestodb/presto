@@ -16,6 +16,8 @@ package com.facebook.presto.operator.window;
 import com.facebook.presto.operator.PagesHashStrategy;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.function.WindowFunction;
+import com.facebook.presto.spi.function.WindowIndex;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.google.common.primitives.Ints;
 
@@ -65,7 +67,7 @@ public final class WindowPartition
         this.peerGroupHashStrategy = peerGroupHashStrategy;
 
         // reset functions for new partition
-        WindowIndex windowIndex = new WindowIndex(pagesIndex, partitionStart, partitionEnd);
+        WindowIndex windowIndex = new PagesWindowIndex(pagesIndex, partitionStart, partitionEnd);
         for (WindowFunction windowFunction : windowFunctions) {
             windowFunction.reset(windowIndex);
         }

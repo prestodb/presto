@@ -90,7 +90,7 @@ public class CreateTableTask
 
         TableMetadata tableMetadata = new TableMetadata(
                 tableName.getCatalogName(),
-                new ConnectorTableMetadata(tableName.asSchemaTableName(), columns, properties, session.getUser(), false));
+                new ConnectorTableMetadata(tableName.asSchemaTableName(), columns, properties, false));
 
         metadata.createTable(session, tableName.getCatalogName(), tableMetadata);
 

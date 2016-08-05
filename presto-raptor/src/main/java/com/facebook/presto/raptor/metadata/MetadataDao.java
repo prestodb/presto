@@ -22,6 +22,7 @@ import org.skife.jdbi.v2.sqlobject.SqlUpdate;
 import org.skife.jdbi.v2.sqlobject.customizers.Mapper;
 
 import java.util.List;
+import java.util.Set;
 
 public interface MetadataDao
 {
@@ -122,14 +123,43 @@ public interface MetadataDao
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName);
 
-    @SqlUpdate("INSERT INTO tables (schema_name, table_name, compaction_enabled, distribution_id)\n" +
-            "VALUES (:schemaName, :tableName, :compactionEnabled, :distributionId)")
+    @SqlUpdate("INSERT INTO tables (\n" +
+            "  schema_name, table_name, compaction_enabled, organization_enabled, distribution_id,\n" +
+            "  create_time, update_time, table_version,\n" +
+            "  shard_count, row_count, compressed_size, uncompressed_size)\n" +
+            "VALUES (\n" +
+            "  :schemaName, :tableName, :compactionEnabled, :organizationEnabled, :distributionId,\n" +
+            "  :createTime, :createTime, 0,\n" +
+            "  0, 0, 0, 0)\n")
     @GetGeneratedKeys
     long insertTable(
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName,
             @Bind("compactionEnabled") boolean compactionEnabled,
-            @Bind("distributionId") Long distributionId);
+            @Bind("organizationEnabled") boolean organizationEnabled,
+            @Bind("distributionId") Long distributionId,
+            @Bind("createTime") long createTime);
+
+    @SqlUpdate("UPDATE tables SET\n" +
+            "  update_time = :updateTime\n" +
+            ", table_version = table_version + 1\n" +
+            "WHERE table_id = :tableId")
+    void updateTableVersion(
+            @Bind("tableId") long tableId,
+            @Bind("updateTime") long updateTime);
+
+    @SqlUpdate("UPDATE tables SET\n" +
+            "  shard_count = shard_count + :shardCount \n" +
+            ", row_count = row_count + :rowCount\n" +
+            ", compressed_size = compressed_size + :compressedSize\n" +
+            ", uncompressed_size = uncompressed_size + :uncompressedSize\n" +
+            "WHERE table_id = :tableId")
+    void updateTableStats(
+            @Bind("tableId") long tableId,
+            @Bind("shardCount") long shardCount,
+            @Bind("rowCount") long rowCount,
+            @Bind("compressedSize") long compressedSize,
+            @Bind("uncompressedSize") long uncompressedSize);
 
     @SqlUpdate("INSERT INTO columns (table_id, column_id, column_name, ordinal_position, data_type, sort_ordinal_position, bucket_ordinal_position)\n" +
             "VALUES (:tableId, :columnId, :columnName, :ordinalPosition, :dataType, :sortOrdinalPosition, :bucketOrdinalPosition)")
@@ -242,4 +272,24 @@ public interface MetadataDao
     List<ColumnMetadataRow> getColumnMetadataRows(
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName);
+
+    @SqlQuery("SELECT schema_name, table_name, create_time, update_time, table_version,\n" +
+            "  shard_count, row_count, compressed_size, uncompressed_size\n" +
+            "FROM tables\n" +
+            "WHERE (schema_name = :schemaName OR :schemaName IS NULL)\n" +
+            "  AND (table_name = :tableName OR :tableName IS NULL)\n" +
+            "ORDER BY schema_name, table_name")
+    @Mapper(TableStatsRow.Mapper.class)
+    List<TableStatsRow> getTableStatsRows(
+            @Bind("schemaName") String schemaName,
+            @Bind("tableName") String tableName);
+
+    @SqlQuery("SELECT table_id\n" +
+            "FROM tables\n" +
+            "WHERE organization_enabled\n" +
+            "  AND table_id IN\n" +
+            "       (SELECT table_id\n" +
+            "        FROM columns\n" +
+            "        WHERE sort_ordinal_position IS NOT NULL)")
+    Set<Long> getOrganizationEligibleTables();
 }

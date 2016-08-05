@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ArraySubscriptOperator;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
@@ -28,6 +27,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlockBuilder;
+import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.AnalysisContext;
@@ -47,6 +47,7 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
+import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -311,6 +312,9 @@ public class ExpressionInterpreter
                 else if (javaType == Slice.class) {
                     return type.getSlice(block, position);
                 }
+                else if (javaType == Block.class) {
+                    return type.getObject(block, position);
+                }
                 else {
                     throw new UnsupportedOperationException("not yet implemented");
                 }
@@ -334,6 +338,9 @@ public class ExpressionInterpreter
                 else if (javaType == Slice.class) {
                     return cursor.getSlice(channel);
                 }
+                else if (javaType == Block.class) {
+                    return cursor.getObject(channel);
+                }
                 else {
                     throw new UnsupportedOperationException("not yet implemented");
                 }
@@ -351,6 +358,11 @@ public class ExpressionInterpreter
             }
 
             Object base = process(node.getBase(), context);
+            // if the base part is evaluated to be null, the dereference expression should also be null
+            if (base == null) {
+                return null;
+            }
+
             if (hasUnresolvedValue(base)) {
                 return new DereferenceExpression(toExpression(base, type), node.getFieldName());
             }
@@ -635,6 +647,15 @@ public class ExpressionInterpreter
                 return null;
             }
             return false;
+        }
+
+        @Override
+        protected Object visitExists(ExistsPredicate node, Object context)
+        {
+            if (!optimize) {
+                throw new UnsupportedOperationException("Exists subquery not yet implemented");
+            }
+            return node;
         }
 
         @Override

@@ -20,9 +20,9 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.AbstractType;
+import com.facebook.presto.spi.type.TypeSignature;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 
 public class JsonPathType
         extends AbstractType
@@ -32,7 +32,7 @@ public class JsonPathType
 
     public JsonPathType()
     {
-        super(parameterizedTypeName(NAME), JsonPath.class);
+        super(new TypeSignature(NAME), JsonPath.class);
     }
 
     @Override

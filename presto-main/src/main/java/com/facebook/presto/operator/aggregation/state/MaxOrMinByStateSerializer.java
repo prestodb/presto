@@ -15,6 +15,7 @@ package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.RowType;
 import com.google.common.collect.ImmutableList;
@@ -64,11 +65,6 @@ public class MaxOrMinByStateSerializer
     @Override
     public void deserialize(Block block, int index, MaxOrMinByState state)
     {
-        if (block.isNull(index)) {
-            state.setKey(null);
-            state.setValue(null);
-            return;
-        }
         Block rowBlock = block.getObject(index, Block.class);
         state.setKey(rowBlock.getSingleValueBlock(0));
         state.setValue(rowBlock.getSingleValueBlock(1));

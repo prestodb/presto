@@ -15,6 +15,7 @@ package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.type.Type;
 
 import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.FALSE_VALUE;
@@ -45,11 +46,6 @@ public class TriStateBooleanStateSerializer
     @Override
     public void deserialize(Block block, int index, TriStateBooleanState state)
     {
-        if (block.isNull(index)) {
-            state.setByte(NULL_VALUE);
-        }
-        else {
-            state.setByte(BOOLEAN.getBoolean(block, index) ? TRUE_VALUE : FALSE_VALUE);
-        }
+        state.setByte(BOOLEAN.getBoolean(block, index) ? TRUE_VALUE : FALSE_VALUE);
     }
 }

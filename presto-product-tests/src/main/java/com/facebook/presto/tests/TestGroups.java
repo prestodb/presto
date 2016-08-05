@@ -25,7 +25,7 @@ public final class TestGroups
     public static final String HIVE_CONNECTOR = "hive_connector";
     public static final String SYSTEM_CONNECTOR = "system";
     public static final String JMX_CONNECTOR = "jmx";
-    public static final String NULL_CONNECTOR = "null";
+    public static final String BLACKHOLE_CONNECTOR = "blackhole";
     public static final String SMOKE = "smoke";
     public static final String JDBC = "jdbc";
     public static final String QUERY_ENGINE = "qe";
@@ -46,6 +46,8 @@ public final class TestGroups
     public static final String PROFILE_SPECIFIC_TESTS = "profile_specific_tests";
     public static final String HDFS_IMPERSONATION = "hdfs_impersonation";
     public static final String HDFS_NO_IMPERSONATION = "hdfs_no_impersonation";
+    public static final String AUTHORIZATION = "authorization";
+    public static final String POST_HIVE_1_0_1 = "post_hive_1_0_1";
 
     private TestGroups() {}
 }

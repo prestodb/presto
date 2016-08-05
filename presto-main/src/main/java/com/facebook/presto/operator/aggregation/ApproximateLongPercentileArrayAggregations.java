@@ -16,9 +16,12 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.operator.aggregation.state.DigestAndPercentileArrayState;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.CombineFunction;
+import com.facebook.presto.spi.function.InputFunction;
+import com.facebook.presto.spi.function.OutputFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.SqlType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.stats.QuantileDigest;
 
@@ -27,23 +30,11 @@ import java.util.List;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.testing.AggregationTestUtils.generateInternalAggregationFunction;
 import static com.facebook.presto.util.Failures.checkCondition;
 
 @AggregationFunction("approx_percentile")
 public final class ApproximateLongPercentileArrayAggregations
 {
-    public static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION =
-            generateInternalAggregationFunction(
-                    ApproximateLongPercentileArrayAggregations.class,
-                    new ArrayType(BIGINT).getTypeSignature(),
-                    ImmutableList.of(BIGINT.getTypeSignature(), new ArrayType(DOUBLE).getTypeSignature()));
-    public static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION =
-            generateInternalAggregationFunction(
-                    ApproximateLongPercentileArrayAggregations.class,
-                    new ArrayType(BIGINT).getTypeSignature(),
-                    ImmutableList.of(BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), new ArrayType(DOUBLE).getTypeSignature()));
-
     private ApproximateLongPercentileArrayAggregations() {}
 
     @InputFunction

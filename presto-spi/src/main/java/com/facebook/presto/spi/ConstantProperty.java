@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.Collections;
 import java.util.Objects;
 import java.util.Optional;
@@ -26,11 +29,13 @@ public final class ConstantProperty<E>
 {
     private final E column;
 
-    public ConstantProperty(E column)
+    @JsonCreator
+    public ConstantProperty(@JsonProperty("column") E column)
     {
         this.column = requireNonNull(column, "column is null");
     }
 
+    @JsonProperty
     public E getColumn()
     {
         return column;

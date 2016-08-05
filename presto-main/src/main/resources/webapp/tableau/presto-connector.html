@@ -135,8 +135,6 @@
 
         function populateCatalogs() {
             var catalogClient = new StatementClient({
-                    'catalog': 'hive',
-                    'schema': 'default',
                     'query': 'show catalogs'
                 },
                 function() {},
@@ -191,8 +189,8 @@
         }
 
         populateCatalogs();
-        // initially load the schemas of the hive catalog
-        populateSchemas('hive');
+        // initially load the schemas of the first catalog
+        populateSchemas($('#catalog option:selected').val());
 
         document.getElementById("catalog").addEventListener('change',
             function() {

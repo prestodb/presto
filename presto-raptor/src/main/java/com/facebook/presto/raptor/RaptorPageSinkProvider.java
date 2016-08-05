@@ -68,6 +68,7 @@ public class RaptorPageSinkProvider
                 handle.getSortOrders(),
                 handle.getBucketCount(),
                 toColumnIds(handle.getBucketColumnHandles()),
+                handle.getTemporalColumnHandle(),
                 maxBufferSize);
     }
 
@@ -87,6 +88,7 @@ public class RaptorPageSinkProvider
                 handle.getSortOrders(),
                 handle.getBucketCount(),
                 toColumnIds(handle.getBucketColumnHandles()),
+                handle.getTemporalColumnHandle(),
                 maxBufferSize);
     }
 

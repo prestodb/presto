@@ -27,10 +27,12 @@ import static java.util.Objects.requireNonNull;
 final class JoinMatcher
         implements Matcher
 {
+    private final JoinNode.Type joinType;
     private final List<AliasPair> equiCriteria;
 
-    JoinMatcher(List<AliasPair> equiCriteria)
+    JoinMatcher(JoinNode.Type joinType, List<AliasPair> equiCriteria)
     {
+        this.joinType = requireNonNull(joinType, "joinType is null");
         this.equiCriteria = requireNonNull(equiCriteria, "equiCriteria is null");
     }
 
@@ -39,6 +41,9 @@ final class JoinMatcher
     {
         if (node instanceof JoinNode) {
             JoinNode joinNode = (JoinNode) node;
+            if (joinNode.getType() != joinType) {
+                return false;
+            }
             if (joinNode.getCriteria().size() == equiCriteria.size()) {
                 int i = 0;
                 for (JoinNode.EquiJoinClause equiJoinClause : joinNode.getCriteria()) {
