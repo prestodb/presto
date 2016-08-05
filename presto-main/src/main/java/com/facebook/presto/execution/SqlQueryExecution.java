@@ -435,7 +435,8 @@ public final class SqlQueryExecution
                 queryInfo.getFailureInfo(),
                 queryInfo.getErrorCode(),
                 queryInfo.getInputs(),
-                queryInfo.getOutput()
+                queryInfo.getOutput(),
+                queryInfo.isCompleteInfo()
         );
         finalQueryInfo.compareAndSet(queryInfo, prunedQueryInfo);
     }

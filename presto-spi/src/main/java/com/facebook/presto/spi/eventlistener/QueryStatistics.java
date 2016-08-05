@@ -32,6 +32,7 @@ public class QueryStatistics
     private final long totalRows;
 
     private final int completedSplits;
+    private final boolean complete;
 
     public QueryStatistics(
             Duration cpuTime,
@@ -42,7 +43,8 @@ public class QueryStatistics
             long peakMemoryBytes,
             long totalBytes,
             long totalRows,
-            int completedSplits)
+            int completedSplits,
+            boolean complete)
     {
         this.cpuTime = requireNonNull(cpuTime, "cpuTime is null");
         this.wallTime = requireNonNull(wallTime, "wallTime is null");
@@ -53,6 +55,7 @@ public class QueryStatistics
         this.totalBytes = requireNonNull(totalBytes, "totalBytes is null");
         this.totalRows = requireNonNull(totalRows, "totalRows is null");
         this.completedSplits = requireNonNull(completedSplits, "completedSplits is null");
+        this.complete = complete;
     }
 
     public Duration getCpuTime()
@@ -98,5 +101,10 @@ public class QueryStatistics
     public int getCompletedSplits()
     {
         return completedSplits;
+    }
+
+    public boolean isComplete()
+    {
+        return complete;
     }
 }
