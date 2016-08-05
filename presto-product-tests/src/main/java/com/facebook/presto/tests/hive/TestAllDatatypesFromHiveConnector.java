@@ -28,7 +28,6 @@ import java.sql.Date;
 import java.sql.SQLException;
 
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
-import static com.facebook.presto.tests.TestGroups.QUARANTINE;
 import static com.facebook.presto.tests.TestGroups.SMOKE;
 import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_ORC;
 import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_PARQUET;
@@ -47,6 +46,7 @@ import static java.sql.JDBCType.DOUBLE;
 import static java.sql.JDBCType.INTEGER;
 import static java.sql.JDBCType.LONGNVARCHAR;
 import static java.sql.JDBCType.LONGVARBINARY;
+import static java.sql.JDBCType.REAL;
 import static java.sql.JDBCType.SMALLINT;
 import static java.sql.JDBCType.TIMESTAMP;
 import static java.sql.JDBCType.TINYINT;
@@ -110,7 +110,7 @@ public class TestAllDatatypesFromHiveConnector
                         32767,
                         2147483647,
                         9223372036854775807L,
-                        123.34500122070312, // (double) 123.345f - see limitation #1
+                        123.345f,
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
@@ -140,7 +140,7 @@ public class TestAllDatatypesFromHiveConnector
                         32767,
                         2147483647,
                         9223372036854775807L,
-                        (double) 123.345f, // (double) 123.345f - see limitation #1
+                        123.345f,
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
@@ -168,7 +168,7 @@ public class TestAllDatatypesFromHiveConnector
                         32767,
                         2147483647,
                         9223372036854775807L,
-                        123.345, // for some reason we do not get float/double conversion issue like for text files
+                        123.345f,
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
@@ -187,7 +187,7 @@ public class TestAllDatatypesFromHiveConnector
                 row("c_smallint", "smallint"),
                 row("c_int", "integer"),
                 row("c_bigint", "bigint"),
-                row("c_float", "double"),
+                row("c_float", "float"),
                 row("c_double", "double"),
                 row("c_decimal", "decimal(10,0)"),
                 row("c_decimal_w_params", "decimal(10,5)"),
@@ -207,7 +207,7 @@ public class TestAllDatatypesFromHiveConnector
                 SMALLINT,
                 INTEGER,
                 BIGINT,
-                DOUBLE,
+                REAL,
                 DOUBLE,
                 DECIMAL,
                 DECIMAL,
@@ -221,7 +221,7 @@ public class TestAllDatatypesFromHiveConnector
     }
 
     @Requires(ParquetRequirements.class)
-    @Test(groups = {HIVE_CONNECTOR, QUARANTINE})
+    @Test(groups = {HIVE_CONNECTOR})
     public void testSelectAllDatatypesParquetFile()
             throws SQLException
     {
@@ -230,7 +230,7 @@ public class TestAllDatatypesFromHiveConnector
                 row("c_smallint", "smallint"),
                 row("c_int", "integer"),
                 row("c_bigint", "bigint"),
-                row("c_float", "double"),
+                row("c_float", "float"),
                 row("c_double", "double"),
                 row("c_decimal", "decimal(10,0)"),
                 row("c_decimal_w_params", "decimal(10,5)"),
@@ -241,13 +241,30 @@ public class TestAllDatatypesFromHiveConnector
                 row("c_binary", "varbinary")
         );
 
-        assertThat(query("SELECT * FROM parquet_all_types")).containsOnly(
+        QueryResult queryResult = query("SELECT * FROM parquet_all_types");
+        assertThat(queryResult).hasColumns(
+                TINYINT,
+                SMALLINT,
+                INTEGER,
+                BIGINT,
+                REAL, // JDBCType.REAL = FLOAT
+                DOUBLE,
+                DECIMAL,
+                DECIMAL,
+                TIMESTAMP,
+                LONGNVARCHAR,
+                LONGNVARCHAR,
+                BOOLEAN,
+                LONGVARBINARY
+        );
+
+        assertThat(queryResult).containsOnly(
                 row(
                         127,
                         32767,
                         2147483647,
                         9223372036854775807L,
-                        123.34500122070312, // (double) 123.345f - see limitation #1
+                        123.345f,
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
@@ -257,10 +274,4 @@ public class TestAllDatatypesFromHiveConnector
                         true,
                         "kot binarny".getBytes()));
     }
-    // presto limitations referenced above:
-    //
-    // #1 we have float column with value in 123.345. But presto exposes this column as DOUBLE.
-    //    As a result it is processed internally and exposed to the user as java double instead java float,
-    //    which have different string representation from what is in hive data file.
-    //    For 123.345 we get 123.34500122070312
 }

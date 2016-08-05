@@ -57,6 +57,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.FloatType.FLOAT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
@@ -72,6 +73,7 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
 
 public class MaterializedResult
@@ -240,6 +242,9 @@ public class MaterializedResult
         }
         else if (DOUBLE.equals(type)) {
             type.writeDouble(blockBuilder, ((Number) value).doubleValue());
+        }
+        else if (FLOAT.equals(type)) {
+            type.writeLong(blockBuilder, (long) floatToRawIntBits(((Number) value).floatValue()));
         }
         else if (BOOLEAN.equals(type)) {
             type.writeBoolean(blockBuilder, (Boolean) value);

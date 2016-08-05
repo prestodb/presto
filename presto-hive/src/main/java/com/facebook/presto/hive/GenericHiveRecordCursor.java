@@ -48,6 +48,7 @@ import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
+import static com.facebook.presto.hive.HiveUtil.floatPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
 import static com.facebook.presto.hive.HiveUtil.integerPartitionKey;
@@ -67,6 +68,7 @@ import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.Decimals.rescale;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.FloatType.FLOAT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -77,6 +79,7 @@ import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -207,6 +210,9 @@ class GenericHiveRecordCursor<K, V extends Writable>
                 }
                 else if (TINYINT.equals(type)) {
                     longs[columnIndex] = tinyintPartitionKey(partitionKey.getValue(), name);
+                }
+                else if (FLOAT.equals(type)) {
+                    longs[columnIndex] = floatPartitionKey(partitionKey.getValue(), name);
                 }
                 else if (DOUBLE.equals(type)) {
                     doubles[columnIndex] = doublePartitionKey(partitionKey.getValue(), name);
@@ -347,12 +353,12 @@ class GenericHiveRecordCursor<K, V extends Writable>
         else {
             Object fieldValue = ((PrimitiveObjectInspector) fieldInspectors[column]).getPrimitiveJavaObject(fieldData);
             checkState(fieldValue != null, "fieldValue should not be null");
-            longs[column] = getLongOrTimestamp(fieldValue, hiveStorageTimeZone);
+            longs[column] = getLongExpressedValue(fieldValue, hiveStorageTimeZone);
             nulls[column] = false;
         }
     }
 
-    private static long getLongOrTimestamp(Object value, DateTimeZone hiveTimeZone)
+    private static long getLongExpressedValue(Object value, DateTimeZone hiveTimeZone)
     {
         if (value instanceof Date) {
             long storageTime = ((Date) value).getTime();
@@ -376,6 +382,9 @@ class GenericHiveRecordCursor<K, V extends Writable>
             long utcMillis = hiveTimeZone.convertLocalToUTC(hiveMillis, false);
 
             return utcMillis;
+        }
+        if (value instanceof Float) {
+            return floatToRawIntBits(((Float) value));
         }
         return ((Number) value).longValue();
     }
@@ -552,6 +561,9 @@ class GenericHiveRecordCursor<K, V extends Writable>
         }
         else if (DOUBLE.equals(type)) {
             parseDoubleColumn(column);
+        }
+        else if (FLOAT.equals(type)) {
+            parseLongColumn(column);
         }
         else if (isVarcharType(type) || VARBINARY.equals(type)) {
             parseStringColumn(column);

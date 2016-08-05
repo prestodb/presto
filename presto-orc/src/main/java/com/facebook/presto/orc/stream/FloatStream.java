@@ -24,6 +24,7 @@ import java.io.IOException;
 import static com.facebook.presto.orc.stream.OrcStreamUtils.readFully;
 import static com.facebook.presto.orc.stream.OrcStreamUtils.skipFully;
 import static io.airlift.slice.SizeOf.SIZE_OF_FLOAT;
+import static java.lang.Float.floatToRawIntBits;
 
 public class FloatStream
         implements ValueStream<FloatStreamCheckpoint>
@@ -69,7 +70,7 @@ public class FloatStream
             throws IOException
     {
         for (int i = 0; i < items; i++) {
-            type.writeDouble(builder, next());
+            type.writeLong(builder, floatToRawIntBits(next()));
         }
     }
 
@@ -81,7 +82,7 @@ public class FloatStream
                 builder.appendNull();
             }
             else {
-                type.writeDouble(builder, next());
+                type.writeLong(builder, floatToRawIntBits(next()));
             }
         }
     }
