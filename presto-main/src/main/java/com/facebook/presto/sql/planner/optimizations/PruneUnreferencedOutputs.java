@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -682,6 +683,31 @@ public class PruneUnreferencedOutputs
                     .map((rowBuilder) -> rowBuilder.build())
                     .collect(toImmutableList());
             return new ValuesNode(node.getId(), rewrittenOutputSymbolsBuilder.build(), rewrittenRows);
+        }
+
+        @Override
+        public PlanNode visitApply(ApplyNode node, RewriteContext<Set<Symbol>> context)
+        {
+            PlanNode subquery = context.rewrite(node.getSubquery(), context.get());
+
+            // prune not used correlation symbols
+            Set<Symbol> subquerySymbols = DependencyExtractor.extractUnique(subquery);
+            List<Symbol> newCorrelation = node.getCorrelation().stream()
+                    .filter(subquerySymbols::contains)
+                    .collect(toImmutableList());
+
+            Set<Symbol> inputContext = ImmutableSet.<Symbol>builder()
+                    .addAll(context.get())
+                    .addAll(newCorrelation)
+                    .build();
+            PlanNode input = context.rewrite(node.getInput(), inputContext);
+
+            if (!inputContext.stream().anyMatch(subquery.getOutputSymbols()::contains)) {
+                // prune ApplyNode as subquery symbols are not used
+                return input;
+            }
+
+            return new ApplyNode(node.getId(), input, subquery, newCorrelation);
         }
     }
 }

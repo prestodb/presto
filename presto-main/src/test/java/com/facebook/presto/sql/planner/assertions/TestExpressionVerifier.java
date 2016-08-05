@@ -29,7 +29,7 @@ public class TestExpressionVerifier
     {
         Expression actual = expression("NOT(orderkey = 3 AND custkey = 3 AND orderkey < 10)");
 
-        ExpressionVerifier verifier = new ExpressionVerifier(new SymbolAliases());
+        ExpressionVerifier verifier = new ExpressionVerifier(new ExpressionAliases());
 
         assertTrue(verifier.process(actual, expression("NOT(X = 3 AND Y = 3 AND X < 10)")));
         assertThrows(() -> verifier.process(actual, expression("NOT(X = 3 AND Y = 3 AND Z < 10)")));

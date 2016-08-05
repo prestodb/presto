@@ -36,13 +36,13 @@ final class SemiJoinMatcher
     }
 
     @Override
-    public boolean matches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public boolean matches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
     {
         if (node instanceof SemiJoinNode) {
             SemiJoinNode semiJoinNode = (SemiJoinNode) node;
-            symbolAliases.put(sourceSymbolAlias, semiJoinNode.getSourceJoinSymbol());
-            symbolAliases.put(filteringSymbolAlias, semiJoinNode.getFilteringSourceJoinSymbol());
-            symbolAliases.put(outputAlias, semiJoinNode.getSemiJoinOutput());
+            expressionAliases.put(sourceSymbolAlias, semiJoinNode.getSourceJoinSymbol().toSymbolReference());
+            expressionAliases.put(filteringSymbolAlias, semiJoinNode.getFilteringSourceJoinSymbol().toSymbolReference());
+            expressionAliases.put(outputAlias, semiJoinNode.getSemiJoinOutput().toSymbolReference());
             return true;
         }
         return false;

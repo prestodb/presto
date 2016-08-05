@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
+import com.facebook.presto.sql.analyzer.ResolvedField;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
@@ -30,6 +31,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Keeps track of fields and expressions and their mapping to symbols in the current plan
@@ -49,8 +51,8 @@ class TranslationMap
 
     public TranslationMap(RelationPlan rewriteBase, Analysis analysis)
     {
-        this.rewriteBase = rewriteBase;
-        this.analysis = analysis;
+        this.rewriteBase = requireNonNull(rewriteBase, "rewriteBase is null");
+        this.analysis = requireNonNull(analysis, "analysis is null");
 
         fieldSymbols = new Symbol[rewriteBase.getOutputSymbols().size()];
     }
@@ -108,10 +110,10 @@ class TranslationMap
                 else if (expressionToExpressions.containsKey(node)) {
                     Expression mapping = expressionToExpressions.get(node);
                     mapping = translateNamesToSymbols(mapping);
-                    return treeRewriter.defaultRewrite(mapping, context);
+                    return treeRewriter.defaultRewrite(mapping, null);
                 }
                 else {
-                    return treeRewriter.defaultRewrite(node, context);
+                    return treeRewriter.defaultRewrite(node, null);
                 }
             }
         }, mapped);
@@ -130,7 +132,11 @@ class TranslationMap
         expressionToSymbols.put(translated, symbol);
 
         // also update the field mappings if this expression is a field reference
-        analysis.getFieldIndex(expression).ifPresent(index -> fieldSymbols[index] = symbol);
+        Optional<ResolvedField> resolvedField = rewriteBase.getScope().tryResolveField(expression);
+        if (resolvedField.isPresent() && resolvedField.get().isLocal()) {
+            int index = rewriteBase.getDescriptor().indexOf(resolvedField.get().getField());
+            fieldSymbols[index] = symbol;
+        }
     }
 
     public boolean containsSymbol(Expression expression)
@@ -189,21 +195,27 @@ class TranslationMap
 
             private Expression rewriteExpressionWithResolvedName(Expression node)
             {
-                Optional<Integer> fieldIndex = analysis.getFieldIndex(node);
-                checkState(fieldIndex.isPresent(), "No field mapping for node '%s'", node);
-
-                Symbol symbol = rewriteBase.getSymbol(fieldIndex.get());
-                checkState(symbol != null, "No symbol mapping for node '%s' (%s)", node, fieldIndex.get());
-                Expression rewrittenExpression = symbol.toSymbolReference();
-
-                return coerceIfNecessary(node, rewrittenExpression);
+                Optional<Symbol> symbol = rewriteBase.getSymbol(node);
+                if (symbol.isPresent()) {
+                    return coerceIfNecessary(node, symbol.get().toSymbolReference());
+                }
+                return node;
             }
 
             @Override
             public Expression rewriteDereferenceExpression(DereferenceExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                if (analysis.getFieldIndex(node).isPresent()) {
-                    return rewriteExpressionWithResolvedName(node);
+                Optional<ResolvedField> resolvedField = rewriteBase.getScope().tryResolveField(node);
+                if (resolvedField.isPresent()) {
+                    if (resolvedField.get().isLocal()) {
+                        Optional<Symbol> symbol = rewriteBase.getSymbol(node);
+                        checkState(symbol.isPresent(), "No symbol mapping for node '%s'", node);
+                        Expression rewrittenExpression = symbol.get().toSymbolReference();
+
+                        return coerceIfNecessary(node, rewrittenExpression);
+                    }
+                    // do not rewrite outer references, it will be handled in outer scope planner
+                    return node;
                 }
                 return rewriteExpression(node, context, treeRewriter);
             }

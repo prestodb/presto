@@ -39,7 +39,7 @@ final class WindowMatcher
     }
 
     @Override
-    public boolean matches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public boolean matches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
     {
         if (!(node instanceof WindowNode)) {
             return false;
@@ -64,12 +64,6 @@ final class WindowMatcher
 
         // expectedCalls was missing something in actualCalls.
         return actualCopy.isEmpty();
-    }
-
-    private static boolean sameCall(FunctionCall left, FunctionCall right)
-    {
-        return left.getName().equals(right.getName()) &&
-                left.getArguments().equals(right.getArguments());
     }
 
     @Override

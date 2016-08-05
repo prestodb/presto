@@ -1,16 +1,16 @@
--- database: presto; groups: tpch,quarantine; tables: orders,customer
+-- database: presto; groups: tpch; tables: orders,customer
 SELECT
   cntrycode,
   count(*)       AS numcust,
   sum(c_acctbal) AS totacctbal
 FROM (
        SELECT
-         substring(c_phone FROM 1 FOR 2) AS cntrycode,
+         substr(c_phone, 1, 2) AS cntrycode,
          c_acctbal
        FROM
          customer
        WHERE
-         substring(c_phone FROM 1 FOR 2) IN
+         substr(c_phone, 1, 2) IN
          ('13', '31', '23', '29', '30', '18', '17')
          AND c_acctbal > (
            SELECT avg(c_acctbal)
@@ -18,7 +18,7 @@ FROM (
              customer
            WHERE
              c_acctbal > 0.00
-             AND substr(c_phone FROM 1 FOR 2) IN
+             AND substr(c_phone, 1, 2) IN
                  ('13', '31', '23', '29', '30', '18', '17')
          )
          AND NOT exists(

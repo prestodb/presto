@@ -42,6 +42,7 @@ import com.facebook.presto.sql.planner.optimizations.PushTableWriteThroughUnion;
 import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
 import com.facebook.presto.sql.planner.optimizations.SimplifyExpressions;
 import com.facebook.presto.sql.planner.optimizations.SingleDistinctOptimizer;
+import com.facebook.presto.sql.planner.optimizations.TransformCorrelatedScalarAggregationSubqueryToLeftOuterJoin;
 import com.facebook.presto.sql.planner.optimizations.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import com.facebook.presto.sql.planner.optimizations.TransformUncorrelatedScalarToJoin;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
@@ -69,8 +70,6 @@ public class PlanOptimizersFactory
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 
         builder.add(new DesugaringOptimizer(metadata, sqlParser), // Clean up all the sugar in expressions, e.g. AtTimeZone, must be run before all the other optimizers
-                new TransformUncorrelatedScalarToJoin(),
-                new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
                 new ImplementSampleAsFilter(),
                 new CanonicalizeExpressions(),
                 new SimplifyExpressions(metadata, sqlParser),
@@ -79,6 +78,11 @@ public class PlanOptimizersFactory
                 new SetFlatteningOptimizer(),
                 new ImplementIntersectAsUnion(),
                 new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
+                new PruneUnreferencedOutputs(),
+                new MergeProjections(),
+                new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
+                new TransformUncorrelatedScalarToJoin(),
+                new TransformCorrelatedScalarAggregationSubqueryToLeftOuterJoin(metadata),
                 new PredicatePushDown(metadata, sqlParser),
                 new MergeProjections(),
                 new SimplifyExpressions(metadata, sqlParser), // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations

@@ -39,7 +39,7 @@ public class NoApplyNodeLeftChecker
                     throw new IllegalArgumentException("Not supported subquery");
                 }
                 else {
-                    throw new IllegalArgumentException("Correlated subquery is not yet supported");
+                    throw new IllegalArgumentException("Not supported correlated subquery");
                 }
             }
         }, null);

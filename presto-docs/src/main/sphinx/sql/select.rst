@@ -646,3 +646,50 @@ The following query will fail with the error ``Column 'name' is ambiguous``::
     SELECT name
     FROM nation
     CROSS JOIN region;
+
+
+Subquery expressions
+--------------------
+
+Subquery is an expression which is composed of a SQL query. The subquery is called correlated when refers to variables from the surrounding query. Such variables will act as constants during any one evaluation of the subquery.
+
+.. note:: The subquery expression will generally only be executed far enough to determine infromation required by surrounding query, not all the way to completion (see ref:`exists` and ref:`in_predicate`). It is unwise to write a subquery that has any side effects; whether the side effects occur or not may be difficult to predict.
+
+.. note:: Support for correlated subqueries is experimental and not all form of such expressions are elible for Presto to be exuected.
+
+.. _exists:
+
+EXISTS
+^^^^^^
+
+.. code-block:: sql 
+
+    SELECT nation.name, region.name
+    FROM nation n,
+    WHERE EXISTS(SELECT * FROM region WHERE regionkey = n.regionkey);
+
+The argument of ``EXISTS`` is an arbitrary ``SELECT`` statement, or subquery. The subquery is evaluated to determine whether it returns any rows. If it returns at least one row, the result of ``EXISTS`` is ``true``; if the subquery returns no rows, the result of ``EXISTS`` is ``false``.
+
+.. _in_predicate: 
+
+IN
+^^
+
+.. code-block:: sql 
+
+    SELECT nation.name, region.name
+    FROM nation n,
+    WHERE regionkey IN (SELECT regionkey FROM region);
+
+The result of ``IN`` is ``true`` if any equal subquery row to left side of ``IN`` is found. The result is ``false`` if no equal row is found (including the special case where the subquery returns no rows).
+
+Scalar subquery
+^^^^^^^^^^^^^^^
+
+.. code-block:: sql 
+
+    SELECT nation.name, region.name
+    FROM nation n,
+    WHERE regionkey = (SELECT max(regionkey) FROM region);
+
+The result of scalar subquery is a row returned arbitrary ``SELECT`` statement. If the query returns more than single row then runtime error is propagated, in case of no rows then ``null`` is returned.
