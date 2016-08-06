@@ -59,6 +59,47 @@ General Aggregate Functions
 
     Returns the geometric mean of all input values.
 
+.. function:: grouping(col1, ..., colN) -> integer
+
+    Returns a bit set converted to decimal, indicating which columns are present in a grouping. The function
+    must be used in conjunction with ``GROUPING SETS``, ``ROLLUP``, ``CUBE``  or ``GROUP BY`` and its arguments
+    must match exactly the columns referenced in the corresponding ``GROUPING SETS``, ``ROLLUP``, ``CUBE`` or
+    ``GROUP BY`` clause.
+
+    To compute the resulting bit set for a particular row, bits are assigned to the argument columns with
+    the rightmost column being the least significant bit. For a given grouping, a bit is set to 0 if the
+    corresponding column is included in the grouping and to 1 otherwise. For example, consider the query
+    below::
+
+        SELECT origin_state, origin_zip, destination_state, sum(package_weight), grouping(origin_state, origin_zip, destination_state)
+        FROM shipping
+        GROUP BY GROUPING SETS (
+                (origin_state),
+                (origin_state, origin_zip),
+                (destination_state));
+
+    .. code-block:: none
+
+        origin_state | origin_zip | destination_state | _col3 | _col4
+        --------------+------------+-------------------+-------+-------
+        California   | NULL       | NULL              |  1397 |     3
+        New Jersey   | NULL       | NULL              |   225 |     3
+        New York     | NULL       | NULL              |     3 |     3
+        California   |      94131 | NULL              |    60 |     1
+        New Jersey   |       7081 | NULL              |   225 |     1
+        California   |      90210 | NULL              |  1337 |     1
+        New York     |      10002 | NULL              |     3 |     1
+        NULL         | NULL       | New Jersey        |    58 |     6
+        NULL         | NULL       | Connecticut       |  1562 |     6
+        NULL         | NULL       | Colorado          |     5 |     6
+        (10 rows)
+
+    The first grouping in the above result only includes the ``origin_state`` column and excludes
+    the ``origin_zip`` and ``destination_state`` columns. The bit set constructed for that grouping
+    is ``011`` where the most significant bit represents ``origin_state``.
+
+    See also: :ref:`Complex Grouping Operations <complex_grouping_operations>`
+
 .. function:: max_by(x, y) -> [same as x]
 
     Returns the value of ``x`` associated with the maximum value of ``y`` over all input values.
