@@ -44,13 +44,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_ADDED_PREPARE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_DEALLOCATED_PREPARE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT_IN_BODY;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_ROLE;
@@ -266,6 +265,7 @@ public class StatementClient
         return new Request.Builder()
                 .addHeader(PRESTO_USER, user)
                 .addHeader(USER_AGENT, USER_AGENT_VALUE)
+                .addHeader(PRESTO_PREPARED_STATEMENT_IN_BODY, "true")
                 .url(url);
     }
 
@@ -346,17 +346,6 @@ public class StatementClient
             setRoles.put(keyValue.get(0), SelectedRole.valueOf(urlDecode(keyValue.get(1))));
         }
 
-        for (String entry : headers.values(PRESTO_ADDED_PREPARE)) {
-            List<String> keyValue = SESSION_HEADER_SPLITTER.splitToList(entry);
-            if (keyValue.size() != 2) {
-                continue;
-            }
-            addedPreparedStatements.put(urlDecode(keyValue.get(0)), urlDecode(keyValue.get(1)));
-        }
-        for (String entry : headers.values(PRESTO_DEALLOCATED_PREPARE)) {
-            deallocatedPreparedStatements.add(urlDecode(entry));
-        }
-
         String startedTransactionId = headers.get(PRESTO_STARTED_TRANSACTION_ID);
         if (startedTransactionId != null) {
             this.startedtransactionId.set(startedTransactionId);
@@ -366,6 +355,9 @@ public class StatementClient
         }
 
         currentResults.set(results);
+
+        this.addedPreparedStatements.putAll(results.getAddedPreparedStatements());
+        this.deallocatedPreparedStatements.addAll(results.getDeallocatedPreparedStatements());
     }
 
     private RuntimeException requestFailedException(String task, Request request, JsonResponse<QueryResults> response)

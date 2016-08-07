@@ -190,7 +190,7 @@ public class StatementResource
                 blockEncodingSerde);
         queries.put(query.getQueryId(), query);
 
-        return getQueryResults(query, Optional.empty(), uriInfo, new Duration(1, MILLISECONDS));
+        return getQueryResults(query, Optional.empty(), uriInfo, new Duration(1, MILLISECONDS), servletRequest);
     }
 
     /**
@@ -215,7 +215,8 @@ public class StatementResource
             @PathParam("queryId") QueryId queryId,
             @PathParam("token") long token,
             @QueryParam("maxWait") Duration maxWait,
-            @Context UriInfo uriInfo)
+            @Context UriInfo uriInfo,
+            @Context HttpServletRequest servletRequest)
             throws InterruptedException
     {
         Query query = queries.get(queryId);
@@ -224,10 +225,10 @@ public class StatementResource
         }
 
         Duration wait = WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait);
-        return getQueryResults(query, Optional.of(token), uriInfo, wait);
+        return getQueryResults(query, Optional.of(token), uriInfo, wait, servletRequest);
     }
 
-    private static Response getQueryResults(Query query, Optional<Long> token, UriInfo uriInfo, Duration wait)
+    private static Response getQueryResults(Query query, Optional<Long> token, UriInfo uriInfo, Duration wait, HttpServletRequest servletRequest)
             throws InterruptedException
     {
         QueryResults queryResults;
@@ -252,16 +253,18 @@ public class StatementResource
         query.getSetRoles().entrySet()
                 .forEach(entry -> response.header(PRESTO_SET_ROLE, entry.getKey() + '=' + urlEncode(entry.getValue().toString())));
 
-        // add added prepare statements
-        for (Entry<String, String> entry : query.getAddedPreparedStatements().entrySet()) {
-            String encodedKey = urlEncode(entry.getKey());
-            String encodedValue = urlEncode(entry.getValue());
-            response.header(PRESTO_ADDED_PREPARE, encodedKey + '=' + encodedValue);
-        }
+        if (servletRequest.getHeader(PRESTO_PREPARED_STATEMENT_IN_BODY) == null) {
+            // add added prepare statements
+            for (Entry<String, String> entry : query.getAddedPreparedStatements().entrySet()) {
+                String encodedKey = urlEncode(entry.getKey());
+                String encodedValue = urlEncode(entry.getValue());
+                response.header(PRESTO_ADDED_PREPARE, encodedKey + '=' + encodedValue);
+            }
 
-        // add deallocated prepare statements
-        for (String name : query.getDeallocatedPreparedStatements()) {
-            response.header(PRESTO_DEALLOCATED_PREPARE, urlEncode(name));
+            // add deallocated prepare statements
+            for (String name : query.getDeallocatedPreparedStatements()) {
+                response.header(PRESTO_DEALLOCATED_PREPARE, urlEncode(name));
+            }
         }
 
         // add new transaction ID
@@ -520,7 +523,9 @@ public class StatementResource
                     toStatementStats(queryInfo),
                     toQueryError(queryInfo),
                     queryInfo.getUpdateType(),
-                    updateCount);
+                    updateCount,
+                    addedPreparedStatements,
+                    deallocatedPreparedStatements);
 
             // cache the last results
             if (lastResult != null && lastResult.getNextUri() != null) {
