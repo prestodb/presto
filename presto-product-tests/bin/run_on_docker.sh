@@ -135,7 +135,7 @@ PROJECT_ROOT="${PRODUCT_TESTS_ROOT}/.."
 DOCKER_CONF_LOCATION="${PRODUCT_TESTS_ROOT}/conf/docker"
 
 # Get the list of valid environments
-if [[ ! -d "$DOCKER_CONF_LOCATION/$ENVIRONMENT" ]]; then
+if [[ ! -f "$DOCKER_CONF_LOCATION/$ENVIRONMENT/compose.sh" ]]; then
    echo "Usage: run_on_docker.sh <`getAvailableEnvironments | tr '\n' '|'`> <product test args>"
    exit 1
 fi
