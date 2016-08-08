@@ -225,10 +225,12 @@ setup outlined below:
     ./mvnw install -DskipTests
     ```
 
-2. Start Hadoop in pseudo-distributed mode in a Docker container:
+2. Start Presto dependant services as Docker containers:
 
     ```
     presto-product-tests/conf/docker/singlenode/compose.sh up -d hadoop-master
+    presto-product-tests/conf/docker/singlenode/compose.sh up -d mysql
+    presto-product-tests/conf/docker/singlenode/compose.sh up -d postgres
     ```
     
     Tip: To display container logs run:
@@ -252,7 +254,14 @@ The format of `/etc/hosts` entries is `<ip> <host>`:
         ```
         docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q mysql) | grep -i IPAddress
         docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q postgres) | grep -i IPAddress
+
+    Alternatively you can use below script to obtain hosts ip mapping
+
         ```
+        presto-product-tests/bin/hosts.sh singlenode
+        ```
+
+    Note that above command requires [jq](https://stedolan.github.io/jq/) to be installed in your system
 
     - On OS X add the following mapping: `<docker machine ip> hadoop-master mysql postgres`.
     Since Docker containers run inside a Linux VM, on OS X we map the VM IP to
