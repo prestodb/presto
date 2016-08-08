@@ -16,6 +16,7 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.QualifiedName;
 
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
 
 public final class SemanticExceptions
@@ -34,5 +35,10 @@ public final class SemanticExceptions
     public static SemanticException throwMissingAttributeException(Expression node)
     {
         throw new SemanticException(MISSING_ATTRIBUTE, node, "Column '%s' cannot be resolved", node);
+    }
+
+    public static SemanticException throwAmbiguousAttributeException(Expression node, QualifiedName name)
+    {
+        throw new SemanticException(AMBIGUOUS_ATTRIBUTE, node, "Column '%s' is ambiguous", name);
     }
 }
