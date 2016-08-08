@@ -14,6 +14,7 @@
 package com.facebook.presto.connector.system;
 
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
@@ -22,6 +23,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
@@ -44,9 +46,10 @@ abstract class AbstractPropertiesSystemTable
 {
     private final ConnectorTableMetadata tableMetadata;
     private final TransactionManager transactionManager;
+    private final AccessControl accessControl;
     private final Supplier<Map<ConnectorId, Map<String, PropertyMetadata<?>>>> propertySupplier;
 
-    protected AbstractPropertiesSystemTable(String tableName, TransactionManager transactionManager, Supplier<Map<ConnectorId, Map<String, PropertyMetadata<?>>>> propertySupplier)
+    protected AbstractPropertiesSystemTable(String tableName, TransactionManager transactionManager, AccessControl accessControl, Supplier<Map<ConnectorId, Map<String, PropertyMetadata<?>>>> propertySupplier)
     {
         this.tableMetadata = tableMetadataBuilder(new SchemaTableName("metadata", tableName))
                 .column("catalog_name", createUnboundedVarcharType())
@@ -56,6 +59,7 @@ abstract class AbstractPropertiesSystemTable
                 .column("description", createUnboundedVarcharType())
                 .build();
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.propertySupplier = requireNonNull(propertySupplier, "propertySupplier is null");
     }
 
@@ -80,6 +84,12 @@ abstract class AbstractPropertiesSystemTable
         Map<ConnectorId, Map<String, PropertyMetadata<?>>> connectorProperties = propertySupplier.get();
         for (Entry<String, ConnectorId> entry : new TreeMap<>(transactionManager.getCatalogNames(transactionId)).entrySet()) {
             String catalog = entry.getKey();
+            try {
+                accessControl.checkCanAccessCatalog(transactionId, session.getIdentity(), catalog);
+            }
+            catch (AccessDeniedException ignore) {
+                continue;
+            }
             Map<String, PropertyMetadata<?>> properties = new TreeMap<>(connectorProperties.getOrDefault(entry.getValue(), ImmutableMap.of()));
             for (PropertyMetadata<?> propertyMetadata : properties.values()) {
                 table.addRow(

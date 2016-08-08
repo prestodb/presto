@@ -23,6 +23,11 @@ public class AllowAllAccessControl
         implements ConnectorAccessControl
 {
     @Override
+    public void checkCanAccessCatalog(ConnectorTransactionHandle transaction, Identity identity, String catalogName)
+    {
+    }
+
+    @Override
     public void checkCanCreateTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
     }

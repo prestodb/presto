@@ -68,6 +68,11 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot rename schema from %s to %s%s", schemaName, newSchemaName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyAccessCatalog(String catalogName)
+    {
+        throw new AccessDeniedException(format("Cannot access catalog %s", catalogName));
+    }
+
     public static void denyCreateTable(String tableName)
     {
         denyCreateTable(tableName, null);

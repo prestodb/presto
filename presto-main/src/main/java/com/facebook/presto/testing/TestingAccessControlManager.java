@@ -30,6 +30,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.spi.security.AccessDeniedException.denyAccessCatalog;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
@@ -65,7 +66,9 @@ import static com.facebook.presto.testing.TestingAccessControlManager.TestingPri
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_VIEW;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SET_SESSION;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SET_USER;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_CATALOG;
 import static com.google.common.base.MoreObjects.toStringHelper;
+
 import static java.util.Objects.requireNonNull;
 
 public class TestingAccessControlManager
@@ -305,6 +308,17 @@ public class TestingAccessControlManager
         }
     }
 
+    @Override
+    public void checkCanAccessCatalog(TransactionId transactionId, Identity identity, String catalogName)
+    {
+        if (shouldDenyPrivilege(identity.getUser(), catalogName, SHOW_CATALOG)) {
+            denyAccessCatalog(catalogName);
+        }
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanAccessCatalog(transactionId, identity, catalogName);
+        }
+    }
+
     private boolean shouldDenyPrivilege(String userName, String entityName, TestingPrivilegeType type)
     {
         TestingPrivilege testPrivilege = privilege(userName, entityName, type);
@@ -324,7 +338,7 @@ public class TestingAccessControlManager
         ADD_COLUMN, RENAME_COLUMN,
         CREATE_VIEW, DROP_VIEW, SELECT_VIEW,
         CREATE_VIEW_WITH_SELECT_TABLE, CREATE_VIEW_WITH_SELECT_VIEW,
-        SET_SESSION
+        SET_SESSION, SHOW_CATALOG
     }
 
     public static class TestingPrivilege

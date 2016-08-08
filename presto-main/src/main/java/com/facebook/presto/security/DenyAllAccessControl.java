@@ -21,6 +21,7 @@ import com.facebook.presto.transaction.TransactionId;
 
 import java.security.Principal;
 
+import static com.facebook.presto.spi.security.AccessDeniedException.denyAccessCatalog;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
@@ -169,5 +170,11 @@ public class DenyAllAccessControl
     public void checkCanSetCatalogSessionProperty(TransactionId transactionId, Identity identity, String catalogName, String propertyName)
     {
         denySetCatalogSessionProperty(catalogName, propertyName);
+    }
+
+    @Override
+    public void checkCanAccessCatalog(TransactionId transactionId, Identity identity, String catalogName)
+    {
+        denyAccessCatalog(catalogName);
     }
 }

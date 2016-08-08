@@ -16,6 +16,8 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnIdentity;
@@ -40,6 +42,7 @@ import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -107,6 +110,7 @@ public class MetadataManager
     private final SchemaPropertyManager schemaPropertyManager;
     private final TablePropertyManager tablePropertyManager;
     private final TransactionManager transactionManager;
+    private final AccessControl accessControl;
 
     public MetadataManager(FeaturesConfig featuresConfig,
             TypeManager typeManager,
@@ -114,7 +118,8 @@ public class MetadataManager
             SessionPropertyManager sessionPropertyManager,
             SchemaPropertyManager schemaPropertyManager,
             TablePropertyManager tablePropertyManager,
-            TransactionManager transactionManager)
+            TransactionManager transactionManager,
+            AccessControl accessControl)
     {
         this(featuresConfig,
                 typeManager,
@@ -123,7 +128,8 @@ public class MetadataManager
                 sessionPropertyManager,
                 schemaPropertyManager,
                 tablePropertyManager,
-                transactionManager);
+                transactionManager,
+                accessControl);
     }
 
     @Inject
@@ -134,7 +140,8 @@ public class MetadataManager
             SessionPropertyManager sessionPropertyManager,
             SchemaPropertyManager schemaPropertyManager,
             TablePropertyManager tablePropertyManager,
-            TransactionManager transactionManager)
+            TransactionManager transactionManager,
+            AccessControl accessControl)
     {
         functions = new FunctionRegistry(typeManager, blockEncodingSerde, featuresConfig);
         procedures = new ProcedureRegistry();
@@ -145,6 +152,7 @@ public class MetadataManager
         this.schemaPropertyManager = requireNonNull(schemaPropertyManager, "schemaPropertyManager is null");
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
 
         verifyComparableOrderableContract();
     }
@@ -164,7 +172,8 @@ public class MetadataManager
                 new SessionPropertyManager(),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
-                createTestTransactionManager(catalogManager));
+                createTestTransactionManager(catalogManager),
+                new AllowAllAccessControl());
     }
 
     @Override
@@ -637,13 +646,24 @@ public class MetadataManager
     @Override
     public Optional<ConnectorId> getCatalogHandle(Session session, String catalogName)
     {
+        accessControl.checkCanAccessCatalog(session.getRequiredTransactionId(), session.getIdentity(), catalogName);
         return transactionManager.getOptionalCatalogMetadata(session.getRequiredTransactionId(), catalogName).map(CatalogMetadata::getConnectorId);
     }
 
     @Override
     public Map<String, ConnectorId> getCatalogNames(Session session)
     {
-        return transactionManager.getCatalogNames(session.getRequiredTransactionId());
+        Map<String, ConnectorId> catalogNames = transactionManager.getCatalogNames(session.getRequiredTransactionId());
+        ImmutableMap.Builder<String, ConnectorId> catalogsMap = ImmutableMap.builder();
+        for (Map.Entry<String, ConnectorId> entry : catalogNames.entrySet()) {
+            try {
+                accessControl.checkCanAccessCatalog(session.getRequiredTransactionId(), session.getIdentity(), entry.getKey());
+                catalogsMap.put(entry.getKey(), entry.getValue());
+            }
+            catch (AccessDeniedException ignore) {
+            }
+        }
+        return catalogsMap.build();
     }
 
     @Override
@@ -824,6 +844,7 @@ public class MetadataManager
 
     private Optional<CatalogMetadata> getOptionalCatalogMetadata(Session session, String catalogName)
     {
+        accessControl.checkCanAccessCatalog(session.getRequiredTransactionId(), session.getIdentity(), catalogName);
         return transactionManager.getOptionalCatalogMetadata(session.getRequiredTransactionId(), catalogName);
     }
 

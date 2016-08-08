@@ -82,6 +82,12 @@ public class SqlStandardAccessControl
     }
 
     @Override
+    public void checkCanAccessCatalog(ConnectorTransactionHandle transaction, Identity identity, String catalogName)
+    {
+        // allow all catalog access
+    }
+
+    @Override
     public void checkCanCreateSchema(ConnectorTransactionHandle transaction, Identity identity, String schemaName)
     {
         if (!isAdmin(transaction, identity)) {

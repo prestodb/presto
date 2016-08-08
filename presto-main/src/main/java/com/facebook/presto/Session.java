@@ -19,6 +19,7 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.sql.tree.Execute;
@@ -249,6 +250,12 @@ public final class Session
             Map<String, String> catalogProperties = catalogEntry.getValue();
             if (catalogProperties.isEmpty()) {
                 continue;
+            }
+            try {
+                accessControl.checkCanAccessCatalog(transactionId, getIdentity(), catalogName);
+            }
+            catch (AccessDeniedException ignore) {
+                throw new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalogName);
             }
             ConnectorId connectorId = transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)
                     .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalogName))

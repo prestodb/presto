@@ -14,6 +14,7 @@
 package com.facebook.presto.connector.system;
 
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
@@ -23,6 +24,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
 
@@ -46,11 +48,13 @@ public class CatalogSystemTable
             .column("connector_id", createUnboundedVarcharType())
             .build();
     private final TransactionManager transactionManager;
+    private final AccessControl accessControl;
 
     @Inject
-    public CatalogSystemTable(TransactionManager transactionManager)
+    public CatalogSystemTable(TransactionManager transactionManager, AccessControl accessControl)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     @Override
@@ -71,7 +75,12 @@ public class CatalogSystemTable
         TransactionId transactionId = checkType(transactionHandle, GlobalSystemTransactionHandle.class, "transactionHandle").getTransactionId();
         Builder table = InMemoryRecordSet.builder(CATALOG_TABLE);
         for (Map.Entry<String, ConnectorId> entry : transactionManager.getCatalogNames(transactionId).entrySet()) {
-            table.addRow(entry.getKey(), entry.getValue().toString());
+            try {
+                accessControl.checkCanAccessCatalog(transactionId, session.getIdentity(), entry.getKey());
+                table.addRow(entry.getKey(), entry.getValue().toString());
+            }
+            catch (AccessDeniedException ignore) {
+            }
         }
         return table.build().cursor();
     }

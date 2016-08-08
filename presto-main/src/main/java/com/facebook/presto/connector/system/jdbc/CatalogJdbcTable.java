@@ -14,6 +14,7 @@
 package com.facebook.presto.connector.system.jdbc;
 
 import com.facebook.presto.connector.system.GlobalSystemTransactionHandle;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
@@ -22,6 +23,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.util.Types;
@@ -42,11 +44,13 @@ public class CatalogJdbcTable
             .build();
 
     private final TransactionManager transactionManager;
+    private final AccessControl accessControl;
 
     @Inject
-    public CatalogJdbcTable(TransactionManager transactionManager)
+    public CatalogJdbcTable(TransactionManager transactionManager, AccessControl accessControl)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     @Override
@@ -61,7 +65,12 @@ public class CatalogJdbcTable
         TransactionId transactionId = Types.checkType(transactionHandle, GlobalSystemTransactionHandle.class, "transactionHandle").getTransactionId();
         Builder table = InMemoryRecordSet.builder(METADATA);
         for (String name : transactionManager.getCatalogNames(transactionId).keySet()) {
-            table.addRow(name);
+            try {
+                accessControl.checkCanAccessCatalog(transactionId, session.getIdentity(), name);
+                table.addRow(name);
+            }
+            catch (AccessDeniedException ignore) {
+            }
         }
         return table.build().cursor();
     }

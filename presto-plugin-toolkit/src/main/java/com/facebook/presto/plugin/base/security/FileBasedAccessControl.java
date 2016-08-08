@@ -72,6 +72,11 @@ public class FileBasedAccessControl
     }
 
     @Override
+    public void checkCanAccessCatalog(ConnectorTransactionHandle transaction, Identity identity, String catalogName)
+    {
+    }
+
+    @Override
     public void checkCanCreateTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
         if (!isDatabaseOwner(identity, tableName.getSchemaName())) {
