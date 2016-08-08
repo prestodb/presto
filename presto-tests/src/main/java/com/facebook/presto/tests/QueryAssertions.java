@@ -87,10 +87,10 @@ public final class QueryAssertions
 
         if (actualResults.getUpdateType().isPresent() || actualResults.getUpdateCount().isPresent()) {
             if (!actualResults.getUpdateType().isPresent()) {
-                fail("update count present without update type");
+                fail("update count present without update type for query: \n" + actual);
             }
             if (!compareUpdate) {
-                fail("update type should not be present (use assertUpdate)");
+                fail("update type should not be present (use assertUpdate) for query: \n" + actual);
             }
         }
 
@@ -99,29 +99,34 @@ public final class QueryAssertions
 
         if (compareUpdate) {
             if (!actualResults.getUpdateType().isPresent()) {
-                fail("update type not present");
+                fail("update type not present for query: \n" + actual);
             }
             if (!actualResults.getUpdateCount().isPresent()) {
-                fail("update count not present");
+                fail("update count not present for query: \n" + actual);
             }
-            assertEquals(actualRows.size(), 1);
-            assertEquals(expectedRows.size(), 1);
+            assertEquals(actualRows.size(), 1, "For query: \n " + actual + "\n:");
+            assertEquals(expectedRows.size(), 1, "For query: \n " + actual + "\n:");
             MaterializedRow row = expectedRows.get(0);
-            assertEquals(row.getFieldCount(), 1);
-            assertEquals(row.getField(0), actualResults.getUpdateCount().getAsLong());
+            assertEquals(row.getFieldCount(), 1, "For query: \n " + actual + "\n:");
+            assertEquals(row.getField(0), actualResults.getUpdateCount().getAsLong(), "For query: \n " + actual + "\n:");
         }
 
         if (ensureOrdering) {
             if (!actualRows.equals(expectedRows)) {
-                assertEquals(actualRows, expectedRows);
+                assertEquals(actualRows, expectedRows, "For query: \n " + actual + "\n:");
             }
         }
         else {
-            assertEqualsIgnoreOrder(actualRows, expectedRows);
+            assertEqualsIgnoreOrder(actualRows, expectedRows, "For query: \n " + actual);
         }
     }
 
     public static void assertEqualsIgnoreOrder(Iterable<?> actual, Iterable<?> expected)
+    {
+        assertEqualsIgnoreOrder(actual, expected, null);
+    }
+
+    public static void assertEqualsIgnoreOrder(Iterable<?> actual, Iterable<?> expected, String message)
     {
         assertNotNull(actual, "actual is null");
         assertNotNull(expected, "expected is null");
@@ -129,7 +134,8 @@ public final class QueryAssertions
         ImmutableMultiset<?> actualSet = ImmutableMultiset.copyOf(actual);
         ImmutableMultiset<?> expectedSet = ImmutableMultiset.copyOf(expected);
         if (!actualSet.equals(expectedSet)) {
-            fail(format("not equal\nActual %s rows:\n    %s\nExpected %s rows:\n    %s\n",
+            fail(format("%snot equal\nActual %s rows:\n    %s\nExpected %s rows:\n    %s\n",
+                    message == null ? "" : (message + "\n"),
                     actualSet.size(),
                     Joiner.on("\n    ").join(Iterables.limit(actualSet, 100)),
                     expectedSet.size(),
