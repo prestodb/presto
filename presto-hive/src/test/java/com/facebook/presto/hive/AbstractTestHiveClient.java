@@ -2376,7 +2376,7 @@ public abstract class AbstractTestHiveClient
         return handle;
     }
 
-    private MaterializedResult readTable(
+    protected MaterializedResult readTable(
             ConnectorTableHandle tableHandle,
             List<ColumnHandle> columnHandles,
             ConnectorSession session,
