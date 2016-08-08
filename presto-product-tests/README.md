@@ -237,7 +237,7 @@ setup outlined below:
     presto-product-tests/conf/docker/singlenode/compose.sh logs
     ```
     
-3. Add an IP-to-host mapping for the `hadoop-master` host in `/etc/hosts`.
+3. Add an IP-to-host mapping for the `hadoop-master`, `mysql` and `postgres` hosts in `/etc/hosts`.
 The format of `/etc/hosts` entries is `<ip> <host>`:
 
     - On GNU/Linux add the following mapping: `<container ip> hadoop-master`.
@@ -247,9 +247,16 @@ The format of `/etc/hosts` entries is `<ip> <host>`:
         docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q hadoop-master) | grep -i IPAddress
         ```
 
-    - On OS X add the following mapping: `<docker machine ip> hadoop-master`.
+    Similarly add mappings for MySQL and Postgres containers (`mysql` and `postgres` hostnames respectively). To check IPs for those containers run:
+
+        ```
+        docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q mysql) | grep -i IPAddress
+        docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q postgres) | grep -i IPAddress
+        ```
+
+    - On OS X add the following mapping: `<docker machine ip> hadoop-master mysql postgres`.
     Since Docker containers run inside a Linux VM, on OS X we map the VM IP to
-    the `hadoop-master` hostname. To obtain the IP of the Linux VM run:
+    the `hadoop-master`, `mysql` and `postgres` hostnames. To obtain the IP of the Linux VM run:
 
         ```
         docker-machine ip <machine>
