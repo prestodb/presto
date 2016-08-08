@@ -19,6 +19,7 @@ import com.teradata.tempto.fulfillment.table.hive.HiveDataSource;
 import com.teradata.tempto.fulfillment.table.hive.HiveTableDefinition;
 
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.teradata.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
 
@@ -45,7 +46,7 @@ public final class AllSimpleTypesTableDefinitions
     private static HiveTableDefinition allHiveSimpleTypesTableDefinition(String fileFormat, Optional<String> rowFormat)
     {
         String tableName = fileFormat.toLowerCase() + "_all_types";
-        HiveDataSource dataSource = createResourceDataSource(tableName, "" + System.currentTimeMillis(), "com/facebook/presto/tests/hive/data/all_types/data." + fileFormat.toLowerCase());
+        HiveDataSource dataSource = createResourceDataSource(tableName, String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "com/facebook/presto/tests/hive/data/all_types/data." + fileFormat.toLowerCase());
         return HiveTableDefinition.builder(tableName)
                 .setCreateTableDDLTemplate("" +
                         "CREATE %EXTERNAL% TABLE %NAME%(" +
@@ -72,7 +73,7 @@ public final class AllSimpleTypesTableDefinitions
     private static HiveTableDefinition allHiveSimpleTypesParquetTableDefinition()
     {
         String tableName = "parquet_all_types";
-        HiveDataSource dataSource = createResourceDataSource(tableName, "" + System.currentTimeMillis(), "com/facebook/presto/tests/hive/data/all_types/data.parquet");
+        HiveDataSource dataSource = createResourceDataSource(tableName, String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "com/facebook/presto/tests/hive/data/all_types/data.parquet");
         return HiveTableDefinition.builder(tableName)
                 .setCreateTableDDLTemplate("" +
                         "CREATE %EXTERNAL% TABLE %NAME%(" +
