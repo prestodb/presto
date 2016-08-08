@@ -17,17 +17,16 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
-import java.math.BigInteger;
-
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 
-public class BigIntegerAndLongStateSerializer
-        implements AccumulatorStateSerializer<BigIntegerAndLongState>
+public class LongDecimalWithOverflowAndLongStateSerializer
+        implements AccumulatorStateSerializer<LongDecimalWithOverflowAndLongState>
 {
     @Override
     public Type getSerializedType()
@@ -36,29 +35,32 @@ public class BigIntegerAndLongStateSerializer
     }
 
     @Override
-    public void serialize(BigIntegerAndLongState state, BlockBuilder out)
+    public void serialize(LongDecimalWithOverflowAndLongState state, BlockBuilder out)
     {
-        if (state.getBigInteger() == null) {
+        if (state.getLongDecimal() == null) {
             out.appendNull();
         }
         else {
-            byte[] bigIntegerBytes = state.getBigInteger().toByteArray();
-            Slice slice = Slices.allocate(Long.BYTES + bigIntegerBytes.length);
+            Slice slice = Slices.allocate(Long.BYTES + Long.BYTES + UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH);
             SliceOutput output = slice.getOutput();
+
             output.writeLong(state.getLong());
-            output.writeBytes(bigIntegerBytes);
+            output.writeLong(state.getOverflow());
+            output.writeBytes(state.getLongDecimal());
+
             VARBINARY.writeSlice(out, slice);
         }
     }
 
     @Override
-    public void deserialize(Block block, int index, BigIntegerAndLongState state)
+    public void deserialize(Block block, int index, LongDecimalWithOverflowAndLongState state)
     {
         if (!block.isNull(index)) {
             SliceInput slice = VARBINARY.getSlice(block, index).getInput();
+
             state.setLong(slice.readLong());
-            byte[] bigIntegerBytes = slice.readSlice(slice.available()).getBytes();
-            state.setBigInteger(new BigInteger(bigIntegerBytes));
+            state.setOverflow(slice.readLong());
+            state.setLongDecimal(Slices.copyOf(slice.readSlice(slice.available())));
         }
     }
 }
