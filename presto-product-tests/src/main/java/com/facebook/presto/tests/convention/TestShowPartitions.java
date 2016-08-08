@@ -28,6 +28,7 @@ import org.testng.annotations.Test;
 import javax.inject.Inject;
 
 import java.sql.SQLException;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.tests.TestGroups.BASIC_SQL;
 import static com.teradata.tempto.Requirements.compose;
@@ -37,7 +38,6 @@ import static com.teradata.tempto.fulfillment.table.TableRequirements.mutableTab
 import static com.teradata.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
 import static com.teradata.tempto.fulfillment.table.hive.InlineDataSource.createStringDataSource;
 import static com.teradata.tempto.query.QueryExecutor.query;
-import static java.lang.System.currentTimeMillis;
 
 public class TestShowPartitions
         extends ProductTest
@@ -63,8 +63,8 @@ public class TestShowPartitions
         createTableDdl.append("PARTITIONED BY (part_col INT) ");
         createTableDdl.append(" STORED AS ORC");
 
-        HiveDataSource dataSource = createResourceDataSource(TABLE_NAME, "" + currentTimeMillis(), "com/facebook/presto/tests/hive/data/single_int_column/data.orc");
-        HiveDataSource invalidData = createStringDataSource(TABLE_NAME, "" + currentTimeMillis(), "INVALID DATA");
+        HiveDataSource dataSource = createResourceDataSource(TABLE_NAME, String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "com/facebook/presto/tests/hive/data/single_int_column/data.orc");
+        HiveDataSource invalidData = createStringDataSource(TABLE_NAME, String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "INVALID DATA");
         return HiveTableDefinition.builder(TABLE_NAME)
                 .setCreateTableDDLTemplate(createTableDdl.toString())
                 .addPartition("part_col = 1", invalidData)
