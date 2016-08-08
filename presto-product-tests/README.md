@@ -239,16 +239,30 @@ setup outlined below:
     presto-product-tests/conf/docker/singlenode/compose.sh logs
     ```
     
+<<<<<<< HEAD
 3. Add an IP-to-host mapping for the `hadoop-master`, `mysql` and `postgres` hosts in `/etc/hosts`.
+=======
+3. Add an IP-to-host mapping for the docker hosts in `/etc/hosts`.
+>>>>>>> Update docs about manual usage of product tests
 The format of `/etc/hosts` entries is `<ip> <host>`:
 
-    - On GNU/Linux add the following mapping: `<container ip> hadoop-master`.
-    The container IP can be obtained by running:
+    - On GNU/Linux run the following command add output of below command to `/etc/hosts`: 
 
         ```
-        docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q hadoop-master) | grep -i IPAddress
+        presto-product-tests/bin/hosts.sh singlenode
         ```
 
+    Note that above command requires [jq](https://stedolan.github.io/jq/) to be installed in your system
+
+    - On OS X add the following mapping: 
+      
+        ```
+        <docker machine ip> hadoop-master
+        <docker machine ip> mysql
+        <docker machine ip> postgres
+        ```
+
+<<<<<<< HEAD
     Similarly add mappings for MySQL and Postgres containers (`mysql` and `postgres` hostnames respectively). To check IPs for those containers run:
 
         ```
@@ -264,6 +278,8 @@ The format of `/etc/hosts` entries is `<ip> <host>`:
     Note that above command requires [jq](https://stedolan.github.io/jq/) to be installed in your system
 
     - On OS X add the following mapping: `<docker machine ip> hadoop-master mysql postgres`.
+=======
+>>>>>>> Update docs about manual usage of product tests
     Since Docker containers run inside a Linux VM, on OS X we map the VM IP to
     the `hadoop-master`, `mysql` and `postgres` hostnames. To obtain the IP of the Linux VM run:
 
