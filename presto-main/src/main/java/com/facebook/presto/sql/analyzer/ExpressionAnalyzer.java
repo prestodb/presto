@@ -122,6 +122,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBU
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MULTIPLE_FIELDS_FROM_SUBQUERY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
+import static com.facebook.presto.sql.analyzer.SemanticExceptions.throwMissingAttributeException;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_HOUR;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_MINUTE;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
@@ -306,7 +307,7 @@ public class ExpressionAnalyzer
         {
             List<Field> matches = tupleDescriptor.resolveFields(node.getName());
             if (matches.isEmpty()) {
-                throw createMissingAttributeException(node);
+                throwMissingAttributeException(node);
             }
 
             if (matches.size() > 1) {
@@ -344,7 +345,7 @@ public class ExpressionAnalyzer
                     if (isReferenceToOuterRelation(context.getContext(), qualifiedName)) {
                         throw new SemanticException(NOT_SUPPORTED, node, "Correlated queries not yet supported. Invalid column reference: '%s'", qualifiedName);
                     }
-                    throw createMissingAttributeException(node);
+                    throwMissingAttributeException(node, qualifiedName);
                 }
             }
 
@@ -363,7 +364,7 @@ public class ExpressionAnalyzer
                 }
             }
             if (rowFieldType == null) {
-                throw createMissingAttributeException(node);
+                throwMissingAttributeException(node);
             }
 
             expressionTypes.put(node, rowFieldType);
@@ -397,11 +398,6 @@ public class ExpressionAnalyzer
                 current = current.getParent().orElse(null);
             }
             return false;
-        }
-
-        private SemanticException createMissingAttributeException(Expression node)
-        {
-            return new SemanticException(MISSING_ATTRIBUTE, node, "Column '%s' cannot be resolved", node);
         }
 
         @Override
