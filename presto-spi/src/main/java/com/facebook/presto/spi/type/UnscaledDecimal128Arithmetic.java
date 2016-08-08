@@ -226,9 +226,27 @@ public final class UnscaledDecimal128Arithmetic
 
     public static void add(Slice left, Slice right, Slice result)
     {
+        long overflow = addReturnOverflow(left, right, result);
+        if (overflow != 0) {
+            throwOverflowException();
+        }
+    }
+
+    /**
+     * Instead of throwing overflow exception, this function returns:
+     *     0 when there was no overflow
+     *     +1 when there was overflow
+     *     -1 when there was underflow
+     */
+    public static long addReturnOverflow(Slice left, Slice right, Slice result)
+    {
+        long overflow = 0;
         if (!(isNegative(left) ^ isNegative(right))) {
             // either both negative or both positive
-            addUnsigned(left, right, result, isNegative(left));
+            overflow = addUnsignedReturnOverflow(left, right, result, isNegative(left));
+            if (isNegative(left)) {
+                overflow = -overflow;
+            }
         }
         else {
             int compare = compareUnsigned(left, right);
@@ -242,6 +260,7 @@ public final class UnscaledDecimal128Arithmetic
                 clearDecimal(result);
             }
         }
+        return overflow;
     }
 
     public static Slice subtract(Slice left, Slice right)
@@ -255,7 +274,9 @@ public final class UnscaledDecimal128Arithmetic
     {
         if (isNegative(left) ^ isNegative(right)) {
             // only one is negative
-            addUnsigned(left, right, result, isNegative(left));
+            if (addUnsignedReturnOverflow(left, right, result, isNegative(left)) != 0) {
+                throwOverflowException();
+            }
         }
         else {
             int compare = compareUnsigned(left, right);
@@ -272,9 +293,9 @@ public final class UnscaledDecimal128Arithmetic
     }
 
     /**
-     * This method ignores signs of the left and right.
+     * This method ignores signs of the left and right. Returns overflow value.
      */
-    private static void addUnsigned(Slice left, Slice right, Slice result, boolean resultNegative)
+    private static long addUnsignedReturnOverflow(Slice left, Slice right, Slice result, boolean resultNegative)
     {
         int l0 = getInt(left, 0);
         int l1 = getInt(left, 1);
@@ -305,9 +326,7 @@ public final class UnscaledDecimal128Arithmetic
 
         pack(result, z0, z1, z2, z3, resultNegative);
 
-        if (product >> 31 != 0) {
-            throwOverflowException();
-        }
+        return product >> 31;
     }
 
     /**
@@ -746,6 +765,11 @@ public final class UnscaledDecimal128Arithmetic
         setRawLong(result, 1, high | (negative ? SIGN_LONG_MASK : 0));
     }
 
+    public static void throwOverflowException()
+    {
+        throw new ArithmeticException("Decimal overflow");
+    }
+
     private static boolean exceedsOrEqualTenToThirtyEight(int v0, int v1, int v2, int v3)
     {
         // 10**38=
@@ -783,11 +807,6 @@ public final class UnscaledDecimal128Arithmetic
 
         long low = getLong(decimal, 0);
         return low < 0 || low >= 0x098a224000000000L;
-    }
-
-    private static void throwOverflowException()
-    {
-        throw new ArithmeticException("Decimal overflow");
     }
 
     private static byte[] reverse(final byte[] a)
