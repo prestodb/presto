@@ -61,6 +61,7 @@ import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.MapConstructor;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
@@ -128,6 +129,7 @@ import static com.facebook.presto.type.ArrayParametricType.ARRAY;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static com.facebook.presto.type.JsonType.JSON;
+import static com.facebook.presto.type.MapParametricType.MAP;
 import static com.facebook.presto.type.RowType.RowField;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
@@ -611,6 +613,31 @@ public class ExpressionAnalyzer
             Type arrayType = typeManager.getParameterizedType(ARRAY.getName(), ImmutableList.of(TypeSignatureParameter.of(type.getTypeSignature())));
             expressionTypes.put(node, arrayType);
             return arrayType;
+        }
+
+        @Override
+        protected Type visitMapConstructor(MapConstructor node, StackableAstVisitorContext<AnalysisContext> context)
+        {
+            List<Expression> keys = node.getKeys();
+            ImmutableList.Builder<TypeSignature> keyTypes = ImmutableList.builder();
+
+            for (Expression keyExpression : keys) {
+                keyTypes.add(process(keyExpression, context).getTypeSignature());
+            }
+
+            Type keyType = coerceToSingleType(context, "All MAP keys must be the same type", keys);
+
+            List<Expression> values = node.getValues();
+            ImmutableList.Builder<TypeSignature> valueTypes = ImmutableList.builder();
+
+            for (Expression valueExpression : values) {
+                valueTypes.add(process(valueExpression, context).getTypeSignature());
+            }
+
+            Type valueType = coerceToSingleType(context, "All MAP values must be the same type", values);
+            Type mapType = typeManager.getParameterizedType(MAP.getName(), ImmutableList.of(keyType.getTypeSignature(), valueType.getTypeSignature()), ImmutableList.of());
+            expressionTypes.put(node, mapType);
+            return mapType;
         }
 
         @Override

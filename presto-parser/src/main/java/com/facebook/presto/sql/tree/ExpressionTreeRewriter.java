@@ -17,7 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import java.util.Iterator;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 public final class ExpressionTreeRewriter<C>
 {
@@ -151,6 +153,20 @@ public final class ExpressionTreeRewriter<C>
             }
 
             return node;
+        }
+
+        @Override
+        protected Expression visitMapConstructor(MapConstructor node, Context<C> context)
+        {
+            QualifiedName mapConstructorName = QualifiedName.of(MapConstructor.MAP_CONSTRUCTOR);
+            QualifiedName arrayConstructorName = QualifiedName.of(ArrayConstructor.ARRAY_CONSTRUCTOR);
+            List<Expression> arguments = ImmutableList.of(
+                    new FunctionCall(arrayConstructorName,
+                            node.getKeys().stream().map(key -> rewrite(key, context.get())).collect(Collectors.toList())),
+                    new FunctionCall(arrayConstructorName,
+                            node.getValues().stream().map(value -> rewrite(value, context.get())).collect(Collectors.toList()))
+            );
+            return new FunctionCall(mapConstructorName, arguments);
         }
 
         @Override

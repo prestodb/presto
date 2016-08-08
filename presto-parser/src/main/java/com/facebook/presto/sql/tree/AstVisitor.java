@@ -362,6 +362,11 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
+    protected R visitMapConstructor(MapConstructor node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitSubscriptExpression(SubscriptExpression node, C context)
     {
         return visitExpression(node, context);
