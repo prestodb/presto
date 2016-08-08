@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public final class InMemoryInsertTableHandle
@@ -35,5 +36,13 @@ public final class InMemoryInsertTableHandle
     public InMemoryTableHandle getTable()
     {
         return table;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("table", table)
+                .toString();
     }
 }

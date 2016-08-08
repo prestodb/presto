@@ -24,6 +24,8 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+
 public final class InMemoryColumnHandle
         implements ColumnHandle
 {
@@ -100,5 +102,15 @@ public final class InMemoryColumnHandle
             columnIndex++;
         }
         return columnHandles.build();
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("name", name)
+                .add("columnType", columnType)
+                .add("columnIndex", columnIndex)
+                .toString();
     }
 }

@@ -23,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 import java.util.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -109,5 +110,16 @@ public final class InMemoryTableHandle
         InMemoryTableHandle other = (InMemoryTableHandle) obj;
         return Objects.equals(this.getSchemaName(), other.getSchemaName()) &&
                 Objects.equals(this.getTableName(), other.getTableName());
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("connectorId", connectorId)
+                .add("schemaName", schemaName)
+                .add("tableName", tableName)
+                .add("columnHandles", columnHandles)
+                .toString();
     }
 }
