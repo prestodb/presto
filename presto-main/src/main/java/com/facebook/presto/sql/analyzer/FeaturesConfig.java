@@ -18,6 +18,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
+import io.airlift.units.DataSize;
 
 import javax.validation.constraints.Min;
 
@@ -55,6 +56,7 @@ public class FeaturesConfig
     private int re2JDfaStatesLimit = Integer.MAX_VALUE;
     private int re2JDfaRetries = 5;
     private RegexLibrary regexLibrary = JONI;
+    private DataSize operatorMemoryLimitBeforeSpill = new DataSize(4, DataSize.Unit.MEGABYTE);
 
     public boolean isResourceGroupsEnabled()
     {
@@ -252,6 +254,18 @@ public class FeaturesConfig
     public FeaturesConfig setRegexLibrary(RegexLibrary regexLibrary)
     {
         this.regexLibrary = regexLibrary;
+        return this;
+    }
+
+    public DataSize getOperatorMemoryLimitBeforeSpill()
+    {
+        return operatorMemoryLimitBeforeSpill;
+    }
+
+    @Config("experimental.operator-memory-limit-before-spill")
+    public FeaturesConfig setOperatorMemoryLimitBeforeSpill(DataSize operatorMemoryLimitBeforeSpill)
+    {
+        this.operatorMemoryLimitBeforeSpill = operatorMemoryLimitBeforeSpill;
         return this;
     }
 }

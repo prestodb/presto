@@ -15,6 +15,7 @@ package com.facebook.presto.sql.analyzer;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
+import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -48,7 +49,8 @@ public class TestFeaturesConfig
                 .setLegacyArrayAgg(false)
                 .setRegexLibrary(JONI)
                 .setRe2JDfaStatesLimit(Integer.MAX_VALUE)
-                .setRe2JDfaRetries(5));
+                .setRe2JDfaRetries(5)
+                .setOperatorMemoryLimitBeforeSpill(DataSize.valueOf("4MB")));
     }
 
     @Test
@@ -71,6 +73,7 @@ public class TestFeaturesConfig
                 .put("regex-library", "RE2J")
                 .put("re2j.dfa-states-limit", "42")
                 .put("re2j.dfa-retries", "42")
+                .put("experimental.operator-memory-limit-before-spill", "100MB")
                 .build();
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("experimental-syntax-enabled", "true")
@@ -89,6 +92,7 @@ public class TestFeaturesConfig
                 .put("regex-library", "RE2J")
                 .put("re2j.dfa-states-limit", "42")
                 .put("re2j.dfa-retries", "42")
+                .put("experimental.operator-memory-limit-before-spill", "100MB")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -107,7 +111,8 @@ public class TestFeaturesConfig
                 .setLegacyArrayAgg(true)
                 .setRegexLibrary(RE2J)
                 .setRe2JDfaStatesLimit(42)
-                .setRe2JDfaRetries(42);
+                .setRe2JDfaRetries(42)
+                .setOperatorMemoryLimitBeforeSpill(DataSize.valueOf("100MB"));
 
         assertFullMapping(properties, expected);
         assertDeprecatedEquivalence(FeaturesConfig.class, properties, propertiesLegacy);
