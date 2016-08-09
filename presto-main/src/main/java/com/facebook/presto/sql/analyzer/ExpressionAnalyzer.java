@@ -23,6 +23,7 @@ import com.facebook.presto.security.DenyAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalParseResult;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
@@ -40,6 +41,7 @@ import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BinaryLiteral;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.CharLiteral;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CurrentTime;
@@ -612,6 +614,13 @@ public class ExpressionAnalyzer
         protected Type visitStringLiteral(StringLiteral node, StackableAstVisitorContext<AnalysisContext> context)
         {
             VarcharType type = VarcharType.createVarcharType(SliceUtf8.countCodePoints(node.getSlice()));
+            expressionTypes.put(node, type);
+            return type;
+        }
+
+        protected Type visitCharLiteral(CharLiteral node, StackableAstVisitorContext<AnalysisContext> context)
+        {
+            CharType type = CharType.createCharType(SliceUtf8.countCodePoints(node.getSlice()));
             expressionTypes.put(node, type);
             return type;
         }

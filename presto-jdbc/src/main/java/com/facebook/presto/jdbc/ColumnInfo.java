@@ -213,6 +213,8 @@ class ColumnInfo
                 return Types.DOUBLE;
             case "varchar":
                 return Types.LONGNVARCHAR;
+            case "char":
+                return Types.CHAR;
             case "varbinary":
                 return Types.LONGVARBINARY;
             case "time":

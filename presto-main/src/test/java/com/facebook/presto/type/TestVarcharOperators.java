@@ -42,18 +42,6 @@ public class TestVarcharOperators
     }
 
     @Test
-    public void testCast()
-            throws Exception
-    {
-        assertFunction("cast('bar' as varchar(20))", createVarcharType(20), "bar");
-        assertFunction("cast(cast('bar' as varchar(20)) as varchar(30))", createVarcharType(30), "bar");
-        assertFunction("cast(cast('bar' as varchar(20)) as varchar)", VARCHAR, "bar");
-
-        assertFunction("cast('banana' as varchar(3))", createVarcharType(3), "ban");
-        assertFunction("cast(cast('banana' as varchar(20)) as varchar(3))", createVarcharType(3), "ban");
-    }
-
-    @Test
     public void testAdd()
             throws Exception
     {

@@ -44,6 +44,7 @@ import static com.facebook.presto.connector.system.jdbc.FilterUtil.toSession;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -182,6 +183,9 @@ public class ColumnJdbcTable
         }
         if (isVarcharType(type)) {
             return Types.LONGNVARCHAR;
+        }
+        if (isCharType(type)) {
+            return Types.CHAR;
         }
         if (type.equals(VARBINARY)) {
             return Types.LONGVARBINARY;
