@@ -117,8 +117,7 @@ public class ImplementIntersectAndExceptAsUnion
     private static class Rewriter
             extends SimplePlanRewriter<Void>
     {
-        private static final String INTERSECT_MARKER = "intersect_marker";
-        private static final String EXCEPT_MARKER = "except_marker";
+        private static final String MARKER = "marker";
         private static final Signature COUNT_AGGREGATION = new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BOOLEAN));
         private final PlanNodeIdAllocator idAllocator;
         private final SymbolAllocator symbolAllocator;
@@ -136,7 +135,7 @@ public class ImplementIntersectAndExceptAsUnion
                     .map(rewriteContext::rewrite)
                     .collect(toList());
 
-            List<Symbol> markers = allocateSymbols(sources.size(), INTERSECT_MARKER, BOOLEAN);
+            List<Symbol> markers = allocateSymbols(sources.size(), MARKER, BOOLEAN);
 
             // identity projection for all the fields in each of the sources plus marker columns
             List<PlanNode> withMarkers = appendMarkers(markers, sources, node);
@@ -161,7 +160,7 @@ public class ImplementIntersectAndExceptAsUnion
                     .map(rewriteContext::rewrite)
                     .collect(toList());
 
-            List<Symbol> markers = allocateSymbols(sources.size(), EXCEPT_MARKER, BOOLEAN);
+            List<Symbol> markers = allocateSymbols(sources.size(), MARKER, BOOLEAN);
 
             // identity projection for all the fields in each of the sources plus marker columns
             List<PlanNode> withMarkers = appendMarkers(markers, sources, node);
@@ -174,7 +173,7 @@ public class ImplementIntersectAndExceptAsUnion
             // add count aggregations and filter rows where count for the first source is >= 1 and all others are 0
             List<Symbol> aggregationOutputs = allocateSymbols(markers.size(), "count", BIGINT);
             AggregationNode aggregation = computeCounts(union, outputs, markers, aggregationOutputs);
-            FilterNode filterNode = addFilterForExcept(aggregation, aggregationOutputs);
+            FilterNode filterNode = addFilterForExcept(aggregation, aggregationOutputs.get(0), aggregationOutputs.subList(1, aggregationOutputs.size()));
 
             return project(filterNode, outputs);
         }
@@ -258,12 +257,12 @@ public class ImplementIntersectAndExceptAsUnion
             return new FilterNode(idAllocator.getNextId(), aggregation, ExpressionUtils.and(predicates));
         }
 
-        private FilterNode addFilterForExcept(AggregationNode aggregation, List<Symbol> symbols)
+        private FilterNode addFilterForExcept(AggregationNode aggregation, Symbol firstSource, List<Symbol> remainingSources)
         {
             ImmutableList.Builder<Expression> predicatesBuilder = ImmutableList.builder();
-            predicatesBuilder.add(new ComparisonExpression(GREATER_THAN_OR_EQUAL, symbols.get(0).toSymbolReference(), new GenericLiteral("BIGINT", "1")));
-            for (int i = 1; i < symbols.size(); i++) {
-                predicatesBuilder.add(new ComparisonExpression(EQUAL, symbols.get(i).toSymbolReference(), new GenericLiteral("BIGINT", "0")));
+            predicatesBuilder.add(new ComparisonExpression(GREATER_THAN_OR_EQUAL, firstSource.toSymbolReference(), new GenericLiteral("BIGINT", "1")));
+            for (Symbol symbol : remainingSources) {
+                predicatesBuilder.add(new ComparisonExpression(EQUAL, symbol.toSymbolReference(), new GenericLiteral("BIGINT", "0")));
             }
 
             return new FilterNode(idAllocator.getNextId(), aggregation, ExpressionUtils.and(predicatesBuilder.build()));
