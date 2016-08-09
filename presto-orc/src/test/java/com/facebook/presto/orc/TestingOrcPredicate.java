@@ -90,6 +90,8 @@ public final class TestingOrcPredicate
                 return new BasicOrcPredicate<>(expectedValues, Object.class);
             case STRING:
                 return new StringOrcPredicate(expectedValues);
+            case CHAR:
+                return new CharOrcPredicate(expectedValues);
             case DECIMAL:
                 return new DecimalOrcPredicate(expectedValues);
             default:
@@ -314,6 +316,51 @@ public final class TestingOrcPredicate
                 // verify max
                 Slice chunkMax = Ordering.natural().nullsFirst().max(slices);
                 if (columnStatistics.getStringStatistics().getMax().compareTo(chunkMax) < 0) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
+
+    public static class CharOrcPredicate
+            extends BasicOrcPredicate<String>
+    {
+        public CharOrcPredicate(Iterable<?> expectedValues)
+        {
+            super(expectedValues, String.class);
+        }
+
+        @Override
+        protected boolean chunkMatchesStats(List<String> chunk, ColumnStatistics columnStatistics)
+        {
+            assertNull(columnStatistics.getBooleanStatistics());
+            assertNull(columnStatistics.getIntegerStatistics());
+            assertNull(columnStatistics.getDoubleStatistics());
+            assertNull(columnStatistics.getDateStatistics());
+
+            // check basic statistics
+            if (!super.chunkMatchesStats(chunk, columnStatistics)) {
+                return false;
+            }
+
+            List<String> strings = chunk.stream()
+                    .filter(Objects::nonNull)
+                    .map(String::trim)
+                    .collect(toList());
+
+            // statistics can be missing for any reason
+            if (columnStatistics.getStringStatistics() != null) {
+                // verify min
+                String chunkMin = Ordering.natural().nullsLast().min(strings);
+                if (columnStatistics.getStringStatistics().getMin().toStringUtf8().trim().compareTo(chunkMin) > 0) {
+                    return false;
+                }
+
+                // verify max
+                String chunkMax = Ordering.natural().nullsFirst().max(strings);
+                if (columnStatistics.getStringStatistics().getMax().toStringUtf8().trim().compareTo(chunkMax) < 0) {
                     return false;
                 }
             }
