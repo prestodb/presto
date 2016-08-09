@@ -95,6 +95,10 @@ final class ShardIterator
             close();
             throw metadataError(e);
         }
+        catch (Throwable t) {
+            close();
+            throw t;
+        }
     }
 
     @Override
