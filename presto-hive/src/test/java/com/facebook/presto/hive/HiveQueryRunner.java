@@ -74,6 +74,12 @@ public final class HiveQueryRunner
     public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> extraProperties)
             throws Exception
     {
+        return createQueryRunner(tables, extraProperties, "sql-standard", ImmutableMap.of());
+    }
+
+    public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> extraProperties, String security, Map<String, String> extraHiveProperties)
+            throws Exception
+    {
         assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=Asia/Katmandu to your JVM arguments");
 
         DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession(), 4, extraProperties);
@@ -93,13 +99,14 @@ public final class HiveQueryRunner
             queryRunner.installPlugin(new HivePlugin(HIVE_CATALOG, new BridgingHiveMetastore(metastore)));
 
             Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
+                    .putAll(extraHiveProperties)
                     .put("hive.metastore.uri", "thrift://localhost:8080")
                     .put("hive.allow-add-column", "true")
                     .put("hive.allow-drop-table", "true")
                     .put("hive.allow-rename-table", "true")
                     .put("hive.allow-rename-column", "true")
                     .put("hive.time-zone", TIME_ZONE.getID())
-                    .put("hive.security", "sql-standard")
+                    .put("hive.security", security)
                     .build();
             Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
                     .putAll(hiveProperties)
