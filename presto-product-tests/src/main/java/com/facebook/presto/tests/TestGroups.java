@@ -61,6 +61,7 @@ public final class TestGroups
     public static final String SKIP_ON_CDH = "skip_on_cdh";
     public static final String TLS = "tls";
     public static final String ROLES = "roles";
+    public static final String PREPARED_STATEMENTS = "prepared_statements";
 
     private TestGroups() {}
 }

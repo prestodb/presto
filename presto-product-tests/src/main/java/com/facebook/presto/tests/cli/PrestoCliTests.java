@@ -29,9 +29,12 @@ import java.io.File;
 import java.io.IOException;
 
 import static com.facebook.presto.tests.TestGroups.CLI;
+import static com.facebook.presto.tests.TestGroups.PREPARED_STATEMENTS;
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Strings.repeat;
 import static com.teradata.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static com.teradata.tempto.process.CliProcess.trimLines;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -147,6 +150,36 @@ public class PrestoCliTests
 
         launchPrestoCliWithServerArgument("--file", temporayFile.getAbsolutePath());
         assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
+    }
+
+    @Test(groups = {CLI, PREPARED_STATEMENTS}, timeOut = TIMEOUT)
+    public void shouldExecuteSimplePreparedStatement()
+            throws IOException, InterruptedException
+    {
+        launchPrestoCliWithServerArgument("--execute", "prepare my_select1 from select * from hive.default.nation; execute my_select1;");
+        assertThat(trimLines(presto.readRemainingErrorLines())).contains("PREPARE");
+        assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
+    }
+
+    @Test(groups = {CLI, PREPARED_STATEMENTS}, timeOut = TIMEOUT)
+    public void shouldExecuteLongPreparedStatement()
+            throws IOException, InterruptedException
+    {
+        launchPrestoCliWithServerArgument(
+                "--execute",
+                format("prepare my_select2 from select * from hive.default.nation where n_name != '%s'; execute my_select2;", repeat("a", 65536)));
+        assertThat(trimLines(presto.readRemainingErrorLines())).contains("PREPARE");
+        assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
+    }
+
+    @Test(groups = {CLI, PREPARED_STATEMENTS}, timeOut = TIMEOUT)
+    public void shouldAddAndDeallocateLongPreparedStatement()
+            throws IOException, InterruptedException
+    {
+        launchPrestoCliWithServerArgument(
+                "--execute",
+                format("prepare my_select2 from select * from hive.default.nation where n_name != '%s'; deallocate prepare my_select2;", repeat("a", 65536)));
+        assertThat(trimLines(presto.readRemainingErrorLines())).containsExactly("PREPARE", "DEALLOCATE");
     }
 
     private void launchPrestoCliWithServerArgument(String... arguments)
