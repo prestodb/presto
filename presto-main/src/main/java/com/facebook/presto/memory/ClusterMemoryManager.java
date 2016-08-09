@@ -151,13 +151,14 @@ public class ClusterMemoryManager
         }
 
         boolean queryKilled = false;
-        long totalBytes = 0;
+
+        long totalBytes = getTotalMemoryReservation(queries);
+
         for (QueryExecution query : queries) {
             // TODO: revoke revocable memory instead of kill
             long bytes = query.getTotalMemoryReservation() + query.getTotalRevocableMemoryReservation();
             DataSize sessionMaxQueryMemory = getQueryMaxMemory(query.getSession());
             long queryMemoryLimit = Math.min(maxQueryMemory.toBytes(), sessionMaxQueryMemory.toBytes());
-            totalBytes += bytes;
             if (resourceOvercommit(query.getSession()) && outOfMemory) {
                 // If a query has requested resource overcommit, only kill it if the cluster has run out of memory
                 DataSize memory = succinctBytes(bytes);
@@ -223,6 +224,13 @@ public class ClusterMemoryManager
                 query.fail(new ExceededCpuLimitException(limit));
             }
         }
+    }
+
+    private long getTotalMemoryReservation(List<QueryExecution> queries)
+    {
+        return queries.stream()
+                .mapToLong(query -> query.getTotalMemoryReservation() + query.getTotalRevocableMemoryReservation())
+                .sum();
     }
 
     @VisibleForTesting
