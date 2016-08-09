@@ -38,6 +38,8 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
+import static com.facebook.presto.spi.type.Chars.isCharType;
+import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -159,6 +161,9 @@ public class SliceDirectStreamReader
                 Slice value = Slices.wrappedBuffer(data, offset, length);
                 if (isVarcharType(type)) {
                     value = truncateToLength(value, type);
+                }
+                if (isCharType(type)) {
+                    value = trimSpacesAndTruncateToLength(value, type);
                 }
                 sliceVector[i] = value;
                 offset += length;
