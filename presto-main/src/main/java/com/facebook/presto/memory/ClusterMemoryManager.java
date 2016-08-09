@@ -139,7 +139,7 @@ public class ClusterMemoryManager
         changeListeners.computeIfAbsent(poolId, id -> new ArrayList<>()).add(listener);
     }
 
-    public synchronized void process(Iterable<QueryExecution> queries)
+    public synchronized void process(List<QueryExecution> queries)
     {
         if (!enabled) {
             return;
