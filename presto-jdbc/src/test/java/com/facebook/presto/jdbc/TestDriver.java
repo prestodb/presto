@@ -111,10 +111,11 @@ public class TestDriver
                         ", cast('hello' as varbinary) _varbinary" +
                         ", DECIMAL '1234567890.1234567' _decimal_short" +
                         ", DECIMAL '.12345678901234567890123456789012345678' _decimal_long" +
-                        ", approx_set(42) _hll")) {
+                        ", approx_set(42) _hll" +
+                        ", cast('foo' as char(5)) _char")) {
                     ResultSetMetaData metadata = rs.getMetaData();
 
-                    assertEquals(metadata.getColumnCount(), 9);
+                    assertEquals(metadata.getColumnCount(), 10);
 
                     assertEquals(metadata.getColumnLabel(1), "_integer");
                     assertEquals(metadata.getColumnType(1), Types.INTEGER);
@@ -142,6 +143,9 @@ public class TestDriver
 
                     assertEquals(metadata.getColumnLabel(9), "_hll");
                     assertEquals(metadata.getColumnType(9), Types.JAVA_OBJECT);
+
+                    assertEquals(metadata.getColumnLabel(10), "_char");
+                    assertEquals(metadata.getColumnType(10), Types.CHAR);
 
                     assertTrue(rs.next());
 
@@ -201,6 +205,11 @@ public class TestDriver
                     assertInstanceOf(rs.getObject("_hll"), byte[].class);
                     assertInstanceOf(rs.getBytes(9), byte[].class);
                     assertInstanceOf(rs.getBytes("_hll"), byte[].class);
+
+                    assertEquals(rs.getObject(10), "foo  ");
+                    assertEquals(rs.getObject("_char"), "foo  ");
+                    assertEquals(rs.getString(10), "foo  ");
+                    assertEquals(rs.getString("_char"), "foo  ");
 
                     assertFalse(rs.next());
                 }

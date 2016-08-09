@@ -25,6 +25,7 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.CallArgument;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.CharLiteral;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CreateTable;
@@ -206,6 +207,7 @@ public class TestSqlParser
         assertExpression("TIMESTAMP" + " 'abc'", new TimestampLiteral("abc"));
         assertExpression("INTERVAL '33' day", new IntervalLiteral("33", Sign.POSITIVE, IntervalField.DAY, Optional.empty()));
         assertExpression("INTERVAL '33' day to second", new IntervalLiteral("33", Sign.POSITIVE, IntervalField.DAY, Optional.of(IntervalField.SECOND)));
+        assertExpression("CHAR 'abc'", new CharLiteral("abc"));
     }
 
     @Test

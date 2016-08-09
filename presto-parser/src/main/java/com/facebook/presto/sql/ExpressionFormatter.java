@@ -23,6 +23,7 @@ import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BinaryLiteral;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.CharLiteral;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Cube;
@@ -161,6 +162,12 @@ public final class ExpressionFormatter
 
         @Override
         protected String visitStringLiteral(StringLiteral node, Boolean unmangleNames)
+        {
+            return formatStringLiteral(node.getValue());
+        }
+
+        @Override
+        protected String visitCharLiteral(CharLiteral node, Boolean unmangleNames)
         {
             return formatStringLiteral(node.getValue());
         }

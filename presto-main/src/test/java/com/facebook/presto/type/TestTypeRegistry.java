@@ -27,6 +27,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -275,6 +276,8 @@ public class TestTypeRegistry
         builder.add(createDecimalType(38, 38));
         builder.add(createVarcharType(0));
         builder.add(createUnboundedVarcharType());
+        builder.add(createCharType(0));
+        builder.add(createCharType(42));
         return builder.build();
     }
 
