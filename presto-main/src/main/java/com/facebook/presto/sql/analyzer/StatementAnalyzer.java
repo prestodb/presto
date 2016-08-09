@@ -436,9 +436,6 @@ class StatementAnalyzer
     @Override
     protected Scope visitUnnest(Unnest node, Scope scope)
     {
-        if (scope.getLateralScope().isPresent()) {
-            scope = scope.getLateralScope().get();
-        }
         ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
         for (Expression expression : node.getExpressions()) {
             ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, scope);
@@ -752,7 +749,7 @@ class StatementAnalyzer
         }
 
         Scope left = process(node.getLeft(), scope);
-        Scope right = process(node.getRight(), Scope.builder().withParent(scope).withLateralScope(left).build());
+        Scope right = process(node.getRight(), isUnnestRelation(node.getRight()) ? left : scope);
 
         Scope output = createScope(node, scope, left.getRelationType().joinWith(right.getRelationType()));
 
@@ -875,6 +872,14 @@ class StatementAnalyzer
         }
 
         return output;
+    }
+
+    private static boolean isUnnestRelation(Relation node)
+    {
+        if (node instanceof AliasedRelation) {
+            return isUnnestRelation(((AliasedRelation) node).getRelation());
+        }
+        return node instanceof Unnest;
     }
 
     private void addCoercionForJoinCriteria(Join node, Expression leftExpression, Expression rightExpression)
