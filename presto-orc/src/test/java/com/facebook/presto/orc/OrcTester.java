@@ -40,6 +40,7 @@ import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.common.type.HiveChar;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
@@ -57,6 +58,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.StandardMapObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StandardStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
+import org.apache.hadoop.hive.serde2.typeinfo.CharTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
@@ -196,7 +198,7 @@ public class OrcTester
         }
 
         // values wrapped in map
-        if (mapTestsEnabled) {
+        if (mapTestsEnabled && type.isComparable()) {
             testMapRoundTrip(objectInspector, readValues, type);
         }
 
@@ -317,6 +319,10 @@ public class OrcTester
                 }
                 if (hasType(objectInspector, PrimitiveCategory.DECIMAL)) {
                     // DWRF doesn't support decimals
+                    return;
+                }
+                if (hasType(objectInspector, PrimitiveCategory.CHAR)) {
+                    // DWRF doesn't support chars
                     return;
                 }
                 metadataReader = new DwrfMetadataReader();
@@ -551,6 +557,8 @@ public class OrcTester
                         return HiveDecimal.create(((SqlDecimal) value).toBigDecimal());
                     case STRING:
                         return value;
+                    case CHAR:
+                        return new HiveChar(value.toString(), ((CharTypeInfo) typeInfo).getLength());
                     case DATE:
                         int days = ((SqlDate) value).getDays();
                         LocalDate localDate = LocalDate.ofEpochDay(days);
