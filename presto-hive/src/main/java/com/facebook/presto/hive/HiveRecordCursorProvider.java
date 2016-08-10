@@ -21,6 +21,7 @@ import org.apache.hadoop.fs.Path;
 import org.joda.time.DateTimeZone;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
@@ -38,5 +39,6 @@ public interface HiveRecordCursorProvider
             List<HivePartitionKey> partitionKeys,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
-            TypeManager typeManager);
+            TypeManager typeManager,
+            Map<Integer, HiveType> mismatchColumnTypes);
 }

@@ -24,6 +24,7 @@ import org.apache.hadoop.mapred.RecordReader;
 import org.joda.time.DateTimeZone;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
@@ -53,7 +54,8 @@ public class GenericHiveRecordCursorProvider
             List<HivePartitionKey> partitionKeys,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            Map<Integer, HiveType> mismatchColumnTypes)
     {
         RecordReader<?, ?> recordReader = hdfsEnvironment.doAs(session.getUser(),
                 () -> HiveUtil.createRecordReader(configuration, path, start, length, schema, columns));

@@ -482,6 +482,7 @@ public abstract class AbstractTestHiveClient
                 hdfsEnvironment,
                 new HadoopDirectoryLister(),
                 newDirectExecutorService(),
+                new HiveCoercionPolicy(),
                 maxOutstandingSplits,
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),
@@ -2375,7 +2376,7 @@ public abstract class AbstractTestHiveClient
         return handle;
     }
 
-    private MaterializedResult readTable(
+    protected MaterializedResult readTable(
             ConnectorTableHandle tableHandle,
             List<ColumnHandle> columnHandles,
             ConnectorSession session,

@@ -141,7 +141,8 @@ class ColumnarBinaryHiveRecordCursor<K>
             List<HivePartitionKey> partitionKeys,
             List<HiveColumnHandle> columns,
             DateTimeZone hiveStorageTimeZone,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            Map<Integer, HiveType> mismatchColumnTypes)
     {
         requireNonNull(recordReader, "recordReader is null");
         checkArgument(totalBytes >= 0, "totalBytes is negative");
@@ -179,6 +180,7 @@ class ColumnarBinaryHiveRecordCursor<K>
 
         for (int i = 0; i < columns.size(); i++) {
             HiveColumnHandle column = columns.get(i);
+            int columnIndex = column.getHiveColumnIndex();
 
             names[i] = column.getName();
             types[i] = typeManager.getType(column.getTypeSignature());
@@ -188,8 +190,12 @@ class ColumnarBinaryHiveRecordCursor<K>
                 fieldInspectors[i] = rowInspector.getStructFieldRef(column.getName()).getFieldObjectInspector();
             }
 
-            hiveColumnIndexes[i] = column.getHiveColumnIndex();
+            hiveColumnIndexes[i] = columnIndex;
             isPartitionColumn[i] = column.isPartitionKey();
+
+            if (mismatchColumnTypes.containsKey(columnIndex)) {
+                hiveTypes[i] = mismatchColumnTypes.get(columnIndex);
+            }
         }
 
         // parse requested partition columns
