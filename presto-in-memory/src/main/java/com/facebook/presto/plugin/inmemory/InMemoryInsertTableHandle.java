@@ -18,6 +18,8 @@ import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import static java.util.Objects.requireNonNull;
+
 public final class InMemoryInsertTableHandle
         implements ConnectorInsertTableHandle
 {
@@ -26,7 +28,7 @@ public final class InMemoryInsertTableHandle
     @JsonCreator
     public InMemoryInsertTableHandle(@JsonProperty("table") InMemoryTableHandle table)
     {
-        this.table = table;
+        this.table = requireNonNull(table, "table is null");
     }
 
     @JsonProperty

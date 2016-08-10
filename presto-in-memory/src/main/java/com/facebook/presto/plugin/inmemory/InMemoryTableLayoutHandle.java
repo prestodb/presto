@@ -17,6 +17,8 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import static java.util.Objects.requireNonNull;
+
 public class InMemoryTableLayoutHandle
         implements ConnectorTableLayoutHandle
 {
@@ -25,7 +27,7 @@ public class InMemoryTableLayoutHandle
     @JsonCreator
     public InMemoryTableLayoutHandle(@JsonProperty("table") InMemoryTableHandle table)
     {
-        this.table = table;
+        this.table = requireNonNull(table, "table is null");
     }
 
     @JsonProperty

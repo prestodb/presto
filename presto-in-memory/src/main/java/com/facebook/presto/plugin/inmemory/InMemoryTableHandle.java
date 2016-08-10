@@ -23,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 import java.util.Objects;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public final class InMemoryTableHandle
@@ -48,10 +49,10 @@ public final class InMemoryTableHandle
             @JsonProperty("tableName") String tableName,
             @JsonProperty("columnHandles") List<InMemoryColumnHandle> columnHandles)
     {
-        this.connectorId = connectorId;
-        this.schemaName = schemaName;
-        this.tableName = tableName;
-        this.columnHandles = columnHandles;
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
+        this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
     }
 
     @JsonProperty
