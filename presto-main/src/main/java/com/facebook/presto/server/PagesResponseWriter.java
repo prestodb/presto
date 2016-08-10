@@ -18,8 +18,8 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.google.common.base.Throwables;
 import com.google.common.reflect.TypeToken;
-import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.RuntimeIOException;
+import io.airlift.slice.SliceOutput;
 
 import javax.inject.Inject;
 import javax.ws.rs.Produces;
@@ -88,7 +88,9 @@ public class PagesResponseWriter
             throws IOException, WebApplicationException
     {
         try {
-            PagesSerde.writePages(blockEncodingSerde, new OutputStreamSliceOutput(output), pages);
+            SliceOutput sliceOutput = new OutputStreamSliceOutputAdapter(output, 128 * 1024);
+            PagesSerde.writePages(blockEncodingSerde, sliceOutput, pages);
+            sliceOutput.flush();
         }
         catch (RuntimeIOException e) {
             // EOF exception occurs when the client disconnects while writing data
