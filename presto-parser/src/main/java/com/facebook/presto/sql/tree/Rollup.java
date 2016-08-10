@@ -27,7 +27,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
-public class Rollup
+public final class Rollup
         extends GroupingElement
 {
     private final List<QualifiedName> columns;
@@ -45,8 +45,7 @@ public class Rollup
     private Rollup(Optional<NodeLocation> location, List<QualifiedName> columns)
     {
         super(location);
-        requireNonNull(columns, "columns is null");
-        this.columns = columns;
+        this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
     }
 
     public List<QualifiedName> getColumns()
