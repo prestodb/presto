@@ -48,6 +48,11 @@ public class GroupingSets
         this.sets = sets;
     }
 
+    public List<List<QualifiedName>> getSets()
+    {
+        return sets;
+    }
+
     @Override
     public List<Set<Expression>> enumerateGroupingSets()
     {

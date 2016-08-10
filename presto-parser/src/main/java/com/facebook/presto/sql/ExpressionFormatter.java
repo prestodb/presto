@@ -629,7 +629,7 @@ public final class ExpressionFormatter
             }
             else if (groupingElement instanceof GroupingSets) {
                 result = format("GROUPING SETS (%s)", Joiner.on(", ").join(
-                        groupingElement.enumerateGroupingSets().stream()
+                        ((GroupingSets) groupingElement).getSets().stream()
                                 .map(ExpressionFormatter::formatGroupingSet)
                                 .iterator()));
             }
