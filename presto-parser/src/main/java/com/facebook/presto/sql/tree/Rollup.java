@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
@@ -57,15 +58,16 @@ public class Rollup
     public List<Set<Expression>> enumerateGroupingSets()
     {
         int numColumns = columns.size();
-        List<Set<Expression>> enumeratedGroupingSets = IntStream.range(0, numColumns)
-                .mapToObj(i -> columns.subList(0, numColumns - i)
-                        .stream()
-                        .map(QualifiedNameReference::new)
-                        .map(Expression.class::cast)
-                        .collect(toSet()))
-                .collect(toList());
-        enumeratedGroupingSets.add(ImmutableSet.of());
-        return enumeratedGroupingSets;
+        return ImmutableList.<Set<Expression>>builder()
+                .addAll(IntStream.range(0, numColumns)
+                        .mapToObj(i -> columns.subList(0, numColumns - i)
+                                .stream()
+                                .map(QualifiedNameReference::new)
+                                .map(Expression.class::cast)
+                                .collect(toSet()))
+                        .collect(toList()))
+                .add(ImmutableSet.of())
+                .build();
     }
 
     @Override
