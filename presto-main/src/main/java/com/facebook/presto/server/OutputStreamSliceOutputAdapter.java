@@ -169,12 +169,16 @@ public final class OutputStreamSliceOutputAdapter
     @Override
     public void writeBytes(Slice source, int sourceIndex, int length)
     {
-        while (length > 0) {
-            int batch = ensureBatchSize(length);
-            slice.setBytes(bufferPosition, source, sourceIndex, batch);
-            sourceIndex += batch;
-            bufferPosition += batch;
-            length -= batch;
+        // Write huge chunks direct to OutputStream
+        if (length >= MINIMUM_CHUNK_SIZE) {
+            flushBufferToOutputStream();
+            writeToOutputStream(source, sourceIndex, length);
+            bufferOffset += length;
+        }
+        else {
+            ensureWritableBytes(length);
+            slice.setBytes(bufferPosition, source, sourceIndex, length);
+            bufferPosition += length;
         }
     }
 
@@ -333,6 +337,16 @@ public final class OutputStreamSliceOutputAdapter
     {
         try {
             outputStream.write(source, sourceIndex, length);
+        }
+        catch (IOException e) {
+            throw new RuntimeIOException(e);
+        }
+    }
+
+    private void writeToOutputStream(Slice source, int sourceIndex, int length)
+    {
+        try {
+            source.getBytes(sourceIndex, outputStream, length);
         }
         catch (IOException e) {
             throw new RuntimeIOException(e);
