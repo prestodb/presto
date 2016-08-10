@@ -488,9 +488,13 @@ public class HiveMetadata
 
     private static PrincipalPrivilegeSet buildInitialPrivilegeSet(String tableOwner)
     {
-        PrivilegeGrantInfo allPrivileges = new PrivilegeGrantInfo("all", 0, tableOwner, PrincipalType.USER, true);
         return new PrincipalPrivilegeSet(
-                ImmutableMap.of(tableOwner, ImmutableList.of(allPrivileges)),
+                ImmutableMap.of(tableOwner, ImmutableList.of(
+                        new PrivilegeGrantInfo("SELECT", 0, tableOwner, PrincipalType.USER, true),
+                        new PrivilegeGrantInfo("INSERT", 0, tableOwner, PrincipalType.USER, true),
+                        new PrivilegeGrantInfo("UPDATE", 0, tableOwner, PrincipalType.USER, true),
+                        new PrivilegeGrantInfo("DELETE", 0, tableOwner, PrincipalType.USER, true)
+                )),
                 ImmutableMap.of(),
                 ImmutableMap.of());
     }
