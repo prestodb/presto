@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 import java.util.Map;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
@@ -92,7 +93,9 @@ public class TestJsonHiveHandles
 
         HiveColumnHandle columnHandle = objectMapper.readValue(json, HiveColumnHandle.class);
 
+        assertEquals(columnHandle.getClientId(), "hive");
         assertEquals(columnHandle.getName(), "column");
+        assertEquals(columnHandle.getTypeSignature(), DOUBLE.getTypeSignature());
         assertEquals(columnHandle.getHiveType(), HiveType.HIVE_FLOAT);
         assertEquals(columnHandle.getHiveColumnIndex(), -1);
         assertEquals(columnHandle.isPartitionKey(), true);
