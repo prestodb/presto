@@ -28,7 +28,7 @@ public class MaxStep extends ValueWindowFunction{
 		this.actionChannel = argumentChannels.get(0);
 		this.patternDefChannel = argumentChannels.get(1);
 	}
-
+	
     public void reset()
     {
     	this.currentSearchingItem = null;
