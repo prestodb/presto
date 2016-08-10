@@ -26,6 +26,7 @@ import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -45,7 +46,7 @@ public final class SystemPartitioningHandle
 {
     public static Partitioning singlePartition()
     {
-        return createSystemPartitioning(SystemPartitioning.FIXED, SystemPartitionFunction.SINGLE, OptionalInt.of(1), ImmutableList.of());
+        return createSystemPartitioning(SystemPartitioning.FIXED, SystemPartitionFunction.SINGLE, OptionalInt.of(1), ImmutableList.of(), ImmutableList.of());
     }
 
     public static boolean isSinglePartitioning(Partitioning partitioning)
@@ -60,12 +61,15 @@ public final class SystemPartitioningHandle
 
     public static Partitioning coordinatorOnlyPartition()
     {
-        return createSystemPartitioning(SystemPartitioning.COORDINATOR_ONLY, SystemPartitionFunction.SINGLE, OptionalInt.of(1), ImmutableList.of());
+        return createSystemPartitioning(SystemPartitioning.COORDINATOR_ONLY, SystemPartitionFunction.SINGLE, OptionalInt.of(1), ImmutableList.of(), ImmutableList.of());
     }
 
-    public static Partitioning fixedHashPartitioning(int partitionCount, List<Symbol> columns)
+    public static Partitioning fixedHashPartitioning(int partitionCount, List<Symbol> columns, List<Type> columnTypes)
     {
-        return createSystemPartitioning(SystemPartitioning.FIXED, SystemPartitionFunction.HASH, OptionalInt.of(partitionCount), columns);
+        requireNonNull(columns, "columns is null");
+        requireNonNull(columnTypes, "columnTypes is null");
+        checkArgument(columns.size() == columnTypes.size(), "columns and columnTypes must be the same size");
+        return createSystemPartitioning(SystemPartitioning.FIXED, SystemPartitionFunction.HASH, OptionalInt.of(partitionCount), columns, columnTypes);
     }
 
     public static boolean isFixedHashPartitioning(Partitioning partitioning)
@@ -105,7 +109,7 @@ public final class SystemPartitioningHandle
 
     public static Partitioning unknownPartitioning(List<Symbol> columns)
     {
-        return createSystemPartitioning(SystemPartitioning.UNKNOWN, SystemPartitionFunction.UNKNOWN, OptionalInt.empty(), columns);
+        return createSystemPartitioning(SystemPartitioning.UNKNOWN, SystemPartitionFunction.UNKNOWN, OptionalInt.empty(), columns, ImmutableList.of());
     }
 
     public static boolean isUnknownPartitioning(PartitioningHandle partitioningHandle)
@@ -144,28 +148,37 @@ public final class SystemPartitioningHandle
 
     private static Partitioning createSystemPartitioning(SystemPartitioning partitioning, SystemPartitionFunction function, OptionalInt partitionCount)
     {
-        return createSystemPartitioning(partitioning, function, partitionCount, ImmutableList.of());
+        return createSystemPartitioning(partitioning, function, partitionCount, ImmutableList.of(), ImmutableList.of());
     }
 
-    private static Partitioning createSystemPartitioning(SystemPartitioning partitioning, SystemPartitionFunction function, OptionalInt partitionCount, List<Symbol> columns)
+    private static Partitioning createSystemPartitioning(
+            SystemPartitioning partitioning,
+            SystemPartitionFunction function,
+            OptionalInt partitionCount,
+            List<Symbol> columns,
+            List<Type> columnTypes)
     {
-        return Partitioning.create(new PartitioningHandle(Optional.empty(), Optional.empty(), new SystemPartitioningHandle(partitioning, function, partitionCount)), columns);
+        SystemPartitioningHandle handle = new SystemPartitioningHandle(partitioning, function, partitionCount, columnTypes);
+        return Partitioning.create(new PartitioningHandle(Optional.empty(), Optional.empty(), handle), columns);
     }
 
     private final SystemPartitioning partitioning;
     private final SystemPartitionFunction function;
     private final OptionalInt partitionCount;
+    private final List<Type> partitioningTypes;
 
     @JsonCreator
     public SystemPartitioningHandle(
             @JsonProperty("partitioning") SystemPartitioning partitioning,
             @JsonProperty("function") SystemPartitionFunction function,
-            @JsonProperty("partitionCount") OptionalInt partitionCount)
+            @JsonProperty("partitionCount") OptionalInt partitionCount,
+            @JsonProperty("partitioningTypes") List<Type> partitioningTypes)
     {
         this.partitioning = requireNonNull(partitioning, "partitioning is null");
         this.function = requireNonNull(function, "function is null");
         this.partitionCount = requireNonNull(partitionCount, "partitionCount is null");
         checkArgument(!partitionCount.isPresent() || partitionCount.getAsInt() > 0);
+        this.partitioningTypes = ImmutableList.copyOf(requireNonNull(partitioningTypes, "partitioningTypes is null"));
     }
 
     @JsonProperty
@@ -184,6 +197,12 @@ public final class SystemPartitioningHandle
     public OptionalInt getPartitionCount()
     {
         return partitionCount;
+    }
+
+    @JsonProperty
+    public List<Type> getPartitioningTypes()
+    {
+        return partitioningTypes;
     }
 
     @Override
@@ -209,13 +228,14 @@ public final class SystemPartitioningHandle
         }
         SystemPartitioningHandle that = (SystemPartitioningHandle) o;
         return partitioning == that.partitioning &&
-                function == that.function;
+                function == that.function &&
+                partitioningTypes.equals(that.partitioningTypes);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(partitioning, function);
+        return Objects.hash(partitioning, function, partitioningTypes);
     }
 
     @Override
@@ -225,6 +245,9 @@ public final class SystemPartitioningHandle
             String functionName = function.toString();
             if (function != SystemPartitionFunction.SINGLE && partitionCount.isPresent()) {
                 functionName += "_" + partitionCount.getAsInt();
+            }
+            if (!partitioningTypes.isEmpty()) {
+                functionName += "(" + Joiner.on(", ").join(partitioningTypes) + ")";
             }
             return functionName;
         }
@@ -257,12 +280,11 @@ public final class SystemPartitioningHandle
         });
     }
 
-    public PartitionFunction getPartitionFunction(List<Type> partitionChannelTypes, boolean isHashPrecomputed, int[] bucketToPartition)
+    public PartitionFunction getPartitionFunction(boolean isHashPrecomputed, int[] bucketToPartition)
     {
-        requireNonNull(partitionChannelTypes, "partitionChannelTypes is null");
         requireNonNull(bucketToPartition, "bucketToPartition is null");
 
-        BucketFunction bucketFunction = function.createBucketFunction(partitionChannelTypes, isHashPrecomputed, bucketToPartition.length);
+        BucketFunction bucketFunction = function.createBucketFunction(partitioningTypes, isHashPrecomputed, bucketToPartition.length);
         return new PartitionFunction(bucketFunction, bucketToPartition);
     }
 

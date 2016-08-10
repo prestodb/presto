@@ -20,6 +20,7 @@ import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeSinkFact
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -219,7 +220,7 @@ public class TestLocalExchange
     @Test
     public void testPartition()
     {
-        LocalExchange exchange = new LocalExchange(fixedHashPartitioning(2, ImmutableList.of()), TYPES, ImmutableList.of(0), Optional.empty());
+        LocalExchange exchange = new LocalExchange(fixedHashPartitioning(2, ImmutableList.of(new Symbol("test")), TYPES), TYPES, ImmutableList.of(0), Optional.empty());
         assertEquals(exchange.getBufferCount(), 2);
         assertExchangeTotalBufferedBytes(exchange, 0);
 

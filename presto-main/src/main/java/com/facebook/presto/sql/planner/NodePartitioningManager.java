@@ -20,13 +20,11 @@ import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 
 import javax.inject.Inject;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -53,10 +51,7 @@ public class NodePartitioningManager
         checkArgument(partitioningProviders.putIfAbsent(connectorId, partitioningProvider) == null, "NodePartitioningProvider for connector '%s' is already registered", connectorId);
     }
 
-    public PartitionFunction getPartitionFunction(
-            Session session,
-            PartitioningScheme partitioningScheme,
-            List<Type> partitionChannelTypes)
+    public PartitionFunction getPartitionFunction(Session session, PartitioningScheme partitioningScheme)
     {
         Optional<int[]> bucketToPartition = partitioningScheme.getBucketToPartition();
         checkArgument(bucketToPartition.isPresent(), "Bucket to partition must be set before a partition function can be created");
@@ -67,7 +62,6 @@ public class NodePartitioningManager
             checkArgument(partitioningScheme.getBucketToPartition().isPresent(), "Bucket to partition must be set before a partition function can be created");
 
             return ((SystemPartitioningHandle) partitioningHandle.getConnectorHandle()).getPartitionFunction(
-                    partitionChannelTypes,
                     partitioningScheme.getHashColumn().isPresent(),
                     partitioningScheme.getBucketToPartition().get());
         }

@@ -276,11 +276,9 @@ public class LocalExecutionPlanner
         // We can convert the symbols directly into channels, because the root must be a sink and therefore the layout is fixed
         List<Integer> partitionChannels;
         List<Optional<NullableValue>> partitionConstants;
-        List<Type> partitionChannelTypes;
         if (outputPartitioningScheme.getHashColumn().isPresent()) {
             partitionChannels = ImmutableList.of(outputLayout.indexOf(outputPartitioningScheme.getHashColumn().get()));
             partitionConstants = ImmutableList.of(Optional.empty());
-            partitionChannelTypes = ImmutableList.of(BIGINT);
         }
         else {
             partitionChannels = outputPartitioningScheme.getPartitioning().getArguments().stream()
@@ -295,17 +293,9 @@ public class LocalExecutionPlanner
                         return Optional.<NullableValue>empty();
                     })
                     .collect(toImmutableList());
-            partitionChannelTypes = outputPartitioningScheme.getPartitioning().getArguments().stream()
-                    .map(argument -> {
-                        if (argument.isConstant()) {
-                            return argument.getConstant().getType();
-                        }
-                        return types.get(argument.getColumn());
-                    })
-                    .collect(toImmutableList());
         }
 
-        PartitionFunction partitionFunction = nodePartitioningManager.getPartitionFunction(session, outputPartitioningScheme, partitionChannelTypes);
+        PartitionFunction partitionFunction = nodePartitioningManager.getPartitionFunction(session, outputPartitioningScheme);
         OptionalInt nullChannel = OptionalInt.empty();
         Set<Symbol> partitioningColumns = outputPartitioningScheme.getPartitioning().getColumns();
 
