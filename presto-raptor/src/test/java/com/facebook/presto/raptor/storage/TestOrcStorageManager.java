@@ -16,6 +16,7 @@ package com.facebook.presto.raptor.storage;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
+import com.facebook.presto.orc.compression.DefaultCodecProviderFactory;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.backup.BackupManager;
 import com.facebook.presto.raptor.backup.BackupStore;
@@ -606,7 +607,8 @@ public class TestOrcStorageManager
                 DELETION_THREADS,
                 SHARD_RECOVERY_TIMEOUT,
                 maxShardRows,
-                maxFileSize);
+                maxFileSize,
+                new DefaultCodecProviderFactory());
     }
 
     private static void assertFileEquals(File actual, File expected)

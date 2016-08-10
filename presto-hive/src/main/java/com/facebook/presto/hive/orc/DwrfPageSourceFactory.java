@@ -18,6 +18,8 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePageSourceFactory;
 import com.facebook.presto.hive.HivePartitionKey;
+import com.facebook.presto.orc.compression.CodecProviderFactory;
+import com.facebook.presto.orc.compression.DefaultCodecProviderFactory;
 import com.facebook.presto.orc.metadata.DwrfMetadataReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
@@ -45,12 +47,19 @@ public class DwrfPageSourceFactory
 {
     private final TypeManager typeManager;
     private final HdfsEnvironment hdfsEnvironment;
+    private final CodecProviderFactory codecProviderFactory;
 
     @Inject
-    public DwrfPageSourceFactory(TypeManager typeManager, HdfsEnvironment hdfsEnvironment)
+    public DwrfPageSourceFactory(TypeManager typeManager, HdfsEnvironment hdfsEnvironment, CodecProviderFactory codecProviderFactory)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.codecProviderFactory = requireNonNull(codecProviderFactory, "codecProviderFactory is null");
+    }
+
+    public DwrfPageSourceFactory(TypeManager typeManager, HdfsEnvironment hdfsEnvironment)
+    {
+        this(typeManager, hdfsEnvironment, new DefaultCodecProviderFactory());
     }
 
     @Override
@@ -85,6 +94,8 @@ public class DwrfPageSourceFactory
                 typeManager,
                 getOrcMaxMergeDistance(session),
                 getOrcMaxBufferSize(session),
-                getOrcStreamBufferSize(session)));
+                getOrcStreamBufferSize(session),
+                codecProviderFactory,
+                schema));
     }
 }

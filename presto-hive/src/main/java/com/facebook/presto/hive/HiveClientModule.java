@@ -22,6 +22,8 @@ import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetRecordCursorProvider;
+import com.facebook.presto.orc.compression.CodecProviderFactory;
+import com.facebook.presto.orc.compression.DefaultCodecProviderFactory;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
@@ -68,6 +70,7 @@ public class HiveClientModule
     @Override
     public void configure(Binder binder)
     {
+        binder.bind(CodecProviderFactory.class).toInstance(new DefaultCodecProviderFactory());
         binder.bind(HiveConnectorId.class).toInstance(new HiveConnectorId(connectorId));
         binder.bind(TypeTranslator.class).toInstance(new HiveTypeTranslator());
 

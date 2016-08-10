@@ -20,6 +20,7 @@ import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.TupleDomainOrcPredicate;
 import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
+import com.facebook.presto.orc.compression.CodecProviderFactory;
 import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.orc.metadata.OrcType;
@@ -72,6 +73,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
+import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -131,6 +133,7 @@ public class OrcStorageManager
     private final DataSize maxShardSize;
     private final TypeManager typeManager;
     private final ExecutorService deletionExecutor;
+    private final CodecProviderFactory codecProviderFactory;
 
     @Inject
     public OrcStorageManager(
@@ -144,7 +147,8 @@ public class OrcStorageManager
             BackupManager backgroundBackupManager,
             ShardRecoveryManager recoveryManager,
             ShardRecorder shardRecorder,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            CodecProviderFactory codecProviderFactory)
     {
         this(currentNodeId.toString(),
                 storageService,
@@ -159,7 +163,8 @@ public class OrcStorageManager
                 config.getDeletionThreads(),
                 config.getShardRecoveryTimeout(),
                 config.getMaxShardRows(),
-                config.getMaxShardSize());
+                config.getMaxShardSize(),
+                codecProviderFactory);
     }
 
     public OrcStorageManager(
@@ -176,7 +181,8 @@ public class OrcStorageManager
             int deletionThreads,
             Duration shardRecoveryTimeout,
             long maxShardRows,
-            DataSize maxShardSize)
+            DataSize maxShardSize,
+            CodecProviderFactory codecProviderFactory)
     {
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.storageService = requireNonNull(storageService, "storageService is null");
@@ -194,6 +200,7 @@ public class OrcStorageManager
         this.shardRecorder = requireNonNull(shardRecorder, "shardRecorder is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.deletionExecutor = newFixedThreadPool(deletionThreads, daemonThreadsNamed("raptor-delete-" + connectorId + "-%s"));
+        this.codecProviderFactory = requireNonNull(codecProviderFactory, "codecProviderFactory is null");
     }
 
     @PreDestroy
@@ -217,7 +224,7 @@ public class OrcStorageManager
         AggregatedMemoryContext systemMemoryUsage = new AggregatedMemoryContext();
 
         try {
-            OrcReader reader = new OrcReader(dataSource, new OrcMetadataReader(), readerAttributes.getMaxMergeDistance(), readerAttributes.getMaxReadSize());
+            OrcReader reader = new OrcReader(dataSource, new OrcMetadataReader(), readerAttributes.getMaxMergeDistance(), readerAttributes.getMaxReadSize(), codecProviderFactory, new Properties());
 
             Map<Long, Integer> indexMap = columnIdIndex(reader.getColumnNames());
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
@@ -353,7 +360,7 @@ public class OrcStorageManager
     private List<ColumnStats> computeShardStats(File file)
     {
         try (OrcDataSource dataSource = fileOrcDataSource(defaultReaderAttributes, file)) {
-            OrcReader reader = new OrcReader(dataSource, new OrcMetadataReader(), defaultReaderAttributes.getMaxMergeDistance(), defaultReaderAttributes.getMaxReadSize());
+            OrcReader reader = new OrcReader(dataSource, new OrcMetadataReader(), defaultReaderAttributes.getMaxMergeDistance(), defaultReaderAttributes.getMaxReadSize(), codecProviderFactory, new Properties());
 
             ImmutableList.Builder<ColumnStats> list = ImmutableList.builder();
             for (ColumnInfo info : getColumnInfo(reader)) {
