@@ -33,7 +33,7 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-in-memory</artifactId>
+            <artifactId>presto-memory</artifactId>
         </dependency>
 
         <dependency>

@@ -38,7 +38,7 @@ public class BenchmarkDecimalAggregation
         public void setUp()
         {
             runQuery(format(
-                    "CREATE TABLE inmemory.default.orders AS SELECT orderstatus, cast(totalprice as %s) totalprice FROM tpch.sf1.orders",
+                    "CREATE TABLE memory.default.orders AS SELECT orderstatus, cast(totalprice as %s) totalprice FROM tpch.sf1.orders",
                     type));
         }
 

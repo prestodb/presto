@@ -82,7 +82,7 @@
         <module>presto-accumulo</module>
         <module>presto-cassandra</module>
         <module>presto-blackhole</module>
-        <module>presto-in-memory</module>
+        <module>presto-memory</module>
         <module>presto-orc</module>
         <module>presto-rcfile</module>
         <module>presto-hive</module>
@@ -223,7 +223,7 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
-                <artifactId>presto-in-memory</artifactId>
+                <artifactId>presto-memory</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
