@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ConstantProperty;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.optimizations.ActualProperties.Global;
 import com.google.common.collect.ImmutableList;
@@ -32,6 +33,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.fixedHashPartitioning;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.unknownPartitioning;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.arbitraryPartition;
@@ -761,7 +763,8 @@ public class TestAddExchanges
 
     private static Global hashDistributedOn(String... columnNames)
     {
-        return partitionedOn(fixedHashPartitioning(8, arguments(columnNames)), Optional.of(unknownPartitioning(arguments(columnNames))));
+        Partitioning nodePartitioning = fixedHashPartitioning(8, arguments(columnNames), Collections.nCopies(columnNames.length, BIGINT));
+        return partitionedOn(nodePartitioning, Optional.of(unknownPartitioning(arguments(columnNames))));
     }
 
     public static Global singleStream()

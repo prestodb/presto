@@ -488,12 +488,16 @@ public class AddLocalExchanges
 
             Optional<List<Symbol>> preferredPartitionColumns = preferredProperties.getPartitioningColumns();
             if (preferredPartitionColumns.isPresent()) {
+                List<Symbol> partitioningColumns = preferredPartitionColumns.get();
+                List<Type> partitioningColumnTypes = partitioningColumns.stream()
+                        .map(column -> symbolAllocator.getTypes().get(column))
+                        .collect(toImmutableList());
                 ExchangeNode exchangeNode = new ExchangeNode(
                         idAllocator.getNextId(),
                         REPARTITION,
                         LOCAL,
                         new PartitioningScheme(
-                                fixedHashPartitioning(getTaskConcurrency(session), preferredPartitionColumns.get()),
+                                fixedHashPartitioning(getTaskConcurrency(session), partitioningColumns, partitioningColumnTypes),
                                 node.getOutputSymbols(),
                                 Optional.empty()),
                         sources,
@@ -636,6 +640,9 @@ public class AddLocalExchanges
                         LOCAL,
                         planWithProperties.getNode(),
                         requiredPartitionColumns.get(),
+                        requiredPartitionColumns.get().stream()
+                                .map(column -> symbolAllocator.getTypes().get(column))
+                                .collect(toImmutableList()),
                         Optional.empty(),
                         requiredProperties.getStreamCount().orElse(getTaskConcurrency(session)));
                 return deriveProperties(exchangeNode, planWithProperties.getProperties());

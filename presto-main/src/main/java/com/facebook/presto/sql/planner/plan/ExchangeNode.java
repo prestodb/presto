@@ -96,9 +96,16 @@ public class ExchangeNode
         this.inputs = ImmutableList.copyOf(inputs);
     }
 
-    public static ExchangeNode partitionedExchange(PlanNodeId id, Scope scope, PlanNode child, List<Symbol> partitioningColumns, Optional<Symbol> hashColumns, int partitionCount)
+    public static ExchangeNode partitionedExchange(
+            PlanNodeId id,
+            Scope scope,
+            PlanNode child,
+            List<Symbol> partitioningColumns,
+            List<com.facebook.presto.spi.type.Type> partitioningColumnTypes,
+            Optional<Symbol> hashColumns,
+            int partitionCount)
     {
-        return partitionedExchange(id, scope, child, partitioningColumns, hashColumns, false, partitionCount);
+        return partitionedExchange(id, scope, child, partitioningColumns, partitioningColumnTypes, hashColumns, false, partitionCount);
     }
 
     public static ExchangeNode partitionedExchange(
@@ -106,6 +113,7 @@ public class ExchangeNode
             Scope scope,
             PlanNode child,
             List<Symbol> partitioningColumns,
+            List<com.facebook.presto.spi.type.Type> partitioningColumnTypes,
             Optional<Symbol> hashColumns,
             boolean nullsReplicated,
             int partitionCount)
@@ -115,7 +123,7 @@ public class ExchangeNode
                 scope,
                 child,
                 new PartitioningScheme(
-                        fixedHashPartitioning(partitionCount, partitioningColumns),
+                        fixedHashPartitioning(partitionCount, partitioningColumns, partitioningColumnTypes),
                         child.getOutputSymbols(),
                         hashColumns,
                         nullsReplicated,
