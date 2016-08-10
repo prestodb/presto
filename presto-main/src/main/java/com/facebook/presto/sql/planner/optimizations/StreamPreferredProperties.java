@@ -79,6 +79,11 @@ class StreamPreferredProperties
         return new StreamPreferredProperties(Optional.of(FIXED), Optional.empty(), false);
     }
 
+    public static StreamPreferredProperties fixedExactParallelism()
+    {
+        return new StreamPreferredProperties(Optional.of(FIXED), true, Optional.empty(), false);
+    }
+
     public static StreamPreferredProperties defaultParallelism(Session session)
     {
         if (getTaskConcurrency(session) > 1 && !preferStreamingOperators(session)) {
@@ -182,6 +187,11 @@ class StreamPreferredProperties
                 return actualProperties.isExactlyPartitionedOn(partitioningColumns.get());
             }
             return actualProperties.isPartitionedOn(partitioningColumns.get());
+        }
+
+        // if we strictly require no column partitioning
+        if (exactColumnOrder && actualProperties.getPartitioningColumns().isPresent()) {
+            return false;
         }
 
         return true;
