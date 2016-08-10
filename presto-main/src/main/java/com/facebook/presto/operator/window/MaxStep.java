@@ -10,7 +10,7 @@ import com.facebook.presto.spi.function.WindowFunctionSignature;
 
 import io.airlift.slice.Slice;
 
-@WindowFunctionSignature(name = "max_step", returnType = "bigint", argumentTypes = {"varchar", "varchar"})
+@WindowFunctionSignature(name = "max_step", returnType = "integer", argumentTypes = {"varchar", "varchar"})
 public class MaxStep extends ValueWindowFunction{
 
 	private final static String delimiter = "=>";
