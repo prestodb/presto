@@ -22,7 +22,6 @@ import org.openjdk.jol.info.ClassLayout;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 
@@ -39,10 +38,6 @@ public final class OutputStreamSliceOutputAdapter
         extends SliceOutput
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(OutputStreamSliceOutputAdapter.class).instanceSize();
-    /**
-     * Flag for little endian architecture.
-     */
-    private static final boolean LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
     private static final int MINIMUM_CHUNK_SIZE = 4096;
 
     private final OutputStream outputStream;
@@ -120,7 +115,7 @@ public final class OutputStreamSliceOutputAdapter
     @Override
     public void writeByte(int value)
     {
-        ensureSize(bufferPosition + SIZE_OF_BYTE);
+        ensureWritableBytes(SIZE_OF_BYTE);
         slice.setByte(bufferPosition, value);
         bufferPosition += SIZE_OF_BYTE;
     }
@@ -128,32 +123,31 @@ public final class OutputStreamSliceOutputAdapter
     @Override
     public void writeShort(int value)
     {
-        ensureSize(bufferPosition + SIZE_OF_SHORT);
-        slice.setShort(bufferPosition, memoryLayoutLittleEndian((short) value));
+        ensureWritableBytes(SIZE_OF_SHORT);
+        slice.setShort(bufferPosition, value);
         bufferPosition += SIZE_OF_SHORT;
     }
 
     @Override
     public void writeInt(int value)
     {
-        ensureSize(bufferPosition + SIZE_OF_INT);
-        slice.setInt(bufferPosition, memoryLayoutLittleEndian(value));
+        ensureWritableBytes(SIZE_OF_INT);
+        slice.setInt(bufferPosition, value);
         bufferPosition += SIZE_OF_INT;
     }
 
     @Override
     public void writeLong(long value)
     {
-        ensureSize(bufferPosition + SIZE_OF_LONG);
-
-        slice.setLong(bufferPosition, memoryLayoutLittleEndian(value));
+        ensureWritableBytes(SIZE_OF_LONG);
+        slice.setLong(bufferPosition, value);
         bufferPosition += SIZE_OF_LONG;
     }
 
     @Override
     public void writeFloat(float value)
     {
-        ensureSize(bufferPosition + SIZE_OF_FLOAT);
+        ensureWritableBytes(SIZE_OF_FLOAT);
         slice.setInt(bufferPosition, Float.floatToIntBits(value));
         bufferPosition += SIZE_OF_FLOAT;
     }
@@ -161,7 +155,7 @@ public final class OutputStreamSliceOutputAdapter
     @Override
     public void writeDouble(double value)
     {
-        ensureSize(bufferPosition + SIZE_OF_DOUBLE);
+        ensureWritableBytes(SIZE_OF_DOUBLE);
         slice.setLong(bufferPosition, Double.doubleToLongBits(value));
         bufferPosition += SIZE_OF_DOUBLE;
     }
@@ -176,11 +170,8 @@ public final class OutputStreamSliceOutputAdapter
     public void writeBytes(Slice source, int sourceIndex, int length)
     {
         while (length > 0) {
-            ensureSize(bufferPosition + Math.min(MINIMUM_CHUNK_SIZE, length));
-
-            int batch = Math.min(length, slice.length() - bufferPosition);
+            int batch = ensureBatchSize(length);
             slice.setBytes(bufferPosition, source, sourceIndex, batch);
-
             sourceIndex += batch;
             bufferPosition += batch;
             length -= batch;
@@ -200,13 +191,11 @@ public final class OutputStreamSliceOutputAdapter
         if (length >= MINIMUM_CHUNK_SIZE) {
             flushBufferToOutputStream();
             writeToOutputStream(source, sourceIndex, length);
-
             bufferOffset += length;
         }
         else {
-            ensureSize(bufferPosition + length);
+            ensureWritableBytes(length);
             slice.setBytes(bufferPosition, source, sourceIndex, length);
-
             bufferPosition += length;
         }
     }
@@ -216,9 +205,7 @@ public final class OutputStreamSliceOutputAdapter
             throws IOException
     {
         while (length > 0) {
-            ensureSize(bufferPosition + Math.min(MINIMUM_CHUNK_SIZE, length));
-            int batch = Math.min(length, slice.length() - bufferPosition);
-
+            int batch = ensureBatchSize(length);
             slice.setBytes(bufferPosition, in, batch);
             bufferPosition += batch;
             length -= batch;
@@ -231,9 +218,7 @@ public final class OutputStreamSliceOutputAdapter
         checkArgument(length >= 0, "length must be 0 or greater than 0.");
 
         while (length > 0) {
-            ensureSize(bufferPosition + Math.min(MINIMUM_CHUNK_SIZE, length));
-            int batch = Math.min(length, slice.length() - bufferPosition);
-
+            int batch = ensureBatchSize(length);
             Arrays.fill(buffer, bufferPosition, bufferPosition + batch, (byte) 0);
             bufferPosition += batch;
             length -= batch;
@@ -324,11 +309,17 @@ public final class OutputStreamSliceOutputAdapter
         return builder.toString();
     }
 
-    private void ensureSize(int minWritableBytes)
+    private void ensureWritableBytes(int minWritableBytes)
     {
-        if (minWritableBytes > slice.length()) {
+        if (bufferPosition + minWritableBytes > slice.length()) {
             flushBufferToOutputStream();
         }
+    }
+
+    private int ensureBatchSize(int length)
+    {
+        ensureWritableBytes(Math.min(MINIMUM_CHUNK_SIZE, length));
+        return Math.min(length, slice.length() - bufferPosition);
     }
 
     private void flushBufferToOutputStream()
@@ -346,29 +337,5 @@ public final class OutputStreamSliceOutputAdapter
         catch (IOException e) {
             throw new RuntimeIOException(e);
         }
-    }
-
-    /**
-     * Ensure that the layout of the value in memory is little endian.
-     */
-    private short memoryLayoutLittleEndian(short value)
-    {
-        return LITTLE_ENDIAN ? value : Short.reverseBytes(value);
-    }
-
-    /**
-     * Ensure that the layout of the value in memory is little endian.
-     */
-    private int memoryLayoutLittleEndian(int value)
-    {
-        return LITTLE_ENDIAN ? value : Integer.reverseBytes(value);
-    }
-
-    /**
-     * Ensure that the layout of the value in memory is little endian.
-     */
-    private long memoryLayoutLittleEndian(long value)
-    {
-        return LITTLE_ENDIAN ? value : Long.reverseBytes(value);
     }
 }

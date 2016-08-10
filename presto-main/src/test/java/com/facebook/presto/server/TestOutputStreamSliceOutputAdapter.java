@@ -42,35 +42,41 @@ public class TestOutputStreamSliceOutputAdapter
     public void testEncodingByte()
             throws Exception
     {
-        assertEncoding(sliceOutput -> sliceOutput.writeByte(0x5c),
+        assertEncoding(sliceOutput -> sliceOutput.writeByte(92),
                 new byte[] {92});
-        assertEncoding(sliceOutput -> sliceOutput.writeByte(0x9c),
+        assertEncoding(sliceOutput -> sliceOutput.writeByte(156),
                 new byte[] {-100});
+        assertEncoding(sliceOutput -> sliceOutput.writeByte(-17),
+                new byte[] {-17});
     }
 
     @Test
     public void testEncodingShort()
             throws Exception
     {
-        assertEncoding(sliceOutput -> sliceOutput.writeShort(0x5c6d),
+        assertEncoding(sliceOutput -> sliceOutput.writeShort(23661),
                 new byte[] {109, 92});
-        assertEncoding(sliceOutput -> sliceOutput.writeShort(0x9c6d),
+        assertEncoding(sliceOutput -> sliceOutput.writeShort(40045),
                 new byte[] {109, -100});
+        assertEncoding(sliceOutput -> sliceOutput.writeShort(-27188),
+                new byte[] {-52, -107});
     }
 
     @Test
     public void testEncodingInteger()
             throws Exception
     {
-        assertEncoding(sliceOutput -> sliceOutput.writeInt(0x3a4b5c6d),
+        assertEncoding(sliceOutput -> sliceOutput.writeInt(978017389),
                 new byte[] {109, 92, 75, 58});
+        assertEncoding(sliceOutput -> sliceOutput.writeInt(-7813904),
+                new byte[] {-16, -60, -120, -1});
     }
 
     @Test
     public void testEncodingLong()
             throws Exception
     {
-        assertEncoding(sliceOutput -> sliceOutput.writeLong(0xef9078123a4b5c6dL),
+        assertEncoding(sliceOutput -> sliceOutput.writeLong(-1184314682315678611L),
                 new byte[] {109, 92, 75, 58, 18, 120, -112, -17});
     }
 
@@ -158,6 +164,8 @@ public class TestOutputStreamSliceOutputAdapter
         assertEncoding(operations, 8, expected);
         assertEncoding(operations, 16, expected);
         assertEncoding(operations, 511, expected);
+        assertEncoding(operations, 12000, expected);
+        assertEncoding(operations, 13000, expected);
         assertEncoding(operations, 16000, expected);
         assertEncoding(operations, 16380, expected);
         assertEncoding(operations, 16383, expected);
