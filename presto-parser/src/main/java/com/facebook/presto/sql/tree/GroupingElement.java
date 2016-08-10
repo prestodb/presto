@@ -20,7 +20,7 @@ import java.util.Set;
 public abstract class GroupingElement
         extends Node
 {
-    public GroupingElement(Optional<NodeLocation> location)
+    protected GroupingElement(Optional<NodeLocation> location)
     {
         super(location);
     }
