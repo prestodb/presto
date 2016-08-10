@@ -48,6 +48,10 @@ public class QueryContext
     @GuardedBy("this")
     private long maxMemory;
 
+    // TODO: This field should be final. However, due to the way QueryContext that we do not have access to Query session
+    @GuardedBy("this")
+    private boolean memoryRevokingEnabled;
+
     @GuardedBy("this")
     private long reserved;
 
@@ -66,10 +70,11 @@ public class QueryContext
     @GuardedBy("this")
     private SettableFuture<?> outOfMemoryFuture = SettableFuture.create();
 
-    public QueryContext(QueryId queryId, DataSize maxMemory, MemoryPool memoryPool, MemoryPool systemMemoryPool, Executor executor)
+    public QueryContext(QueryId queryId, DataSize maxMemory, boolean memoryRevokingEnabled, MemoryPool memoryPool, MemoryPool systemMemoryPool, Executor executor)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.maxMemory = requireNonNull(maxMemory, "maxMemory is null").toBytes();
+        this.memoryRevokingEnabled = requireNonNull(memoryRevokingEnabled, "memoryRevokingEnabled can not be null");
         this.memoryPool = requireNonNull(memoryPool, "memoryPool is null");
         this.systemMemoryPool = requireNonNull(systemMemoryPool, "systemMemoryPool is null");
         this.executor = requireNonNull(executor, "executor is null");
@@ -86,6 +91,11 @@ public class QueryContext
         maxMemory = memoryPool.getMaxBytes();
     }
 
+    public synchronized void setMemoryRevokingEnabled(boolean memoryRevokingEnabled)
+    {
+        this.memoryRevokingEnabled = memoryRevokingEnabled;
+    }
+
     public synchronized boolean isWaitingForRevocableMemory()
     {
         return !revocableFuture.isDone();
@@ -95,9 +105,7 @@ public class QueryContext
     {
         checkArgument(bytes >= 0, "bytes is negative");
 
-        if (reserved + bytes > maxMemory) {
-            throw exceededLocalLimit(succinctBytes(maxMemory));
-        }
+        checkLocalLimitExceeded(bytes);
 
         ListenableFuture<?> future = reserveMemoryUnsafe(bytes);
         reserved += bytes;
@@ -107,6 +115,10 @@ public class QueryContext
     public synchronized ListenableFuture<?> reserveRevocableMemory(long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
+
+        if (!memoryRevokingEnabled) {
+            checkLocalLimitExceeded(bytes);
+        }
 
         ListenableFuture<?> future = reserveMemoryUnsafe(bytes);
         revocableReserved += bytes;
@@ -228,6 +240,13 @@ public class QueryContext
         }
         else {
             return Futures.allAsList(ImmutableList.of(revocableFuture, future));
+        }
+    }
+
+    private synchronized void checkLocalLimitExceeded(long bytes)
+    {
+        if (reserved + (memoryRevokingEnabled ? 0 : revocableReserved) + bytes > maxMemory) {
+            throw exceededLocalLimit(succinctBytes(maxMemory));
         }
     }
 

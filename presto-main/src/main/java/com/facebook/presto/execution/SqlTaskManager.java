@@ -58,6 +58,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
+import static com.facebook.presto.SystemSessionProperties.revokingEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_TASK;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.google.common.base.Predicates.notNull;
@@ -131,7 +132,7 @@ public class SqlTaskManager
             public QueryContext load(QueryId key)
                     throws Exception
             {
-                return new QueryContext(key, maxQueryMemoryPerNode, localMemoryManager.getPool(LocalMemoryManager.GENERAL_POOL), localMemoryManager.getPool(LocalMemoryManager.SYSTEM_POOL), taskNotificationExecutor);
+                return new QueryContext(key, maxQueryMemoryPerNode, true, localMemoryManager.getPool(LocalMemoryManager.GENERAL_POOL), localMemoryManager.getPool(LocalMemoryManager.SYSTEM_POOL), taskNotificationExecutor);
             }
         });
 
@@ -313,8 +314,10 @@ public class SqlTaskManager
         requireNonNull(sources, "sources is null");
         requireNonNull(outputBuffers, "outputBuffers is null");
 
+        // TODO: memory related fields of should be set when QueryContext was created. However, the session isn't available at that point.
+        queryContexts.getUnchecked(taskId.getQueryId()).setMemoryRevokingEnabled(revokingEnabled(session));
+
         if (resourceOvercommit(session)) {
-            // TODO: This should have been done when the QueryContext was created. However, the session isn't available at that point.
             queryContexts.getUnchecked(taskId.getQueryId()).setResourceOvercommit();
         }
 

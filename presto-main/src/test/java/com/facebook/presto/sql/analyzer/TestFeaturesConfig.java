@@ -50,7 +50,8 @@ public class TestFeaturesConfig
                 .setRegexLibrary(JONI)
                 .setRe2JDfaStatesLimit(Integer.MAX_VALUE)
                 .setRe2JDfaRetries(5)
-                .setResourceGroupManager(FILE_BASED_RESOURCE_GROUP_MANAGER));
+                .setResourceGroupManager(FILE_BASED_RESOURCE_GROUP_MANAGER)
+                .setMemoryRevokingEnabled(false));
     }
 
     @Test
@@ -74,6 +75,7 @@ public class TestFeaturesConfig
                 .put("re2j.dfa-states-limit", "42")
                 .put("re2j.dfa-retries", "42")
                 .put("resource-group-manager", "test")
+                .put("memory-revoking-enabled", "true")
                 .build();
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("experimental-syntax-enabled", "true")
@@ -93,6 +95,7 @@ public class TestFeaturesConfig
                 .put("re2j.dfa-states-limit", "42")
                 .put("re2j.dfa-retries", "42")
                 .put("resource-group-manager", "test")
+                .put("memory-revoking-enabled", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -112,7 +115,8 @@ public class TestFeaturesConfig
                 .setRegexLibrary(RE2J)
                 .setRe2JDfaStatesLimit(42)
                 .setRe2JDfaRetries(42)
-                .setResourceGroupManager("test");
+                .setResourceGroupManager("test")
+                .setMemoryRevokingEnabled(true);
 
         assertFullMapping(properties, expected);
         assertDeprecatedEquivalence(FeaturesConfig.class, properties, propertiesLegacy);

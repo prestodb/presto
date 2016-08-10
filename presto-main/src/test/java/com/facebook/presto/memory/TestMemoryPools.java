@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.memory;
 
+import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.metadata.InMemoryNodeManager;
@@ -33,12 +34,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.SystemSessionProperties.MEMORY_REVOKING;
+import static com.facebook.presto.SystemSessionProperties.revokingEnabled;
 import static com.facebook.presto.testing.LocalQueryRunner.queryRunnerWithInitialTransaction;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -49,6 +52,12 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestMemoryPools
 {
+    @DataProvider(name = "revokingEnabled")
+    public static Object[][] revokingEnabledDataProvider()
+    {
+        return new Object[][] { { false }, { true } };
+    }
+
     private static final long TEN_MEGABYTES = new DataSize(10, MEGABYTE).toBytes();
     private static final long ALMOST_TEN_MEGABYTES = new DataSize(10, MEGABYTE).toBytes() - 1;
 
@@ -58,11 +67,11 @@ public class TestMemoryPools
     private QueryContext queryContext;
     private List<Driver> drivers;
 
-    @BeforeMethod
-    public void setUp()
+    private void setUp(boolean revokingEnabled)
     {
         Session session = TEST_SESSION
-                .withSystemProperty("task_default_concurrency", "1");
+                .withSystemProperty("task_default_concurrency", "1")
+                .withSystemProperty(MEMORY_REVOKING, String.valueOf(revokingEnabled));
 
         LocalQueryRunner localQueryRunner = queryRunnerWithInitialTransaction(session);
 
@@ -75,17 +84,18 @@ public class TestMemoryPools
         fakeQueryId = new QueryId("fake");
         MemoryPool systemPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(10, MEGABYTE));
 
-        queryContext = new QueryContext(new QueryId("query"), new DataSize(10, MEGABYTE), pool, systemPool, localQueryRunner.getExecutor());
+        queryContext = new QueryContext(new QueryId("query"), new DataSize(10, MEGABYTE), revokingEnabled(session), pool, systemPool, localQueryRunner.getExecutor());
         // discard all output
         OutputFactory outputFactory = new PageConsumerOutputFactory(types -> (page -> { }));
         taskContext = createTaskContext(queryContext, localQueryRunner.getExecutor(), session, new DataSize(0, BYTE));
         drivers = localQueryRunner.createDrivers("SELECT COUNT(*), clerk FROM orders GROUP BY clerk", outputFactory, taskContext);
     }
 
-    @Test
-    public void testBlocking()
+    @Test(dataProvider = "revokingEnabled")
+    public void testBlocking(boolean revokingEnabled)
             throws Exception
     {
+        setUp(revokingEnabled);
         assertTrue(pool.tryReserve(fakeQueryId, TEN_MEGABYTES));
 
         runDriversUntilBlock(drivers);
@@ -101,6 +111,9 @@ public class TestMemoryPools
     public void testBlockingOnRevocableMemory()
             throws Exception
     {
+        setUp(true);
+        // we reserve less than 10MB because pool.reserve() assumes memory is depleted if it
+        // reaches 0 byts of free memory.
         assertTrue(queryContext.reserveRevocableMemory(ALMOST_TEN_MEGABYTES).isDone());
 
         runDriversUntilBlock(drivers);
@@ -112,10 +125,20 @@ public class TestMemoryPools
         assertDriversProgress(drivers);
     }
 
-    @Test
-    public void testDriverMemoryRevoking()
+    @Test(expectedExceptions = ExceededMemoryLimitException.class)
+    public void testBlockingOnRevocableMemoryRevokingDisabled()
             throws Exception
     {
+        setUp(false);
+        queryContext.reserveRevocableMemory(ALMOST_TEN_MEGABYTES).isDone();
+        runDriversUntilBlock(drivers);
+    }
+
+    @Test
+    public void testDriverUsingRevokableMemory()
+            throws Exception
+    {
+        setUp(true);
         DriverContext driverContext = taskContext.addPipelineContext(false, false).addDriverContext();
         OperatorContext operatorContext = driverContext.addOperatorContext(
                 Integer.MAX_VALUE,
@@ -137,6 +160,24 @@ public class TestMemoryPools
         assertDriversProgress(driversWithRevokableOperator);
     }
 
+    @Test(expectedExceptions = ExceededMemoryLimitException.class)
+    public void testDriverUsingRevokableMemoryRevokingDisabled()
+            throws Exception
+    {
+        setUp(false);
+        DriverContext driverContext = taskContext.addPipelineContext(false, false).addDriverContext();
+        OperatorContext operatorContext = driverContext.addOperatorContext(
+                Integer.MAX_VALUE,
+                new PlanNodeId("revocable_memory_operator"),
+                RevocableMemoryOperator.class.getSimpleName());
+
+        RevocableMemoryOperator revocableMemoryOperator = new RevocableMemoryOperator(operatorContext);
+        Driver driver = new Driver(driverContext, revocableMemoryOperator);
+        List<Driver> driversWithRevokableOperator = ImmutableList.copyOf(Iterables.concat(drivers, ImmutableList.of(driver)));
+        assertFalse(revocableMemoryOperator.hasRequestedRevoke());
+        runDriversUntilBlock(driversWithRevokableOperator);
+    }
+
     private static void assertDriversProgress(List<Driver> drivers)
     {
         do {
@@ -151,7 +192,7 @@ public class TestMemoryPools
         } while (!drivers.stream().allMatch(Driver::isFinished));
     }
 
-    public static void runDriversUntilBlock(List<Driver> drivers)
+    private static void runDriversUntilBlock(List<Driver> drivers)
     {
         // run driver, until it blocks
         while (!isWaitingForMemory(drivers)) {
@@ -166,7 +207,7 @@ public class TestMemoryPools
         }
     }
 
-    public static boolean isWaitingForMemory(List<Driver> drivers)
+    private static boolean isWaitingForMemory(List<Driver> drivers)
     {
         for (Driver driver : drivers) {
             for (OperatorContext operatorContext : driver.getDriverContext().getOperatorContexts()) {

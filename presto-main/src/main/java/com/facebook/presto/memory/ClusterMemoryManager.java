@@ -57,6 +57,7 @@ import static com.facebook.presto.SystemSessionProperties.RESOURCE_OVERCOMMIT;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxCpuTime;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemory;
 import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
+import static com.facebook.presto.SystemSessionProperties.revokingEnabled;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
@@ -155,8 +156,11 @@ public class ClusterMemoryManager
         long totalBytes = getTotalMemoryReservation(queries);
 
         for (QueryExecution query : queries) {
-            // TODO: revoke revocable memory instead of kill
-            long bytes = query.getTotalMemoryReservation() + query.getTotalRevocableMemoryReservation();
+            long bytes = query.getTotalMemoryReservation();
+            if (!revokingEnabled(query.getSession())) {
+                // treat revocable memory as normal memory as revoking is disabled
+                bytes += query.getTotalRevocableMemoryReservation();
+            }
             DataSize sessionMaxQueryMemory = getQueryMaxMemory(query.getSession());
             long queryMemoryLimit = Math.min(maxQueryMemory.toBytes(), sessionMaxQueryMemory.toBytes());
             if (resourceOvercommit(query.getSession()) && outOfMemory) {
@@ -191,6 +195,7 @@ public class ClusterMemoryManager
                 long maxMemory = -1;
                 for (QueryExecution query : queries) {
                     // TODO: revoke revocable memory instead of kill?
+                    // for safety we treat revocable memory as normal memory when we are consideryng cluster OOM situation
                     long bytesUsed = query.getTotalMemoryReservation() + query.getTotalRevocableMemoryReservation();
                     if (bytesUsed > maxMemory && query.getMemoryPool().getId().equals(GENERAL_POOL)) {
                         biggestQuery = query;
@@ -228,6 +233,7 @@ public class ClusterMemoryManager
 
     private long getTotalMemoryReservation(List<QueryExecution> queries)
     {
+        // for safety we treat revocable memory as normal memory when we are consideryng cluster OOM situation
         return queries.stream()
                 .mapToLong(query -> query.getTotalMemoryReservation() + query.getTotalRevocableMemoryReservation())
                 .sum();

@@ -53,6 +53,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.SystemSessionProperties.MEMORY_REVOKING;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
@@ -305,8 +306,9 @@ public class TestDriver
     public void testOutOfMemoryUnblocksDriver()
     {
         long almostTenMegabytes = new DataSize(10, MEGABYTE).toBytes() - 1;
+        Session testSession = TEST_SESSION.withSystemProperty(MEMORY_REVOKING, "true");
 
-        TaskContext taskContext = createTaskContext(executor, TEST_SESSION, new DataSize(10, MEGABYTE));
+        TaskContext taskContext = createTaskContext(executor, testSession, new DataSize(10, MEGABYTE));
 
         DriverContext driverContext = taskContext
                 .addPipelineContext(true, true)
@@ -332,8 +334,9 @@ public class TestDriver
     public void testOutOfMemoryBocksDriverWithoutRevocableMemory()
     {
         long almostTenMegabytes = new DataSize(10, MEGABYTE).toBytes() - 1;
+        Session testSession = TEST_SESSION.withSystemProperty(MEMORY_REVOKING, "true");
 
-        TaskContext taskContext = createTaskContext(executor, TEST_SESSION, new DataSize(10, MEGABYTE));
+        TaskContext taskContext = createTaskContext(executor, testSession, new DataSize(10, MEGABYTE));
 
         DriverContext driverContextWithoutRevocableMemory = taskContext
                 .addPipelineContext(true, true)
