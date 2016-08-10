@@ -31,15 +31,15 @@ public class TestScope
     {
         Scope root = Scope.builder().build();
 
-        Field outerColumn1 = Field.newQualified(QualifiedName.of("outer", "column1"), Optional.of("c1"), BIGINT, false);
-        Field outerColumn2 = Field.newQualified(QualifiedName.of("outer", "column2"), Optional.of("c2"), BIGINT, false);
+        Field outerColumn1 = Field.newQualified(QualifiedName.of("outer", "column1"), Optional.of("c1"), BIGINT, false, Optional.empty(), false);
+        Field outerColumn2 = Field.newQualified(QualifiedName.of("outer", "column2"), Optional.of("c2"), BIGINT, false, Optional.empty(), false);
         Scope outer = Scope.builder().withParent(root).withRelationType(new RelationType(outerColumn1, outerColumn2)).markQueryBoundary().build();
 
-        Field inner1Column2 = Field.newQualified(QualifiedName.of("inner1", "column2"), Optional.of("c2"), BIGINT, false);
-        Field inner1Column3 = Field.newQualified(QualifiedName.of("inner1", "column3"), Optional.of("c3"), BIGINT, false);
+        Field inner1Column2 = Field.newQualified(QualifiedName.of("inner1", "column2"), Optional.of("c2"), BIGINT, false, Optional.empty(), false);
+        Field inner1Column3 = Field.newQualified(QualifiedName.of("inner1", "column3"), Optional.of("c3"), BIGINT, false, Optional.empty(), false);
         Scope inner1 = Scope.builder().withParent(outer).withRelationType(new RelationType(inner1Column2, inner1Column3)).markQueryBoundary().build();
 
-        Field inner2Column4 = Field.newQualified(QualifiedName.of("inner2", "column4"), Optional.of("c4"), BIGINT, false);
+        Field inner2Column4 = Field.newQualified(QualifiedName.of("inner2", "column4"), Optional.of("c4"), BIGINT, false, Optional.empty(), false);
         Scope inner2 = Scope.builder().withParent(inner1).withRelationType(new RelationType(inner2Column4)).build();
 
         QualifiedNameReference c1 = name("c1");

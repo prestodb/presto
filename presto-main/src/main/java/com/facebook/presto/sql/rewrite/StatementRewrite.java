@@ -32,6 +32,7 @@ public final class StatementRewrite
 {
     private static final List<Rewrite> REWRITES = ImmutableList.of(
             new DescribeInputRewrite(),
+            new DescribeOutputRewrite(),
             new ShowQueriesRewrite(),
             new ExplainRewrite());
 
