@@ -101,7 +101,7 @@ import com.facebook.presto.operator.window.FirstValueFunction;
 import com.facebook.presto.operator.window.LagFunction;
 import com.facebook.presto.operator.window.LastValueFunction;
 import com.facebook.presto.operator.window.LeadFunction;
-import com.facebook.presto.operator.window.MaxStep;
+import com.facebook.presto.operator.window.MaxStepFunction;
 import com.facebook.presto.operator.window.NTileFunction;
 import com.facebook.presto.operator.window.NthValueFunction;
 import com.facebook.presto.operator.window.PercentRankFunction;
@@ -354,7 +354,7 @@ public class FunctionRegistry
                 .window(NthValueFunction.class)
                 .window(LagFunction.class)
                 .window(LeadFunction.class)
-                .window(MaxStep.class)
+                .window(MaxStepFunction.class)
                 .aggregate(CountAggregation.class)
                 .aggregate(VarianceAggregation.class)
                 .aggregate(ApproximateLongPercentileAggregations.class)
