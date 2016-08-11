@@ -18,6 +18,7 @@ import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.function.WindowIndex;
 import com.facebook.presto.sql.tree.FrameBound;
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
 import java.util.List;
@@ -29,7 +30,6 @@ import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
 import static com.facebook.presto.util.Failures.checkCondition;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 public final class WindowPartition
@@ -40,13 +40,10 @@ public final class WindowPartition
 
     private final int[] outputChannels;
     private final List<FramedWindowFunction> windowFunctions;
-    private final FrameInfo frameInfo;
     private final PagesHashStrategy peerGroupHashStrategy;
 
     private int peerGroupStart;
     private int peerGroupEnd;
-    private int frameStart;
-    private int frameEnd;
 
     private int currentPosition;
 
@@ -61,8 +58,7 @@ public final class WindowPartition
         this.partitionStart = partitionStart;
         this.partitionEnd = partitionEnd;
         this.outputChannels = outputChannels;
-        this.windowFunctions = windowFunctions;
-        this.frameInfo = assertSingleFrame(windowFunctions); // TODO remove this when multiple Frames are handled correctly
+        this.windowFunctions = ImmutableList.copyOf(windowFunctions);
         this.peerGroupHashStrategy = peerGroupHashStrategy;
 
         // reset functions for new partition
@@ -73,13 +69,6 @@ public final class WindowPartition
 
         currentPosition = partitionStart;
         updatePeerGroup();
-    }
-
-    private static FrameInfo assertSingleFrame(List<FramedWindowFunction> windows)
-    {
-        checkArgument(windows.stream().map(FramedWindowFunction::getFrame).distinct().count() == 1,
-                "All window functions have to share the same frame. Distinct frames in single operator are not yet supported.");
-        return windows.iterator().next().getFrame();
     }
 
     public int getPartitionEnd()
@@ -109,19 +98,40 @@ public final class WindowPartition
             updatePeerGroup();
         }
 
-        updateFrame();
-
         for (FramedWindowFunction framedFunction : windowFunctions) {
+            Range range = getFrameRange(framedFunction.getFrame());
             framedFunction.getFunction().processRow(
                     pageBuilder.getBlockBuilder(channel),
                     peerGroupStart - partitionStart,
                     peerGroupEnd - partitionStart - 1,
-                    frameStart,
-                    frameEnd);
+                    range.start,
+                    range.end);
             channel++;
         }
 
         currentPosition++;
+    }
+
+    private static class Range
+    {
+        private final int start;
+        private final int end;
+
+        Range(int start, int end)
+        {
+            this.start = start;
+            this.end = end;
+        }
+
+        public int getStart()
+        {
+            return start;
+        }
+
+        public int getEnd()
+        {
+            return end;
+        }
     }
 
     private void updatePeerGroup()
@@ -134,20 +144,23 @@ public final class WindowPartition
         }
     }
 
-    private void updateFrame()
+    private Range getFrameRange(FrameInfo frameInfo)
     {
         int rowPosition = currentPosition - partitionStart;
         int endPosition = partitionEnd - partitionStart - 1;
+
+        int frameStart;
+        int frameEnd;
 
         // frame start
         if (frameInfo.getStartType() == UNBOUNDED_PRECEDING) {
             frameStart = 0;
         }
         else if (frameInfo.getStartType() == PRECEDING) {
-            frameStart = preceding(rowPosition, getStartValue());
+            frameStart = preceding(rowPosition, getStartValue(frameInfo));
         }
         else if (frameInfo.getStartType() == FOLLOWING) {
-            frameStart = following(rowPosition, endPosition, getStartValue());
+            frameStart = following(rowPosition, endPosition, getStartValue(frameInfo));
         }
         else if (frameInfo.getType() == RANGE) {
             frameStart = peerGroupStart - partitionStart;
@@ -161,10 +174,10 @@ public final class WindowPartition
             frameEnd = endPosition;
         }
         else if (frameInfo.getEndType() == PRECEDING) {
-            frameEnd = preceding(rowPosition, getEndValue());
+            frameEnd = preceding(rowPosition, getEndValue(frameInfo));
         }
         else if (frameInfo.getEndType() == FOLLOWING) {
-            frameEnd = following(rowPosition, endPosition, getEndValue());
+            frameEnd = following(rowPosition, endPosition, getEndValue(frameInfo));
         }
         else if (frameInfo.getType() == RANGE) {
             frameEnd = peerGroupEnd - partitionStart - 1;
@@ -174,13 +187,15 @@ public final class WindowPartition
         }
 
         // handle empty frame
-        if (emptyFrame(rowPosition, endPosition)) {
+        if (emptyFrame(frameInfo, rowPosition, endPosition)) {
             frameStart = -1;
             frameEnd = -1;
         }
+
+        return new Range(frameStart, frameEnd);
     }
 
-    private boolean emptyFrame(int rowPosition, int endPosition)
+    private boolean emptyFrame(FrameInfo frameInfo, int rowPosition, int endPosition)
     {
         FrameBound.Type startType = frameInfo.getStartType();
         FrameBound.Type endType = frameInfo.getEndType();
@@ -188,11 +203,11 @@ public final class WindowPartition
         int positions = endPosition - rowPosition;
 
         if ((startType == UNBOUNDED_PRECEDING) && (endType == PRECEDING)) {
-            return getEndValue() > rowPosition;
+            return getEndValue(frameInfo) > rowPosition;
         }
 
         if ((startType == FOLLOWING) && (endType == UNBOUNDED_FOLLOWING)) {
-            return getStartValue() > positions;
+            return getStartValue(frameInfo) > positions;
         }
 
         if (startType != endType) {
@@ -204,8 +219,8 @@ public final class WindowPartition
             return false;
         }
 
-        long start = getStartValue();
-        long end = getEndValue();
+        long start = getStartValue(frameInfo);
+        long end = getEndValue(frameInfo);
 
         if (type == PRECEDING) {
             return (start < end) || ((start > rowPosition) && (end > rowPosition));
@@ -230,12 +245,12 @@ public final class WindowPartition
         return Ints.checkedCast(rowPosition + value);
     }
 
-    private long getStartValue()
+    private long getStartValue(FrameInfo frameInfo)
     {
         return getFrameValue(frameInfo.getStartChannel(), "starting");
     }
 
-    private long getEndValue()
+    private long getEndValue(FrameInfo frameInfo)
     {
         return getFrameValue(frameInfo.getEndChannel(), "ending");
     }
