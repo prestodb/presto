@@ -37,6 +37,7 @@ import com.facebook.presto.spi.DiscretePredicates;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.ServerInfo;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
@@ -145,6 +146,8 @@ import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
 public class HiveMetadata
         implements ConnectorMetadata
 {
+    public static final String PRESTO_VERSION_NAME = "presto_version";
+
     private static final Logger log = Logger.get(HiveMetadata.class);
     private static final int PARTITION_COMMIT_BATCH_SIZE = 8;
 
@@ -165,6 +168,7 @@ public class HiveMetadata
     private final boolean forceIntegralToBigint;
     private final HiveStorageFormat defaultStorageFormat;
     private final TypeTranslator typeTranslator;
+    private final ServerInfo serverInfo;
 
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
 
@@ -185,7 +189,8 @@ public class HiveMetadata
             TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             Executor renameExecutor,
-            TypeTranslator typeTranslator)
+            TypeTranslator typeTranslator,
+            ServerInfo serverInfo)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
 
@@ -204,6 +209,7 @@ public class HiveMetadata
         this.bucketWritingEnabled = bucketWritingEnabled;
         this.forceIntegralToBigint = forceIntegralToBigint;
         this.defaultStorageFormat = requireNonNull(defaultStorageFormat, "defaultStorageFormat is null");
+        this.serverInfo = requireNonNull(serverInfo, "serverInfo is null");
 
         this.renameExecutor = requireNonNull(renameExecutor, "renameExecution is null");
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
@@ -410,7 +416,7 @@ public class HiveMetadata
         Path targetPath = locationService.targetPathRoot(locationHandle);
         createDirectory(session.getUser(), hdfsEnvironment, targetPath);
 
-        Table table = buildTableObject(schemaName, tableName, session.getUser(), columnHandles, hiveStorageFormat, partitionedBy, bucketProperty, additionalTableParameters, targetPath);
+        Table table = buildTableObject(schemaName, tableName, session.getUser(), columnHandles, hiveStorageFormat, partitionedBy, bucketProperty, additionalTableParameters, targetPath, serverInfo);
         PrincipalPrivilegeSet principalPrivilegeSet = buildInitialPrivilegeSet(table.getOwner());
         metastore.createTable(table, principalPrivilegeSet);
     }
@@ -424,7 +430,8 @@ public class HiveMetadata
             List<String> partitionedBy,
             Optional<HiveBucketProperty> bucketProperty,
             Map<String, String> additionalTableParameters,
-            Path targetPath)
+            Path targetPath,
+            ServerInfo serverInfo)
     {
         Map<String, HiveColumnHandle> columnHandlesByName = Maps.uniqueIndex(columnHandles, HiveColumnHandle::getName);
         List<Column> partitionColumns = partitionedBy.stream()
@@ -465,6 +472,7 @@ public class HiveMetadata
                 .setPartitionColumns(partitionColumns)
                 .setParameters(ImmutableMap.<String, String>builder()
                         .put("comment", tableComment)
+                        .put(PRESTO_VERSION_NAME, serverInfo.getVersion())
                         .putAll(additionalTableParameters)
                         .build());
         tableBuilder.getStorageBuilder()
@@ -595,7 +603,8 @@ public class HiveMetadata
                     handle.getPartitionedBy(),
                     handle.getBucketProperty(),
                     handle.getAdditionalTableParameters(),
-                    targetPath);
+                    targetPath,
+                    serverInfo);
             PrincipalPrivilegeSet principalPrivilegeSet = buildInitialPrivilegeSet(handle.getTableOwner());
 
             partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
@@ -975,6 +984,9 @@ public class HiveMetadata
         else {
             partition.getStorageBuilder().setStorageFormat(fromHiveStorageFormat(defaultStorageFormat));
         }
+        partition.setParameters(ImmutableMap.<String, String>builder()
+                .put(PRESTO_VERSION_NAME, serverInfo.getVersion())
+                .build());
 
         partition.getStorageBuilder().setLocation(partitionUpdate.getTargetPath().toString());
         partition.getStorageBuilder().setBucketProperty(table.getStorage().getBucketProperty());

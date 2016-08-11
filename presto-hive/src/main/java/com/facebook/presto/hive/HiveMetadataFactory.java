@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.spi.ServerInfo;
 import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
@@ -47,6 +48,7 @@ public class HiveMetadataFactory
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final BoundedExecutor renameExecution;
     private final TypeTranslator typeTranslator;
+    private final ServerInfo serverInfo;
 
     @Inject
     @SuppressWarnings("deprecation")
@@ -61,7 +63,8 @@ public class HiveMetadataFactory
             LocationService locationService,
             TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
-            TypeTranslator typeTranslator)
+            TypeTranslator typeTranslator,
+            ServerInfo serverInfo)
     {
         this(connectorId,
                 metastore,
@@ -80,7 +83,8 @@ public class HiveMetadataFactory
                 tableParameterCodec,
                 partitionUpdateCodec,
                 executorService,
-                typeTranslator);
+                typeTranslator,
+                serverInfo);
     }
 
     public HiveMetadataFactory(
@@ -101,7 +105,8 @@ public class HiveMetadataFactory
             TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             ExecutorService executorService,
-            TypeTranslator typeTranslator)
+            TypeTranslator typeTranslator,
+            ServerInfo serverInfo)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
 
@@ -121,6 +126,7 @@ public class HiveMetadataFactory
         this.tableParameterCodec = requireNonNull(tableParameterCodec, "tableParameterCodec is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
+        this.serverInfo = requireNonNull(serverInfo, "serverInfo is null");
 
         if (!allowCorruptWritesForTesting && !timeZone.equals(DateTimeZone.getDefault())) {
             log.warn("Hive writes are disabled. " +
@@ -151,6 +157,7 @@ public class HiveMetadataFactory
                 tableParameterCodec,
                 partitionUpdateCodec,
                 renameExecution,
-                typeTranslator);
+                typeTranslator,
+                serverInfo);
     }
 }

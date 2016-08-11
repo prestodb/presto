@@ -61,7 +61,8 @@ public class HivePlugin
                 metastore,
                 context.getTypeManager(),
                 context.getPageIndexerFactory(),
-                context.getNodeManager()));
+                context.getNodeManager(),
+                context.getServerInfo()));
     }
 
     private static ClassLoader getClassLoader()
