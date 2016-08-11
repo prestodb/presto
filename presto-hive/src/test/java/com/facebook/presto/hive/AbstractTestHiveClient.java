@@ -20,6 +20,7 @@ import com.facebook.presto.hive.metastore.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.metastore.ThriftHiveMetastore;
@@ -47,6 +48,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.ServerInfo;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -188,6 +190,8 @@ public abstract class AbstractTestHiveClient
     protected static final String INVALID_DATABASE = "totally_invalid_database_name";
     protected static final String INVALID_TABLE = "totally_invalid_table_name";
     protected static final String INVALID_COLUMN = "totally_invalid_column_name";
+
+    protected static final ServerInfo TEST_SERVER_INFO = new ServerInfo("test_id", "test_environment", "test_version");
 
     private static final Type ARRAY_TYPE = TYPE_MANAGER.getParameterizedType(ARRAY, ImmutableList.of(TypeSignatureParameter.of(createUnboundedVarcharType().getTypeSignature())));
     private static final Type MAP_TYPE = TYPE_MANAGER.getParameterizedType(MAP, ImmutableList.of(TypeSignatureParameter.of(createUnboundedVarcharType().getTypeSignature()), TypeSignatureParameter.of(BIGINT.getTypeSignature())));
@@ -476,7 +480,8 @@ public abstract class AbstractTestHiveClient
                 new TableParameterCodec(),
                 partitionUpdateCodec,
                 newFixedThreadPool(2),
-                new HiveTypeTranslator());
+                new HiveTypeTranslator(),
+                TEST_SERVER_INFO);
         splitManager = new HiveSplitManager(
                 connectorId,
                 metastoreClient,
@@ -1646,6 +1651,10 @@ public abstract class AbstractTestHiveClient
         // verify the data
         MaterializedResult result = readTable(tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.of(storageFormat));
         assertEqualsIgnoreOrder(result.getMaterializedRows(), CREATE_TABLE_DATA.getMaterializedRows());
+
+        // verify the node version in table
+        Table table = getMetastoreClient(tableName.getSchemaName()).getTable(tableName.getSchemaName(), tableName.getTableName()).get();
+        assertEquals(table.getParameters().get(HiveMetadata.PRESTO_VERSION_NAME), TEST_SERVER_INFO.getVersion());
     }
 
     protected void doCreateEmptyTable(SchemaTableName tableName, HiveStorageFormat storageFormat, List<ColumnMetadata> createTableColumns)
@@ -1863,6 +1872,14 @@ public abstract class AbstractTestHiveClient
         assertEqualsIgnoreOrder(partitionNames, CREATE_TABLE_PARTITIONED_DATA.getMaterializedRows().stream()
                 .map(row -> "ds=" + row.getField(CREATE_TABLE_PARTITIONED_DATA.getTypes().size() - 1))
                 .collect(toList()));
+
+        // verify the node versions in partitions
+        Map<String, Optional<Partition>> partitions = getMetastoreClient(tableName.getSchemaName()).getPartitionsByNames(tableName.getSchemaName(), tableName.getTableName(), partitionNames);
+        assertEquals(partitions.size(), partitionNames.size());
+        for (String partitionName : partitionNames) {
+            Partition partition = partitions.get(partitionName).get();
+            assertEquals(partition.getParameters().get(HiveMetadata.PRESTO_VERSION_NAME), TEST_SERVER_INFO.getVersion());
+        }
 
         // load the new table
         ConnectorSession session = newSession();
