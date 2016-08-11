@@ -95,6 +95,20 @@ public class TestOutputStreamSliceOutputAdapter
     }
 
     @Test
+    public void testEncodingFloat()
+            throws Exception
+    {
+        assertEncoding(sliceOutput -> sliceOutput.writeFloat(3.14f),
+                new byte[] {-61, -11, 72, 64});
+        assertEncoding(sliceOutput -> sliceOutput.writeFloat(Float.NaN),
+                new byte[] {0, 0, -64, 127});
+        assertEncoding(sliceOutput -> sliceOutput.writeFloat(Float.NEGATIVE_INFINITY),
+                new byte[] {0, 0, -128, -1});
+        assertEncoding(sliceOutput -> sliceOutput.writeFloat(Float.POSITIVE_INFINITY),
+                new byte[] {0, 0, -128, 127});
+    }
+
+    @Test
     public void testEncodingBytes()
             throws Exception
     {

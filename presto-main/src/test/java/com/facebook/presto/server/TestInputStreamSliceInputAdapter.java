@@ -86,6 +86,16 @@ public class TestInputStreamSliceInputAdapter
         assertEquals(buildSliceInput(new byte[] {0, 0, 0, 0, 0, 0, -16, 127}).readDouble(), Double.POSITIVE_INFINITY);
     }
 
+    @Test
+    public void testEncodingFloat()
+            throws Exception
+    {
+        assertEquals(buildSliceInput(new byte[] {-61, -11, 72, 64}).readFloat(), 3.14f);
+        assertEquals(buildSliceInput(new byte[] {0, 0, -64, 127}).readFloat(), Float.NaN);
+        assertEquals(buildSliceInput(new byte[] {0, 0, -128, -1}).readFloat(), Float.NEGATIVE_INFINITY);
+        assertEquals(buildSliceInput(new byte[] {0, 0, -128, 127}).readFloat(), Float.POSITIVE_INFINITY);
+    }
+
     private SliceInput buildSliceInput(byte[] bytes)
     {
         FastByteArrayInputStream inputStream = new FastByteArrayInputStream(bytes);
