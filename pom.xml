@@ -49,7 +49,7 @@
         <dep.airlift.version>0.135</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.24</dep.slice.version>
-        <dep.aws-sdk.version>1.9.40</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.11.30</dep.aws-sdk.version>
         <dep.tempto.version>1.12</dep.tempto.version>
 
         <!--
