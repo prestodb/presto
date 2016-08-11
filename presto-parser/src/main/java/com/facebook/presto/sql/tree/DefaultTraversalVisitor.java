@@ -498,4 +498,13 @@ public abstract class DefaultTraversalVisitor<R, C>
 
         return null;
     }
+
+    @Override
+    protected R visitExplain(Explain node, C context)
+    {
+        process(node.getStatement(), context);
+        node.getOptions().forEach(option -> process(option, context));
+
+        return null;
+    }
 }
