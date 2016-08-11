@@ -74,7 +74,7 @@ public class TestStatementBuilder
         printStatement("select count(*) x from src group by rollup (k, v)");
         printStatement("select count(*) x from src group by grouping sets ((k, v))");
         printStatement("select count(*) x from src group by grouping sets ((k, v), (v))");
-        printStatement("select count(*) x from src group by grouping sets ()");
+        printStatement("select count(*) x from src group by grouping sets (k, v, k)");
 
         printStatement("" +
                 "select depname, empno, salary\n" +
