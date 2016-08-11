@@ -361,6 +361,42 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testRowInValueList()
+            throws Exception
+    {
+        assertQuery("SELECT x from (values 1,2,3) t(x) where (2, x) in ((2,0), (2,2), (2,4))", "SELECT 2");
+        assertQuery("SELECT x from (values (1,2),(3,4),(5,6)) t(x,y) where (x,y) in ((2,0), (3,4), (2,4))", "SELECT 3");
+
+        // with null
+        assertQuery("select x from (values (1,2),(3,4),(5,6), (7,8)) t(x,y) where ((x,y) in ( (1,2), (3,null), (null, 6))) = false", "select 7");
+        assertQuery("select x from (values (1,2),(3,4),(5,6), (7,8)) t(x,y) where ((x,y) in ( (1,2), (3,null), (null, 6))) is null", "select * from values (3), (5)");
+        assertQuery("select x from (values (1,2),(3,4),(5,6), (7,8)) t(x,y) where (x,y) in ( (1,2), (3,null), (null, 6))", "select * from values (1)");
+    }
+
+    @Test
+    public void testRowInSubquery()
+            throws Exception
+    {
+        assertQuery("SELECT x from (values 1,2,3) t(x) where (2, x) in (values (2,0), (2,2), (2,4))", "SELECT 2");
+        assertQuery("SELECT x from (values (1,2),(3,4),(5,6)) t(x,y) where (x,y) in (values (2,0), (3,4), (2,4))", "SELECT 3");
+        assertQuery("SELECT x from (values (1,2),(2,3),(3,4)) t(x,y) where (x,y) in (select (xx, xx + 1) from (values 1,2,3,4,5,6) nt(xx) where xx % 2 != 0)", "SELECT * from values 1,3");
+
+        // with null
+        assertQuery("select x from (values (1,2),(3,4),(5,6), (7,8), (9, null)) t(x,y) where ((x,y) in (values (1,2), (3,null), (null, 6)))", "select 1");
+        //assertQuery("select x from (values (1,2),(3,4),(5,6), (7,8), (9, null)) t(x,y) where ((x,y) in (values (1,2), (3,null), (null, 6))) is null", "select * from values (3), (5), (9)");
+        //assertQuery("select x from (values (1,2),(3,4),(5,6), (7,8), (9, null)) t(x,y) where ((x,y) in (values (1,2), (3,null), (null, 6))) = false", "select 7");
+    }
+
+    @Test
+    public void testMapInValueList()
+            throws Exception
+    {
+        assertQuery("SELECT x from (values (1,2),(3,4),(5,6)) t(x,y) where (map(array[x], array[y]) in (map(array[x], array[4]), map(array[5], array[null]))) is null", "SELECT 5");
+        assertQuery("SELECT x from (values (1,2),(3,4),(5,6)) t(x,y) where map(array[x], array[y]) in (map(array[x], array[4]), map(array[5], array[null]))", "SELECT 3");
+        assertQuery("SELECT x from (values (1,2),(3,4),(5,6)) t(x,y) where (map(array[x], array[y]) in (map(array[x], array[4]), map(array[5], array[null]))) = false", "SELECT 1");
+    }
+
+    @Test
     public void testDereferenceInSubquery()
             throws Exception
     {

@@ -37,7 +37,6 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockSerdeUtil.writeBlock;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -279,6 +278,13 @@ public class TestArrayOperators
         assertFunction("CONTAINS(ARRAY [CAST (NULL AS BIGINT)], NULL)", BOOLEAN, null);
         assertFunction("CONTAINS(ARRAY [], NULL)", BOOLEAN, null);
         assertFunction("CONTAINS(ARRAY [], 1)", BOOLEAN, false);
+
+        // with null
+        assertFunction("CONTAINS(ARRAY [ARRAY [1, 2], ARRAY [3, null]], ARRAY [1, 2])", BOOLEAN, true);
+        assertFunction("CONTAINS(ARRAY [ARRAY [1, 2], ARRAY [3, null]], ARRAY [4, 5])", BOOLEAN, false);
+        assertFunction("CONTAINS(ARRAY [ARRAY [1, 2], ARRAY [3, 4]], ARRAY [3, null])", BOOLEAN, null);
+        assertFunction("CONTAINS(ARRAY [ARRAY [1, 2], ARRAY [3, null]], ARRAY [3, 4])", BOOLEAN, null);
+        assertFunction("CONTAINS(ARRAY [ARRAY [1, 2], ARRAY [3, null]], ARRAY [3, null])", BOOLEAN, null);
     }
 
     @Test
@@ -746,7 +752,14 @@ public class TestArrayOperators
         assertFunction("ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]] >= ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]]", BOOLEAN, true);
         assertFunction("ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]] < ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]]", BOOLEAN, false);
 
-        assertInvalidFunction("ARRAY [1, NULL] = ARRAY [1, 2]", NOT_SUPPORTED.toErrorCode());
+        // with null
+        assertFunction("ARRAY [1, NULL] = ARRAY [1, 2]", BOOLEAN, null);
+        assertFunction("ARRAY [NULL, NULL] = ARRAY [1, 2]", BOOLEAN, null);
+        assertFunction("ARRAY [1, NULL] = ARRAY [2, 2]", BOOLEAN, false);
+        assertFunction("ARRAY [CAST(ROW(0,1) AS ROW(a integer, b integer)), CAST(ROW(1,2)    AS ROW(a integer, b integer))] = ARRAY [CAST(ROW(0,1) AS ROW(a integer, b integer)), CAST(NULL     AS ROW(a integer, b integer))]", BOOLEAN, null);
+        assertFunction("ARRAY [CAST(ROW(0,1) AS ROW(a integer, b integer)), CAST(ROW(1,2)    AS ROW(a integer, b integer))] = ARRAY [CAST(ROW(0,1) AS ROW(a integer, b integer)), CAST(ROW(1,2) AS ROW(a integer, b integer))]", BOOLEAN, true);
+        assertFunction("ARRAY [CAST(ROW(0,1) AS ROW(a integer, b integer)), CAST(ROW(null,2) AS ROW(a integer, b integer))] = ARRAY [CAST(ROW(0,1) AS ROW(a integer, b integer)), CAST(ROW(1,2) AS ROW(a integer, b integer))]", BOOLEAN, null);
+        assertFunction("ARRAY [CAST(ROW(0,1) AS ROW(a integer, b integer)), CAST(ROW(null,3) AS ROW(a integer, b integer))] = ARRAY [CAST(ROW(0,1) AS ROW(a integer, b integer)), CAST(ROW(1,2) AS ROW(a integer, b integer))]", BOOLEAN, false);
     }
 
     @Test
@@ -922,7 +935,8 @@ public class TestArrayOperators
         return new SqlTimestamp(millisUtc, TEST_SESSION.getTimeZoneKey());
     }
 
-    private SqlTimestamp sqlTimestamp(String dateString) throws ParseException
+    private SqlTimestamp sqlTimestamp(String dateString)
+            throws ParseException
     {
         DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
         dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));

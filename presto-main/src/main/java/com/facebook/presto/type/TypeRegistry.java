@@ -14,6 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -292,14 +293,19 @@ public final class TypeRegistry
         List<Type> firstTypeParameters = firstType.getTypeParameters();
         List<Type> secondTypeParameters = secondType.getTypeParameters();
         checkState(firstTypeParameters.size() == secondTypeParameters.size());
+        String typeName = firstType.getTypeSignature().getBase();
         for (int i = 0; i < firstTypeParameters.size(); i++) {
             Optional<Type> commonParameterType = getCommonSuperType(firstTypeParameters.get(i), secondTypeParameters.get(i));
             if (!commonParameterType.isPresent()) {
                 return Optional.empty();
             }
-            commonParameterTypes.add(TypeSignatureParameter.of(commonParameterType.get().getTypeSignature()));
+            if (typeName.equals(StandardTypes.ROW)) {
+                commonParameterTypes.add(TypeSignatureParameter.of(new NamedTypeSignature("field" + i, commonParameterType.get().getTypeSignature())));
+            }
+            else {
+                commonParameterTypes.add(TypeSignatureParameter.of(commonParameterType.get().getTypeSignature()));
+            }
         }
-        String typeName = firstType.getTypeSignature().getBase();
         return Optional.of(getType(new TypeSignature(typeName, commonParameterTypes.build())));
     }
 
@@ -499,6 +505,6 @@ public final class TypeRegistry
     private static boolean isCovariantParametrizedType(Type type)
     {
         // if we ever introduce contravariant, this function should be changed to return an enumeration: INVARIANT, COVARIANT, CONTRAVARIANT
-        return type instanceof MapType || type instanceof ArrayType;
+        return type instanceof MapType || type instanceof ArrayType || type instanceof RowType;
     }
 }

@@ -23,13 +23,13 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
 
+import javax.annotation.Nullable;
+
 import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
-import static com.facebook.presto.type.ArrayType.ARRAY_NULL_ELEMENT_MSG;
-import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
 
 @ScalarOperator(EQUAL)
 public final class ArrayEqualOperator
@@ -37,8 +37,9 @@ public final class ArrayEqualOperator
     private ArrayEqualOperator() {}
 
     @TypeParameter("E")
+    @Nullable
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean equals(
+    public static Boolean equals(
             @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle equalsFunction,
             @TypeParameter("E") Type type,
             @SqlType("array(E)") Block leftArray,
@@ -47,13 +48,21 @@ public final class ArrayEqualOperator
         if (leftArray.getPositionCount() != rightArray.getPositionCount()) {
             return false;
         }
+        boolean foundNull = false;
         for (int i = 0; i < leftArray.getPositionCount(); i++) {
-            checkElementNotNull(leftArray.isNull(i), ARRAY_NULL_ELEMENT_MSG);
-            checkElementNotNull(rightArray.isNull(i), ARRAY_NULL_ELEMENT_MSG);
+            if (leftArray.isNull(i) || rightArray.isNull(i)) {
+                foundNull = true;
+                continue;
+            }
             Object leftElement = readNativeValue(type, leftArray, i);
             Object rightElement = readNativeValue(type, rightArray, i);
             try {
-                if (!(boolean) equalsFunction.invoke(leftElement, rightElement)) {
+                Boolean result = (Boolean) equalsFunction.invoke(leftElement, rightElement);
+                if (result == null) {
+                    foundNull = true;
+                    continue;
+                }
+                if (!result) {
                     return false;
                 }
             }
@@ -63,6 +72,9 @@ public final class ArrayEqualOperator
 
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
+        }
+        if (foundNull) {
+            return null;
         }
         return true;
     }

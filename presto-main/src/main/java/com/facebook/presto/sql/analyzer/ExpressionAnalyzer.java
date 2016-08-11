@@ -100,6 +100,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -944,23 +945,28 @@ public class ExpressionAnalyzer
             StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node);
             RelationType descriptor = analyzer.process(node.getQuery(), new AnalysisContext(context.getContext(), tupleDescriptor));
 
-            // Subquery should only produce one column
-            if (descriptor.getVisibleFieldCount() != 1) {
-                throw new SemanticException(MULTIPLE_FIELDS_FROM_SUBQUERY,
-                        node,
-                        "Multiple columns returned by subquery are not yet supported. Found %s",
-                        descriptor.getVisibleFieldCount());
-            }
-
             Node previousNode = context.getPreviousNode().orElse(null);
             if (previousNode instanceof InPredicate && ((InPredicate) previousNode).getValue() != node) {
                 subqueryInPredicates.add((InPredicate) previousNode);
             }
             else {
+                // Subquery should only produce one column under non-InPredicate expression
+                if (descriptor.getVisibleFieldCount() != 1) {
+                    throw new SemanticException(MULTIPLE_FIELDS_FROM_SUBQUERY,
+                            node,
+                            "Multiple columns returned by subquery are not yet supported. Found %s",
+                            descriptor.getVisibleFieldCount());
+                }
                 scalarSubqueries.add(node);
             }
 
-            Type type = Iterables.getOnlyElement(descriptor.getVisibleFields()).getType();
+            Type type;
+            if (descriptor.getVisibleFieldCount() == 1) {
+                type = Iterables.getOnlyElement(descriptor.getVisibleFields()).getType();
+            }
+            else {
+                type = new RowType(descriptor.getVisibleFields().stream().map(Field::getType).collect(Collectors.toList()), Optional.empty());
+            }
             expressionTypes.put(node, type);
             return type;
         }
