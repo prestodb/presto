@@ -21,3 +21,10 @@ Conversion Functions
 .. function:: try_cast(value AS type) -> type
 
     Like :func:`cast`, but returns null if the cast fails.
+
+Miscellaneous
+-------------
+
+.. function:: presto_typeof(expr) -> varchar
+
+    Returns name of provided expression type.
