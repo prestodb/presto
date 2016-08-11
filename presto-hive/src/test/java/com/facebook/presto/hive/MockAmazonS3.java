@@ -25,6 +25,7 @@ import com.amazonaws.services.s3.model.AbortMultipartUploadRequest;
 import com.amazonaws.services.s3.model.AccessControlList;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.Bucket;
+import com.amazonaws.services.s3.model.BucketAccelerateConfiguration;
 import com.amazonaws.services.s3.model.BucketCrossOriginConfiguration;
 import com.amazonaws.services.s3.model.BucketLifecycleConfiguration;
 import com.amazonaws.services.s3.model.BucketLoggingConfiguration;
@@ -45,6 +46,7 @@ import com.amazonaws.services.s3.model.CreateBucketRequest;
 import com.amazonaws.services.s3.model.DeleteBucketCrossOriginConfigurationRequest;
 import com.amazonaws.services.s3.model.DeleteBucketLifecycleConfigurationRequest;
 import com.amazonaws.services.s3.model.DeleteBucketPolicyRequest;
+import com.amazonaws.services.s3.model.DeleteBucketReplicationConfigurationRequest;
 import com.amazonaws.services.s3.model.DeleteBucketRequest;
 import com.amazonaws.services.s3.model.DeleteBucketTaggingConfigurationRequest;
 import com.amazonaws.services.s3.model.DeleteBucketWebsiteConfigurationRequest;
@@ -53,17 +55,33 @@ import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsResult;
 import com.amazonaws.services.s3.model.DeleteVersionRequest;
 import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
+import com.amazonaws.services.s3.model.GetBucketAccelerateConfigurationRequest;
 import com.amazonaws.services.s3.model.GetBucketAclRequest;
+import com.amazonaws.services.s3.model.GetBucketCrossOriginConfigurationRequest;
+import com.amazonaws.services.s3.model.GetBucketLifecycleConfigurationRequest;
 import com.amazonaws.services.s3.model.GetBucketLocationRequest;
+import com.amazonaws.services.s3.model.GetBucketLoggingConfigurationRequest;
+import com.amazonaws.services.s3.model.GetBucketNotificationConfigurationRequest;
 import com.amazonaws.services.s3.model.GetBucketPolicyRequest;
+import com.amazonaws.services.s3.model.GetBucketReplicationConfigurationRequest;
+import com.amazonaws.services.s3.model.GetBucketTaggingConfigurationRequest;
+import com.amazonaws.services.s3.model.GetBucketVersioningConfigurationRequest;
 import com.amazonaws.services.s3.model.GetBucketWebsiteConfigurationRequest;
+import com.amazonaws.services.s3.model.GetObjectAclRequest;
 import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
 import com.amazonaws.services.s3.model.GetObjectRequest;
+import com.amazonaws.services.s3.model.GetS3AccountOwnerRequest;
+import com.amazonaws.services.s3.model.HeadBucketRequest;
+import com.amazonaws.services.s3.model.HeadBucketResult;
 import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
 import com.amazonaws.services.s3.model.InitiateMultipartUploadResult;
 import com.amazonaws.services.s3.model.ListBucketsRequest;
 import com.amazonaws.services.s3.model.ListMultipartUploadsRequest;
+import com.amazonaws.services.s3.model.ListNextBatchOfObjectsRequest;
+import com.amazonaws.services.s3.model.ListNextBatchOfVersionsRequest;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
+import com.amazonaws.services.s3.model.ListObjectsV2Request;
+import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.ListPartsRequest;
 import com.amazonaws.services.s3.model.ListVersionsRequest;
 import com.amazonaws.services.s3.model.MultipartUploadListing;
@@ -75,6 +93,7 @@ import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.PutObjectResult;
 import com.amazonaws.services.s3.model.RestoreObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.SetBucketAccelerateConfigurationRequest;
 import com.amazonaws.services.s3.model.SetBucketAclRequest;
 import com.amazonaws.services.s3.model.SetBucketCrossOriginConfigurationRequest;
 import com.amazonaws.services.s3.model.SetBucketLifecycleConfigurationRequest;
@@ -90,6 +109,7 @@ import com.amazonaws.services.s3.model.StorageClass;
 import com.amazonaws.services.s3.model.UploadPartRequest;
 import com.amazonaws.services.s3.model.UploadPartResult;
 import com.amazonaws.services.s3.model.VersionListing;
+import com.amazonaws.services.s3.waiters.AmazonS3Waiters;
 
 import java.io.File;
 import java.io.InputStream;
@@ -165,8 +185,36 @@ public class MockAmazonS3
     }
 
     @Override
+    public ListObjectsV2Result listObjectsV2(String bucketName)
+            throws AmazonClientException, AmazonServiceException
+    {
+        return null;
+    }
+
+    @Override
+    public ListObjectsV2Result listObjectsV2(String bucketName, String prefix)
+            throws AmazonClientException, AmazonServiceException
+    {
+        return null;
+    }
+
+    @Override
+    public ListObjectsV2Result listObjectsV2(ListObjectsV2Request listObjectsV2Request)
+            throws AmazonClientException, AmazonServiceException
+    {
+        return null;
+    }
+
+    @Override
     public ObjectListing listNextBatchOfObjects(ObjectListing previousObjectListing)
             throws AmazonClientException
+    {
+        return null;
+    }
+
+    @Override
+    public ObjectListing listNextBatchOfObjects(ListNextBatchOfObjectsRequest listNextBatchOfObjectsRequest)
+            throws AmazonClientException, AmazonServiceException
     {
         return null;
     }
@@ -181,6 +229,13 @@ public class MockAmazonS3
     @Override
     public VersionListing listNextBatchOfVersions(VersionListing previousVersionListing)
             throws AmazonClientException
+    {
+        return null;
+    }
+
+    @Override
+    public VersionListing listNextBatchOfVersions(ListNextBatchOfVersionsRequest listNextBatchOfVersionsRequest)
+            throws AmazonClientException, AmazonServiceException
     {
         return null;
     }
@@ -207,10 +262,24 @@ public class MockAmazonS3
     }
 
     @Override
+    public Owner getS3AccountOwner(GetS3AccountOwnerRequest getS3AccountOwnerRequest)
+            throws AmazonClientException, AmazonServiceException
+    {
+        return null;
+    }
+
+    @Override
     public boolean doesBucketExist(String bucketName)
             throws AmazonClientException
     {
         return false;
+    }
+
+    @Override
+    public HeadBucketResult headBucket(HeadBucketRequest headBucketRequest)
+            throws AmazonClientException, AmazonServiceException
+    {
+        return null;
     }
 
     @Override
@@ -279,6 +348,13 @@ public class MockAmazonS3
     @Override
     public AccessControlList getObjectAcl(String bucketName, String key, String versionId)
             throws AmazonClientException
+    {
+        return null;
+    }
+
+    @Override
+    public AccessControlList getObjectAcl(GetObjectAclRequest getObjectAclRequest)
+            throws AmazonClientException, AmazonServiceException
     {
         return null;
     }
@@ -391,6 +467,13 @@ public class MockAmazonS3
     }
 
     @Override
+    public String getObjectAsString(String bucketName, String key)
+            throws AmazonServiceException, AmazonClientException
+    {
+        return null;
+    }
+
+    @Override
     public void deleteBucket(DeleteBucketRequest deleteBucketRequest)
             throws AmazonClientException
     {
@@ -421,6 +504,13 @@ public class MockAmazonS3
             throws AmazonClientException
     {
         return new PutObjectResult();
+    }
+
+    @Override
+    public PutObjectResult putObject(String bucketName, String key, String content)
+            throws AmazonServiceException, AmazonClientException
+    {
+        return null;
     }
 
     @Override
@@ -483,6 +573,13 @@ public class MockAmazonS3
     }
 
     @Override
+    public BucketLoggingConfiguration getBucketLoggingConfiguration(GetBucketLoggingConfigurationRequest getBucketLoggingConfigurationRequest)
+            throws AmazonClientException, AmazonServiceException
+    {
+        return null;
+    }
+
+    @Override
     public void setBucketLoggingConfiguration(SetBucketLoggingConfigurationRequest setBucketLoggingConfigurationRequest)
             throws AmazonClientException
     {
@@ -496,6 +593,13 @@ public class MockAmazonS3
     }
 
     @Override
+    public BucketVersioningConfiguration getBucketVersioningConfiguration(GetBucketVersioningConfigurationRequest getBucketVersioningConfigurationRequest)
+            throws AmazonClientException, AmazonServiceException
+    {
+        return null;
+    }
+
+    @Override
     public void setBucketVersioningConfiguration(SetBucketVersioningConfigurationRequest setBucketVersioningConfigurationRequest)
             throws AmazonClientException
     {
@@ -503,6 +607,12 @@ public class MockAmazonS3
 
     @Override
     public BucketLifecycleConfiguration getBucketLifecycleConfiguration(String bucketName)
+    {
+        return null;
+    }
+
+    @Override
+    public BucketLifecycleConfiguration getBucketLifecycleConfiguration(GetBucketLifecycleConfigurationRequest getBucketLifecycleConfigurationRequest)
     {
         return null;
     }
@@ -534,6 +644,12 @@ public class MockAmazonS3
     }
 
     @Override
+    public BucketCrossOriginConfiguration getBucketCrossOriginConfiguration(GetBucketCrossOriginConfigurationRequest getBucketCrossOriginConfigurationRequest)
+    {
+        return null;
+    }
+
+    @Override
     public void setBucketCrossOriginConfiguration(String bucketName, BucketCrossOriginConfiguration bucketCrossOriginConfiguration)
     {
     }
@@ -555,6 +671,12 @@ public class MockAmazonS3
 
     @Override
     public BucketTaggingConfiguration getBucketTaggingConfiguration(String bucketName)
+    {
+        return null;
+    }
+
+    @Override
+    public BucketTaggingConfiguration getBucketTaggingConfiguration(GetBucketTaggingConfigurationRequest getBucketTaggingConfigurationRequest)
     {
         return null;
     }
@@ -582,6 +704,13 @@ public class MockAmazonS3
     @Override
     public BucketNotificationConfiguration getBucketNotificationConfiguration(String bucketName)
             throws AmazonClientException
+    {
+        return null;
+    }
+
+    @Override
+    public BucketNotificationConfiguration getBucketNotificationConfiguration(GetBucketNotificationConfigurationRequest getBucketNotificationConfigurationRequest)
+            throws AmazonClientException, AmazonServiceException
     {
         return null;
     }
@@ -793,8 +922,78 @@ public class MockAmazonS3
     }
 
     @Override
+    public BucketReplicationConfiguration getBucketReplicationConfiguration(GetBucketReplicationConfigurationRequest getBucketReplicationConfigurationRequest)
+            throws AmazonServiceException, AmazonClientException
+    {
+        return null;
+    }
+
+    @Override
     public void deleteBucketReplicationConfiguration(String bucketName)
             throws AmazonClientException
     {
+    }
+
+    @Override
+    public void deleteBucketReplicationConfiguration(DeleteBucketReplicationConfigurationRequest request)
+            throws AmazonServiceException, AmazonClientException
+    {
+    }
+
+    @Override
+    public boolean doesObjectExist(String bucketName, String objectName)
+            throws AmazonServiceException, AmazonClientException
+    {
+        return false;
+    }
+
+    @Override
+    public BucketAccelerateConfiguration getBucketAccelerateConfiguration(String bucket)
+            throws AmazonServiceException, AmazonClientException
+    {
+        return null;
+    }
+
+    @Override
+    public BucketAccelerateConfiguration getBucketAccelerateConfiguration(GetBucketAccelerateConfigurationRequest getBucketAccelerateConfigurationRequest)
+            throws AmazonServiceException, AmazonClientException
+    {
+        return null;
+    }
+
+    @Override
+    public void setBucketAccelerateConfiguration(String bucketName, BucketAccelerateConfiguration accelerateConfiguration)
+            throws AmazonServiceException, AmazonClientException
+    {
+    }
+
+    @Override
+    public void setBucketAccelerateConfiguration(SetBucketAccelerateConfigurationRequest setBucketAccelerateConfigurationRequest)
+            throws AmazonServiceException, AmazonClientException
+    {
+    }
+
+    @Override
+    public com.amazonaws.services.s3.model.Region getRegion()
+    {
+        return null;
+    }
+
+    @Override
+    public String getRegionName()
+    {
+        return null;
+    }
+
+    @Override
+    public URL getUrl(String bucketName, String key)
+    {
+        return null;
+    }
+
+    @Override
+    public AmazonS3Waiters waiters()
+    {
+        return null;
     }
 }
