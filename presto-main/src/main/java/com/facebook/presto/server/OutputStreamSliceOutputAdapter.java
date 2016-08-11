@@ -28,8 +28,6 @@ import java.util.Arrays;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.primitives.Ints.checkedCast;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
-import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
-import static io.airlift.slice.SizeOf.SIZE_OF_FLOAT;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
@@ -147,17 +145,13 @@ public final class OutputStreamSliceOutputAdapter
     @Override
     public void writeFloat(float value)
     {
-        ensureWritableBytes(SIZE_OF_FLOAT);
-        slice.setInt(bufferPosition, Float.floatToIntBits(value));
-        bufferPosition += SIZE_OF_FLOAT;
+        writeInt(Float.floatToIntBits(value));
     }
 
     @Override
     public void writeDouble(double value)
     {
-        ensureWritableBytes(SIZE_OF_DOUBLE);
-        slice.setLong(bufferPosition, Double.doubleToLongBits(value));
-        bufferPosition += SIZE_OF_DOUBLE;
+        writeLong(Double.doubleToLongBits(value));
     }
 
     @Override
