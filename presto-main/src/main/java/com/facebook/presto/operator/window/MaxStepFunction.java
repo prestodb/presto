@@ -50,10 +50,6 @@ public class MaxStepFunction extends ValueWindowFunction
   @Override
   public void processRow(BlockBuilder output, int frameStart, int frameEnd, int currentPosition)
   {
-    if ((frameStart < 0) || windowIndex.isNull(patternDefChannel, currentPosition)) {
-      INTEGER.writeObject(output, null);
-    }
-
     if (this.patternItems == null) {
       Slice patternDefSlice = windowIndex.getSlice(patternDefChannel, currentPosition);
       String patternDef = new String(patternDefSlice.getBytes());
@@ -62,19 +58,13 @@ public class MaxStepFunction extends ValueWindowFunction
     }
 
     Slice valueSlice = windowIndex.getSlice(actionChannel, currentPosition);
-
-    if (this.patternItemsSize < 1) {
-      INTEGER.writeObject(output, null);
-    }
-    else {
-      String action = new String(valueSlice.getBytes());
-      if (this.index < this.patternItemsSize) {
-        this.currentSearchingItem = this.patternItems[this.index];
-        if (this.currentSearchingItem.equals(action)) {
-          this.index += 1;
-        }
+    String action = new String(valueSlice.getBytes());
+    if (this.index < this.patternItemsSize) {
+      this.currentSearchingItem = this.patternItems[this.index];
+      if (this.currentSearchingItem.equals(action)) {
+        this.index += 1;
       }
-      INTEGER.writeLong(output, this.index);
     }
+    INTEGER.writeLong(output, this.index);
   }
 }
