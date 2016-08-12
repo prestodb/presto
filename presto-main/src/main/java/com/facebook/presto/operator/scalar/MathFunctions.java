@@ -89,8 +89,8 @@ public final class MathFunctions
 
     @Description("absolute value")
     @ScalarFunction("abs")
-    @SqlType(StandardTypes.FLOAT)
-    public static long absFloat(@SqlType(StandardTypes.FLOAT) long num)
+    @SqlType(StandardTypes.REAL)
+    public static long absFloat(@SqlType(StandardTypes.REAL) long num)
     {
         return floatToRawIntBits(Math.abs(intBitsToFloat((int) num)));
     }
@@ -177,8 +177,8 @@ public final class MathFunctions
 
     @Description("round up to nearest integer")
     @ScalarFunction(value = "ceiling", alias = "ceil")
-    @SqlType(StandardTypes.FLOAT)
-    public static long ceilingFloat(@SqlType(StandardTypes.FLOAT) long num)
+    @SqlType(StandardTypes.REAL)
+    public static long ceilingFloat(@SqlType(StandardTypes.REAL) long num)
     {
         return floatToRawIntBits((float) ceiling(intBitsToFloat((int) num)));
     }
@@ -193,8 +193,8 @@ public final class MathFunctions
 
     @Description("round to integer by dropping digits after decimal point")
     @ScalarFunction
-    @SqlType(StandardTypes.FLOAT)
-    public static long truncate(@SqlType(StandardTypes.FLOAT) long num)
+    @SqlType(StandardTypes.REAL)
+    public static long truncate(@SqlType(StandardTypes.REAL) long num)
     {
         float numInFloat = intBitsToFloat((int) num);
         return floatToRawIntBits((float) (Math.signum(numInFloat) * Math.floor(Math.abs(numInFloat))));
@@ -282,8 +282,8 @@ public final class MathFunctions
 
     @Description("round down to nearest integer")
     @ScalarFunction("floor")
-    @SqlType(StandardTypes.FLOAT)
-    public static long floorFloat(@SqlType(StandardTypes.FLOAT) long num)
+    @SqlType(StandardTypes.REAL)
+    public static long floorFloat(@SqlType(StandardTypes.REAL) long num)
     {
         return floatToRawIntBits((float) floor(intBitsToFloat((int) num)));
     }
@@ -362,8 +362,8 @@ public final class MathFunctions
 
     @Description("remainder of given quotient")
     @ScalarFunction("mod")
-    @SqlType(StandardTypes.FLOAT)
-    public static long modFloat(@SqlType(StandardTypes.FLOAT) long num1, @SqlType(StandardTypes.FLOAT) long num2)
+    @SqlType(StandardTypes.REAL)
+    public static long modFloat(@SqlType(StandardTypes.REAL) long num1, @SqlType(StandardTypes.REAL) long num2)
     {
         return floatToRawIntBits(intBitsToFloat((int) num1) % intBitsToFloat((int) num2));
     }
@@ -510,8 +510,8 @@ public final class MathFunctions
 
     @Description("round to given number of decimal places")
     @ScalarFunction("round")
-    @SqlType(StandardTypes.FLOAT)
-    public static long roundFloat(@SqlType(StandardTypes.FLOAT) long num)
+    @SqlType(StandardTypes.REAL)
+    public static long roundFloat(@SqlType(StandardTypes.REAL) long num)
     {
         return roundFloat(num, 0);
     }
@@ -535,8 +535,8 @@ public final class MathFunctions
 
     @Description("round to given number of decimal places")
     @ScalarFunction("round")
-    @SqlType(StandardTypes.FLOAT)
-    public static long roundFloat(@SqlType(StandardTypes.FLOAT) long num, @SqlType(StandardTypes.BIGINT) long decimals)
+    @SqlType(StandardTypes.REAL)
+    public static long roundFloat(@SqlType(StandardTypes.REAL) long num, @SqlType(StandardTypes.BIGINT) long decimals)
     {
         float numInFloat = intBitsToFloat((int) num);
         if (Float.isNaN(numInFloat) || Float.isInfinite(numInFloat)) {
@@ -593,8 +593,8 @@ public final class MathFunctions
 
     @Description("signum")
     @ScalarFunction("sign")
-    @SqlType(StandardTypes.FLOAT)
-    public static long signFloat(@SqlType(StandardTypes.FLOAT) long num)
+    @SqlType(StandardTypes.REAL)
+    public static long signFloat(@SqlType(StandardTypes.REAL) long num)
     {
         return floatToRawIntBits((Math.signum(intBitsToFloat((int) num))));
     }

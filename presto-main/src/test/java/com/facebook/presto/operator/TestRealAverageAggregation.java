@@ -28,14 +28,14 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.block.BlockAssertions.createFloatsBlock;
+import static com.facebook.presto.block.BlockAssertions.createBlockOfReals;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static com.facebook.presto.spi.type.FloatType.FLOAT;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.Float.floatToRawIntBits;
 
 @Test(singleThreaded = true)
-public class TestFloatAverageAggregation
+public class TestRealAverageAggregation
         extends AbstractTestAggregationFunction
 {
     private InternalAggregationFunction avgFunction;
@@ -45,7 +45,7 @@ public class TestFloatAverageAggregation
     {
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
         avgFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
-                new Signature("avg", FunctionKind.AGGREGATE, parseTypeSignature(StandardTypes.FLOAT), parseTypeSignature(StandardTypes.FLOAT)));
+                new Signature("avg", FunctionKind.AGGREGATE, parseTypeSignature(StandardTypes.REAL), parseTypeSignature(StandardTypes.REAL)));
     }
 
     @Test
@@ -54,7 +54,7 @@ public class TestFloatAverageAggregation
         assertAggregation(avgFunction,
                 1.0,
                 null,
-                createFloatsBlock(null, null));
+                createBlockOfReals(null, null));
     }
 
     @Test
@@ -63,7 +63,7 @@ public class TestFloatAverageAggregation
         assertAggregation(avgFunction,
                 1.0,
                 1.23f,
-                createFloatsBlock(1.23f));
+                createBlockOfReals(1.23f));
     }
 
     @Test
@@ -72,15 +72,15 @@ public class TestFloatAverageAggregation
         assertAggregation(avgFunction,
                 1.0,
                 Float.MAX_VALUE,
-                createFloatsBlock(Float.MAX_VALUE, Float.MAX_VALUE));
+                createBlockOfReals(Float.MAX_VALUE, Float.MAX_VALUE));
     }
 
     @Override
     public Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = FLOAT.createBlockBuilder(new BlockBuilderStatus(), length);
+        BlockBuilder blockBuilder = REAL.createBlockBuilder(new BlockBuilderStatus(), length);
         for (int i = start; i < start + length; i++) {
-            FLOAT.writeLong(blockBuilder, floatToRawIntBits((float) i));
+            REAL.writeLong(blockBuilder, floatToRawIntBits((float) i));
         }
         return new Block[] {blockBuilder.build()};
     }
@@ -94,7 +94,7 @@ public class TestFloatAverageAggregation
     @Override
     protected List<String> getFunctionParameterTypes()
     {
-        return ImmutableList.of(StandardTypes.FLOAT);
+        return ImmutableList.of(StandardTypes.REAL);
     }
 
     @Override

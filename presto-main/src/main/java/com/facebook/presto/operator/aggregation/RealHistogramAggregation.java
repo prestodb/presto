@@ -21,31 +21,29 @@ import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.FloatType;
+import com.facebook.presto.spi.type.StandardTypes;
 
 import java.util.Map;
 
-import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
-import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
-import static com.facebook.presto.spi.type.StandardTypes.FLOAT;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 
 @AggregationFunction("numeric_histogram")
-public class FloatHistogramAggregation
+public class RealHistogramAggregation
 {
-    private FloatHistogramAggregation()
+    private RealHistogramAggregation()
     {
     }
 
     @InputFunction
-    public static void add(DoubleHistogramAggregation.State state, @SqlType(BIGINT) long buckets, @SqlType(FLOAT) long value, @SqlType(DOUBLE) double weight)
+    public static void add(DoubleHistogramAggregation.State state, @SqlType(StandardTypes.BIGINT) long buckets, @SqlType(StandardTypes.REAL) long value, @SqlType(StandardTypes.DOUBLE) double weight)
     {
         DoubleHistogramAggregation.add(state, buckets, intBitsToFloat((int) value), weight);
     }
 
     @InputFunction
-    public static void add(DoubleHistogramAggregation.State state, @SqlType(BIGINT) long buckets, @SqlType(FLOAT) long value)
+    public static void add(DoubleHistogramAggregation.State state, @SqlType(StandardTypes.BIGINT) long buckets, @SqlType(StandardTypes.REAL) long value)
     {
         add(state, buckets, value, 1);
     }
@@ -56,7 +54,7 @@ public class FloatHistogramAggregation
         DoubleHistogramAggregation.merge(state, other);
     }
 
-    @OutputFunction("map(float,float)")
+    @OutputFunction("map(real,real)")
     public static void output(DoubleHistogramAggregation.State state, BlockBuilder out)
     {
         if (state.get() == null) {
@@ -64,10 +62,10 @@ public class FloatHistogramAggregation
         }
         else {
             Map<Double, Double> value = state.get().getBuckets();
-            BlockBuilder blockBuilder = FloatType.FLOAT.createBlockBuilder(new BlockBuilderStatus(), value.size() * 2);
+            BlockBuilder blockBuilder = REAL.createBlockBuilder(new BlockBuilderStatus(), value.size() * 2);
             for (Map.Entry<Double, Double> entry : value.entrySet()) {
-                FloatType.FLOAT.writeLong(blockBuilder, floatToRawIntBits(entry.getKey().floatValue()));
-                FloatType.FLOAT.writeLong(blockBuilder, floatToRawIntBits(entry.getValue().floatValue()));
+                REAL.writeLong(blockBuilder, floatToRawIntBits(entry.getKey().floatValue()));
+                REAL.writeLong(blockBuilder, floatToRawIntBits(entry.getValue().floatValue()));
             }
             Block block = blockBuilder.build();
             out.writeObject(block);

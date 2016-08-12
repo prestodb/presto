@@ -23,14 +23,14 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
 
-public final class FloatType
+public final class RealType
         extends AbstractIntType
 {
-    public static final FloatType FLOAT = new FloatType();
+    public static final RealType REAL = new RealType();
 
-    private FloatType()
+    private RealType()
     {
-        super(parseTypeSignature(StandardTypes.FLOAT));
+        super(parseTypeSignature(StandardTypes.REAL));
     }
 
     @Override
@@ -78,7 +78,7 @@ public final class FloatType
     @Override
     public boolean equals(Object other)
     {
-        return other == FLOAT;
+        return other == REAL;
     }
 
     @Override
