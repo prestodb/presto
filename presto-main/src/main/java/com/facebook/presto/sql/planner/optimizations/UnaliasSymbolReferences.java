@@ -206,17 +206,12 @@ public class UnaliasSymbolReferences
             ImmutableMap.Builder<WindowNode.Function, WindowNode.Frame> frames = ImmutableMap.builder();
             for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
                 Symbol symbol = entry.getKey();
-                Symbol canonical = canonicalize(symbol);
 
-                FunctionCall functionCall = entry.getValue().getFunctionCall();
+                FunctionCall canonicalFunctionCall = (FunctionCall) canonicalize(entry.getValue().getFunctionCall());
                 Signature signature = entry.getValue().getSignature();
-                WindowNode.Function function = new WindowNode.Function((FunctionCall) canonicalize(functionCall), signature);
-                functions.put(canonical, function);
+                WindowNode.Frame canonicalFrame = canonicalize(entry.getValue().getFrame());
 
-                WindowNode.Frame frame = node.getFrames().get(entry.getValue());
-                frames.put(function, new WindowNode.Frame(frame.getType(),
-                        frame.getStartType(), canonicalize(frame.getStartValue()),
-                        frame.getEndType(), canonicalize(frame.getEndValue())));
+                functions.put(canonicalize(symbol), new WindowNode.Function(canonicalFunctionCall, signature, canonicalFrame));
             }
 
             ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
@@ -232,10 +227,16 @@ public class UnaliasSymbolReferences
                             canonicalizeAndDistinct(node.getOrderBy()),
                             orderings.build()),
                     functions.build(),
-                    frames.build(),
                     canonicalize(node.getHashSymbol()),
                     canonicalize(node.getPrePartitionedInputs()),
                     node.getPreSortedOrderPrefix());
+        }
+
+        private WindowNode.Frame canonicalize(WindowNode.Frame frame)
+        {
+            return new WindowNode.Frame(frame.getType(),
+                    frame.getStartType(), canonicalize(frame.getStartValue()),
+                    frame.getEndType(), canonicalize(frame.getEndValue()));
         }
 
         @Override

@@ -603,7 +603,8 @@ class QueryPlanner
             }
             outputTranslations.put(parametersReplaced, newSymbol);
 
-            WindowNode.Function function = new WindowNode.Function((FunctionCall) rewritten, analysis.getFunctionSignature(windowFunction));
+            WindowNode.Function function = new WindowNode.Function(
+                    (FunctionCall) rewritten, analysis.getFunctionSignature(windowFunction), frame);
 
             List<Symbol> sourceSymbols = subPlan.getRoot().getOutputSymbols();
             ImmutableList.Builder<Symbol> orderBySymbols = ImmutableList.builder();
@@ -619,7 +620,6 @@ class QueryPlanner
                                     orderBySymbols.build(),
                                     orderings),
                             ImmutableMap.of(newSymbol, function),
-                            ImmutableMap.of(function, frame),
                             Optional.empty(),
                             ImmutableSet.of(),
                             0),
