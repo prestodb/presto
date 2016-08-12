@@ -36,7 +36,12 @@ public class PartitionAlreadyExistsException
 
     public PartitionAlreadyExistsException(SchemaTableName tableName, Optional<List<String>> partitionValues, String message)
     {
-        super(ALREADY_EXISTS, message);
+        this(tableName, partitionValues, message, null);
+    }
+
+    public PartitionAlreadyExistsException(SchemaTableName tableName, Optional<List<String>> partitionValues, String message, Throwable cause)
+    {
+        super(ALREADY_EXISTS, message, cause);
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.partitionValues = requireNonNull(partitionValues, "partitionValues is null");
     }
