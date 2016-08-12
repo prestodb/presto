@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.function.WindowFunction;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
 
 import java.util.Arrays;
 import java.util.List;
@@ -30,27 +31,23 @@ public class WindowFunctionDefinition
 
     public static WindowFunctionDefinition window(WindowFunctionSupplier functionSupplier, Type type, List<Integer> inputs)
     {
-        requireNonNull(functionSupplier, "functionSupplier is null");
-        requireNonNull(type, "type is null");
-        requireNonNull(inputs, "inputs is null");
-
         return new WindowFunctionDefinition(functionSupplier, type, inputs);
     }
 
     public static WindowFunctionDefinition window(WindowFunctionSupplier functionSupplier, Type type, Integer... inputs)
     {
-        requireNonNull(functionSupplier, "functionSupplier is null");
-        requireNonNull(type, "type is null");
-        requireNonNull(inputs, "inputs is null");
-
         return window(functionSupplier, type, Arrays.asList(inputs));
     }
 
     WindowFunctionDefinition(WindowFunctionSupplier functionSupplier, Type type, List<Integer> argumentChannels)
     {
+        requireNonNull(functionSupplier, "functionSupplier is null");
+        requireNonNull(type, "type is null");
+        requireNonNull(argumentChannels, "inputs is null");
+
         this.functionSupplier = functionSupplier;
         this.type = type;
-        this.argumentChannels = argumentChannels;
+        this.argumentChannels = ImmutableList.copyOf(argumentChannels);
     }
 
     public Type getType()
