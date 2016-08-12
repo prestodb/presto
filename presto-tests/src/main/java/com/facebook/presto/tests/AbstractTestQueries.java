@@ -4836,8 +4836,8 @@ public abstract class AbstractTestQueries
         assertEquals(functions.get("avg").asList().get(1).getField(1), "double");
         assertEquals(functions.get("avg").asList().get(1).getField(2), "double");
         assertEquals(functions.get("avg").asList().get(1).getField(3), "aggregate");
-        assertEquals(functions.get("avg").asList().get(2).getField(1), "float");
-        assertEquals(functions.get("avg").asList().get(2).getField(2), "float");
+        assertEquals(functions.get("avg").asList().get(2).getField(1), "real");
+        assertEquals(functions.get("avg").asList().get(2).getField(2), "real");
         assertEquals(functions.get("avg").asList().get(2).getField(3), "aggregate");
 
         assertTrue(functions.containsKey("abs"), "Expected function names " + functions + " to contain 'abs'");

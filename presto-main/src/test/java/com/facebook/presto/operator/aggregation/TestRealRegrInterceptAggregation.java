@@ -21,29 +21,29 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.block.BlockAssertions.createFloatSequenceBlock;
-import static com.facebook.presto.block.BlockAssertions.createFloatsBlock;
+import static com.facebook.presto.block.BlockAssertions.createBlockOfReals;
+import static com.facebook.presto.block.BlockAssertions.createSequenceBlockOfReal;
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class TestFloatRegrSlopeAggregation
+public class TestRealRegrInterceptAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
     public Block[] getSequenceBlocks(int start, int length)
     {
-        return new Block[] {createFloatSequenceBlock(start, start + length), createFloatSequenceBlock(start + 2, start + 2 + length)};
+        return new Block[] {createSequenceBlockOfReal(start, start + length), createSequenceBlockOfReal(start + 2, start + 2 + length)};
     }
 
     @Override
     protected String getFunctionName()
     {
-        return "regr_slope";
+        return "regr_intercept";
     }
 
     @Override
     protected List<String> getFunctionParameterTypes()
     {
-        return ImmutableList.of(StandardTypes.FLOAT, StandardTypes.FLOAT);
+        return ImmutableList.of(StandardTypes.REAL, StandardTypes.REAL);
     }
 
     @Override
@@ -56,7 +56,7 @@ public class TestFloatRegrSlopeAggregation
         for (int i = start; i < start + length; i++) {
             regression.addData(i + 2, i);
         }
-        return (float) regression.getSlope();
+        return (float) regression.getIntercept();
     }
 
     @Test
@@ -72,8 +72,8 @@ public class TestFloatRegrSlopeAggregation
         for (int i = 0; i < x.length; i++) {
             regression.addData(x[i], y[i]);
         }
-        float expected = (float) regression.getSlope();
-        checkArgument(Float.isFinite(expected) && expected != 0.0f, "Expected result is trivial");
-        testAggregation(expected, createFloatsBlock(y), createFloatsBlock(x));
+        float expected = (float) regression.getIntercept();
+        checkArgument(Float.isFinite(expected) && expected != 0.f, "Expected result is trivial");
+        testAggregation(expected, createBlockOfReals(y), createBlockOfReals(x));
     }
 }

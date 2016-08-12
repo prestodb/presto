@@ -31,8 +31,8 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.FloatType.FLOAT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -324,33 +324,33 @@ public final class BlockAssertions
         return builder.build();
     }
 
-    public static Block createFloatsBlock(Float... values)
+    public static Block createBlockOfReals(Float... values)
     {
         requireNonNull(values, "varargs 'values' is null");
 
-        return createFloatsBlock(Arrays.asList(values));
+        return createBlockOfReals(Arrays.asList(values));
     }
 
-    private static Block createFloatsBlock(Iterable<Float> values)
+    private static Block createBlockOfReals(Iterable<Float> values)
     {
-        BlockBuilder builder = FLOAT.createBlockBuilder(new BlockBuilderStatus(), 100);
+        BlockBuilder builder = REAL.createBlockBuilder(new BlockBuilderStatus(), 100);
         for (Float value : values) {
             if (value == null) {
                 builder.appendNull();
             }
             else {
-                FLOAT.writeLong(builder, floatToRawIntBits(value));
+                REAL.writeLong(builder, floatToRawIntBits(value));
             }
         }
         return builder.build();
     }
 
-    public static Block createFloatSequenceBlock(int start, int end)
+    public static Block createSequenceBlockOfReal(int start, int end)
     {
-        BlockBuilder builder = FLOAT.createFixedSizeBlockBuilder(end - start);
+        BlockBuilder builder = REAL.createFixedSizeBlockBuilder(end - start);
 
         for (int i = start; i < end; i++) {
-            FLOAT.writeLong(builder, floatToRawIntBits((float) i));
+            REAL.writeLong(builder, floatToRawIntBits((float) i));
         }
 
         return builder.build();

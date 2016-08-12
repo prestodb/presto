@@ -21,45 +21,45 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.type.FloatType.FLOAT;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static java.lang.Float.floatToRawIntBits;
 
-public class TestFloatSumAggregation
+public class TestRealGeometricMeanAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
     public Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = FLOAT.createBlockBuilder(new BlockBuilderStatus(), length);
+        BlockBuilder blockBuilder = REAL.createBlockBuilder(new BlockBuilderStatus(), length);
         for (int i = start; i < start + length; i++) {
-            FLOAT.writeLong(blockBuilder, floatToRawIntBits((float) i));
+            REAL.writeLong(blockBuilder, floatToRawIntBits((float) i));
         }
         return new Block[] {blockBuilder.build()};
     }
 
     @Override
-    protected String getFunctionName()
-    {
-        return "sum";
-    }
-
-    @Override
-    protected List<String> getFunctionParameterTypes()
-    {
-        return ImmutableList.of(StandardTypes.FLOAT);
-    }
-
-    @Override
-    public Object getExpectedValue(int start, int length)
+    public Number getExpectedValue(int start, int length)
     {
         if (length == 0) {
             return null;
         }
 
-        float sum = 0;
+        double product = 1.0d;
         for (int i = start; i < start + length; i++) {
-            sum += i;
+            product *= i;
         }
-        return sum;
+        return (float) Math.pow(product, 1.0d / length);
+    }
+
+    @Override
+    protected String getFunctionName()
+    {
+        return "geometric_mean";
+    }
+
+    @Override
+    protected List<String> getFunctionParameterTypes()
+    {
+        return ImmutableList.of(StandardTypes.REAL);
     }
 }
