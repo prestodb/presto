@@ -14,6 +14,17 @@ Description
 
 Call a procedure.
 
+Procedures can be provided by connectors to perform data manipulation or
+administrative tasks. For example, the :doc:`/connector/system` defines a
+procedure for killing a running query.
+
+Some connectors, such as the :doc:`/connector/postgresql`, are for systems
+that have their own stored procedures. These stored procedures are separate
+from the connector-defined procedures discussed here and thus are not
+directly callable via ``CALL``.
+
+See connector documentation for details on available procedures.
+
 Examples
 --------
 
