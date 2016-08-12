@@ -18,6 +18,7 @@ import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.type.CharType;
@@ -112,6 +113,7 @@ import static java.lang.Short.parseShort;
 import static java.lang.String.format;
 import static java.math.BigDecimal.ROUND_UNNECESSARY;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.DECIMAL_TYPE_NAME;
@@ -805,5 +807,20 @@ public final class HiveUtil
             return path.toString();
         }
         throw new PrestoException(NOT_SUPPORTED, "unsupported hidden column: " + columnHandle);
+    }
+
+    public static void closeWithSuppression(RecordCursor recordCursor, Throwable throwable)
+    {
+        requireNonNull(recordCursor, "recordCursor is null");
+        requireNonNull(throwable, "throwable is null");
+        try {
+            recordCursor.close();
+        }
+        catch (RuntimeException e) {
+            // Self-suppression not permitted
+            if (throwable != e) {
+                throwable.addSuppressed(e);
+            }
+        }
     }
 }

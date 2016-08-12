@@ -20,6 +20,8 @@ import com.facebook.presto.hive.parquet.ParquetRecordCursorProvider;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.type.ArrayType;
@@ -70,6 +72,7 @@ import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
+import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.tests.StructuralTestUtil.arrayBlockOf;
@@ -459,7 +462,9 @@ public class TestHiveFileFormats
                 .map(input -> new HivePartitionKey(input.getName(), HiveType.valueOf(input.getObjectInspector().getTypeName()), (String) input.getWriteValue()))
                 .collect(toList());
 
-        HiveRecordCursor cursor = cursorProvider.createHiveRecordCursor(
+        Optional<ConnectorPageSource> pageSource = HivePageSourceProvider.createHivePageSource(
+                ImmutableSet.of(cursorProvider),
+                ImmutableSet.of(),
                 "test",
                 new Configuration(),
                 SESSION,
@@ -467,11 +472,13 @@ public class TestHiveFileFormats
                 split.getStart(),
                 split.getLength(),
                 splitProperties,
+                TupleDomain.all(),
                 getColumnHandles(testColumns),
                 partitionKeys,
-                TupleDomain.<HiveColumnHandle>all(),
                 DateTimeZone.getDefault(),
-                TYPE_MANAGER).get();
+                TYPE_MANAGER);
+
+        RecordCursor cursor = checkType(pageSource.get(), RecordPageSource.class, "pageSource").getCursor();
 
         checkCursor(cursor, testColumns, rowCount);
     }

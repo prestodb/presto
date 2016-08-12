@@ -46,6 +46,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.DiscretePredicates;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
@@ -1367,7 +1368,7 @@ public abstract class AbstractTestHiveClient
             ConnectorPageSourceProvider pageSourceProvider = new HivePageSourceProvider(
                     new HiveClientConfig().setTimeZone(timeZone.getID()),
                     hdfsEnvironment,
-                    ImmutableSet.<HiveRecordCursorProvider>of(new ColumnarTextHiveRecordCursorProvider(hdfsEnvironment)),
+                    ImmutableSet.of(new ColumnarTextHiveRecordCursorProvider(hdfsEnvironment)),
                     ImmutableSet.<HivePageSourceFactory>of(),
                     TYPE_MANAGER);
 
@@ -1403,7 +1404,7 @@ public abstract class AbstractTestHiveClient
             ConnectorPageSourceProvider pageSourceProvider = new HivePageSourceProvider(
                     new HiveClientConfig().setTimeZone(timeZone.getID()),
                     hdfsEnvironment,
-                    ImmutableSet.<HiveRecordCursorProvider>of(new ColumnarBinaryHiveRecordCursorProvider(hdfsEnvironment)),
+                    ImmutableSet.of(new ColumnarBinaryHiveRecordCursorProvider(hdfsEnvironment)),
                     ImmutableSet.<HivePageSourceFactory>of(),
                     TYPE_MANAGER);
 
@@ -2808,14 +2809,15 @@ public abstract class AbstractTestHiveClient
     protected static void assertPageSourceType(ConnectorPageSource pageSource, HiveStorageFormat hiveStorageFormat)
     {
         if (pageSource instanceof RecordPageSource) {
-            assertInstanceOf(((RecordPageSource) pageSource).getCursor(), recordCursorType(hiveStorageFormat), hiveStorageFormat.name());
+            HiveRecordCursor hiveRecordCursor = (HiveRecordCursor) ((RecordPageSource) pageSource).getCursor();
+            assertInstanceOf(hiveRecordCursor.getRegularColumnRecordCursor(), recordCursorType(hiveStorageFormat), hiveStorageFormat.name());
         }
         else {
             assertInstanceOf(pageSource, pageSourceType(hiveStorageFormat), hiveStorageFormat.name());
         }
     }
 
-    private static Class<? extends HiveRecordCursor> recordCursorType(HiveStorageFormat hiveStorageFormat)
+    private static Class<? extends RecordCursor> recordCursorType(HiveStorageFormat hiveStorageFormat)
     {
         switch (hiveStorageFormat) {
             case RCTEXT:
