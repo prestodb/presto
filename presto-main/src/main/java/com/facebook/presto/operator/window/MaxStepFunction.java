@@ -23,7 +23,6 @@ import io.airlift.slice.Slice;
 import java.util.List;
 
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 @WindowFunctionSignature(name = "max_step", returnType = "integer", argumentTypes = {"varchar", "varchar"})
 public class MaxStepFunction extends ValueWindowFunction
@@ -33,7 +32,6 @@ public class MaxStepFunction extends ValueWindowFunction
   private int patternDefChannel;
   private int patternItemsSize = 0;
   private int index = 0;
-  private long maxStep = 0;
   private String currentSearchingItem = null;
   private String[] patternItems = null;
 
@@ -47,15 +45,14 @@ public class MaxStepFunction extends ValueWindowFunction
   {
     this.currentSearchingItem = null;
     this.index = 0;
-    this.maxStep = 0;
   }
 
   @Override
   public void processRow(BlockBuilder output, int frameStart, int frameEnd, int currentPosition)
   {
-        if ((frameStart < 0) || windowIndex.isNull(patternDefChannel, currentPosition)) {
-          VARCHAR.writeObject(output, null);
-        }
+    if ((frameStart < 0) || windowIndex.isNull(patternDefChannel, currentPosition)) {
+      INTEGER.writeObject(output, null);
+    }
 
     if (this.patternItems == null) {
       Slice patternDefSlice = windowIndex.getSlice(patternDefChannel, currentPosition);
@@ -74,11 +71,10 @@ public class MaxStepFunction extends ValueWindowFunction
       if (this.index < this.patternItemsSize) {
         this.currentSearchingItem = this.patternItems[this.index];
         if (this.currentSearchingItem.equals(action)) {
-          this.maxStep += 1;
           this.index += 1;
         }
       }
-      INTEGER.writeLong(output, maxStep);
+      INTEGER.writeLong(output, this.index);
     }
   }
 }
