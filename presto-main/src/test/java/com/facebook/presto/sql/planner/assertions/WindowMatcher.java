@@ -66,12 +66,6 @@ final class WindowMatcher
         return actualCopy.isEmpty();
     }
 
-    private static boolean sameCall(FunctionCall left, FunctionCall right)
-    {
-        return left.getName().equals(right.getName()) &&
-                left.getArguments().equals(right.getArguments());
-    }
-
     @Override
     public String toString()
     {
