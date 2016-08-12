@@ -20,6 +20,7 @@ import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.ExpressionAnalysis;
@@ -70,6 +71,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionT
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Collections.emptyList;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.openjdk.jmh.annotations.Scope.Thread;
 
@@ -86,6 +88,68 @@ public class BenchmarkDecimalOperators
     private static final DecimalType LONG_DECIMAL_TYPE = createDecimalType(20, 0);
 
     private static final SqlParser SQL_PARSER = new SqlParser();
+
+    @State(Thread)
+    public static class CastDoubleToDecimalBenchmarkState
+            extends BaseState
+    {
+        private static final int SCALE = 2;
+
+        @Param({"10", "35", "BIGINT"})
+        private String precision;
+
+        @Setup
+        public void setup()
+        {
+            addSymbol("d1", DOUBLE);
+
+            String expression;
+            if (precision.equals("BIGINT")) {
+                setDoubleMaxValue(Long.MAX_VALUE);
+                expression = "CAST(d1 AS BIGINT)";
+            }
+            else {
+                setDoubleMaxValue(Math.pow(9, Integer.valueOf(precision) - SCALE));
+                expression = String.format("CAST(d1 AS DECIMAL(%s, %d))", precision, SCALE);
+            }
+            generateRandomInputPage();
+            generateProcessor(expression);
+            generateResultPageBuilder(expression);
+        }
+    }
+
+    @Benchmark
+    public List<Page> castDoubleToDecimalBenchmark(CastDoubleToDecimalBenchmarkState state)
+    {
+        return execute(state);
+    }
+
+    @State(Thread)
+    public static class CastDecimalToDoubleBenchmarkState
+            extends BaseState
+    {
+        private static final int SCALE = 10;
+
+        @Param({"15", "35"})
+        private String precision;
+
+        @Setup
+        public void setup()
+        {
+            addSymbol("v1", createDecimalType(Integer.valueOf(precision), SCALE));
+
+            String expression = "CAST(v1 AS DOUBLE)";
+            generateRandomInputPage();
+            generateProcessor(expression);
+            generateResultPageBuilder(expression);
+        }
+    }
+
+    @Benchmark
+    public List<Page> castDecimalToDoubleBenchmark(CastDecimalToDoubleBenchmarkState state)
+    {
+        return execute(state);
+    }
 
     @State(Thread)
     public static class AdditionBenchmarkState
@@ -121,45 +185,6 @@ public class BenchmarkDecimalOperators
             generateRandomInputPage();
             generateProcessor(expression);
             generateResultPageBuilder(expression);
-        }
-
-        private void generateRandomInputPage()
-        {
-            Random random = new Random();
-            RowPagesBuilder buildPagesBuilder = rowPagesBuilder(types);
-
-            SqlDecimal decimal = randomDecimal("s1", random);
-
-            for (int i = 0; i < PAGE_SIZE; i++) {
-                buildPagesBuilder.row(
-                        random.nextDouble() * (2L << 32) - (2L << 31),
-                        random.nextDouble() * (2L << 32) - (2L << 31),
-                        random.nextDouble() * (2L << 32) - (2L << 31),
-                        random.nextDouble() * (2L << 32) - (2L << 31),
-                        randomDecimal("s1", random),
-                        randomDecimal("s2", random),
-                        randomDecimal("s3", random),
-                        randomDecimal("s4", random),
-                        randomDecimal("l1", random),
-                        randomDecimal("l2", random),
-                        randomDecimal("l3", random),
-                        randomDecimal("l4", random));
-            }
-
-            inputPage = getOnlyElement(buildPagesBuilder.build());
-        }
-
-        private SqlDecimal randomDecimal(String symbol, Random random)
-        {
-            DecimalType type = (DecimalType) symbolTypes.get(symbols.get(symbol));
-            int maxBits = (int) (Math.log(Math.pow(10, type.getPrecision())) / Math.log(2));
-            BigInteger bigInteger = new BigInteger(maxBits, random);
-
-            if (random.nextBoolean()) {
-                bigInteger = bigInteger.negate();
-            }
-
-            return new SqlDecimal(bigInteger, type.getPrecision(), type.getScale());
         }
     }
 
@@ -293,6 +318,7 @@ public class BenchmarkDecimalOperators
     {
         private final MetadataManager metadata = createTestMetadataManager();
         private final Session session = testSessionBuilder().build();
+        private final Random random = new Random();
 
         protected final Map<String, Symbol> symbols = new HashMap<>();
         protected final Map<Symbol, Type> symbolTypes = new HashMap<>();
@@ -302,6 +328,7 @@ public class BenchmarkDecimalOperators
         protected Page inputPage;
         private PageBuilder pageBuilder;
         private PageProcessor processor;
+        private double doubleMaxValue = 2L << 31;
 
         public Page getInputPage()
         {
@@ -325,6 +352,21 @@ public class BenchmarkDecimalOperators
             symbolTypes.put(symbol, type);
             sourceLayout.put(symbol, types.size());
             types.add(type);
+        }
+
+        protected void generateRandomInputPage()
+        {
+            RowPagesBuilder buildPagesBuilder = rowPagesBuilder(types);
+
+            for (int i = 0; i < PAGE_SIZE; i++) {
+                Object[] values = types.stream()
+                        .map(this::generateRandomValue)
+                        .collect(toList()).toArray();
+
+                buildPagesBuilder.row(values);
+            }
+
+            inputPage = getOnlyElement(buildPagesBuilder.build());
         }
 
         protected void generateInputPage(int... initialValues)
@@ -356,6 +398,11 @@ public class BenchmarkDecimalOperators
             processor = new ExpressionCompiler(metadata).compilePageProcessor(rowExpression("true"), ImmutableList.of(rowExpression(expression))).get();
         }
 
+        protected void setDoubleMaxValue(double doubleMaxValue)
+        {
+            this.doubleMaxValue = doubleMaxValue;
+        }
+
         private RowExpression rowExpression(String expression)
         {
             SymbolToInputRewriter symbolToInputRewriter = new SymbolToInputRewriter(sourceLayout);
@@ -366,6 +413,29 @@ public class BenchmarkDecimalOperators
 
             IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(TEST_SESSION, metadata, SQL_PARSER, types, inputReferenceExpression, emptyList());
             return SqlToRowExpressionTranslator.translate(inputReferenceExpression, SCALAR, expressionTypes, metadata.getFunctionRegistry(), metadata.getTypeManager(), TEST_SESSION, true);
+        }
+
+        private Object generateRandomValue(Type type)
+        {
+            if (type instanceof DoubleType) {
+                return random.nextDouble() * (2L * doubleMaxValue) - doubleMaxValue;
+            }
+            else if (type instanceof DecimalType) {
+                return randomDecimal((DecimalType) type);
+            }
+            throw new UnsupportedOperationException(type.toString());
+        }
+
+        private SqlDecimal randomDecimal(DecimalType type)
+        {
+            int maxBits = (int) (Math.log(Math.pow(10, type.getPrecision())) / Math.log(2));
+            BigInteger bigInteger = new BigInteger(maxBits, random);
+
+            if (random.nextBoolean()) {
+                bigInteger = bigInteger.negate();
+            }
+
+            return new SqlDecimal(bigInteger, type.getPrecision(), type.getScale());
         }
     }
 
