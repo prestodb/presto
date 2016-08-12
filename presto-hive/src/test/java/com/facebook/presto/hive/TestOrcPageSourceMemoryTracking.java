@@ -391,7 +391,7 @@ public class TestOrcPageSourceMemoryTracking
                     schema,
                     columns,
                     partitionKeys,
-                    TupleDomain.<HiveColumnHandle>all(),
+                    TupleDomain.all(),
                     DateTimeZone.UTC).get();
         }
 
