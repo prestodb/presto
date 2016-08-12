@@ -246,13 +246,14 @@ public final class SystemPartitioningHandle
         SystemPartitioningHandle that = (SystemPartitioningHandle) o;
         return partitioning == that.partitioning &&
                 function == that.function &&
-                partitioningTypes.equals(that.partitioningTypes);
+                partitioningTypes.equals(that.partitioningTypes) &&
+                partitionCount.equals(that.partitionCount);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(partitioning, function, partitioningTypes);
+        return Objects.hash(partitioning, function, partitioningTypes, partitionCount);
     }
 
     @Override
