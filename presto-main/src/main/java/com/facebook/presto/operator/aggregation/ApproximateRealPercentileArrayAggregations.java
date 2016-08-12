@@ -28,23 +28,23 @@ import java.util.List;
 
 import static com.facebook.presto.operator.aggregation.FloatingPointBitsConverterUtil.floatToSortableInt;
 import static com.facebook.presto.operator.aggregation.FloatingPointBitsConverterUtil.sortableIntToFloat;
-import static com.facebook.presto.spi.type.FloatType.FLOAT;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 
 @AggregationFunction("approx_percentile")
-public class ApproximateFloatPercentileArrayAggregations
+public class ApproximateRealPercentileArrayAggregations
 {
-    private ApproximateFloatPercentileArrayAggregations() {}
+    private ApproximateRealPercentileArrayAggregations() {}
 
     @InputFunction
-    public static void input(DigestAndPercentileArrayState state, @SqlType(StandardTypes.FLOAT) long value, @SqlType("array(double)") Block percentilesArrayBlock)
+    public static void input(DigestAndPercentileArrayState state, @SqlType(StandardTypes.REAL) long value, @SqlType("array(double)") Block percentilesArrayBlock)
     {
         ApproximateLongPercentileArrayAggregations.input(state, floatToSortableInt(intBitsToFloat((int) value)), percentilesArrayBlock);
     }
 
     @InputFunction
-    public static void weightedInput(DigestAndPercentileArrayState state, @SqlType(StandardTypes.FLOAT) long value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType("array(double)") Block percentilesArrayBlock)
+    public static void weightedInput(DigestAndPercentileArrayState state, @SqlType(StandardTypes.REAL) long value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType("array(double)") Block percentilesArrayBlock)
     {
         ApproximateLongPercentileArrayAggregations.weightedInput(state, floatToSortableInt(intBitsToFloat((int) value)), weight, percentilesArrayBlock);
     }
@@ -55,7 +55,7 @@ public class ApproximateFloatPercentileArrayAggregations
         ApproximateLongPercentileArrayAggregations.combine(state, otherState);
     }
 
-    @OutputFunction("array(float)")
+    @OutputFunction("array(real)")
     public static void output(DigestAndPercentileArrayState state, BlockBuilder out)
     {
         QuantileDigest digest = state.getDigest();
@@ -70,7 +70,7 @@ public class ApproximateFloatPercentileArrayAggregations
 
         for (int i = 0; i < percentiles.size(); i++) {
             Double percentile = percentiles.get(i);
-            FLOAT.writeLong(blockBuilder, floatToRawIntBits(sortableIntToFloat((int) digest.getQuantile(percentile))));
+            REAL.writeLong(blockBuilder, floatToRawIntBits(sortableIntToFloat((int) digest.getQuantile(percentile))));
         }
 
         out.closeEntry();

@@ -23,17 +23,17 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 
 import static com.facebook.presto.operator.aggregation.AggregationUtils.getCorrelation;
-import static com.facebook.presto.spi.type.FloatType.FLOAT;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 
 @AggregationFunction("corr")
-public class FloatCorrelationAggregation
+public class RealCorrelationAggregation
 {
-    private FloatCorrelationAggregation() {}
+    private RealCorrelationAggregation() {}
 
     @InputFunction
-    public static void input(CorrelationState state, @SqlType(StandardTypes.FLOAT) long dependentValue, @SqlType(StandardTypes.FLOAT) long independentValue)
+    public static void input(CorrelationState state, @SqlType(StandardTypes.REAL) long dependentValue, @SqlType(StandardTypes.REAL) long independentValue)
     {
         DoubleCorrelationAggregation.input(state, intBitsToFloat((int) dependentValue), intBitsToFloat((int) independentValue));
     }
@@ -44,13 +44,13 @@ public class FloatCorrelationAggregation
         DoubleCorrelationAggregation.combine(state, otherState);
     }
 
-    @OutputFunction(StandardTypes.FLOAT)
+    @OutputFunction(StandardTypes.REAL)
     public static void corr(CorrelationState state, BlockBuilder out)
     {
         double result = getCorrelation(state);
         if (Double.isFinite(result)) {
             long resultBits = floatToRawIntBits((float) Math.sqrt(result)); // sqrt cannot turn finite value to non-finite value
-            FLOAT.writeLong(out, resultBits);
+            REAL.writeLong(out, resultBits);
         }
         else {
             out.appendNull();

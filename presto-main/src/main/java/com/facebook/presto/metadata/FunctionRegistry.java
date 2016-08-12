@@ -20,10 +20,10 @@ import com.facebook.presto.operator.aggregation.ApproximateCountColumnAggregatio
 import com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregations;
 import com.facebook.presto.operator.aggregation.ApproximateDoublePercentileAggregations;
 import com.facebook.presto.operator.aggregation.ApproximateDoublePercentileArrayAggregations;
-import com.facebook.presto.operator.aggregation.ApproximateFloatPercentileAggregations;
-import com.facebook.presto.operator.aggregation.ApproximateFloatPercentileArrayAggregations;
 import com.facebook.presto.operator.aggregation.ApproximateLongPercentileAggregations;
 import com.facebook.presto.operator.aggregation.ApproximateLongPercentileArrayAggregations;
+import com.facebook.presto.operator.aggregation.ApproximateRealPercentileAggregations;
+import com.facebook.presto.operator.aggregation.ApproximateRealPercentileArrayAggregations;
 import com.facebook.presto.operator.aggregation.ApproximateSetAggregation;
 import com.facebook.presto.operator.aggregation.ApproximateSumAggregations;
 import com.facebook.presto.operator.aggregation.ArrayAggregationFunction;
@@ -37,17 +37,17 @@ import com.facebook.presto.operator.aggregation.DoubleCovarianceAggregation;
 import com.facebook.presto.operator.aggregation.DoubleHistogramAggregation;
 import com.facebook.presto.operator.aggregation.DoubleRegressionAggregation;
 import com.facebook.presto.operator.aggregation.DoubleSumAggregation;
-import com.facebook.presto.operator.aggregation.FloatAverageAggregation;
-import com.facebook.presto.operator.aggregation.FloatCorrelationAggregation;
-import com.facebook.presto.operator.aggregation.FloatCovarianceAggregation;
-import com.facebook.presto.operator.aggregation.FloatGeometricMeanAggregations;
-import com.facebook.presto.operator.aggregation.FloatHistogramAggregation;
-import com.facebook.presto.operator.aggregation.FloatRegressionAggregation;
-import com.facebook.presto.operator.aggregation.FloatSumAggregation;
 import com.facebook.presto.operator.aggregation.GeometricMeanAggregations;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.aggregation.LongSumAggregation;
 import com.facebook.presto.operator.aggregation.MergeHyperLogLogAggregation;
+import com.facebook.presto.operator.aggregation.RealAverageAggregation;
+import com.facebook.presto.operator.aggregation.RealCorrelationAggregation;
+import com.facebook.presto.operator.aggregation.RealCovarianceAggregation;
+import com.facebook.presto.operator.aggregation.RealGeometricMeanAggregations;
+import com.facebook.presto.operator.aggregation.RealHistogramAggregation;
+import com.facebook.presto.operator.aggregation.RealRegressionAggregation;
+import com.facebook.presto.operator.aggregation.RealSumAggregation;
 import com.facebook.presto.operator.aggregation.VarianceAggregation;
 import com.facebook.presto.operator.scalar.ArrayCardinalityFunction;
 import com.facebook.presto.operator.scalar.ArrayConcatFunction;
@@ -126,12 +126,12 @@ import com.facebook.presto.type.DateOperators;
 import com.facebook.presto.type.DateTimeOperators;
 import com.facebook.presto.type.DecimalOperators;
 import com.facebook.presto.type.DoubleOperators;
-import com.facebook.presto.type.FloatOperators;
 import com.facebook.presto.type.HyperLogLogOperators;
 import com.facebook.presto.type.IntegerOperators;
 import com.facebook.presto.type.IntervalDayTimeOperators;
 import com.facebook.presto.type.IntervalYearMonthOperators;
 import com.facebook.presto.type.LikeFunctions;
+import com.facebook.presto.type.RealOperators;
 import com.facebook.presto.type.SmallintOperators;
 import com.facebook.presto.type.TimeOperators;
 import com.facebook.presto.type.TimeWithTimeZoneOperators;
@@ -235,16 +235,16 @@ import static com.facebook.presto.type.DecimalCasts.BOOLEAN_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_BIGINT_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_BOOLEAN_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_DOUBLE_CAST;
-import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_FLOAT_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_INTEGER_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_JSON_CAST;
+import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_REAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_SMALLINT_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_TINYINT_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_VARCHAR_CAST;
 import static com.facebook.presto.type.DecimalCasts.DOUBLE_TO_DECIMAL_CAST;
-import static com.facebook.presto.type.DecimalCasts.FLOAT_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.INTEGER_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.JSON_TO_DECIMAL_CAST;
+import static com.facebook.presto.type.DecimalCasts.REAL_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.SMALLINT_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.TINYINT_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.VARCHAR_TO_DECIMAL_CAST;
@@ -359,29 +359,29 @@ public class FunctionRegistry
                 .aggregate(ApproximateLongPercentileArrayAggregations.class)
                 .aggregate(ApproximateDoublePercentileAggregations.class)
                 .aggregate(ApproximateDoublePercentileArrayAggregations.class)
-                .aggregate(ApproximateFloatPercentileAggregations.class)
-                .aggregate(ApproximateFloatPercentileArrayAggregations.class)
+                .aggregate(ApproximateRealPercentileAggregations.class)
+                .aggregate(ApproximateRealPercentileArrayAggregations.class)
                 .aggregate(CountIfAggregation.class)
                 .aggregate(BooleanAndAggregation.class)
                 .aggregate(BooleanOrAggregation.class)
                 .aggregate(DoubleSumAggregation.class)
-                .aggregate(FloatSumAggregation.class)
+                .aggregate(RealSumAggregation.class)
                 .aggregate(LongSumAggregation.class)
                 .aggregate(AverageAggregations.class)
-                .aggregate(FloatAverageAggregation.class)
+                .aggregate(RealAverageAggregation.class)
                 .aggregate(GeometricMeanAggregations.class)
-                .aggregate(FloatGeometricMeanAggregations.class)
+                .aggregate(RealGeometricMeanAggregations.class)
                 .aggregate(ApproximateCountDistinctAggregations.class)
                 .aggregate(MergeHyperLogLogAggregation.class)
                 .aggregate(ApproximateSetAggregation.class)
                 .aggregate(DoubleHistogramAggregation.class)
-                .aggregate(FloatHistogramAggregation.class)
+                .aggregate(RealHistogramAggregation.class)
                 .aggregate(DoubleCovarianceAggregation.class)
-                .aggregate(FloatCovarianceAggregation.class)
+                .aggregate(RealCovarianceAggregation.class)
                 .aggregate(DoubleRegressionAggregation.class)
-                .aggregate(FloatRegressionAggregation.class)
+                .aggregate(RealRegressionAggregation.class)
                 .aggregate(DoubleCorrelationAggregation.class)
-                .aggregate(FloatCorrelationAggregation.class)
+                .aggregate(RealCorrelationAggregation.class)
                 .scalars(SequenceFunction.class)
                 .scalars(StringFunctions.class)
                 .scalars(VarbinaryFunctions.class)
@@ -400,7 +400,7 @@ public class FunctionRegistry
                 .scalars(SmallintOperators.class)
                 .scalars(TinyintOperators.class)
                 .scalars(DoubleOperators.class)
-                .scalars(FloatOperators.class)
+                .scalars(RealOperators.class)
                 .scalars(VarcharOperators.class)
                 .scalars(VarbinaryOperators.class)
                 .scalars(DateOperators.class)
@@ -459,8 +459,8 @@ public class FunctionRegistry
                 .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_TO_JSON, JSON_TO_ARRAY)
                 .functions(MAP_CONSTRUCTOR, MAP_SUBSCRIPT, MAP_TO_JSON, JSON_TO_MAP)
                 .functions(MAP_AGG, MULTIMAP_AGG, MAP_UNION)
-                .functions(DECIMAL_TO_VARCHAR_CAST, DECIMAL_TO_INTEGER_CAST, DECIMAL_TO_BIGINT_CAST, DECIMAL_TO_DOUBLE_CAST, DECIMAL_TO_FLOAT_CAST, DECIMAL_TO_BOOLEAN_CAST, DECIMAL_TO_TINYINT_CAST, DECIMAL_TO_SMALLINT_CAST)
-                .functions(VARCHAR_TO_DECIMAL_CAST, INTEGER_TO_DECIMAL_CAST, BIGINT_TO_DECIMAL_CAST, DOUBLE_TO_DECIMAL_CAST, FLOAT_TO_DECIMAL_CAST, BOOLEAN_TO_DECIMAL_CAST, TINYINT_TO_DECIMAL_CAST, SMALLINT_TO_DECIMAL_CAST)
+                .functions(DECIMAL_TO_VARCHAR_CAST, DECIMAL_TO_INTEGER_CAST, DECIMAL_TO_BIGINT_CAST, DECIMAL_TO_DOUBLE_CAST, DECIMAL_TO_REAL_CAST, DECIMAL_TO_BOOLEAN_CAST, DECIMAL_TO_TINYINT_CAST, DECIMAL_TO_SMALLINT_CAST)
+                .functions(VARCHAR_TO_DECIMAL_CAST, INTEGER_TO_DECIMAL_CAST, BIGINT_TO_DECIMAL_CAST, DOUBLE_TO_DECIMAL_CAST, REAL_TO_DECIMAL_CAST, BOOLEAN_TO_DECIMAL_CAST, TINYINT_TO_DECIMAL_CAST, SMALLINT_TO_DECIMAL_CAST)
                 .functions(JSON_TO_DECIMAL_CAST, DECIMAL_TO_JSON_CAST)
                 .functions(DECIMAL_ADD_OPERATOR, DECIMAL_SUBTRACT_OPERATOR, DECIMAL_MULTIPLY_OPERATOR, DECIMAL_DIVIDE_OPERATOR, DECIMAL_MODULUS_OPERATOR)
                 .functions(DECIMAL_EQUAL_OPERATOR, DECIMAL_NOT_EQUAL_OPERATOR)

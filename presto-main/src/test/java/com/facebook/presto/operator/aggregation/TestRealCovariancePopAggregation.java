@@ -16,41 +16,44 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
-import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
+import org.apache.commons.math3.stat.correlation.Covariance;
 
 import java.util.List;
 
-import static com.facebook.presto.block.BlockAssertions.createFloatSequenceBlock;
+import static com.facebook.presto.block.BlockAssertions.createSequenceBlockOfReal;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.constructDoublePrimitiveArray;
 
-public class TestFloatCorrelationAggregation
+public class TestRealCovariancePopAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
     public Block[] getSequenceBlocks(int start, int length)
     {
-        return new Block[] {createFloatSequenceBlock(start, start + length), createFloatSequenceBlock(start + 2, start + 2 + length)};
+        return new Block[]{createSequenceBlockOfReal(start, start + length), createSequenceBlockOfReal(start + 5, start + 5 + length)};
     }
 
     @Override
     protected String getFunctionName()
     {
-        return "corr";
+        return "covar_pop";
     }
 
     @Override
     protected List<String> getFunctionParameterTypes()
     {
-        return ImmutableList.of(StandardTypes.FLOAT, StandardTypes.FLOAT);
+        return ImmutableList.of(StandardTypes.REAL, StandardTypes.REAL);
     }
 
     @Override
     public Object getExpectedValue(int start, int length)
     {
-        if (length <= 1) {
+        if (length <= 0) {
             return null;
         }
-        PearsonsCorrelation corr = new PearsonsCorrelation();
-        return (float) corr.correlation(constructDoublePrimitiveArray(start + 2, length), constructDoublePrimitiveArray(start, length));
+        else if (length == 1) {
+            return 0.f;
+        }
+        Covariance covariance = new Covariance();
+        return (float) covariance.covariance(constructDoublePrimitiveArray(start + 5, length), constructDoublePrimitiveArray(start, length), false);
     }
 }

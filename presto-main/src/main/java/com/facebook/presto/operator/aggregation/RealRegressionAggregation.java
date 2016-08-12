@@ -24,17 +24,17 @@ import com.facebook.presto.spi.type.StandardTypes;
 
 import static com.facebook.presto.operator.aggregation.AggregationUtils.getRegressionIntercept;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.getRegressionSlope;
-import static com.facebook.presto.spi.type.FloatType.FLOAT;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 
 @AggregationFunction
-public class FloatRegressionAggregation
+public class RealRegressionAggregation
 {
-    private FloatRegressionAggregation() {}
+    private RealRegressionAggregation() {}
 
     @InputFunction
-    public static void input(RegressionState state, @SqlType(StandardTypes.FLOAT) long dependentValue, @SqlType(StandardTypes.FLOAT) long independentValue)
+    public static void input(RegressionState state, @SqlType(StandardTypes.REAL) long dependentValue, @SqlType(StandardTypes.REAL) long independentValue)
     {
         DoubleRegressionAggregation.input(state, intBitsToFloat((int) dependentValue), intBitsToFloat((int) independentValue));
     }
@@ -46,12 +46,12 @@ public class FloatRegressionAggregation
     }
 
     @AggregationFunction("regr_slope")
-    @OutputFunction(StandardTypes.FLOAT)
+    @OutputFunction(StandardTypes.REAL)
     public static void regrSlope(RegressionState state, BlockBuilder out)
     {
         double result = getRegressionSlope(state);
         if (Double.isFinite(result)) {
-            FLOAT.writeLong(out, floatToRawIntBits((float) result));
+            REAL.writeLong(out, floatToRawIntBits((float) result));
         }
         else {
             out.appendNull();
@@ -59,12 +59,12 @@ public class FloatRegressionAggregation
     }
 
     @AggregationFunction("regr_intercept")
-    @OutputFunction(StandardTypes.FLOAT)
+    @OutputFunction(StandardTypes.REAL)
     public static void regrIntercept(RegressionState state, BlockBuilder out)
     {
         double result = getRegressionIntercept(state);
         if (Double.isFinite(result)) {
-            FLOAT.writeLong(out, floatToRawIntBits((float) result));
+            REAL.writeLong(out, floatToRawIntBits((float) result));
         }
         else {
             out.appendNull();

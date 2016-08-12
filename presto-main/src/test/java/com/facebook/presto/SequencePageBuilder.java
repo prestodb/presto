@@ -25,7 +25,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.FloatType.FLOAT;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
@@ -50,8 +50,8 @@ public final class SequencePageBuilder
             if (type.equals(BIGINT)) {
                 blocks[i] = BlockAssertions.createLongSequenceBlock(initialValue, initialValue + length);
             }
-            else if (type.equals(FLOAT)) {
-                blocks[i] = BlockAssertions.createFloatSequenceBlock(initialValue, initialValue + length);
+            else if (type.equals(REAL)) {
+                blocks[i] = BlockAssertions.createSequenceBlockOfReal(initialValue, initialValue + length);
             }
             else if (type.equals(DOUBLE)) {
                 blocks[i] = BlockAssertions.createDoubleSequenceBlock(initialValue, initialValue + length);

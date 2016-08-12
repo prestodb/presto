@@ -17,32 +17,32 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 
-import static com.facebook.presto.spi.type.FloatType.FLOAT;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 
-public class TestFloatType
+public class TestRealType
         extends AbstractTestType
 {
-    public TestFloatType()
+    public TestRealType()
     {
-        super(FLOAT, Float.class, createTestBlock());
+        super(REAL, Float.class, createTestBlock());
     }
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = FLOAT.createBlockBuilder(new BlockBuilderStatus(), 30);
-        FLOAT.writeLong(blockBuilder, floatToRawIntBits(11.11F));
-        FLOAT.writeLong(blockBuilder, floatToRawIntBits(11.11F));
-        FLOAT.writeLong(blockBuilder, floatToRawIntBits(11.11F));
-        FLOAT.writeLong(blockBuilder, floatToRawIntBits(22.22F));
-        FLOAT.writeLong(blockBuilder, floatToRawIntBits(22.22F));
-        FLOAT.writeLong(blockBuilder, floatToRawIntBits(22.22F));
-        FLOAT.writeLong(blockBuilder, floatToRawIntBits(22.22F));
-        FLOAT.writeLong(blockBuilder, floatToRawIntBits(22.22F));
-        FLOAT.writeLong(blockBuilder, floatToRawIntBits(33.33F));
-        FLOAT.writeLong(blockBuilder, floatToRawIntBits(33.33F));
-        FLOAT.writeLong(blockBuilder, floatToRawIntBits(44.44F));
+        BlockBuilder blockBuilder = REAL.createBlockBuilder(new BlockBuilderStatus(), 30);
+        REAL.writeLong(blockBuilder, floatToRawIntBits(11.11F));
+        REAL.writeLong(blockBuilder, floatToRawIntBits(11.11F));
+        REAL.writeLong(blockBuilder, floatToRawIntBits(11.11F));
+        REAL.writeLong(blockBuilder, floatToRawIntBits(22.22F));
+        REAL.writeLong(blockBuilder, floatToRawIntBits(22.22F));
+        REAL.writeLong(blockBuilder, floatToRawIntBits(22.22F));
+        REAL.writeLong(blockBuilder, floatToRawIntBits(22.22F));
+        REAL.writeLong(blockBuilder, floatToRawIntBits(22.22F));
+        REAL.writeLong(blockBuilder, floatToRawIntBits(33.33F));
+        REAL.writeLong(blockBuilder, floatToRawIntBits(33.33F));
+        REAL.writeLong(blockBuilder, floatToRawIntBits(44.44F));
         return blockBuilder.build();
     }
 

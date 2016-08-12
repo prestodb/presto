@@ -211,8 +211,8 @@ public final class SmallintOperators
     }
 
     @ScalarOperator(CAST)
-    @SqlType(StandardTypes.FLOAT)
-    public static long castToFloat(@SqlType(StandardTypes.SMALLINT) long value)
+    @SqlType(StandardTypes.REAL)
+    public static long castToReal(@SqlType(StandardTypes.SMALLINT) long value)
     {
         return (long) floatToRawIntBits((float) value);
     }

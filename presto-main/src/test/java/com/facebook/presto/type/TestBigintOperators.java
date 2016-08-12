@@ -19,7 +19,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.FloatType.FLOAT;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 
@@ -222,9 +222,9 @@ public class TestBigintOperators
     public void testCastToFloat()
             throws Exception
     {
-        assertFunction("cast(37 as float)", FLOAT, 37.0f);
-        assertFunction("cast(-100000000017 as float)", FLOAT, -100000000017.0f);
-        assertFunction("cast(0 as float)", FLOAT, 0.0f);
+        assertFunction("cast(37 as real)", REAL, 37.0f);
+        assertFunction("cast(-100000000017 as real)", REAL, -100000000017.0f);
+        assertFunction("cast(0 as real)", REAL, 0.0f);
     }
 
     @Test

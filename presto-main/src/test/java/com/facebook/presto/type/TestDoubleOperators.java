@@ -19,7 +19,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.FloatType.FLOAT;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class TestDoubleOperators
@@ -206,10 +206,10 @@ public class TestDoubleOperators
     public void testCastToFloat()
             throws Exception
     {
-        assertFunction("cast('754.1985' as float)", FLOAT, 754.1985f);
-        assertFunction("cast('-754.2008' as float)", FLOAT, -754.2008f);
-        assertFunction("cast('0.0' as float)", FLOAT, 0.0f);
-        assertFunction("cast('-0.0' as float)", FLOAT, -0.0f);
+        assertFunction("cast('754.1985' as real)", REAL, 754.1985f);
+        assertFunction("cast('-754.2008' as real)", REAL, -754.2008f);
+        assertFunction("cast('0.0' as real)", REAL, 0.0f);
+        assertFunction("cast('-0.0' as real)", REAL, -0.0f);
     }
 
     @Test

@@ -24,16 +24,16 @@ import com.facebook.presto.spi.type.StandardTypes;
 
 import static com.facebook.presto.operator.aggregation.AggregationUtils.getCovariancePopulation;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.getCovarianceSample;
-import static com.facebook.presto.spi.type.FloatType.FLOAT;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static java.lang.Float.intBitsToFloat;
 
 @AggregationFunction
-public class FloatCovarianceAggregation
+public class RealCovarianceAggregation
 {
-    private FloatCovarianceAggregation() {}
+    private RealCovarianceAggregation() {}
 
     @InputFunction
-    public static void input(CovarianceState state, @SqlType(StandardTypes.FLOAT) long dependentValue, @SqlType(StandardTypes.FLOAT) long independentValue)
+    public static void input(CovarianceState state, @SqlType(StandardTypes.REAL) long dependentValue, @SqlType(StandardTypes.REAL) long independentValue)
     {
         DoubleCovarianceAggregation.input(state, intBitsToFloat((int) dependentValue), intBitsToFloat((int) independentValue));
     }
@@ -45,7 +45,7 @@ public class FloatCovarianceAggregation
     }
 
     @AggregationFunction("covar_samp")
-    @OutputFunction(StandardTypes.FLOAT)
+    @OutputFunction(StandardTypes.REAL)
     public static void covarSamp(CovarianceState state, BlockBuilder out)
     {
         if (state.getCount() <= 1) {
@@ -53,12 +53,12 @@ public class FloatCovarianceAggregation
         }
         else {
             double result = getCovarianceSample(state);
-            FLOAT.writeLong(out, Float.floatToRawIntBits((float) result));
+            REAL.writeLong(out, Float.floatToRawIntBits((float) result));
         }
     }
 
     @AggregationFunction("covar_pop")
-    @OutputFunction(StandardTypes.FLOAT)
+    @OutputFunction(StandardTypes.REAL)
     public static void covarPop(CovarianceState state, BlockBuilder out)
     {
         if (state.getCount() == 0) {
@@ -66,7 +66,7 @@ public class FloatCovarianceAggregation
         }
         else {
             double result = getCovariancePopulation(state);
-            FLOAT.writeLong(out, Float.floatToRawIntBits((float) result));
+            REAL.writeLong(out, Float.floatToRawIntBits((float) result));
         }
     }
 }

@@ -16,32 +16,32 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
-import org.apache.commons.math3.stat.correlation.Covariance;
+import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
 
 import java.util.List;
 
-import static com.facebook.presto.block.BlockAssertions.createFloatSequenceBlock;
+import static com.facebook.presto.block.BlockAssertions.createSequenceBlockOfReal;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.constructDoublePrimitiveArray;
 
-public class TestFloatCovarianceSampAggregation
+public class TestRealCorrelationAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
     public Block[] getSequenceBlocks(int start, int length)
     {
-        return new Block[]{createFloatSequenceBlock(start, start + length), createFloatSequenceBlock(start + 5, start + 5 + length)};
+        return new Block[] {createSequenceBlockOfReal(start, start + length), createSequenceBlockOfReal(start + 2, start + 2 + length)};
     }
 
     @Override
     protected String getFunctionName()
     {
-        return "covar_samp";
+        return "corr";
     }
 
     @Override
     protected List<String> getFunctionParameterTypes()
     {
-        return ImmutableList.of(StandardTypes.FLOAT, StandardTypes.FLOAT);
+        return ImmutableList.of(StandardTypes.REAL, StandardTypes.REAL);
     }
 
     @Override
@@ -50,6 +50,7 @@ public class TestFloatCovarianceSampAggregation
         if (length <= 1) {
             return null;
         }
-        return (float) new Covariance().covariance(constructDoublePrimitiveArray(start + 5, length), constructDoublePrimitiveArray(start, length), true);
+        PearsonsCorrelation corr = new PearsonsCorrelation();
+        return (float) corr.correlation(constructDoublePrimitiveArray(start + 2, length), constructDoublePrimitiveArray(start, length));
     }
 }

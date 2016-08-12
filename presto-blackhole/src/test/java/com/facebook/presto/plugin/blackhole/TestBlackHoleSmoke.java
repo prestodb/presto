@@ -202,7 +202,7 @@ public class TestBlackHoleSmoke
                         "INTEGER '2', " +
                         "SMALLINT '3', " +
                         "TINYINT '4', " +
-                        "FLOAT '5.1', " +
+                        "REAL '5.1', " +
                         "DOUBLE '5.2', " +
                         "true, " +
                         "DATE '2014-01-02', " +
@@ -247,7 +247,7 @@ public class TestBlackHoleSmoke
                                 ", _integer INTEGER" +
                                 ", _smallint SMALLINT" +
                                 ", _tinyint TINYINT" +
-                                ", _float FLOAT" +
+                                ", _real REAL" +
                                 ", _double DOUBLE" +
                                 ", _boolean BOOLEAN" +
                                 ", _date DATE" +
