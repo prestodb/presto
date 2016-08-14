@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hadoop.HadoopFileStatus;
 import com.facebook.presto.hive.metastore.Column;
-import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.Partition;
+import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
+import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore.WriteMode;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
@@ -53,12 +53,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-import io.airlift.concurrent.MoreFutures;
 import io.airlift.json.JsonCodec;
-import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.TableType;
@@ -69,20 +65,15 @@ import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
 import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Properties;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -95,9 +86,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAM
 import static com.facebook.presto.hive.HiveColumnHandle.updateRowIdHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_COLUMN_ORDER_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TIMEZONE_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
@@ -119,11 +108,11 @@ import static com.facebook.presto.hive.HiveUtil.hiveColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.schemaTableName;
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.HiveWriteUtils.checkTableIsWritable;
-import static com.facebook.presto.hive.HiveWriteUtils.createDirectory;
 import static com.facebook.presto.hive.HiveWriteUtils.isWritableType;
-import static com.facebook.presto.hive.HiveWriteUtils.pathExists;
-import static com.facebook.presto.hive.HiveWriteUtils.renameDirectory;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
+import static com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
+import static com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
+import static com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
 import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.hive.util.Types.checkType;
@@ -131,13 +120,11 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.concat;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
@@ -149,12 +136,9 @@ public class HiveMetadata
     public static final String PRESTO_VERSION_NAME = "presto_version";
     public static final String PRESTO_QUERY_ID_NAME = "presto_query_id";
 
-    private static final Logger log = Logger.get(HiveMetadata.class);
-    private static final int PARTITION_COMMIT_BATCH_SIZE = 8;
-
     private final String connectorId;
     private final boolean allowCorruptWritesForTesting;
-    private final ExtendedHiveMetastore metastore;
+    private final SemiTransactionalHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
     private final DateTimeZone timeZone;
@@ -171,11 +155,9 @@ public class HiveMetadata
     private final TypeTranslator typeTranslator;
     private final ServerInfo serverInfo;
 
-    private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
-
     public HiveMetadata(
             String connectorId,
-            ExtendedHiveMetastore metastore,
+            SemiTransactionalHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
             DateTimeZone timeZone,
@@ -216,7 +198,7 @@ public class HiveMetadata
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
     }
 
-    public ExtendedHiveMetastore getMetastore()
+    public SemiTransactionalHiveMetastore getMetastore()
     {
         return metastore;
     }
@@ -415,11 +397,10 @@ public class HiveMetadata
 
         LocationHandle locationHandle = locationService.forNewTable(session.getUser(), session.getQueryId(), schemaName, tableName);
         Path targetPath = locationService.targetPathRoot(locationHandle);
-        createDirectory(session.getUser(), hdfsEnvironment, targetPath);
 
         Table table = buildTableObject(session.getQueryId(), schemaName, tableName, session.getUser(), columnHandles, hiveStorageFormat, partitionedBy, bucketProperty, additionalTableParameters, targetPath, serverInfo);
         PrincipalPrivilegeSet principalPrivilegeSet = buildInitialPrivilegeSet(table.getOwner());
-        metastore.createTable(table, principalPrivilegeSet);
+        metastore.createTable(session, table, principalPrivilegeSet, Optional.empty());
     }
 
     private static Table buildTableObject(
@@ -533,14 +514,12 @@ public class HiveMetadata
         if (!target.isPresent()) {
             throw new TableNotFoundException(tableName);
         }
-        metastore.dropTable(handle.getSchemaName(), handle.getTableName(), true);
+        metastore.dropTable(session, handle.getSchemaName(), handle.getTableName());
     }
 
     @Override
     public HiveOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
-        checkNoRollback();
-
         verifyJvmTimeZone();
 
         HiveStorageFormat tableStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
@@ -555,13 +534,14 @@ public class HiveMetadata
 
         List<HiveColumnHandle> columnHandles = getColumnHandles(connectorId, tableMetadata, ImmutableSet.copyOf(partitionedBy), typeTranslator);
 
+        LocationHandle locationHandle = locationService.forNewTable(session.getUser(), session.getQueryId(), schemaName, tableName);
         HiveOutputTableHandle result = new HiveOutputTableHandle(
                 connectorId,
                 schemaName,
                 tableName,
                 columnHandles,
                 session.getQueryId(),
-                locationService.forNewTable(session.getUser(), session.getQueryId(), schemaName, tableName),
+                locationHandle,
                 tableStorageFormat,
                 respectTableFormat ? tableStorageFormat : defaultStorageFormat,
                 partitionedBy,
@@ -569,7 +549,11 @@ public class HiveMetadata
                 session.getUser(),
                 additionalTableParameters);
 
-        setRollback(() -> rollbackCreateTable(session.getUser(), result));
+        Path writePathRoot = locationService.writePathRoot(locationHandle).get();
+        Path targetPathRoot = locationService.targetPathRoot(locationHandle);
+        WriteMode mode = writePathRoot.equals(targetPathRoot) ? DIRECT_TO_TARGET_NEW_DIRECTORY : STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
+        metastore.declareIntentionToWrite(session, mode, writePathRoot, result.getFilePrefix(), schemaTableName);
+
         return result;
     }
 
@@ -586,66 +570,41 @@ public class HiveMetadata
         Path targetPath = locationService.targetPathRoot(handle.getLocationHandle());
         Path writePath = locationService.writePathRoot(handle.getLocationHandle()).get();
 
-        // rename if using a temporary directory
-        if (!targetPath.equals(writePath)) {
-            // verify no one raced us to create the target directory
-            if (pathExists(session.getUser(), hdfsEnvironment, targetPath)) {
-                throw new PrestoException(HIVE_PATH_ALREADY_EXISTS, format("Target directory for table '%s.%s' already exists: %s",
-                        handle.getSchemaName(),
-                        handle.getTableName(),
-                        targetPath));
+        Table table = buildTableObject(
+                session.getQueryId(),
+                handle.getSchemaName(),
+                handle.getTableName(),
+                handle.getTableOwner(),
+                handle.getInputColumns(),
+                handle.getTableStorageFormat(),
+                handle.getPartitionedBy(),
+                handle.getBucketProperty(),
+                handle.getAdditionalTableParameters(),
+                targetPath,
+                serverInfo);
+        PrincipalPrivilegeSet principalPrivilegeSet = buildInitialPrivilegeSet(handle.getTableOwner());
+
+        partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
+
+        if (handle.getBucketProperty().isPresent()) {
+            ImmutableList<PartitionUpdate> partitionUpdatesForMissingBuckets = computePartitionUpdatesForMissingBuckets(handle, table, partitionUpdates);
+            // replace partitionUpdates before creating the empty files so that those files will be cleaned up if we end up rollback
+            partitionUpdates = PartitionUpdate.mergePartitionUpdates(Iterables.concat(partitionUpdates, partitionUpdatesForMissingBuckets));
+            for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
+                Optional<Partition> partition = table.getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(session.getQueryId(), table, partitionUpdate));
+                createEmptyFile(partitionUpdate.getWritePath(), table, partition, partitionUpdate.getFileNames());
             }
-            // rename the temporary directory to the target
-            renameDirectory(session.getUser(), hdfsEnvironment, handle.getSchemaName(), handle.getTableName(), writePath, targetPath);
         }
 
-        PartitionCommitter partitionCommitter = new PartitionCommitter(handle.getSchemaName(), handle.getTableName(), metastore, PARTITION_COMMIT_BATCH_SIZE);
-        try {
-            Table table = buildTableObject(
-                    session.getQueryId(),
-                    handle.getSchemaName(),
-                    handle.getTableName(),
-                    handle.getTableOwner(),
-                    handle.getInputColumns(),
-                    handle.getTableStorageFormat(),
-                    handle.getPartitionedBy(),
-                    handle.getBucketProperty(),
-                    handle.getAdditionalTableParameters(),
-                    targetPath,
-                    serverInfo);
-            PrincipalPrivilegeSet principalPrivilegeSet = buildInitialPrivilegeSet(handle.getTableOwner());
+        metastore.createTable(session, table, principalPrivilegeSet, Optional.of(writePath));
 
-            partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
-
-            if (handle.getBucketProperty().isPresent()) {
-                ImmutableList<PartitionUpdate> partitionUpdatesForMissingBuckets = computePartitionUpdatesForMissingBuckets(handle, table, partitionUpdates);
-                // replace partitionUpdates before creating the empty files so that those files will be cleaned up if we end up rollback
-                partitionUpdates = PartitionUpdate.mergePartitionUpdates(Iterables.concat(partitionUpdates, partitionUpdatesForMissingBuckets));
-                for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
-                    Optional<Partition> partition = table.getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(session.getQueryId(), table, partitionUpdate));
-                    createEmptyFile(partitionUpdate.getTargetPath(), table, partition, partitionUpdate.getFileNames());
-                }
+        if (!handle.getPartitionedBy().isEmpty()) {
+            if (respectTableFormat) {
+                Verify.verify(handle.getPartitionStorageFormat() == handle.getTableStorageFormat());
             }
-
-            metastore.createTable(table, principalPrivilegeSet);
-
-            if (!handle.getPartitionedBy().isEmpty()) {
-                if (respectTableFormat) {
-                    Verify.verify(handle.getPartitionStorageFormat() == handle.getTableStorageFormat());
-                }
-                partitionUpdates.stream()
-                        .map(partitionUpdate -> buildPartitionObject(session.getQueryId(), table, partitionUpdate))
-                        .forEach(partitionCommitter::addPartition);
-            }
-            partitionCommitter.flush();
+            partitionUpdates.forEach(partitionUpdate ->
+                    metastore.addPartition(session, handle.getSchemaName(), handle.getTableName(), buildPartitionObject(session.getQueryId(), table, partitionUpdate), partitionUpdate.getWritePath()));
         }
-        catch (Throwable throwable) {
-            partitionCommitter.abort();
-            rollbackPartitionUpdates(session.getUser(), partitionUpdates, "table creation");
-            throw throwable;
-        }
-
-        clearRollback();
     }
 
     private ImmutableList<PartitionUpdate> computePartitionUpdatesForMissingBuckets(HiveWritableTableHandle handle, Table table, List<PartitionUpdate> partitionUpdates)
@@ -726,19 +685,9 @@ public class HiveMetadata
         }
     }
 
-    private void rollbackCreateTable(String user, ConnectorOutputTableHandle tableHandle)
-    {
-        HiveOutputTableHandle handle = checkType(tableHandle, HiveOutputTableHandle.class, "tableHandle");
-        cleanupTempDirectory(user, locationService.writePathRoot(handle.getLocationHandle()).get().toString(), handle.getFilePrefix(), "create table");
-        // Note: there is no need to cleanup the target directory as it will only be written
-        // to during the commit call and the commit call cleans up after failures.
-    }
-
     @Override
     public HiveInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        checkNoRollback();
-
         verifyJvmTimeZone();
 
         SchemaTableName tableName = schemaTableName(tableHandle);
@@ -764,78 +713,29 @@ public class HiveMetadata
                 .collect(toList());
 
         HiveStorageFormat tableStorageFormat = extractHiveStorageFormat(table.get());
+        LocationHandle locationHandle = locationService.forExistingTable(session.getUser(), session.getQueryId(), table.get());
         HiveInsertTableHandle result = new HiveInsertTableHandle(
                 connectorId,
                 tableName.getSchemaName(),
                 tableName.getTableName(),
                 handles,
                 session.getQueryId(),
-                locationService.forExistingTable(session.getUser(), session.getQueryId(), table.get()),
+                locationHandle,
                 table.get().getStorage().getBucketProperty(),
                 tableStorageFormat,
                 respectTableFormat ? tableStorageFormat : defaultStorageFormat);
 
-        setRollback(() -> rollbackInsert(session.getUser(), result));
+        Optional<Path> writePathRoot = locationService.writePathRoot(locationHandle);
+        Path targetPathRoot = locationService.targetPathRoot(locationHandle);
+        if (writePathRoot.isPresent()) {
+            WriteMode mode = writePathRoot.get().equals(targetPathRoot) ? DIRECT_TO_TARGET_NEW_DIRECTORY : STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
+            metastore.declareIntentionToWrite(session, mode, writePathRoot.get(), result.getFilePrefix(), tableName);
+        }
+        else {
+            metastore.declareIntentionToWrite(session, DIRECT_TO_TARGET_EXISTING_DIRECTORY, targetPathRoot, result.getFilePrefix(), tableName);
+        }
+
         return result;
-    }
-
-    private static class PartitionCommitter
-    {
-        private final String schemaName;
-        private final String tableName;
-        private final ExtendedHiveMetastore metastore;
-        private final int batchSize;
-        private final List<Partition> batch;
-        private final List<Partition> createdPartitions = new ArrayList<>();
-
-        public PartitionCommitter(String schemaName, String tableName, ExtendedHiveMetastore metastore, int batchSize)
-        {
-            this.schemaName = schemaName;
-            this.tableName = tableName;
-            this.metastore = metastore;
-            this.batchSize = batchSize;
-            this.batch = new ArrayList<>(batchSize);
-        }
-
-        public List<Partition> getCreatedPartitions()
-        {
-            return ImmutableList.copyOf(createdPartitions);
-        }
-
-        public void addPartition(Partition partition)
-        {
-            batch.add(partition);
-            if (batch.size() >= batchSize) {
-                addBatch();
-            }
-        }
-
-        public void flush()
-        {
-            if (!batch.isEmpty()) {
-                addBatch();
-            }
-        }
-
-        public void abort()
-        {
-            // drop created partitions
-            for (Partition createdPartition : getCreatedPartitions()) {
-                try {
-                    metastore.dropPartition(schemaName, tableName, createdPartition.getValues(), true);
-                }
-                catch (Exception e) {
-                    log.error(e, "Error rolling back new partition '%s' in table '%s.%s", createdPartition.getValues(), schemaName, tableName);
-                }
-            }
-        }
-
-        private void addBatch()
-        {
-            metastore.addPartitions(schemaName, tableName, batch);
-            createdPartitions.addAll(batch);
-            batch.clear();
-        }
     }
 
     @Override
@@ -849,132 +749,55 @@ public class HiveMetadata
                 .collect(toList());
 
         HiveStorageFormat tableStorageFormat = handle.getTableStorageFormat();
-        PartitionCommitter partitionCommitter = new PartitionCommitter(handle.getSchemaName(), handle.getTableName(), metastore, PARTITION_COMMIT_BATCH_SIZE);
-        try {
-            partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
+        partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
 
-            Optional<Table> table = metastore.getTable(handle.getSchemaName(), handle.getTableName());
-            if (!table.isPresent()) {
-                throw new TableNotFoundException(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
-            }
-            if (!table.get().getStorage().getStorageFormat().getInputFormat().equals(tableStorageFormat.getInputFormat()) && respectTableFormat) {
-                throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Table format changed during insert");
-            }
-
-            if (handle.getBucketProperty().isPresent()) {
-                ImmutableList<PartitionUpdate> partitionUpdatesForMissingBuckets = computePartitionUpdatesForMissingBuckets(handle, table.get(), partitionUpdates);
-                // replace partitionUpdates before creating the empty files so that those files will be cleaned up if we end up rollback
-                partitionUpdates = PartitionUpdate.mergePartitionUpdates(Iterables.concat(partitionUpdates, partitionUpdatesForMissingBuckets));
-                for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
-                    Optional<Partition> partition = table.get().getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(session.getQueryId(), table.get(), partitionUpdate));
-                    createEmptyFile(partitionUpdate.getWritePath(), table.get(), partition, partitionUpdate.getFileNames());
-                }
-            }
-
-            List<CompletableFuture<?>> fileRenameFutures = new ArrayList<>();
-            for (PartitionUpdate partitionUpdate : partitionUpdates) {
-                if (!partitionUpdate.getName().isEmpty() && partitionUpdate.isNew()) {
-                    // move data to final location
-                    if (!partitionUpdate.getWritePath().equals(partitionUpdate.getTargetPath())) {
-                        renameDirectory(
-                                session.getUser(),
-                                hdfsEnvironment,
-                                table.get().getDatabaseName(),
-                                table.get().getTableName(),
-                                partitionUpdate.getWritePath(),
-                                partitionUpdate.getTargetPath());
-                    }
-                    // add new partition
-                    Partition partition = buildPartitionObject(session.getQueryId(), table.get(), partitionUpdate);
-                    if (!partition.getStorage().getStorageFormat().getInputFormat().equals(handle.getPartitionStorageFormat().getInputFormat()) && respectTableFormat) {
-                        throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Partition format changed during insert");
-                    }
-                    partitionCommitter.addPartition(partition);
-                }
-                else {
-                    // move data to final location
-                    if (!partitionUpdate.getWritePath().equals(partitionUpdate.getTargetPath())) {
-                        Path writeDir = partitionUpdate.getWritePath();
-                        Path targetDir = partitionUpdate.getTargetPath();
-
-                        FileSystem fileSystem;
-                        try {
-                            fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), targetDir);
-                        }
-                        catch (IOException e) {
-                            throw new PrestoException(HIVE_FILESYSTEM_ERROR, e);
-                        }
-
-                        for (String fileName : partitionUpdate.getFileNames()) {
-                            fileRenameFutures.add(CompletableFuture.runAsync(() -> {
-                                Path source = new Path(writeDir, fileName);
-                                Path target = new Path(targetDir, fileName);
-                                try {
-                                    fileSystem.rename(source, target);
-                                }
-                                catch (IOException e) {
-                                    throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Error moving INSERT data from %s to final location %s", source, target), e);
-                                }
-                            }, renameExecutor));
-                        }
-                    }
-                }
-            }
-            partitionCommitter.flush();
-            for (CompletableFuture<?> fileRenameFuture : fileRenameFutures) {
-                MoreFutures.getFutureValue(fileRenameFuture, PrestoException.class);
-            }
-
-            // clean remaining partition directories
-            Optional<Path> writePathRoot = locationService.writePath(handle.getLocationHandle(), Optional.empty());
-            if (writePathRoot.isPresent() && !writePathRoot.get().equals(locationService.targetPathRoot(handle.getLocationHandle()))) {
-                FileSystem fileSystem;
-                try {
-                    fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), writePathRoot.get());
-                }
-                catch (IOException e) {
-                    throw new PrestoException(HIVE_FILESYSTEM_ERROR, e);
-                }
-                for (PartitionUpdate partitionUpdate : partitionUpdates) {
-                    verify(!partitionUpdate.getTargetPath().equals(partitionUpdate.getWritePath()));
-                    Path writePath = partitionUpdate.getWritePath();
-                    verify(
-                            isSameOrParent(writePathRoot.get(), writePath),
-                            "Partition update write path '%s' stored outside insert write path '%s'",
-                            writePath,
-                            writePathRoot.get());
-                    while (!writePath.equals(writePathRoot.get())) {
-                        if (!deleteIfExists(fileSystem, writePath)) {
-                            break;
-                        }
-                        writePath = writePath.getParent();
-                    }
-                }
-                if (!deleteIfExists(fileSystem, writePathRoot.get())) {
-                    log.debug("Unable to delete temporary directory for insert: '%s'", writePathRoot.get());
-                }
-            }
+        Optional<Table> table = metastore.getTable(handle.getSchemaName(), handle.getTableName());
+        if (!table.isPresent()) {
+            throw new TableNotFoundException(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
         }
-        catch (Throwable t) {
-            partitionCommitter.abort();
-            rollbackPartitionUpdates(session.getUser(), partitionUpdates, "insert");
-            throw t;
+        if (!table.get().getStorage().getStorageFormat().getInputFormat().equals(tableStorageFormat.getInputFormat()) && respectTableFormat) {
+            throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Table format changed during insert");
         }
 
-        clearRollback();
-    }
+        if (handle.getBucketProperty().isPresent()) {
+            ImmutableList<PartitionUpdate> partitionUpdatesForMissingBuckets = computePartitionUpdatesForMissingBuckets(handle, table.get(), partitionUpdates);
+            // replace partitionUpdates before creating the empty files so that those files will be cleaned up if we end up rollback
+            partitionUpdates = PartitionUpdate.mergePartitionUpdates(Iterables.concat(partitionUpdates, partitionUpdatesForMissingBuckets));
+            for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
+                Optional<Partition> partition = table.get().getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(session.getQueryId(), table.get(), partitionUpdate));
+                createEmptyFile(partitionUpdate.getWritePath(), table.get(), partition, partitionUpdate.getFileNames());
+            }
+        }
 
-    private static boolean isSameOrParent(Path parent, Path child)
-    {
-        int parentDepth = parent.depth();
-        int childDepth = child.depth();
-        if (parentDepth > childDepth) {
-            return false;
+        for (PartitionUpdate partitionUpdate : partitionUpdates) {
+            if (partitionUpdate.getName().isEmpty()) {
+                // insert into unpartitioned table
+                metastore.finishInsertIntoExistingTable(
+                        session,
+                        handle.getSchemaName(),
+                        handle.getTableName(),
+                        partitionUpdate.getWritePath(),
+                        partitionUpdate.getFileNames());
+            }
+            else if (!partitionUpdate.isNew()) {
+                // insert into existing partition
+                metastore.finishInsertIntoExistingPartition(
+                        session,
+                        handle.getSchemaName(),
+                        handle.getTableName(),
+                        toPartitionValues(partitionUpdate.getName()),
+                        partitionUpdate.getWritePath(),
+                        partitionUpdate.getFileNames());
+            }
+            else {
+                // insert into new partition
+                Partition partition = buildPartitionObject(session.getQueryId(), table.get(), partitionUpdate);
+                if (!partition.getStorage().getStorageFormat().getInputFormat().equals(handle.getPartitionStorageFormat().getInputFormat()) && respectTableFormat) {
+                    throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Partition format changed during insert");
+                }
+                metastore.addPartition(session, handle.getSchemaName(), handle.getTableName(), partition, partitionUpdate.getWritePath());
+            }
         }
-        for (int i = childDepth; i > parentDepth; i--) {
-            child = child.getParent();
-        }
-        return parent.equals(child);
     }
 
     private Partition buildPartitionObject(String queryId, Table table, PartitionUpdate partitionUpdate)
@@ -1002,234 +825,6 @@ public class HiveMetadata
         partition.setColumns(table.getDataColumns());
 
         return partition.build();
-    }
-
-    private void rollbackInsert(String user, ConnectorInsertTableHandle insertHandle)
-    {
-        HiveInsertTableHandle handle = checkType(insertHandle, HiveInsertTableHandle.class, "invalid insertHandle");
-
-        // if there is a temp directory, we only need to cleanup temp files in this directory
-        Optional<Path> writePath = locationService.writePathRoot(handle.getLocationHandle());
-        if (writePath.isPresent()) {
-            cleanupTempDirectory(user, writePath.get().toString(), handle.getFilePrefix(), "insert");
-            // Note: in this case there is no need to cleanup the target directory as it will only
-            // be written to during the commit call and the commit call cleans up after failures.
-            return;
-        }
-
-        // Otherwise, insert was directly into the target table and partitions, and all must be checked for temp files
-        Optional<Table> table = metastore.getTable(handle.getSchemaName(), handle.getTableName());
-        if (!table.isPresent()) {
-            log.error("Error rolling back insert into table %s.%s. Table was dropped during insert, and data directory may contain temporary data", handle.getSchemaName(), handle.getTableName());
-            return;
-        }
-
-        Set<String> locationsToClean = new HashSet<>();
-
-        // check the base directory of the table (this is where new partitions are created)
-        String tableDirectory = locationService.targetPathRoot(handle.getLocationHandle()).toString();
-        locationsToClean.add(tableDirectory);
-
-        // check every existing partition that is outside for the base directory
-        if (!table.get().getPartitionColumns().isEmpty()) {
-            List<String> partitionNames = metastore.getPartitionNames(handle.getSchemaName(), handle.getTableName())
-                    .orElse(ImmutableList.of());
-            for (List<String> partitionNameBatch : Iterables.partition(partitionNames, 10)) {
-                metastore.getPartitionsByNames(handle.getSchemaName(), handle.getTableName(), partitionNameBatch).values().stream()
-                        .filter(Optional::isPresent)
-                        .map(Optional::get)
-                        .map(partition -> partition.getStorage().getLocation())
-                        .filter(location -> !location.startsWith(tableDirectory))
-                        .forEach(locationsToClean::add);
-            }
-        }
-
-        // delete any file that starts with the unique prefix of this query
-        List<String> notDeletedFiles = new ArrayList<>();
-        for (String location : locationsToClean) {
-            notDeletedFiles.addAll(recursiveDeleteFilesStartingWith(user, location, handle.getFilePrefix()));
-        }
-        if (!notDeletedFiles.isEmpty()) {
-            log.error("Cannot delete insert data files %s", notDeletedFiles);
-        }
-
-        // Note: we can not delete any of these locations since we do not know who created them
-    }
-
-    private void cleanupTempDirectory(String user, String location, String filePrefix, String actionName)
-    {
-        // to be safe only delete files that start with the unique prefix for this query
-        List<String> notDeletedFiles = recursiveDeleteFilesStartingWith(user, location, filePrefix);
-        if (!notDeletedFiles.isEmpty()) {
-            log.warn("Error rolling back " + actionName + " temporary data files %s", notDeletedFiles.stream()
-                    .collect(joining(", ")));
-        }
-
-        // try to delete the temp directory
-        if (!deleteIfExists(user, location)) {
-            // this is temp data so an error isn't a big problem
-            log.debug("Error deleting " + actionName + " temp data in %s", location);
-        }
-    }
-
-    private void rollbackPartitionUpdates(String user, List<PartitionUpdate> partitionUpdates, String actionName)
-    {
-        for (PartitionUpdate partitionUpdate : partitionUpdates) {
-            Path targetPath = partitionUpdate.getTargetPath();
-            Path writePath = partitionUpdate.getWritePath();
-
-            // delete temp data if we used a temp dir
-            if (!writePath.equals(targetPath)) {
-                // to be safe only delete the files we know we created in the temp directory
-                List<String> notDeletedFiles = deleteFilesFrom(user, writePath, partitionUpdate.getFileNames());
-                if (!notDeletedFiles.isEmpty()) {
-                    log.warn("Error rolling back " + actionName + " temporary data files %s", notDeletedFiles.stream()
-                            .collect(joining(", ")));
-                }
-
-                // try to delete the temp directory
-                if (!deleteIfExists(user, writePath)) {
-                    // this is temp data so an error isn't a big problem
-                    log.debug("Error deleting " + actionName + " temp data in %s", writePath);
-                }
-            }
-
-            // delete data from target directory
-            List<String> notDeletedFiles = deleteFilesFrom(user, targetPath, partitionUpdate.getFileNames());
-            if (!notDeletedFiles.isEmpty()) {
-                log.error("Error rolling back " + actionName + " data files %s", notDeletedFiles.stream()
-                        .collect(joining(", ")));
-            }
-
-            // only try to delete directory if the partition is new
-            if (partitionUpdate.isNew()) {
-                if (!deleteIfExists(user, targetPath)) {
-                    log.debug("Cannot delete " + actionName + " directory %s", targetPath);
-                }
-            }
-        }
-    }
-
-    /**
-     * Attempts to remove the file or empty directory.
-     * @return true if the location no longer exists
-     */
-    public boolean deleteIfExists(String user, String location)
-    {
-        return deleteIfExists(user, new Path(location));
-    }
-
-    /**
-     * Attempts to remove the file or empty directory.
-     * @return true if the location no longer exists
-     */
-    private boolean deleteIfExists(String user, Path path)
-    {
-        FileSystem fileSystem;
-        try {
-            fileSystem = hdfsEnvironment.getFileSystem(user, path);
-        }
-        catch (IOException ignored) {
-            return false;
-        }
-
-        return deleteIfExists(fileSystem, path);
-    }
-
-    /**
-     * Attempts to remove the file or empty directory.
-     * @return true if the location no longer exists
-     */
-    private static boolean deleteIfExists(FileSystem fileSystem, Path path)
-    {
-        try {
-            // attempt to delete the path
-            if (fileSystem.delete(path, false)) {
-                return true;
-            }
-
-            // delete failed
-            // check if path still exists
-            return !fileSystem.exists(path);
-        }
-        catch (FileNotFoundException ignored) {
-            // path was already removed or never existed
-            return true;
-        }
-        catch (IOException ignored) {
-        }
-        return false;
-    }
-
-    /**
-     * Attempt to remove the {@code fileNames} files within {@code location}.
-     * @return the files that could not be removed
-     */
-    private List<String> deleteFilesFrom(String user, Path location, List<String> fileNames)
-    {
-        FileSystem fileSystem;
-        try {
-            fileSystem = hdfsEnvironment.getFileSystem(user, location);
-        }
-        catch (IOException e) {
-            return fileNames;
-        }
-
-        ImmutableList.Builder<String> notDeletedFiles = ImmutableList.builder();
-        for (String fileName : fileNames) {
-            Path file = new Path(location, fileName);
-            if (!deleteIfExists(fileSystem, file)) {
-                notDeletedFiles.add(file.toString());
-            }
-        }
-        return notDeletedFiles.build();
-    }
-
-    /**
-     * Attempt to remove all files in all directories within {@code location} that start with the {@code filePrefix}.
-     * @return the files starting with the {@code filePrefix} that could not be removed
-     */
-    private List<String> recursiveDeleteFilesStartingWith(String user, String location, String filePrefix)
-    {
-        FileSystem fileSystem;
-        try {
-            Path directory = new Path(location);
-            fileSystem = hdfsEnvironment.getFileSystem(user, directory);
-        }
-        catch (IOException e) {
-            return ImmutableList.of(location + "/" + filePrefix + "*");
-        }
-
-        return recursiveDeleteFilesStartingWith(fileSystem, new Path(location), filePrefix);
-    }
-
-    /**
-     * Attempt to remove all files in all directories within {@code location} that start with the {@code filePrefix}.
-     * @return the files starting with the {@code filePrefix} that could not be removed
-     */
-    private static List<String> recursiveDeleteFilesStartingWith(FileSystem fileSystem, Path directory, String filePrefix)
-    {
-        FileStatus[] allFiles;
-        try {
-            allFiles = fileSystem.listStatus(directory);
-        }
-        catch (IOException e) {
-            return ImmutableList.of(directory + "/" + filePrefix + "*");
-        }
-
-        ImmutableList.Builder<String> notDeletedFiles = ImmutableList.builder();
-        for (FileStatus fileStatus : allFiles) {
-            Path path = fileStatus.getPath();
-            if (HadoopFileStatus.isFile(fileStatus) && path.getName().startsWith(filePrefix)) {
-                if (!deleteIfExists(fileSystem, path)) {
-                    notDeletedFiles.add(path.toString());
-                }
-            }
-            else if (HadoopFileStatus.isDirectory(fileStatus)) {
-                notDeletedFiles.addAll(recursiveDeleteFilesStartingWith(fileSystem, path, filePrefix));
-            }
-        }
-        return notDeletedFiles.build();
     }
 
     @Override
@@ -1265,12 +860,12 @@ public class HiveMetadata
                 throw new ViewAlreadyExistsException(viewName);
             }
 
-            metastore.replaceTable(viewName.getSchemaName(), viewName.getTableName(), table, principalPrivilegeSet);
+            metastore.replaceView(viewName.getSchemaName(), viewName.getTableName(), table, principalPrivilegeSet);
             return;
         }
 
         try {
-            metastore.createTable(table, principalPrivilegeSet);
+            metastore.createTable(session, table, principalPrivilegeSet, Optional.empty());
         }
         catch (TableAlreadyExistsException e) {
             throw new ViewAlreadyExistsException(e.getTableName());
@@ -1286,7 +881,7 @@ public class HiveMetadata
         }
 
         try {
-            metastore.dropTable(viewName.getSchemaName(), viewName.getTableName(), true);
+            metastore.dropTable(session, viewName.getSchemaName(), viewName.getTableName());
         }
         catch (TableNotFoundException e) {
             throw new ViewNotFoundException(e.getTableName());
@@ -1354,19 +949,11 @@ public class HiveMetadata
         }
 
         if (table.get().getPartitionColumns().isEmpty()) {
-            // only delete data for managed tables
-            if (!table.get().getTableType().equals(TableType.MANAGED_TABLE.toString())) {
-                throw new PrestoException(NOT_SUPPORTED, "Cannot delete from non-managed Hive table");
-            }
-            String location = table.get().getStorage().getLocation();
-            List<String> notDeletedFiles = recursiveDeleteFilesStartingWith(session.getUser(), location, "");
-            if (!notDeletedFiles.isEmpty()) {
-                throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Error deleting from unpartitioned table: " + handle.getSchemaTableName());
-            }
+            metastore.truncateUnpartitionedTable(session, handle.getSchemaName(), handle.getTableName());
         }
         else {
             for (HivePartition hivePartition : getOrComputePartitions(layoutHandle, session, tableHandle)) {
-                metastore.dropPartition(handle.getSchemaName(), handle.getTableName(), toPartitionValues(hivePartition.getPartitionId()), true);
+                metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), toPartitionValues(hivePartition.getPartitionId()));
             }
         }
         // it is too expensive to determine the exact number of deleted rows
@@ -1660,26 +1247,13 @@ public class HiveMetadata
                 handle.isHidden());
     }
 
-    private void checkNoRollback()
-    {
-        checkState(rollbackAction.get() == null, "Cannot begin a new write while in an existing one");
-    }
-
-    private void setRollback(Runnable action)
-    {
-        checkState(rollbackAction.compareAndSet(null, action), "Should not have to override existing rollback action");
-    }
-
-    private void clearRollback()
-    {
-        rollbackAction.set(null);
-    }
-
     public void rollback()
     {
-        Runnable rollbackAction = this.rollbackAction.getAndSet(null);
-        if (rollbackAction != null) {
-            rollbackAction.run();
-        }
+        metastore.rollback();
+    }
+
+    public void commit()
+    {
+        metastore.commit();
     }
 }

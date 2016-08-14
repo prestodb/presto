@@ -475,6 +475,7 @@ public abstract class AbstractTestHiveClient
                 10,
                 true,
                 true,
+                false,
                 true,
                 true,
                 false,

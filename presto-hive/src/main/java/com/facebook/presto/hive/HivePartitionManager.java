@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -101,7 +101,7 @@ public class HivePartitionManager
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
-    public HivePartitionResult getPartitions(ConnectorSession session, ExtendedHiveMetastore metastore, ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> effectivePredicate)
+    public HivePartitionResult getPartitions(ConnectorSession session, SemiTransactionalHiveMetastore metastore, ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> effectivePredicate)
     {
         HiveTableHandle hiveTableHandle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
         requireNonNull(effectivePredicate, "effectivePredicate is null");
@@ -187,7 +187,7 @@ public class HivePartitionManager
         return Optional.of(builder.build());
     }
 
-    private Table getTable(ExtendedHiveMetastore metastore, SchemaTableName tableName)
+    private Table getTable(SemiTransactionalHiveMetastore metastore, SchemaTableName tableName)
     {
         Optional<Table> target = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
         if (!target.isPresent()) {
@@ -208,7 +208,7 @@ public class HivePartitionManager
         return table;
     }
 
-    private List<String> getFilteredPartitionNames(ExtendedHiveMetastore metastore, SchemaTableName tableName, List<HiveColumnHandle> partitionKeys, TupleDomain<ColumnHandle> effectivePredicate)
+    private List<String> getFilteredPartitionNames(SemiTransactionalHiveMetastore metastore, SchemaTableName tableName, List<HiveColumnHandle> partitionKeys, TupleDomain<ColumnHandle> effectivePredicate)
     {
         checkArgument(effectivePredicate.getDomains().isPresent());
 
