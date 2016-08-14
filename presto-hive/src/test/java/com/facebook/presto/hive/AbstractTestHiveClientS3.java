@@ -376,7 +376,7 @@ public abstract class AbstractTestHiveClientS3
     private void dropTable(SchemaTableName table)
     {
         try {
-            metastoreClient.dropTable(table.getSchemaName(), table.getTableName());
+            metastoreClient.dropTable(table.getSchemaName(), table.getTableName(), true);
         }
         catch (RuntimeException e) {
             // this usually occurs because the table was not created
@@ -435,7 +435,7 @@ public abstract class AbstractTestHiveClientS3
         }
 
         @Override
-        public void dropTable(String databaseName, String tableName)
+        public void dropTable(String databaseName, String tableName, boolean deleteData)
         {
             try {
                 Optional<Table> table = getTable(databaseName, tableName);
@@ -451,12 +451,14 @@ public abstract class AbstractTestHiveClientS3
 
                 // drop table
                 replaceTable(databaseName, tableName, tableBuilder.build(), new PrincipalPrivilegeSet());
-                super.dropTable(databaseName, tableName);
+                delegate.dropTable(databaseName, tableName, false);
 
                 // drop data
-                for (String location : locations) {
-                    Path path = new Path(location);
-                    hdfsEnvironment.getFileSystem("user", path).delete(path, true);
+                if (deleteData) {
+                    for (String location : locations) {
+                        Path path = new Path(location);
+                        hdfsEnvironment.getFileSystem("user", path).delete(path, true);
+                    }
                 }
             }
             catch (Exception e) {

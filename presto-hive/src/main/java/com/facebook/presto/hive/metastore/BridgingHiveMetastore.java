@@ -93,9 +93,9 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void dropTable(String databaseName, String tableName)
+    public void dropTable(String databaseName, String tableName, boolean deleteData)
     {
-        delegate.dropTable(databaseName, tableName);
+        delegate.dropTable(databaseName, tableName, deleteData);
     }
 
     @Override
@@ -201,9 +201,9 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void dropPartition(String databaseName, String tableName, List<String> parts)
+    public void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData)
     {
-        delegate.dropPartition(databaseName, tableName, parts);
+        delegate.dropPartition(databaseName, tableName, parts, deleteData);
     }
 
     @Override

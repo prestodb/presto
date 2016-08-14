@@ -533,7 +533,7 @@ public class HiveMetadata
         if (!target.isPresent()) {
             throw new TableNotFoundException(tableName);
         }
-        metastore.dropTable(handle.getSchemaName(), handle.getTableName());
+        metastore.dropTable(handle.getSchemaName(), handle.getTableName(), true);
     }
 
     @Override
@@ -822,7 +822,7 @@ public class HiveMetadata
             // drop created partitions
             for (Partition createdPartition : getCreatedPartitions()) {
                 try {
-                    metastore.dropPartition(schemaName, tableName, createdPartition.getValues());
+                    metastore.dropPartition(schemaName, tableName, createdPartition.getValues(), true);
                 }
                 catch (Exception e) {
                     log.error(e, "Error rolling back new partition '%s' in table '%s.%s", createdPartition.getValues(), schemaName, tableName);
@@ -1286,7 +1286,7 @@ public class HiveMetadata
         }
 
         try {
-            metastore.dropTable(viewName.getSchemaName(), viewName.getTableName());
+            metastore.dropTable(viewName.getSchemaName(), viewName.getTableName(), true);
         }
         catch (TableNotFoundException e) {
             throw new ViewNotFoundException(e.getTableName());
@@ -1366,7 +1366,7 @@ public class HiveMetadata
         }
         else {
             for (HivePartition hivePartition : getOrComputePartitions(layoutHandle, session, tableHandle)) {
-                metastore.dropPartition(handle.getSchemaName(), handle.getTableName(), toPartitionValues(hivePartition.getPartitionId()));
+                metastore.dropPartition(handle.getSchemaName(), handle.getTableName(), toPartitionValues(hivePartition.getPartitionId()), true);
             }
         }
         // it is too expensive to determine the exact number of deleted rows

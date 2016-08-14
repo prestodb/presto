@@ -332,10 +332,10 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void dropTable(String databaseName, String tableName)
+    public void dropTable(String databaseName, String tableName, boolean deleteData)
     {
         try {
-            delegate.dropTable(databaseName, tableName);
+            delegate.dropTable(databaseName, tableName, deleteData);
         }
         finally {
             invalidateTable(databaseName, tableName);
@@ -491,10 +491,10 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void dropPartition(String databaseName, String tableName, List<String> parts)
+    public void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData)
     {
         try {
-            delegate.dropPartition(databaseName, tableName, parts);
+            delegate.dropPartition(databaseName, tableName, parts, deleteData);
         }
         finally {
             invalidatePartitionCache(databaseName, tableName);
