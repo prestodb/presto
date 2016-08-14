@@ -57,6 +57,7 @@ import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveUtil.annotateColumnComment;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
@@ -1370,6 +1371,74 @@ public class TestHiveIntegrationSmokeTest
         assertFalse(queryRunner.tableExists(getSession(), "test_path"));
     }
 
+    @Test
+    public void testDeleteAndInsert()
+    {
+        Session session = getSession();
+
+        // Partition 1 is untouched
+        // Partition 2 is altered (dropped and then added back)
+        // Partition 3 is added
+        // Partition 4 is dropped
+
+        assertUpdate(
+                session,
+                "CREATE TABLE tmp_delete_insert WITH (partitioned_by=array ['z']) AS " +
+                        "SELECT * from (VALUES (CAST (101 AS BIGINT), CAST (1 AS BIGINT)), (201, 2), (202, 2), (401, 4), (402, 4), (403, 4)) t(a, z)",
+                6);
+
+        List<MaterializedRow> expectedBefore = MaterializedResult.resultBuilder(session, BIGINT, BIGINT)
+                .row(101L, 1L)
+                .row(201L, 2L)
+                .row(202L, 2L)
+                .row(401L, 4L)
+                .row(402L, 4L)
+                .row(403L, 4L)
+                .build()
+                .getMaterializedRows();
+        List<MaterializedRow> expectedAfter = MaterializedResult.resultBuilder(session, BIGINT, BIGINT)
+                .row(101L, 1L)
+                .row(203L, 2L)
+                .row(204L, 2L)
+                .row(205L, 2L)
+                .row(301L, 2L)
+                .row(302L, 3L)
+                .build()
+                .getMaterializedRows();
+
+        try {
+            transaction(queryRunner.getTransactionManager())
+                    .execute(session, transactionSession -> {
+                        assertUpdate(transactionSession, "DELETE FROM tmp_delete_insert WHERE z >= 2");
+                        assertUpdate(transactionSession, "INSERT INTO tmp_delete_insert VALUES (203, 2), (204, 2), (205, 2), (301, 2), (302, 3)", 5);
+                        MaterializedResult actualFromAnotherTransaction = computeActual(session, "SELECT * FROM tmp_delete_insert");
+                        assertEqualsIgnoreOrder(actualFromAnotherTransaction, expectedBefore);
+                        MaterializedResult actualFromCurrentTransaction = computeActual(transactionSession, "SELECT * FROM tmp_delete_insert");
+                        assertEqualsIgnoreOrder(actualFromCurrentTransaction, expectedAfter);
+                        rollback();
+                    });
+        }
+        catch (RollbackException e) {
+            // ignore
+        }
+
+        MaterializedResult actualAfterRollback = computeActual(session, "SELECT * FROM tmp_delete_insert");
+        assertEqualsIgnoreOrder(actualAfterRollback, expectedBefore);
+
+        transaction(queryRunner.getTransactionManager())
+                .execute(session, transactionSession -> {
+                    assertUpdate(transactionSession, "DELETE FROM tmp_delete_insert WHERE z >= 2");
+                    assertUpdate(transactionSession, "INSERT INTO tmp_delete_insert VALUES (203, 2), (204, 2), (205, 2), (301, 2), (302, 3)", 5);
+                    MaterializedResult actualOutOfTransaction = computeActual(session, "SELECT * FROM tmp_delete_insert");
+                    assertEqualsIgnoreOrder(actualOutOfTransaction, expectedBefore);
+                    MaterializedResult actualInTransaction = computeActual(transactionSession, "SELECT * FROM tmp_delete_insert");
+                    assertEqualsIgnoreOrder(actualInTransaction, expectedAfter);
+                });
+
+        MaterializedResult actualAfterTransaction = computeActual(session, "SELECT * FROM tmp_delete_insert");
+        assertEqualsIgnoreOrder(actualAfterTransaction, expectedAfter);
+    }
+
     private void assertOneNotNullResult(@Language("SQL") String query)
     {
         MaterializedResult results = queryRunner.execute(getSession(), query).toJdbcTypes();
@@ -1398,5 +1467,15 @@ public class TestHiveIntegrationSmokeTest
     private void assertColumnType(TableMetadata tableMetadata, String columnName, Type expectedType)
     {
         assertEquals(tableMetadata.getColumn(columnName).getType(), canonicalizeType(expectedType));
+    }
+
+    private void rollback()
+    {
+        throw new RollbackException();
+    }
+
+    private static class RollbackException
+        extends RuntimeException
+    {
     }
 }
