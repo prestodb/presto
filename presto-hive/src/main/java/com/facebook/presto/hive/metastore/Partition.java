@@ -104,9 +104,14 @@ public class Partition
         return new Builder();
     }
 
+    public static Builder builder(Partition partition)
+    {
+        return new Builder(partition);
+    }
+
     public static class Builder
     {
-        private final Storage.Builder storageBuilder = Storage.builder();
+        private final Storage.Builder storageBuilder;
         private String databaseName;
         private String tableName;
         private List<String> values;
@@ -115,6 +120,17 @@ public class Partition
 
         private Builder()
         {
+            this.storageBuilder = Storage.builder();
+        }
+
+        private Builder(Partition partition)
+        {
+            this.storageBuilder = Storage.builder(partition.getStorage());
+            this.databaseName = partition.getDatabaseName();
+            this.tableName = partition.getTableName();
+            this.values = partition.getValues();
+            this.columns = partition.getColumns();
+            this.parameters = partition.getParameters();
         }
 
         public Builder setDatabaseName(String databaseName)
