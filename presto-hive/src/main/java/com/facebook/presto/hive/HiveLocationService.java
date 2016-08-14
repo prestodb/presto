@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.Partition;
+import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.PrestoException;
 import org.apache.hadoop.fs.Path;
@@ -34,18 +34,16 @@ import static java.util.Objects.requireNonNull;
 public class HiveLocationService
         implements LocationService
 {
-    private final ExtendedHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
 
     @Inject
-    public HiveLocationService(ExtendedHiveMetastore metastore, HdfsEnvironment hdfsEnvironment)
+    public HiveLocationService(HdfsEnvironment hdfsEnvironment)
     {
-        this.metastore = requireNonNull(metastore);
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment);
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
     }
 
     @Override
-    public LocationHandle forNewTable(String user, String queryId, String schemaName, String tableName)
+    public LocationHandle forNewTable(SemiTransactionalHiveMetastore metastore, String user, String queryId, String schemaName, String tableName)
     {
         Path targetPath = getTableDefaultLocation(user, metastore, hdfsEnvironment, schemaName, tableName);
 
@@ -66,7 +64,7 @@ public class HiveLocationService
     }
 
     @Override
-    public LocationHandle forExistingTable(String user, String queryId, Table table)
+    public LocationHandle forExistingTable(SemiTransactionalHiveMetastore metastore, String user, String queryId, Table table)
     {
         Path targetPath = new Path(table.getStorage().getLocation());
 

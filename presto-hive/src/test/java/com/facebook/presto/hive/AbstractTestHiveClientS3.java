@@ -166,7 +166,7 @@ public abstract class AbstractTestHiveClientS3
                 hiveClientConfig,
                 writableBucket,
                 hdfsEnvironment);
-        locationService = new HiveLocationService(metastoreClient, hdfsEnvironment);
+        locationService = new HiveLocationService(hdfsEnvironment);
         TypeRegistry typeManager = new TypeRegistry();
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         metadataFactory = new HiveMetadataFactory(
