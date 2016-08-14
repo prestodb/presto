@@ -402,40 +402,78 @@ public final class UnscaledDecimal128Arithmetic
         int r3 = getInt(right, 3);
 
         // the combinations below definitely result in an overflow
-        if ((r3 != 0 && (l3 | l2 | l1) != 0)
-                || (r2 != 0 && (l3 | l2) != 0)
-                || (r1 != 0 && l3 != 0)) {
+        if (((r3 != 0 && (l3 | l2 | l1) != 0) || (r2 != 0 && (l3 | l2) != 0) || (r1 != 0 && l3 != 0))) {
             throwOverflowException();
         }
 
-        long product;
+        int z0 = 0;
+        int z1 = 0;
+        int z2 = 0;
+        int z3 = 0;
+        int z4 = 0;
+        int z5 = 0;
+        int z6 = 0;
+        int z7 = 0;
 
-        product = (r0 & LONG_MASK) * (l0 & LONG_MASK);
-        int z0 = (int) product;
-
-        product = (r0 & LONG_MASK) * (l1 & LONG_MASK)
-                + (r1 & LONG_MASK) * (l0 & LONG_MASK)
-                + (product >> 32);
-        int z1 = (int) product;
-
-        product = (r0 & LONG_MASK) * (l2 & LONG_MASK)
-                + (r1 & LONG_MASK) * (l1 & LONG_MASK)
-                + (r2 & LONG_MASK) * (l0 & LONG_MASK)
-                + (product >> 32);
-        int z2 = (int) product;
-
-        product = (r0 & LONG_MASK) * (l3 & LONG_MASK)
-                + (r1 & LONG_MASK) * (l2 & LONG_MASK)
-                + (r2 & LONG_MASK) * (l1 & LONG_MASK)
-                + (r3 & LONG_MASK) * (l0 & LONG_MASK)
-                + (product >> 32);
-        int z3 = (int) product;
-        if ((product >>> 32) != 0) {
-            throwOverflowException();
+        if (l0 != 0) {
+            long accumulator = 0;
+            accumulator = (r0 & LONG_MASK) * (l0 & LONG_MASK) + (z0 & LONG_MASK) + (accumulator >>> 32);
+            z0 = (int) accumulator;
+            accumulator = (r1 & LONG_MASK) * (l0 & LONG_MASK) + (z1 & LONG_MASK) + (accumulator >>> 32);
+            z1 = (int) accumulator;
+            accumulator = (r2 & LONG_MASK) * (l0 & LONG_MASK) + (z2 & LONG_MASK) + (accumulator >>> 32);
+            z2 = (int) accumulator;
+            accumulator = (r3 & LONG_MASK) * (l0 & LONG_MASK) + (z3 & LONG_MASK) + (accumulator >>> 32);
+            z3 = (int) accumulator;
+            z4 = (int) (accumulator >>> 32);
         }
 
-        boolean negative = isNegative(left) ^ isNegative(right);
-        pack(result, z0, z1, z2, z3, negative);
+        if (l1 != 0) {
+            long accumulator = 0;
+            accumulator = (r0 & LONG_MASK) * (l1 & LONG_MASK) + (z1 & LONG_MASK) + (accumulator >>> 32);
+            z1 = (int) accumulator;
+            accumulator = (r1 & LONG_MASK) * (l1 & LONG_MASK) + (z2 & LONG_MASK) + (accumulator >>> 32);
+            z2 = (int) accumulator;
+            accumulator = (r2 & LONG_MASK) * (l1 & LONG_MASK) + (z3 & LONG_MASK) + (accumulator >>> 32);
+            z3 = (int) accumulator;
+            accumulator = (r3 & LONG_MASK) * (l1 & LONG_MASK) + (z4 & LONG_MASK) + (accumulator >>> 32);
+            z4 = (int) accumulator;
+            z5 = (int) (accumulator >>> 32);
+        }
+
+        if (l2 != 0) {
+            long accumulator = 0;
+            accumulator = (r0 & LONG_MASK) * (l2 & LONG_MASK) + (z2 & LONG_MASK) + (accumulator >>> 32);
+            z2 = (int) accumulator;
+            accumulator = (r1 & LONG_MASK) * (l2 & LONG_MASK) + (z3 & LONG_MASK) + (accumulator >>> 32);
+            z3 = (int) accumulator;
+            accumulator = (r2 & LONG_MASK) * (l2 & LONG_MASK) + (z4 & LONG_MASK) + (accumulator >>> 32);
+            z4 = (int) accumulator;
+            accumulator = (r3 & LONG_MASK) * (l2 & LONG_MASK) + (z5 & LONG_MASK) + (accumulator >>> 32);
+            z5 = (int) accumulator;
+            z6 = (int) (accumulator >>> 32);
+        }
+
+        if (l3 != 0) {
+            long accumulator = 0;
+            accumulator = (r0 & LONG_MASK) * (l3 & LONG_MASK) + (z3 & LONG_MASK) + (accumulator >>> 32);
+            z3 = (int) accumulator;
+            accumulator = (r1 & LONG_MASK) * (l3 & LONG_MASK) + (z4 & LONG_MASK) + (accumulator >>> 32);
+            z4 = (int) accumulator;
+            accumulator = (r2 & LONG_MASK) * (l3 & LONG_MASK) + (z5 & LONG_MASK) + (accumulator >>> 32);
+            z5 = (int) accumulator;
+            accumulator = (r3 & LONG_MASK) * (l3 & LONG_MASK) + (z6 & LONG_MASK) + (accumulator >>> 32);
+            z6 = (int) accumulator;
+            z7 = (int) (accumulator >>> 32);
+        }
+
+        if (z7 == 0 && z6 == 0 && z5 == 0 && z4 == 0) {
+            pack(result, z0, z1, z2, z3, isNegative(left) ^ isNegative(right));
+            return;
+        }
+        else {
+            throwOverflowException();
+        }
     }
 
     public static int compare(Slice left, Slice right)
