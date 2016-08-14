@@ -14,7 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HiveWriteUtils.FieldSetter;
-import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.HivePageSinkMetadataProvider;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
@@ -132,7 +132,7 @@ public class HivePageSink
     private final LocationService locationService;
     private final String filePrefix;
 
-    private final ExtendedHiveMetastore metastore;
+    private final HivePageSinkMetadataProvider pageSinkMetadataProvider;
     private final PageIndexer pageIndexer;
     private final TypeManager typeManager;
     private final HdfsEnvironment hdfsEnvironment;
@@ -165,7 +165,7 @@ public class HivePageSink
             LocationService locationService,
             String filePrefix,
             Optional<HiveBucketProperty> bucketProperty,
-            ExtendedHiveMetastore metastore,
+            HivePageSinkMetadataProvider pageSinkMetadataProvider,
             PageIndexerFactory pageIndexerFactory,
             TypeManager typeManager,
             HdfsEnvironment hdfsEnvironment,
@@ -187,7 +187,7 @@ public class HivePageSink
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.filePrefix = requireNonNull(filePrefix, "filePrefix is null");
 
-        this.metastore = requireNonNull(metastore, "metastore is null");
+        this.pageSinkMetadataProvider = requireNonNull(pageSinkMetadataProvider, "pageSinkMetadataProvider is null");
 
         requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
 
@@ -280,7 +280,7 @@ public class HivePageSink
             conf = new JobConf(hdfsEnvironment.getConfiguration(writePath.get()));
         }
         else {
-            Optional<Table> table = metastore.getTable(schemaName, tableName);
+            Optional<Table> table = pageSinkMetadataProvider.getTable();
             if (!table.isPresent()) {
                 throw new PrestoException(HIVE_INVALID_METADATA, format("Table %s.%s was dropped during insert", schemaName, tableName));
             }
@@ -470,7 +470,7 @@ public class HivePageSink
         // attempt to get the existing partition (if this is an existing partitioned table)
         Optional<Partition> partition = Optional.empty();
         if (!partitionRow.isEmpty() && table != null) {
-            partition = metastore.getPartition(schemaName, tableName, partitionValues);
+            partition = pageSinkMetadataProvider.getPartition(partitionValues);
         }
 
         boolean isNew;

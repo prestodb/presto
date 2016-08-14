@@ -16,12 +16,14 @@ package com.facebook.presto.hive;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.hive.metastore.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.HivePageSinkMetadata;
 import com.facebook.presto.hive.metastore.InMemoryHiveMetastore;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -209,7 +211,20 @@ public class TestHivePageSink
     private static ConnectorPageSink createPageSink(HiveTransactionHandle transaction, HiveClientConfig config, ExtendedHiveMetastore metastore, Path outputPath)
     {
         LocationHandle locationHandle = new LocationHandle(outputPath, Optional.of(outputPath), false);
-        HiveOutputTableHandle handle = new HiveOutputTableHandle(CLIENT_ID, SCHEMA_NAME, TABLE_NAME, getColumnHandles(), "test", locationHandle, config.getHiveStorageFormat(), config.getHiveStorageFormat(), ImmutableList.of(), Optional.empty(), "test", ImmutableMap.of());
+        HiveOutputTableHandle handle = new HiveOutputTableHandle(
+                CLIENT_ID,
+                SCHEMA_NAME,
+                TABLE_NAME,
+                getColumnHandles(),
+                "test",
+                new HivePageSinkMetadata(new SchemaTableName(SCHEMA_NAME, TABLE_NAME), metastore.getTable(SCHEMA_NAME, TABLE_NAME), ImmutableMap.of()),
+                locationHandle,
+                config.getHiveStorageFormat(),
+                config.getHiveStorageFormat(),
+                ImmutableList.of(),
+                Optional.empty(),
+                "test",
+                ImmutableMap.of());
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         HdfsEnvironment hdfsEnvironment = createTestHdfsEnvironment(config);
         HivePageSinkProvider provider = new HivePageSinkProvider(hdfsEnvironment, metastore, new GroupByHashPageIndexerFactory(), TYPE_MANAGER, config, new HiveLocationService(hdfsEnvironment), partitionUpdateCodec);

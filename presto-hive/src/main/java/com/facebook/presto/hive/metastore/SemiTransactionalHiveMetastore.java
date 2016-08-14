@@ -171,6 +171,31 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
+    public synchronized HivePageSinkMetadata generatePageSinkMetadata(SchemaTableName schemaTableName)
+    {
+        checkReadable();
+        Optional<Table> table = getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName());
+        if (!table.isPresent()) {
+            return new HivePageSinkMetadata(schemaTableName, Optional.empty(), ImmutableMap.of());
+        }
+        Map<List<String>, Action<PartitionAndMore>> partitionActionMap = partitionActions.get(schemaTableName);
+        Map<List<String>, Optional<Partition>> modifiedPartitionMap;
+        if (partitionActionMap == null) {
+            modifiedPartitionMap = ImmutableMap.of();
+        }
+        else {
+            ImmutableMap.Builder<List<String>, Optional<Partition>> modifiedPartitionMapBuilder = ImmutableMap.builder();
+            for (Map.Entry<List<String>, Action<PartitionAndMore>> entry : partitionActionMap.entrySet()) {
+                modifiedPartitionMapBuilder.put(entry.getKey(), getPartitionFromPartitionAction(entry.getValue()));
+            }
+            modifiedPartitionMap = modifiedPartitionMapBuilder.build();
+        }
+        return new HivePageSinkMetadata(
+                schemaTableName,
+                table,
+                modifiedPartitionMap);
+    }
+
     public synchronized Optional<List<String>> getAllViews(String databaseName)
     {
         checkReadable();
@@ -457,7 +482,7 @@ public class SemiTransactionalHiveMetastore
         return resultBuilder.build();
     }
 
-    static Optional<Partition> getPartitionFromPartitionAction(Action<PartitionAndMore> partitionAction)
+    private static Optional<Partition> getPartitionFromPartitionAction(Action<PartitionAndMore> partitionAction)
     {
         switch (partitionAction.getType()) {
             case ADD:

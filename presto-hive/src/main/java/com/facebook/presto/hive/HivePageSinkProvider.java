@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.HivePageSinkMetadataProvider;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
@@ -54,6 +55,8 @@ public class HivePageSinkProvider
             JsonCodec<PartitionUpdate> partitionUpdateCodec)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        // TODO: this metastore should not have global cache
+        // As a temporary workaround, always disable cache on the workers
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -92,7 +95,7 @@ public class HivePageSinkProvider
                 locationService,
                 handle.getFilePrefix(),
                 handle.getBucketProperty(),
-                metastore,
+                new HivePageSinkMetadataProvider(handle.getPageSinkMetadata(), metastore),
                 pageIndexerFactory,
                 typeManager,
                 hdfsEnvironment,
