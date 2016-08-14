@@ -141,6 +141,13 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
+    public void alterPartition(String databaseName, String tableName, Partition partition)
+            throws TException
+    {
+        client.alter_partition(databaseName, tableName, partition);
+    }
+
+    @Override
     public Partition getPartition(String databaseName, String tableName, List<String> partitionValues)
             throws TException
     {

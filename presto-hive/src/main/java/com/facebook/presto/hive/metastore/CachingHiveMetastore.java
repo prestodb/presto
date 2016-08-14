@@ -501,6 +501,17 @@ public class CachingHiveMetastore
         }
     }
 
+    @Override
+    public void alterPartition(String databaseName, String tableName, Partition partition)
+    {
+        try {
+            delegate.alterPartition(databaseName, tableName, partition);
+        }
+        finally {
+            invalidatePartitionCache(databaseName, tableName);
+        }
+    }
+
     private void invalidatePartitionCache(String databaseName, String tableName)
     {
         HiveTableName hiveTableName = HiveTableName.table(databaseName, tableName);

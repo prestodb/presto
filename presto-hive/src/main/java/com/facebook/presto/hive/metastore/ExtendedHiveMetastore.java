@@ -71,6 +71,8 @@ public interface ExtendedHiveMetastore
 
     void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData);
 
+    void alterPartition(String databaseName, String tableName, Partition partition);
+
     Set<String> getRoles(String user);
 
     Set<HivePrivilegeInfo> getDatabasePrivileges(String user, String databaseName);
