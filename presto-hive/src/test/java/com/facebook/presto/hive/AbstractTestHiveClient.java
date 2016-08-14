@@ -79,6 +79,7 @@ import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
 import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.util.ImmutableCollectors;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -116,6 +117,13 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.hive.AbstractTestHiveClient.TransactionDeleteInsertTestTag.COMMIT;
+import static com.facebook.presto.hive.AbstractTestHiveClient.TransactionDeleteInsertTestTag.ROLLBACK_AFTER_APPEND_PAGE;
+import static com.facebook.presto.hive.AbstractTestHiveClient.TransactionDeleteInsertTestTag.ROLLBACK_AFTER_BEGIN_INSERT;
+import static com.facebook.presto.hive.AbstractTestHiveClient.TransactionDeleteInsertTestTag.ROLLBACK_AFTER_DELETE;
+import static com.facebook.presto.hive.AbstractTestHiveClient.TransactionDeleteInsertTestTag.ROLLBACK_AFTER_FINISH_INSERT;
+import static com.facebook.presto.hive.AbstractTestHiveClient.TransactionDeleteInsertTestTag.ROLLBACK_AFTER_SINK_FINISH;
+import static com.facebook.presto.hive.AbstractTestHiveClient.TransactionDeleteInsertTestTag.ROLLBACK_RIGHT_AWAY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
@@ -138,8 +146,10 @@ import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveDataStreamFac
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
+import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveUtil.annotateColumnComment;
+import static com.facebook.presto.hive.HiveWriteUtils.createDirectory;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -175,6 +185,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -3003,5 +3014,413 @@ public abstract class AbstractTestHiveClient
             result.add(fileStatus.getPath().getName());
         }
         return result.build();
+    }
+
+    @Test
+    public void testTransactionDeleteInsert()
+            throws Exception
+    {
+        try {
+            doTestTransactionDeleteInsert(
+                    RCBINARY,
+                    temporaryDeleteInsert,
+                    true,
+                    ImmutableList.of(
+                            new TransactionDeleteInsertTestCase(false, false, ROLLBACK_RIGHT_AWAY, Optional.empty()),
+                            new TransactionDeleteInsertTestCase(false, false, ROLLBACK_AFTER_DELETE, Optional.empty()),
+                            new TransactionDeleteInsertTestCase(false, false, ROLLBACK_AFTER_BEGIN_INSERT, Optional.empty()),
+                            new TransactionDeleteInsertTestCase(false, false, ROLLBACK_AFTER_APPEND_PAGE, Optional.empty()),
+                            new TransactionDeleteInsertTestCase(false, false, ROLLBACK_AFTER_SINK_FINISH, Optional.empty()),
+                            new TransactionDeleteInsertTestCase(false, false, ROLLBACK_AFTER_FINISH_INSERT, Optional.empty()),
+                            new TransactionDeleteInsertTestCase(false, false, COMMIT, Optional.of(new AddPartitionFailure())),
+                            new TransactionDeleteInsertTestCase(false, false, COMMIT, Optional.of(new DirectoryRenameFailure())),
+                            new TransactionDeleteInsertTestCase(false, false, COMMIT, Optional.of(new FileRenameFailure())),
+                            new TransactionDeleteInsertTestCase(true, false, COMMIT, Optional.of(new DropPartitionFailure())),
+                            new TransactionDeleteInsertTestCase(true, true, COMMIT, Optional.empty())));
+        }
+        finally {
+            dropTable(temporaryDeleteInsert);
+        }
+    }
+
+    protected void doTestTransactionDeleteInsert(HiveStorageFormat storageFormat, SchemaTableName tableName, boolean allowInsertExisting, List<TransactionDeleteInsertTestCase> testCases)
+            throws Exception
+    {
+        // There are 4 types of operations on a partition: add, drop, alter (drop then add), insert existing.
+        // There are 12 partitions in this test, 3 for each type.
+        // 3 is chosen to verify that cleanups, commit aborts, rollbacks are always as complete as possible regardless of failure.
+        MaterializedResult beforeData =
+                MaterializedResult.resultBuilder(SESSION, BIGINT, createUnboundedVarcharType(), createUnboundedVarcharType())
+                        .row(110L, "a", "alter1")
+                        .row(120L, "a", "insert1")
+                        .row(140L, "a", "drop1")
+                        .row(210L, "b", "drop2")
+                        .row(310L, "c", "alter2")
+                        .row(320L, "c", "alter3")
+                        .row(510L, "e", "drop3")
+                        .row(610L, "f", "insert2")
+                        .row(620L, "f", "insert3")
+                        .build();
+        Domain domainToDrop = Domain.create(ValueSet.of(
+                createUnboundedVarcharType(),
+                utf8Slice("alter1"), utf8Slice("alter2"), utf8Slice("alter3"), utf8Slice("drop1"), utf8Slice("drop2"), utf8Slice("drop3")),
+                false);
+        List<MaterializedRow> extraRowsForInsertExisting = ImmutableList.of();
+        if (allowInsertExisting) {
+            extraRowsForInsertExisting = MaterializedResult.resultBuilder(SESSION, BIGINT, createUnboundedVarcharType(), createUnboundedVarcharType())
+                    .row(121L, "a", "insert1")
+                    .row(611L, "f", "insert2")
+                    .row(621L, "f", "insert3")
+                    .build()
+                    .getMaterializedRows();
+        }
+        MaterializedResult insertData =
+                MaterializedResult.resultBuilder(SESSION, BIGINT, createUnboundedVarcharType(), createUnboundedVarcharType())
+                        .row(111L, "a", "alter1")
+                        .row(131L, "a", "add1")
+                        .row(221L, "b", "add2")
+                        .row(311L, "c", "alter2")
+                        .row(321L, "c", "alter3")
+                        .row(411L, "d", "add3")
+                        .rows(extraRowsForInsertExisting)
+                        .build();
+        MaterializedResult afterData =
+                MaterializedResult.resultBuilder(SESSION, BIGINT, createUnboundedVarcharType(), createUnboundedVarcharType())
+                        .row(120L, "a", "insert1")
+                        .row(610L, "f", "insert2")
+                        .row(620L, "f", "insert3")
+                        .rows(insertData.getMaterializedRows())
+                        .build();
+
+        boolean dirtyState = true;
+        for (TransactionDeleteInsertTestCase testCase : testCases) {
+            if (dirtyState) {
+                // re-initialize the table
+                dropTable(tableName);
+                createEmptyTable(
+                        tableName,
+                        storageFormat,
+                        ImmutableList.of(new Column("col1", HIVE_LONG, Optional.empty())),
+                        ImmutableList.of(new Column("pk1", HIVE_STRING, Optional.empty()), new Column("pk2", HIVE_STRING, Optional.empty())));
+                insertData(tableName, beforeData);
+                dirtyState = false;
+            }
+            try {
+                doTestTransactionDeleteInsert(
+                        storageFormat,
+                        tableName,
+                        domainToDrop,
+                        insertData,
+                        testCase.isExpectCommitedData() ? afterData : beforeData,
+                        testCase.getTag(),
+                        testCase.isExpectQuerySucceed(),
+                        testCase.getConflictTrigger());
+            }
+            catch (AssertionError e) {
+                throw new AssertionError(format("Test case: %s", testCase.toString()), e);
+            }
+            if (testCase.isExpectCommitedData()) {
+                dirtyState = true;
+            }
+        }
+    }
+
+    private void doTestTransactionDeleteInsert(
+            HiveStorageFormat storageFormat,
+            SchemaTableName tableName,
+            Domain domainToDrop,
+            MaterializedResult insertData,
+            MaterializedResult expectedData,
+            TransactionDeleteInsertTestTag tag,
+            boolean expectQuerySucceed,
+            Optional<ConflictTrigger> conflictTrigger)
+            throws Exception
+    {
+        Path writePath = null;
+        Path targetPath = null;
+
+        try (Transaction transaction = newTransaction()) {
+            try {
+                ConnectorMetadata metadata = transaction.getMetadata();
+                ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
+                ConnectorSession session;
+                rollbackIfEquals(tag, ROLLBACK_RIGHT_AWAY);
+
+                // Query 1: delete
+                session = newSession();
+                HiveColumnHandle dsColumnHandle = (HiveColumnHandle) metadata.getColumnHandles(session, tableHandle).get("pk2");
+                TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+                        dsColumnHandle, domainToDrop));
+                Constraint<ColumnHandle> constraint = new Constraint<>(tupleDomain, convertToPredicate(tupleDomain));
+                List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(session, tableHandle, constraint, Optional.empty());
+                ConnectorTableLayoutHandle tableLayoutHandle = Iterables.getOnlyElement(tableLayoutResults).getTableLayout().getHandle();
+                metadata.metadataDelete(session, tableHandle, tableLayoutHandle);
+                rollbackIfEquals(tag, ROLLBACK_AFTER_DELETE);
+
+                // Query 2: insert
+                session = newSession();
+                ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle);
+                rollbackIfEquals(tag, ROLLBACK_AFTER_BEGIN_INSERT);
+                writePath = getStagingPathRoot(insertTableHandle);
+                targetPath = getTargetPathRoot(insertTableHandle);
+                ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle);
+                sink.appendPage(insertData.toPage(), null);
+                rollbackIfEquals(tag, ROLLBACK_AFTER_APPEND_PAGE);
+                Collection<Slice> fragments = sink.finish();
+                rollbackIfEquals(tag, ROLLBACK_AFTER_SINK_FINISH);
+                metadata.finishInsert(session, insertTableHandle, fragments);
+                rollbackIfEquals(tag, ROLLBACK_AFTER_FINISH_INSERT);
+
+                assertEquals(tag, COMMIT);
+
+                if (conflictTrigger.isPresent()) {
+                    JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
+                    List<PartitionUpdate> partitionUpdates = fragments.stream()
+                            .map(Slice::getBytes)
+                            .map(partitionUpdateCodec::fromJson)
+                            .collect(toList());
+                    conflictTrigger.get().triggerConflict(session, tableName, insertTableHandle, partitionUpdates);
+                }
+                transaction.commit();
+                if (conflictTrigger.isPresent()) {
+                    assertTrue(expectQuerySucceed);
+                    conflictTrigger.get().verifyAndCleanup(tableName);
+                }
+            }
+            catch (TestingRollbackException e) {
+                transaction.rollback();
+            }
+            catch (PrestoException e) {
+                assertFalse(expectQuerySucceed);
+                if (conflictTrigger.isPresent()) {
+                    conflictTrigger.get().verifyAndCleanup(tableName);
+                }
+            }
+        }
+
+        // check that temporary files are removed
+        if (writePath != null && !writePath.equals(targetPath)) {
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem("user", writePath);
+            assertFalse(fileSystem.exists(writePath));
+        }
+
+        try (Transaction transaction = newTransaction()) {
+            // verify partitions
+            List<String> partitionNames = transaction.getMetastore(tableName.getSchemaName())
+                    .getPartitionNames(tableName.getSchemaName(), tableName.getTableName())
+                    .orElseThrow(() -> new PrestoException(HIVE_METASTORE_ERROR, "Partition metadata not available"));
+            assertEqualsIgnoreOrder(
+                    partitionNames,
+                    expectedData.getMaterializedRows().stream()
+                            .map(row -> format("pk1=%s/pk2=%s", row.getField(1), row.getField(2)))
+                            .distinct()
+                            .collect(toList()));
+
+            // load the new table
+            ConnectorSession session = newSession();
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
+            List<ColumnHandle> columnHandles = filterNonHiddenColumnHandles(metadata.getColumnHandles(session, tableHandle).values());
+
+            // verify the data
+            MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.of(storageFormat));
+            assertEqualsIgnoreOrder(result.getMaterializedRows(), expectedData.getMaterializedRows());
+        }
+    }
+
+    private void rollbackIfEquals(TransactionDeleteInsertTestTag tag, TransactionDeleteInsertTestTag expectedTag)
+    {
+        if (expectedTag.equals(tag)) {
+            throw new TestingRollbackException();
+        }
+    }
+
+    private static class TestingRollbackException
+            extends RuntimeException
+    {
+    }
+
+    protected static class TransactionDeleteInsertTestCase
+    {
+        private final boolean expectCommitedData;
+        private final boolean expectQuerySucceed;
+        private final TransactionDeleteInsertTestTag tag;
+        private final Optional<ConflictTrigger> conflictTrigger;
+
+        public TransactionDeleteInsertTestCase(boolean expectCommitedData, boolean expectQuerySucceed, TransactionDeleteInsertTestTag tag, Optional<ConflictTrigger> conflictTrigger)
+        {
+            this.expectCommitedData = expectCommitedData;
+            this.expectQuerySucceed = expectQuerySucceed;
+            this.tag = tag;
+            this.conflictTrigger = conflictTrigger;
+        }
+
+        public boolean isExpectCommitedData()
+        {
+            return expectCommitedData;
+        }
+
+        public boolean isExpectQuerySucceed()
+        {
+            return expectQuerySucceed;
+        }
+
+        public TransactionDeleteInsertTestTag getTag()
+        {
+            return tag;
+        }
+
+        public Optional<ConflictTrigger> getConflictTrigger()
+        {
+            return conflictTrigger;
+        }
+
+        @Override
+        public String toString()
+        {
+            return MoreObjects.toStringHelper(this)
+                    .add("tag", tag)
+                    .add("conflictTrigger", conflictTrigger.map(conflictTrigger -> conflictTrigger.getClass().getName()))
+                    .add("expectCommitedData", expectCommitedData)
+                    .add("expectQuerySucceed", expectQuerySucceed)
+                    .toString();
+        }
+    }
+
+    protected enum TransactionDeleteInsertTestTag
+    {
+        ROLLBACK_RIGHT_AWAY,
+        ROLLBACK_AFTER_DELETE,
+        ROLLBACK_AFTER_BEGIN_INSERT,
+        ROLLBACK_AFTER_APPEND_PAGE,
+        ROLLBACK_AFTER_SINK_FINISH,
+        ROLLBACK_AFTER_FINISH_INSERT,
+        COMMIT,
+    }
+
+    protected interface ConflictTrigger
+    {
+        void triggerConflict(ConnectorSession session, SchemaTableName tableName, ConnectorInsertTableHandle insertTableHandle, List<PartitionUpdate> partitionUpdates)
+                throws IOException;
+
+        void verifyAndCleanup(SchemaTableName tableName)
+                throws IOException;
+    }
+
+    protected class AddPartitionFailure
+            implements ConflictTrigger
+    {
+        private final ImmutableList<String> copyPartitionFrom = ImmutableList.of("a", "insert1");
+        private final ImmutableList<String> partitionValueToConflict = ImmutableList.of("b", "add2");
+        private Partition conflictPartition;
+
+        @Override
+        public void triggerConflict(ConnectorSession session, SchemaTableName tableName, ConnectorInsertTableHandle insertTableHandle, List<PartitionUpdate> partitionUpdates)
+        {
+            // This method bypasses transaction interface because this method is inherently hacky and doesn't work well with the transaction abstraction.
+            // Additionally, this method is not part of a test. Its purpose is to set up an environment for another test.
+            ExtendedHiveMetastore metastoreClient = getMetastoreClient(tableName.getSchemaName());
+            Optional<Partition> partition = metastoreClient.getPartition(tableName.getSchemaName(), tableName.getTableName(), copyPartitionFrom);
+            conflictPartition = Partition.builder(partition.get())
+                    .setValues(partitionValueToConflict)
+                    .build();
+            metastoreClient.addPartitions(tableName.getSchemaName(), tableName.getTableName(), ImmutableList.of(conflictPartition));
+        }
+
+        @Override
+        public void verifyAndCleanup(SchemaTableName tableName)
+        {
+            // This method bypasses transaction interface because this method is inherently hacky and doesn't work well with the transaction abstraction.
+            // Additionally, this method is not part of a test. Its purpose is to set up an environment for another test.
+            ExtendedHiveMetastore metastoreClient = getMetastoreClient(tableName.getSchemaName());
+            Optional<Partition> actualPartition = metastoreClient.getPartition(tableName.getSchemaName(), tableName.getTableName(), partitionValueToConflict);
+            // Make sure the partition inserted to trigger conflict was not overwritten
+            // Checking storage location is sufficient because implement never uses .../pk1=a/pk2=a2 as the directory for partition [b, b2].
+            assertEquals(actualPartition.get().getStorage().getLocation(), conflictPartition.getStorage().getLocation());
+            metastoreClient.dropPartition(tableName.getSchemaName(), tableName.getTableName(), conflictPartition.getValues(), false);
+        }
+    }
+
+    protected class DropPartitionFailure
+            implements ConflictTrigger
+    {
+        private final ImmutableList<String> partitionValueToConflict = ImmutableList.of("b", "drop2");
+
+        @Override
+        public void triggerConflict(ConnectorSession session, SchemaTableName tableName, ConnectorInsertTableHandle insertTableHandle, List<PartitionUpdate> partitionUpdates)
+        {
+            // This method bypasses transaction interface because this method is inherently hacky and doesn't work well with the transaction abstraction.
+            // Additionally, this method is not part of a test. Its purpose is to set up an environment for another test.
+            ExtendedHiveMetastore metastoreClient = getMetastoreClient(tableName.getSchemaName());
+            metastoreClient.dropPartition(tableName.getSchemaName(), tableName.getTableName(), partitionValueToConflict, false);
+        }
+
+        @Override
+        public void verifyAndCleanup(SchemaTableName tableName)
+        {
+            // Do not add back the deleted partition because the implementation is expected to move forward instead of backward when delete fails
+        }
+    }
+
+    protected class DirectoryRenameFailure
+            implements ConflictTrigger
+    {
+        private String user;
+        private Path path;
+
+        @Override
+        public void triggerConflict(ConnectorSession session, SchemaTableName tableName, ConnectorInsertTableHandle insertTableHandle, List<PartitionUpdate> partitionUpdates)
+        {
+            Path writePath = getStagingPathRoot(insertTableHandle);
+            Path targetPath = getTargetPathRoot(insertTableHandle);
+            if (writePath.equals(targetPath)) {
+                // This conflict does not apply. Trigger a rollback right away so that this test case passes.
+                throw new TestingRollbackException();
+            }
+            path = new Path(targetPath + "/pk1=b/pk2=add2");
+            user = session.getUser();
+            createDirectory(user, hdfsEnvironment, path);
+        }
+
+        @Override
+        public void verifyAndCleanup(SchemaTableName tableName)
+                throws IOException
+        {
+            assertEquals(listDirectory(user, path), ImmutableList.of());
+            hdfsEnvironment.getFileSystem(user, path).delete(path, false);
+        }
+    }
+
+    protected class FileRenameFailure
+            implements ConflictTrigger
+    {
+        private String user;
+        private Path path;
+
+        @Override
+        public void triggerConflict(ConnectorSession session, SchemaTableName tableName, ConnectorInsertTableHandle insertTableHandle, List<PartitionUpdate> partitionUpdates)
+                throws IOException
+        {
+            for (PartitionUpdate partitionUpdate : partitionUpdates) {
+                if ("pk2=insert2".equals(partitionUpdate.getTargetPath().getName())) {
+                    path = new Path(partitionUpdate.getTargetPath(), partitionUpdate.getFileNames().get(0));
+                    break;
+                }
+            }
+            assertNotNull(path);
+
+            user = session.getUser();
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(user, path);
+            fileSystem.createNewFile(path);
+        }
+
+        @Override
+        public void verifyAndCleanup(SchemaTableName tableName)
+                throws IOException
+        {
+            // The file we added to trigger a conflict was cleaned up because it matches the query prefix.
+            // Consider this the same as a network failure that caused the successful creation of file not reported to the caller.
+            assertEquals(hdfsEnvironment.getFileSystem(user, path).exists(path), false);
+        }
     }
 }

@@ -145,7 +145,7 @@ public class HiveConnector
     @Override
     public boolean isSingleStatementWritesOnly()
     {
-        return true;
+        return false;
     }
 
     @Override
