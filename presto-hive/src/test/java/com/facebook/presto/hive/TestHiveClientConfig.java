@@ -102,9 +102,10 @@ public class TestHiveClientConfig
                 .setHdfsImpersonationEnabled(false)
                 .setHdfsPrestoPrincipal(null)
                 .setHdfsPrestoKeytab(null)
+                .setSkipDeletionForAlter(false)
                 .setBucketExecutionEnabled(true)
-                .setForceIntegralToBigint(false)
-                .setBucketWritingEnabled(true));
+                .setBucketWritingEnabled(true)
+                .setForceIntegralToBigint(false));
     }
 
     @Test
@@ -177,9 +178,10 @@ public class TestHiveClientConfig
                 .put("hive.hdfs.impersonation.enabled", "true")
                 .put("hive.hdfs.presto.principal", "presto@EXAMPLE.COM")
                 .put("hive.hdfs.presto.keytab", "/tmp/presto.keytab")
+                .put("hive.skip-deletion-for-alter", "true")
                 .put("hive.bucket-execution", "false")
-                .put("deprecated.hive.integral-types-as-bigint", "true")
                 .put("hive.bucket-writing", "false")
+                .put("deprecated.hive.integral-types-as-bigint", "true")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -249,9 +251,10 @@ public class TestHiveClientConfig
                 .setHdfsImpersonationEnabled(true)
                 .setHdfsPrestoPrincipal("presto@EXAMPLE.COM")
                 .setHdfsPrestoKeytab("/tmp/presto.keytab")
+                .setSkipDeletionForAlter(true)
                 .setBucketExecutionEnabled(false)
-                .setForceIntegralToBigint(true)
-                .setBucketWritingEnabled(false);
+                .setBucketWritingEnabled(false)
+                .setForceIntegralToBigint(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

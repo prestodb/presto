@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.spi.ServerInfo;
 import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.concurrent.BoundedExecutor;
@@ -37,6 +38,7 @@ public class HiveMetadataFactory
     private final boolean bucketExecutionEnabled;
     private final boolean bucketWritingEnabled;
     private final boolean forceIntegralToBigint;
+    private final boolean skipDeletionForAlter;
     private final HiveStorageFormat defaultStorageFormat;
     private final ExtendedHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
@@ -74,6 +76,7 @@ public class HiveMetadataFactory
                 hiveClientConfig.getMaxConcurrentFileRenames(),
                 hiveClientConfig.getAllowCorruptWritesForTesting(),
                 hiveClientConfig.isRespectTableFormat(),
+                hiveClientConfig.isSkipDeletionForAlter(),
                 hiveClientConfig.isBucketExecutionEnabled(),
                 hiveClientConfig.isBucketWritingEnabled(),
                 hiveClientConfig.isForceIntegralToBigint(),
@@ -96,6 +99,7 @@ public class HiveMetadataFactory
             int maxConcurrentFileRenames,
             boolean allowCorruptWritesForTesting,
             boolean respectTableFormat,
+            boolean skipDeletionForAlter,
             boolean bucketExecutionEnabled,
             boolean bucketWritingEnabled,
             boolean forceIntegralToBigint,
@@ -112,6 +116,7 @@ public class HiveMetadataFactory
 
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
         this.respectTableFormat = respectTableFormat;
+        this.skipDeletionForAlter = skipDeletionForAlter;
         this.bucketExecutionEnabled = bucketExecutionEnabled;
         this.bucketWritingEnabled = bucketWritingEnabled;
         this.forceIntegralToBigint = forceIntegralToBigint;
@@ -142,7 +147,7 @@ public class HiveMetadataFactory
     {
         return new HiveMetadata(
                 connectorId,
-                metastore,
+                new SemiTransactionalHiveMetastore(hdfsEnvironment, metastore, renameExecution, skipDeletionForAlter),
                 hdfsEnvironment,
                 partitionManager,
                 timeZone,

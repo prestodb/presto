@@ -91,7 +91,6 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static com.facebook.presto.hive.HiveSplitManager.PRESTO_OFFLINE;
 import static com.facebook.presto.hive.HiveUtil.checkCondition;
@@ -421,27 +420,6 @@ public final class HiveWriteUtils
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
-        }
-    }
-
-    public static void renameDirectory(String user, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName, Path source, Path target)
-    {
-        if (pathExists(user, hdfsEnvironment, target)) {
-            throw new PrestoException(HIVE_PATH_ALREADY_EXISTS,
-                    format("Unable to commit creation of table '%s.%s': target directory already exists: %s", schemaName, tableName, target));
-        }
-
-        if (!pathExists(user, hdfsEnvironment, target.getParent())) {
-            createDirectory(user, hdfsEnvironment, target.getParent());
-        }
-
-        try {
-            if (!hdfsEnvironment.getFileSystem(user, source).rename(source, target)) {
-                throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Failed to rename %s to %s: rename returned false", source, target));
-            }
-        }
-        catch (IOException e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Failed to rename %s to %s", source, target), e);
         }
     }
 
