@@ -264,7 +264,7 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void dropTable(String databaseName, String tableName)
+    public void dropTable(String databaseName, String tableName, boolean deleteData)
     {
         try {
             retry()
@@ -272,7 +272,7 @@ public class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("dropTable", stats.getDropTable().wrap(() -> {
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                            client.dropTable(databaseName, tableName, true);
+                            client.dropTable(databaseName, tableName, deleteData);
                         }
                         return null;
                     }));
@@ -409,7 +409,7 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void dropPartition(String databaseName, String tableName, List<String> parts)
+    public void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData)
     {
         try {
             retry()
@@ -417,7 +417,7 @@ public class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("dropPartition", stats.getDropPartition().wrap(() -> {
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                            client.dropPartition(databaseName, tableName, parts, true);
+                            client.dropPartition(databaseName, tableName, parts, deleteData);
                         }
                         return null;
                     }));

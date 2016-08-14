@@ -139,7 +139,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public void dropTable(String databaseName, String tableName)
+    public void dropTable(String databaseName, String tableName, boolean deleteData)
     {
         List<String> locations = listAllDataPaths(this, databaseName, tableName);
 
@@ -154,11 +154,13 @@ public class InMemoryHiveMetastore
                 .forEach(partitions::remove);
 
         // remove data
-        for (String location : locations) {
-            if (location != null) {
-                File directory = new File(new Path(location).toUri());
-                checkArgument(isParentDir(directory, baseDirectory), "Table directory must be inside of the metastore base directory");
-                deleteRecursively(directory);
+        if (deleteData) {
+            for (String location : locations) {
+                if (location != null) {
+                    File directory = new File(new Path(location).toUri());
+                    checkArgument(isParentDir(directory, baseDirectory), "Table directory must be inside of the metastore base directory");
+                    deleteRecursively(directory);
+                }
             }
         }
     }
@@ -272,7 +274,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public void dropPartition(String databaseName, String tableName, List<String> parts)
+    public void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData)
     {
         for (Entry<PartitionName, Partition> entry : partitions.entrySet()) {
             PartitionName partitionName = entry.getKey();

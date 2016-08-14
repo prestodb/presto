@@ -32,7 +32,7 @@ public interface HiveMetastore
 
     void createTable(Table table);
 
-    void dropTable(String databaseName, String tableName);
+    void dropTable(String databaseName, String tableName, boolean deleteData);
 
     void alterTable(String databaseName, String tableName, Table table);
 
@@ -54,7 +54,7 @@ public interface HiveMetastore
      */
     void addPartitions(String databaseName, String tableName, List<Partition> partitions);
 
-    void dropPartition(String databaseName, String tableName, List<String> parts);
+    void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData);
 
     Optional<List<String>> getPartitionNames(String databaseName, String tableName);
 
