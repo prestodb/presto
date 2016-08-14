@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.Partition;
+import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.PrestoException;
@@ -368,7 +368,7 @@ public final class HiveWriteUtils
         }
     }
 
-    public static Path getTableDefaultLocation(String user, ExtendedHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName)
+    public static Path getTableDefaultLocation(String user, SemiTransactionalHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName)
     {
         String location = getDatabase(metastore, schemaName).getLocationUri();
         if (isNullOrEmpty(location)) {
@@ -388,7 +388,7 @@ public final class HiveWriteUtils
         return new Path(databasePath, tableName);
     }
 
-    private static Database getDatabase(ExtendedHiveMetastore metastore, String database)
+    private static Database getDatabase(SemiTransactionalHiveMetastore metastore, String database)
     {
         return metastore.getDatabase(database).orElseThrow(() -> new SchemaNotFoundException(database));
     }
