@@ -185,7 +185,7 @@ public abstract class AbstractTestHiveClientS3
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
                 connectorId,
-                metastoreClient,
+                transactionHandle -> ((HiveMetadata) transactionManager.get(transactionHandle)).getMetastore(),
                 new NamenodeStats(),
                 hdfsEnvironment,
                 new HadoopDirectoryLister(),
