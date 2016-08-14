@@ -230,6 +230,13 @@ public class MockHiveMetastoreClient
     }
 
     @Override
+    public void alterPartition(String databaseName, String tableName, Partition partition)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public List<Role> listRoles(String principalName, PrincipalType principalType)
     {
         throw new UnsupportedOperationException();

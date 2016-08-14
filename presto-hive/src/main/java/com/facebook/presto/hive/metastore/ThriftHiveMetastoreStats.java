@@ -32,6 +32,7 @@ public class ThriftHiveMetastoreStats
     private final HiveMetastoreApiStats alterTable = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats addPartitions = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats dropPartition = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats alterPartition = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats loadRoles = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getPrivilegeSet = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats grantTablePrivileges = new HiveMetastoreApiStats();
@@ -133,6 +134,13 @@ public class ThriftHiveMetastoreStats
     public HiveMetastoreApiStats getDropPartition()
     {
         return dropPartition;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getAlterPartition()
+    {
+        return alterPartition;
     }
 
     @Managed

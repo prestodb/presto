@@ -32,6 +32,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.hive.metastore.MetastoreUtil.toMetastoreApiPartition;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toMetastoreApiTable;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
@@ -204,6 +205,12 @@ public class BridgingHiveMetastore
     public void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData)
     {
         delegate.dropPartition(databaseName, tableName, parts, deleteData);
+    }
+
+    @Override
+    public void alterPartition(String databaseName, String tableName, Partition partition)
+    {
+        delegate.alterPartition(databaseName, tableName, toMetastoreApiPartition(partition));
     }
 
     @Override
