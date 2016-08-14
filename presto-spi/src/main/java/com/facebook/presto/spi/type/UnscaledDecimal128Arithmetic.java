@@ -441,9 +441,9 @@ public final class UnscaledDecimal128Arithmetic
     public static int compare(Slice left, Slice right)
     {
         boolean leftStrictlyNegative = isStrictlyNegative(left);
-        boolean rightNegative = isNegative(right);
+        boolean rightStrictlyNegative = isStrictlyNegative(right);
 
-        if (leftStrictlyNegative != rightNegative) {
+        if (leftStrictlyNegative != rightStrictlyNegative) {
             return leftStrictlyNegative ? -1 : 1;
         }
         else {
@@ -454,9 +454,9 @@ public final class UnscaledDecimal128Arithmetic
     public static int compare(long leftRawLo, long leftRawHi, long rightRawLo, long rightRawHi)
     {
         boolean leftStrictlyNegative = isStrictlyNegative(leftRawLo, leftRawHi);
-        boolean rightNegative = isNegative(rightRawLo, rightRawHi);
+        boolean rightStrictlyNegative = isStrictlyNegative(rightRawLo, rightRawHi);
 
-        if (leftStrictlyNegative != rightNegative) {
+        if (leftStrictlyNegative != rightStrictlyNegative) {
             return leftStrictlyNegative ? -1 : 1;
         }
         else {
