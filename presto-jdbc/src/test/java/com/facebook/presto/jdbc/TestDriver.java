@@ -775,38 +775,39 @@ public class TestDriver
 
             try (ResultSet rs = connection.getMetaData().getColumns("blackhole", "blackhole", "test_get_columns_table", null)) {
                 assertColumnMetadata(rs);
-                assertColumnSpec(rs, Types.BOOLEAN, null, null, null, BooleanType.BOOLEAN);
-                assertColumnSpec(rs, Types.BIGINT, 19L, null, null, BigintType.BIGINT);
-                assertColumnSpec(rs, Types.INTEGER, 10L, null, null, IntegerType.INTEGER);
-                assertColumnSpec(rs, Types.SMALLINT, 5L, null, null, SmallintType.SMALLINT);
-                assertColumnSpec(rs, Types.TINYINT, 3L, null, null, TinyintType.TINYINT);
-                assertColumnSpec(rs, Types.REAL, null, null, null, RealType.REAL);
-                assertColumnSpec(rs, Types.DOUBLE, null, null, null, DoubleType.DOUBLE);
-                assertColumnSpec(rs, Types.LONGNVARCHAR, 1234L, null, 1234L, createVarcharType(1234));
-                assertColumnSpec(rs, Types.LONGNVARCHAR, (long) Integer.MAX_VALUE, null, (long) Integer.MAX_VALUE, createUnboundedVarcharType());
-                assertColumnSpec(rs, Types.CHAR, 345L, null, 345L, createCharType(345));
-                assertColumnSpec(rs, Types.LONGVARBINARY, (long) Integer.MAX_VALUE, null, (long) Integer.MAX_VALUE, VarbinaryType.VARBINARY);
-                assertColumnSpec(rs, Types.TIME, 8L, null, null, TimeType.TIME);
-                assertColumnSpec(rs, Types.TIME_WITH_TIMEZONE, 14L, null, null, TimeWithTimeZoneType.TIME_WITH_TIME_ZONE);
-                assertColumnSpec(rs, Types.TIMESTAMP, 23L, null, null, TimestampType.TIMESTAMP);
-                assertColumnSpec(rs, Types.TIMESTAMP_WITH_TIMEZONE, 29L, null, null, TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE);
-                assertColumnSpec(rs, Types.DATE, 14L, null, null, DateType.DATE);
-                assertColumnSpec(rs, Types.DECIMAL, 8L, 2L, null, createDecimalType(8, 2));
-                assertColumnSpec(rs, Types.DECIMAL, 38L, 0L, null, createDecimalType(38, 0));
-                assertColumnSpec(rs, Types.ARRAY, null, null, null, new ArrayType(BigintType.BIGINT));
-                assertColumnSpec(rs, Types.JAVA_OBJECT, null, null, null, ColorType.COLOR);
+                assertColumnSpec(rs, Types.BOOLEAN, null, null, null, null, BooleanType.BOOLEAN);
+                assertColumnSpec(rs, Types.BIGINT, 19L, 10L, null, null, BigintType.BIGINT);
+                assertColumnSpec(rs, Types.INTEGER, 10L, 10L, null, null, IntegerType.INTEGER);
+                assertColumnSpec(rs, Types.SMALLINT, 5L, 10L, null, null, SmallintType.SMALLINT);
+                assertColumnSpec(rs, Types.TINYINT, 3L, 10L, null, null, TinyintType.TINYINT);
+                assertColumnSpec(rs, Types.REAL, 24L, 2L, null, null, RealType.REAL);
+                assertColumnSpec(rs, Types.DOUBLE, 53L, 2L, null, null, DoubleType.DOUBLE);
+                assertColumnSpec(rs, Types.LONGNVARCHAR, 1234L, null, null, 1234L, createVarcharType(1234));
+                assertColumnSpec(rs, Types.LONGNVARCHAR, (long) Integer.MAX_VALUE, null, null, (long) Integer.MAX_VALUE, createUnboundedVarcharType());
+                assertColumnSpec(rs, Types.CHAR, 345L, null, null, 345L, createCharType(345));
+                assertColumnSpec(rs, Types.LONGVARBINARY, (long) Integer.MAX_VALUE, null, null, (long) Integer.MAX_VALUE, VarbinaryType.VARBINARY);
+                assertColumnSpec(rs, Types.TIME, 8L, null, null, null, TimeType.TIME);
+                assertColumnSpec(rs, Types.TIME_WITH_TIMEZONE, 14L, null, null, null, TimeWithTimeZoneType.TIME_WITH_TIME_ZONE);
+                assertColumnSpec(rs, Types.TIMESTAMP, 23L, null, null, null, TimestampType.TIMESTAMP);
+                assertColumnSpec(rs, Types.TIMESTAMP_WITH_TIMEZONE, 29L, null, null, null, TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE);
+                assertColumnSpec(rs, Types.DATE, 14L, null, null, null, DateType.DATE);
+                assertColumnSpec(rs, Types.DECIMAL, 8L, 10L, 2L, null, createDecimalType(8, 2));
+                assertColumnSpec(rs, Types.DECIMAL, 38L, 10L, 0L, null, createDecimalType(38, 0));
+                assertColumnSpec(rs, Types.ARRAY, null, null, null, null, new ArrayType(BigintType.BIGINT));
+                assertColumnSpec(rs, Types.JAVA_OBJECT, null, null, null, null, ColorType.COLOR);
                 assertFalse(rs.next());
             }
         }
     }
 
-    private static void assertColumnSpec(ResultSet rs, int jdbcType, Long columnSize, Long decimalDigits, Long charOctetLength, Type type)
+    private static void assertColumnSpec(ResultSet rs, int jdbcType, Long columnSize, Long numPrecRadix, Long decimalDigits, Long charOctetLength, Type type)
             throws SQLException
     {
         String message = " of " + type.getDisplayName() + ": ";
         assertTrue(rs.next());
         assertEquals(rs.getObject("DATA_TYPE"), (long) jdbcType, "DATA_TYPE" + message);
         assertEquals(rs.getObject("COLUMN_SIZE"), columnSize, "COLUMN_SIZE" + message);
+        assertEquals(rs.getObject("NUM_PREC_RADIX"), numPrecRadix, "NUM_PREC_RADIX" + message);
         assertEquals(rs.getObject("DECIMAL_DIGITS"), decimalDigits, "DECIMAL_DIGITS" + message);
         assertEquals(rs.getObject("CHAR_OCTET_LENGTH"), charOctetLength, "CHAR_OCTET_LENGTH" + message);
     }
