@@ -828,7 +828,7 @@ public class TestHiveIntegrationSmokeTest
         }
     }
 
-    public void insertPartitionedTable(HiveStorageFormat storageFormat)
+    private void insertPartitionedTable(HiveStorageFormat storageFormat)
             throws Exception
     {
         @Language("SQL") String createTable = "" +
@@ -881,6 +881,112 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate("DROP TABLE test_insert_partitioned_table");
 
         assertFalse(queryRunner.tableExists(getSession(), "test_insert_partitioned_table"));
+    }
+
+    @Test
+    public void testInsertPartitionedTableExistingPartition()
+            throws Exception
+    {
+        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
+            testInsertPartitionedTableExistingPartition(storageFormat);
+        }
+    }
+
+    private void testInsertPartitionedTableExistingPartition(HiveStorageFormat storageFormat)
+            throws Exception
+    {
+        String tableName = "test_insert_partitioned_table_existing_partition";
+
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE " + tableName + " " +
+                "(" +
+                "  order_key BIGINT," +
+                "  comment VARCHAR," +
+                "  order_status VARCHAR" +
+                ") " +
+                "WITH (" +
+                "format = '" + storageFormat + "', " +
+                "partitioned_by = ARRAY[ 'order_status' ]" +
+                ") ";
+
+        assertUpdate(createTable);
+
+        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
+        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), ImmutableList.of("order_status"));
+
+        for (int i = 0; i < 3; i++) {
+            assertUpdate(
+                    format(
+                            "INSERT INTO " + tableName + " " +
+                                    "SELECT orderkey, comment, orderstatus " +
+                                    "FROM tpch.tiny.orders " +
+                                    "WHERE orderkey %% 3 = %d",
+                            i),
+                    format("SELECT count(*) from orders where orderkey %% 3 = %d", i));
+        }
+
+        // verify the partitions
+        List<?> partitions = getPartitions(tableName);
+        assertEquals(partitions.size(), 3);
+
+        assertQuery(
+                "SELECT * from " + tableName,
+                "SELECT orderkey, comment, orderstatus FROM orders");
+
+        assertUpdate("DROP TABLE " + tableName);
+
+        assertFalse(queryRunner.tableExists(getSession(), tableName));
+    }
+
+    @Test
+    public void testInsertUnpartitionedTable()
+            throws Exception
+    {
+        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
+            testInsertUnpartitionedTable(storageFormat);
+        }
+    }
+
+    private void testInsertUnpartitionedTable(HiveStorageFormat storageFormat)
+            throws Exception
+    {
+        String tableName = "test_insert_unpartitioned_table";
+
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE " + tableName + " " +
+                "(" +
+                "  order_key BIGINT," +
+                "  comment VARCHAR," +
+                "  order_status VARCHAR" +
+                ") " +
+                "WITH (" +
+                "format = '" + storageFormat + "'" +
+                ") ";
+
+        assertUpdate(createTable);
+
+        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
+        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+
+        for (int i = 0; i < 3; i++) {
+            assertUpdate(
+                    format(
+                            "INSERT INTO " + tableName + " " +
+                                    "SELECT orderkey, comment, orderstatus " +
+                                    "FROM tpch.tiny.orders " +
+                                    "WHERE orderkey %% 3 = %d",
+                            i),
+                    format("SELECT count(*) from orders where orderkey %% 3 = %d", i));
+        }
+
+        assertQuery(
+                "SELECT * from " + tableName,
+                "SELECT orderkey, comment, orderstatus FROM orders");
+
+        assertUpdate("DROP TABLE " + tableName);
+
+        assertFalse(queryRunner.tableExists(getSession(), tableName));
     }
 
     @Test
