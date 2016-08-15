@@ -178,7 +178,7 @@ public class RaptorPageSink
     {
         return new PageBuffer(
                 maxBufferBytes,
-                storageManager.createStoragePageSink(transactionId, bucketNumber, columnIds, columnTypes),
+                storageManager.createStoragePageSink(transactionId, bucketNumber, columnIds, columnTypes, true),
                 columnTypes,
                 sortFields,
                 sortOrders,
