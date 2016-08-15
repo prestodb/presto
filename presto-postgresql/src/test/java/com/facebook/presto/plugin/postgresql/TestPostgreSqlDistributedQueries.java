@@ -63,6 +63,13 @@ public class TestPostgreSqlDistributedQueries
         closeAllRuntimeException(postgreSqlServer);
     }
 
+    @Test(enabled = false) //TODO: re-enable the test. See https://github.com/prestodb/presto/issues/5752
+    @Override
+    public void testLargeIn()
+            throws Exception
+    {
+    }
+
     @Test
     public void testDropTable()
             throws Exception
