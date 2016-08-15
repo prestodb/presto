@@ -75,7 +75,7 @@ public final class ShardCompactor
         List<Long> columnIds = columns.stream().map(ColumnInfo::getColumnId).collect(toList());
         List<Type> columnTypes = columns.stream().map(ColumnInfo::getType).collect(toList());
 
-        StoragePageSink storagePageSink = storageManager.createStoragePageSink(transactionId, bucketNumber, columnIds, columnTypes);
+        StoragePageSink storagePageSink = storageManager.createStoragePageSink(transactionId, bucketNumber, columnIds, columnTypes, false);
 
         List<ShardInfo> shardInfos;
         try {
@@ -127,7 +127,7 @@ public final class ShardCompactor
                 .collect(toList());
 
         Queue<SortedRowSource> rowSources = new PriorityQueue<>();
-        StoragePageSink outputPageSink = storageManager.createStoragePageSink(transactionId, bucketNumber, columnIds, columnTypes);
+        StoragePageSink outputPageSink = storageManager.createStoragePageSink(transactionId, bucketNumber, columnIds, columnTypes, false);
         try {
             for (UUID uuid : uuids) {
                 ConnectorPageSource pageSource = storageManager.getPageSource(uuid, bucketNumber, columnIds, columnTypes, TupleDomain.all(), readerAttributes);

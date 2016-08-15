@@ -67,6 +67,12 @@ public class FileStorageService
         createParents(baseStorageDir);
     }
 
+    @Override
+    public long getAvailableBytes()
+    {
+        return baseStorageDir.getUsableSpace();
+    }
+
     @PreDestroy
     public void stop()
             throws IOException

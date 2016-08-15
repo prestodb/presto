@@ -27,6 +27,8 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
+import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.max;
@@ -43,6 +45,7 @@ public class TestStorageManagerConfig
     {
         assertRecordedDefaults(recordDefaults(StorageManagerConfig.class)
                 .setDataDirectory(null)
+                .setMinAvailableSpace(new DataSize(0, BYTE))
                 .setOrcMaxMergeDistance(new DataSize(1, MEGABYTE))
                 .setOrcMaxReadSize(new DataSize(8, MEGABYTE))
                 .setOrcStreamBufferSize(new DataSize(8, MEGABYTE))
@@ -67,6 +70,7 @@ public class TestStorageManagerConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("storage.data-directory", "/data")
+                .put("storage.min-available-space", "123GB")
                 .put("storage.orc.max-merge-distance", "16kB")
                 .put("storage.orc.max-read-size", "16kB")
                 .put("storage.orc.stream-buffer-size", "16kB")
@@ -88,6 +92,7 @@ public class TestStorageManagerConfig
 
         StorageManagerConfig expected = new StorageManagerConfig()
                 .setDataDirectory(new File("/data"))
+                .setMinAvailableSpace(new DataSize(123, GIGABYTE))
                 .setOrcMaxMergeDistance(new DataSize(16, KILOBYTE))
                 .setOrcMaxReadSize(new DataSize(16, KILOBYTE))
                 .setOrcStreamBufferSize(new DataSize(16, KILOBYTE))

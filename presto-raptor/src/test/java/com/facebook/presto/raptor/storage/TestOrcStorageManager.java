@@ -536,7 +536,7 @@ public class TestOrcStorageManager
     private static StoragePageSink createStoragePageSink(StorageManager manager, List<Long> columnIds, List<Type> columnTypes)
     {
         long transactionId = TRANSACTION_ID;
-        return manager.createStoragePageSink(transactionId, OptionalInt.empty(), columnIds, columnTypes);
+        return manager.createStoragePageSink(transactionId, OptionalInt.empty(), columnIds, columnTypes, false);
     }
 
     private OrcStorageManager createOrcStorageManager()
@@ -606,7 +606,8 @@ public class TestOrcStorageManager
                 DELETION_THREADS,
                 SHARD_RECOVERY_TIMEOUT,
                 maxShardRows,
-                maxFileSize);
+                maxFileSize,
+                new DataSize(0, BYTE));
     }
 
     private static void assertFileEquals(File actual, File expected)

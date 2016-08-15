@@ -30,6 +30,7 @@ import javax.validation.constraints.NotNull;
 import java.io.File;
 import java.util.concurrent.TimeUnit;
 
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.max;
 import static java.lang.Runtime.getRuntime;
@@ -38,6 +39,7 @@ import static java.lang.Runtime.getRuntime;
 public class StorageManagerConfig
 {
     private File dataDirectory;
+    private DataSize minAvailableSpace = new DataSize(0, BYTE);
     private Duration shardRecoveryTimeout = new Duration(30, TimeUnit.SECONDS);
     private Duration missingShardDiscoveryInterval = new Duration(5, TimeUnit.MINUTES);
     private boolean compactionEnabled = true;
@@ -68,6 +70,20 @@ public class StorageManagerConfig
     public StorageManagerConfig setDataDirectory(File dataDirectory)
     {
         this.dataDirectory = dataDirectory;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getMinAvailableSpace()
+    {
+        return minAvailableSpace;
+    }
+
+    @Config("storage.min-available-space")
+    @ConfigDescription("Minimum space that must be available on the data directory file system")
+    public StorageManagerConfig setMinAvailableSpace(DataSize minAvailableSpace)
+    {
+        this.minAvailableSpace = minAvailableSpace;
         return this;
     }
 
