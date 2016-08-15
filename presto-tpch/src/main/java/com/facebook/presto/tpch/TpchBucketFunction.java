@@ -34,6 +34,12 @@ public class TpchBucketFunction
     }
 
     @Override
+    public int getBucketCount()
+    {
+        return bucketCount;
+    }
+
+    @Override
     public int getBucket(Page page, int position)
     {
         Block block = page.getBlock(0);

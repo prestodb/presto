@@ -16,7 +16,13 @@ package com.facebook.presto.spi;
 public interface BucketFunction
 {
     /**
-     * Gets the bucket for the tuple at the specified position.
+     * Gets the number of buckets.
+     */
+    int getBucketCount();
+
+    /**
+     * Gets the bucket for the tuple at the specified position.  This
+     * value must be between 0 and bucket count.
      * Note the tuple values may be null.
      */
     int getBucket(Page page, int position);

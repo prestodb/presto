@@ -351,6 +351,12 @@ public final class SystemPartitioningHandle
                 implements BucketFunction
         {
             @Override
+            public int getBucketCount()
+            {
+                return 1;
+            }
+
+            @Override
             public int getBucket(Page page, int position)
             {
                 return 0;
@@ -367,6 +373,12 @@ public final class SystemPartitioningHandle
             {
                 checkArgument(bucketCount > 0, "bucketCount must be at least 1");
                 this.bucketCount = bucketCount;
+            }
+
+            @Override
+            public int getBucketCount()
+            {
+                return bucketCount;
             }
 
             @Override
@@ -397,6 +409,12 @@ public final class SystemPartitioningHandle
                 checkArgument(bucketCount > 0, "partitionCount must be at least 1");
                 this.generator = generator;
                 this.bucketCount = bucketCount;
+            }
+
+            @Override
+            public int getBucketCount()
+            {
+                return bucketCount;
             }
 
             @Override

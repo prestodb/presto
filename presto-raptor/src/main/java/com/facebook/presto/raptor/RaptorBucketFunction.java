@@ -32,6 +32,12 @@ public class RaptorBucketFunction
         this.bucketCount = bucketCount;
     }
 
+    @Override
+    public int getBucketCount()
+    {
+        return bucketCount;
+    }
+
     @SuppressWarnings("NumericCastThatLosesPrecision")
     @Override
     public int getBucket(Page page, int position)

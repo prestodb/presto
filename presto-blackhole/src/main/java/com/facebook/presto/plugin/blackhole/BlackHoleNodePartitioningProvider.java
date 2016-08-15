@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
@@ -88,7 +89,30 @@ public class BlackHoleNodePartitioningProvider
         BlackHolePartitioningHandle handle = checkType(partitioningHandle, BlackHolePartitioningHandle.class, "partitionHandle");
         int bucketCount = handle.getBucketCount();
         List<Type> partitionChannelTypes = handle.getPartitionChannelTypes();
-        return (page, position) -> {
+        return new BlackHoleBucketFunction(partitionChannelTypes, bucketCount);
+    }
+
+    private static class BlackHoleBucketFunction
+            implements BucketFunction
+    {
+        private final List<Type> partitionChannelTypes;
+        private final int bucketCount;
+
+        public BlackHoleBucketFunction(List<Type> partitionChannelTypes, int bucketCount)
+        {
+            this.partitionChannelTypes = partitionChannelTypes;
+            this.bucketCount = bucketCount;
+        }
+
+        @Override
+        public int getBucketCount()
+        {
+            return bucketCount;
+        }
+
+        @Override
+        public int getBucket(Page page, int position)
+        {
             long hash = 13;
             for (int i = 0; i < partitionChannelTypes.size(); i++) {
                 Type type = partitionChannelTypes.get(i);
@@ -99,6 +123,6 @@ public class BlackHoleNodePartitioningProvider
             hash &= 0x7fff_ffff_ffff_ffffL;
 
             return (int) (hash % bucketCount);
-        };
+        }
     }
 }

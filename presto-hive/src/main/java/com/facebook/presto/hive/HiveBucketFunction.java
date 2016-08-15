@@ -40,6 +40,12 @@ public class HiveBucketFunction
     }
 
     @Override
+    public int getBucketCount()
+    {
+        return bucketCount;
+    }
+
+    @Override
     public int getBucket(Page page, int position)
     {
         return HiveBucketing.getHiveBucket(typeInfos, page, position, bucketCount, forceIntegralToBigint);
