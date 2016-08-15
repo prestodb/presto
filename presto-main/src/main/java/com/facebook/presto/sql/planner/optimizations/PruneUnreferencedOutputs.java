@@ -599,8 +599,14 @@ public class PruneUnreferencedOutputs
             if (node.getSampleWeightSymbol().isPresent()) {
                 expectedInputs.add(node.getSampleWeightSymbol().get());
             }
-            if (node.getPartitioningScheme().isPresent()) {
-                PartitioningScheme partitioningScheme = node.getPartitioningScheme().get();
+            if (node.getNodePartitioningScheme().isPresent()) {
+                PartitioningScheme partitioningScheme = node.getNodePartitioningScheme().get();
+                partitioningScheme.getPartitioning().getColumns().stream()
+                        .forEach(expectedInputs::add);
+                partitioningScheme.getHashColumn().ifPresent(expectedInputs::add);
+            }
+            if (node.getStreamPartitioningScheme().isPresent()) {
+                PartitioningScheme partitioningScheme = node.getStreamPartitioningScheme().get();
                 partitioningScheme.getPartitioning().getColumns().stream()
                         .forEach(expectedInputs::add);
                 partitioningScheme.getHashColumn().ifPresent(expectedInputs::add);
@@ -615,7 +621,8 @@ public class PruneUnreferencedOutputs
                     node.getColumnNames(),
                     node.getOutputSymbols(),
                     node.getSampleWeightSymbol(),
-                    node.getPartitioningScheme());
+                    node.getNodePartitioningScheme(),
+                    node.getStreamPartitioningScheme());
         }
 
         @Override

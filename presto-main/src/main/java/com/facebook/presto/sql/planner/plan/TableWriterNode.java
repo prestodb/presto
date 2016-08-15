@@ -45,7 +45,8 @@ public class TableWriterNode
     private final List<Symbol> columns;
     private final List<String> columnNames;
     private final Optional<Symbol> sampleWeightSymbol;
-    private final Optional<PartitioningScheme> partitioningScheme;
+    private final Optional<PartitioningScheme> nodePartitioningScheme;
+    private final Optional<PartitioningScheme> streamPartitioningScheme;
 
     @JsonCreator
     public TableWriterNode(
@@ -56,7 +57,8 @@ public class TableWriterNode
             @JsonProperty("columnNames") List<String> columnNames,
             @JsonProperty("outputs") List<Symbol> outputs,
             @JsonProperty("sampleWeightSymbol") Optional<Symbol> sampleWeightSymbol,
-            @JsonProperty("partitioningScheme") Optional<PartitioningScheme> partitioningScheme)
+            @JsonProperty("nodePartitioningScheme") Optional<PartitioningScheme> nodePartitioningScheme,
+            @JsonProperty("streamPartitioningScheme") Optional<PartitioningScheme> streamPartitioningScheme)
     {
         super(id);
 
@@ -70,7 +72,9 @@ public class TableWriterNode
         this.columnNames = ImmutableList.copyOf(columnNames);
         this.outputs = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
         this.sampleWeightSymbol = requireNonNull(sampleWeightSymbol, "sampleWeightSymbol is null");
-        this.partitioningScheme = requireNonNull(partitioningScheme, "partitioningScheme is null");
+        this.nodePartitioningScheme = requireNonNull(nodePartitioningScheme, "nodePartitioningScheme is null");
+        this.streamPartitioningScheme = requireNonNull(streamPartitioningScheme, "streamPartitioningScheme is null");
+        streamPartitioningScheme.ifPresent(partitioningScheme -> checkArgument(!partitioningScheme.isReplicateNulls(), "stream partitioning does not support replicated nulls"));
     }
 
     @JsonProperty
@@ -111,9 +115,15 @@ public class TableWriterNode
     }
 
     @JsonProperty
-    public Optional<PartitioningScheme> getPartitioningScheme()
+    public Optional<PartitioningScheme> getNodePartitioningScheme()
     {
-        return partitioningScheme;
+        return nodePartitioningScheme;
+    }
+
+    @JsonProperty
+    public Optional<PartitioningScheme> getStreamPartitioningScheme()
+    {
+        return streamPartitioningScheme;
     }
 
     @Override

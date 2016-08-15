@@ -26,6 +26,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
+import com.facebook.presto.spi.ConnectorNewTablePartitioning;
 import com.facebook.presto.spi.ConnectorNodePartitioning;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -41,7 +42,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -323,8 +323,8 @@ public class RaptorMetadata
                 .map(RaptorColumnHandle::getColumnName)
                 .collect(toList());
 
-        ConnectorPartitioningHandle partitioning = getPartitioningHandle(distribution.get().getDistributionId());
-        return Optional.of(new ConnectorNewTableLayout(partitioning, partitionColumns));
+        ConnectorNewTablePartitioning partitioning = new ConnectorNewTablePartitioning(getPartitioningHandle(distribution.get().getDistributionId()), partitionColumns);
+        return Optional.of(new ConnectorNewTableLayout(Optional.of(partitioning), Optional.of(partitioning)));
     }
 
     private RaptorPartitioningHandle getPartitioningHandle(long distributionId)
@@ -460,7 +460,8 @@ public class RaptorMetadata
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
         Optional<RaptorPartitioningHandle> partitioning = layout
-                .map(ConnectorNewTableLayout::getPartitioning)
+                .flatMap(ConnectorNewTableLayout::getNodePartitioning)
+                .map(ConnectorNewTablePartitioning::getPartitioningHandle)
                 .map(handle -> checkType(handle, RaptorPartitioningHandle.class, "partitioning"));
 
         ImmutableList.Builder<RaptorColumnHandle> columnHandles = ImmutableList.builder();

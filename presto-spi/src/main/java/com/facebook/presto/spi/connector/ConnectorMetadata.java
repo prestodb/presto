@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
+import com.facebook.presto.spi.ConnectorNewTablePartitioning;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
@@ -209,7 +210,7 @@ public interface ConnectorMetadata
                 .map(columnNamesByHandle::get)
                 .collect(toList());
 
-        return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitionColumns));
+        return Optional.of(new ConnectorNewTableLayout(Optional.of(new ConnectorNewTablePartitioning(partitioningHandle, partitionColumns)), Optional.empty()));
     }
 
     /**

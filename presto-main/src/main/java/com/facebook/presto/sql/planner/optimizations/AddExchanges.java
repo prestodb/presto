@@ -668,7 +668,7 @@ public class AddExchanges
         {
             PlanWithProperties source = node.getSource().accept(this, context);
 
-            Optional<PartitioningScheme> partitioningScheme = node.getPartitioningScheme();
+            Optional<PartitioningScheme> partitioningScheme = node.getNodePartitioningScheme();
             if (!partitioningScheme.isPresent() && redistributeWrites) {
                 partitioningScheme = Optional.of(new PartitioningScheme(fixedRandomPartitioning(getHashPartitionCount(session)), source.getNode().getOutputSymbols()));
             }

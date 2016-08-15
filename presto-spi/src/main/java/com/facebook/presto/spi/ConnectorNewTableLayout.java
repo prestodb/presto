@@ -13,30 +13,30 @@
  */
 package com.facebook.presto.spi;
 
-import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
-
-import java.util.List;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorNewTableLayout
 {
-    private final ConnectorPartitioningHandle partitioning;
-    private final List<String> partitionColumns;
+    private final Optional<ConnectorNewTablePartitioning> nodePartitioning;
+    private final Optional<ConnectorNewTablePartitioning> streamPartitioning;
 
-    public ConnectorNewTableLayout(ConnectorPartitioningHandle partitioning, List<String> partitionColumns)
+    public ConnectorNewTableLayout(
+            Optional<ConnectorNewTablePartitioning> nodePartitioning,
+            Optional<ConnectorNewTablePartitioning> streamPartitioning)
     {
-        this.partitioning = requireNonNull(partitioning, "partitioning is null");
-        this.partitionColumns = requireNonNull(partitionColumns, "partitionColumns is null");
+        this.nodePartitioning = requireNonNull(nodePartitioning, "nodePartitioning is null");
+        this.streamPartitioning = requireNonNull(streamPartitioning, "streamPartitioning is null");
     }
 
-    public ConnectorPartitioningHandle getPartitioning()
+    public Optional<ConnectorNewTablePartitioning> getNodePartitioning()
     {
-        return partitioning;
+        return nodePartitioning;
     }
 
-    public List<String> getPartitionColumns()
+    public Optional<ConnectorNewTablePartitioning> getStreamPartitioning()
     {
-        return partitionColumns;
+        return streamPartitioning;
     }
 }

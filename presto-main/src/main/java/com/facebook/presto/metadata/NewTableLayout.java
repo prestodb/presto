@@ -14,15 +14,22 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ConnectorNewTableLayout;
+import com.facebook.presto.spi.ConnectorNewTablePartitioning;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningHandle;
+import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -55,14 +62,32 @@ public class NewTableLayout
         return layout;
     }
 
-    public PartitioningHandle getPartitioning()
+    public Optional<Partitioning> getNodePartitioning(Function<String, Symbol> symbolLookup)
     {
-        return new PartitioningHandle(Optional.of(connectorId), Optional.of(transactionHandle), layout.getPartitioning());
+        return layout.getNodePartitioning().map(newTablePartitioning -> toPartitioning(newTablePartitioning, symbolLookup));
     }
 
-    public List<String> getPartitionColumns()
+    public Optional<Partitioning> getStreamPartitioning(Function<String, Symbol> symbolLookup)
     {
-        return layout.getPartitionColumns();
+        return layout.getStreamPartitioning().map(newTablePartitioning -> toPartitioning(newTablePartitioning, symbolLookup));
+    }
+
+    private Partitioning toPartitioning(ConnectorNewTablePartitioning newTablePartitioning, Function<String, Symbol> symbolLookup)
+    {
+        PartitioningHandle partitioningHandle = new PartitioningHandle(Optional.of(connectorId), Optional.of(transactionHandle), newTablePartitioning.getPartitioningHandle());
+
+        List<Symbol> partitionFunctionArguments = newTablePartitioning.getPartitioningColumns().stream()
+                .map(column -> {
+                    Symbol symbol = symbolLookup.apply(column);
+                    // todo this should be checked in analysis
+                    if (symbol == null) {
+                        throw new PrestoException(NOT_SUPPORTED, "INSERT must write all partitioning columns: " + column);
+                    }
+                    return symbol;
+                })
+                .collect(Collectors.toList());
+
+        return Partitioning.create(partitioningHandle, partitionFunctionArguments);
     }
 
     @Override

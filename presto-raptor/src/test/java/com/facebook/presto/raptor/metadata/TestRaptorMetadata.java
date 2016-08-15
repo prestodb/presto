@@ -28,6 +28,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
+import com.facebook.presto.spi.ConnectorNewTablePartitioning;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -258,9 +259,10 @@ public class TestRaptorMetadata
                 BUCKETED_ON_PROPERTY, ImmutableList.of("orderkey", "custkey")));
 
         ConnectorNewTableLayout layout = metadata.getNewTableLayout(SESSION, ordersTable).get();
-        assertEquals(layout.getPartitionColumns(), ImmutableList.of("orderkey", "custkey"));
-        assertInstanceOf(layout.getPartitioning(), RaptorPartitioningHandle.class);
-        RaptorPartitioningHandle partitioning = (RaptorPartitioningHandle) layout.getPartitioning();
+        ConnectorNewTablePartitioning nodePartitioning = layout.getNodePartitioning().get();
+        assertEquals(nodePartitioning.getPartitioningColumns(), ImmutableList.of("orderkey", "custkey"));
+        assertInstanceOf(nodePartitioning.getPartitioningHandle(), RaptorPartitioningHandle.class);
+        RaptorPartitioningHandle partitioning = (RaptorPartitioningHandle) nodePartitioning.getPartitioningHandle();
         assertEquals(partitioning.getDistributionId(), 1);
 
         ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, ordersTable, Optional.of(layout));

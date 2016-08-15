@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
+import com.facebook.presto.spi.ConnectorNewTablePartitioning;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -187,7 +188,8 @@ public class BlackHoleMetadata
             throw new PrestoException(NO_NODES_AVAILABLE, "No black hole nodes available");
         }
 
-        return Optional.of(new ConnectorNewTableLayout(new BlackHolePartitioningHandle(types, bucketCount), distributeColumns));
+        ConnectorNewTablePartitioning partitioning = new ConnectorNewTablePartitioning(new BlackHolePartitioningHandle(types, bucketCount), distributeColumns);
+        return Optional.of(new ConnectorNewTableLayout(Optional.of(partitioning), Optional.of(partitioning)));
     }
 
     @Override

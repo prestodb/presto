@@ -438,7 +438,7 @@ public class AddLocalExchanges
             StreamPreferredProperties preferredProperties;
             int taskWriterCount = getTaskWriterCount(session);
             // Force single writer when partition function exists
-            if (getTaskWriterCount(session) > 1 && !node.getPartitioningScheme().isPresent()) {
+            if (getTaskWriterCount(session) > 1 && !node.getNodePartitioningScheme().isPresent() && !node.getStreamPartitioningScheme().isPresent()) {
                 requiredProperties = partitionedOn(fixedRandomPartitioning(taskWriterCount));
                 preferredProperties = partitionedOn(fixedRandomPartitioning(taskWriterCount));
             }

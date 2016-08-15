@@ -50,7 +50,6 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -246,30 +245,19 @@ public class LogicalPlanner
             source = new LimitNode(idAllocator.getNextId(), source, 0L, false);
         }
 
-        // todo this should be checked in analysis
-        writeTableLayout.ifPresent(layout -> {
-            if (!ImmutableSet.copyOf(columnNames).containsAll(layout.getPartitionColumns())) {
-                throw new PrestoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + layout.getPartitionColumns());
-            }
-        });
-
         List<Symbol> symbols = plan.getOutputSymbols();
 
-        Optional<PartitioningScheme> partitioningScheme = Optional.empty();
+        Optional<PartitioningScheme> nodePartitioningScheme = Optional.empty();
+        Optional<PartitioningScheme> streamPartitioningScheme = Optional.empty();
         if (writeTableLayout.isPresent()) {
-            List<Symbol> partitionFunctionArguments = new ArrayList<>();
-            writeTableLayout.get().getPartitionColumns().stream()
-                    .mapToInt(columnNames::indexOf)
-                    .mapToObj(symbols::get)
-                    .forEach(partitionFunctionArguments::add);
-
             List<Symbol> outputLayout = new ArrayList<>(symbols);
             plan.getSampleWeight()
                     .ifPresent(outputLayout::add);
 
-            partitioningScheme = Optional.of(new PartitioningScheme(
-                    Partitioning.create(writeTableLayout.get().getPartitioning(), partitionFunctionArguments),
-                    outputLayout));
+            nodePartitioningScheme = writeTableLayout.get().getNodePartitioning(columnName -> symbols.get(columnNames.indexOf(columnName)))
+                    .map(partitioning -> new PartitioningScheme(partitioning, outputLayout));
+            streamPartitioningScheme = writeTableLayout.get().getStreamPartitioning(columnName -> symbols.get(columnName.indexOf(columnName)))
+                    .map(partitioning -> new PartitioningScheme(partitioning, outputLayout));
         }
 
         PlanNode writerNode = new TableWriterNode(
@@ -280,7 +268,8 @@ public class LogicalPlanner
                 columnNames,
                 writerOutputs,
                 plan.getSampleWeight(),
-                partitioningScheme);
+                nodePartitioningScheme,
+                streamPartitioningScheme);
 
         List<Symbol> outputs = ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT));
         TableFinishNode commitNode = new TableFinishNode(

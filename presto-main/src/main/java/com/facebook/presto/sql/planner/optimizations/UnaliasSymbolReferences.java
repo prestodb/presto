@@ -542,7 +542,8 @@ public class UnaliasSymbolReferences
                     node.getColumnNames(),
                     node.getOutputSymbols(),
                     canonicalize(node.getSampleWeightSymbol()),
-                    node.getPartitioningScheme().map(this::canonicalizePartitionFunctionBinding));
+                    node.getNodePartitioningScheme().map(this::canonicalizePartitioningScheme),
+                    node.getStreamPartitioningScheme().map(this::canonicalizePartitioningScheme));
         }
 
         @Override
@@ -643,7 +644,7 @@ public class UnaliasSymbolReferences
             return builder.build();
         }
 
-        private PartitioningScheme canonicalizePartitionFunctionBinding(PartitioningScheme scheme)
+        private PartitioningScheme canonicalizePartitioningScheme(PartitioningScheme scheme)
         {
             return new PartitioningScheme(
                     scheme.getPartitioning().translate(this::canonicalize),

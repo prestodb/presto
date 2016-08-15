@@ -23,6 +23,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
+import com.facebook.presto.spi.ConnectorNewTablePartitioning;
 import com.facebook.presto.spi.ConnectorNodePartitioning;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -1479,7 +1480,8 @@ public class HiveMetadata
         List<String> partitionColumns = hiveBucketHandle.getColumns().stream()
                 .map(HiveColumnHandle::getName)
                 .collect(Collectors.toList());
-        return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitionColumns));
+        ConnectorNewTablePartitioning partitioning = new ConnectorNewTablePartitioning(partitioningHandle, partitionColumns);
+        return Optional.of(new ConnectorNewTableLayout(Optional.of(partitioning), Optional.of(partitioning)));
     }
 
     @Override
@@ -1495,14 +1497,16 @@ public class HiveMetadata
         List<String> bucketedBy = bucketProperty.get().getBucketedBy();
         Map<String, HiveType> hiveTypeMap = tableMetadata.getColumns().stream()
                 .collect(toMap(ColumnMetadata::getName, column -> toHiveType(typeTranslator, column.getType())));
-        return Optional.of(new ConnectorNewTableLayout(
-                new HivePartitioningHandle(
-                        connectorId,
-                        bucketProperty.get().getBucketCount(),
-                        bucketedBy.stream()
-                                .map(hiveTypeMap::get)
-                                .collect(toList())),
-                bucketedBy));
+
+        HivePartitioningHandle partitioningHandle = new HivePartitioningHandle(
+                connectorId,
+                bucketProperty.get().getBucketCount(),
+                bucketedBy.stream()
+                        .map(hiveTypeMap::get)
+                        .collect(toList()));
+
+        ConnectorNewTablePartitioning partitioning = new ConnectorNewTablePartitioning(partitioningHandle, bucketedBy);
+        return Optional.of(new ConnectorNewTableLayout(Optional.of(partitioning), Optional.of(partitioning)));
     }
 
     @Override

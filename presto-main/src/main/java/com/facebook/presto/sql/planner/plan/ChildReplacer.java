@@ -232,7 +232,8 @@ public class ChildReplacer
                 node.getColumnNames(),
                 node.getOutputSymbols(),
                 node.getSampleWeightSymbol(),
-                node.getPartitioningScheme());
+                node.getNodePartitioningScheme(),
+                node.getStreamPartitioningScheme());
     }
 
     @Override
