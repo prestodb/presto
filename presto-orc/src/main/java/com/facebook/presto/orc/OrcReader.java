@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.orc.compression.CodecProvider;
+import com.facebook.presto.orc.compression.CodecProviderFactory;
+import com.facebook.presto.orc.compression.DefaultCodecProviderFactory;
 import com.facebook.presto.orc.memory.AbstractAggregatedMemoryContext;
 import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.CompressionKind;
@@ -34,6 +37,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static java.lang.Math.min;
@@ -54,15 +58,23 @@ public class OrcReader
     private final MetadataReader metadataReader;
     private final DataSize maxMergeDistance;
     private final DataSize maxReadSize;
-    private final CompressionKind compressionKind;
+    private final CodecProvider codecProvider;
     private final int bufferSize;
     private final Footer footer;
     private final Metadata metadata;
 
-    // This is based on the Apache Hive ORC code
     public OrcReader(OrcDataSource orcDataSource, MetadataReader metadataReader, DataSize maxMergeDistance, DataSize maxReadSize)
             throws IOException
     {
+        this(orcDataSource, metadataReader, maxMergeDistance, maxReadSize, new DefaultCodecProviderFactory(), new Properties());
+    }
+
+    // This is based on the Apache Hive ORC code
+    public OrcReader(OrcDataSource orcDataSource, MetadataReader metadataReader, DataSize maxMergeDistance, DataSize maxReadSize, CodecProviderFactory codecProviderFactory, Properties schema)
+            throws IOException
+    {
+        schema = requireNonNull(schema, "schema is null");
+        codecProviderFactory = requireNonNull(codecProviderFactory, "codecProviderFactory is null");
         orcDataSource = wrapWithCacheIfTiny(requireNonNull(orcDataSource, "orcDataSource is null"), maxMergeDistance);
         this.orcDataSource = orcDataSource;
         this.metadataReader = requireNonNull(metadataReader, "metadataReader is null");
@@ -101,10 +113,8 @@ public class OrcReader
         // verify this is a supported version
         checkOrcVersion(orcDataSource, postScript.getVersion());
 
-        // check compression codec is supported
-        this.compressionKind = postScript.getCompression();
-
         this.bufferSize = Ints.checkedCast(postScript.getCompressionBlockSize());
+        this.codecProvider = codecProviderFactory.create(postScript.getCompression(), bufferSize, schema);
 
         int footerSize = Ints.checkedCast(postScript.getFooterLength());
         int metadataSize = Ints.checkedCast(postScript.getMetadataLength());
@@ -130,13 +140,15 @@ public class OrcReader
 
         // read metadata
         Slice metadataSlice = completeFooterSlice.slice(0, metadataSize);
-        try (InputStream metadataInputStream = new OrcInputStream(orcDataSource.toString(), metadataSlice.getInput(), compressionKind, bufferSize, new AggregatedMemoryContext())) {
+        AggregatedMemoryContext metadataSliceMemoryContext = new AggregatedMemoryContext();
+        try (InputStream metadataInputStream = new OrcInputStream(orcDataSource.toString(), metadataSlice.getInput(), codecProvider.get(metadataSliceMemoryContext), metadataSliceMemoryContext)) {
             this.metadata = metadataReader.readMetadata(metadataInputStream);
         }
 
         // read footer
         Slice footerSlice = completeFooterSlice.slice(metadataSize, footerSize);
-        try (InputStream footerInputStream = new OrcInputStream(orcDataSource.toString(), footerSlice.getInput(), compressionKind, bufferSize, new AggregatedMemoryContext())) {
+        AggregatedMemoryContext footerSliceMemoryContext = new AggregatedMemoryContext();
+        try (InputStream footerInputStream = new OrcInputStream(orcDataSource.toString(), footerSlice.getInput(), codecProvider.get(footerSliceMemoryContext), footerSliceMemoryContext)) {
             this.footer = metadataReader.readFooter(footerInputStream);
         }
     }
@@ -158,7 +170,7 @@ public class OrcReader
 
     public CompressionKind getCompressionKind()
     {
-        return compressionKind;
+        return codecProvider.getCompressionKind();
     }
 
     public int getBufferSize()
@@ -192,8 +204,7 @@ public class OrcReader
                 offset,
                 length,
                 footer.getTypes(),
-                compressionKind,
-                bufferSize,
+                codecProvider,
                 footer.getRowsInRowGroup(),
                 requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null"),
                 metadataReader,

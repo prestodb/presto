@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.orc.compression.CodecProviderFactory;
+import com.facebook.presto.orc.compression.DefaultCodecProviderFactory;
 import com.facebook.presto.raptor.backup.BackupModule;
 import com.facebook.presto.raptor.storage.StorageModule;
 import com.facebook.presto.raptor.util.CurrentNodeId;
@@ -93,7 +95,9 @@ public class RaptorConnectorFactory
                     binder -> {
                         CurrentNodeId currentNodeId = new CurrentNodeId(nodeManager.getCurrentNode().getNodeIdentifier());
                         MBeanServer mbeanServer = new RebindSafeMBeanServer(getPlatformMBeanServer());
+                        CodecProviderFactory codecProviderFactory = new DefaultCodecProviderFactory();
 
+                        binder.bind(CodecProviderFactory.class).toInstance(codecProviderFactory);
                         binder.bind(MBeanServer.class).toInstance(mbeanServer);
                         binder.bind(CurrentNodeId.class).toInstance(currentNodeId);
                         binder.bind(NodeManager.class).toInstance(nodeManager);

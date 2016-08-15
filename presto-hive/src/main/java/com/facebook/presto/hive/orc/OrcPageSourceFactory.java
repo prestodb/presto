@@ -24,6 +24,8 @@ import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.TupleDomainOrcPredicate;
 import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
+import com.facebook.presto.orc.compression.CodecProviderFactory;
+import com.facebook.presto.orc.compression.DefaultCodecProviderFactory;
 import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
@@ -72,18 +74,30 @@ public class OrcPageSourceFactory
     private final TypeManager typeManager;
     private final boolean useOrcColumnNames;
     private final HdfsEnvironment hdfsEnvironment;
+    private final CodecProviderFactory codecProviderFactory;
 
     @Inject
-    public OrcPageSourceFactory(TypeManager typeManager, HiveClientConfig config, HdfsEnvironment hdfsEnvironment)
+    public OrcPageSourceFactory(TypeManager typeManager, HiveClientConfig config, HdfsEnvironment hdfsEnvironment, CodecProviderFactory codecProviderFactory)
     {
-        this(typeManager, requireNonNull(config, "hiveClientConfig is null").isUseOrcColumnNames(), hdfsEnvironment);
+        this(typeManager, requireNonNull(config, "hiveClientConfig is null").isUseOrcColumnNames(), hdfsEnvironment, codecProviderFactory);
     }
 
-    public OrcPageSourceFactory(TypeManager typeManager, boolean useOrcColumnNames, HdfsEnvironment hdfsEnvironment)
+    public OrcPageSourceFactory(TypeManager typeManager, boolean useOrcColumnNames, HdfsEnvironment hdfsEnvironment, CodecProviderFactory codecProviderFactory)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.useOrcColumnNames = useOrcColumnNames;
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.codecProviderFactory = requireNonNull(codecProviderFactory, "codecProviderFactory is null");
+    }
+
+    public OrcPageSourceFactory(TypeManager typeManager, boolean useOrcColumnNames, HdfsEnvironment hdfsEnvironment)
+    {
+        this(typeManager, useOrcColumnNames, hdfsEnvironment, new DefaultCodecProviderFactory());
+    }
+
+    public OrcPageSourceFactory(TypeManager typeManager, HiveClientConfig config, HdfsEnvironment hdfsEnvironment)
+    {
+        this(typeManager, config, hdfsEnvironment, new DefaultCodecProviderFactory());
     }
 
     @Override
@@ -119,7 +133,9 @@ public class OrcPageSourceFactory
                 typeManager,
                 getOrcMaxMergeDistance(session),
                 getOrcMaxBufferSize(session),
-                getOrcStreamBufferSize(session)));
+                getOrcStreamBufferSize(session),
+                codecProviderFactory,
+                schema));
     }
 
     public static OrcPageSource createOrcPageSource(
@@ -138,7 +154,9 @@ public class OrcPageSourceFactory
             TypeManager typeManager,
             DataSize maxMergeDistance,
             DataSize maxBufferSize,
-            DataSize streamBufferSize)
+            DataSize streamBufferSize,
+            CodecProviderFactory codecProviderFactory,
+            Properties schema)
     {
         OrcDataSource orcDataSource;
         try {
@@ -157,7 +175,7 @@ public class OrcPageSourceFactory
 
         AggregatedMemoryContext systemMemoryUsage = new AggregatedMemoryContext();
         try {
-            OrcReader reader = new OrcReader(orcDataSource, metadataReader, maxMergeDistance, maxBufferSize);
+            OrcReader reader = new OrcReader(orcDataSource, metadataReader, maxMergeDistance, maxBufferSize, codecProviderFactory, schema);
 
             List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(columns, useOrcColumnNames, reader, path);
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
