@@ -33,6 +33,7 @@ import java.util.List;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.writeBigDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -237,7 +238,7 @@ public final class BlockAssertions
 
     public static Block createLongDecimalsBlock(Iterable<String> values)
     {
-        DecimalType longDecimalType = (DecimalType) DecimalType.createDecimalType(18);
+        DecimalType longDecimalType = DecimalType.createDecimalType(MAX_SHORT_PRECISION + 1);
         BlockBuilder builder = longDecimalType.createBlockBuilder(new BlockBuilderStatus(), 100);
 
         for (String value : values) {

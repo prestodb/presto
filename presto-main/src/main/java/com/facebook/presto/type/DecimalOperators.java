@@ -47,14 +47,18 @@ import static com.facebook.presto.spi.function.OperatorType.NEGATION;
 import static com.facebook.presto.spi.function.OperatorType.SUBTRACT;
 import static com.facebook.presto.spi.type.Decimals.bigIntegerTenToNth;
 import static com.facebook.presto.spi.type.Decimals.checkOverflow;
+import static com.facebook.presto.spi.type.Decimals.decodeUnscaledValue;
+import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.longTenToNth;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.rescale;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.throwIfOverflows;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static java.lang.Integer.max;
+import static java.lang.Long.signum;
+import static java.lang.Math.abs;
+import static java.lang.Math.toIntExact;
 import static java.math.BigInteger.ONE;
-import static java.math.BigInteger.TEN;
 import static java.math.BigInteger.ZERO;
 
 public final class DecimalOperators
@@ -260,7 +264,7 @@ public final class DecimalOperators
     @UsedByGeneratedCode
     public static Slice multiplyShortShortLong(long a, long b)
     {
-        return multiplyLongLongLong(Decimals.encodeUnscaledValue(a), Decimals.encodeUnscaledValue(b));
+        return multiplyLongLongLong(encodeUnscaledValue(a), encodeUnscaledValue(b));
     }
 
     @UsedByGeneratedCode
@@ -279,13 +283,13 @@ public final class DecimalOperators
     @UsedByGeneratedCode
     public static Slice multiplyShortLongLong(long a, Slice b)
     {
-        return multiplyLongLongLong(Decimals.encodeUnscaledValue(a), b);
+        return multiplyLongLongLong(encodeUnscaledValue(a), b);
     }
 
     @UsedByGeneratedCode
     public static Slice multiplyLongShortLong(Slice a, long b)
     {
-        return multiplyLongLongLong(a, Decimals.encodeUnscaledValue(b));
+        return multiplyLongLongLong(a, encodeUnscaledValue(b));
     }
 
     private static SqlScalarFunction decimalDivideOperator()
@@ -336,146 +340,96 @@ public final class DecimalOperators
     private static int divideRescaleFactor(SqlScalarFunctionBuilder.SpecializeContext context)
     {
         DecimalType returnType = (DecimalType) context.getReturnType();
-        // +1 because we want to do computations with one extra decimal field to be able to handle rounding of the result.
-        return (int) (returnType.getScale() - context.getLiteral("a_scale") + context.getLiteral("b_scale") + 1);
+        return toIntExact(returnType.getScale() - context.getLiteral("a_scale") + context.getLiteral("b_scale"));
     }
 
     @UsedByGeneratedCode
-    public static long divideShortShortShort(long a, long b, long aRescale)
+    public static long divideShortShortShort(long dividend, long divisor, long scale)
     {
-        try {
-            long result = a * aRescale / b;
-            if (result > 0) {
-                if (result % 10 >= 5) {
-                    return result / 10 + 1;
-                }
-                else {
-                    return result / 10;
-                }
-            }
-            else {
-                if (result % 10 <= -5) {
-                    return result / 10 - 1;
-                }
-                else {
-                    return result / 10;
-                }
-            }
+        if (divisor == 0) {
+            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero");
         }
-        catch (ArithmeticException e) {
-            throw new PrestoException(DIVISION_BY_ZERO, e);
+
+        if (dividend == 0) {
+            return 0;
         }
+
+        int resultSignum = signum(dividend) * signum(divisor);
+
+        long unsignedDividend = abs(dividend);
+        long unsignedDivisor = abs(divisor);
+
+        long rescaledUnsignedDividend = unsignedDividend * scale;
+        long quotient = rescaledUnsignedDividend / unsignedDivisor;
+        long remainder = rescaledUnsignedDividend - (quotient * unsignedDivisor);
+
+        if (Long.compareUnsigned(remainder * 2, unsignedDivisor) >= 0) {
+            quotient++;
+        }
+
+        return resultSignum * quotient;
     }
 
     @UsedByGeneratedCode
-    public static long divideShortLongShort(long a, Slice b, BigInteger aRescale)
+    public static long divideShortLongShort(long dividend, Slice divisor, BigInteger scale)
     {
-        BigInteger aBigInteger = BigInteger.valueOf(a);
-        BigInteger bBigInteger = Decimals.decodeUnscaledValue(b);
-        return internalDivideShortResult(aBigInteger, bBigInteger, aRescale);
+        return internalDivideBigInteger(BigInteger.valueOf(dividend), decodeUnscaledValue(divisor), scale).longValueExact();
     }
 
     @UsedByGeneratedCode
-    public static long divideLongShortShort(Slice a, long b, BigInteger aRescale)
+    public static long divideLongShortShort(Slice dividend, long divisor, BigInteger scale)
     {
-        BigInteger aBigInteger = Decimals.decodeUnscaledValue(a);
-        BigInteger bBigInteger = BigInteger.valueOf(b);
-        return internalDivideShortResult(aBigInteger, bBigInteger, aRescale);
-    }
-
-    private static long internalDivideShortResult(BigInteger aBigInteger, BigInteger bBigInteger, BigInteger aRescale)
-    {
-        try {
-            return internalDivideDecimals(aBigInteger.multiply(aRescale), bBigInteger).longValue();
-        }
-        catch (ArithmeticException e) {
-            throw new PrestoException(DIVISION_BY_ZERO, e);
-        }
+        return internalDivideBigInteger(decodeUnscaledValue(dividend), BigInteger.valueOf(divisor), scale).longValueExact();
     }
 
     @UsedByGeneratedCode
-    public static Slice divideShortShortLong(long a, long b, BigInteger aRescale)
+    public static Slice divideShortShortLong(long dividend, long divisor, BigInteger scale)
     {
-        BigInteger aBigInteger = BigInteger.valueOf(a).multiply(aRescale);
-        BigInteger bBigInteger = BigInteger.valueOf(b);
-        return internalDivideLongLongLong(aBigInteger, bBigInteger);
+        return encodeUnscaledValue(internalDivideBigInteger(BigInteger.valueOf(dividend), BigInteger.valueOf(divisor), scale));
     }
 
     @UsedByGeneratedCode
-    public static Slice divideLongLongLong(Slice a, Slice b, BigInteger aRescale)
+    public static Slice divideLongLongLong(Slice dividend, Slice divisor, BigInteger scale)
     {
-        BigInteger aBigInteger = Decimals.decodeUnscaledValue(a).multiply(aRescale);
-        BigInteger bBigInteger = Decimals.decodeUnscaledValue(b);
-        return internalDivideLongLongLong(aBigInteger, bBigInteger);
+        return encodeUnscaledValue(internalDivideBigInteger(decodeUnscaledValue(dividend), decodeUnscaledValue(divisor), scale));
     }
 
     @UsedByGeneratedCode
-    public static Slice divideShortLongLong(long a, Slice b, BigInteger aRescale)
+    public static Slice divideShortLongLong(long dividend, Slice divisor, BigInteger scale)
     {
-        BigInteger aBigInteger = BigInteger.valueOf(a).multiply(aRescale);
-        BigInteger bBigInteger = Decimals.decodeUnscaledValue(b);
-        return internalDivideLongLongLong(aBigInteger, bBigInteger);
+        return encodeUnscaledValue(internalDivideBigInteger(BigInteger.valueOf(dividend), decodeUnscaledValue(divisor), scale));
     }
 
     @UsedByGeneratedCode
-    public static Slice divideLongShortLong(Slice a, long b, BigInteger aRescale)
+    public static Slice divideLongShortLong(Slice dividend, long divisor, BigInteger scale)
     {
-        BigInteger aBigInteger = Decimals.decodeUnscaledValue(a).multiply(aRescale);
-        BigInteger bBigInteger = BigInteger.valueOf(b);
-        return internalDivideLongLongLong(aBigInteger, bBigInteger);
+        return encodeUnscaledValue(internalDivideBigInteger(decodeUnscaledValue(dividend), BigInteger.valueOf(divisor), scale));
     }
 
-    private static Slice internalDivideLongLongLong(BigInteger aBigInteger, BigInteger bBigInteger)
+    private static BigInteger internalDivideBigInteger(BigInteger dividend, BigInteger divisor, BigInteger scale)
     {
-        try {
-            BigInteger result = aBigInteger.divide(bBigInteger);
-            BigInteger resultModTen = result.mod(TEN);
-            if (result.signum() > 0) {
-                if (resultModTen.compareTo(BigInteger.valueOf(5)) >= 0) {
-                    result = result.divide(TEN).add(ONE);
-                }
-                else {
-                    result = result.divide(TEN);
-                }
-            }
-            else {
-                if (resultModTen.compareTo(BigInteger.valueOf(5)) < 0 && !resultModTen.equals(ZERO)) {
-                    result = result.divide(TEN).subtract(ONE);
-                }
-                else {
-                    result = result.divide(TEN);
-                }
-            }
-            checkOverflow(result);
-            return Decimals.encodeUnscaledValue(result);
+        if (divisor.equals(ZERO)) {
+            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero");
         }
-        catch (ArithmeticException e) {
-            throw new PrestoException(DIVISION_BY_ZERO, e);
-        }
-    }
 
-    private static BigInteger internalDivideDecimals(BigInteger aBigInteger, BigInteger bBigInteger)
-    {
-        BigInteger result = aBigInteger.divide(bBigInteger);
-        BigInteger resultModTen = result.mod(TEN);
-        if (result.signum() > 0) {
-            if (resultModTen.compareTo(BigInteger.valueOf(5)) >= 0) {
-                result = result.divide(TEN).add(ONE);
-            }
-            else {
-                result = result.divide(TEN);
-            }
+        if (dividend.equals(ZERO)) {
+            return ZERO;
         }
-        else {
-            if (resultModTen.compareTo(BigInteger.valueOf(5)) < 0 && !resultModTen.equals(ZERO)) {
-                result = result.divide(TEN).subtract(ONE);
-            }
-            else {
-                result = result.divide(TEN);
-            }
+
+        int resultSignum = dividend.signum() * divisor.signum();
+
+        BigInteger unsignedDividend = dividend.abs();
+        BigInteger unsignedDivisor = divisor.abs();
+        BigInteger rescaledUnsignedDividend = unsignedDividend.multiply(scale);
+
+        BigInteger[] quotientAndReminder = rescaledUnsignedDividend.divideAndRemainder(unsignedDivisor);
+        BigInteger quotient = quotientAndReminder[0];
+        BigInteger remainder = quotientAndReminder[1];
+        if (remainder.add(remainder).compareTo(unsignedDivisor) >= 0) {
+            quotient = quotient.add(ONE);
         }
-        checkOverflow(result);
-        return result;
+        checkOverflow(quotient);
+        return resultSignum < 0 ? quotient.negate() : quotient;
     }
 
     private static SqlScalarFunction decimalModulusOperator()
@@ -616,7 +570,7 @@ public final class DecimalOperators
     {
         try {
             BigInteger result = aBigInteger.multiply(aRescale).remainder(bBigInteger.multiply(bRescale));
-            return Decimals.encodeUnscaledValue(result);
+            return encodeUnscaledValue(result);
         }
         catch (ArithmeticException e) {
             throw new PrestoException(DIVISION_BY_ZERO, e);
@@ -638,7 +592,7 @@ public final class DecimalOperators
         public static Slice negate(@SqlType("decimal(p, s)") Slice arg)
         {
             BigInteger argBigInteger = Decimals.decodeUnscaledValue(arg);
-            return Decimals.encodeUnscaledValue(argBigInteger.negate());
+            return encodeUnscaledValue(argBigInteger.negate());
         }
     }
 

@@ -39,7 +39,7 @@ public final class Decimals
     private Decimals() {}
 
     public static final int MAX_PRECISION = 38;
-    public static final int MAX_SHORT_PRECISION = 17;
+    public static final int MAX_SHORT_PRECISION = 18;
 
     public static final BigInteger MAX_DECIMAL_UNSCALED_VALUE = new BigInteger(
             // repeat digit '9' MAX_PRECISION times
