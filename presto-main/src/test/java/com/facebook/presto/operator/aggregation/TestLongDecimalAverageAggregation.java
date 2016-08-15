@@ -43,6 +43,6 @@ public class TestLongDecimalAverageAggregation
     @Override
     protected List<String> getFunctionParameterTypes()
     {
-        return ImmutableList.of("decimal(18,2)");
+        return ImmutableList.of(DecimalType.createDecimalType(MAX_SHORT_PRECISION + 1, 2).getTypeSignature().toString());
     }
 }
