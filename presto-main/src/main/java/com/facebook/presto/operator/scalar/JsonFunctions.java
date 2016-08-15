@@ -30,6 +30,13 @@ import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.MappingJsonFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.primitives.Doubles;
+import com.jayway.jsonpath.Configuration;
+import com.jayway.jsonpath.JsonPathException;
+import com.jayway.jsonpath.Option;
+import com.jayway.jsonpath.spi.json.JacksonJsonProvider;
+import com.jayway.jsonpath.spi.json.JsonProvider;
+import com.jayway.jsonpath.spi.mapper.JacksonMappingProvider;
+import com.jayway.jsonpath.spi.mapper.MappingProvider;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -38,10 +45,14 @@ import io.airlift.slice.SliceOutput;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.EnumSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.type.StandardTypes.JSON;
+import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonParser.NumberType;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
@@ -65,6 +76,33 @@ public final class JsonFunctions
             .disable(CANONICALIZE_FIELD_NAMES);
 
     private static final ObjectMapper SORTED_MAPPER = new ObjectMapperProvider().get().configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
+
+    private static final int ESTIMATED_JSON_OUTPUT_SIZE = 512;
+
+    static {
+        Configuration.setDefaults(new Configuration.Defaults() {
+            private final JsonProvider jsonProvider = new JacksonJsonProvider(SORTED_MAPPER);
+            private final MappingProvider mappingProvider = new JacksonMappingProvider();
+
+            @Override
+            public JsonProvider jsonProvider()
+            {
+                return jsonProvider;
+            }
+
+            @Override
+            public MappingProvider mappingProvider()
+            {
+                return mappingProvider;
+            }
+
+            @Override
+            public Set<Option> options()
+            {
+                return EnumSet.noneOf(Option.class);
+            }
+        });
+    }
 
     private JsonFunctions() {}
 
@@ -407,6 +445,36 @@ public final class JsonFunctions
     public static Long jsonSize(@SqlType(StandardTypes.JSON) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
     {
         return JsonExtract.extract(json, jsonPath.getSizeExtractor());
+    }
+
+    @ScalarFunction("json_extract_v2")
+    @Nullable
+    @SqlType(JSON)
+    public static Slice varcharJsonExtract_v2(@SqlType(VARCHAR) Slice json, @SqlType(VARCHAR) Slice jsonPath)
+            throws IOException
+    {
+        // handle null jsons similar to the current json_extract implementation
+        if (json.toStringUtf8().equals("null")) {
+            return utf8Slice("null");
+        }
+
+        try (DynamicSliceOutput dynamicSliceOutput = new DynamicSliceOutput(ESTIMATED_JSON_OUTPUT_SIZE)) {
+            Object pojo = com.jayway.jsonpath.JsonPath.read(json.getInput(), jsonPath.toStringUtf8());
+            SORTED_MAPPER.writeValue(dynamicSliceOutput, pojo);
+            return dynamicSliceOutput.slice();
+        }
+        catch (JsonPathException jsonPathException) {
+            return null;
+        }
+    }
+
+    @ScalarFunction
+    @Nullable
+    @SqlType(JSON)
+    public static Slice jsonExtract_v2(@SqlType(JSON) Slice json, @SqlType(VARCHAR) Slice jsonPath)
+            throws IOException
+    {
+        return varcharJsonExtract_v2(json, jsonPath);
     }
 
     public static Object getJsonObjectValue(Type valueType, ConnectorSession session, Block block, int position)

@@ -18,7 +18,6 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -30,6 +29,7 @@ import static com.facebook.presto.operator.scalar.JsonExtract.ObjectFieldJsonExt
 import static com.facebook.presto.operator.scalar.JsonExtract.ScalarValueJsonExtractor;
 import static com.facebook.presto.operator.scalar.JsonExtract.generateExtractor;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -238,74 +238,75 @@ public class TestJsonExtract
     public void testFullJsonExtract()
             throws Exception
     {
-        assertEquals(doJsonExtract("{}", "$"), "{}");
-        assertEquals(doJsonExtract("{\"fuu\": {\"bar\": 1}}", "$.fuu"), "{\"bar\":1}");
-        assertEquals(doJsonExtract("{\"fuu\": 1}", "$.fuu"), "1");
-        assertEquals(doJsonExtract("{\"fuu\": 1}", "$[fuu]"), "1");
-        assertEquals(doJsonExtract("{\"fuu\": 1}", "$[\"fuu\"]"), "1");
-        assertEquals(doJsonExtract("{\"fuu\": null}", "$.fuu"), "null");
-        assertEquals(doJsonExtract("{\"fuu\": 1}", "$.bar"), null);
-        assertEquals(doJsonExtract("{\"fuu\": [\"\\u0001\"]}", "$.fuu[0]"), "\"\\u0001\""); // Test escaped characters
-        assertEquals(doJsonExtract("{\"fuu\": 1, \"bar\": \"abc\"}", "$.bar"), "\"abc\"");
-        assertEquals(doJsonExtract("{\"fuu\": [0.1, 1, 2]}", "$.fuu[0]"), "0.1");
-        assertEquals(doJsonExtract("{\"fuu\": [0, [100, 101], 2]}", "$.fuu[1]"), "[100,101]");
-        assertEquals(doJsonExtract("{\"fuu\": [0, [100, 101], 2]}", "$.fuu[1][1]"), "101");
+        assertJsonExtract("{}", "$", "{}");
+        assertJsonExtract("{\"fuu\": {\"bar\": 1}}", "$.fuu", "{\"bar\":1}");
+        assertJsonExtract("{\"fuu\": 1}", "$.fuu", "1");
+        assertJsonExtract("{\"fuu\": 1}", "$[fuu]", "1", false); //v2: Bracket notation requires quotes. $['fuu'] works.
+        assertJsonExtract("{\"fuu\": 1}", "$[\"fuu\"]", "1");
+        assertJsonExtract("{\"fuu\": null}", "$.fuu", "null");
+        assertJsonExtract("{\"fuu\": 1}", "$.bar", null);
+        assertJsonExtract("{\"fuu\": [\"\\u0001\"]}", "$.fuu[0]", "\"\\u0001\""); // Test escaped characters
+        assertJsonExtract("{\"fuu\": 1, \"bar\": \"abc\"}", "$.bar", "\"abc\"");
+        assertJsonExtract("{\"fuu\": [0.1, 1, 2]}", "$.fuu[0]", "0.1");
+        assertJsonExtract("{\"fuu\": [0, [100, 101], 2]}", "$.fuu[1]", "[100,101]");
+        assertJsonExtract("{\"fuu\": [0, [100, 101], 2]}", "$.fuu[1][1]", "101");
 
         // Test non-object extraction
-        assertEquals(doJsonExtract("[0, 1, 2]", "$[0]"), "0");
-        assertEquals(doJsonExtract("\"abc\"", "$"), "\"abc\"");
-        assertEquals(doJsonExtract("123", "$"), "123");
-        assertEquals(doJsonExtract("null", "$"), "null");
+        assertJsonExtract("[0, 1, 2]", "$[0]", "0");
+        assertJsonExtract("\"abc\"", "$", "\"abc\"");
+        assertJsonExtract("123", "$", "123");
+        assertJsonExtract("null", "$", "null");
 
         // Test extraction using bracket json path
-        assertEquals(doJsonExtract("{\"fuu\": {\"bar\": 1}}", "$[\"fuu\"]"), "{\"bar\":1}");
-        assertEquals(doJsonExtract("{\"fuu\": {\"bar\": 1}}", "$[\"fuu\"][\"bar\"]"), "1");
-        assertEquals(doJsonExtract("{\"fuu\": 1}", "$[\"fuu\"]"), "1");
-        assertEquals(doJsonExtract("{\"fuu\": null}", "$[\"fuu\"]"), "null");
-        assertEquals(doJsonExtract("{\"fuu\": 1}", "$[\"bar\"]"), null);
-        assertEquals(doJsonExtract("{\"fuu\": [\"\\u0001\"]}", "$[\"fuu\"][0]"), "\"\\u0001\""); // Test escaped characters
-        assertEquals(doJsonExtract("{\"fuu\": 1, \"bar\": \"abc\"}", "$[\"bar\"]"), "\"abc\"");
-        assertEquals(doJsonExtract("{\"fuu\": [0.1, 1, 2]}", "$[\"fuu\"][0]"), "0.1");
-        assertEquals(doJsonExtract("{\"fuu\": [0, [100, 101], 2]}", "$[\"fuu\"][1]"), "[100,101]");
-        assertEquals(doJsonExtract("{\"fuu\": [0, [100, 101], 2]}", "$[\"fuu\"][1][1]"), "101");
+        assertJsonExtract("{\"fuu\": {\"bar\": 1}}", "$[\"fuu\"]", "{\"bar\":1}");
+        assertJsonExtract("{\"fuu\": {\"bar\": 1}}", "$[\"fuu\"][\"bar\"]", "1");
+        assertJsonExtract("{\"fuu\": 1}", "$[\"fuu\"]", "1");
+        assertJsonExtract("{\"fuu\": null}", "$[\"fuu\"]", "null");
+        assertJsonExtract("{\"fuu\": 1}", "$[\"bar\"]", null);
+        assertJsonExtract("{\"fuu\": [\"\\u0001\"]}", "$[\"fuu\"][0]", "\"\\u0001\""); // Test escaped characters
+        assertJsonExtract("{\"fuu\": 1, \"bar\": \"abc\"}", "$[\"bar\"]", "\"abc\"");
+        assertJsonExtract("{\"fuu\": [0.1, 1, 2]}", "$[\"fuu\"][0]", "0.1");
+        assertJsonExtract("{\"fuu\": [0, [100, 101], 2]}", "$[\"fuu\"][1]", "[100,101]");
+        assertJsonExtract("{\"fuu\": [0, [100, 101], 2]}", "$[\"fuu\"][1][1]", "101");
 
         // Test extraction using bracket json path with special json characters in path
-        assertEquals(doJsonExtract("{\"@$fuu\": {\".b.ar\": 1}}", "$[\"@$fuu\"]"), "{\".b.ar\":1}");
-        assertEquals(doJsonExtract("{\"fuu..\": 1}", "$[\"fuu..\"]"), "1");
-        assertEquals(doJsonExtract("{\"fu*u\": null}", "$[\"fu*u\"]"), "null");
-        assertEquals(doJsonExtract("{\",fuu\": 1}", "$[\"bar\"]"), null);
-        assertEquals(doJsonExtract("{\",fuu\": [\"\\u0001\"]}", "$[\",fuu\"][0]"), "\"\\u0001\""); // Test escaped characters
-        assertEquals(doJsonExtract("{\":fu:u:\": 1, \":b:ar:\": \"abc\"}", "$[\":b:ar:\"]"), "\"abc\"");
-        assertEquals(doJsonExtract("{\"?()fuu\": [0.1, 1, 2]}", "$[\"?()fuu\"][0]"), "0.1");
-        assertEquals(doJsonExtract("{\"f?uu\": [0, [100, 101], 2]}", "$[\"f?uu\"][1]"), "[100,101]");
-        assertEquals(doJsonExtract("{\"fuu()\": [0, [100, 101], 2]}", "$[\"fuu()\"][1][1]"), "101");
+        assertJsonExtract("{\"@$fuu\": {\".b.ar\": 1}}", "$[\"@$fuu\"]", "{\".b.ar\":1}");
+        assertJsonExtract("{\"fuu..\": 1}", "$[\"fuu..\"]", "1");
+        assertJsonExtract("{\"fu*u\": null}", "$[\"fu*u\"]", "null");
+        assertJsonExtract("{\",fuu\": 1}", "$[\"bar\"]", null);
+        assertJsonExtract("{\",fuu\": [\"\\u0001\"]}", "$[\",fuu\"][0]", "\"\\u0001\"", false); // Test escaped characters -- v2 => need to escape ',': assertJsonExtract("{\",fuu\": [\"\\u0001\"]}", "$[\"\\,fuu\"][0]", "\"\\u0001\"")
+        assertJsonExtract("{\":fu:u:\": 1, \":b:ar:\": \"abc\"}", "$[\":b:ar:\"]", "\"abc\"");
+        assertJsonExtract("{\"?()fuu\": [0.1, 1, 2]}", "$[\"?()fuu\"][0]", "0.1");
+        assertJsonExtract("{\"f?uu\": [0, [100, 101], 2]}", "$[\"f?uu\"][1]", "[100,101]");
+        assertJsonExtract("{\"fuu()\": [0, [100, 101], 2]}", "$[\"fuu()\"][1][1]", "101");
 
         // Test extraction using mix of bracket and dot notation json path
-        assertEquals(doJsonExtract("{\"fuu\": {\"bar\": 1}}", "$[\"fuu\"].bar"), "1");
-        assertEquals(doJsonExtract("{\"fuu\": {\"bar\": 1}}", "$.fuu[\"bar\"]"), "1");
-        assertEquals(doJsonExtract("{\"fuu\": [\"\\u0001\"]}", "$[\"fuu\"][0]"), "\"\\u0001\""); // Test escaped characters
-        assertEquals(doJsonExtract("{\"fuu\": [\"\\u0001\"]}", "$.fuu[0]"), "\"\\u0001\""); // Test escaped characters
+        assertJsonExtract("{\"fuu\": {\"bar\": 1}}", "$[\"fuu\"].bar", "1");
+        assertJsonExtract("{\"fuu\": {\"bar\": 1}}", "$.fuu[\"bar\"]", "1");
+        assertJsonExtract("{\"fuu\": [\"\\u0001\"]}", "$[\"fuu\"][0]", "\"\\u0001\""); // Test escaped characters
+        assertJsonExtract("{\"fuu\": [\"\\u0001\"]}", "$.fuu[0]", "\"\\u0001\""); // Test escaped characters
 
         // Test extraction using  mix of bracket and dot notation json path with special json characters in path
-        assertEquals(doJsonExtract("{\"@$fuu\": {\"bar\": 1}}", "$[\"@$fuu\"].bar"), "1");
-        assertEquals(doJsonExtract("{\",fuu\": {\"bar\": [\"\\u0001\"]}}", "$[\",fuu\"].bar[0]"), "\"\\u0001\""); // Test escaped characters
+        assertJsonExtract("{\"@$fuu\": {\"bar\": 1}}", "$[\"@$fuu\"].bar", "1");
+        assertJsonExtract("{\",fuu\": {\"bar\": [\"\\u0001\"]}}", "$[\",fuu\"].bar[0]", "\"\\u0001\"", false); // Test escaped characters -- v2 => need to escape ',': assertJsonExtract("{\",fuu\": {\"bar\": [\"\\u0001\"]}}", "$[\"\\,fuu\"].bar[0]", "\"\\u0001\"")
 
         // Test numeric path expression matches arrays and objects
-        assertEquals(doJsonExtract("[0, 1, 2]", "$.1"), "1");
-        assertEquals(doJsonExtract("[0, 1, 2]", "$[1]"), "1");
-        assertEquals(doJsonExtract("[0, 1, 2]", "$[\"1\"]"), "1");
-        assertEquals(doJsonExtract("{\"0\" : 0, \"1\" : 1, \"2\" : 2, }", "$.1"), "1");
-        assertEquals(doJsonExtract("{\"0\" : 0, \"1\" : 1, \"2\" : 2, }", "$[1]"), "1");
-        assertEquals(doJsonExtract("{\"0\" : 0, \"1\" : 1, \"2\" : 2, }", "$[\"1\"]"), "1");
+        assertJsonExtract("[0, 1, 2]", "$.1", "1", false); // v2 => no such property. $.[1] works.
+        assertJsonExtract("[0, 1, 2]", "$[1]", "1");
+        assertJsonExtract("[0, 1, 2]", "$[\"1\"]", "1", false); //v2: invalid json path
+        assertJsonExtract("{\"0\" : 0, \"1\" : 1, \"2\" : 2, }", "$.1", "1", false); //v2: invalid json, extra ',' in the end, so v2 returns null
+        assertJsonExtract("{\"0\" : 0, \"1\" : 1, \"2\" : 2, }", "$[1]", "1", false); //v2: invalid json, extra ',' in the end, so v2 returns null
+        assertJsonExtract("{\"0\" : 0, \"1\" : 1, \"2\" : 2, }", "$[\"1\"]", "1", false); //v2: invalid json, extra ',' in the end, so v2 returns null
 
         // Test fields starting with a digit
-        assertEquals(doJsonExtract("{\"15day\" : 0, \"30day\" : 1, \"90day\" : 2, }", "$.30day"), "1");
-        assertEquals(doJsonExtract("{\"15day\" : 0, \"30day\" : 1, \"90day\" : 2, }", "$[30day]"), "1");
-        assertEquals(doJsonExtract("{\"15day\" : 0, \"30day\" : 1, \"90day\" : 2, }", "$[\"30day\"]"), "1");
+        assertJsonExtract("{\"15day\" : 0, \"30day\" : 1, \"90day\" : 2, }", "$.30day", "1", false); //v2: invalid json, extra ',' in the end, so v2 returns null
+        assertJsonExtract("{\"15day\" : 0, \"30day\" : 1, \"90day\" : 2, }", "$[30day]", "1", false); //v2: invalid json, extra ',' in the end, so v2 returns null
+        assertJsonExtract("{\"15day\" : 0, \"30day\" : 1, \"90day\" : 2, }", "$[\"30day\"]", "1", false); //v2: invalid json, extra ',' in the end, so v2 returns null
     }
 
     @Test
     public void testInvalidExtracts()
+            throws IOException
     {
         assertInvalidExtract("", "", "Invalid JSON path: ''");
         assertInvalidExtract("{}", "$.bar[2][-1]", "Invalid JSON path: '$.bar[2][-1]'");
@@ -329,14 +330,25 @@ public class TestJsonExtract
 
     private static String doScalarExtract(String inputJson, String jsonPath)
     {
-        Slice value = JsonExtract.extract(Slices.utf8Slice(inputJson), generateExtractor(jsonPath, new ScalarValueJsonExtractor()));
+        Slice value = JsonExtract.extract(utf8Slice(inputJson), generateExtractor(jsonPath, new ScalarValueJsonExtractor()));
         return (value == null) ? null : value.toStringUtf8();
     }
 
-    private static String doJsonExtract(String inputJson, String jsonPath)
+    private static void assertJsonExtract(String inputJson, String jsonPath, String expected)
+            throws IOException
     {
-        Slice value = JsonExtract.extract(Slices.utf8Slice(inputJson), generateExtractor(jsonPath, new JsonValueJsonExtractor()));
-        return (value == null) ? null : value.toStringUtf8();
+        assertJsonExtract(inputJson, jsonPath, expected, true);
+    }
+
+    private static void assertJsonExtract(String inputJson, String jsonPath, String expected, boolean testV2)
+            throws IOException
+    {
+        Slice value = JsonExtract.extract(utf8Slice(inputJson), generateExtractor(jsonPath, new JsonValueJsonExtractor()));
+        assertEquals((value == null) ? null : value.toStringUtf8(), expected, "JsonExtract.extract() failed");
+        if (testV2) {
+            Slice valueV2 = JsonFunctions.varcharJsonExtract_v2(utf8Slice(inputJson), utf8Slice(jsonPath));
+            assertEquals((valueV2 == null) ? null : valueV2.toStringUtf8(), expected, "JsonFunctions.varcharJsonExtract_v2 failed");
+        }
     }
 
     private static List<String> tokenizePath(String path)
@@ -345,9 +357,10 @@ public class TestJsonExtract
     }
 
     private static void assertInvalidExtract(String inputJson, String jsonPath, String message)
+            throws IOException
     {
         try {
-            doJsonExtract(inputJson, jsonPath);
+            assertJsonExtract(inputJson, jsonPath, null);
         }
         catch (PrestoException e) {
             assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
