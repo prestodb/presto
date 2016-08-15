@@ -60,6 +60,7 @@ import io.airlift.units.Duration;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -251,16 +252,12 @@ public class OrcStorageManager
             return new OrcPageSource(shardRewriter, recordReader, dataSource, columnIds, columnTypes, columnIndexes.build(), shardUuid, bucketNumber, systemMemoryUsage);
         }
         catch (IOException | RuntimeException e) {
-            try {
-                dataSource.close();
-            }
-            catch (IOException ex) {
-                // Self-suppression not permitted
-                if (e != ex) {
-                    e.addSuppressed(ex);
-                }
-            }
+            closeQuietly(dataSource);
             throw new PrestoException(RAPTOR_ERROR, "Failed to create page source for shard " + shardUuid, e);
+        }
+        catch (Throwable t) {
+            closeQuietly(dataSource);
+            throw t;
         }
     }
 
@@ -640,6 +637,15 @@ public class OrcStorageManager
                 stagingFiles.add(stagingFile);
                 writer = new OrcFileWriter(columnIds, columnTypes, stagingFile);
             }
+        }
+    }
+
+    private static void closeQuietly(Closeable closeable)
+    {
+        try {
+            closeable.close();
+        }
+        catch (IOException ignored) {
         }
     }
 }
