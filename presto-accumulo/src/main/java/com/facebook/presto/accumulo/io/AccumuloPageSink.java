@@ -33,6 +33,7 @@ import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.BatchWriter;
 import org.apache.accumulo.core.client.BatchWriterConfig;
 import org.apache.accumulo.core.client.Connector;
+import org.apache.accumulo.core.client.MultiTableBatchWriter;
 import org.apache.accumulo.core.client.MutationsRejectedException;
 import org.apache.accumulo.core.client.TableNotFoundException;
 import org.apache.accumulo.core.data.Mutation;
@@ -77,6 +78,7 @@ public class AccumuloPageSink
     public static final Text ROW_ID_COLUMN = new Text("___ROW___");
     private final AccumuloRowSerializer serializer;
     private final BatchWriter writer;
+    private final MultiTableBatchWriter multiTableBatchWriter;
     private final Optional<Indexer> indexer;
     private final List<AccumuloColumnHandle> columns;
     private final int rowIdOrdinal;
@@ -107,16 +109,17 @@ public class AccumuloPageSink
         try {
             // Create a BatchWriter to the Accumulo table
             BatchWriterConfig conf = new BatchWriterConfig();
-            writer = connector.createBatchWriter(table.getFullTableName(), conf);
+            multiTableBatchWriter = connector.createMultiTableBatchWriter(conf);
+            writer = multiTableBatchWriter.getBatchWriter(table.getFullTableName());
 
             // If the table is indexed, create an instance of an Indexer, else empty
             if (table.isIndexed()) {
                 indexer = Optional.of(
                         new Indexer(
-                                connector,
                                 connector.securityOperations().getUserAuthorizations(username),
                                 table,
-                                conf));
+                                multiTableBatchWriter.getBatchWriter(table.getIndexTableName()),
+                                multiTableBatchWriter.getBatchWriter(table.getMetricsTableName())));
             }
             else {
                 indexer = Optional.empty();
@@ -267,12 +270,11 @@ public class AccumuloPageSink
     public CompletableFuture<Collection<Slice>> finish()
     {
         try {
-            // Done serializing rows, so flush and close the writer and indexer
-            writer.flush();
-            writer.close();
+            // Done serializing rows, so flush and close all batch writers
             if (indexer.isPresent()) {
-                indexer.get().close();
+                indexer.get().addMetricMutations();
             }
+            multiTableBatchWriter.close();
         }
         catch (MutationsRejectedException e) {
             throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Mutation rejected by server on flush", e);
@@ -292,10 +294,10 @@ public class AccumuloPageSink
     {
         try {
             if (indexer.isPresent()) {
-                indexer.get().flush();
+                indexer.get().addMetricMutations();
                 // MetricsWriter is non-null if Indexer is present
             }
-            writer.flush();
+            multiTableBatchWriter.flush();
         }
         catch (MutationsRejectedException e) {
             throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Mutation rejected by server on flush", e);

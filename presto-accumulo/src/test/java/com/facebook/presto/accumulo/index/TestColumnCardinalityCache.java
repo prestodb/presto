@@ -42,6 +42,7 @@ import io.airlift.units.Duration;
 import org.apache.accumulo.core.client.BatchWriter;
 import org.apache.accumulo.core.client.BatchWriterConfig;
 import org.apache.accumulo.core.client.Connector;
+import org.apache.accumulo.core.client.MultiTableBatchWriter;
 import org.apache.accumulo.core.data.Mutation;
 import org.apache.accumulo.core.security.Authorizations;
 import org.apache.accumulo.core.security.ColumnVisibility;
@@ -74,7 +75,6 @@ import static org.testng.Assert.assertNotNull;
 public class TestColumnCardinalityCache
 {
     private static final AccumuloConfig CONFIG = new AccumuloConfig();
-    private static final BatchWriterConfig BWC = new BatchWriterConfig();
     private static final String SCHEMA = "schema";
     private static final String TABLE = TpchTable.LINE_ITEM.getTableName();
     private static final Multimap<AccumuloColumnConstraint, org.apache.accumulo.core.data.Range> EMPTY_CONSTRAINTS = ImmutableMultimap.of();
@@ -142,8 +142,9 @@ public class TestColumnCardinalityCache
         List<AccumuloColumnHandle> columns = fromTpchColumns(TpchTable.LINE_ITEM.getColumns());
         AccumuloRowSerializer serializer = new LexicoderRowSerializer();
         String indexTable = Indexer.getMetricsTableName(SCHEMA, TpchTable.LINE_ITEM.getTableName());
-        BatchWriter writer = connector.createBatchWriter(indexTable, BWC);
-        Indexer indexer = new Indexer(connector, AUTHS, table, BWC);
+        MultiTableBatchWriter multiTableBatchWriter = connector.createMultiTableBatchWriter(new BatchWriterConfig());
+        BatchWriter writer = multiTableBatchWriter.getBatchWriter(indexTable);
+        Indexer indexer = new Indexer(AUTHS, table, multiTableBatchWriter.getBatchWriter(table.getIndexTableName()), multiTableBatchWriter.getBatchWriter(table.getMetricsTableName()));
 
         for (LineItem item : TpchTable.LINE_ITEM.createGenerator(.01f, 1, 1)) {
             String line = item.toLine();
@@ -154,8 +155,8 @@ public class TestColumnCardinalityCache
             indexer.index(data);
         }
 
-        indexer.close();
-        writer.close();
+        indexer.addMetricMutations();
+        multiTableBatchWriter.close();
     }
 
     @Test(expectedExceptions = NullPointerException.class)
@@ -503,9 +504,10 @@ public class TestColumnCardinalityCache
 
         AccumuloTable table = client.createTable(metadata);
         connector.securityOperations().changeUserAuthorizations("root", new Authorizations("private"));
-        Indexer indexer = new Indexer(connector, new Authorizations("private"), table, BWC);
 
-        BatchWriter writer = connector.createBatchWriter(table.getFullTableName(), BWC);
+        MultiTableBatchWriter multiTableBatchWriter = connector.createMultiTableBatchWriter(new BatchWriterConfig());
+        Indexer indexer = new Indexer(new Authorizations("private"), table, multiTableBatchWriter.getBatchWriter(table.getIndexTableName()), multiTableBatchWriter.getBatchWriter(table.getMetricsTableName()));
+        BatchWriter writer = multiTableBatchWriter.getBatchWriter(table.getFullTableName());
         Mutation m = new Mutation("1");
         m.put("___ROW___", "___ROW___", "1");
         m.put("b", "b", "2");
@@ -519,8 +521,8 @@ public class TestColumnCardinalityCache
         m.put("c", "c", new ColumnVisibility("private"), "3");
         writer.addMutation(m);
         indexer.index(m);
-        indexer.close();
-        writer.close();
+        indexer.addMetricMutations();
+        multiTableBatchWriter.close();
 
         ColumnCardinalityCache cache = new ColumnCardinalityCache(connector, CONFIG);
         Range range = Range.equal(VARCHAR, Slices.copiedBuffer("2", UTF_8));

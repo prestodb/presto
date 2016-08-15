@@ -26,8 +26,6 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import org.apache.accumulo.core.client.BatchWriter;
-import org.apache.accumulo.core.client.BatchWriterConfig;
-import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.client.IteratorSetting;
 import org.apache.accumulo.core.client.IteratorSetting.Column;
 import org.apache.accumulo.core.client.MutationsRejectedException;
@@ -44,7 +42,6 @@ import org.apache.hadoop.io.Text;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
-import java.io.Closeable;
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.HashMap;
@@ -56,8 +53,6 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_DNE;
-import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -71,32 +66,41 @@ import static java.util.Objects.requireNonNull;
  * <p>
  * This class is totally not thread safe.
  * <p>
- * When creating a table, if it contains indexed columns, users will have to create the index table
- * and the index metrics table, the names of which can be retrieved using the static functions in
- * this class. Additionally, users MUST add iterators to the index metrics table (also available via
- * static function), and, while not required, recommended to add the locality groups to the index
- * table to improve index lookup times.
+ * Metric mutations are aggregated locally and written to the provided BatchWriter when
+ * {@link Indexer#addMetricMutations()} is called.
+ * This function must be called explicitly before flushing/closing the MultiTableBatchWriter.
  * <p>
- * Sample usage of an indexer:
+ * Sample usage of an Indexer:
  * <p>
  * <pre>
  * <code>
- * Indexer indexer = new Indexer(connector, userAuths, table, writerConf);
- * for (Mutation m : mutationsToNormalTable) {
- *      indexer.index(m);
- * }
+ * MultiTableBatchWriter multiTableBatchWriter = conn.createMultiTableBatchWriter(new BatchWriterConfig());
+ * BatchWriter tableWriter = multiTableBatchWriter.getBatchWriter(table.getFullTableName());
+ * Indexer indexer = new Indexer(
+ *     userAuths,
+ *     table,
+ *     multiTableBatchWriter.getBatchWriter(table.getIndexTableName()),
+ *     multiTableBatchWriter.getBatchWriter(table.getMetricsTableName()));
  *
- * // can flush indexer w/regular BatchWriter
- * indexer.flush()
+ * // Gather the mutations you want to write to the 'normal' data table
+ * List&ltMutation&gt; mutationsToNormalTable = // some mutations
+ * tableWriter.addMutations(mutationsToNormalTable);
  *
- * // finished adding new mutations, close the indexer
- * indexer.close();
+ * // And write them to the indexer as well
+ * indexer.index(mutationsToNormalTable)
+ *
+ * // Add metrics mutations (important!!!) and flush using the MTBW
+ * indexer.addMetricsMutations();
+ * multiTableBatchWriter.flush();
+ *
+ * // Finished adding all mutations? Make sure you add metrics mutations before closing the MTBW
+ * indexer.addMetricsMutations();
+ * multiTableBatchWriter.close();
  * </code>
  * </pre>
  */
 @NotThreadSafe
 public class Indexer
-        implements Closeable
 {
     public static final ByteBuffer METRICS_TABLE_ROW_ID = wrap("___METRICS_TABLE___".getBytes(UTF_8));
     public static final ByteBuffer METRICS_TABLE_ROWS_CF = wrap("___rows___".getBytes(UTF_8));
@@ -111,31 +115,25 @@ public class Indexer
     private static final byte UNDERSCORE = '_';
     private static final ColumnVisibility EMPTY_COLUMN_VISIBILITY = new ColumnVisibility();
 
-    private final AccumuloTable table;
     private final BatchWriter indexWriter;
-    private final BatchWriterConfig writerConfig;
-    private final Connector connector;
+    private final BatchWriter metricsWriter;
     private final Map<MetricsKey, AtomicLong> metrics = new HashMap<>();
     private final Multimap<ByteBuffer, ByteBuffer> indexColumns;
     private final Map<ByteBuffer, Map<ByteBuffer, Type>> indexColumnTypes;
     private final AccumuloRowSerializer serializer;
 
     public Indexer(
-            Connector connector,
             Authorizations auths,
             AccumuloTable table,
-            BatchWriterConfig writerConfig)
+            BatchWriter indexWriter,
+            BatchWriter metricsWriter)
             throws TableNotFoundException
     {
-        this.connector = requireNonNull(connector, "connector is null");
-        this.table = requireNonNull(table, "table is null");
-        this.writerConfig = requireNonNull(writerConfig, "writerConfig is null");
+        this.indexWriter = requireNonNull(indexWriter, "indexWriter is null");
+        this.metricsWriter = requireNonNull(metricsWriter, "metricsWriter is null");
         requireNonNull(auths, "auths is null");
 
         this.serializer = table.getSerializerInstance();
-
-        // Create our batch writer
-        indexWriter = connector.createBatchWriter(table.getIndexTableName(), writerConfig);
 
         ImmutableMultimap.Builder<ByteBuffer, ByteBuffer> indexColumnsBuilder = ImmutableMultimap.builder();
         Map<ByteBuffer, Map<ByteBuffer, Type>> indexColumnTypesBuilder = new HashMap<>();
@@ -178,11 +176,11 @@ public class Indexer
      * @param mutation Mutation to index
      */
     public void index(Mutation mutation)
+            throws MutationsRejectedException
     {
         checkArgument(mutation.getUpdates().size() > 0, "Mutation must have at least one column update");
 
         // Increment the cardinality for the number of rows in the table
-        ColumnVisibility rowVisibility = new ColumnVisibility(mutation.getUpdates().stream().findAny().get().getColumnVisibility());
         incrementMetric(METRICS_TABLE_ROW_ID, METRICS_TABLE_ROWS_CF, EMPTY_COLUMN_VISIBILITY);
 
         // For each column update in this mutation
@@ -222,6 +220,7 @@ public class Indexer
     }
 
     public void index(Iterable<Mutation> mutations)
+            throws MutationsRejectedException
     {
         for (Mutation mutation : mutations) {
             index(mutation);
@@ -229,16 +228,12 @@ public class Indexer
     }
 
     private void addIndexMutation(ByteBuffer row, ByteBuffer family, ColumnVisibility visibility, byte[] qualifier)
+            throws MutationsRejectedException
     {
         // Create the mutation and add it to the batch writer
         Mutation indexMutation = new Mutation(row.array());
         indexMutation.put(family.array(), qualifier, visibility, EMPTY_BYTES);
-        try {
-            indexWriter.addMutation(indexMutation);
-        }
-        catch (MutationsRejectedException e) {
-            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Index mutation rejected by server", e);
-        }
+        indexWriter.addMutation(indexMutation);
 
         // Increment the cardinality metrics for this value of index
         // metrics is a mapping of row ID to column family
@@ -265,47 +260,10 @@ public class Indexer
     }
 
     /**
-     * Flushes all Mutations in the index writer. And all metric mutations to the metrics table.
-     * Note that the metrics table is not updated until this method is explicitly called (or implicitly via close).
+     * Writes all locally-aggregated metrics to the metricsWriter provided during construction of the object.
      */
-    public void flush()
-    {
-        try {
-            // Flush index writer
-            indexWriter.flush();
-
-            // Write out metrics mutations
-            BatchWriter metricsWriter = connector.createBatchWriter(table.getMetricsTableName(), writerConfig);
-            metricsWriter.addMutations(getMetricsMutations());
-            metricsWriter.close();
-
-            // Clear the metrics
-            metrics.clear();
-        }
-        catch (MutationsRejectedException e) {
-            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Index mutation was rejected by server on flush", e);
-        }
-        catch (TableNotFoundException e) {
-            throw new PrestoException(ACCUMULO_TABLE_DNE, "Accumulo table does not exist", e);
-        }
-    }
-
-    /**
-     * Flushes all remaining mutations via {@link Indexer#flush} and closes the index writer.
-     */
-    @Override
-    public void close()
-    {
-        try {
-            flush();
-            indexWriter.close();
-        }
-        catch (MutationsRejectedException e) {
-            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Mutation was rejected by server on close", e);
-        }
-    }
-
-    private Collection<Mutation> getMetricsMutations()
+    public void addMetricMutations()
+            throws MutationsRejectedException
     {
         ImmutableList.Builder<Mutation> mutationBuilder = ImmutableList.builder();
         // Mapping of column value to column to number of row IDs that contain that value
@@ -319,10 +277,10 @@ public class Indexer
             mut.put(entry.getKey().family.array(), CARDINALITY_CQ, entry.getKey().visibility, ENCODER.encode(entry.getValue().get()));
 
             // Add to our list of mutations
-            mutationBuilder.add(mut);
+            metricsWriter.addMutation(mut);
         }
 
-        return mutationBuilder.build();
+        metrics.clear();
     }
 
     /**
@@ -443,15 +401,6 @@ public class Indexer
         public final ByteBuffer row;
         public final ByteBuffer family;
         public final ColumnVisibility visibility;
-
-        public MetricsKey(ByteBuffer row, ByteBuffer family)
-        {
-            requireNonNull(row, "row is null");
-            requireNonNull(family, "family is null");
-            this.row = row;
-            this.family = family;
-            this.visibility = EMPTY_VISIBILITY;
-        }
 
         public MetricsKey(ByteBuffer row, ByteBuffer family, ColumnVisibility visibility)
         {

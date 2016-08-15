@@ -25,6 +25,7 @@ import org.apache.accumulo.core.client.BatchWriterConfig;
 import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.client.Instance;
 import org.apache.accumulo.core.client.IteratorSetting;
+import org.apache.accumulo.core.client.MultiTableBatchWriter;
 import org.apache.accumulo.core.client.Scanner;
 import org.apache.accumulo.core.client.mock.MockInstance;
 import org.apache.accumulo.core.client.security.tokens.PasswordToken;
@@ -129,9 +130,11 @@ public class TestIndexer
             conn.tableOperations().attachIterator(table.getMetricsTableName(), s);
         }
 
-        Indexer indexer = new Indexer(conn, new Authorizations(), table, new BatchWriterConfig());
+        MultiTableBatchWriter multiTableBatchWriter = conn.createMultiTableBatchWriter(new BatchWriterConfig());
+        Indexer indexer = new Indexer(new Authorizations(), table, multiTableBatchWriter.getBatchWriter(table.getIndexTableName()), multiTableBatchWriter.getBatchWriter(table.getMetricsTableName()));
         indexer.index(m1);
-        indexer.flush();
+        indexer.addMetricMutations();
+        multiTableBatchWriter.flush();
 
         Scanner scan = conn.createScanner(table.getIndexTableName(), new Authorizations());
 
@@ -158,7 +161,8 @@ public class TestIndexer
 
         scan.close();
         indexer.index(m2);
-        indexer.close();
+        indexer.addMetricMutations();
+        multiTableBatchWriter.close();
 
         scan = conn.createScanner(table.getIndexTableName(), new Authorizations());
         iter = scan.iterator();
@@ -205,9 +209,11 @@ public class TestIndexer
             conn.tableOperations().attachIterator(table.getMetricsTableName(), s);
         }
 
-        Indexer indexer = new Indexer(conn, new Authorizations(), table, new BatchWriterConfig());
+        MultiTableBatchWriter multiTableBatchWriter = conn.createMultiTableBatchWriter(new BatchWriterConfig());
+        Indexer indexer = new Indexer(new Authorizations(), table, multiTableBatchWriter.getBatchWriter(table.getIndexTableName()), multiTableBatchWriter.getBatchWriter(table.getMetricsTableName()));
         indexer.index(m1);
-        indexer.flush();
+        indexer.addMetricMutations();
+        multiTableBatchWriter.flush();
 
         Scanner scan = conn.createScanner(table.getIndexTableName(), new Authorizations());
 
@@ -235,7 +241,8 @@ public class TestIndexer
         scan.close();
 
         indexer.index(m2v);
-        indexer.close();
+        indexer.addMetricMutations();
+        multiTableBatchWriter.flush();
 
         scan = conn.createScanner(table.getIndexTableName(), new Authorizations("private"));
         iter = scan.iterator();
@@ -271,7 +278,8 @@ public class TestIndexer
         scan.close();
 
         indexer.index(m3v);
-        indexer.close();
+        indexer.addMetricMutations();
+        multiTableBatchWriter.close();
 
         scan = conn.createScanner(table.getIndexTableName(), new Authorizations("private", "moreprivate"));
         iter = scan.iterator();
@@ -331,11 +339,14 @@ public class TestIndexer
         for (IteratorSetting s : Indexer.getMetricIterators(table)) {
             conn.tableOperations().attachIterator(table.getMetricsTableName(), s);
         }
-        Indexer indexer = new Indexer(conn, new Authorizations(), table, new BatchWriterConfig());
+
+        MultiTableBatchWriter multiTableBatchWriter = conn.createMultiTableBatchWriter(new BatchWriterConfig());
+        Indexer indexer = new Indexer(new Authorizations(), table, multiTableBatchWriter.getBatchWriter(table.getIndexTableName()), multiTableBatchWriter.getBatchWriter(table.getMetricsTableName()));
         indexer.index(m1);
         indexer.index(m2v);
         indexer.index(m3v);
-        indexer.flush();
+        indexer.addMetricMutations();
+        multiTableBatchWriter.close();
 
         Scanner scan = conn.createScanner(table.getMetricsTableName(), new Authorizations());
         IteratorSetting setting = new IteratorSetting(Integer.MAX_VALUE, "valuesummingiterator", ValueSummingIterator.class);
