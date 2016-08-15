@@ -59,11 +59,9 @@ public class NodePartitioningManager
         PartitioningHandle partitioningHandle = partitioningScheme.getPartitioning().getHandle();
         BucketFunction bucketFunction;
         if (partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle) {
-            checkArgument(partitioningScheme.getBucketToPartition().isPresent(), "Bucket to partition must be set before a partition function can be created");
-
             return ((SystemPartitioningHandle) partitioningHandle.getConnectorHandle()).getPartitionFunction(
                     partitioningScheme.getHashColumn().isPresent(),
-                    partitioningScheme.getBucketToPartition().get());
+                    bucketToPartition.get());
         }
         else {
             ConnectorNodePartitioningProvider partitioningProvider = partitioningProviders.get(partitioningHandle.getConnectorId().get());
@@ -76,7 +74,7 @@ public class NodePartitioningManager
 
             checkArgument(bucketFunction != null, "No function %s", partitioningHandle);
         }
-        return new PartitionFunction(bucketFunction, partitioningScheme.getBucketToPartition().get());
+        return new PartitionFunction(bucketFunction, bucketToPartition.get());
     }
 
     public NodePartitionMap getNodePartitioningMap(Session session, PartitioningHandle partitioningHandle)
