@@ -163,7 +163,7 @@ public class JdbcMetadata
     public void finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         JdbcOutputTableHandle handle = checkType(tableHandle, JdbcOutputTableHandle.class, "tableHandle");
-        jdbcClient.commitCreateTable(handle, fragments);
+        jdbcClient.commitCreateTable(handle);
         clearRollback();
     }
 
