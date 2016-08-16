@@ -169,6 +169,11 @@ Property Name                                      Description                  
                                                    to HDFS.
 
 ``hive.hdfs.presto.keytab``                        HDFS client keytab location.
+
+``hive.security``                                  See :doc:`hive-security`.
+
+``security.config-file``                           Path of config file to use when ``hive.security=file``.
+                                                   See :ref:`hive-file-based-authorization` for details.
 ================================================== ============================================================ ==========
 
 Querying Hive Tables
