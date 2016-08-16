@@ -66,6 +66,11 @@ public class FrameBound
         this.value = Optional.ofNullable(value);
     }
 
+    public static FrameBound defaultEnd(NodeLocation location)
+    {
+        return new FrameBound(Optional.of(location), Type.CURRENT_ROW);
+    }
+
     public Type getType()
     {
         return type;
