@@ -647,7 +647,9 @@ public final class UnscaledDecimal128Arithmetic
             return leftStrictlyNegative ? -1 : 1;
         }
         else {
-            return compareUnsigned(leftRawLow, leftRawHigh, rightRawLow, rightRawHigh) * (leftStrictlyNegative ? -1 : 1);
+            long leftHigh = unpackUnsignedLong(leftRawHigh);
+            long rightHigh = unpackUnsignedLong(rightRawHigh);
+            return compareUnsigned(leftRawLow, leftHigh, rightRawLow, rightHigh) * (leftStrictlyNegative ? -1 : 1);
         }
     }
 
@@ -670,16 +672,12 @@ public final class UnscaledDecimal128Arithmetic
 
     public static int compareUnsigned(long leftRawLow, long leftRawHigh, long rightRawLow, long rightRawHigh)
     {
-        long leftHigh = unpackUnsignedLong(leftRawHigh);
-        long rightHigh = unpackUnsignedLong(rightRawHigh);
-        if (leftHigh != rightHigh) {
-            return Long.compareUnsigned(leftHigh, rightHigh);
+        if (leftRawHigh != rightRawHigh) {
+            return Long.compareUnsigned(leftRawHigh, rightRawHigh);
         }
-
         if (leftRawLow != rightRawLow) {
             return Long.compareUnsigned(leftRawLow, rightRawLow);
         }
-
         return 0;
     }
 
@@ -928,6 +926,153 @@ public final class UnscaledDecimal128Arithmetic
         }
 
         pack(result, low, high, negative);
+    }
+
+    public static Slice divideRoundUp(long dividend, int dividendScaleFactor, long divisor)
+    {
+        return divideRoundUp(
+                Math.abs(dividend), dividend < 0 ? SIGN_LONG_MASK : 0, dividendScaleFactor,
+                Math.abs(divisor), divisor < 0 ? SIGN_LONG_MASK : 0);
+    }
+
+    public static Slice divideRoundUp(long dividend, int dividendScaleFactor, Slice divisor)
+    {
+        return divideRoundUp(
+                Math.abs(dividend), dividend < 0 ? SIGN_LONG_MASK : 0, dividendScaleFactor,
+                getRawLong(divisor, 0), getRawLong(divisor, 1));
+    }
+
+    public static Slice divideRoundUp(Slice dividend, int dividendScaleFactor, long divisor)
+    {
+        return divideRoundUp(
+                getRawLong(dividend, 0), getRawLong(dividend, 1), dividendScaleFactor,
+                Math.abs(divisor), divisor < 0 ? SIGN_LONG_MASK : 0);
+    }
+
+    public static Slice divideRoundUp(Slice dividend, int dividendScaleFactor, Slice divisor)
+    {
+        return divideRoundUp(
+                getRawLong(dividend, 0), getRawLong(dividend, 1), dividendScaleFactor,
+                getRawLong(divisor, 0), getRawLong(divisor, 1));
+    }
+
+    private static Slice divideRoundUp(long dividendLow, long dividendHigh, int dividendScaleFactor, long divisorLow, long divisorHigh)
+    {
+        Slice quotient = unscaledDecimal();
+        Slice remainder = unscaledDecimal();
+        divide(dividendLow, dividendHigh, dividendScaleFactor, divisorLow, divisorHigh, 0, quotient, remainder);
+
+        // round
+        boolean quotientIsNegative = isNegative(quotient);
+        setNegative(quotient, false);
+        setNegative(remainder, false);
+
+        // if (2 * remainder >= divisor) - increment quotient by one
+        shiftLeftDestructive(remainder, 1);
+        long remainderLow = getRawLong(remainder, 0);
+        long remainderHigh = getRawLong(remainder, 1);
+        long divisorHighUnsigned = unpackUnsignedLong(divisorHigh);
+        if (compareUnsigned(remainderLow, remainderHigh, divisorLow, divisorHighUnsigned) >= 0) {
+            incrementUnsafe(quotient);
+            throwIfOverflows(quotient);
+        }
+
+        setNegative(quotient, quotientIsNegative);
+        return quotient;
+    }
+
+    // visible for testing
+    static Slice shiftLeft(Slice decimal, int leftShifts)
+    {
+        Slice result = Slices.copyOf(decimal);
+        shiftLeftDestructive(result, leftShifts);
+        return result;
+    }
+
+    // visible for testing
+    static void shiftLeftDestructive(Slice decimal, int leftShifts)
+    {
+        if (leftShifts == 0) {
+            return;
+        }
+
+        int wordShifts = leftShifts / 64;
+        int bitShiftsInWord = leftShifts % 64;
+        int shiftRestore = 64 - bitShiftsInWord;
+
+        // check overflow
+        if (bitShiftsInWord != 0) {
+            if ((getLong(decimal, 1 - wordShifts) & (-1L << shiftRestore)) != 0) {
+                throwOverflowException();
+            }
+        }
+        if (wordShifts == 1) {
+            if (getLong(decimal, 1) != 0) {
+                throwOverflowException();
+            }
+        }
+
+        // Store negative before settings values to result.
+        boolean negative = isNegative(decimal);
+
+        long low;
+        long high;
+
+        switch (wordShifts) {
+            case 0:
+                low = getLong(decimal, 0);
+                high = getLong(decimal, 1);
+                break;
+            case 1:
+                low = 0;
+                high = getLong(decimal, 0);
+                break;
+            default:
+                throw new IllegalArgumentException();
+        }
+
+        if (bitShiftsInWord > 0) {
+            high = (high << bitShiftsInWord) | (low >>> shiftRestore);
+            low = (low << bitShiftsInWord);
+        }
+
+        pack(decimal, low, high, negative);
+    }
+
+    public static Slice remainder(long dividend, int dividendScaleFactor, long divisor, int divisorScaleFactor)
+    {
+        return remainder(
+                Math.abs(dividend), dividend < 0 ? SIGN_LONG_MASK : 0, dividendScaleFactor,
+                Math.abs(divisor), divisor < 0 ? SIGN_LONG_MASK : 0, divisorScaleFactor);
+    }
+
+    public static Slice remainder(long dividend, int dividendScaleFactor, Slice divisor, int divisorScaleFactor)
+    {
+        return remainder(
+                Math.abs(dividend), dividend < 0 ? SIGN_LONG_MASK : 0, dividendScaleFactor,
+                getRawLong(divisor, 0), getRawLong(divisor, 1), divisorScaleFactor);
+    }
+
+    public static Slice remainder(Slice dividend, int dividendScaleFactor, long divisor, int divisorScaleFactor)
+    {
+        return remainder(
+                getRawLong(dividend, 0), getRawLong(dividend, 1), dividendScaleFactor,
+                Math.abs(divisor), divisor < 0 ? SIGN_LONG_MASK : 0, divisorScaleFactor);
+    }
+
+    public static Slice remainder(Slice dividend, int dividendScaleFactor, Slice divisor, int divisorScaleFactor)
+    {
+        return remainder(
+                getRawLong(dividend, 0), getRawLong(dividend, 1), dividendScaleFactor,
+                getRawLong(divisor, 0), getRawLong(divisor, 1), divisorScaleFactor);
+    }
+
+    private static Slice remainder(long dividendLow, long dividendHigh, int dividendScaleFactor, long divisorLow, long divisorHigh, int divisorScaleFactor)
+    {
+        Slice quotient = unscaledDecimal();
+        Slice remainder = unscaledDecimal();
+        divide(dividendLow, dividendHigh, dividendScaleFactor, divisorLow, divisorHigh, divisorScaleFactor, quotient, remainder);
+        return remainder;
     }
 
     // visible for testing
