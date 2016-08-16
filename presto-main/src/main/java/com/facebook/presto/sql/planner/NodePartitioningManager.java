@@ -16,23 +16,32 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.operator.BucketToPartitionFunction;
+import com.facebook.presto.operator.InterpretedHashGenerator;
 import com.facebook.presto.operator.PartitionFunction;
+import com.facebook.presto.operator.PrecomputedHashGenerator;
+import com.facebook.presto.operator.exchange.SystemHashPartitionFunction;
 import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
+import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
+import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
 import java.util.function.ToIntFunction;
+import java.util.stream.IntStream;
 
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isFixedHashPartitioning;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -70,6 +79,26 @@ public class NodePartitioningManager
             bucketFunctionSupplier = () -> getBucketFunction(session, partitioningHandle);
         }
         return new RemotePartitionFunctionSupplier(bucketFunctionSupplier, bucketToPartition);
+    }
+
+    public Supplier<PartitionFunction> createLocalPartitionFunction(Session session, PartitioningScheme partitioningScheme)
+    {
+        ConnectorPartitioningHandle handle = partitioningScheme.getPartitioning().getHandle().getConnectorHandle();
+        checkArgument(handle instanceof SystemPartitioningHandle, "Only system functions are supported for local partitioning");
+        SystemPartitioningHandle systemHandle = (SystemPartitioningHandle) handle;
+
+        checkArgument(systemHandle.getPartitionCount().isPresent(), "System partitioning must have a fixed partition count");
+        int partitionCount = systemHandle.getPartitionCount().getAsInt();
+
+        if (isFixedHashPartitioning(partitioningScheme.getPartitioning())) {
+            if (partitioningScheme.getHashColumn().isPresent()) {
+                return new LocalPrecomputedHashPartitionFunctionSupplier(partitionCount);
+            }
+            List<Type> partitionChannelTypes = systemHandle.getPartitioningTypes();
+            return new LocalHashPartitionFunctionSupplier(partitionCount, partitionChannelTypes);
+        }
+
+        throw new IllegalArgumentException("Unsupported local partitioning " + handle);
     }
 
     private BucketFunction getBucketFunction(Session session, PartitioningHandle partitioningHandle)
@@ -149,6 +178,49 @@ public class NodePartitioningManager
         public PartitionFunction get()
         {
             return new BucketToPartitionFunction(bucketFunctionFactory.get(), bucketToPartition);
+        }
+    }
+
+    private static class LocalPrecomputedHashPartitionFunctionSupplier
+            implements Supplier<PartitionFunction>
+    {
+        private final int partitionCount;
+
+        public LocalPrecomputedHashPartitionFunctionSupplier(int partitionCount)
+        {
+            // for single partition, the page does not need to be partitioned
+            checkArgument(partitionCount > 1, "Partition count must be larger than 1");
+            this.partitionCount = partitionCount;
+        }
+
+        @Override
+        public PartitionFunction get()
+        {
+            return new SystemHashPartitionFunction(new PrecomputedHashGenerator(0), partitionCount);
+        }
+    }
+
+    private static class LocalHashPartitionFunctionSupplier
+            implements Supplier<PartitionFunction>
+    {
+        private final int partitionCount;
+        private final List<Type> partitionChannelTypes;
+        private final int[] channels;
+
+        public LocalHashPartitionFunctionSupplier(int partitionCount, List<Type> partitionChannelTypes)
+        {
+            // for single partition, the page does not need to be partitioned
+            checkArgument(partitionCount > 1, "Partition count must be larger than 1");
+            this.partitionCount = partitionCount;
+
+            this.partitionChannelTypes = ImmutableList.copyOf(requireNonNull(partitionChannelTypes, "partitionChannelTypes is null"));
+            channels = IntStream.range(0, partitionChannelTypes.size()).toArray();
+        }
+
+        @Override
+        public PartitionFunction get()
+        {
+            return new SystemHashPartitionFunction(new InterpretedHashGenerator(partitionChannelTypes, channels), partitionCount);
         }
     }
 }

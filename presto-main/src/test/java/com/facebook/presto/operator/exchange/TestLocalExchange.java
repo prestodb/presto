@@ -14,21 +14,29 @@
 package com.facebook.presto.operator.exchange;
 
 import com.facebook.presto.SequencePageBuilder;
+import com.facebook.presto.execution.NodeTaskMap;
+import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
+import com.facebook.presto.execution.scheduler.NodeScheduler;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.operator.InterpretedHashGenerator;
 import com.facebook.presto.operator.PageAssertions;
 import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeSinkFactory;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.NodePartitioningManager;
+import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Optional;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.fixedBroadcastPartitioning;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.fixedHashPartitioning;
@@ -43,13 +51,35 @@ import static org.testng.Assert.assertTrue;
 
 public class TestLocalExchange
 {
+    private static final List<Symbol> OUTPUT_LAYOUT = ImmutableList.of(new Symbol("test"));
     private static final List<Type> TYPES = ImmutableList.of(BIGINT);
     private static final DataSize RETAINED_PAGE_SIZE = new DataSize(createPage(42).getRetainedSizeInBytes(), BYTE);
+
+    private NodePartitioningManager nodePartitioningManager;
+
+    @BeforeClass
+    public void setUp()
+    {
+        // we don't start the finalizer so nothing will be collected, which is ok for a test
+        FinalizerService finalizerService = new FinalizerService();
+        NodeScheduler nodeScheduler = new NodeScheduler(
+                new LegacyNetworkTopology(),
+                new InMemoryNodeManager(),
+                new NodeSchedulerConfig().setIncludeCoordinator(true),
+                new NodeTaskMap(finalizerService));
+        nodePartitioningManager = new NodePartitioningManager(nodeScheduler);
+    }
 
     @Test
     public void testGatherSingleWriter()
     {
-        LocalExchange exchange = new LocalExchange(singlePartition(), TYPES, ImmutableList.of(), Optional.empty(), new DataSize(retainedSizeOfPages(99), BYTE));
+        LocalExchange exchange = new LocalExchange(
+                TEST_SESSION,
+                nodePartitioningManager,
+                OUTPUT_LAYOUT,
+                TYPES,
+                new PartitioningScheme(singlePartition(), OUTPUT_LAYOUT),
+                new DataSize(retainedSizeOfPages(99), BYTE));
         assertEquals(exchange.getBufferCount(), 1);
         assertExchangeTotalBufferedBytes(exchange, 0);
 
@@ -109,7 +139,12 @@ public class TestLocalExchange
     @Test
     public void testBroadcast()
     {
-        LocalExchange exchange = new LocalExchange(fixedBroadcastPartitioning(2), TYPES, ImmutableList.of(), Optional.empty());
+        LocalExchange exchange = new LocalExchange(
+                TEST_SESSION,
+                nodePartitioningManager,
+                OUTPUT_LAYOUT,
+                TYPES,
+                new PartitioningScheme(fixedBroadcastPartitioning(2), OUTPUT_LAYOUT));
         assertEquals(exchange.getBufferCount(), 2);
         assertExchangeTotalBufferedBytes(exchange, 0);
 
@@ -184,7 +219,12 @@ public class TestLocalExchange
     @Test
     public void testRandom()
     {
-        LocalExchange exchange = new LocalExchange(fixedRandomPartitioning(2), TYPES, ImmutableList.of(), Optional.empty());
+        LocalExchange exchange = new LocalExchange(
+                TEST_SESSION,
+                nodePartitioningManager,
+                OUTPUT_LAYOUT,
+                TYPES,
+                new PartitioningScheme(fixedRandomPartitioning(2), OUTPUT_LAYOUT));
         assertEquals(exchange.getBufferCount(), 2);
         assertExchangeTotalBufferedBytes(exchange, 0);
 
@@ -220,7 +260,12 @@ public class TestLocalExchange
     @Test
     public void testPartition()
     {
-        LocalExchange exchange = new LocalExchange(fixedHashPartitioning(2, ImmutableList.of(new Symbol("test")), TYPES), TYPES, ImmutableList.of(0), Optional.empty());
+        LocalExchange exchange = new LocalExchange(
+                TEST_SESSION,
+                nodePartitioningManager,
+                OUTPUT_LAYOUT,
+                TYPES,
+                new PartitioningScheme(fixedHashPartitioning(2, OUTPUT_LAYOUT, TYPES), OUTPUT_LAYOUT));
         assertEquals(exchange.getBufferCount(), 2);
         assertExchangeTotalBufferedBytes(exchange, 0);
 
@@ -274,9 +319,12 @@ public class TestLocalExchange
     @Test
     public void writeUnblockWhenAllReadersFinish()
     {
-        ImmutableList<BigintType> types = ImmutableList.of(BIGINT);
-
-        LocalExchange exchange = new LocalExchange(fixedBroadcastPartitioning(2), types, ImmutableList.of(), Optional.empty());
+        LocalExchange exchange = new LocalExchange(
+                TEST_SESSION,
+                nodePartitioningManager,
+                OUTPUT_LAYOUT,
+                TYPES,
+                new PartitioningScheme(fixedBroadcastPartitioning(2), OUTPUT_LAYOUT));
         assertEquals(exchange.getBufferCount(), 2);
         assertExchangeTotalBufferedBytes(exchange, 0);
 
@@ -310,7 +358,13 @@ public class TestLocalExchange
     @Test
     public void writeUnblockWhenAllReadersFinishAndPagesConsumed()
     {
-        LocalExchange exchange = new LocalExchange(fixedBroadcastPartitioning(2), TYPES, ImmutableList.of(), Optional.empty(), new DataSize(1, BYTE));
+        LocalExchange exchange = new LocalExchange(
+                TEST_SESSION,
+                nodePartitioningManager,
+                OUTPUT_LAYOUT,
+                TYPES,
+                new PartitioningScheme(fixedBroadcastPartitioning(2), OUTPUT_LAYOUT),
+                new DataSize(1, BYTE));
         assertEquals(exchange.getBufferCount(), 2);
         assertExchangeTotalBufferedBytes(exchange, 0);
 

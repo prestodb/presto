@@ -15,6 +15,11 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.RowPagesBuilder;
+import com.facebook.presto.execution.NodeTaskMap;
+import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
+import com.facebook.presto.execution.scheduler.NodeScheduler;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
 import com.facebook.presto.operator.ParallelHashBuildOperator.ParallelHashBuildOperatorFactory;
 import com.facebook.presto.operator.ValuesOperator.ValuesOperatorFactory;
@@ -25,11 +30,14 @@ import com.facebook.presto.operator.exchange.LocalExchangeSourceOperator.LocalEx
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.Partitioning;
+import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingTaskContext;
+import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -40,6 +48,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -693,14 +702,33 @@ public class TestHashJoinOperator
     private static LookupSourceSupplier buildHash(boolean parallelBuild, TaskContext taskContext, List<Integer> hashChannels, RowPagesBuilder buildPages, Optional<JoinFilterFunction> filterFunction)
     {
         if (parallelBuild) {
+            // we don't start the finalizer so nothing will be collected, which is ok for a test
+            FinalizerService finalizerService = new FinalizerService();
+            NodeScheduler nodeScheduler = new NodeScheduler(
+                    new LegacyNetworkTopology(),
+                    new InMemoryNodeManager(),
+                    new NodeSchedulerConfig().setIncludeCoordinator(true),
+                    new NodeTaskMap(finalizerService));
+            NodePartitioningManager  nodePartitioningManager = new NodePartitioningManager(nodeScheduler);
+
             List<Symbol> hashSymbols = hashChannels.stream()
-                    .map(channel -> new Symbol("test" + buildPages.getTypes().get(channel)))
+                    .map(channel -> new Symbol("test" + channel))
                     .collect(toImmutableList());
             List<Type> hashChannelTypes = hashChannels.stream()
                     .map(channel -> buildPages.getTypes().get(channel))
                     .collect(toImmutableList());
             Partitioning partitioning = fixedHashPartitioning(PARTITION_COUNT, hashSymbols, hashChannelTypes);
-            LocalExchange localExchange = new LocalExchange(partitioning, buildPages.getTypes(), hashChannels, buildPages.getHashChannel());
+
+            List<Symbol> buildLayout = new ArrayList<>();
+            for (int i = 0; i < buildPages.getTypes().size(); i++) {
+                buildLayout.add(new Symbol("test" + i));
+            }
+            LocalExchange localExchange = new LocalExchange(
+                    TEST_SESSION,
+                    nodePartitioningManager,
+                    buildLayout,
+                    buildPages.getTypes(),
+                    new PartitioningScheme(partitioning, buildLayout));
             LocalExchangeSinkFactory sinkFactory = localExchange.createSinkFactory();
             sinkFactory.noMoreSinkFactories();
 

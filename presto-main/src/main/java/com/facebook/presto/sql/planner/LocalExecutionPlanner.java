@@ -1673,14 +1673,13 @@ public class LocalExecutionPlanner
             checkArgument(node.getScope() == LOCAL, "Only local exchanges are supported in the local planner");
             checkArgument(!context.getDriverInstanceCount().isPresent(), "Plan context must not have driver instance count set for local exchange");
 
-            List<Type> types = getSourceOperatorTypes(node, context.getTypes());
-            List<Integer> channels = node.getPartitioningScheme().getPartitioning().getArguments().stream()
-                    .map(argument -> node.getOutputSymbols().indexOf(argument.getColumn()))
-                    .collect(toImmutableList());
-            Optional<Integer> hashChannel = node.getPartitioningScheme().getHashColumn()
-                    .map(symbol -> node.getOutputSymbols().indexOf(symbol));
+            LocalExchange localExchange = new LocalExchange(
+                    session,
+                    nodePartitioningManager,
+                    node.getOutputSymbols(),
+                    getSourceOperatorTypes(node, context.getTypes()),
+                    node.getPartitioningScheme());
 
-            LocalExchange localExchange = new LocalExchange(node.getPartitioningScheme().getPartitioning(), types, channels, hashChannel);
             context.setDriverInstanceCount(localExchange.getBufferCount());
 
             for (int i = 0; i < node.getSources().size(); i++) {

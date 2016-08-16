@@ -13,15 +13,16 @@
  */
 package com.facebook.presto.operator.exchange;
 
-import com.facebook.presto.operator.InterpretedHashGenerator;
+import com.facebook.presto.Session;
 import com.facebook.presto.operator.PartitionFunction;
-import com.facebook.presto.operator.PrecomputedHashGenerator;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.Partitioning;
+import com.facebook.presto.sql.planner.PartitioningScheme;
+import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SystemPartitioningHandle;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -30,19 +31,16 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.io.Closeable;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.operator.exchange.LocalExchangeSink.finishedLocalExchangeSink;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.getSystemPartitionCount;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isFixedBroadcastPartitioning;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isFixedHashPartitioning;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isFixedRandomPartitioning;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -52,6 +50,7 @@ import static java.util.Objects.requireNonNull;
 public class LocalExchange
 {
     private static final DataSize DEFAULT_MAX_BUFFERED_BYTES = new DataSize(32, MEGABYTE);
+
     private final List<Type> types;
     private final Supplier<Consumer<Page>> exchangerSupplier;
 
@@ -72,27 +71,42 @@ public class LocalExchange
     private final Set<LocalExchangeSink> sinks = new HashSet<>();
 
     public LocalExchange(
-            Partitioning partitioning,
-            List<? extends Type> types,
-            List<Integer> partitionChannels,
-            Optional<Integer> partitionHashChannel)
+            Session session,
+            NodePartitioningManager partitioningManager,
+            List<Symbol> layout,
+            List<Type> types,
+            PartitioningScheme partitioningScheme)
     {
-        this(partitioning, types, partitionChannels, partitionHashChannel, DEFAULT_MAX_BUFFERED_BYTES);
+        this(session, partitioningManager, layout, types, partitioningScheme, DEFAULT_MAX_BUFFERED_BYTES);
     }
 
     public LocalExchange(
-            Partitioning partitioning,
-            List<? extends Type> types,
-            List<Integer> partitionChannels,
-            Optional<Integer> partitionHashChannel,
+            Session session,
+            NodePartitioningManager partitioningManager,
+            List<Symbol> layout,
+            List<Type> types,
+            PartitioningScheme partitioningScheme,
             DataSize maxBufferedBytes)
     {
+        requireNonNull(session, "session is null");
+        requireNonNull(partitioningManager, "partitioningManager is null");
+        requireNonNull(layout, "layout is null");
+        requireNonNull(types, "types is null");
+        requireNonNull(partitioningScheme, "partitioningScheme is null");
+        requireNonNull(maxBufferedBytes, "maxBufferedBytes is null");
+        checkArgument(layout.size() == types.size(), "layout and types must be the same size");
+
+        SystemPartitioningHandle systemHandle = checkType(
+                partitioningScheme.getPartitioning().getHandle().getConnectorHandle(),
+                SystemPartitioningHandle.class,
+                "Local exchange partitioning handle");
+
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
 
-        OptionalInt partitionCount = getSystemPartitionCount(partitioning);
-        checkArgument(partitionCount.isPresent(), "Unsupported local exchange partitioning %s", partitioning);
+        Partitioning partitioning = partitioningScheme.getPartitioning();
 
-        int bufferCount = partitionCount.getAsInt();
+        checkArgument(systemHandle.getPartitionCount().isPresent(), "System partitioning must have a fixed partition count");
+        int bufferCount = systemHandle.getPartitionCount().getAsInt();
         ImmutableList.Builder<LocalExchangeSource> sources = ImmutableList.builder();
         for (int i = 0; i < bufferCount; i++) {
             sources.add(new LocalExchangeSource(types, source -> checkAllSourcesFinished()));
@@ -114,36 +128,14 @@ public class LocalExchange
         else if (isFixedRandomPartitioning(partitioning)) {
             exchangerSupplier = () -> new RandomExchanger(buffers, memoryManager::updateMemoryUsage);
         }
-        else if (isFixedHashPartitioning(partitioning)) {
-            Function<Page, Page> functionArgumentExtractor;
-            PartitionFunction partitionFunction;
-            if (partitionHashChannel.isPresent()) {
-                functionArgumentExtractor = page -> new Page(page.getPositionCount(), page.getBlock(partitionHashChannel.get()));
-                partitionFunction = new SystemHashPartitionFunction(new PrecomputedHashGenerator(0), buffers.size());
-            }
-            else {
-                functionArgumentExtractor = page -> {
-                    Block[] blocks = new Block[partitionChannels.size()];
-                    for (int i = 0; i < blocks.length; i++) {
-                        blocks[i] = page.getBlock(partitionChannels.get(i));
-                    }
-                    return new Page(page.getPositionCount(), blocks);
-                };
-
-                List<Type> partitionChannelTypes = partitionChannels.stream()
-                        .map(types::get)
-                        .collect(toImmutableList());
-                partitionFunction = new SystemHashPartitionFunction(new InterpretedHashGenerator(partitionChannelTypes, Ints.toArray(partitionChannels)), buffers.size());
-            }
-
+        else {
+            Function<Page, Page> functionArgumentExtractor = new PartitionFunctionArgumentExtractor(partitioningScheme, layout);
+            Supplier<PartitionFunction> partitionFunctionFactory = partitioningManager.createLocalPartitionFunction(session, partitioningScheme);
             exchangerSupplier = () -> new PartitioningExchanger(
                     buffers,
                     memoryManager::updateMemoryUsage,
-                    partitionFunction,
+                    partitionFunctionFactory.get(),
                     functionArgumentExtractor);
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported local exchange partitioning " + partitioning);
         }
     }
 

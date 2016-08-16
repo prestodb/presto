@@ -136,15 +136,6 @@ public final class SystemPartitioningHandle
         return false;
     }
 
-    public static OptionalInt getSystemPartitionCount(Partitioning partitioning)
-    {
-        ConnectorPartitioningHandle connectorHandle = partitioning.getHandle().getConnectorHandle();
-        if (connectorHandle instanceof SystemPartitioningHandle) {
-            return ((SystemPartitioningHandle) connectorHandle).getPartitionCount();
-        }
-        return OptionalInt.empty();
-    }
-
     private enum SystemPartitioning
     {
         FIXED,
