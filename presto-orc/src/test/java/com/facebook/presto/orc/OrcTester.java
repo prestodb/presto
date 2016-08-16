@@ -499,9 +499,10 @@ public class OrcTester
         List<StructField> fields = ImmutableList.copyOf(objectInspector.getAllStructFieldRefs());
 
         int i = 0;
+        TypeInfo typeInfo = getTypeInfoFromTypeString(columnObjectInspector.getTypeName());
         while (values.hasNext()) {
             Object value = values.next();
-            value = preprocessWriteValueOld(getTypeInfoFromTypeString(columnObjectInspector.getTypeName()), value);
+            value = preprocessWriteValueOld(typeInfo, value);
             objectInspector.setStructFieldData(row, fields.get(0), value);
 
             @SuppressWarnings("deprecation") Serializer serde;
