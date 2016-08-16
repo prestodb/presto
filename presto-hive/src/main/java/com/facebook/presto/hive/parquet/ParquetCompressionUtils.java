@@ -75,8 +75,10 @@ public final class ParquetCompressionUtils
         byte[] buffer = new byte[uncompressedSize];
         try (InputStream gzipInputStream = new GZIPInputStream(input.getInput(), GZIP_BUFFER_SIZE)) {
             int bytesRead;
-            while ((bytesRead = gzipInputStream.read(buffer)) != -1) {
-                sliceOutput.write(buffer, 0, bytesRead);
+            if (uncompressedSize != 0) {
+                while ((bytesRead = gzipInputStream.read(buffer)) != -1) {
+                    sliceOutput.write(buffer, 0, bytesRead);
+                }
             }
             return sliceOutput.getUnderlyingSlice();
         }
