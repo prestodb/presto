@@ -15,10 +15,8 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSelector;
-import com.facebook.presto.operator.BucketToPartitionFunction;
 import com.facebook.presto.operator.HashGenerator;
 import com.facebook.presto.operator.InterpretedHashGenerator;
-import com.facebook.presto.operator.PartitionFunction;
 import com.facebook.presto.operator.PrecomputedHashGenerator;
 import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.Node;
@@ -289,12 +287,10 @@ public final class SystemPartitioningHandle
         });
     }
 
-    public PartitionFunction getPartitionFunction(boolean isHashPrecomputed, int[] bucketToPartition)
+    public BucketFunction getBucketFunction(boolean isHashPrecomputed, int partitionCount)
     {
-        requireNonNull(bucketToPartition, "bucketToPartition is null");
-
-        BucketFunction bucketFunction = function.createBucketFunction(partitioningTypes, isHashPrecomputed, bucketToPartition.length);
-        return new BucketToPartitionFunction(bucketFunction, bucketToPartition);
+        checkArgument(partitionCount >= 1, "partitionCount must be atleast 1");
+        return function.createBucketFunction(partitioningTypes, isHashPrecomputed, partitionCount);
     }
 
     private enum SystemPartitionFunction

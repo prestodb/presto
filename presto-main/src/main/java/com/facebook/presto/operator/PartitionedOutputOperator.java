@@ -16,10 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.PageBuilderStatus;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -32,12 +29,11 @@ import io.airlift.units.DataSize;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -47,24 +43,21 @@ public class PartitionedOutputOperator
     public static class PartitionedOutputFactory
             implements OutputFactory
     {
-        private final PartitionFunction partitionFunction;
-        private final List<Integer> partitionChannels;
-        private final List<Optional<NullableValue>> partitionConstants;
+        private final Supplier<PartitionFunction> partitionFunctionFactory;
+        private final Function<Page, Page> partitionFunctionArgumentExtractor;
         private final OutputBuffer outputBuffer;
         private final OptionalInt nullChannel;
         private final DataSize maxMemory;
 
         public PartitionedOutputFactory(
-                PartitionFunction partitionFunction,
-                List<Integer> partitionChannels,
-                List<Optional<NullableValue>> partitionConstants,
+                Supplier<PartitionFunction> partitionFunctionFactory,
+                Function<Page, Page> partitionFunctionArgumentExtractor,
                 OptionalInt nullChannel,
                 OutputBuffer outputBuffer,
                 DataSize maxMemory)
         {
-            this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
-            this.partitionChannels = requireNonNull(partitionChannels, "partitionChannels is null");
-            this.partitionConstants = requireNonNull(partitionConstants, "partitionConstants is null");
+            this.partitionFunctionFactory = requireNonNull(partitionFunctionFactory, "partitionFunctionFactory is null");
+            this.partitionFunctionArgumentExtractor = requireNonNull(partitionFunctionArgumentExtractor, "partitionFunctionArgumentExtractor is null");
             this.nullChannel = requireNonNull(nullChannel, "nullChannel is null");
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.maxMemory = requireNonNull(maxMemory, "maxMemory is null");
@@ -78,9 +71,8 @@ public class PartitionedOutputOperator
                     planNodeId,
                     types,
                     pagePreprocessor,
-                    partitionFunction,
-                    partitionChannels,
-                    partitionConstants,
+                    partitionFunctionFactory,
+                    partitionFunctionArgumentExtractor,
                     nullChannel,
                     outputBuffer,
                     maxMemory);
@@ -94,9 +86,8 @@ public class PartitionedOutputOperator
         private final PlanNodeId planNodeId;
         private final List<Type> sourceTypes;
         private final Function<Page, Page> pagePreprocessor;
-        private final PartitionFunction partitionFunction;
-        private final List<Integer> partitionChannels;
-        private final List<Optional<NullableValue>> partitionConstants;
+        private final Supplier<PartitionFunction> partitionFunctionFactory;
+        private final Function<Page, Page> partitionFunctionArgumentExtractor;
         private final OptionalInt nullChannel;
         private final OutputBuffer outputBuffer;
         private final DataSize maxMemory;
@@ -106,9 +97,8 @@ public class PartitionedOutputOperator
                 PlanNodeId planNodeId,
                 List<Type> sourceTypes,
                 Function<Page, Page> pagePreprocessor,
-                PartitionFunction partitionFunction,
-                List<Integer> partitionChannels,
-                List<Optional<NullableValue>> partitionConstants,
+                Supplier<PartitionFunction> partitionFunctionFactory,
+                Function<Page, Page> partitionFunctionArgumentExtractor,
                 OptionalInt nullChannel,
                 OutputBuffer outputBuffer,
                 DataSize maxMemory)
@@ -117,9 +107,8 @@ public class PartitionedOutputOperator
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.sourceTypes = requireNonNull(sourceTypes, "sourceTypes is null");
             this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
-            this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
-            this.partitionChannels = requireNonNull(partitionChannels, "partitionChannels is null");
-            this.partitionConstants = requireNonNull(partitionConstants, "partitionConstants is null");
+            this.partitionFunctionFactory = requireNonNull(partitionFunctionFactory, "partitionFunctionFactory is null");
+            this.partitionFunctionArgumentExtractor = requireNonNull(partitionFunctionArgumentExtractor, "partitionFunctionArgumentExtractor is null");
             this.nullChannel = requireNonNull(nullChannel, "nullChannel is null");
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.maxMemory = requireNonNull(maxMemory, "maxMemory is null");
@@ -139,9 +128,8 @@ public class PartitionedOutputOperator
                     operatorContext,
                     sourceTypes,
                     pagePreprocessor,
-                    partitionFunction,
-                    partitionChannels,
-                    partitionConstants,
+                    partitionFunctionFactory.get(),
+                    partitionFunctionArgumentExtractor,
                     nullChannel,
                     outputBuffer,
                     maxMemory);
@@ -160,9 +148,8 @@ public class PartitionedOutputOperator
                     planNodeId,
                     sourceTypes,
                     pagePreprocessor,
-                    partitionFunction,
-                    partitionChannels,
-                    partitionConstants,
+                    partitionFunctionFactory,
+                    partitionFunctionArgumentExtractor,
                     nullChannel,
                     outputBuffer,
                     maxMemory);
@@ -180,15 +167,14 @@ public class PartitionedOutputOperator
             List<Type> sourceTypes,
             Function<Page, Page> pagePreprocessor,
             PartitionFunction partitionFunction,
-            List<Integer> partitionChannels,
-            List<Optional<NullableValue>> partitionConstants,
+            Function<Page, Page> partitionFunctionArgumentExtractor,
             OptionalInt nullChannel,
             OutputBuffer outputBuffer,
             DataSize maxMemory)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
-        this.partitionFunction = new PagePartitioner(partitionFunction, partitionChannels, partitionConstants, nullChannel, outputBuffer, sourceTypes, maxMemory);
+        this.partitionFunction = new PagePartitioner(partitionFunction, partitionFunctionArgumentExtractor, nullChannel, outputBuffer, sourceTypes, maxMemory);
 
         operatorContext.setInfoSupplier(this::getInfo);
         // TODO: We should try to make this more accurate
@@ -269,8 +255,7 @@ public class PartitionedOutputOperator
         private final OutputBuffer outputBuffer;
         private final List<Type> sourceTypes;
         private final PartitionFunction partitionFunction;
-        private final List<Integer> partitionChannels;
-        private final List<Optional<Block>> partitionConstants;
+        private final Function<Page, Page> partitionFunctionArgumentExtractor;
         private final List<PageBuilder> pageBuilders;
         private final OptionalInt nullChannel; // when present, send the position to every partition if this channel is null.
         private final AtomicLong rowsAdded = new AtomicLong();
@@ -278,18 +263,14 @@ public class PartitionedOutputOperator
 
         public PagePartitioner(
                 PartitionFunction partitionFunction,
-                List<Integer> partitionChannels,
-                List<Optional<NullableValue>> partitionConstants,
+                Function<Page, Page> partitionFunctionArgumentExtractor,
                 OptionalInt nullChannel,
                 OutputBuffer outputBuffer,
                 List<Type> sourceTypes,
                 DataSize maxMemory)
         {
             this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
-            this.partitionChannels = requireNonNull(partitionChannels, "partitionChannels is null");
-            this.partitionConstants = requireNonNull(partitionConstants, "partitionConstants is null").stream()
-                    .map(constant -> constant.map(NullableValue::asBlock))
-                    .collect(toImmutableList());
+            this.partitionFunctionArgumentExtractor = requireNonNull(partitionFunctionArgumentExtractor, "partitionFunctionArgumentExtractor is null");
             this.nullChannel = requireNonNull(nullChannel, "nullChannel is null");
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.sourceTypes = requireNonNull(sourceTypes, "sourceTypes is null");
@@ -321,7 +302,7 @@ public class PartitionedOutputOperator
         {
             requireNonNull(page, "page is null");
 
-            Page partitionFunctionArgs = getPartitionFunctionArguments(page);
+            Page partitionFunctionArgs = partitionFunctionArgumentExtractor.apply(page);
             for (int position = 0; position < page.getPositionCount(); position++) {
                 if (nullChannel.isPresent() && page.getBlock(nullChannel.getAsInt()).isNull(position)) {
                     for (PageBuilder pageBuilder : pageBuilders) {
@@ -346,21 +327,6 @@ public class PartitionedOutputOperator
                 }
             }
             return flush(false);
-        }
-
-        private Page getPartitionFunctionArguments(Page page)
-        {
-            Block[] blocks = new Block[partitionChannels.size()];
-            for (int i = 0; i < blocks.length; i++) {
-                Optional<Block> partitionConstant = partitionConstants.get(i);
-                if (partitionConstant.isPresent()) {
-                    blocks[i] = new RunLengthEncodedBlock(partitionConstant.get(), page.getPositionCount());
-                }
-                else {
-                    blocks[i] = page.getBlock(partitionChannels.get(i));
-                }
-            }
-            return new Page(page.getPositionCount(), blocks);
         }
 
         public ListenableFuture<?> flush(boolean force)

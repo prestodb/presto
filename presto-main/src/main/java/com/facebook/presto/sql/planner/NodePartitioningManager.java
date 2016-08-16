@@ -28,9 +28,9 @@ import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Supplier;
 import java.util.function.ToIntFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -49,33 +49,40 @@ public class NodePartitioningManager
 
     public void addPartitioningProvider(String connectorId, ConnectorNodePartitioningProvider partitioningProvider)
     {
-        checkArgument(partitioningProviders.putIfAbsent(connectorId, partitioningProvider) == null, "NodePartitioningProvider for connector '%s' is already registered", connectorId);
+        checkArgument(
+                partitioningProviders.putIfAbsent(connectorId, partitioningProvider) == null,
+                "NodePartitioningProvider for connector '%s' is already registered",
+                connectorId);
     }
 
-    public PartitionFunction getPartitionFunction(Session session, PartitioningScheme partitioningScheme)
+    public Supplier<PartitionFunction> createRemotePartitionFunctionFactory(Session session, PartitioningScheme partitioningScheme)
     {
-        Optional<int[]> bucketToPartition = partitioningScheme.getBucketToPartition();
-        checkArgument(bucketToPartition.isPresent(), "Bucket to partition must be set before a partition function can be created");
+        checkArgument(partitioningScheme.getBucketToPartition().isPresent(), "Bucket to partition must be set before a remote partition function can be created");
+        int[] bucketToPartition = partitioningScheme.getBucketToPartition().get();
 
+        Supplier<BucketFunction> bucketFunctionSupplier;
         PartitioningHandle partitioningHandle = partitioningScheme.getPartitioning().getHandle();
-        BucketFunction bucketFunction;
         if (partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle) {
-            return ((SystemPartitioningHandle) partitioningHandle.getConnectorHandle()).getPartitionFunction(
-                    partitioningScheme.getHashColumn().isPresent(),
-                    bucketToPartition.get());
+            SystemPartitioningHandle systemPartitioningHandle = (SystemPartitioningHandle) partitioningHandle.getConnectorHandle();
+            bucketFunctionSupplier = () -> systemPartitioningHandle.getBucketFunction(partitioningScheme.getHashColumn().isPresent(), bucketToPartition.length);
         }
         else {
-            ConnectorNodePartitioningProvider partitioningProvider = partitioningProviders.get(partitioningHandle.getConnectorId().get());
-            checkArgument(partitioningProvider != null, "No partitioning provider for connector %s", partitioningHandle.getConnectorId().get());
-
-            bucketFunction = partitioningProvider.getBucketFunction(
-                    partitioningHandle.getTransactionHandle().orElse(null),
-                    session.toConnectorSession(),
-                    partitioningHandle.getConnectorHandle());
-
-            checkArgument(bucketFunction != null, "No function %s", partitioningHandle);
+            bucketFunctionSupplier = () -> getBucketFunction(session, partitioningHandle);
         }
-        return new BucketToPartitionFunction(bucketFunction, bucketToPartition.get());
+        return new RemotePartitionFunctionSupplier(bucketFunctionSupplier, bucketToPartition);
+    }
+
+    private BucketFunction getBucketFunction(Session session, PartitioningHandle partitioningHandle)
+    {
+        checkArgument(!(partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle), "bucket function can not be fetch for system partitioning");
+
+        ConnectorNodePartitioningProvider partitioningProvider = partitioningProviders.get(partitioningHandle.getConnectorId().get());
+        checkArgument(partitioningProvider != null, "No partitioning provider for connector %s", partitioningHandle.getConnectorId().get());
+
+        return partitioningProvider.getBucketFunction(
+                partitioningHandle.getTransactionHandle().orElse(null),
+                session.toConnectorSession(),
+                partitioningHandle.getConnectorHandle());
     }
 
     public NodePartitionMap getNodePartitioningMap(Session session, PartitioningHandle partitioningHandle)
@@ -124,5 +131,24 @@ public class NodePartitioningManager
         checkArgument(splitBucketFunction != null, "No partitioning %s", partitioningHandle);
 
         return new NodePartitionMap(nodeToPartition.inverse(), bucketToPartition, split -> splitBucketFunction.applyAsInt(split.getConnectorSplit()));
+    }
+
+    private static class RemotePartitionFunctionSupplier
+            implements Supplier<PartitionFunction>
+    {
+        private final Supplier<BucketFunction> bucketFunctionFactory;
+        private final int[] bucketToPartition;
+
+        public RemotePartitionFunctionSupplier(Supplier<BucketFunction> bucketFunctionFactory, int[] bucketToPartition)
+        {
+            this.bucketFunctionFactory = bucketFunctionFactory;
+            this.bucketToPartition = bucketToPartition;
+        }
+
+        @Override
+        public PartitionFunction get()
+        {
+            return new BucketToPartitionFunction(bucketFunctionFactory.get(), bucketToPartition);
+        }
     }
 }

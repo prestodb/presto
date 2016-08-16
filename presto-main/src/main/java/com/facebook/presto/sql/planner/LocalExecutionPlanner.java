@@ -74,6 +74,7 @@ import com.facebook.presto.operator.exchange.LocalExchange;
 import com.facebook.presto.operator.exchange.LocalExchangeSinkOperator.LocalExchangeSinkOperatorFactory;
 import com.facebook.presto.operator.exchange.LocalExchangeSourceOperator.LocalExchangeSourceOperatorFactory;
 import com.facebook.presto.operator.exchange.PageChannelSelector;
+import com.facebook.presto.operator.exchange.PartitionFunctionArgumentExtractor;
 import com.facebook.presto.operator.index.DynamicTupleFilterFactory;
 import com.facebook.presto.operator.index.FieldSetFilteringRecordSet;
 import com.facebook.presto.operator.index.IndexBuildDriverFactoryProvider;
@@ -89,14 +90,12 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.MappedRecordSet;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
@@ -273,29 +272,8 @@ public class LocalExecutionPlanner
             return plan(session, plan, outputLayout, types, new TaskOutputFactory(outputBuffer));
         }
 
-        // We can convert the symbols directly into channels, because the root must be a sink and therefore the layout is fixed
-        List<Integer> partitionChannels;
-        List<Optional<NullableValue>> partitionConstants;
-        if (outputPartitioningScheme.getHashColumn().isPresent()) {
-            partitionChannels = ImmutableList.of(outputLayout.indexOf(outputPartitioningScheme.getHashColumn().get()));
-            partitionConstants = ImmutableList.of(Optional.empty());
-        }
-        else {
-            partitionChannels = outputPartitioningScheme.getPartitioning().getArguments().stream()
-                    .map(ArgumentBinding::getColumn)
-                    .map(outputLayout::indexOf)
-                    .collect(toImmutableList());
-            partitionConstants = outputPartitioningScheme.getPartitioning().getArguments().stream()
-                    .map(argument -> {
-                        if (argument.isConstant()) {
-                            return Optional.of(argument.getConstant());
-                        }
-                        return Optional.<NullableValue>empty();
-                    })
-                    .collect(toImmutableList());
-        }
-
-        PartitionFunction partitionFunction = nodePartitioningManager.getPartitionFunction(session, outputPartitioningScheme);
+        Supplier<PartitionFunction> partitionFunctionFactory = nodePartitioningManager.createRemotePartitionFunctionFactory(session, outputPartitioningScheme);
+        Function<Page, Page> functionArgumentExtractor = new PartitionFunctionArgumentExtractor(outputPartitioningScheme, outputLayout);
         OptionalInt nullChannel = OptionalInt.empty();
         Set<Symbol> partitioningColumns = outputPartitioningScheme.getPartitioning().getColumns();
 
@@ -310,7 +288,7 @@ public class LocalExecutionPlanner
                 plan,
                 outputLayout,
                 types,
-                new PartitionedOutputFactory(partitionFunction, partitionChannels, partitionConstants, nullChannel, outputBuffer, maxPagePartitioningBufferSize));
+                new PartitionedOutputFactory(partitionFunctionFactory, functionArgumentExtractor, nullChannel, outputBuffer, maxPagePartitioningBufferSize));
     }
 
     public LocalExecutionPlan plan(Session session,
