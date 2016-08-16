@@ -31,6 +31,7 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
+import org.weakref.jmx.Managed;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -265,6 +266,24 @@ public final class DiscoveryNodeManager
     {
         refreshIfNecessary();
         return allNodes;
+    }
+
+    @Managed
+    public int getActiveNodeCount()
+    {
+        return getAllNodes().getActiveNodes().size();
+    }
+
+    @Managed
+    public int getInactiveNodeCount()
+    {
+        return getAllNodes().getInactiveNodes().size();
+    }
+
+    @Managed
+    public int getShuttingDownNodeCount()
+    {
+        return getAllNodes().getShuttingDownNodes().size();
     }
 
     @Override

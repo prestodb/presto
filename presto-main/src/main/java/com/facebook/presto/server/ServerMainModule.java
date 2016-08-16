@@ -203,7 +203,9 @@ public class ServerMainModule
 
         // node manager
         discoveryBinder(binder).bindSelector("presto");
+        binder.bind(DiscoveryNodeManager.class).in(Scopes.SINGLETON);
         binder.bind(InternalNodeManager.class).to(DiscoveryNodeManager.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(DiscoveryNodeManager.class).withGeneratedName();
         binder.bind(NodeManager.class).to(Key.get(InternalNodeManager.class)).in(Scopes.SINGLETON);
         httpClientBinder(binder).bindHttpClient("node-manager", ForNodeManager.class)
                 .withTracing()
