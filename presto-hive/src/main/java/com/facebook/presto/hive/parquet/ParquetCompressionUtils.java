@@ -82,7 +82,6 @@ public final class ParquetCompressionUtils
             }
             return sliceOutput.getUnderlyingSlice();
         }
-
     }
 
     private static Slice decompressLZO(Slice input, int uncompressedSize)
