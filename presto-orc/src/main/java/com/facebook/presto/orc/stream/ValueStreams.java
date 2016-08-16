@@ -74,7 +74,6 @@ public final class ValueStreams
                     return new DoubleStream(inputStream);
                 case STRING:
                 case VARCHAR:
-                case CHAR:
                 case BINARY:
                     return new ByteArrayStream(inputStream);
                 case TIMESTAMP:
@@ -89,7 +88,6 @@ public final class ValueStreams
             switch (type) {
                 case STRING:
                 case VARCHAR:
-                case CHAR:
                 case BINARY:
                 case MAP:
                 case LIST:
@@ -102,7 +100,6 @@ public final class ValueStreams
             switch (type) {
                 case STRING:
                 case VARCHAR:
-                case CHAR:
                 case BINARY:
                     return new RowGroupDictionaryLengthStream(inputStream, false);
             }
@@ -113,7 +110,6 @@ public final class ValueStreams
             switch (type) {
                 case STRING:
                 case VARCHAR:
-                case CHAR:
                 case BINARY:
                     return new ByteArrayStream(inputStream);
             }

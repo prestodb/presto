@@ -46,8 +46,6 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
 import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
-import static com.facebook.presto.spi.type.Chars.isCharType;
-import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -282,9 +280,6 @@ public class SliceDictionaryStreamReader
                 Slice value = Slices.wrappedBuffer(dictionaryDataStream.next(length));
                 if (isVarcharType(type)) {
                     value = truncateToLength(value, type);
-                }
-                if (isCharType(type)) {
-                    value = trimSpacesAndTruncateToLength(value, type);
                 }
                 dictionary[i] = value;
             }
