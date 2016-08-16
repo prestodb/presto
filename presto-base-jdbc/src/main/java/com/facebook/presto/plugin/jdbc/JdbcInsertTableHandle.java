@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
-import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -23,12 +23,12 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 
-public class JdbcOutputTableHandle
+public class JdbcInsertTableHandle
         extends JdbcWritableTableHandle
-        implements ConnectorOutputTableHandle
+        implements ConnectorInsertTableHandle
 {
     @JsonCreator
-    public JdbcOutputTableHandle(
+    public JdbcInsertTableHandle(
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("catalogName") @Nullable String catalogName,
             @JsonProperty("schemaName") @Nullable String schemaName,

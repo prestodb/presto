@@ -84,6 +84,18 @@ public class TestPostgreSqlDistributedQueries
     }
 
     @Test
+    public void testInsertIntoTable()
+            throws Exception
+    {
+        assertUpdate("CREATE TABLE test_insert AS SELECT 123 x, 'insert' y limit 0", 1);
+        assertUpdate("INSERT INTO test_insert values (123, 'insert')", 1);
+
+        assertQuery("SELECT * FROM test_insert", "SELECT 123 x, 'insert' y");
+
+        assertUpdate("DROP TABLE test_insert");
+    }
+
+    @Test
     public void testViews()
             throws Exception
     {
