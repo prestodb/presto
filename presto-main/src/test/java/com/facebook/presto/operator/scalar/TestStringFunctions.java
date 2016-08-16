@@ -249,7 +249,20 @@ public class TestStringFunctions
         assertFunction("SPLIT('a..b..c', '.', 3)", new ArrayType(createVarcharType(7)), ImmutableList.of("a", "", "b..c"));
         assertFunction("SPLIT('a.b..', '.', 3)", new ArrayType(createVarcharType(5)), ImmutableList.of("a", "b", "."));
 
-        assertInvalidFunction("SPLIT('a.b.c', '', 1)", "The delimiter may not be the empty string");
+        // Empty string
+        assertFunction("SPLIT('', '.')", new ArrayType(createVarcharType(0)), ImmutableList.of(""));
+        assertFunction("SPLIT('', '')", new ArrayType(createVarcharType(0)), ImmutableList.of("", ""));
+        assertFunction("SPLIT('', '', 1)", new ArrayType(createVarcharType(0)), ImmutableList.of(""));
+        assertFunction("SPLIT('', '', 2)", new ArrayType(createVarcharType(0)), ImmutableList.of("", ""));
+
+        // Empty delimiter
+        assertFunction("SPLIT('abc', '')", new ArrayType(createVarcharType(3)), ImmutableList.of("", "a", "b", "c", ""));
+        assertFunction("SPLIT('abc', '', 1)", new ArrayType(createVarcharType(3)), ImmutableList.of("abc"));
+        assertFunction("SPLIT('abc', '', 2)", new ArrayType(createVarcharType(3)), ImmutableList.of("", "abc"));
+        assertFunction("SPLIT('abc', '', 10)", new ArrayType(createVarcharType(3)), ImmutableList.of("", "a", "b", "c", ""));
+        assertFunction("SPLIT('\u8B49\u8BC1\u8A3C', '')", new ArrayType(createVarcharType(3)), ImmutableList.of("", "\u8B49", "\u8BC1", "\u8A3C", ""));
+        assertFunction("SPLIT('\u8B49\u8BC1\u8A3C', '', 2)", new ArrayType(createVarcharType(3)), ImmutableList.of("", "\u8B49\u8BC1\u8A3C"));
+
         assertInvalidFunction("SPLIT('a.b.c', '.', 0)", "Limit must be positive");
         assertInvalidFunction("SPLIT('a.b.c', '.', -1)", "Limit must be positive");
         assertInvalidFunction("SPLIT('a.b.c', '.', 2147483648)", "Limit is too large");
