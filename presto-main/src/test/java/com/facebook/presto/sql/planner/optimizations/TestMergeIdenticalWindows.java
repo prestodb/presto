@@ -34,7 +34,6 @@ import org.testng.annotations.Test;
 import javax.inject.Provider;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyNot;
@@ -65,7 +64,7 @@ public class TestMergeIdenticalWindows
         WindowFrame frame = new WindowFrame(
                 WindowFrame.Type.ROWS,
                 new FrameBound(FrameBound.Type.UNBOUNDED_PRECEDING),
-                Optional.of(new FrameBound(FrameBound.Type.CURRENT_ROW)));
+                new FrameBound(FrameBound.Type.CURRENT_ROW));
 
         windowA = new Window(
                 ImmutableList.of(new SymbolReference("suppkey")),

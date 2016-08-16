@@ -543,15 +543,10 @@ public final class ExpressionFormatter
 
             builder.append(node.getType().toString()).append(' ');
 
-            if (node.getEnd().isPresent()) {
-                builder.append("BETWEEN ")
-                        .append(process(node.getStart(), unmangleNames))
-                        .append(" AND ")
-                        .append(process(node.getEnd().get(), unmangleNames));
-            }
-            else {
-                builder.append(process(node.getStart(), unmangleNames));
-            }
+            builder.append("BETWEEN ")
+                    .append(process(node.getStart(), unmangleNames))
+                    .append(" AND ")
+                    .append(process(node.getEnd(), unmangleNames));
 
             return builder.toString();
         }

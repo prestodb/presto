@@ -502,27 +502,25 @@ public final class ExpressionTreeRewriter<C>
 
                 WindowFrame frame = window.getFrame();
 
-                FrameBound start = frame.getStart();
-                if (start.getValue().isPresent()) {
-                    Expression value = rewrite(start.getValue().get(), context.get());
-                    if (value != start.getValue().get()) {
-                        start = new FrameBound(start.getType(), value);
+                FrameBound rewrittenStart = frame.getStart();
+                if (rewrittenStart.getValue().isPresent()) {
+                    Expression value = rewrite(rewrittenStart.getValue().get(), context.get());
+                    if (value != rewrittenStart.getValue().get()) {
+                        rewrittenStart = new FrameBound(rewrittenStart.getType(), value);
                     }
                 }
 
-                Optional<FrameBound> rewrittenEnd = frame.getEnd();
-                if (rewrittenEnd.isPresent()) {
-                    Optional<Expression> value = rewrittenEnd.get().getValue();
-                    if (value.isPresent()) {
-                        Expression rewrittenValue = rewrite(value.get(), context.get());
-                        if (rewrittenValue != value.get()) {
-                            rewrittenEnd = Optional.of(new FrameBound(rewrittenEnd.get().getType(), rewrittenValue));
-                        }
+                FrameBound rewrittenEnd = frame.getEnd();
+                Optional<Expression> value = rewrittenEnd.getValue();
+                if (value.isPresent()) {
+                    Expression rewrittenValue = rewrite(value.get(), context.get());
+                    if (rewrittenValue != value.get()) {
+                        rewrittenEnd = new FrameBound(rewrittenEnd.getType(), rewrittenValue);
                     }
                 }
 
-                if ((frame.getStart() != start) || !sameElements(frame.getEnd(), rewrittenEnd)) {
-                    frame = new WindowFrame(frame.getType(), start, rewrittenEnd);
+                if ((frame.getStart() != rewrittenStart) || frame.getEnd() != rewrittenEnd) {
+                    frame = new WindowFrame(frame.getType(), rewrittenStart, rewrittenEnd);
                 }
 
                 if (!sameElements(window.getPartitionBy(), partitionBy.build()) ||

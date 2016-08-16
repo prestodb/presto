@@ -203,9 +203,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     public R visitWindowFrame(WindowFrame node, C context)
     {
         process(node.getStart(), context);
-        if (node.getEnd().isPresent()) {
-            process(node.getEnd().get(), context);
-        }
+        process(node.getEnd(), context);
 
         return null;
     }

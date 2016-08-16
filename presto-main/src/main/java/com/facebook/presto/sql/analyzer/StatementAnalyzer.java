@@ -1025,7 +1025,7 @@ class StatementAnalyzer
     private static void analyzeWindowFrame(WindowFrame frame)
     {
         FrameBound.Type startType = frame.getStart().getType();
-        FrameBound.Type endType = frame.getEnd().orElse(new FrameBound(CURRENT_ROW)).getType();
+        FrameBound.Type endType = frame.getEnd().getType();
 
         if (startType == UNBOUNDED_FOLLOWING) {
             throw new SemanticException(INVALID_WINDOW_FRAME, frame, "Window frame start cannot be UNBOUNDED FOLLOWING");

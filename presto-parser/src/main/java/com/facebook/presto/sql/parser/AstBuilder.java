@@ -1229,7 +1229,7 @@ class AstBuilder
                 getLocation(context),
                 getFrameType(context.frameType),
                 (FrameBound) visit(context.start),
-                Optional.of(visitOrElse(context.end, FrameBound.class, FrameBound.defaultEnd(getLocation(context)))));
+                visitOrElse(context.end, FrameBound.class, FrameBound.defaultEnd(getLocation(context))));
     }
 
     @Override

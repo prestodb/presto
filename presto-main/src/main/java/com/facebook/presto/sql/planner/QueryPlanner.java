@@ -504,14 +504,8 @@ class QueryPlanner
             WindowFrame.Type frameType = frame.getType();
             FrameBound.Type frameStartType = frame.getStart().getType();
             Expression frameStart = frame.getStart().getValue().orElse(null);
-
-            FrameBound.Type frameEndType = FrameBound.Type.CURRENT_ROW;
-            Expression frameEnd = null;
-
-            if (frame.getEnd().isPresent()) {
-                frameEndType = frame.getEnd().get().getType();
-                frameEnd = frame.getEnd().get().getValue().orElse(null);
-            }
+            FrameBound.Type frameEndType = frame.getEnd().getType();
+            Expression frameEnd = frame.getEnd().getValue().orElse(null);
 
             // Pre-project inputs
             ImmutableList.Builder<Expression> inputs = ImmutableList.<Expression>builder()

@@ -719,8 +719,8 @@ public class ExpressionAnalyzer
                     }
                 }
 
-                if (frame.getEnd().isPresent() && frame.getEnd().get().getValue().isPresent()) {
-                    Type type = process(frame.getEnd().get().getValue().get(), context);
+                if (frame.getEnd().getValue().isPresent()) {
+                    Type type = process(frame.getEnd().getValue().get(), context);
                     if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
                         throw new SemanticException(TYPE_MISMATCH, node, "Window frame end value type must be INTEGER or BIGINT (actual %s)", type);
                     }
