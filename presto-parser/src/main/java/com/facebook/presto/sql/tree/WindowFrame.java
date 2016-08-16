@@ -49,6 +49,15 @@ public class WindowFrame
         this.end = requireNonNull(end, "end is null");
     }
 
+    public static WindowFrame defaultFrame(NodeLocation nodeLocation)
+    {
+        return new WindowFrame(
+                nodeLocation,
+                Type.RANGE,
+                new FrameBound(nodeLocation, FrameBound.Type.UNBOUNDED_PRECEDING),
+                Optional.of(new FrameBound(nodeLocation, FrameBound.Type.CURRENT_ROW)));
+    }
+
     public Type getType()
     {
         return type;
