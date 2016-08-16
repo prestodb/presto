@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.operator.exchange.LocalPartitionGenerator;
+import com.facebook.presto.operator.exchange.SystemHashPartitionFunction;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
@@ -31,7 +31,7 @@ public class PartitionedLookupSource
         implements LookupSource
 {
     private final LookupSource[] lookupSources;
-    private final LocalPartitionGenerator partitionGenerator;
+    private final SystemHashPartitionFunction partitionFunction;
     private final int partitionMask;
     private final int shiftSize;
 
@@ -48,7 +48,7 @@ public class PartitionedLookupSource
         for (int i = 0; i < hashChannels.length; i++) {
             hashChannels[i] = i;
         }
-        this.partitionGenerator = new LocalPartitionGenerator(new InterpretedHashGenerator(hashChannelTypes, hashChannels), lookupSources.size());
+        this.partitionFunction = new SystemHashPartitionFunction(new InterpretedHashGenerator(hashChannelTypes, hashChannels), lookupSources.size());
 
         this.partitionMask = lookupSources.size() - 1;
         this.shiftSize = numberOfTrailingZeros(lookupSources.size()) + 1;
@@ -85,13 +85,13 @@ public class PartitionedLookupSource
     @Override
     public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage)
     {
-        return getJoinPosition(position, hashChannelsPage, allChannelsPage, partitionGenerator.getRawHash(position, hashChannelsPage));
+        return getJoinPosition(position, hashChannelsPage, allChannelsPage, partitionFunction.getRawHash(position, hashChannelsPage));
     }
 
     @Override
     public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage, long rawHash)
     {
-        int partition = partitionGenerator.getPartition(rawHash);
+        int partition = partitionFunction.getPartition(rawHash);
         LookupSource lookupSource = lookupSources[partition];
         long joinPosition = lookupSource.getJoinPosition(position, hashChannelsPage, allChannelsPage, rawHash);
         if (joinPosition < 0) {

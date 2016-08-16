@@ -14,24 +14,35 @@
 package com.facebook.presto.operator.exchange;
 
 import com.facebook.presto.operator.HashGenerator;
+import com.facebook.presto.operator.PartitionFunction;
 import com.facebook.presto.spi.Page;
 import io.airlift.slice.XxHash64;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class LocalPartitionGenerator
+public class SystemHashPartitionFunction
+        implements PartitionFunction
 {
     private final HashGenerator hashGenerator;
+    private final int partitionCount;
     private final int hashMask;
 
-    public LocalPartitionGenerator(HashGenerator hashGenerator, int partitionCount)
+    public SystemHashPartitionFunction(HashGenerator hashGenerator, int partitionCount)
     {
         this.hashGenerator = hashGenerator;
+        this.partitionCount = partitionCount;
         checkArgument(Integer.bitCount(partitionCount) == 1, "partitionCount must be a power of 2");
         hashMask = partitionCount - 1;
     }
 
-    public int getPartition(int position, Page page)
+    @Override
+    public int getPartitionCount()
+    {
+        return partitionCount;
+    }
+
+    @Override
+    public int getPartition(Page page, int position)
     {
         long rawHash = getRawHash(position, page);
         return processRawHash(rawHash) & hashMask;

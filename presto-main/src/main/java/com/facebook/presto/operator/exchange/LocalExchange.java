@@ -13,10 +13,15 @@
  */
 package com.facebook.presto.operator.exchange;
 
+import com.facebook.presto.operator.InterpretedHashGenerator;
+import com.facebook.presto.operator.PartitionFunction;
+import com.facebook.presto.operator.PrecomputedHashGenerator;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -29,6 +34,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.operator.exchange.LocalExchangeSink.finishedLocalExchangeSink;
@@ -109,7 +115,32 @@ public class LocalExchange
             exchangerSupplier = () -> new RandomExchanger(buffers, memoryManager::updateMemoryUsage);
         }
         else if (isFixedHashPartitioning(partitioning)) {
-            exchangerSupplier = () -> new PartitioningExchanger(buffers, memoryManager::updateMemoryUsage, types, partitionChannels, partitionHashChannel);
+            Function<Page, Page> functionArgumentExtractor;
+            PartitionFunction partitionFunction;
+            if (partitionHashChannel.isPresent()) {
+                functionArgumentExtractor = page -> new Page(page.getPositionCount(), page.getBlock(partitionHashChannel.get()));
+                partitionFunction = new SystemHashPartitionFunction(new PrecomputedHashGenerator(0), buffers.size());
+            }
+            else {
+                functionArgumentExtractor = page -> {
+                    Block[] blocks = new Block[partitionChannels.size()];
+                    for (int i = 0; i < blocks.length; i++) {
+                        blocks[i] = page.getBlock(partitionChannels.get(i));
+                    }
+                    return new Page(page.getPositionCount(), blocks);
+                };
+
+                List<Type> partitionChannelTypes = partitionChannels.stream()
+                        .map(types::get)
+                        .collect(toImmutableList());
+                partitionFunction = new SystemHashPartitionFunction(new InterpretedHashGenerator(partitionChannelTypes, Ints.toArray(partitionChannels)), buffers.size());
+            }
+
+            exchangerSupplier = () -> new PartitioningExchanger(
+                    buffers,
+                    memoryManager::updateMemoryUsage,
+                    partitionFunction,
+                    functionArgumentExtractor);
         }
         else {
             throw new IllegalArgumentException("Unsupported local exchange partitioning " + partitioning);

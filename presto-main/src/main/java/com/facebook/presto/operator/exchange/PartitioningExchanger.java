@@ -13,23 +13,18 @@
  */
 package com.facebook.presto.operator.exchange;
 
-import com.facebook.presto.operator.HashGenerator;
-import com.facebook.presto.operator.InterpretedHashGenerator;
-import com.facebook.presto.operator.PrecomputedHashGenerator;
+import com.facebook.presto.operator.PartitionFunction;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.LongConsumer;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 class PartitioningExchanger
@@ -37,30 +32,21 @@ class PartitioningExchanger
 {
     private final List<Consumer<PageReference>> buffers;
     private final LongConsumer memoryTracker;
-    private final LocalPartitionGenerator partitionGenerator;
+    private final PartitionFunction partitionFunction;
+    private final Function<Page, Page> functionArgumentExtractor;
     private final IntList[] partitionAssignments;
 
     public PartitioningExchanger(
             List<Consumer<PageReference>> partitions,
             LongConsumer memoryTracker,
-            List<? extends Type> types,
-            List<Integer> partitionChannels,
-            Optional<Integer> hashChannel)
+            PartitionFunction partitionFunction,
+            Function<Page, Page> functionArgumentExtractor)
     {
         this.buffers = ImmutableList.copyOf(requireNonNull(partitions, "partitions is null"));
         this.memoryTracker = requireNonNull(memoryTracker, "memoryTracker is null");
 
-        HashGenerator hashGenerator;
-        if (hashChannel.isPresent()) {
-            hashGenerator = new PrecomputedHashGenerator(hashChannel.get());
-        }
-        else {
-            List<Type> partitionChannelTypes = partitionChannels.stream()
-                    .map(types::get)
-                    .collect(toImmutableList());
-            hashGenerator = new InterpretedHashGenerator(partitionChannelTypes, Ints.toArray(partitionChannels));
-        }
-        partitionGenerator = new LocalPartitionGenerator(hashGenerator, buffers.size());
+        this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
+        this.functionArgumentExtractor = requireNonNull(functionArgumentExtractor, "functionArgumentExtractor is null");
 
         partitionAssignments = new IntList[partitions.size()];
         for (int i = 0; i < partitionAssignments.length; i++) {
@@ -77,8 +63,9 @@ class PartitioningExchanger
         }
 
         // assign each row to a partition
-        for (int position = 0; position < page.getPositionCount(); position++) {
-            int partition = partitionGenerator.getPartition(position, page);
+        Page functionArguments = functionArgumentExtractor.apply(page);
+        for (int position = 0; position < functionArguments.getPositionCount(); position++) {
+            int partition = partitionFunction.getPartition(functionArguments, position);
             partitionAssignments[partition].add(position);
         }
 

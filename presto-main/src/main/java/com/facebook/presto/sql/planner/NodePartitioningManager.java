@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
+import com.facebook.presto.operator.BucketToPartitionFunction;
 import com.facebook.presto.operator.PartitionFunction;
 import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -74,7 +75,7 @@ public class NodePartitioningManager
 
             checkArgument(bucketFunction != null, "No function %s", partitioningHandle);
         }
-        return new PartitionFunction(bucketFunction, bucketToPartition.get());
+        return new BucketToPartitionFunction(bucketFunction, bucketToPartition.get());
     }
 
     public NodePartitionMap getNodePartitioningMap(Session session, PartitioningHandle partitioningHandle)
