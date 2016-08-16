@@ -1229,7 +1229,7 @@ class AstBuilder
                 getLocation(context),
                 getFrameType(context.frameType),
                 (FrameBound) visit(context.start),
-                visitOrElse(context.end, FrameBound.class, FrameBound.defaultEnd(getLocation(context))));
+                Optional.of(visitOrElse(context.end, FrameBound.class, FrameBound.defaultEnd(getLocation(context)))));
     }
 
     @Override
@@ -1363,12 +1363,12 @@ class AstBuilder
         throw new UnsupportedOperationException("not yet implemented");
     }
 
-    private <T> Optional<T> visitOrElse(ParserRuleContext context, Class<T> clazz, T other)
+    private <T> T visitOrElse(ParserRuleContext context, Class<T> clazz, T other)
     {
-        return Optional.of(Optional.ofNullable(context)
+        return Optional.ofNullable(context)
                 .map(this::visit)
                 .map(clazz::cast)
-                .orElse(other));
+                .orElse(other);
     }
 
     private <T> Optional<T> visitIfPresent(ParserRuleContext context, Class<T> clazz)

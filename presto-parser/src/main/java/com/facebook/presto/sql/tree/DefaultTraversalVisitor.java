@@ -194,9 +194,7 @@ public abstract class DefaultTraversalVisitor<R, C>
             process(sortItem.getSortKey(), context);
         }
 
-        if (node.getFrame().isPresent()) {
-            process(node.getFrame().get(), context);
-        }
+        process(node.getFrame(), context);
 
         return null;
     }

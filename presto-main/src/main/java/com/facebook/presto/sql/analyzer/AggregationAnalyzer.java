@@ -320,9 +320,7 @@ class AggregationAnalyzer
                 }
             }
 
-            if (node.getFrame().isPresent()) {
-                process(node.getFrame().get(), context);
-            }
+            process(node.getFrame(), context);
 
             return true;
         }

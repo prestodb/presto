@@ -70,12 +70,12 @@ public class TestMergeIdenticalWindows
         windowA = new Window(
                 ImmutableList.of(new SymbolReference("suppkey")),
                 ImmutableList.of(new SortItem(new SymbolReference("orderkey"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
-                Optional.of(frame));
+                frame);
 
         windowB = new Window(
                 ImmutableList.of(new SymbolReference("orderkey")),
                 ImmutableList.of(new SortItem(new SymbolReference("shipdate"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
-                Optional.of(frame));
+                frame);
     }
 
     /**

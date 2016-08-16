@@ -531,9 +531,7 @@ public final class ExpressionFormatter
             if (!node.getOrderBy().isEmpty()) {
                 parts.add("ORDER BY " + formatSortItems(node.getOrderBy(), unmangleNames));
             }
-            if (node.getFrame().isPresent()) {
-                parts.add(process(node.getFrame().get(), unmangleNames));
-            }
+            parts.add(process(node.getFrame(), unmangleNames));
 
             return '(' + Joiner.on(' ').join(parts) + ')';
         }
