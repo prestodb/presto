@@ -31,12 +31,14 @@ public class VerifierQueryEvent
     private final String testCatalog;
     private final String testSchema;
     private final String testQuery;
+    private final String testQueryId;
     private final Double testCpuTimeSecs;
     private final Double testWallTimeSecs;
 
     private final String controlCatalog;
     private final String controlSchema;
     private final String controlQuery;
+    private final String controlQueryId;
     private final Double controlCpuTimeSecs;
     private final Double controlWallTimeSecs;
 
@@ -51,11 +53,13 @@ public class VerifierQueryEvent
             String testCatalog,
             String testSchema,
             String testQuery,
+            String testQueryId,
             Double testCpuTimeSecs,
             Double testWallTimeSecs,
             String controlCatalog,
             String controlSchema,
             String controlQuery,
+            String controlQueryId,
             Double controlCpuTimeSecs,
             Double controlWallTimeSecs,
             String errorMessage)
@@ -69,12 +73,14 @@ public class VerifierQueryEvent
         this.testCatalog = testCatalog;
         this.testSchema = testSchema;
         this.testQuery = testQuery;
+        this.testQueryId = testQueryId;
         this.testCpuTimeSecs = testCpuTimeSecs;
         this.testWallTimeSecs = testWallTimeSecs;
 
         this.controlCatalog = controlCatalog;
         this.controlSchema = controlSchema;
         this.controlQuery = controlQuery;
+        this.controlQueryId = controlQueryId;
         this.controlCpuTimeSecs = controlCpuTimeSecs;
         this.controlWallTimeSecs = controlWallTimeSecs;
 
@@ -130,6 +136,12 @@ public class VerifierQueryEvent
     }
 
     @EventField
+    public String getTestQueryId()
+    {
+        return testQueryId;
+    }
+
+    @EventField
     public Double getTestCpuTimeSecs()
     {
         return testCpuTimeSecs;
@@ -157,6 +169,12 @@ public class VerifierQueryEvent
     public String getControlQuery()
     {
         return controlQuery;
+    }
+
+    @EventField
+    public String getControlQueryId()
+    {
+        return controlQueryId;
     }
 
     @EventField
