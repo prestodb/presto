@@ -36,6 +36,7 @@ public class VerifierQueryEvent
     private final List<String> testSetupQueries;
     private final String testQuery;
     private final List<String> testTeardownQueries;
+    private final String testQueryId;
     private final Double testCpuTimeSecs;
     private final Double testWallTimeSecs;
 
@@ -44,6 +45,7 @@ public class VerifierQueryEvent
     private final List<String> controlSetupQueries;
     private final String controlQuery;
     private final List<String> controlTeardownQueries;
+    private final String controlQueryId;
     private final Double controlCpuTimeSecs;
     private final Double controlWallTimeSecs;
 
@@ -60,6 +62,7 @@ public class VerifierQueryEvent
             List<String> testSetupQueries,
             String testQuery,
             List<String> testTeardownQueries,
+            String testQueryId,
             Double testCpuTimeSecs,
             Double testWallTimeSecs,
             String controlCatalog,
@@ -67,6 +70,7 @@ public class VerifierQueryEvent
             List<String> controlSetupQueries,
             String controlQuery,
             List<String> controlTeardownQueries,
+            String controlQueryId,
             Double controlCpuTimeSecs,
             Double controlWallTimeSecs,
             String errorMessage)
@@ -82,6 +86,7 @@ public class VerifierQueryEvent
         this.testSetupQueries = ImmutableList.copyOf(testSetupQueries);
         this.testQuery = testQuery;
         this.testTeardownQueries = ImmutableList.copyOf(testTeardownQueries);
+        this.testQueryId = testQueryId;
         this.testCpuTimeSecs = testCpuTimeSecs;
         this.testWallTimeSecs = testWallTimeSecs;
 
@@ -90,6 +95,7 @@ public class VerifierQueryEvent
         this.controlSetupQueries = ImmutableList.copyOf(controlSetupQueries);
         this.controlQuery = controlQuery;
         this.controlTeardownQueries = ImmutableList.copyOf(controlTeardownQueries);
+        this.controlQueryId = controlQueryId;
         this.controlCpuTimeSecs = controlCpuTimeSecs;
         this.controlWallTimeSecs = controlWallTimeSecs;
 
@@ -145,6 +151,12 @@ public class VerifierQueryEvent
     }
 
     @EventField
+    public String getTestQueryId()
+    {
+        return testQueryId;
+    }
+
+    @EventField
     public Double getTestCpuTimeSecs()
     {
         return testCpuTimeSecs;
@@ -172,6 +184,12 @@ public class VerifierQueryEvent
     public String getControlQuery()
     {
         return controlQuery;
+    }
+
+    @EventField
+    public String getControlQueryId()
+    {
+        return controlQueryId;
     }
 
     @EventField

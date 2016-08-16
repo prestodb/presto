@@ -217,6 +217,7 @@ public class Verifier
                 queryPair.getTest().getPreQueries(),
                 queryPair.getTest().getQuery(),
                 queryPair.getTest().getPostQueries(),
+                test.getQueryId(),
                 optionalDurationToSeconds(test.getCpuTime()),
                 optionalDurationToSeconds(test.getWallTime()),
                 queryPair.getControl().getCatalog(),
@@ -224,6 +225,7 @@ public class Verifier
                 queryPair.getControl().getPreQueries(),
                 queryPair.getControl().getQuery(),
                 queryPair.getControl().getPostQueries(),
+                control.getQueryId(),
                 optionalDurationToSeconds(control.getCpuTime()),
                 optionalDurationToSeconds(control.getWallTime()),
                 errorMessage);
