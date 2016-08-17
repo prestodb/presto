@@ -15,6 +15,7 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.CombineHashFunction;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.AbstractArrayBlock;
 import com.facebook.presto.spi.block.ArrayBlockBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -132,12 +133,21 @@ public class ArrayType
             return null;
         }
 
-        Block arrayBlock = block.getObject(position, Block.class);
+        if (block instanceof AbstractArrayBlock) {
+            return ((AbstractArrayBlock) block).apply((valuesBlock, start, length) -> arrayBlockToObjectValues(session, valuesBlock, start, length), position);
+        }
+        else {
+            Block arrayBlock = block.getObject(position, Block.class);
+            return arrayBlockToObjectValues(session, arrayBlock, 0, arrayBlock.getPositionCount());
+        }
+    }
 
-        List<Object> values = new ArrayList<>(arrayBlock.getPositionCount());
+    private List<Object> arrayBlockToObjectValues(ConnectorSession session, Block block, int start, int length)
+    {
+        List<Object> values = new ArrayList<>(length);
 
-        for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
-            values.add(elementType.getObjectValue(session, arrayBlock, i));
+        for (int i = 0; i < length; i++) {
+            values.add(elementType.getObjectValue(session, block, i + start));
         }
 
         return Collections.unmodifiableList(values);

@@ -182,10 +182,24 @@ public abstract class AbstractArrayBlock
         return getValueIsNull().getByte(position) != 0;
     }
 
+    public <T> T apply(ArrayBlockFunction<T> function, int position)
+    {
+        checkReadablePosition(position);
+
+        int startValueOffset = getOffset(position);
+        int endValueOffset = getOffset(position + 1);
+        return function.apply(getValues(), startValueOffset, endValueOffset - startValueOffset);
+    }
+
     private void checkReadablePosition(int position)
     {
         if (position < 0 || position >= getPositionCount()) {
             throw new IllegalArgumentException("position is not valid");
         }
+    }
+
+    public interface ArrayBlockFunction<T>
+    {
+        T apply(Block block, int startPosition, int length);
     }
 }
