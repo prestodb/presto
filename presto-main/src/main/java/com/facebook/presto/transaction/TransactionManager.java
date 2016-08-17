@@ -16,6 +16,7 @@ package com.facebook.presto.transaction;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorTableStatisticsProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.base.Supplier;
@@ -165,6 +166,11 @@ public class TransactionManager
         TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
         Connector connector = getConnector(connectorId);
         return transactionMetadata.getConnectorTransactionMetadata(connectorId, connector).getConnectorMetadata();
+    }
+
+    public ConnectorTableStatisticsProvider getTableStatisticsProvider(TransactionId transactionId, String connectorId)
+    {
+        return getConnector(connectorId).getTableStatisticsProvider();
     }
 
     public ConnectorTransactionHandle getConnectorTransaction(TransactionId transactionId, String connectorId)
