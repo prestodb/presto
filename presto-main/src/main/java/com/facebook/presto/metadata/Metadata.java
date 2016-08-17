@@ -23,6 +23,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -78,6 +79,12 @@ public interface Metadata
      */
     @NotNull
     TableMetadata getTableMetadata(Session session, TableHandle tableHandle);
+
+    /**
+     * Return statistics for specified table/tableLayout pair.
+     */
+    @NotNull
+    TableStatistics getTableStatistics(Session session, TableHandle tableHandle, TableLayoutHandle tableLayoutHandle);
 
     /**
      * Get the names that match the specified table prefix (never null).
