@@ -101,6 +101,8 @@ import com.facebook.presto.sql.planner.PlanOptimizersFactory;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.statistics.CoefficientBasedStatisticsCalculator;
+import com.facebook.presto.statistics.StatisticsCalculator;
 import com.facebook.presto.transaction.ForTransactionManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.transaction.TransactionManagerConfig;
@@ -303,6 +305,9 @@ public class ServerMainModule
         configBinder(binder).bindConfig(CatalogManagerConfig.class);
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
+
+        // statistics calculator
+        binder.bind(StatisticsCalculator.class).to(CoefficientBasedStatisticsCalculator.class).in(Scopes.SINGLETON);
 
         // type
         binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);
