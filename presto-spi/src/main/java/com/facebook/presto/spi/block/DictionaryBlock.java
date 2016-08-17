@@ -85,13 +85,15 @@ public class DictionaryBlock
         else {
             int sizeInBytes = 0;
             int uniqueIds = 0;
-            boolean[] isReferenced = getReferencedPositions(dictionary, ids, positionCount);
-            for (int position = 0; position < isReferenced.length; position++) {
-                if (isReferenced[position]) {
+            boolean[] seen = new boolean[dictionary.getPositionCount()];
+            for (int i = 0; i < positionCount; i++) {
+                int position = getIndex(ids, i);
+                if (!seen[position]) {
                     if (!dictionary.isNull(position)) {
                         sizeInBytes += dictionary.getLength(position);
                     }
                     uniqueIds++;
+                    seen[position] = true;
                 }
             }
             this.sizeInBytes = sizeInBytes + ids.length();
@@ -310,18 +312,19 @@ public class DictionaryBlock
         int positionCount = dictionaryBlock.getPositionCount();
         int dictionarySize = dictionary.getPositionCount();
 
-        boolean[] isReferenced = getReferencedPositions(dictionary, ids, positionCount);
-
         List<Integer> dictionaryPositionsToCopy = new ArrayList<>(dictionarySize);
         int[] remapIndex = new int[dictionarySize];
         Arrays.fill(remapIndex, -1);
         int newIndex = 0;
 
-        for (int i = 0; i < dictionarySize; i++) {
-            if (isReferenced[i]) {
-                dictionaryPositionsToCopy.add(i);
-                remapIndex[i] = newIndex;
+        boolean[] copied = new boolean[dictionarySize];
+        for (int i = 0; i < positionCount; i++) {
+            int position = getIndex(ids, i);
+            if (!copied[position]) {
+                dictionaryPositionsToCopy.add(position);
+                remapIndex[position] = newIndex;
                 newIndex++;
+                copied[position] = true;
             }
         }
 
@@ -377,16 +380,6 @@ public class DictionaryBlock
             newIds[i] = newId;
         }
         return newIds;
-    }
-
-    private static boolean[] getReferencedPositions(Block dictionary, Slice ids, int positionCount)
-    {
-        int dictionarySize = dictionary.getPositionCount();
-        boolean[] isReferenced = new boolean[dictionarySize];
-        for (int i = 0; i < positionCount; i++) {
-            isReferenced[getIndex(ids, i)] = true;
-        }
-        return isReferenced;
     }
 
     private static int getIndex(Slice ids, int i)
