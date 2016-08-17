@@ -1652,9 +1652,10 @@ public abstract class AbstractTestHiveClient
         MaterializedResult result = readTable(tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.of(storageFormat));
         assertEqualsIgnoreOrder(result.getMaterializedRows(), CREATE_TABLE_DATA.getMaterializedRows());
 
-        // verify the node version in table
+        // verify the node version and query ID in table
         Table table = getMetastoreClient(tableName.getSchemaName()).getTable(tableName.getSchemaName(), tableName.getTableName()).get();
         assertEquals(table.getParameters().get(HiveMetadata.PRESTO_VERSION_NAME), TEST_SERVER_INFO.getVersion());
+        assertEquals(table.getParameters().get(HiveMetadata.PRESTO_QUERY_ID_NAME), session.getQueryId());
     }
 
     protected void doCreateEmptyTable(SchemaTableName tableName, HiveStorageFormat storageFormat, List<ColumnMetadata> createTableColumns)
@@ -1690,8 +1691,9 @@ public abstract class AbstractTestHiveClient
         Table table = getMetastoreClient(tableName.getSchemaName()).getTable(tableName.getSchemaName(), tableName.getTableName()).get();
         assertEquals(table.getStorage().getStorageFormat().getInputFormat(), storageFormat.getInputFormat());
 
-        // verify the node version
+        // verify the node version and query ID
         assertEquals(table.getParameters().get(HiveMetadata.PRESTO_VERSION_NAME), TEST_SERVER_INFO.getVersion());
+        assertEquals(table.getParameters().get(HiveMetadata.PRESTO_QUERY_ID_NAME), session.getQueryId());
 
         // verify the table is empty
         List<ColumnHandle> columnHandles = filterNonHiddenColumnHandles(metadata.getColumnHandles(session, tableHandle).values());
@@ -1863,11 +1865,12 @@ public abstract class AbstractTestHiveClient
         // creating the table
         doCreateEmptyTable(tableName, storageFormat, CREATE_TABLE_COLUMNS_PARTITIONED);
 
+        ConnectorSession session = newSession();
         ConnectorMetadata metadata = newMetadata();
         ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
 
         // insert the data
-        insertData(tableHandle, CREATE_TABLE_PARTITIONED_DATA, newSession());
+        insertData(tableHandle, CREATE_TABLE_PARTITIONED_DATA, session);
 
         // verify partitions were created
         List<String> partitionNames = getMetastoreClient(tableName.getSchemaName()).getPartitionNames(tableName.getSchemaName(), tableName.getTableName())
@@ -1882,10 +1885,11 @@ public abstract class AbstractTestHiveClient
         for (String partitionName : partitionNames) {
             Partition partition = partitions.get(partitionName).get();
             assertEquals(partition.getParameters().get(HiveMetadata.PRESTO_VERSION_NAME), TEST_SERVER_INFO.getVersion());
+            assertEquals(partition.getParameters().get(HiveMetadata.PRESTO_QUERY_ID_NAME), session.getQueryId());
         }
 
         // load the new table
-        ConnectorSession session = newSession();
+        session = newSession();
         metadata = newMetadata();
         List<ColumnHandle> columnHandles = filterNonHiddenColumnHandles(metadata.getColumnHandles(session, tableHandle).values());
 
