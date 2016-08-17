@@ -86,6 +86,7 @@
         <module>presto-example-http</module>
         <module>presto-local-file</module>
         <module>presto-tpch</module>
+        <module>presto-tpcds</module>
         <module>presto-raptor</module>
         <module>presto-base-jdbc</module>
         <module>presto-mysql</module>
@@ -514,6 +515,12 @@
                 <groupId>io.airlift.tpch</groupId>
                 <artifactId>tpch</artifactId>
                 <version>0.9</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.teradata.tpcds</groupId>
+                <artifactId>tpcds</artifactId>
+                <version>1.2</version>
             </dependency>
 
             <dependency>
