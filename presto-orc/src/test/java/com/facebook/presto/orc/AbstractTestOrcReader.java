@@ -448,25 +448,6 @@ public abstract class AbstractTestOrcReader
         return values;
     }
 
-//    private static Iterable<HiveDecimal> decimalSequence(String start, String step, int items, int scale)
-//    {
-//        HiveDecimal hiveStep = HiveDecimal.create(step);
-//        return () -> new AbstractSequentialIterator<HiveDecimal>(HiveDecimal.create(start))
-//        {
-//            private int item;
-//
-//            @Override
-//            protected HiveDecimal computeNext(HiveDecimal previous)
-//            {
-//                if (item >= items) {
-//                    return null;
-//                }
-//                item++;
-//                return previous.add(hiveStep).setScale(scale);
-//            }
-//        };
-//    }
-
     private static ContiguousSet<Integer> intsBetween(int lowerInclusive, int upperExclusive)
     {
         return ContiguousSet.create(Range.openClosed(lowerInclusive, upperExclusive), DiscreteDomain.integers());
