@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto;
+package com.facebook.presto.eventlistener;
 
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;

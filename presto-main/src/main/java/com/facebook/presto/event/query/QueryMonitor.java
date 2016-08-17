@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.event.query;
 
-import com.facebook.presto.EventListenerManager;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.Column;
 import com.facebook.presto.execution.Input;
 import com.facebook.presto.execution.QueryInfo;
