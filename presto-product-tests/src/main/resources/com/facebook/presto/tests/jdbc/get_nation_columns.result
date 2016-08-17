@@ -1,5 +1,5 @@
 -- delimiter: |; ignoreOrder: false; ignoreExcessRows: false; types: LONGNVARCHAR|LONGNVARCHAR|LONGNVARCHAR|LONGNVARCHAR|BIGINT|LONGNVARCHAR|BIGINT|BIGINT|BIGINT|BIGINT|BIGINT|LONGNVARCHAR|LONGNVARCHAR|BIGINT|BIGINT|BIGINT|BIGINT|LONGNVARCHAR|LONGNVARCHAR|LONGNVARCHAR|LONGNVARCHAR|BIGINT|LONGNVARCHAR|LONGNVARCHAR
-hive|default|nation|n_nationkey|-5|bigint|0|0|19|10|2|null|null|null|null|0|1||null|null|null|null|null|null|
-hive|default|nation|n_name|-16|varchar(25)|0|0|null|10|2|null|null|null|null|0|2||null|null|null|null|null|null|
-hive|default|nation|n_regionkey|-5|bigint|0|0|19|10|2|null|null|null|null|0|3||null|null|null|null|null|null|
-hive|default|nation|n_comment|-16|varchar(152)|0|0|null|10|2|null|null|null|null|0|4||null|null|null|null|null|null|
+hive|default|nation|n_nationkey|-5|bigint|19|0|null|10|2|null|null|null|null|null|1||null|null|null|null|null|null|
+hive|default|nation|n_name|-16|varchar(25)|25|0|null|null|2|null|null|null|null|25|2||null|null|null|null|null|null|
+hive|default|nation|n_regionkey|-5|bigint|19|0|null|10|2|null|null|null|null|null|3||null|null|null|null|null|null|
+hive|default|nation|n_comment|-16|varchar(152)|152|0|null|null|2|null|null|null|null|152|4||null|null|null|null|null|null|
