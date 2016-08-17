@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.server.testing;
 
-import com.facebook.presto.EventListenerManager;
 import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;

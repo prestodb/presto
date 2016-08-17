@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.EventListenerManager;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.spi.Plugin;

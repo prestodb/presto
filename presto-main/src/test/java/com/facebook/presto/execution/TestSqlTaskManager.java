@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.EventListenerManager;
 import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.event.query.QueryMonitorConfig;
+import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.BufferState;
 import com.facebook.presto.memory.LocalMemoryManager;

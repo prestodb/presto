@@ -14,7 +14,7 @@
 
 package com.facebook.presto.testing;
 
-import com.facebook.presto.EventListenerManager;
+import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
