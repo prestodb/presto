@@ -147,6 +147,7 @@ public class HiveMetadata
         implements ConnectorMetadata
 {
     public static final String PRESTO_VERSION_NAME = "presto_version";
+    public static final String PRESTO_QUERY_ID_NAME = "presto_query_id";
 
     private static final Logger log = Logger.get(HiveMetadata.class);
     private static final int PARTITION_COMMIT_BATCH_SIZE = 8;
@@ -416,12 +417,13 @@ public class HiveMetadata
         Path targetPath = locationService.targetPathRoot(locationHandle);
         createDirectory(session.getUser(), hdfsEnvironment, targetPath);
 
-        Table table = buildTableObject(schemaName, tableName, session.getUser(), columnHandles, hiveStorageFormat, partitionedBy, bucketProperty, additionalTableParameters, targetPath, serverInfo);
+        Table table = buildTableObject(session.getQueryId(), schemaName, tableName, session.getUser(), columnHandles, hiveStorageFormat, partitionedBy, bucketProperty, additionalTableParameters, targetPath, serverInfo);
         PrincipalPrivilegeSet principalPrivilegeSet = buildInitialPrivilegeSet(table.getOwner());
         metastore.createTable(table, principalPrivilegeSet);
     }
 
     private static Table buildTableObject(
+            String queryId,
             String schemaName,
             String tableName,
             String tableOwner,
@@ -473,6 +475,7 @@ public class HiveMetadata
                 .setParameters(ImmutableMap.<String, String>builder()
                         .put("comment", tableComment)
                         .put(PRESTO_VERSION_NAME, serverInfo.getVersion())
+                        .put(PRESTO_QUERY_ID_NAME, queryId)
                         .putAll(additionalTableParameters)
                         .build());
         tableBuilder.getStorageBuilder()
@@ -595,6 +598,7 @@ public class HiveMetadata
         PartitionCommitter partitionCommitter = new PartitionCommitter(handle.getSchemaName(), handle.getTableName(), metastore, PARTITION_COMMIT_BATCH_SIZE);
         try {
             Table table = buildTableObject(
+                    session.getQueryId(),
                     handle.getSchemaName(),
                     handle.getTableName(),
                     handle.getTableOwner(),
@@ -614,7 +618,7 @@ public class HiveMetadata
                 // replace partitionUpdates before creating the empty files so that those files will be cleaned up if we end up rollback
                 partitionUpdates = PartitionUpdate.mergePartitionUpdates(Iterables.concat(partitionUpdates, partitionUpdatesForMissingBuckets));
                 for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
-                    Optional<Partition> partition = table.getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(table, partitionUpdate));
+                    Optional<Partition> partition = table.getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(session.getQueryId(), table, partitionUpdate));
                     createEmptyFile(handle, partitionUpdate.getTargetPath(), table, partition, partitionUpdate.getFileNames());
                 }
             }
@@ -626,7 +630,7 @@ public class HiveMetadata
                     Verify.verify(handle.getPartitionStorageFormat() == handle.getTableStorageFormat());
                 }
                 partitionUpdates.stream()
-                        .map(partitionUpdate -> buildPartitionObject(table, partitionUpdate))
+                        .map(partitionUpdate -> buildPartitionObject(session.getQueryId(), table, partitionUpdate))
                         .forEach(partitionCommitter::addPartition);
             }
             partitionCommitter.flush();
@@ -858,7 +862,7 @@ public class HiveMetadata
                 // replace partitionUpdates before creating the empty files so that those files will be cleaned up if we end up rollback
                 partitionUpdates = PartitionUpdate.mergePartitionUpdates(Iterables.concat(partitionUpdates, partitionUpdatesForMissingBuckets));
                 for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
-                    Optional<Partition> partition = table.get().getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(table.get(), partitionUpdate));
+                    Optional<Partition> partition = table.get().getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(session.getQueryId(), table.get(), partitionUpdate));
                     createEmptyFile(handle, partitionUpdate.getWritePath(), table.get(), partition, partitionUpdate.getFileNames());
                 }
             }
@@ -877,7 +881,7 @@ public class HiveMetadata
                                 partitionUpdate.getTargetPath());
                     }
                     // add new partition
-                    Partition partition = buildPartitionObject(table.get(), partitionUpdate);
+                    Partition partition = buildPartitionObject(session.getQueryId(), table.get(), partitionUpdate);
                     if (!partition.getStorage().getStorageFormat().getInputFormat().equals(handle.getPartitionStorageFormat().getInputFormat()) && respectTableFormat) {
                         throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Partition format changed during insert");
                     }
@@ -969,7 +973,7 @@ public class HiveMetadata
         return parent.equals(child);
     }
 
-    private Partition buildPartitionObject(Table table, PartitionUpdate partitionUpdate)
+    private Partition buildPartitionObject(String queryId, Table table, PartitionUpdate partitionUpdate)
     {
         List<String> values = HivePartitionManager.extractPartitionKeyValues(partitionUpdate.getName());
 
@@ -986,6 +990,7 @@ public class HiveMetadata
         }
         partition.setParameters(ImmutableMap.<String, String>builder()
                 .put(PRESTO_VERSION_NAME, serverInfo.getVersion())
+                .put(PRESTO_QUERY_ID_NAME, queryId)
                 .build());
 
         partition.getStorageBuilder().setLocation(partitionUpdate.getTargetPath().toString());
