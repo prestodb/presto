@@ -429,7 +429,7 @@ These rules govern who may set session properties.
 
 * ``user`` (optional): regex to match against user name.
 
-* ``sessionProperty`` (optional): regex to match against session property name.
+* ``property`` (optional): regex to match against session property name.
 
 * ``allowed`` (required): boolean indicating whether this session property may be set.
 
@@ -470,12 +470,12 @@ See below for an example.
       ],
       "sessionProperties": [
         {
-          "sessionProperty": "force_local_scheduling",
+          "property": "force_local_scheduling",
           "allow": true
         },
         {
           "user": "admin",
-          "sessionProperty": "max_split_size",
+          "property": "max_split_size",
           "allow": true
         }
       ],
