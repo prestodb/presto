@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.type;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.math.BigInteger;
@@ -27,6 +28,7 @@ import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.divide;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.hash;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.isNegative;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.multiply;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.multiply256;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.overflows;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.rescale;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.shiftRight;
@@ -156,6 +158,25 @@ public class TestUnscaledDecimal128Arithmetic
         assertEquals(multiply(unscaledDecimal(Integer.MAX_VALUE), unscaledDecimal(Integer.MIN_VALUE)), unscaledDecimal((long) Integer.MAX_VALUE * Integer.MIN_VALUE));
         assertEquals(multiply(unscaledDecimal("99999999999999"), unscaledDecimal("-1000000000000000000000000")), unscaledDecimal("-99999999999999000000000000000000000000"));
         assertEquals(multiply(unscaledDecimal("12380837221737387489365741632769922889"), unscaledDecimal("3")), unscaledDecimal("37142511665212162468097224898309768667"));
+    }
+
+    @Test
+    public void testMultiply256()
+            throws Exception
+    {
+        assertMultiply256(MAX_DECIMAL, MAX_DECIMAL, wrappedLongArray(0xECEBBB8000000001L, 0xE0FF0CA0BC87870BL, 0x0764B4ABE8652978L, 0x161BCCA7119915B5L));
+        assertMultiply256(MIN_DECIMAL, MIN_DECIMAL, wrappedLongArray(0xECEBBB8000000001L, 0xE0FF0CA0BC87870BL, 0x0764B4ABE8652978L, 0x161BCCA7119915B5L));
+        assertMultiply256(wrappedLongArray(0xFFFFFFFFFFFFFFFFL, 0x0FFFFFFFFFFFFFFFL), wrappedLongArray(0xFFFFFFFFFFFFFFFFL, 0x0FFFFFFFFFFFFFFFL),
+                wrappedLongArray(0x0000000000000001L, 0xE000000000000000L, 0xFFFFFFFFFFFFFFFFL, 0x00FFFFFFFFFFFFFFL));
+        assertMultiply256(wrappedLongArray(0x1234567890ABCDEFL, 0x0EDCBA0987654321L), wrappedLongArray(0xFEDCBA0987654321L, 0x1234567890ABCDEL),
+                wrappedLongArray(0xC24A442FE55618CFL, 0xAA71A60D0DA49DDAL, 0x7C163D5A13DF8695L, 0x0010E8EEF9BD1294L));
+    }
+
+    private static void assertMultiply256(Slice left, Slice right, Slice expected)
+    {
+        Slice actual = Slices.allocate(Long.BYTES * 4);
+        multiply256(left, right, actual);
+        assertEquals(actual, expected);
     }
 
     @Test

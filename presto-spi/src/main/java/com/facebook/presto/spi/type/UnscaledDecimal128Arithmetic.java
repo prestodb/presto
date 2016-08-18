@@ -445,6 +445,8 @@ public final class UnscaledDecimal128Arithmetic
 
     public static void multiply(Slice left, Slice right, Slice result)
     {
+        checkArgument(result.length() == NUMBER_OF_LONGS * Long.BYTES);
+
         long l0 = getInt(left, 0) & LONG_MASK;
         long l1 = getInt(left, 1) & LONG_MASK;
         long l2 = getInt(left, 2) & LONG_MASK;
@@ -520,6 +522,99 @@ public final class UnscaledDecimal128Arithmetic
         }
 
         pack(result, (int) z0, (int) z1, (int) z2, (int) z3, isNegative(left) ^ isNegative(right));
+    }
+
+    public static void multiply256(Slice left, Slice right, Slice result)
+    {
+        checkArgument(result.length() >= NUMBER_OF_LONGS * Long.BYTES * 2);
+
+        long l0 = getInt(left, 0) & LONG_MASK;
+        long l1 = getInt(left, 1) & LONG_MASK;
+        long l2 = getInt(left, 2) & LONG_MASK;
+        long l3 = getInt(left, 3) & LONG_MASK;
+
+        long r0 = getInt(right, 0) & LONG_MASK;
+        long r1 = getInt(right, 1) & LONG_MASK;
+        long r2 = getInt(right, 2) & LONG_MASK;
+        long r3 = getInt(right, 3) & LONG_MASK;
+
+        long z0 = 0;
+        long z1 = 0;
+        long z2 = 0;
+        long z3 = 0;
+        long z4 = 0;
+        long z5 = 0;
+        long z6 = 0;
+        long z7 = 0;
+
+        if (l0 != 0) {
+            long accumulator = r0 * l0;
+            z0 = accumulator & LONG_MASK;
+            accumulator = (accumulator >>> 32) + r1 * l0;
+
+            z1 = accumulator & LONG_MASK;
+            accumulator = (accumulator >>> 32) + r2 * l0;
+
+            z2 = accumulator & LONG_MASK;
+            accumulator = (accumulator >>> 32) + r3 * l0;
+
+            z3 = accumulator & LONG_MASK;
+            z4 = (accumulator >>> 32) & LONG_MASK;
+        }
+
+        if (l1 != 0) {
+            long accumulator = r0 * l1 + z1;
+            z1 = accumulator & LONG_MASK;
+            accumulator = (accumulator >>> 32) + r1 * l1 + z2;
+
+            z2 = accumulator & LONG_MASK;
+            accumulator = (accumulator >>> 32) + r2 * l1 + z3;
+
+            z3 = accumulator & LONG_MASK;
+            accumulator = (accumulator >>> 32) + r3 * l1 + z4;
+
+            z4 = accumulator & LONG_MASK;
+            z5 = (accumulator >>> 32) & LONG_MASK;
+        }
+
+        if (l2 != 0) {
+            long accumulator = r0 * l2 + z2;
+            z2 = accumulator & LONG_MASK;
+            accumulator = (accumulator >>> 32) + r1 * l2 + z3;
+
+            z3 = accumulator & LONG_MASK;
+            accumulator = (accumulator >>> 32) + r2 * l2 + z4;
+
+            z4 = accumulator & LONG_MASK;
+            accumulator = (accumulator >>> 32) + r3 * l2 + z5;
+
+            z5 = accumulator & LONG_MASK;
+            z6 = (accumulator >>> 32) & LONG_MASK;
+        }
+
+        if (l3 != 0) {
+            long accumulator = r0 * l3 + z3;
+            z3 = accumulator & LONG_MASK;
+            accumulator = (accumulator >>> 32) + r1 * l3 + z4;
+
+            z4 = accumulator & LONG_MASK;
+            accumulator = (accumulator >>> 32) + r2 * l3 + z5;
+
+            z5 = accumulator & LONG_MASK;
+            accumulator = (accumulator >>> 32) + r3 * l3 + z6;
+
+            z6 = accumulator & LONG_MASK;
+            z7 = (accumulator >>> 32) & LONG_MASK;
+        }
+
+        setRawInt(result, 0, (int) z0);
+        setRawInt(result, 1, (int) z1);
+        setRawInt(result, 2, (int) z2);
+        setRawInt(result, 3, (int) z3);
+        setRawInt(result, 4, (int) z4);
+        setRawInt(result, 5, (int) z5);
+        setRawInt(result, 6, (int) z6);
+        setRawInt(result, 7, (int) z7);
     }
 
     public static int compare(Slice left, Slice right)
