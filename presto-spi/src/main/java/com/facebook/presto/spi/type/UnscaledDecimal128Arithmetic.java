@@ -445,6 +445,10 @@ public final class UnscaledDecimal128Arithmetic
 
     public static void multiply(Slice left, Slice right, Slice result)
     {
+        boolean fourIntsResultExpected = result.length() == NUMBER_OF_LONGS * Long.BYTES;
+        boolean eightIntsResultExpected = result.length() >= NUMBER_OF_LONGS * Long.BYTES * 2;
+        checkArgument(fourIntsResultExpected ^ eightIntsResultExpected);
+
         int l0 = getInt(left, 0);
         int l1 = getInt(left, 1);
         int l2 = getInt(left, 2);
@@ -456,7 +460,7 @@ public final class UnscaledDecimal128Arithmetic
         int r3 = getInt(right, 3);
 
         // the combinations below definitely result in an overflow
-        if (((r3 != 0 && (l3 | l2 | l1) != 0) || (r2 != 0 && (l3 | l2) != 0) || (r1 != 0 && l3 != 0))) {
+        if (fourIntsResultExpected && ((r3 != 0 && (l3 | l2 | l1) != 0) || (r2 != 0 && (l3 | l2) != 0) || (r1 != 0 && l3 != 0))) {
             throwOverflowException();
         }
 
@@ -521,12 +525,24 @@ public final class UnscaledDecimal128Arithmetic
             z7 = (int) (accumulator >>> 32);
         }
 
-        if (z7 == 0 && z6 == 0 && z5 == 0 && z4 == 0) {
-            pack(result, z0, z1, z2, z3, isNegative(left) ^ isNegative(right));
+        if (fourIntsResultExpected) {
+            if (z7 == 0 && z6 == 0 && z5 == 0 && z4 == 0) {
+                pack(result, z0, z1, z2, z3, isNegative(left) ^ isNegative(right));
+                return;
+            }
+            else {
+                throwOverflowException();
+            }
         }
-        else {
-            throwOverflowException();
-        }
+
+        setRawInt(result, 0, z0);
+        setRawInt(result, 1, z1);
+        setRawInt(result, 2, z2);
+        setRawInt(result, 3, z3);
+        setRawInt(result, 4, z4);
+        setRawInt(result, 5, z5);
+        setRawInt(result, 6, z6);
+        setRawInt(result, 7, z7);
     }
 
     public static int compare(Slice left, Slice right)
