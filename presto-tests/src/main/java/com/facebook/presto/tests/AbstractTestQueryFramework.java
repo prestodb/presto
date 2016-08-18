@@ -23,6 +23,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PlanOptimizersFactory;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.ExplainType;
+import com.facebook.presto.statistics.CoefficientBasedStatisticsCalculator;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilege;
@@ -290,7 +291,7 @@ public abstract class AbstractTestQueryFramework
         Metadata metadata = queryRunner.getMetadata();
         FeaturesConfig featuresConfig = new FeaturesConfig().setExperimentalSyntaxEnabled(true).setOptimizeHashGeneration(true);
         boolean forceSingleNode = queryRunner.getNodeCount() == 1;
-        List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, sqlParser, featuresConfig, forceSingleNode).get();
+        List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, sqlParser, featuresConfig, new CoefficientBasedStatisticsCalculator(metadata), forceSingleNode).get();
         return new QueryExplainer(
                 optimizers,
                 metadata,
