@@ -25,23 +25,23 @@ public class SessionPropertyAccessControlRule
 {
     private final boolean allow;
     private final Optional<Pattern> userRegex;
-    private final Optional<Pattern> sessionPropertyRegex;
+    private final Optional<Pattern> propertyRegex;
 
     @JsonCreator
     public SessionPropertyAccessControlRule(
             @JsonProperty("allow") boolean allow,
             @JsonProperty("user") Optional<Pattern> userRegex,
-            @JsonProperty("sessionProperty") Optional<Pattern> sessionPropertyRegex)
+            @JsonProperty("property") Optional<Pattern> propertyRegex)
     {
         this.allow = allow;
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
-        this.sessionPropertyRegex = requireNonNull(sessionPropertyRegex, "sessionPropertyRegex is null");
+        this.propertyRegex = requireNonNull(propertyRegex, "propertyRegex is null");
     }
 
-    public Optional<Boolean> match(String user, String sessionProperty)
+    public Optional<Boolean> match(String user, String property)
     {
         if (userRegex.map(regex -> regex.matcher(user).matches()).orElse(true) &&
-                sessionPropertyRegex.map(regex -> regex.matcher(sessionProperty).matches()).orElse(true)) {
+                propertyRegex.map(regex -> regex.matcher(property).matches()).orElse(true)) {
             return Optional.of(allow);
         }
         return Optional.empty();

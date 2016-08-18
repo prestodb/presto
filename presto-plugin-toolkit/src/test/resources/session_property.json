@@ -2,12 +2,12 @@
   "sessionProperties": [
     {
       "user": "admin",
-      "sessionProperty": ".*",
+      "property": ".*",
       "allow": true
     },
     {
       "user": "alice",
-      "sessionProperty": "dangerous",
+      "property": "dangerous",
       "allow": false
     },
     {
@@ -16,7 +16,7 @@
     },
     {
       "user": "bob",
-      "sessionProperty": "safe",
+      "property": "safe",
       "allow": true
     }
   ]
