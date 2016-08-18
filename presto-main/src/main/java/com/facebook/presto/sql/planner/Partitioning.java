@@ -44,6 +44,7 @@ public final class Partitioning
     {
         this.handle = requireNonNull(handle, "handle is null");
         this.arguments = ImmutableList.copyOf(requireNonNull(arguments, "arguments is null"));
+        checkArgument(!handle.isSingleNode() || arguments.isEmpty(), "Single node partitioning can not have arguments");
     }
 
     public static Partitioning create(PartitioningHandle handle, List<Symbol> columns)
@@ -197,6 +198,9 @@ public final class Partitioning
         return Objects.hash(handle, arguments);
     }
 
+    /**
+     * If true, this partitioning and the specified object will split datasets exactly the same way.
+     */
     @Override
     public boolean equals(Object obj)
     {

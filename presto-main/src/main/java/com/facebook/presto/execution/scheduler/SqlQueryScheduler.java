@@ -69,8 +69,7 @@ import static com.facebook.presto.execution.StageState.RUNNING;
 import static com.facebook.presto.execution.StageState.SCHEDULED;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isFixedBroadcastPartitioning;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
@@ -209,8 +208,7 @@ public class SqlQueryScheduler
         stages.add(stage);
 
         Optional<int[]> bucketToPartition;
-        PartitioningHandle partitioningHandle = plan.getFragment().getPartitioning();
-        if (partitioningHandle.equals(SOURCE_DISTRIBUTION)) {
+        if (!plan.getFragment().getPartitioning().isPresent()) {
             // nodes are selected dynamically based on the constraints of the splits and the system load
             Entry<PlanNodeId, SplitSource> entry = Iterables.getOnlyElement(plan.getSplitSources().entrySet());
             String dataSourceName = entry.getValue().getDataSourceName();
@@ -224,7 +222,7 @@ public class SqlQueryScheduler
         }
         else {
             // nodes are pre determined by the nodePartitionMap
-            NodePartitionMap nodePartitionMap = partitioningCache.apply(plan.getFragment().getPartitioning());
+            NodePartitionMap nodePartitionMap = partitioningCache.apply(plan.getFragment().getPartitioning().get());
 
             Map<PlanNodeId, SplitSource> splitSources = plan.getSplitSources();
             if (!splitSources.isEmpty()) {
@@ -436,11 +434,11 @@ public class SqlQueryScheduler
             this.parent = parent;
             this.childOutputBufferManagers = children.stream()
                     .map(childStage -> {
-                        if (childStage.getFragment().getPartitioningScheme().getPartitioning().getHandle().equals(FIXED_BROADCAST_DISTRIBUTION)) {
+                        if (isFixedBroadcastPartitioning(childStage.getFragment().getOutputPartitioningScheme().getPartitioning())) {
                             return new BroadcastOutputBufferManager(childStage::setOutputBuffers);
                         }
                         else {
-                            int partitionCount = Ints.max(childStage.getFragment().getPartitioningScheme().getBucketToPartition().get()) + 1;
+                            int partitionCount = Ints.max(childStage.getFragment().getOutputPartitioningScheme().getBucketToPartition().get()) + 1;
                             return new PartitionedOutputBufferManager(partitionCount, childStage::setOutputBuffers);
                         }
                     })

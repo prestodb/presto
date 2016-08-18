@@ -25,6 +25,8 @@ import com.facebook.presto.operator.exchange.LocalExchangeSourceOperator.LocalEx
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.Partitioning;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingTaskContext;
@@ -48,7 +50,8 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.fixedHashPartitioning;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -690,7 +693,14 @@ public class TestHashJoinOperator
     private static LookupSourceSupplier buildHash(boolean parallelBuild, TaskContext taskContext, List<Integer> hashChannels, RowPagesBuilder buildPages, Optional<JoinFilterFunction> filterFunction)
     {
         if (parallelBuild) {
-            LocalExchange localExchange = new LocalExchange(FIXED_HASH_DISTRIBUTION, PARTITION_COUNT, buildPages.getTypes(), hashChannels, buildPages.getHashChannel());
+            List<Symbol> hashSymbols = hashChannels.stream()
+                    .map(channel -> new Symbol("test" + buildPages.getTypes().get(channel)))
+                    .collect(toImmutableList());
+            List<Type> hashChannelTypes = hashChannels.stream()
+                    .map(channel -> buildPages.getTypes().get(channel))
+                    .collect(toImmutableList());
+            Partitioning partitioning = fixedHashPartitioning(PARTITION_COUNT, hashSymbols, hashChannelTypes);
+            LocalExchange localExchange = new LocalExchange(partitioning, buildPages.getTypes(), hashChannels, buildPages.getHashChannel());
             LocalExchangeSinkFactory sinkFactory = localExchange.createSinkFactory();
             sinkFactory.noMoreSinkFactories();
 

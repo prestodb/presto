@@ -101,7 +101,7 @@ import java.util.stream.Stream;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.DomainUtils.simplifyDomain;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.singlePartition;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.CaseFormat.UPPER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -263,9 +263,9 @@ public class PlanPrinter
     private static String formatFragment(Metadata metadata, Session session, PlanFragment fragment, Optional<StageStats> stageStats, Optional<Map<PlanNodeId, PlanNodeStats>> planNodeStats)
     {
         StringBuilder builder = new StringBuilder();
-        builder.append(format("Fragment %s [%s]\n",
+        builder.append(format("Fragment %s\n",
                 fragment.getId(),
-                fragment.getPartitioning()));
+                fragment.getPartitioning().map(partitioning -> " [" + partitioning + "]")));
 
         if (stageStats.isPresent()) {
             builder.append(indentString(1))
@@ -277,13 +277,13 @@ public class PlanPrinter
                             stageStats.get().getOutputDataSize()));
         }
 
-        PartitioningScheme partitioningScheme = fragment.getPartitioningScheme();
+        PartitioningScheme outputPartitioningScheme = fragment.getOutputPartitioningScheme();
         builder.append(indentString(1))
                 .append(format("Output layout: [%s]\n",
-                        Joiner.on(", ").join(partitioningScheme.getOutputLayout())));
+                        Joiner.on(", ").join(outputPartitioningScheme.getOutputLayout())));
 
-        boolean replicateNulls = partitioningScheme.isReplicateNulls();
-        List<String> arguments = partitioningScheme.getPartitioning().getArguments().stream()
+        boolean replicateNulls = outputPartitioningScheme.isReplicateNulls();
+        List<String> arguments = outputPartitioningScheme.getPartitioning().getArguments().stream()
                 .map(argument -> {
                     if (argument.isConstant()) {
                         NullableValue constant = argument.getConstant();
@@ -296,12 +296,12 @@ public class PlanPrinter
         builder.append(indentString(1));
         if (replicateNulls) {
             builder.append(format("Output partitioning: %s (replicate nulls) [%s]\n",
-                    partitioningScheme.getPartitioning().getHandle(),
+                    outputPartitioningScheme.getPartitioning().getHandle(),
                     Joiner.on(", ").join(arguments)));
         }
         else {
             builder.append(format("Output partitioning: %s [%s]\n",
-                    partitioningScheme.getPartitioning().getHandle(),
+                    outputPartitioningScheme.getPartitioning().getHandle(),
                     Joiner.on(", ").join(arguments)));
         }
 
@@ -323,9 +323,9 @@ public class PlanPrinter
                 new PlanFragmentId("graphviz_plan"),
                 plan,
                 types,
-                SINGLE_DISTRIBUTION,
+                Optional.of(singlePartition().getHandle()),
                 ImmutableList.of(plan.getId()),
-                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getOutputSymbols()));
+                new PartitioningScheme(singlePartition(), plan.getOutputSymbols()));
         return GraphvizPrinter.printLogical(ImmutableList.of(fragment));
     }
 

@@ -14,54 +14,60 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
-import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.preferStreamingOperators;
-import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.FIXED;
-import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.MULTIPLE;
-import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
-import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.singlePartition;
+import static com.facebook.presto.sql.planner.optimizations.PreferredPartitioning.partitioned;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 class StreamPreferredProperties
 {
-    private final Optional<StreamDistribution> distribution;
+    private final Optional<Boolean> parallelPreferred;
 
-    private final boolean exactColumnOrder;
-    private final Optional<List<Symbol>> partitioningColumns; // if missing => any partitioning scheme is acceptable
+    // Specific partitioning requested
+    // if set, parallelPreferred must be set to a matching value
+    private final Optional<PreferredPartitioning> partitioning;
 
     private final boolean orderSensitive;
 
-    private StreamPreferredProperties(Optional<StreamDistribution> distribution, Optional<? extends Iterable<Symbol>> partitioningColumns, boolean orderSensitive)
+    private StreamPreferredProperties(PreferredPartitioning partitioning)
     {
-        this(distribution, false, partitioningColumns, orderSensitive);
+        this(Optional.of(!partitioning.isSinglePreferred()), Optional.of(partitioning), false);
     }
 
     private StreamPreferredProperties(
-            Optional<StreamDistribution> distribution,
-            boolean exactColumnOrder,
-            Optional<? extends Iterable<Symbol>> partitioningColumns,
+            Optional<Boolean> parallelPreferred,
+            Optional<PreferredPartitioning> partitioning,
             boolean orderSensitive)
     {
-        this.distribution = requireNonNull(distribution, "distribution is null");
-        this.partitioningColumns = requireNonNull(partitioningColumns, "partitioningColumns is null").map(ImmutableList::copyOf);
-        this.exactColumnOrder = exactColumnOrder;
+        this.parallelPreferred = requireNonNull(parallelPreferred, "parallelPreferred is null");
+        this.partitioning = requireNonNull(partitioning, "partitioning is null");
         this.orderSensitive = orderSensitive;
 
-        checkArgument(!orderSensitive || !partitioningColumns.isPresent(), "An order sensitive context can not prefer partitioning");
+        // if there is a preference for single, the partitioning must be set to a single partitioning
+        if (parallelPreferred.isPresent() && !parallelPreferred.get()) {
+            checkArgument(partitioning.isPresent() && partitioning.get().isSinglePreferred(), "Single stream preference must use a single partitioning");
+        }
+
+        // if there is an explicit partitioning preference, verify the other properties agree
+        if (partitioning.isPresent()) {
+            checkArgument(!parallelPreferred.isPresent() || parallelPreferred.get() == !partitioning.get().isSinglePreferred(), "parallelPreferred must agree with preferred partitioning");
+
+            // the only allowed order sensitive partitioning is single
+            checkArgument(!orderSensitive || partitioning.get().isSinglePreferred(), "An order sensitive context can not prefer partitioning");
+        }
     }
 
     public static StreamPreferredProperties any()
@@ -71,39 +77,20 @@ class StreamPreferredProperties
 
     public static StreamPreferredProperties singleStream()
     {
-        return new StreamPreferredProperties(Optional.of(SINGLE), Optional.empty(), false);
-    }
-
-    public static StreamPreferredProperties fixedParallelism()
-    {
-        return new StreamPreferredProperties(Optional.of(FIXED), Optional.empty(), false);
+        return partitionedOn(singlePartition());
     }
 
     public static StreamPreferredProperties defaultParallelism(Session session)
     {
         if (getTaskConcurrency(session) > 1 && !preferStreamingOperators(session)) {
-            return new StreamPreferredProperties(Optional.of(MULTIPLE), Optional.empty(), false);
+            return new StreamPreferredProperties(Optional.of(true), Optional.empty(), false);
         }
         return any();
     }
 
-    public StreamPreferredProperties withParallelism()
+    public static StreamPreferredProperties partitionedOn(Partitioning partitioning)
     {
-        // do not override an existing parallel preference
-        if (isParallelPreferred()) {
-            return this;
-        }
-        return new StreamPreferredProperties(Optional.of(MULTIPLE), Optional.empty(), orderSensitive);
-    }
-
-    public static StreamPreferredProperties exactlyPartitionedOn(Collection<Symbol> partitionSymbols)
-    {
-        if (partitionSymbols.isEmpty()) {
-            return singleStream();
-        }
-
-        // this must be the exact partitioning symbols, in the exact order
-        return new StreamPreferredProperties(Optional.of(FIXED), true, Optional.of(ImmutableList.copyOf(partitionSymbols)), false);
+        return new StreamPreferredProperties(partitioned(partitioning));
     }
 
     public StreamPreferredProperties withoutPreference()
@@ -117,16 +104,17 @@ class StreamPreferredProperties
             return singleStream();
         }
 
-        Iterable<Symbol> desiredPartitioning = partitionSymbols;
-        if (partitioningColumns.isPresent()) {
-            if (exactColumnOrder) {
-                if (partitioningColumns.get().equals(desiredPartitioning)) {
+        Collection<Symbol> desiredPartitioning = partitionSymbols;
+        if (partitioning.isPresent()) {
+            PreferredPartitioning partitioning = this.partitioning.get();
+            if (partitioning.getPartitioning().isPresent()) {
+                if (partitioning.getPartitioningColumns().equals(desiredPartitioning)) {
                     return this;
                 }
             }
             else {
                 // If there are common columns between our requirements and the desired partitionSymbols, both can be satisfied in one shot
-                Set<Symbol> common = Sets.intersection(ImmutableSet.copyOf(desiredPartitioning), ImmutableSet.copyOf(partitioningColumns.get()));
+                Set<Symbol> common = Sets.intersection(ImmutableSet.copyOf(desiredPartitioning), partitioning.getPartitioningColumns());
 
                 // If we find common partitioning columns, use them, else use child's partitioning columns
                 if (!common.isEmpty()) {
@@ -135,132 +123,90 @@ class StreamPreferredProperties
             }
         }
 
-        return new StreamPreferredProperties(distribution, Optional.of(desiredPartitioning), false);
+        return new StreamPreferredProperties(Optional.of(true), Optional.of(partitioned(desiredPartitioning)), false);
     }
 
     public StreamPreferredProperties withDefaultParallelism(Session session)
     {
+        // do not override an existing parallel preference
+        if (isParallelPreferred()) {
+            return this;
+        }
+
         if (getTaskConcurrency(session) > 1 && !preferStreamingOperators(session)) {
-            return withParallelism();
+            return new StreamPreferredProperties(Optional.of(true), Optional.empty(), orderSensitive);
         }
         return this;
     }
 
-    public boolean isSatisfiedBy(StreamProperties actualProperties)
+    public StreamPreferredProperties withOrderSensitivity()
     {
-        // is there a specific preference
-        if (!distribution.isPresent() && !partitioningColumns.isPresent()) {
+        return new StreamPreferredProperties(parallelPreferred, partitioning, true);
+    }
+
+    public boolean isSatisfiedBy(Session session, StreamProperties actualProperties)
+    {
+        // If there is no specific preference, anything is acceptable
+        if (!parallelPreferred.isPresent() && !partitioning.isPresent()) {
             return true;
         }
 
-        if (isOrderSensitive() && actualProperties.isOrdered()) {
-            // ordered is required to be a single stream, so in this ordered case SINGLE is
-            // considered satisfactory for MULTIPLE and FIXED
+        if (orderSensitive && actualProperties.isOrdered()) {
+            // ordered is required to be a single stream, so in this ordered case single is
+            // considered satisfactory for a parallel preference
             return true;
         }
 
-        if (distribution.isPresent()) {
-            StreamDistribution actualDistribution = actualProperties.getDistribution();
-            if (distribution.get() == SINGLE && actualDistribution != SINGLE) {
-                return false;
+        // is there a specific partitioning preference
+        if (partitioning.isPresent()) {
+            PreferredPartitioning preferredPartitioning = partitioning.get();
+            if (preferredPartitioning.getPartitioning().isPresent()) {
+                Partitioning partitioning = preferredPartitioning.getPartitioning().get();
+                return actualProperties.isPartitionedOn(partitioning);
             }
-            else if (distribution.get() == FIXED && actualDistribution != FIXED) {
-                return false;
+
+            // the system will choose a parallel partitioning only if task concurrency is enabled
+            if (getTaskConcurrency(session) > 1) {
+                return actualProperties.isPartitionedOn(preferredPartitioning.getPartitioningColumns());
             }
-            else if (distribution.get() == MULTIPLE && actualDistribution != FIXED && actualDistribution != MULTIPLE) {
-                return false;
-            }
-        }
-        else if (actualProperties.getDistribution() == SINGLE) {
-            // when there is no explicit distribution preference, SINGLE satisfies everything
-            return true;
         }
 
-        // is there a preference for a specific partitioning scheme?
-        if (partitioningColumns.isPresent()) {
-            if (exactColumnOrder) {
-                return actualProperties.isExactlyPartitionedOn(partitioningColumns.get());
-            }
-            return actualProperties.isPartitionedOn(partitioningColumns.get());
-        }
+        // at this point it is assured that there is not a preference for single, since single must have a specific partitioning set
+        verify(!isSingleStreamPreferred());
 
-        return true;
+        // even though there is a preference for parallel, the system will only choose a parallel
+        // output if task concurrency is enabled; otherwise, the system will choose single
+        return actualProperties.isSingleStream() == (getTaskConcurrency(session) == 1);
     }
 
     public boolean isSingleStreamPreferred()
     {
-        return distribution.isPresent() && distribution.get() == SINGLE;
+        return parallelPreferred.isPresent() && !parallelPreferred.get();
     }
 
     public boolean isParallelPreferred()
     {
-        return distribution.isPresent() && distribution.get() != SINGLE;
+        return parallelPreferred.isPresent() && parallelPreferred.get();
     }
 
-    public Optional<List<Symbol>> getPartitioningColumns()
+    public Optional<PreferredPartitioning> getPartitioning()
     {
-        return partitioningColumns;
+        return partitioning;
     }
 
-    public boolean isOrderSensitive()
+    public Optional<Set<Symbol>> getPartitioningColumns()
     {
-        return orderSensitive;
-    }
-
-    public StreamPreferredProperties translate(Function<Symbol, Optional<Symbol>> translator)
-    {
-        return new StreamPreferredProperties(
-                distribution,
-                partitioningColumns.flatMap(partitioning -> translateSymbols(partitioning, translator)),
-                orderSensitive);
-    }
-
-    private static Optional<List<Symbol>> translateSymbols(Iterable<Symbol> partitioning, Function<Symbol, Optional<Symbol>> translator)
-    {
-        ImmutableList.Builder<Symbol> newPartitioningColumns = ImmutableList.builder();
-        for (Symbol partitioningColumn : partitioning) {
-            Optional<Symbol> translated = translator.apply(partitioningColumn);
-            if (!translated.isPresent()) {
-                return Optional.empty();
-            }
-            newPartitioningColumns.add(translated.get());
-        }
-        return Optional.of(newPartitioningColumns.build());
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("distribution", distribution.orElse(null))
-                .add("partitioningColumns", partitioningColumns.orElse(null))
-                .omitNullValues()
-                .toString();
-    }
-
-    public StreamPreferredProperties withOrderSensitivity()
-    {
-        return new StreamPreferredProperties(distribution, false, Optional.empty(), true);
+        return partitioning.map(PreferredPartitioning::getPartitioningColumns);
     }
 
     public StreamPreferredProperties constrainTo(Iterable<Symbol> symbols)
     {
-        if (!partitioningColumns.isPresent()) {
+        if (!partitioning.isPresent()) {
             return this;
         }
 
-        ImmutableSet<Symbol> availableSymbols = ImmutableSet.copyOf(symbols);
-        if (exactColumnOrder) {
-            if (availableSymbols.containsAll(partitioningColumns.get())) {
-                return this;
-            }
-            return any();
-        }
-
-        Set<Symbol> common = Sets.intersection(availableSymbols, ImmutableSet.copyOf(partitioningColumns.get()));
-        if (common.isEmpty()) {
-            return any();
-        }
-        return new StreamPreferredProperties(distribution, Optional.of(common), false);
+        Set<Symbol> availableSymbols = ImmutableSet.copyOf(symbols);
+        Optional<PreferredPartitioning> newPartitioning = partitioning.get().translate(symbol -> availableSymbols.contains(symbol) ? Optional.of(symbol) : Optional.empty());
+        return new StreamPreferredProperties(parallelPreferred, newPartitioning, orderSensitive);
     }
 }

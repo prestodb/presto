@@ -20,7 +20,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
+import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
@@ -63,6 +63,7 @@ import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -73,10 +74,10 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValues;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_RANDOM_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.FIXED;
-import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.MULTIPLE;
-import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isFixedBroadcastPartitioning;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isFixedRandomPartitioning;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.singlePartition;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.unknownPartitioning;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
@@ -153,16 +154,16 @@ final class StreamPropertyDerivations
                 case LEFT:
                     // the left can contain nulls in any stream so we can't say anything about the
                     // partitioning but the other properties of the left will be maintained.
-                    return leftProperties.withUnspecifiedPartitioning();
+                    return leftProperties.withoutPartitioning();
                 case RIGHT:
                     // all of the "nulls" from the right are produced from a separate stream, so the
                     // partitioning still holds, but we will always have multiple streams
-                    return new StreamProperties(MULTIPLE, false, leftProperties.getPartitioningColumns(), false);
+                    return leftProperties.withoutSpecificPartitioningFunction();
                 case FULL:
                     // the left can contain nulls in any stream so we can't say anything about the
                     // partitioning, and nulls from the right are produced from a extra new stream
                     // so we will always have multiple streams.
-                    return new StreamProperties(MULTIPLE, false, Optional.empty(), false);
+                    return StreamProperties.unknownStreamPartitioning();
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
@@ -179,7 +180,7 @@ final class StreamPropertyDerivations
                 case SOURCE_OUTER:
                     // the probe can contain nulls in any stream so we can't say anything about the
                     // partitioning but the other properties of the probe will be maintained.
-                    return probeProperties.withUnspecifiedPartitioning();
+                    return probeProperties.withoutPartitioning();
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
@@ -211,10 +212,16 @@ final class StreamPropertyDerivations
                     .filter(entry -> !entry.getValue().isNull())  // TODO consider allowing nulls
                     .forEach(entry -> constants.add(entry.getKey()));
 
-            Optional<Set<Symbol>> partitionSymbols = layout.getPartitioningColumns()
-                    .flatMap(columns -> getNonConstantSymbols(columns, assignments, constants));
+            Optional<List<Symbol>> partitionSymbols = layout.getPartitioningColumns()
+                    .flatMap(columns -> getNonConstantSymbols(columns, assignments, constants))
+                    .map(ImmutableList::copyOf);
 
-            return new StreamProperties(MULTIPLE, false, partitionSymbols, false);
+            if (partitionSymbols.isPresent()) {
+                return StreamProperties.partitionedStreams(partitionSymbols.get());
+            }
+            else {
+                return StreamProperties.unknownStreamPartitioning();
+            }
         }
 
         private static Optional<Set<Symbol>> getNonConstantSymbols(Set<ColumnHandle> columnHandles, Map<ColumnHandle, Symbol> assignments, Set<ColumnHandle> globalConstants)
@@ -244,24 +251,7 @@ final class StreamPropertyDerivations
                 return StreamProperties.singleStream();
             }
 
-            switch (node.getType()) {
-                case GATHER:
-                    return StreamProperties.singleStream();
-                case REPARTITION:
-                    if (node.getPartitioningScheme().getPartitioning().getHandle().equals(FIXED_RANDOM_DISTRIBUTION)) {
-                        return new StreamProperties(FIXED, false, Optional.empty(), false);
-                    }
-                    return new StreamProperties(
-                            FIXED,
-                            true,
-                            Optional.of(node.getPartitioningScheme().getPartitioning().getArguments().stream()
-                                    .map(ArgumentBinding::getColumn)
-                                    .collect(toImmutableList())), false);
-                case REPLICATE:
-                    return new StreamProperties(MULTIPLE, false, Optional.empty(), false);
-            }
-
-            throw new UnsupportedOperationException("not yet implemented");
+            return StreamProperties.partitionedStreams(node.getPartitioningScheme().getPartitioning());
         }
 
         //
@@ -303,7 +293,7 @@ final class StreamPropertyDerivations
         {
             StreamProperties properties = Iterables.getOnlyElement(inputProperties);
             // table finish only outputs the row count
-            return properties.withUnspecifiedPartitioning();
+            return properties.withoutPartitioning();
         }
 
         @Override
@@ -311,7 +301,7 @@ final class StreamPropertyDerivations
         {
             StreamProperties properties = Iterables.getOnlyElement(inputProperties);
             // delete only outputs the row count
-            return properties.withUnspecifiedPartitioning();
+            return properties.withoutPartitioning();
         }
 
         @Override
@@ -319,7 +309,7 @@ final class StreamPropertyDerivations
         {
             StreamProperties properties = Iterables.getOnlyElement(inputProperties);
             // table writer only outputs the row count
-            return properties.withUnspecifiedPartitioning();
+            return properties.withoutPartitioning();
         }
 
         @Override
@@ -342,7 +332,7 @@ final class StreamPropertyDerivations
         {
             StreamProperties properties = Iterables.getOnlyElement(inputProperties);
             // explain only outputs the plan string
-            return properties.withUnspecifiedPartitioning();
+            return properties.withoutPartitioning();
         }
 
         //
@@ -411,13 +401,13 @@ final class StreamPropertyDerivations
         @Override
         public StreamProperties visitTopN(TopNNode node, List<StreamProperties> inputProperties)
         {
-            return StreamProperties.ordered();
+            return StreamProperties.orderedStream();
         }
 
         @Override
         public StreamProperties visitSort(SortNode node, List<StreamProperties> inputProperties)
         {
-            return StreamProperties.ordered();
+            return StreamProperties.orderedStream();
         }
 
         @Override
@@ -454,15 +444,7 @@ final class StreamPropertyDerivations
     @Immutable
     public static final class StreamProperties
     {
-        public enum StreamDistribution
-        {
-            SINGLE, MULTIPLE, FIXED
-        }
-
-        private final StreamDistribution distribution;
-
-        private final boolean exactColumnOrder;
-        private final Optional<List<Symbol>> partitioningColumns; // if missing => partitioned with some unknown scheme
+        private final Optional<Partitioning> partitioning;
 
         private final boolean ordered;
 
@@ -470,32 +452,14 @@ final class StreamPropertyDerivations
         // ActualProperties, so we hold on to the whole object
         private final ActualProperties otherActualProperties;
 
-        // NOTE: Partitioning on zero columns (or effectively zero columns if the columns are constant) indicates that all
-        // the rows will be partitioned into a single stream.
-
-        private StreamProperties(StreamDistribution distribution, boolean exactColumnOrder, Optional<? extends Iterable<Symbol>> partitioningColumns, boolean ordered)
-        {
-            this(distribution, exactColumnOrder, partitioningColumns, ordered, null);
-        }
-
         private StreamProperties(
-                StreamDistribution distribution,
-                boolean exactColumnOrder,
-                Optional<? extends Iterable<Symbol>> partitioningColumns,
+                Optional<Partitioning> partitioning,
                 boolean ordered,
                 ActualProperties otherActualProperties)
         {
-            this.distribution = requireNonNull(distribution, "distribution is null");
-
-            this.exactColumnOrder = exactColumnOrder;
-            this.partitioningColumns = requireNonNull(partitioningColumns, "partitioningProperties is null")
-                    .map(ImmutableList::copyOf);
-
-            checkArgument(distribution != SINGLE || this.partitioningColumns.equals(Optional.of(ImmutableList.of())),
-                    "Single stream must be partitioned on empty set");
-
+            this.partitioning = requireNonNull(partitioning, "partitioning is null");
             this.ordered = ordered;
-            checkArgument(!ordered || distribution == SINGLE, "Ordered must be a single stream");
+            checkArgument(!ordered || (partitioning.isPresent() && partitioning.get().getHandle().isSingleNode()), "Ordered must be a single stream");
 
             this.otherActualProperties = otherActualProperties;
         }
@@ -508,47 +472,54 @@ final class StreamPropertyDerivations
 
         private static StreamProperties singleStream()
         {
-            return new StreamProperties(SINGLE, false, Optional.of(ImmutableSet.of()), false);
+            return partitionedStreams(singlePartition());
         }
 
-        private static StreamProperties ordered()
+        private static StreamProperties partitionedStreams(Collection<Symbol> columns)
         {
-            return new StreamProperties(SINGLE, false, Optional.of(ImmutableSet.of()), true);
+            return new StreamProperties(Optional.of(unknownPartitioning(ImmutableList.copyOf(columns))), false, null);
+        }
+
+        private static StreamProperties partitionedStreams(Partitioning partitioning)
+        {
+            return new StreamProperties(Optional.of(partitioning), false, null);
+        }
+
+        private static StreamProperties unknownStreamPartitioning()
+        {
+            return new StreamProperties(Optional.empty(), false, null);
+        }
+
+        private static StreamProperties orderedStream()
+        {
+            return new StreamProperties(Optional.of(singlePartition()), true, null);
         }
 
         public boolean isSingleStream()
         {
-            return distribution == SINGLE;
+            return partitioning.isPresent() && partitioning.get().getHandle().isSingleNode();
         }
 
-        public StreamDistribution getDistribution()
+        public boolean isPartitionedOn(Partitioning partitioning)
         {
-            return distribution;
-        }
-
-        public boolean isExactlyPartitionedOn(Iterable<Symbol> columns)
-        {
-            if (!partitioningColumns.isPresent()) {
-                return false;
-            }
-
-            return columns.equals(ImmutableList.copyOf(partitioningColumns.get()));
+            return this.partitioning.equals(Optional.of(partitioning));
         }
 
         public boolean isPartitionedOn(Iterable<Symbol> columns)
         {
-            if (!partitioningColumns.isPresent()) {
+            if (!partitioning.isPresent()) {
+                return false;
+            }
+            Partitioning partitioning = this.partitioning.get();
+
+            // these special partitioning are never considered
+            if (isFixedBroadcastPartitioning(partitioning) || isFixedRandomPartitioning(partitioning)) {
                 return false;
             }
 
             // partitioned on (k_1, k_2, ..., k_n) => partitioned on (k_1, k_2, ..., k_n, k_n+1, ...)
             // can safely ignore all constant columns when comparing partition properties
-            return ImmutableSet.copyOf(columns).containsAll(partitioningColumns.get());
-        }
-
-        public Optional<List<Symbol>> getPartitioningColumns()
-        {
-            return partitioningColumns;
+            return ImmutableSet.copyOf(columns).containsAll(partitioning.getColumns());
         }
 
         public boolean isOrdered()
@@ -556,7 +527,7 @@ final class StreamPropertyDerivations
             return ordered;
         }
 
-        private StreamProperties withUnspecifiedPartitioning()
+        private StreamProperties withoutPartitioning()
         {
             // a single stream has no symbols
             if (isSingleStream()) {
@@ -564,37 +535,39 @@ final class StreamPropertyDerivations
             }
             // otherwise we are distributed on some symbols, but since we are trying to remove all symbols,
             // just say we have multiple partitions with an unknown scheme
-            return new StreamProperties(distribution, false, Optional.empty(), ordered);
+            return new StreamProperties(Optional.empty(), ordered, null);
+        }
+
+        private StreamProperties withoutSpecificPartitioningFunction()
+        {
+            if (!partitioning.isPresent()) {
+                return this;
+            }
+            Partitioning partitioning = this.partitioning.get();
+
+            if (partitioning.getColumns().isEmpty()) {
+                return unknownStreamPartitioning();
+            }
+            return partitionedStreams(partitioning.getColumns());
         }
 
         private StreamProperties withOtherActualProperties(ActualProperties actualProperties)
         {
-            return new StreamProperties(distribution, exactColumnOrder, partitioningColumns, ordered, actualProperties);
+            return new StreamProperties(partitioning, ordered, actualProperties);
         }
 
         public StreamProperties translate(Function<Symbol, Optional<Symbol>> translator)
         {
             return new StreamProperties(
-                    distribution,
-                    exactColumnOrder,
-                    partitioningColumns.flatMap(partitioning -> {
-                        ImmutableList.Builder<Symbol> newPartitioningColumns = ImmutableList.builder();
-                        for (Symbol partitioningColumn : partitioning) {
-                            Optional<Symbol> translated = translator.apply(partitioningColumn);
-                            if (!translated.isPresent()) {
-                                return Optional.empty();
-                            }
-                            newPartitioningColumns.add(translated.get());
-                        }
-                        return Optional.of(newPartitioningColumns.build());
-                    }),
-                    ordered, otherActualProperties.translate(translator));
+                    partitioning.flatMap(scheme -> scheme.translate(translator, symbol -> Optional.empty())),
+                    ordered,
+                    otherActualProperties.translate(translator));
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(distribution, partitioningColumns);
+            return Objects.hash(partitioning, ordered);
         }
 
         @Override
@@ -607,16 +580,16 @@ final class StreamPropertyDerivations
                 return false;
             }
             StreamProperties other = (StreamProperties) obj;
-            return Objects.equals(this.distribution, other.distribution) &&
-                    Objects.equals(this.partitioningColumns, other.partitioningColumns);
+            return Objects.equals(this.partitioning, other.partitioning) &&
+                    Objects.equals(this.ordered, other.ordered);
         }
 
         @Override
         public String toString()
         {
             return MoreObjects.toStringHelper(this)
-                    .add("distribution", distribution)
-                    .add("partitioningColumns", partitioningColumns)
+                    .add("partitioning", partitioning)
+                    .add("ordered", ordered)
                     .toString();
         }
     }
