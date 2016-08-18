@@ -49,7 +49,6 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.units.Duration;
 
@@ -94,7 +93,6 @@ public final class SqlQueryExecution
 
     private final QueryExplainer queryExplainer;
     private final AtomicReference<SqlQueryScheduler> queryScheduler = new AtomicReference<>();
-    private final AtomicReference<QueryInfo> finalQueryInfo = new AtomicReference<>();
     private final NodeTaskMap nodeTaskMap;
     private final ExecutionPolicy executionPolicy;
     private final List<Expression> parameters;
@@ -184,9 +182,9 @@ public final class SqlQueryExecution
         // state change listener sets finalQueryInfo and then clears outputStage when
         // the query finishes.
         SqlQueryScheduler scheduler = queryScheduler.get();
-        QueryInfo queryInfo = finalQueryInfo.get();
-        if (queryInfo != null) {
-            return queryInfo.getQueryStats().getTotalMemoryReservation().toBytes();
+        Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
+        if (finalQueryInfo.isPresent()) {
+            return finalQueryInfo.get().getQueryStats().getTotalMemoryReservation().toBytes();
         }
         if (scheduler == null) {
             return 0;
@@ -198,9 +196,9 @@ public final class SqlQueryExecution
     public Duration getTotalCpuTime()
     {
         SqlQueryScheduler scheduler = queryScheduler.get();
-        QueryInfo queryInfo = finalQueryInfo.get();
-        if (queryInfo != null) {
-            return queryInfo.getQueryStats().getTotalCpuTime();
+        Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
+        if (finalQueryInfo.isPresent()) {
+            return finalQueryInfo.get().getQueryStats().getTotalCpuTime();
         }
         if (scheduler == null) {
             return new Duration(0, SECONDS);
@@ -396,49 +394,7 @@ public final class SqlQueryExecution
     @Override
     public void pruneInfo()
     {
-        QueryInfo queryInfo = finalQueryInfo.get();
-        if (queryInfo == null || !queryInfo.getOutputStage().isPresent()) {
-            return;
-        }
-
-        StageInfo outputStage = queryInfo.getOutputStage().get();
-        StageInfo prunedOutputStage = new StageInfo(
-                outputStage.getStageId(),
-                outputStage.getState(),
-                outputStage.getSelf(),
-                null, // Remove the plan
-                outputStage.getTypes(),
-                outputStage.getStageStats(),
-                ImmutableList.of(), // Remove the tasks
-                ImmutableList.of(), // Remove the substages
-                outputStage.getFailureCause()
-        );
-
-        QueryInfo prunedQueryInfo = new QueryInfo(
-                queryInfo.getQueryId(),
-                queryInfo.getSession(),
-                queryInfo.getState(),
-                getMemoryPool().getId(),
-                queryInfo.isScheduled(),
-                queryInfo.getSelf(),
-                queryInfo.getFieldNames(),
-                queryInfo.getQuery(),
-                queryInfo.getQueryStats(),
-                queryInfo.getSetSessionProperties(),
-                queryInfo.getResetSessionProperties(),
-                queryInfo.getAddedPreparedStatements(),
-                queryInfo.getDeallocatedPreparedStatements(),
-                queryInfo.getStartedTransactionId(),
-                queryInfo.isClearTransactionId(),
-                queryInfo.getUpdateType(),
-                Optional.of(prunedOutputStage),
-                queryInfo.getFailureInfo(),
-                queryInfo.getErrorCode(),
-                queryInfo.getInputs(),
-                queryInfo.getOutput(),
-                queryInfo.isCompleteInfo()
-        );
-        finalQueryInfo.compareAndSet(queryInfo, prunedQueryInfo);
+        stateMachine.pruneQueryInfo();
     }
 
     @Override
@@ -456,9 +412,9 @@ public final class SqlQueryExecution
             // the query finishes.
             SqlQueryScheduler scheduler = queryScheduler.get();
 
-            QueryInfo finalQueryInfo = this.finalQueryInfo.get();
-            if (finalQueryInfo != null) {
-                return finalQueryInfo;
+            Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
+            if (finalQueryInfo.isPresent()) {
+                return finalQueryInfo.get();
             }
 
             return buildQueryInfo(scheduler);
@@ -478,11 +434,9 @@ public final class SqlQueryExecution
             stageInfo = Optional.ofNullable(scheduler.getStageInfo());
         }
 
-        QueryInfo queryInfo = stateMachine.getQueryInfo(stageInfo);
-
+        QueryInfo queryInfo = stateMachine.updateQueryInfo(stageInfo);
         if (queryInfo.isFinalQueryInfo()) {
             // capture the final query state and drop reference to the scheduler
-            finalQueryInfo.compareAndSet(null, queryInfo);
             queryScheduler.set(null);
         }
 
