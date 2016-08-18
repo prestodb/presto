@@ -70,7 +70,6 @@ import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.JsonUtil.createJsonGenerator;
 import static com.facebook.presto.util.JsonUtil.createJsonParser;
 import static com.google.common.base.Preconditions.checkState;
-import static java.lang.Double.isFinite;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
@@ -512,33 +511,42 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static long realToShortDecimal(long value, long precision, long scale, long tenToScale)
     {
-        // TODO: optimize
-        BigDecimal decimal = doubleToBigDecimal(intBitsToFloat(intScale(value)), precision, scale);
-        decimal = decimal.setScale(intScale(scale), HALF_UP);
-        if (overflows(decimal, precision)) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", intBitsToFloat(intScale(value)), precision, scale));
+        // TODO: implement specialized version for short decimals
+        Slice decimal = realToLongDecimal(value, precision, scale);
+
+        long low = UnscaledDecimal128Arithmetic.getLong(decimal, 0);
+        long high = UnscaledDecimal128Arithmetic.getLong(decimal, 1);
+
+        checkState(high == 0 && low >= 0, "Unexpected long decimal");
+
+        if (UnscaledDecimal128Arithmetic.isNegative(decimal)) {
+            return -low;
         }
-        return decimal.unscaledValue().longValue();
+        else {
+            return low;
+        }
     }
 
     @UsedByGeneratedCode
     public static Slice realToLongDecimal(long value, long precision, long scale, BigInteger tenToScale)
     {
-        BigDecimal decimal = doubleToBigDecimal(intBitsToFloat(intScale(value)), precision, scale);
-        decimal = decimal.setScale(intScale(scale), HALF_UP);
-        if (overflows(decimal, precision)) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", intBitsToFloat(intScale(value)), precision, scale));
-        }
-        BigInteger decimalBigInteger = decimal.unscaledValue();
-        return encodeUnscaledValue(decimalBigInteger);
+        return realToLongDecimal(value, precision, scale);
     }
 
-    private static BigDecimal doubleToBigDecimal(double value, long precision, long scale)
+    private static Slice realToLongDecimal(long value, long precision, long scale)
     {
-        if (!isFinite(value)) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast floating point %s to DECIMAL(%s, %s)", value, precision, scale));
+        float floatValue = intBitsToFloat(intScale(value));
+        try {
+            //TODO: optimize, implement specialized float to decimal conversion instead of using double to decimal
+            Slice decimal = UnscaledDecimal128Arithmetic.doubleToLongDecimal(floatValue, precision, intScale(scale));
+            if (overflows(decimal, intScale(precision))) {
+                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", floatValue, precision, scale));
+            }
+            return decimal;
         }
-        return new BigDecimal(value);
+        catch (ArithmeticException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", floatValue, precision, scale));
+        }
     }
 
     @UsedByGeneratedCode
