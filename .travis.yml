@@ -80,6 +80,7 @@ before_deploy:
   - cp -n presto-product-tests/target/presto-product-tests-*-executable.jar /tmp/artifacts
   - cp -n presto-jdbc/target/presto-jdbc-*.jar /tmp/artifacts
   - cp -n presto-cli/target/presto-cli-*-executable.jar /tmp/artifacts
+  - echo $TRAVIS_COMMIT > /tmp/artifacts/git-revision.txt
   - ls -lah /tmp/artifacts
 
 deploy:
