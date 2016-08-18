@@ -514,26 +514,42 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static long realToShortDecimal(long value, long precision, long scale, long tenToScale)
     {
-        // TODO: optimize
-        BigDecimal decimal = new BigDecimal(intBitsToFloat((int) value));
-        decimal = decimal.setScale((int) scale, ROUND_HALF_UP);
-        if (overflows(decimal, precision)) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", intBitsToFloat((int) value), precision, scale));
+        // TODO: implement specialized version for short decimals
+        Slice decimal = realToLongDecimal(value, precision, scale);
+
+        long low = UnscaledDecimal128Arithmetic.getLong(decimal, 0);
+        long high = UnscaledDecimal128Arithmetic.getLong(decimal, 1);
+
+        checkState(high == 0 && low >= 0, "Unexpected long decimal");
+
+        if (UnscaledDecimal128Arithmetic.isNegative(decimal)) {
+            return -low;
         }
-        return decimal.unscaledValue().longValue();
+        else {
+            return low;
+        }
     }
 
     @UsedByGeneratedCode
     public static Slice realToLongDecimal(long value, long precision, long scale, BigInteger tenToScale)
     {
-        // TODO: optimize
-        BigDecimal decimal = new BigDecimal(intBitsToFloat((int) value));
-        decimal = decimal.setScale((int) scale, ROUND_HALF_UP);
-        if (overflows(decimal, precision)) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", intBitsToFloat((int) value), precision, scale));
+        return realToLongDecimal(value, precision, scale);
+    }
+
+    private static Slice realToLongDecimal(long value, long precision, long scale)
+    {
+        float floatValue = intBitsToFloat((int) value);
+        try {
+            //TODO: optimize, implement specialized float to decimal conversion instead of using double to decimal
+            Slice decimal = UnscaledDecimal128Arithmetic.doubleToLongDecimal(floatValue, precision, (int) scale);
+            if (overflows(decimal, (int) precision)) {
+                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", floatValue, precision, scale));
+            }
+            return decimal;
         }
-        BigInteger decimalBigInteger = decimal.unscaledValue();
-        return encodeUnscaledValue(decimalBigInteger);
+        catch (ArithmeticException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", floatValue, precision, scale));
+        }
     }
 
     @UsedByGeneratedCode
