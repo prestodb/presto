@@ -16,6 +16,7 @@ package com.facebook.presto.tpch.testing;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -40,9 +41,9 @@ public class SampledTpchRecordSetProvider
     private final TpchMetadata metadata;
     private final int sampleWeight;
 
-    public SampledTpchRecordSetProvider(String connectorId, int sampleWeight)
+    public SampledTpchRecordSetProvider(String connectorId, NodeManager nodeManager, int splitsPerNode, int sampleWeight)
     {
-        this.metadata = new TpchMetadata(connectorId);
+        this.metadata = new TpchMetadata(connectorId, nodeManager, splitsPerNode);
         this.sampleWeight = sampleWeight;
     }
 

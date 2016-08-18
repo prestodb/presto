@@ -24,6 +24,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.LocalProperty;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SortingProperty;
@@ -54,6 +55,8 @@ import java.util.Set;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.tpch.Types.checkType;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class TpchMetadata
@@ -68,16 +71,21 @@ public class TpchMetadata
     public static final String ROW_NUMBER_COLUMN_NAME = "row_number";
 
     private final String connectorId;
+    private final NodeManager nodeManager;
+    private final int splitsPerNode;
     private final Set<String> tableNames;
 
-    public TpchMetadata(String connectorId)
+    public TpchMetadata(String connectorId, NodeManager nodeManager, int splitsPerNode)
     {
         ImmutableSet.Builder<String> tableNames = ImmutableSet.builder();
         for (TpchTable<?> tpchTable : TpchTable.getTables()) {
             tableNames.add(tpchTable.getTableName());
         }
         this.tableNames = tableNames.build();
-        this.connectorId = connectorId;
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        checkArgument(splitsPerNode > 0, "splitsPerNode must be at least 1");
+        this.splitsPerNode = splitsPerNode;
     }
 
     @Override
@@ -116,13 +124,16 @@ public class TpchMetadata
         Optional<Set<ColumnHandle>> partitioningColumns = Optional.empty();
         List<LocalProperty<ColumnHandle>> localProperties = ImmutableList.of();
 
+        int bucketCount = nodeManager.getActiveDatasourceNodes(connectorId).size() * splitsPerNode;
+        checkState(bucketCount > 0, "No TPCH nodes available");
+
         Map<String, ColumnHandle> columns = getColumnHandles(session, tableHandle);
         if (tableHandle.getTableName().equals(TpchTable.ORDERS.getTableName())) {
             ColumnHandle orderKeyColumn = columns.get(OrderColumn.ORDER_KEY.getColumnName());
             nodePartition = Optional.of(new ConnectorNodePartitioning(
                     new TpchPartitioningHandle(
                             TpchTable.ORDERS.getTableName(),
-                            calculateTotalRows(OrderGenerator.SCALE_BASE, tableHandle.getScaleFactor())),
+                            calculateTotalRows(OrderGenerator.SCALE_BASE, tableHandle.getScaleFactor()), bucketCount),
                     ImmutableList.of(orderKeyColumn)));
             partitioningColumns = Optional.of(ImmutableSet.of(orderKeyColumn));
             localProperties = ImmutableList.of(new SortingProperty<>(orderKeyColumn, SortOrder.ASC_NULLS_FIRST));
@@ -132,7 +143,7 @@ public class TpchMetadata
             nodePartition = Optional.of(new ConnectorNodePartitioning(
                     new TpchPartitioningHandle(
                             TpchTable.ORDERS.getTableName(),
-                            calculateTotalRows(OrderGenerator.SCALE_BASE, tableHandle.getScaleFactor())),
+                            calculateTotalRows(OrderGenerator.SCALE_BASE, tableHandle.getScaleFactor()), bucketCount),
                     ImmutableList.of(orderKeyColumn)));
             partitioningColumns = Optional.of(ImmutableSet.of(orderKeyColumn));
             localProperties = ImmutableList.of(
