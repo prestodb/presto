@@ -13,21 +13,20 @@
  */
 package com.facebook.presto.teradata.functions;
 
-import com.facebook.presto.metadata.FunctionFactory;
 import com.facebook.presto.spi.Plugin;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
-import java.util.List;
+import java.util.Set;
 
 public class TeradataFunctionsPlugin
         implements Plugin
 {
     @Override
-    public <T> List<T> getServices(Class<T> type)
+    public Set<Class<?>> getFunctions()
     {
-        if (type == FunctionFactory.class) {
-            return ImmutableList.of(type.cast(new TeradataFunctionFactory()));
-        }
-        return ImmutableList.of();
+        return ImmutableSet.<Class<?>>builder()
+                .add(TeradataDateFunctions.class)
+                .add(TeradataStringFunctions.class)
+                .build();
     }
 }

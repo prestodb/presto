@@ -14,12 +14,16 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.plugin.base.security.FileBasedAccessControlModule;
+import com.facebook.presto.plugin.base.security.ReadOnlySecurityModule;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
+import com.facebook.presto.spi.ServerInfo;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
+import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
@@ -66,6 +70,7 @@ public class HiveConnectorFactory
     private final TypeManager typeManager;
     private final PageIndexerFactory pageIndexerFactory;
     private final NodeManager nodeManager;
+    private final ServerInfo serverInfo;
 
     public HiveConnectorFactory(
             String name,
@@ -74,7 +79,8 @@ public class HiveConnectorFactory
             ExtendedHiveMetastore metastore,
             TypeManager typeManager,
             PageIndexerFactory pageIndexerFactory,
-            NodeManager nodeManager)
+            NodeManager nodeManager,
+            ServerInfo serverInfo)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
@@ -84,6 +90,7 @@ public class HiveConnectorFactory
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexer is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.serverInfo = requireNonNull(serverInfo, "serverInfo is null");
     }
 
     @Override
@@ -99,7 +106,7 @@ public class HiveConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> config)
+    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
     {
         requireNonNull(config, "config is null");
 
@@ -113,6 +120,10 @@ public class HiveConnectorFactory
                             SecurityConfig.class,
                             security -> ALLOW_ALL_ACCESS_CONTROL.equalsIgnoreCase(security.getSecuritySystem()),
                             new NoSecurityModule()),
+                    installModuleIf(
+                            SecurityConfig.class,
+                            security -> "file".equalsIgnoreCase(security.getSecuritySystem()),
+                            new FileBasedAccessControlModule()),
                     installModuleIf(
                             SecurityConfig.class,
                             security -> "read-only".equalsIgnoreCase(security.getSecuritySystem()),
@@ -152,6 +163,7 @@ public class HiveConnectorFactory
                     binder -> {
                         MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();
                         binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(platformMBeanServer));
+                        binder.bind(ServerInfo.class).toInstance(serverInfo);
                     }
             );
 

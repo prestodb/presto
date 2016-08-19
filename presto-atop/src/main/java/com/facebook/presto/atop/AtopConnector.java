@@ -14,6 +14,7 @@
 package com.facebook.presto.atop;
 
 import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
@@ -35,18 +36,21 @@ public class AtopConnector
     private final AtopMetadata metadata;
     private final AtopSplitManager splitManager;
     private final AtopPageSourceProvider pageSourceProvider;
+    private final ConnectorAccessControl accessControl;
 
     @Inject
     public AtopConnector(
             LifeCycleManager lifeCycleManager,
             AtopMetadata metadata,
             AtopSplitManager splitManager,
-            AtopPageSourceProvider pageSourceProvider)
+            AtopPageSourceProvider pageSourceProvider,
+            ConnectorAccessControl accessControl)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     @Override
@@ -71,6 +75,12 @@ public class AtopConnector
     public ConnectorPageSourceProvider getPageSourceProvider()
     {
         return pageSourceProvider;
+    }
+
+    @Override
+    public ConnectorAccessControl getAccessControl()
+    {
+        return accessControl;
     }
 
     @Override

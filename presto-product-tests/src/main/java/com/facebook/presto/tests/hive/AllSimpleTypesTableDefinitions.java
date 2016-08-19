@@ -42,21 +42,17 @@ public final class AllSimpleTypesTableDefinitions
     @TableDefinitionsRepository.RepositoryTableDefinition
     public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_RCFILE = allHiveSimpleTypesTableDefinition("RCFILE", Optional.of("SERDE 'org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe'"));
 
-    @TableDefinitionsRepository.RepositoryTableDefinition
-    public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_KNOWN_TO_PRESTO_TEXTFILE = allHiveSimpleTypesKnownToPrestoTextfileTableDefinition();
-
     private static HiveTableDefinition allHiveSimpleTypesTableDefinition(String fileFormat, Optional<String> rowFormat)
     {
         String tableName = fileFormat.toLowerCase() + "_all_types";
         HiveDataSource dataSource = createResourceDataSource(tableName, "" + System.currentTimeMillis(), "com/facebook/presto/tests/hive/data/all_types/data." + fileFormat.toLowerCase());
         return HiveTableDefinition.builder(tableName)
                 .setCreateTableDDLTemplate("" +
-                        "CREATE EXTERNAL TABLE %NAME%(" +
+                        "CREATE %EXTERNAL% TABLE %NAME%(" +
                         "   c_tinyint            TINYINT," +
                         "   c_smallint           SMALLINT," +
                         "   c_int                INT," +
                         "   c_bigint             BIGINT," +
-                        "   c_float              FLOAT," +
                         "   c_double             DOUBLE," +
                         "   c_decimal            DECIMAL," +
                         "   c_decimal_w_params   DECIMAL(10,5)," +
@@ -64,13 +60,11 @@ public final class AllSimpleTypesTableDefinitions
                         "   c_date               DATE," +
                         "   c_string             STRING," +
                         "   c_varchar            VARCHAR(10)," +
-                        "   c_char               CHAR(10)," +
                         "   c_boolean            BOOLEAN," +
                         "   c_binary             BINARY" +
                         ") " +
                         (rowFormat.isPresent() ? "ROW FORMAT " + rowFormat.get() + " " : " ") +
-                        "STORED AS " + fileFormat + " " +
-                        "LOCATION '%LOCATION%'")
+                        "STORED AS " + fileFormat)
                 .setDataSource(dataSource)
                 .build();
     }
@@ -81,24 +75,21 @@ public final class AllSimpleTypesTableDefinitions
         HiveDataSource dataSource = createResourceDataSource(tableName, "" + System.currentTimeMillis(), "com/facebook/presto/tests/hive/data/all_types/data.parquet");
         return HiveTableDefinition.builder(tableName)
                 .setCreateTableDDLTemplate("" +
-                        "CREATE EXTERNAL TABLE %NAME%(" +
+                        "CREATE %EXTERNAL% TABLE %NAME%(" +
                         "   c_tinyint            TINYINT," +
                         "   c_smallint           SMALLINT," +
                         "   c_int                INT," +
                         "   c_bigint             BIGINT," +
-                        "   c_float              FLOAT," +
                         "   c_double             DOUBLE," +
                         "   c_decimal            DECIMAL," +
                         "   c_decimal_w_params   DECIMAL(10,5)," +
                         "   c_timestamp          TIMESTAMP," +
                         "   c_string             STRING," +
                         "   c_varchar            VARCHAR(10)," +
-                        "   c_char               CHAR(10)," +
                         "   c_boolean            BOOLEAN," +
                         "   c_binary             BINARY" +
                         ") " +
-                        "STORED AS PARQUET " +
-                        "LOCATION '%LOCATION%'")
+                        "STORED AS PARQUET")
                 .setDataSource(dataSource)
                 .build();
     }
@@ -109,7 +100,7 @@ public final class AllSimpleTypesTableDefinitions
         HiveDataSource dataSource = createResourceDataSource(tableName, "" + System.currentTimeMillis(), "com/facebook/presto/tests/hive/data/all_types_known_to_presto/data.textfile");
         return HiveTableDefinition.builder(tableName)
                 .setCreateTableDDLTemplate("" +
-                        "CREATE EXTERNAL TABLE %NAME%(" +
+                        "CREATE %EXTERNAL% TABLE %NAME%(" +
                         "   c_tinyint            TINYINT," +
                         "   c_smallint           SMALLINT," +
                         "   c_int                INT," +
@@ -125,8 +116,7 @@ public final class AllSimpleTypesTableDefinitions
                         "   c_binary             BINARY" +
                         ") " +
                         "ROW FORMAT DELIMITED FIELDS TERMINATED BY '|' " +
-                        "STORED AS TEXTFILE " +
-                        "LOCATION '%LOCATION%'")
+                        "STORED AS TEXTFILE")
                 .setDataSource(dataSource)
                 .build();
     }

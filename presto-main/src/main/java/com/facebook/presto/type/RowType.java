@@ -44,6 +44,7 @@ public class RowType
         extends AbstractType
 {
     private final List<RowField> fields;
+    private final List<Type> fieldTypes;
 
     public RowType(List<Type> fieldTypes, Optional<List<String>> fieldNames)
     {
@@ -60,6 +61,7 @@ public class RowType
             builder.add(new RowField(fieldTypes.get(i), fieldNames.map((names) -> names.get(index))));
         }
         fields = builder.build();
+        this.fieldTypes = ImmutableList.copyOf(fieldTypes);
     }
 
     @Override
@@ -141,9 +143,7 @@ public class RowType
     @Override
     public List<Type> getTypeParameters()
     {
-        return fields.stream()
-                .map(RowField::getType)
-                .collect(toImmutableList());
+        return fieldTypes;
     }
 
     public List<RowField> getFields()

@@ -82,16 +82,16 @@ class AggregationAnalyzer
     private final Metadata metadata;
     private final Set<Expression> columnReferences;
 
-    private final RelationType tupleDescriptor;
+    private final Scope scope;
 
-    public AggregationAnalyzer(List<Expression> groupByExpressions, Metadata metadata, RelationType tupleDescriptor, Set<Expression> columnReferences)
+    public AggregationAnalyzer(List<Expression> groupByExpressions, Metadata metadata, Scope scope, Set<Expression> columnReferences)
     {
         requireNonNull(groupByExpressions, "groupByExpressions is null");
         requireNonNull(metadata, "metadata is null");
-        requireNonNull(tupleDescriptor, "tupleDescriptor is null");
+        requireNonNull(scope, "scope is null");
         requireNonNull(columnReferences, "columnReferences is null");
 
-        this.tupleDescriptor = tupleDescriptor;
+        this.scope = scope;
         this.metadata = metadata;
         this.columnReferences = ImmutableSet.copyOf(columnReferences);
         this.expressions = ImmutableList.copyOf(groupByExpressions);
@@ -115,12 +115,12 @@ class AggregationAnalyzer
                 name = DereferenceExpression.getQualifiedName(checkType(expression, DereferenceExpression.class, "expression"));
             }
 
-            List<Field> fields = tupleDescriptor.resolveFields(name);
+            List<Field> fields = scope.getRelationType().resolveFields(name);
             checkState(fields.size() <= 1, "Found more than one field for name '%s': %s", name, fields);
 
             if (fields.size() == 1) {
                 Field field = Iterables.getOnlyElement(fields);
-                fieldIndexes.add(tupleDescriptor.indexOf(field));
+                fieldIndexes.add(scope.getRelationType().indexOf(field));
             }
         }
         this.fieldIndexes = fieldIndexes.build();
@@ -365,12 +365,12 @@ class AggregationAnalyzer
 
         private Boolean isField(QualifiedName qualifiedName)
         {
-            List<Field> fields = tupleDescriptor.resolveFields(qualifiedName);
+            List<Field> fields = scope.getRelationType().resolveFields(qualifiedName);
             checkState(!fields.isEmpty(), "No fields for name '%s'", qualifiedName);
             checkState(fields.size() <= 1, "Found more than one field for name '%s': %s", qualifiedName, fields);
 
             Field field = Iterables.getOnlyElement(fields);
-            return fieldIndexes.contains(tupleDescriptor.indexOf(field));
+            return fieldIndexes.contains(scope.getRelationType().indexOf(field));
         }
 
         @Override

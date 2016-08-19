@@ -69,6 +69,13 @@ public class TestStatementBuilder
         printStatement("select * from users cross join unnest(friends) with ordinality");
         printStatement("select id, friend from users cross join unnest(friends) with ordinality t(friend)");
 
+        printStatement("select count(*) x from src group by k, v");
+        printStatement("select count(*) x from src group by cube (k, v)");
+        printStatement("select count(*) x from src group by rollup (k, v)");
+        printStatement("select count(*) x from src group by grouping sets ((k, v))");
+        printStatement("select count(*) x from src group by grouping sets ((k, v), (v))");
+        printStatement("select count(*) x from src group by grouping sets (k, v, k)");
+
         printStatement("" +
                 "select depname, empno, salary\n" +
                 ", count(*) over ()\n" +

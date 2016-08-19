@@ -33,6 +33,10 @@ var QUERY_STATE_COLOR_MAP = {
 
 function getReadableErrorCode(errorType, errorCode)
 {
+    if (typeof errorType === 'undefined') {
+        return "UNKNOWN ERROR";
+    }
+
     switch (errorType) {
         case "USER_ERROR":
             if (errorCode.name === 'USER_CANCELED') {
@@ -143,6 +147,15 @@ function getHostname(url) {
         hostname = hostname.substr(1, hostname.length - 2);
     }
     return hostname;
+}
+
+function getPort(url) {
+    return new URL(url).port;
+}
+
+function getHostAndPort(url) {
+    var url = new URL(url);
+    return url.hostname + ":" + url.port;
 }
 
 function computeRate(count, ms) {

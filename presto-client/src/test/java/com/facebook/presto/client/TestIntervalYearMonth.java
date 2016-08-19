@@ -39,12 +39,12 @@ public class TestIntervalYearMonth
         assertMonths(toMonths(2, 4), "2-4");
         assertMonths(toMonths(-2, -4), "-2-4");
 
-        assertMonths(Long.MAX_VALUE, "768614336404564650-7");
-        assertMonths(Long.MIN_VALUE + 1, "-768614336404564650-7");
-        assertMonths(Long.MIN_VALUE, "-768614336404564650-8");
+        assertMonths(Integer.MAX_VALUE, "178956970-7");
+        assertMonths(Integer.MIN_VALUE + 1, "-178956970-7");
+        assertMonths(Integer.MIN_VALUE, "-178956970-8");
     }
 
-    private static void assertMonths(long months, String formatted)
+    private static void assertMonths(int months, String formatted)
     {
         assertEquals(formatMonths(months), formatted);
         assertEquals(parseMonths(formatted), months);
@@ -53,14 +53,14 @@ public class TestIntervalYearMonth
     @Test
     public void testMaxYears()
     {
-        long years = Long.MAX_VALUE / 12;
+        int years = Integer.MAX_VALUE / 12;
         assertEquals(toMonths(years, 0), years * 12);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testOverflow()
     {
-        long days = (Long.MAX_VALUE / 12) + 1;
+        int days = (Integer.MAX_VALUE / 12) + 1;
         toMonths(days, 0);
     }
 }

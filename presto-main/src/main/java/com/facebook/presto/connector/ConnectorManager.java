@@ -24,6 +24,7 @@ import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
+import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorIndexProvider;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
@@ -312,7 +313,7 @@ public class ConnectorManager
         }
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factoryClass.getClassLoader())) {
-            return factory.create(connectorId, properties);
+            return factory.create(connectorId, properties, new ConnectorContext() {});
         }
     }
 

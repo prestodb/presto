@@ -18,6 +18,7 @@ import com.facebook.presto.execution.Column;
 import com.facebook.presto.execution.Input;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -27,12 +28,10 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -47,39 +46,34 @@ public class InputExtractor
         this.session = session;
     }
 
-    public List<Input> extract(PlanNode root)
+    public List<Input> extractInputs(PlanNode root)
     {
         Visitor visitor = new Visitor();
         root.accept(visitor, null);
 
-        ImmutableList.Builder<Input> inputBuilder = ImmutableList.builder();
-        for (Map.Entry<TableEntry, Set<Column>> entry : visitor.getInputs().entrySet()) {
-            Input input = new Input(entry.getKey().getConnectorId(), entry.getKey().getSchema(), entry.getKey().getTable(), ImmutableList.copyOf(entry.getValue()));
-            inputBuilder.add(input);
-        }
-
-        return inputBuilder.build();
+        return ImmutableList.copyOf(visitor.getInputs());
     }
 
-    private static Column createColumnEntry(ColumnMetadata columnMetadata)
+    private static Column createColumn(ColumnMetadata columnMetadata)
     {
         return new Column(columnMetadata.getName(), columnMetadata.getType().toString());
     }
 
-    private static TableEntry createTableEntry(TableMetadata table)
+    private Input createInput(TableMetadata table, Optional<TableLayoutHandle> layout, Set<Column> columns)
     {
         SchemaTableName schemaTable = table.getTable();
-        return new TableEntry(table.getConnectorId(), schemaTable.getSchemaName(), schemaTable.getTableName());
+        Optional<Object> inputMetadata = layout.flatMap(tableLayout -> metadata.getInfo(session, tableLayout));
+        return new Input(table.getConnectorId(), schemaTable.getSchemaName(), schemaTable.getTableName(), inputMetadata, ImmutableList.copyOf(columns));
     }
 
     private class Visitor
             extends PlanVisitor<Void, Void>
     {
-        private final Map<TableEntry, Set<Column>> inputs = new HashMap<>();
+        private final ImmutableSet.Builder<Input> inputs = ImmutableSet.builder();
 
-        public Map<TableEntry, Set<Column>> getInputs()
+        public Set<Input> getInputs()
         {
-            return inputs;
+            return inputs.build();
         }
 
         @Override
@@ -91,11 +85,11 @@ public class InputExtractor
             Set<Column> columns = new HashSet<>();
             for (ColumnHandle columnHandle : node.getAssignments().values()) {
                 if (!columnHandle.equals(sampleWeightColumn.orElse(null))) {
-                    columns.add(createColumnEntry(metadata.getColumnMetadata(session, tableHandle, columnHandle)));
+                    columns.add(createColumn(metadata.getColumnMetadata(session, tableHandle, columnHandle)));
                 }
             }
 
-            inputs.put(createTableEntry(metadata.getTableMetadata(session, tableHandle)), columns);
+            inputs.add(createInput(metadata.getTableMetadata(session, tableHandle), node.getLayout(), columns));
 
             return null;
         }
@@ -109,11 +103,11 @@ public class InputExtractor
             Set<Column> columns = new HashSet<>();
             for (ColumnHandle columnHandle : node.getAssignments().values()) {
                 if (!columnHandle.equals(sampleWeightColumn.orElse(null))) {
-                    columns.add(createColumnEntry(metadata.getColumnMetadata(session, tableHandle, columnHandle)));
+                    columns.add(createColumn(metadata.getColumnMetadata(session, tableHandle, columnHandle)));
                 }
             }
 
-            inputs.put(createTableEntry(metadata.getTableMetadata(session, tableHandle)), columns);
+            inputs.add(createInput(metadata.getTableMetadata(session, tableHandle), node.getLayout(), columns));
 
             return null;
         }
@@ -125,56 +119,6 @@ public class InputExtractor
                 child.accept(this, context);
             }
             return null;
-        }
-    }
-
-    private static final class TableEntry
-    {
-        private final String connectorId;
-        private final String schema;
-        private final String table;
-
-        private TableEntry(String connectorId, String schema, String table)
-        {
-            this.connectorId = connectorId;
-            this.schema = schema;
-            this.table = table;
-        }
-
-        public String getConnectorId()
-        {
-            return connectorId;
-        }
-
-        public String getSchema()
-        {
-            return schema;
-        }
-
-        public String getTable()
-        {
-            return table;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(connectorId, schema, table);
-        }
-
-        @Override
-        public boolean equals(Object obj)
-        {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null || getClass() != obj.getClass()) {
-                return false;
-            }
-            final TableEntry other = (TableEntry) obj;
-            return Objects.equals(this.connectorId, other.connectorId) &&
-                    Objects.equals(this.schema, other.schema) &&
-                    Objects.equals(this.table, other.table);
         }
     }
 }

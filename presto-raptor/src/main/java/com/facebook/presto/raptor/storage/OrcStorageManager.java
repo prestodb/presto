@@ -60,6 +60,7 @@ import io.airlift.units.Duration;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -86,6 +87,7 @@ import static com.facebook.presto.raptor.RaptorColumnHandle.isHiddenColumn;
 import static com.facebook.presto.raptor.RaptorColumnHandle.isShardRowIdColumn;
 import static com.facebook.presto.raptor.RaptorColumnHandle.isShardUuidColumn;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
+import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_LOCAL_DISK_FULL;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_TIMEOUT;
 import static com.facebook.presto.raptor.storage.OrcPageSource.BUCKET_NUMBER_COLUMN;
@@ -129,6 +131,7 @@ public class OrcStorageManager
     private final Duration recoveryTimeout;
     private final long maxShardRows;
     private final DataSize maxShardSize;
+    private final DataSize minAvailableSpace;
     private final TypeManager typeManager;
     private final ExecutorService deletionExecutor;
 
@@ -159,7 +162,8 @@ public class OrcStorageManager
                 config.getDeletionThreads(),
                 config.getShardRecoveryTimeout(),
                 config.getMaxShardRows(),
-                config.getMaxShardSize());
+                config.getMaxShardSize(),
+                config.getMinAvailableSpace());
     }
 
     public OrcStorageManager(
@@ -176,7 +180,8 @@ public class OrcStorageManager
             int deletionThreads,
             Duration shardRecoveryTimeout,
             long maxShardRows,
-            DataSize maxShardSize)
+            DataSize maxShardSize,
+            DataSize minAvailableSpace)
     {
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.storageService = requireNonNull(storageService, "storageService is null");
@@ -191,6 +196,7 @@ public class OrcStorageManager
         checkArgument(maxShardRows > 0, "maxShardRows must be > 0");
         this.maxShardRows = min(maxShardRows, MAX_ROWS);
         this.maxShardSize = requireNonNull(maxShardSize, "maxShardSize is null");
+        this.minAvailableSpace = requireNonNull(minAvailableSpace, "minAvailableSpace is null");
         this.shardRecorder = requireNonNull(shardRecorder, "shardRecorder is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.deletionExecutor = newFixedThreadPool(deletionThreads, daemonThreadsNamed("raptor-delete-" + connectorId + "-%s"));
@@ -251,13 +257,12 @@ public class OrcStorageManager
             return new OrcPageSource(shardRewriter, recordReader, dataSource, columnIds, columnTypes, columnIndexes.build(), shardUuid, bucketNumber, systemMemoryUsage);
         }
         catch (IOException | RuntimeException e) {
-            try {
-                dataSource.close();
-            }
-            catch (IOException ex) {
-                e.addSuppressed(ex);
-            }
+            closeQuietly(dataSource);
             throw new PrestoException(RAPTOR_ERROR, "Failed to create page source for shard " + shardUuid, e);
+        }
+        catch (Throwable t) {
+            closeQuietly(dataSource);
+            throw t;
         }
     }
 
@@ -276,8 +281,11 @@ public class OrcStorageManager
     }
 
     @Override
-    public StoragePageSink createStoragePageSink(long transactionId, OptionalInt bucketNumber, List<Long> columnIds, List<Type> columnTypes)
+    public StoragePageSink createStoragePageSink(long transactionId, OptionalInt bucketNumber, List<Long> columnIds, List<Type> columnTypes, boolean checkSpace)
     {
+        if (storageService.getAvailableBytes() < minAvailableSpace.toBytes()) {
+            throw new PrestoException(RAPTOR_LOCAL_DISK_FULL, "Local disk is full on node " + nodeId);
+        }
         return new OrcStoragePageSink(transactionId, columnIds, columnTypes, bucketNumber);
     }
 
@@ -637,6 +645,15 @@ public class OrcStorageManager
                 stagingFiles.add(stagingFile);
                 writer = new OrcFileWriter(columnIds, columnTypes, stagingFile);
             }
+        }
+    }
+
+    private static void closeQuietly(Closeable closeable)
+    {
+        try {
+            closeable.close();
+        }
+        catch (IOException ignored) {
         }
     }
 }

@@ -26,6 +26,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationType;
+import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
@@ -144,11 +145,11 @@ public class LogicalPlanner
 
     private RelationPlan createExplainAnalyzePlan(Analysis analysis, Explain statement)
     {
-        RelationType descriptor = analysis.getOutputDescriptor(statement);
+        Scope scope = analysis.getScope(statement);
         PlanNode root = planStatement(analysis, statement.getStatement());
-        Symbol outputSymbol = symbolAllocator.newSymbol(descriptor.getFieldByIndex(0));
+        Symbol outputSymbol = symbolAllocator.newSymbol(scope.getRelationType().getFieldByIndex(0));
         root = new ExplainAnalyzeNode(idAllocator.getNextId(), root, outputSymbol);
-        return new RelationPlan(root, descriptor, ImmutableList.of(outputSymbol), Optional.empty());
+        return new RelationPlan(root, scope, ImmutableList.of(outputSymbol), Optional.empty());
     }
 
     private RelationPlan createTableCreationPlan(Analysis analysis, Query query)
@@ -207,13 +208,14 @@ public class LogicalPlanner
         }
         ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), assignments.build());
 
-        RelationType tupleDescriptor = new RelationType(visibleTableColumns.stream()
+        List<Field> fields = visibleTableColumns.stream()
                 .map(column -> Field.newUnqualified(column.getName(), column.getType()))
-                .collect(toImmutableList()));
+                .collect(toImmutableList());
+        Scope scope = Scope.builder().withRelationType(new RelationType(fields)).build();
 
         plan = new RelationPlan(
                 projectNode,
-                tupleDescriptor,
+                scope,
                 projectNode.getOutputSymbols(),
                 plan.getSampleWeight());
 
@@ -289,7 +291,7 @@ public class LogicalPlanner
                 target,
                 outputs);
 
-        return new RelationPlan(commitNode, analysis.getOutputDescriptor(), outputs, Optional.empty());
+        return new RelationPlan(commitNode, analysis.getRootScope(), outputs, Optional.empty());
     }
 
     private RelationPlan createDeletePlan(Analysis analysis, Delete node)
@@ -300,7 +302,7 @@ public class LogicalPlanner
         List<Symbol> outputs = ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT));
         TableFinishNode commitNode = new TableFinishNode(idAllocator.getNextId(), deleteNode, deleteNode.getTarget(), outputs);
 
-        return new RelationPlan(commitNode, analysis.getOutputDescriptor(), commitNode.getOutputSymbols(), Optional.empty());
+        return new RelationPlan(commitNode, analysis.getScope(node), commitNode.getOutputSymbols(), Optional.empty());
     }
 
     private PlanNode createOutputPlan(RelationPlan plan, Analysis analysis)
@@ -340,7 +342,7 @@ public class LogicalPlanner
                 session,
                 metadata);
 
-        ConnectorTableMetadata metadata = new ConnectorTableMetadata(table.asSchemaTableName(), columns, properties, owner, sampled);
+        ConnectorTableMetadata metadata = new ConnectorTableMetadata(table.asSchemaTableName(), columns, properties, sampled);
         // TODO: first argument should actually be connectorId
         return new TableMetadata(table.getCatalogName(), metadata);
     }

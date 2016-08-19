@@ -490,38 +490,6 @@ public class OrcTester
         return writeOrcFileColumnOld(outputFile, format, recordWriter, columnObjectInspector, values);
     }
 
-    static DataSize writeOrcColumn(File outputFile, Format format, RecordWriter recordWriter, ObjectInspector columnObjectInspector, Iterator<?> values)
-            throws Exception
-    {
-        SettableStructObjectInspector objectInspector = createSettableStructObjectInspector("test", columnObjectInspector);
-        Object row = objectInspector.create();
-
-        List<StructField> fields = ImmutableList.copyOf(objectInspector.getAllStructFieldRefs());
-
-        int i = 0;
-        while (values.hasNext()) {
-            Object value = values.next();
-            objectInspector.setStructFieldData(row, fields.get(0), value);
-
-            @SuppressWarnings("deprecation") Serializer serde;
-            if (DWRF == format) {
-                serde = new com.facebook.hive.orc.OrcSerde();
-                if (i == 142_345) {
-                    setDwrfLowMemoryFlag(recordWriter);
-                }
-            }
-            else {
-                serde = new OrcSerde();
-            }
-            Writable record = serde.serialize(row, objectInspector);
-            recordWriter.write(record);
-            i++;
-        }
-
-        recordWriter.close(false);
-        return succinctBytes(outputFile.length());
-    }
-
     public static DataSize writeOrcFileColumnOld(File outputFile, Format format, RecordWriter recordWriter, ObjectInspector columnObjectInspector, Iterator<?> values)
             throws Exception
     {
@@ -531,9 +499,10 @@ public class OrcTester
         List<StructField> fields = ImmutableList.copyOf(objectInspector.getAllStructFieldRefs());
 
         int i = 0;
+        TypeInfo typeInfo = getTypeInfoFromTypeString(columnObjectInspector.getTypeName());
         while (values.hasNext()) {
             Object value = values.next();
-            value = preprocessWriteValueOld(getTypeInfoFromTypeString(columnObjectInspector.getTypeName()), value);
+            value = preprocessWriteValueOld(typeInfo, value);
             objectInspector.setStructFieldData(row, fields.get(0), value);
 
             @SuppressWarnings("deprecation") Serializer serde;

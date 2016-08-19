@@ -34,6 +34,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
+import org.apache.hadoop.fs.Path;
 import org.joda.time.DateTimeZone;
 import parquet.column.ColumnDescriptor;
 import parquet.schema.MessageType;
@@ -48,6 +49,7 @@ import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
+import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
 import static com.facebook.presto.hive.HiveUtil.integerPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.longDecimalPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.shortDecimalPartitionKey;
@@ -108,7 +110,8 @@ class ParquetPageSource
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
-            boolean useParquetColumnNames)
+            boolean useParquetColumnNames,
+            Path path)
     {
         checkArgument(totalBytes >= 0, "totalBytes is negative");
         requireNonNull(splitSchema, "splitSchema is null");
@@ -141,11 +144,11 @@ class ParquetPageSource
 
             hiveColumnIndexes[columnIndex] = column.getHiveColumnIndex();
 
-            if (column.isPartitionKey()) {
+            if (column.isPartitionKey() || column.isHidden()) {
                 HivePartitionKey partitionKey = partitionKeysByName.get(name);
-                checkArgument(partitionKey != null, "No value provided for partition key %s", name);
 
-                byte[] bytes = partitionKey.getValue().getBytes(UTF_8);
+                String columnValue = getPrefilledColumnValue(column, partitionKey, path);
+                byte[] bytes = columnValue.getBytes(UTF_8);
 
                 BlockBuilder blockBuilder;
                 if (type instanceof FixedWidthType) {
@@ -161,73 +164,73 @@ class ParquetPageSource
                     }
                 }
                 else if (type.equals(BOOLEAN)) {
-                    boolean value = booleanPartitionKey(partitionKey.getValue(), name);
+                    boolean value = booleanPartitionKey(columnValue, name);
                     for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
                         BOOLEAN.writeBoolean(blockBuilder, value);
                     }
                 }
                 else if (type.equals(TINYINT)) {
-                    long value = tinyintPartitionKey(partitionKey.getValue(), name);
+                    long value = tinyintPartitionKey(columnValue, name);
                     for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
                         TINYINT.writeLong(blockBuilder, value);
                     }
                 }
                 else if (type.equals(SMALLINT)) {
-                    long value = smallintPartitionKey(partitionKey.getValue(), name);
+                    long value = smallintPartitionKey(columnValue, name);
                     for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
                         SMALLINT.writeLong(blockBuilder, value);
                     }
                 }
                 else if (type.equals(INTEGER)) {
-                    long value = integerPartitionKey(partitionKey.getValue(), name);
+                    long value = integerPartitionKey(columnValue, name);
                     for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
                         INTEGER.writeLong(blockBuilder, value);
                     }
                 }
                 else if (type.equals(BIGINT)) {
-                    long value = bigintPartitionKey(partitionKey.getValue(), name);
+                    long value = bigintPartitionKey(columnValue, name);
                     for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
                         BIGINT.writeLong(blockBuilder, value);
                     }
                 }
                 else if (type.equals(DOUBLE)) {
-                    double value = doublePartitionKey(partitionKey.getValue(), name);
+                    double value = doublePartitionKey(columnValue, name);
                     for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
                         DOUBLE.writeDouble(blockBuilder, value);
                     }
                 }
                 else if (isVarcharType(type)) {
-                    Slice value = varcharPartitionKey(partitionKey.getValue(), name, type);
+                    Slice value = varcharPartitionKey(columnValue, name, type);
                     for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
                         type.writeSlice(blockBuilder, value);
                     }
                 }
                 else if (type.equals(TIMESTAMP)) {
-                    long value = timestampPartitionKey(partitionKey.getValue(), hiveStorageTimeZone, name);
+                    long value = timestampPartitionKey(columnValue, hiveStorageTimeZone, name);
                     for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
                         TIMESTAMP.writeLong(blockBuilder, value);
                     }
                 }
                 else if (type.equals(DATE)) {
-                    long value = datePartitionKey(partitionKey.getValue(), name);
+                    long value = datePartitionKey(columnValue, name);
                     for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
                         DATE.writeLong(blockBuilder, value);
                     }
                 }
                 else if (isShortDecimal(type)) {
-                    long value = shortDecimalPartitionKey(partitionKey.getValue(), (DecimalType) type, name);
+                    long value = shortDecimalPartitionKey(columnValue, (DecimalType) type, name);
                     for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
                         type.writeLong(blockBuilder, value);
                     }
                 }
                 else if (isLongDecimal(type)) {
-                    Slice value = longDecimalPartitionKey(partitionKey.getValue(), (DecimalType) type, name);
+                    Slice value = longDecimalPartitionKey(columnValue, (DecimalType) type, name);
                     for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
                         type.writeSlice(blockBuilder, value);
                     }
                 }
                 else {
-                    throw new PrestoException(NOT_SUPPORTED, format("Unsupported column type %s for partition key: %s", type.getDisplayName(), name));
+                    throw new PrestoException(NOT_SUPPORTED, format("Unsupported column type %s for prefilled column: %s", type.getDisplayName(), name));
                 }
 
                 constantBlocks[columnIndex] = blockBuilder.build();
@@ -324,6 +327,7 @@ class ParquetPageSource
             close();
         }
         catch (RuntimeException e) {
+            // Self-suppression not permitted
             if (e != throwable) {
                 throwable.addSuppressed(e);
             }

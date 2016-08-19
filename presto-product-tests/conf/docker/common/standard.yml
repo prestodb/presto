@@ -1,3 +1,4 @@
+#overrides ./jdbc_db.yml
 version: '2'
 services:
 
@@ -8,16 +9,10 @@ services:
     volumes:
       - ../../../../:/docker/volumes/presto
 
-  hadoop-base:
-    image: 'teradatalabs/cdh5-hive:4'
-    env_file:
-      - ../../../target/classes/presto.env
-    volumes:
-      - ../../../../:/docker/volumes/presto
-
-  hadoop-master-common:
+  hadoop-master:
     extends:
-      service: hadoop-base
+      service: java-8-base
+    image: 'teradatalabs/cdh5-hive:4'
     hostname: hadoop-master
     ports:
       - '1080:1080'
@@ -27,22 +22,22 @@ services:
       - '10000:10000'
       - '50070:50070'
       - '50075:50075'
-  
-  presto-master-common:
+
+  presto-master:
     extends:
       service: java-8-base
     hostname: presto-master
-    volumes:
-      - ../../../../presto-product-tests/conf/tempto/tempto-configuration-for-docker-default.yaml:/docker/volumes/tempto/tempto-configuration-local.yaml
+    command: /docker/volumes/presto/presto-product-tests/conf/docker/files/presto-launcher-wrapper.sh singlenode run
     ports:
       - '8080:8080'
+    depends_on:
+       - hadoop-master
 
-  presto-worker-common:
-    extends:
-      service: java-8-base
-    command: /docker/volumes/presto/presto-product-tests/conf/docker/files/presto-launcher-wrapper.sh multinode-worker run
-
-  application-runner-common:
+  application-runner:
     extends:
       service: java-8-base
     hostname: application-runner
+    volumes:
+      - ../../../../presto-product-tests/conf/tempto/tempto-configuration-for-docker-default.yaml:/docker/volumes/tempto/tempto-configuration-local.yaml
+    volumes_from:
+      - presto-master

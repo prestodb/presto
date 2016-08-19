@@ -60,7 +60,8 @@ public class TestQueryStateMachine
     private static final String QUERY = "sql";
     private static final URI LOCATION = URI.create("fake://fake-query");
     private static final SQLException FAILED_CAUSE = new SQLException("FAILED");
-    private static final List<Input> INPUTS = ImmutableList.of(new Input("connector", "schema", "table", ImmutableList.of(new Column("a", "varchar"))));
+    private static final List<Input> INPUTS = ImmutableList.of(new Input("connector", "schema", "table", Optional.empty(), ImmutableList.of(new Column("a", "varchar"))));
+    private static final Optional<Output> OUTPUT = Optional.empty();
     private static final List<String> OUTPUT_FIELD_NAMES = ImmutableList.of("a", "b", "c");
     private static final String UPDATE_TYPE = "update type";
     private static final VersionedMemoryPoolId MEMORY_POOL = new VersionedMemoryPoolId(new MemoryPoolId("pool"), 42);
@@ -289,6 +290,7 @@ public class TestQueryStateMachine
         assertFalse(queryInfo.getOutputStage().isPresent());
         assertEquals(queryInfo.getQuery(), QUERY);
         assertEquals(queryInfo.getInputs(), INPUTS);
+        assertEquals(queryInfo.getOutput(), OUTPUT);
         assertEquals(queryInfo.getFieldNames(), OUTPUT_FIELD_NAMES);
         assertEquals(queryInfo.getUpdateType(), UPDATE_TYPE);
         assertEquals(queryInfo.getMemoryPool(), MEMORY_POOL.getId());
@@ -362,6 +364,7 @@ public class TestQueryStateMachine
         TransactionManager transactionManager = createTestTransactionManager();
         QueryStateMachine stateMachine = QueryStateMachine.begin(QUERY_ID, QUERY, TEST_SESSION, LOCATION, false, transactionManager, executor);
         stateMachine.setInputs(INPUTS);
+        stateMachine.setOutput(OUTPUT);
         stateMachine.setOutputFieldNames(OUTPUT_FIELD_NAMES);
         stateMachine.setUpdateType(UPDATE_TYPE);
         stateMachine.setMemoryPool(MEMORY_POOL);

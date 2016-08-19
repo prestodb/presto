@@ -13,21 +13,16 @@
  */
 package com.facebook.presto.tests.tpch;
 
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 import com.google.common.collect.ImmutableList;
-
-import javax.inject.Inject;
-
-import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
 public class IndexedTpchPlugin
         implements Plugin
 {
-    private NodeManager nodeManager;
     private TpchIndexSpec indexSpec;
 
     public IndexedTpchPlugin(TpchIndexSpec indexSpec)
@@ -40,19 +35,9 @@ public class IndexedTpchPlugin
         this(TpchIndexSpec.NO_INDEXES);
     }
 
-    @Inject
-    public void setNodeManager(NodeManager nodeManager)
-    {
-        this.nodeManager = nodeManager;
-    }
-
     @Override
-    public <T> List<T> getServices(Class<T> type)
+    public Iterable<ConnectorFactory> getConnectorFactories(ConnectorFactoryContext context)
     {
-        if (type == ConnectorFactory.class) {
-            requireNonNull(nodeManager, "nodeManager is null");
-            return ImmutableList.of(type.cast(new IndexedTpchConnectorFactory(nodeManager, indexSpec, 4)));
-        }
-        return ImmutableList.of();
+        return ImmutableList.of(new IndexedTpchConnectorFactory(context.getNodeManager(), indexSpec, 4));
     }
 }

@@ -65,7 +65,8 @@ public class GenericHiveRecordCursorProvider
                 partitionKeys,
                 columns,
                 hiveStorageTimeZone,
-                typeManager));
+                typeManager,
+                path));
     }
 
     @SuppressWarnings("unchecked")

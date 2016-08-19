@@ -31,7 +31,12 @@ public class TableAlreadyExistsException
 
     public TableAlreadyExistsException(SchemaTableName tableName, String message)
     {
-        super(ALREADY_EXISTS, message);
+        this(tableName, message, null);
+    }
+
+    public TableAlreadyExistsException(SchemaTableName tableName, String message, Throwable cause)
+    {
+        super(ALREADY_EXISTS, message, cause);
         this.tableName = tableName;
     }
 

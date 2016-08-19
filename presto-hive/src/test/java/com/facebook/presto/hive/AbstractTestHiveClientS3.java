@@ -31,6 +31,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.ServerInfo;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
@@ -173,7 +174,8 @@ public abstract class AbstractTestHiveClientS3
                 locationService,
                 new TableParameterCodec(),
                 partitionUpdateCodec,
-                new HiveTypeTranslator());
+                new HiveTypeTranslator(),
+                new ServerInfo("test_id", "test_environment", "test_version"));
         splitManager = new HiveSplitManager(
                 connectorId,
                 metastoreClient,
@@ -324,7 +326,7 @@ public abstract class AbstractTestHiveClientS3
                 .add(new ColumnMetadata("id", BIGINT))
                 .build();
 
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, createTableProperties(storageFormat), tableOwner);
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, createTableProperties(storageFormat));
         HiveOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, tableMetadata, Optional.empty());
 
         MaterializedResult data = MaterializedResult.resultBuilder(SESSION, BIGINT)
@@ -354,7 +356,6 @@ public abstract class AbstractTestHiveClientS3
 
         // verify the metadata
         tableMetadata = metadata.getTableMetadata(SESSION, getTableHandle(metadata, tableName));
-        assertEquals(tableMetadata.getOwner(), tableOwner);
         assertEquals(tableMetadata.getColumns(), columns);
 
         // verify the data

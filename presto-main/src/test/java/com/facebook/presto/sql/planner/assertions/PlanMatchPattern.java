@@ -21,12 +21,18 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.sql.tree.Window;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
@@ -58,6 +64,11 @@ public final class PlanMatchPattern
         return any(sources).matchToAnyNodeTree();
     }
 
+    public static PlanMatchPattern anyNot(Class<? extends PlanNode> excludeNodeClass, PlanMatchPattern... sources)
+    {
+        return any(sources).with(new NotPlanNodeMatcher(excludeNodeClass));
+    }
+
     public static PlanMatchPattern tableScan(String expectedTableName)
     {
         return any().with(new TableScanMatcher(expectedTableName));
@@ -66,6 +77,11 @@ public final class PlanMatchPattern
     public static PlanMatchPattern tableScan(String expectedTableName, Map<String, Domain> constraint)
     {
         return any().with(new TableScanMatcher(expectedTableName, constraint));
+    }
+
+    public static PlanMatchPattern window(List<FunctionCall> functionCalls, PlanMatchPattern... sources)
+    {
+        return any(sources).with(new WindowMatcher(functionCalls));
     }
 
     public static PlanMatchPattern project(PlanMatchPattern... sources)
@@ -141,6 +157,31 @@ public final class PlanMatchPattern
         return sourcePatterns.isEmpty();
     }
 
+    private static List<Expression> toExpressionList(String ... args)
+    {
+        ImmutableList.Builder<Expression> builder = ImmutableList.builder();
+        for (String arg : args) {
+            if (arg.equals("*")) {
+                builder.add(new PlanMatchPattern.AnySymbolReference());
+            }
+            else {
+                builder.add(new SymbolReference(arg));
+            }
+        }
+
+        return builder.build();
+    }
+
+    public static FunctionCall functionCall(String name, Window window, boolean distinct, String... args)
+    {
+        return new FunctionCall(QualifiedName.of(name), Optional.of(window), distinct, toExpressionList(args));
+    }
+
+    public static FunctionCall functionCall(String name, String ... args)
+    {
+        return new RelaxedEqualityFunctionCall(QualifiedName.of(name), toExpressionList(args));
+    }
+
     @Override
     public String toString()
     {
@@ -171,5 +212,61 @@ public final class PlanMatchPattern
     private String indentString(int indent)
     {
         return Strings.repeat("    ", indent);
+    }
+
+    private static class AnySymbolReference extends SymbolReference
+    {
+        AnySymbolReference()
+        {
+            super("*");
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+
+            if (o == null || !SymbolReference.class.isInstance(o)) {
+                return false;
+            }
+
+            return true;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            throw new UnsupportedOperationException();
+        }
+    }
+
+    private static class RelaxedEqualityFunctionCall extends FunctionCall
+    {
+        RelaxedEqualityFunctionCall(QualifiedName name, List<Expression> arguments)
+        {
+            super(name, arguments);
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || obj.getClass() != FunctionCall.class) {
+                return false;
+            }
+            FunctionCall o = (FunctionCall) obj;
+            return Objects.equals(getName(), o.getName()) &&
+                    Objects.equals(getArguments(), o.getArguments());
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(getName(), getArguments());
+        }
     }
 }

@@ -104,21 +104,17 @@ public class BindableAggregationFunction
         AggregationMetadata metadata;
         AccumulatorStateSerializer<?> stateSerializer = new StateCompiler().generateStateSerializer(stateClass, classLoader);
         Type intermediateType = stateSerializer.getSerializedType();
-        Method intermediateInputFunction = AggregationCompiler.getIntermediateInputFunction(definitionClass, stateClass);
         Method combineFunction = AggregationCompiler.getCombineFunction(definitionClass, stateClass);
         AccumulatorStateFactory<?> stateFactory = new StateCompiler().generateStateFactory(stateClass, classLoader);
 
         try {
             MethodHandle inputHandle = lookup().unreflect(inputFunction);
-            MethodHandle intermediateInputHandle = intermediateInputFunction == null ? null : lookup().unreflect(intermediateInputFunction);
-            MethodHandle combineHandle = combineFunction == null ? null : lookup().unreflect(combineFunction);
+            MethodHandle combineHandle = lookup().unreflect(combineFunction);
             MethodHandle outputHandle = outputFunction == null ? null : lookup().unreflect(outputFunction);
             metadata = new AggregationMetadata(
                     generateAggregationName(getSignature().getName(), outputType.getTypeSignature(), signaturesFromTypes(inputTypes)),
                     getParameterMetadata(inputFunction, inputTypes),
                     inputHandle,
-                    getParameterMetadata(intermediateInputFunction, inputTypes),
-                    intermediateInputHandle,
                     combineHandle,
                     outputHandle,
                     stateClass,

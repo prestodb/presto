@@ -1,35 +1,6 @@
 version: '2'
 services:
-  hadoop-master:
-    extends:
-      file: ../common/standard.yml
-      service: hadoop-master-common
 
   presto-master:
-    extends:
-      file: ../common/standard.yml
-      service: presto-master-common
-    command: /docker/volumes/presto/presto-product-tests/conf/docker/files/presto-launcher-wrapper.sh singlenode run
     volumes:
       - ../../../../presto-product-tests/conf/presto/etc/environment-specific-catalogs/singlenode-hdfs-impersonation/hive.properties:/docker/volumes/presto/presto-product-tests/conf/presto/etc/catalog/hive.properties
-    depends_on:
-       - hadoop-master
-
-  application-runner:
-    extends:
-      file: ../common/standard.yml
-      service: application-runner-common
-    depends_on:
-      - 'presto-master'
-    volumes_from:
-      - presto-master
-
-  postgres:
-    extends:
-      file: ../common/jdbc_db.yml
-      service: postgres-common
-
-  mysql:
-    extends:
-      file: ../common/jdbc_db.yml
-      service: mysql-common

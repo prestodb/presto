@@ -14,6 +14,8 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.discovery.EmbeddedDiscoveryModule;
+import com.facebook.presto.eventlistener.EventListenerManager;
+import com.facebook.presto.eventlistener.EventListenerModule;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.Metadata;
@@ -100,6 +102,7 @@ public class PrestoServer
                 new EmbeddedDiscoveryModule(),
                 new ServerSecurityModule(),
                 new AccessControlModule(),
+                new EventListenerModule(),
                 new ServerMainModule(sqlParserOptions),
                 new GracefulShutdownModule());
 
@@ -122,6 +125,7 @@ public class PrestoServer
                     injector.getInstance(NodeSchedulerConfig.class));
 
             injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
+            injector.getInstance(EventListenerManager.class).loadConfiguredEventListener();
 
             injector.getInstance(Announcer.class).start();
 

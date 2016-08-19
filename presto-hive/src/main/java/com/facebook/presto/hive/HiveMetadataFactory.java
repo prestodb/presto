@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.spi.ServerInfo;
 import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
@@ -35,6 +36,7 @@ public class HiveMetadataFactory
     private final boolean respectTableFormat;
     private final boolean bucketExecutionEnabled;
     private final boolean bucketWritingEnabled;
+    private final boolean forceIntegralToBigint;
     private final HiveStorageFormat defaultStorageFormat;
     private final ExtendedHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
@@ -46,6 +48,7 @@ public class HiveMetadataFactory
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final BoundedExecutor renameExecution;
     private final TypeTranslator typeTranslator;
+    private final ServerInfo serverInfo;
 
     @Inject
     @SuppressWarnings("deprecation")
@@ -60,7 +63,8 @@ public class HiveMetadataFactory
             LocationService locationService,
             TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
-            TypeTranslator typeTranslator)
+            TypeTranslator typeTranslator,
+            ServerInfo serverInfo)
     {
         this(connectorId,
                 metastore,
@@ -72,13 +76,15 @@ public class HiveMetadataFactory
                 hiveClientConfig.isRespectTableFormat(),
                 hiveClientConfig.isBucketExecutionEnabled(),
                 hiveClientConfig.isBucketWritingEnabled(),
+                hiveClientConfig.isForceIntegralToBigint(),
                 hiveClientConfig.getHiveStorageFormat(),
                 typeManager,
                 locationService,
                 tableParameterCodec,
                 partitionUpdateCodec,
                 executorService,
-                typeTranslator);
+                typeTranslator,
+                serverInfo);
     }
 
     public HiveMetadataFactory(
@@ -92,13 +98,15 @@ public class HiveMetadataFactory
             boolean respectTableFormat,
             boolean bucketExecutionEnabled,
             boolean bucketWritingEnabled,
+            boolean forceIntegralToBigint,
             HiveStorageFormat defaultStorageFormat,
             TypeManager typeManager,
             LocationService locationService,
             TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             ExecutorService executorService,
-            TypeTranslator typeTranslator)
+            TypeTranslator typeTranslator,
+            ServerInfo serverInfo)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
 
@@ -106,6 +114,7 @@ public class HiveMetadataFactory
         this.respectTableFormat = respectTableFormat;
         this.bucketExecutionEnabled = bucketExecutionEnabled;
         this.bucketWritingEnabled = bucketWritingEnabled;
+        this.forceIntegralToBigint = forceIntegralToBigint;
         this.defaultStorageFormat = requireNonNull(defaultStorageFormat, "defaultStorageFormat is null");
 
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -117,6 +126,7 @@ public class HiveMetadataFactory
         this.tableParameterCodec = requireNonNull(tableParameterCodec, "tableParameterCodec is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
+        this.serverInfo = requireNonNull(serverInfo, "serverInfo is null");
 
         if (!allowCorruptWritesForTesting && !timeZone.equals(DateTimeZone.getDefault())) {
             log.warn("Hive writes are disabled. " +
@@ -140,12 +150,14 @@ public class HiveMetadataFactory
                 respectTableFormat,
                 bucketExecutionEnabled,
                 bucketWritingEnabled,
+                forceIntegralToBigint,
                 defaultStorageFormat,
                 typeManager,
                 locationService,
                 tableParameterCodec,
                 partitionUpdateCodec,
                 renameExecution,
-                typeTranslator);
+                typeTranslator,
+                serverInfo);
     }
 }

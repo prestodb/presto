@@ -21,8 +21,8 @@ import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RAN
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.FloatType.FLOAT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -59,7 +59,7 @@ public class TestMathFunctions
         assertFunction("abs(123.45)", DOUBLE, 123.45);
         assertFunction("abs(-123.45)", DOUBLE, 123.45);
         assertFunction("abs(CAST(NULL AS DOUBLE))", DOUBLE, null);
-        assertFunction("abs(FLOAT '-754.1985')", FLOAT, 754.1985f);
+        assertFunction("abs(REAL '-754.1985')", REAL, 754.1985f);
         assertInvalidFunction("abs(TINYINT'" + Byte.MIN_VALUE + "')", NUMERIC_VALUE_OUT_OF_RANGE);
         assertInvalidFunction("abs(SMALLINT'" + Short.MIN_VALUE + "')", NUMERIC_VALUE_OUT_OF_RANGE);
         assertInvalidFunction("abs(INTEGER'" + Integer.MIN_VALUE + "')", NUMERIC_VALUE_OUT_OF_RANGE);
@@ -71,7 +71,7 @@ public class TestMathFunctions
     {
         for (double doubleValue : DOUBLE_VALUES) {
             assertFunction("acos(" + doubleValue + ")", DOUBLE, Math.acos(doubleValue));
-            assertFunction("acos(FLOAT '" + (float) doubleValue + "')", DOUBLE, Math.acos((float) doubleValue));
+            assertFunction("acos(REAL '" + (float) doubleValue + "')", DOUBLE, Math.acos((float) doubleValue));
         }
         assertFunction("acos(NULL)", DOUBLE, null);
     }
@@ -81,7 +81,7 @@ public class TestMathFunctions
     {
         for (double doubleValue : DOUBLE_VALUES) {
             assertFunction("asin(" + doubleValue + ")", DOUBLE, Math.asin(doubleValue));
-            assertFunction("asin(FLOAT '" + (float) doubleValue + "')", DOUBLE, Math.asin((float) doubleValue));
+            assertFunction("asin(REAL '" + (float) doubleValue + "')", DOUBLE, Math.asin((float) doubleValue));
         }
         assertFunction("asin(NULL)", DOUBLE, null);
     }
@@ -91,7 +91,7 @@ public class TestMathFunctions
     {
         for (double doubleValue : DOUBLE_VALUES) {
             assertFunction("atan(" + doubleValue + ")", DOUBLE, Math.atan(doubleValue));
-            assertFunction("atan(FLOAT '" + (float) doubleValue + "')", DOUBLE, Math.atan((float) doubleValue));
+            assertFunction("atan(REAL '" + (float) doubleValue + "')", DOUBLE, Math.atan((float) doubleValue));
         }
         assertFunction("atan(NULL)", DOUBLE, null);
     }
@@ -101,7 +101,7 @@ public class TestMathFunctions
     {
         for (double doubleValue : DOUBLE_VALUES) {
             assertFunction("atan2(" + doubleValue + ", " + doubleValue + ")", DOUBLE, Math.atan2(doubleValue, doubleValue));
-            assertFunction("atan2(FLOAT '" + (float) doubleValue + "', FLOAT '" + (float) doubleValue + "')", DOUBLE, Math.atan2((float) doubleValue, (float) doubleValue));
+            assertFunction("atan2(REAL '" + (float) doubleValue + "', REAL '" + (float) doubleValue + "')", DOUBLE, Math.atan2((float) doubleValue, (float) doubleValue));
         }
         assertFunction("atan2(NULL, NULL)", DOUBLE, null);
         assertFunction("atan2(1.0, NULL)", DOUBLE, null);
@@ -113,7 +113,7 @@ public class TestMathFunctions
     {
         for (double doubleValue : DOUBLE_VALUES) {
             assertFunction("cbrt(" + doubleValue + ")", DOUBLE, Math.cbrt(doubleValue));
-            assertFunction("cbrt(FLOAT '" + (float) doubleValue + "')", DOUBLE, Math.cbrt((float) doubleValue));
+            assertFunction("cbrt(REAL '" + (float) doubleValue + "')", DOUBLE, Math.cbrt((float) doubleValue));
         }
         assertFunction("cbrt(NULL)", DOUBLE, null);
     }
@@ -140,10 +140,10 @@ public class TestMathFunctions
         assertFunction("ceil(123.45)", DOUBLE, 124.0);
         assertFunction("ceil(-123.45)", DOUBLE, -123.0);
         assertFunction("ceil(CAST(NULL as DOUBLE))", DOUBLE, null);
-        assertFunction("ceil(FLOAT '123.0')", FLOAT, 123.0f);
-        assertFunction("ceil(FLOAT '-123.0')", FLOAT, -123.0f);
-        assertFunction("ceil(FLOAT '123.45')", FLOAT, 124.0f);
-        assertFunction("ceil(FLOAT '-123.45')", FLOAT, -123.0f);
+        assertFunction("ceil(REAL '123.0')", REAL, 123.0f);
+        assertFunction("ceil(REAL '-123.0')", REAL, -123.0f);
+        assertFunction("ceil(REAL '123.45')", REAL, 124.0f);
+        assertFunction("ceil(REAL '-123.45')", REAL, -123.0f);
 
         assertFunction("ceiling(12300000000)", BIGINT, 12300000000L);
         assertFunction("ceiling(-12300000000)", BIGINT, -12300000000L);
@@ -153,11 +153,11 @@ public class TestMathFunctions
         assertFunction("ceiling(123.45)", DOUBLE, 124.0);
         assertFunction("ceiling(-123.45)", DOUBLE, -123.0);
         assertFunction("ceiling(CAST(NULL AS DOUBLE))", DOUBLE, null);
-        assertFunction("ceiling(FLOAT '123.0')", FLOAT, 123.0f);
-        assertFunction("ceiling(FLOAT '-123.0')", FLOAT, -123.0f);
-        assertFunction("ceiling(FLOAT '123.45')", FLOAT, 124.0f);
-        assertFunction("ceiling(FLOAT '-123.45')", FLOAT, -123.0f);
-        assertFunction("ceiling(CAST(NULL AS FLOAT))", FLOAT, null);
+        assertFunction("ceiling(REAL '123.0')", REAL, 123.0f);
+        assertFunction("ceiling(REAL '-123.0')", REAL, -123.0f);
+        assertFunction("ceiling(REAL '123.45')", REAL, 124.0f);
+        assertFunction("ceiling(REAL '-123.45')", REAL, -123.0f);
+        assertFunction("ceiling(CAST(NULL AS REAL))", REAL, null);
     }
 
     @Test
@@ -169,10 +169,10 @@ public class TestMathFunctions
         assertFunction("truncate(-17.18)", DOUBLE, -17.0);
         assertFunction("truncate(17.88)", DOUBLE, 17.0);
         assertFunction("truncate(-17.88)", DOUBLE, -17.0);
-        assertFunction("truncate(FLOAT '17.18')", FLOAT, 17.0f);
-        assertFunction("truncate(FLOAT '-17.18')", FLOAT, -17.0f);
-        assertFunction("truncate(FLOAT '17.88')", FLOAT, 17.0f);
-        assertFunction("truncate(FLOAT '-17.88')", FLOAT, -17.0f);
+        assertFunction("truncate(REAL '17.18')", REAL, 17.0f);
+        assertFunction("truncate(REAL '-17.18')", REAL, -17.0f);
+        assertFunction("truncate(REAL '17.88')", REAL, 17.0f);
+        assertFunction("truncate(REAL '-17.88')", REAL, -17.0f);
         assertFunction("truncate(CAST(NULL AS DOUBLE))", DOUBLE, null);
         assertFunction("truncate(" + maxDouble + ")", DOUBLE, Double.MAX_VALUE);
         assertFunction("truncate(" + minDouble + ")", DOUBLE, -Double.MAX_VALUE);
@@ -183,7 +183,7 @@ public class TestMathFunctions
     {
         for (double doubleValue : DOUBLE_VALUES) {
             assertFunction("cos(" + doubleValue + ")", DOUBLE, Math.cos(doubleValue));
-            assertFunction("cos(FLOAT '" + (float) doubleValue + "')", DOUBLE, Math.cos((float) doubleValue));
+            assertFunction("cos(REAL '" + (float) doubleValue + "')", DOUBLE, Math.cos((float) doubleValue));
         }
         assertFunction("cos(NULL)", DOUBLE, null);
     }
@@ -193,7 +193,7 @@ public class TestMathFunctions
     {
         for (double doubleValue : DOUBLE_VALUES) {
             assertFunction("cosh(" + doubleValue + ")", DOUBLE, Math.cosh(doubleValue));
-            assertFunction("cosh(FLOAT '" + (float) doubleValue + "')", DOUBLE, Math.cosh((float) doubleValue));
+            assertFunction("cosh(REAL '" + (float) doubleValue + "')", DOUBLE, Math.cosh((float) doubleValue));
         }
         assertFunction("cosh(NULL)", DOUBLE, null);
     }
@@ -203,7 +203,7 @@ public class TestMathFunctions
     {
         for (double doubleValue : DOUBLE_VALUES) {
             assertFunction(String.format("degrees(%s)", doubleValue), DOUBLE, Math.toDegrees(doubleValue));
-            assertFunction(String.format("degrees(FLOAT '%s')", (float) doubleValue), DOUBLE, Math.toDegrees((float) doubleValue));
+            assertFunction(String.format("degrees(REAL '%s')", (float) doubleValue), DOUBLE, Math.toDegrees((float) doubleValue));
         }
         assertFunction("degrees(NULL)", DOUBLE, null);
     }
@@ -219,7 +219,7 @@ public class TestMathFunctions
     {
         for (double doubleValue : DOUBLE_VALUES) {
             assertFunction("exp(" + doubleValue + ")", DOUBLE, Math.exp(doubleValue));
-            assertFunction("exp(FLOAT '" + (float) doubleValue + "')", DOUBLE, Math.exp((float) doubleValue));
+            assertFunction("exp(REAL '" + (float) doubleValue + "')", DOUBLE, Math.exp((float) doubleValue));
         }
         assertFunction("exp(NULL)", DOUBLE, null);
     }
@@ -245,12 +245,12 @@ public class TestMathFunctions
         assertFunction("floor(-123.0)", DOUBLE, -123.0);
         assertFunction("floor(123.45)", DOUBLE, 123.0);
         assertFunction("floor(-123.45)", DOUBLE, -124.0);
-        assertFunction("floor(FLOAT '123.0')", FLOAT, 123.0f);
-        assertFunction("floor(FLOAT '-123.0')", FLOAT, -123.0f);
-        assertFunction("floor(FLOAT '123.45')", FLOAT, 123.0f);
-        assertFunction("floor(FLOAT '-123.45')", FLOAT, -124.0f);
+        assertFunction("floor(REAL '123.0')", REAL, 123.0f);
+        assertFunction("floor(REAL '-123.0')", REAL, -123.0f);
+        assertFunction("floor(REAL '123.45')", REAL, 123.0f);
+        assertFunction("floor(REAL '-123.45')", REAL, -124.0f);
         assertFunction("floor(CAST(NULL as DOUBLE))", DOUBLE, null);
-        assertFunction("floor(CAST(NULL as FLOAT))", FLOAT, null);
+        assertFunction("floor(CAST(NULL as REAL))", REAL, null);
     }
 
     @Test
@@ -286,7 +286,7 @@ public class TestMathFunctions
         for (double doubleValue : DOUBLE_VALUES) {
             for (double base : DOUBLE_VALUES) {
                 assertFunction("log(" + doubleValue + ", " + base + ")", DOUBLE, Math.log(doubleValue) / Math.log(base));
-                assertFunction("log(FLOAT '" + (float) doubleValue + "', FLOAT'" + (float) base + "')", DOUBLE, Math.log((float) doubleValue) / Math.log((float) base));
+                assertFunction("log(REAL '" + (float) doubleValue + "', REAL'" + (float) base + "')", DOUBLE, Math.log((float) doubleValue) / Math.log((float) base));
             }
         }
         assertFunction("log(NULL, NULL)", DOUBLE, null);
@@ -323,7 +323,7 @@ public class TestMathFunctions
 
         for (int left : intLefts) {
             for (double right : doubleRights) {
-                assertFunction("mod(" + left + ", FLOAT '" + (float) right + "')", FLOAT, left % (float) right);
+                assertFunction("mod(" + left + ", REAL '" + (float) right + "')", REAL, left % (float) right);
             }
         }
 
@@ -335,7 +335,7 @@ public class TestMathFunctions
 
         for (double left : doubleLefts) {
             for (long right : intRights) {
-                assertFunction("mod(FLOAT '" + (float) left + "', " + right + ")", FLOAT, (float) left % right);
+                assertFunction("mod(REAL '" + (float) left + "', " + right + ")", REAL, (float) left % right);
             }
         }
 
@@ -347,7 +347,7 @@ public class TestMathFunctions
 
         for (double left : doubleLefts) {
             for (double right : doubleRights) {
-                assertFunction("mod(FLOAT '" + (float) left + "', FLOAT '" + (float) right + "')", FLOAT, (float) left % (float) right);
+                assertFunction("mod(REAL '" + (float) left + "', REAL '" + (float) right + "')", REAL, (float) left % (float) right);
             }
         }
 
@@ -381,9 +381,9 @@ public class TestMathFunctions
         assertFunction("is_infinite(1.0 / 0.0)", BOOLEAN, true);
         assertFunction("is_infinite(0.0 / 0.0)", BOOLEAN, false);
         assertFunction("is_infinite(1.0 / 1.0)", BOOLEAN, false);
-        assertFunction("is_infinite(FLOAT '1.0' / FLOAT '0.0')", BOOLEAN, true);
-        assertFunction("is_infinite(FLOAT '0.0' / FLOAT '0.0')", BOOLEAN, false);
-        assertFunction("is_infinite(FLOAT '1.0' / FLOAT '1.0')", BOOLEAN, false);
+        assertFunction("is_infinite(REAL '1.0' / REAL '0.0')", BOOLEAN, true);
+        assertFunction("is_infinite(REAL '0.0' / REAL '0.0')", BOOLEAN, false);
+        assertFunction("is_infinite(REAL '1.0' / REAL '1.0')", BOOLEAN, false);
         assertFunction("is_infinite(NULL)", BOOLEAN, null);
     }
 
@@ -392,8 +392,8 @@ public class TestMathFunctions
     {
         assertFunction("is_finite(100000)", BOOLEAN, true);
         assertFunction("is_finite(rand() / 0.0)", BOOLEAN, false);
-        assertFunction("is_finite(FLOAT '754.2008')", BOOLEAN, true);
-        assertFunction("is_finite(rand() / FLOAT '0.0')", BOOLEAN, false);
+        assertFunction("is_finite(REAL '754.2008')", BOOLEAN, true);
+        assertFunction("is_finite(rand() / REAL '0.0')", BOOLEAN, false);
         assertFunction("is_finite(NULL)", BOOLEAN, null);
     }
 
@@ -404,8 +404,8 @@ public class TestMathFunctions
         assertFunction("is_nan(0.0 / 1.0)", BOOLEAN, false);
         assertFunction("is_nan(infinity() / infinity())", BOOLEAN, true);
         assertFunction("is_nan(nan())", BOOLEAN, true);
-        assertFunction("is_nan(FLOAT '0.0' / FLOAT '0.0')", BOOLEAN, true);
-        assertFunction("is_nan(FLOAT '0.0' / 1.0)", BOOLEAN, false);
+        assertFunction("is_nan(REAL '0.0' / REAL '0.0')", BOOLEAN, true);
+        assertFunction("is_nan(REAL '0.0' / 1.0)", BOOLEAN, false);
         assertFunction("is_nan(infinity() / infinity())", BOOLEAN, true);
         assertFunction("is_nan(nan())", BOOLEAN, true);
         assertFunction("is_nan(NULL)", BOOLEAN, null);
@@ -435,21 +435,21 @@ public class TestMathFunctions
         for (long left : intLefts) {
             for (double right : doubleRights) {
                 assertFunction("power(" + left + ", " + right + ")", DOUBLE, Math.pow(left, right));
-                assertFunction("power(" + left + ", FLOAT '" + (float) right + "')", DOUBLE, Math.pow(left, (float) right));
+                assertFunction("power(" + left + ", REAL '" + (float) right + "')", DOUBLE, Math.pow(left, (float) right));
             }
         }
 
         for (double left : doubleLefts) {
             for (long right : intRights) {
                 assertFunction("power(" + left + ", " + right + ")", DOUBLE, Math.pow(left, right));
-                assertFunction("power(FLOAT '" + (float) left + "', " + right + ")", DOUBLE, Math.pow((float) left, right));
+                assertFunction("power(REAL '" + (float) left + "', " + right + ")", DOUBLE, Math.pow((float) left, right));
             }
         }
 
         for (double left : doubleLefts) {
             for (double right : doubleRights) {
                 assertFunction("power(" + left + ", " + right + ")", DOUBLE, Math.pow(left, right));
-                assertFunction("power(FLOAT '" + left + "', FLOAT '" + right + "')", DOUBLE, Math.pow((float) left, (float) right));
+                assertFunction("power(REAL '" + left + "', REAL '" + right + "')", DOUBLE, Math.pow((float) left, (float) right));
             }
         }
 
@@ -466,7 +466,7 @@ public class TestMathFunctions
     {
         for (double doubleValue : DOUBLE_VALUES) {
             assertFunction(String.format("radians(%s)", doubleValue), DOUBLE, Math.toRadians(doubleValue));
-            assertFunction(String.format("radians(FLOAT '%s')", (float) doubleValue), DOUBLE, Math.toRadians((float) doubleValue));
+            assertFunction(String.format("radians(REAL '%s')", (float) doubleValue), DOUBLE, Math.toRadians((float) doubleValue));
         }
         assertFunction("radians(NULL)", DOUBLE, null);
     }
@@ -510,14 +510,14 @@ public class TestMathFunctions
         assertFunction("round(-3.5)", DOUBLE, -4.0);
         assertFunction("round(-3.5001)", DOUBLE, -4.0);
         assertFunction("round(-3.99)", DOUBLE, -4.0);
-        assertFunction("round(FLOAT '3.0')", FLOAT, 3.0f);
-        assertFunction("round(FLOAT '-3.0')", FLOAT, -3.0f);
-        assertFunction("round(FLOAT '3.499')", FLOAT, 3.0f);
-        assertFunction("round(FLOAT '-3.499')", FLOAT, -3.0f);
-        assertFunction("round(FLOAT '3.5')", FLOAT, 4.0f);
-        assertFunction("round(FLOAT '-3.5')", FLOAT, -4.0f);
-        assertFunction("round(FLOAT '-3.5001')", FLOAT, -4.0f);
-        assertFunction("round(FLOAT '-3.99')", FLOAT,  -4.0f);
+        assertFunction("round(REAL '3.0')", REAL, 3.0f);
+        assertFunction("round(REAL '-3.0')", REAL, -3.0f);
+        assertFunction("round(REAL '3.499')", REAL, 3.0f);
+        assertFunction("round(REAL '-3.499')", REAL, -3.0f);
+        assertFunction("round(REAL '3.5')", REAL, 4.0f);
+        assertFunction("round(REAL '-3.5')", REAL, -4.0f);
+        assertFunction("round(REAL '-3.5001')", REAL, -4.0f);
+        assertFunction("round(REAL '-3.99')", REAL,  -4.0f);
         assertFunction("round(CAST(NULL as DOUBLE))", DOUBLE, null);
         assertFunction("round(" + GREATEST_DOUBLE_LESS_THAN_HALF + ")", DOUBLE, 0.0);
         assertFunction("round(-" + 0x1p-1 + ")", DOUBLE, -1.0); // -0.5
@@ -551,14 +551,14 @@ public class TestMathFunctions
         assertFunction("round(TINYINT '3', 1)", TINYINT, (byte) 3);
         assertFunction("round(SMALLINT '3', SMALLINT '1')", SMALLINT, (short) 3);
         assertFunction("round(SMALLINT '3', 1)", SMALLINT, (short) 3);
-        assertFunction("round(FLOAT '3.0', 0)", FLOAT, 3.0f);
-        assertFunction("round(FLOAT '-3.0', 0)", FLOAT, -3.0f);
-        assertFunction("round(FLOAT '3.499', 0)", FLOAT, 3.0f);
-        assertFunction("round(FLOAT '-3.499', 0)", FLOAT, -3.0f);
-        assertFunction("round(FLOAT '3.5', 0)", FLOAT, 4.0f);
-        assertFunction("round(FLOAT '-3.5', 0)", FLOAT, -4.0f);
-        assertFunction("round(FLOAT '-3.5001', 0)", FLOAT, -4.0f);
-        assertFunction("round(FLOAT '-3.99', 0)", FLOAT, -4.0f);
+        assertFunction("round(REAL '3.0', 0)", REAL, 3.0f);
+        assertFunction("round(REAL '-3.0', 0)", REAL, -3.0f);
+        assertFunction("round(REAL '3.499', 0)", REAL, 3.0f);
+        assertFunction("round(REAL '-3.499', 0)", REAL, -3.0f);
+        assertFunction("round(REAL '3.5', 0)", REAL, 4.0f);
+        assertFunction("round(REAL '-3.5', 0)", REAL, -4.0f);
+        assertFunction("round(REAL '-3.5001', 0)", REAL, -4.0f);
+        assertFunction("round(REAL '-3.99', 0)", REAL, -4.0f);
         assertFunction("round(3, 1)", INTEGER, 3);
         assertFunction("round(-3, 1)", INTEGER, -3);
         assertFunction("round(-3, BIGINT '1')", INTEGER, -3);
@@ -576,14 +576,14 @@ public class TestMathFunctions
         assertFunction("round(-3.5, 1)", DOUBLE, -3.5);
         assertFunction("round(-3.5001, 1)", DOUBLE, -3.5);
         assertFunction("round(-3.99, 1)", DOUBLE, -4.0);
-        assertFunction("round(FLOAT '3.0', 1)", FLOAT, 3.0f);
-        assertFunction("round(FLOAT '-3.0', 1)", FLOAT, -3.0f);
-        assertFunction("round(FLOAT '3.499', 1)", FLOAT, 3.5f);
-        assertFunction("round(FLOAT '-3.499', 1)", FLOAT, -3.5f);
-        assertFunction("round(FLOAT '3.5', 1)", FLOAT, 3.5f);
-        assertFunction("round(FLOAT '-3.5', 1)", FLOAT, -3.5f);
-        assertFunction("round(FLOAT '-3.5001', 1)", FLOAT, -3.5f);
-        assertFunction("round(FLOAT '-3.99', 1)", FLOAT, -4.0f);
+        assertFunction("round(REAL '3.0', 1)", REAL, 3.0f);
+        assertFunction("round(REAL '-3.0', 1)", REAL, -3.0f);
+        assertFunction("round(REAL '3.499', 1)", REAL, 3.5f);
+        assertFunction("round(REAL '-3.499', 1)", REAL, -3.5f);
+        assertFunction("round(REAL '3.5', 1)", REAL, 3.5f);
+        assertFunction("round(REAL '-3.5', 1)", REAL, -3.5f);
+        assertFunction("round(REAL '-3.5001', 1)", REAL, -3.5f);
+        assertFunction("round(REAL '-3.99', 1)", REAL, -4.0f);
 
         assertFunction("round(CAST(NULL as DOUBLE), CAST(NULL as BIGINT))", DOUBLE, null);
         assertFunction("round(-3.0, CAST(NULL as BIGINT))", DOUBLE, null);
@@ -631,7 +631,7 @@ public class TestMathFunctions
         //double and float
         for (double doubleValue : DOUBLE_VALUES) {
             assertFunction("sign(" + doubleValue + ")", DOUBLE, Math.signum(doubleValue));
-            assertFunction("sign(FLOAT '" + (float) doubleValue + "')", FLOAT, Math.signum(((float) doubleValue)));
+            assertFunction("sign(REAL '" + (float) doubleValue + "')", REAL, Math.signum(((float) doubleValue)));
         }
 
         //returns NaN for NaN input
@@ -647,7 +647,7 @@ public class TestMathFunctions
     {
         for (double doubleValue : DOUBLE_VALUES) {
             assertFunction("sin(" + doubleValue + ")", DOUBLE, Math.sin(doubleValue));
-            assertFunction("sin(FLOAT '" + (float) doubleValue + "')", DOUBLE, Math.sin((float) doubleValue));
+            assertFunction("sin(REAL '" + (float) doubleValue + "')", DOUBLE, Math.sin((float) doubleValue));
         }
         assertFunction("sin(NULL)", DOUBLE, null);
     }
@@ -657,7 +657,7 @@ public class TestMathFunctions
     {
         for (double doubleValue : DOUBLE_VALUES) {
             assertFunction("sqrt(" + doubleValue + ")", DOUBLE, Math.sqrt(doubleValue));
-            assertFunction("sqrt(FLOAT '" + doubleValue + "')", DOUBLE, Math.sqrt((float) doubleValue));
+            assertFunction("sqrt(REAL '" + doubleValue + "')", DOUBLE, Math.sqrt((float) doubleValue));
         }
         assertFunction("sqrt(NULL)", DOUBLE, null);
     }
@@ -667,7 +667,7 @@ public class TestMathFunctions
     {
         for (double doubleValue : DOUBLE_VALUES) {
             assertFunction("tan(" + doubleValue + ")", DOUBLE, Math.tan(doubleValue));
-            assertFunction("tan(FLOAT '" + (float) doubleValue + "')", DOUBLE, Math.tan((float) doubleValue));
+            assertFunction("tan(REAL '" + (float) doubleValue + "')", DOUBLE, Math.tan((float) doubleValue));
         }
         assertFunction("tan(NULL)", DOUBLE, null);
     }
@@ -677,7 +677,7 @@ public class TestMathFunctions
     {
         for (double doubleValue : DOUBLE_VALUES) {
             assertFunction("tanh(" + doubleValue + ")", DOUBLE, Math.tanh(doubleValue));
-            assertFunction("tanh(FLOAT '" + doubleValue + "')", DOUBLE, Math.tanh((float) doubleValue));
+            assertFunction("tanh(REAL '" + doubleValue + "')", DOUBLE, Math.tanh((float) doubleValue));
         }
         assertFunction("tanh(NULL)", DOUBLE, null);
     }
@@ -722,11 +722,11 @@ public class TestMathFunctions
         assertFunction("greatest(5, 4, CAST(NULL as DOUBLE), 3)", DOUBLE, null);
 
         // float
-        assertFunction("greatest(FLOAT '1.5', 2.3)", DOUBLE, 2.3);
-        assertFunction("greatest(FLOAT '-1.5', -2.3)", DOUBLE, (double) -1.5f);
-        assertFunction("greatest(-1.5, FLOAT '-2.3', -5/3)", DOUBLE, -1.0);
-        assertFunction("greatest(FLOAT '1.5', FLOAT '-1.0' / 0.0, 1.0 / FLOAT '0.0')", DOUBLE, (double) (1.0f / 0.0f));
-        assertFunction("greatest(5, FLOAT '4', CAST(NULL as DOUBLE), 3)", DOUBLE, null);
+        assertFunction("greatest(REAL '1.5', 2.3)", DOUBLE, 2.3);
+        assertFunction("greatest(REAL '-1.5', -2.3)", DOUBLE, (double) -1.5f);
+        assertFunction("greatest(-1.5, REAL '-2.3', -5/3)", DOUBLE, -1.0);
+        assertFunction("greatest(REAL '1.5', REAL '-1.0' / 0.0, 1.0 / REAL '0.0')", DOUBLE, (double) (1.0f / 0.0f));
+        assertFunction("greatest(5, REAL '4', CAST(NULL as DOUBLE), 3)", DOUBLE, null);
 
         // mixed
         assertFunction("greatest(1, 20000000000)", BIGINT, 20000000000L);
@@ -781,11 +781,11 @@ public class TestMathFunctions
         assertFunction("least(5, 4, CAST(NULL as DOUBLE), 3)", DOUBLE, null);
 
         // float
-        assertFunction("least(FLOAT '1.5', 2.3)", DOUBLE, (double) 1.5f);
-        assertFunction("least(FLOAT '-1.5', -2.3)", DOUBLE, -2.3);
-        assertFunction("least(-2.3, FLOAT '-0.4', -5/3)", DOUBLE, -2.3);
-        assertFunction("least(1.5, FLOAT '-1.0' / 0.0, 1.0 / 0.0)", DOUBLE, (double) (-1.0f / 0.0f));
-        assertFunction("least(FLOAT '5', 4, CAST(NULL as DOUBLE), 3)", DOUBLE, null);
+        assertFunction("least(REAL '1.5', 2.3)", DOUBLE, (double) 1.5f);
+        assertFunction("least(REAL '-1.5', -2.3)", DOUBLE, -2.3);
+        assertFunction("least(-2.3, REAL '-0.4', -5/3)", DOUBLE, -2.3);
+        assertFunction("least(1.5, REAL '-1.0' / 0.0, 1.0 / 0.0)", DOUBLE, (double) (-1.0f / 0.0f));
+        assertFunction("least(REAL '5', 4, CAST(NULL as DOUBLE), 3)", DOUBLE, null);
 
         // mixed
         assertFunction("least(1, 20000000000)", BIGINT, 1L);
@@ -805,7 +805,7 @@ public class TestMathFunctions
             throws Exception
     {
         functionAssertions.tryEvaluate("greatest(1.5, 0.0 / 0.0)", DOUBLE);
-        functionAssertions.tryEvaluate("greatest(1.5, FLOAT '0.0' / FLOAT '0.0')", DOUBLE);
+        functionAssertions.tryEvaluate("greatest(1.5, REAL '0.0' / REAL '0.0')", DOUBLE);
     }
 
     @Test
@@ -873,7 +873,7 @@ public class TestMathFunctions
             throws Exception
     {
         functionAssertions.tryEvaluate("width_bucket(infinity(), 0, 4, " + Long.MAX_VALUE + ")", DOUBLE);
-        functionAssertions.tryEvaluate("width_bucket(cast(infinity() as float), 0, 4, " + Long.MAX_VALUE + ")", DOUBLE);
+        functionAssertions.tryEvaluate("width_bucket(CAST(infinity() as REAL), 0, 4, " + Long.MAX_VALUE + ")", DOUBLE);
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Bucket for value Infinity is out of range")
@@ -881,7 +881,7 @@ public class TestMathFunctions
             throws Exception
     {
         functionAssertions.tryEvaluate("width_bucket(infinity(), 4, 0, " + Long.MAX_VALUE + ")", DOUBLE);
-        functionAssertions.tryEvaluate("width_bucket(cast(infinity() as float), 4, 0, " + Long.MAX_VALUE + ")", DOUBLE);
+        functionAssertions.tryEvaluate("width_bucket(CAST(infinity() as REAL), 4, 0, " + Long.MAX_VALUE + ")", DOUBLE);
     }
 
     @Test

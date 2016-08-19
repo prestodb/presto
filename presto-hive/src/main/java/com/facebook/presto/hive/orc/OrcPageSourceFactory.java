@@ -53,6 +53,7 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_MISSING_COLUMN_NAMES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
@@ -162,7 +163,7 @@ public class OrcPageSourceFactory
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
             ImmutableList.Builder<ColumnReference<HiveColumnHandle>> columnReferences = ImmutableList.builder();
             for (HiveColumnHandle column : physicalColumns) {
-                if (!column.isPartitionKey()) {
+                if (column.getColumnType() == REGULAR) {
                     Type type = typeManager.getType(column.getTypeSignature());
                     includedColumns.put(column.getHiveColumnIndex(), type);
                     columnReferences.add(new ColumnReference<>(column, column.getHiveColumnIndex(), type));
@@ -186,7 +187,8 @@ public class OrcPageSourceFactory
                     physicalColumns,
                     hiveStorageTimeZone,
                     typeManager,
-                    systemMemoryUsage);
+                    systemMemoryUsage,
+                    path);
         }
         catch (Exception e) {
             try {
@@ -230,7 +232,7 @@ public class OrcPageSourceFactory
                 physicalOrdinal = nextMissingColumnIndex;
                 nextMissingColumnIndex++;
             }
-            physicalColumns.add(new HiveColumnHandle(column.getClientId(), column.getName(), column.getHiveType(), column.getTypeSignature(), physicalOrdinal, column.isPartitionKey()));
+            physicalColumns.add(new HiveColumnHandle(column.getClientId(), column.getName(), column.getHiveType(), column.getTypeSignature(), physicalOrdinal, column.getColumnType()));
         }
         return physicalColumns.build();
     }

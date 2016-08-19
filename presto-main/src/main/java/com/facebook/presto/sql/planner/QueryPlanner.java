@@ -24,6 +24,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationType;
+import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -120,7 +121,7 @@ class QueryPlanner
 
         return new RelationPlan(
                 builder.getRoot(),
-                analysis.getOutputDescriptor(query),
+                analysis.getScope(query),
                 computeOutputs(builder, analysis.getOutputExpressions(query)),
                 builder.getSampleWeight());
     }
@@ -148,7 +149,7 @@ class QueryPlanner
 
         return new RelationPlan(
                 builder.getRoot(),
-                analysis.getOutputDescriptor(node),
+                analysis.getScope(node),
                 computeOutputs(builder, analysis.getOutputExpressions(node)),
                 builder.getSampleWeight());
     }
@@ -180,7 +181,8 @@ class QueryPlanner
 
         // create table scan
         PlanNode tableScan = new TableScanNode(idAllocator.getNextId(), handle, outputSymbols.build(), columns.build(), Optional.empty(), TupleDomain.all(), null);
-        RelationPlan relationPlan = new RelationPlan(tableScan, new RelationType(fields.build()), outputSymbols.build(), Optional.empty());
+        Scope scope = Scope.builder().withRelationType(new RelationType(fields.build())).build();
+        RelationPlan relationPlan = new RelationPlan(tableScan, scope, outputSymbols.build(), Optional.empty());
 
         TranslationMap translations = new TranslationMap(relationPlan, analysis);
         translations.setFieldMappings(relationPlan.getOutputSymbols());
@@ -197,7 +199,7 @@ class QueryPlanner
                 symbolAllocator.newSymbol("partialrows", BIGINT),
                 symbolAllocator.newSymbol("fragment", VARBINARY));
 
-        return new DeleteNode(idAllocator.getNextId(), builder.getRoot(), new DeleteHandle(handle), rowId, outputs);
+        return new DeleteNode(idAllocator.getNextId(), builder.getRoot(), new DeleteHandle(handle, metadata.getTableMetadata(session, handle).getTable()), rowId, outputs);
     }
 
     private List<Symbol> computeOutputs(PlanBuilder builder, List<Expression> outputExpressions)
@@ -232,7 +234,7 @@ class QueryPlanner
                     .process(node.getFrom().get(), null);
         }
         else {
-            relationPlan = planImplicitTable();
+            relationPlan = planImplicitTable(node);
         }
 
         TranslationMap translations = new TranslationMap(relationPlan, analysis);
@@ -244,12 +246,13 @@ class QueryPlanner
         return new PlanBuilder(translations, relationPlan.getRoot(), relationPlan.getSampleWeight());
     }
 
-    private RelationPlan planImplicitTable()
+    private RelationPlan planImplicitTable(QuerySpecification node)
     {
         List<Expression> emptyRow = ImmutableList.of();
+        Scope scope = Scope.builder().withParent(analysis.getScope(node)).build();
         return new RelationPlan(
                 new ValuesNode(idAllocator.getNextId(), ImmutableList.<Symbol>of(), ImmutableList.of(emptyRow)),
-                new RelationType(),
+                scope,
                 ImmutableList.<Symbol>of(),
                 Optional.empty());
     }

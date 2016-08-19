@@ -216,8 +216,8 @@ public final class IntegerOperators
     }
 
     @ScalarOperator(CAST)
-    @SqlType(StandardTypes.FLOAT)
-    public static long castToFloat(@SqlType(StandardTypes.INTEGER) long value)
+    @SqlType(StandardTypes.REAL)
+    public static long castToReal(@SqlType(StandardTypes.INTEGER) long value)
     {
         return (long) floatToRawIntBits((float) value);
     }

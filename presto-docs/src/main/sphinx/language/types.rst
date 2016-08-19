@@ -2,13 +2,36 @@
 Data Types
 ==========
 
-Presto currently supports a limited set of data types.
-These types can be used with the standard ``CAST`` operator.
+Presto has a set of built-in data types, described below.
+Additional types can be provided by plugins.
+
+.. note::
+
+    Connectors are not required to support all types.
+    See connector documentation for details on supported types.
 
 BOOLEAN
 -------
 
     This type captures boolean values ``true`` and ``false``.
+
+TINYINT
+-------
+
+    A 8-bit signed two's complement integer with a minimum value of
+    ``-2^7`` and a maximum value of ``2^7 - 1``.
+
+SMALLINT
+--------
+
+    A 16-bit signed two's complement integer with a minimum value of
+    ``-2^15`` and a maximum value of ``2^15 - 1``.
+
+INTEGER
+-------
+
+    A 32-bit signed two's complement integer with a minimum value of
+    ``-2^31`` and a maximum value of ``2^31 - 1``.
 
 BIGINT
 ------
@@ -45,6 +68,14 @@ VARCHAR
     Variable length character data with an optional maximum length.
 
     Example type definitions: ``varchar``, ``varchar(20)``
+
+
+CHAR
+----
+
+    Fixed length character data. Char type without length specified has default length of 1.
+
+    Example type definitions: ``char``, ``char(20)``
 
 VARBINARY
 ---------
@@ -139,4 +170,4 @@ ROW
     A structure made up of named fields. The fields may be of any SQL type, and are
     accessed with field reference operator ``.``
 
-    Example: ``my_column.my_field``
+    Example: ``CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))``

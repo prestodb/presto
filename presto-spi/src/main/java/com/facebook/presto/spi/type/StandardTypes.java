@@ -22,7 +22,7 @@ public final class StandardTypes
     public static final String BOOLEAN = "boolean";
     public static final String DATE = "date";
     public static final String DECIMAL = "decimal";
-    public static final String FLOAT = "float";
+    public static final String REAL = "real";
     public static final String DOUBLE = "double";
     public static final String HYPER_LOG_LOG = "HyperLogLog";
     public static final String P4_HYPER_LOG_LOG = "P4HyperLogLog";
@@ -34,6 +34,7 @@ public final class StandardTypes
     public static final String TIME_WITH_TIME_ZONE = "time with time zone";
     public static final String VARBINARY = "varbinary";
     public static final String VARCHAR = "varchar";
+    public static final String CHAR = "char";
     public static final String ROW = "row";
     public static final String ARRAY = "array";
     public static final String MAP = "map";

@@ -20,6 +20,10 @@ Property Value                                     Description
                                                    metadata, such as ``CREATE``, ``INSERT`` or ``DELETE``, are
                                                    allowed.
 
+``file``                                           Authorization checks are enforced using a config file specified
+                                                   by the Hive configuration property ``security.config-file``.
+                                                   See :ref:`hive-file-based-authorization` for details.
+
 ``sql-standard``                                   Users are permitted to perform the operations as long as
                                                    they have the required privileges as per the SQL standard.
                                                    In this mode, Presto enforces the authorization checks for
@@ -382,3 +386,98 @@ node.
 
 You should ensure that the keytab files have the correct permissions on every
 node after distributing them.
+
+.. _hive-file-based-authorization:
+
+File Based Authorization
+========================
+
+The config file is specified using JSON and is composed of three sections,
+each of which is a list of rules that are matched in the order specified
+in the config file. The user is granted the privileges from the first
+matching rule. All regexes default to ``.*`` if not specified.
+
+Schema Rules
+------------
+
+These rules govern who is considered an owner of a schema.
+
+* ``user`` (optional): regex to match against user name.
+
+* ``schema`` (optional): regex to match against schema name.
+
+* ``owner`` (required): boolean indicating ownership.
+
+Table Rules
+-----------
+
+These rules govern the privileges granted on specific tables.
+
+* ``user`` (optional): regex to match against user name.
+
+* ``schema`` (optional): regex to match against schema name.
+
+* ``table`` (optional): regex to match against table name.
+
+* ``privileges`` (required): zero or more of ``SELECT``, ``INSERT``,
+  ``DELETE``, ``OWNERSHIP``, ``GRANT_SELECT``.
+
+Session Property Rules
+----------------------
+
+These rules govern who may set session properties.
+
+* ``user`` (optional): regex to match against user name.
+
+* ``property`` (optional): regex to match against session property name.
+
+* ``allowed`` (required): boolean indicating whether this session property may be set.
+
+See below for an example.
+
+.. code-block:: json
+
+    {
+      "schemas": [
+        {
+          "user": "admin",
+          "schema": ".*",
+          "owner": true,
+        },
+        {
+          "user": "guest",
+          "owner": false,
+        },
+        {
+          "schema": "default",
+          "owner": true,
+        }
+      ],
+      "tables": [
+        {
+          "user": "admin",
+          "privileges": ["SELECT", "INSERT", "DELETE", "OWNERSHIP"]
+        },
+        {
+          "user": "banned_user",
+          "privileges": []
+        },
+        {
+          "schema": "default",
+          "table": ".*",
+          "privileges": ["SELECT"]
+        }
+      ],
+      "sessionProperties": [
+        {
+          "property": "force_local_scheduling",
+          "allow": true
+        },
+        {
+          "user": "admin",
+          "property": "max_split_size",
+          "allow": true
+        }
+      ],
+    }
+

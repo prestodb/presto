@@ -30,6 +30,7 @@ import javax.validation.constraints.NotNull;
 import java.io.File;
 import java.util.concurrent.TimeUnit;
 
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.max;
 import static java.lang.Runtime.getRuntime;
@@ -38,6 +39,7 @@ import static java.lang.Runtime.getRuntime;
 public class StorageManagerConfig
 {
     private File dataDirectory;
+    private DataSize minAvailableSpace = new DataSize(0, BYTE);
     private Duration shardRecoveryTimeout = new Duration(30, TimeUnit.SECONDS);
     private Duration missingShardDiscoveryInterval = new Duration(5, TimeUnit.MINUTES);
     private boolean compactionEnabled = true;
@@ -49,6 +51,8 @@ public class StorageManagerConfig
     private int deletionThreads = max(1, getRuntime().availableProcessors() / 2);
     private int recoveryThreads = 10;
     private int organizationThreads = 5;
+    private boolean organizationEnabled = true;
+    private Duration organizationInterval = new Duration(7, TimeUnit.DAYS);
 
     private long maxShardRows = 1_000_000;
     private DataSize maxShardSize = new DataSize(256, MEGABYTE);
@@ -66,6 +70,20 @@ public class StorageManagerConfig
     public StorageManagerConfig setDataDirectory(File dataDirectory)
     {
         this.dataDirectory = dataDirectory;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getMinAvailableSpace()
+    {
+        return minAvailableSpace;
+    }
+
+    @Config("storage.min-available-space")
+    @ConfigDescription("Minimum space that must be available on the data directory file system")
+    public StorageManagerConfig setMinAvailableSpace(DataSize minAvailableSpace)
+    {
+        this.minAvailableSpace = minAvailableSpace;
         return this;
     }
 
@@ -161,6 +179,21 @@ public class StorageManagerConfig
     public StorageManagerConfig setCompactionInterval(Duration compactionInterval)
     {
         this.compactionInterval = compactionInterval;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("1s")
+    public Duration getOrganizationInterval()
+    {
+        return organizationInterval;
+    }
+
+    @Config("storage.organization-interval")
+    @ConfigDescription("How long to wait between table organization iterations")
+    public StorageManagerConfig setOrganizationInterval(Duration organizationInterval)
+    {
+        this.organizationInterval = organizationInterval;
         return this;
     }
 
@@ -260,6 +293,18 @@ public class StorageManagerConfig
     public StorageManagerConfig setCompactionEnabled(boolean compactionEnabled)
     {
         this.compactionEnabled = compactionEnabled;
+        return this;
+    }
+
+    public boolean isOrganizationEnabled()
+    {
+        return organizationEnabled;
+    }
+
+    @Config("storage.organization-enabled")
+    public StorageManagerConfig setOrganizationEnabled(boolean organizationEnabled)
+    {
+        this.organizationEnabled = organizationEnabled;
         return this;
     }
 

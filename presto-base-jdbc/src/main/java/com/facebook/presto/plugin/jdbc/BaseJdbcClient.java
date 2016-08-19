@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
-import io.airlift.slice.Slice;
 
 import javax.annotation.Nullable;
 
@@ -40,7 +39,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -68,6 +66,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.fromProperties;
 import static java.lang.Math.min;
+import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -270,6 +269,17 @@ public class BaseJdbcClient
     @Override
     public JdbcOutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata)
     {
+        return beginWriteTable(tableMetadata);
+    }
+
+    @Override
+    public JdbcOutputTableHandle beginInsertTable(ConnectorTableMetadata tableMetadata)
+    {
+        return beginWriteTable(tableMetadata);
+    }
+
+    private JdbcOutputTableHandle beginWriteTable(ConnectorTableMetadata tableMetadata)
+    {
         SchemaTableName schemaTableName = tableMetadata.getTable();
         String schema = schemaTableName.getSchemaName();
         String table = schemaTableName.getTableName();
@@ -319,7 +329,6 @@ public class BaseJdbcClient
                     table,
                     columnNames.build(),
                     columnTypes.build(),
-                    tableMetadata.getOwner(),
                     temporaryName,
                     connectionUrl,
                     fromProperties(connectionProperties));
@@ -330,7 +339,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public void commitCreateTable(JdbcOutputTableHandle handle, Collection<Slice> fragments)
+    public void commitCreateTable(JdbcOutputTableHandle handle)
     {
         StringBuilder sql = new StringBuilder()
                 .append("ALTER TABLE ")
@@ -343,6 +352,29 @@ public class BaseJdbcClient
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    public void finishInsertTable(JdbcOutputTableHandle handle)
+    {
+        String temporaryTable = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName());
+        String targetTable = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName());
+        String insertSql = format("INSERT INTO %s SELECT * FROM %s", targetTable, temporaryTable);
+        String cleanupSql = "DROP TABLE " + temporaryTable;
+
+        try (Connection connection = getConnection(handle)) {
+            execute(connection, insertSql);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+
+        try (Connection connection = getConnection(handle)) {
+            execute(connection, cleanupSql);
+        }
+        catch (SQLException e) {
+            log.warn(e, "Failed to cleanup temporary table: %s", temporaryTable);
         }
     }
 
@@ -433,7 +465,9 @@ public class BaseJdbcClient
             case Types.BOOLEAN:
                 return BOOLEAN;
             case Types.TINYINT:
+                return TINYINT;
             case Types.SMALLINT:
+                return SMALLINT;
             case Types.INTEGER:
                 return INTEGER;
             case Types.BIGINT:

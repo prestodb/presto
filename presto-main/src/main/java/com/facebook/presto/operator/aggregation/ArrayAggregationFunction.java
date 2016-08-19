@@ -99,8 +99,6 @@ public class ArrayAggregationFunction
                 generateAggregationName(NAME, type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 inputParameterMetadata,
                 inputFunction,
-                null,
-                null,
                 combineFunction,
                 outputFunction,
                 stateInterface,

@@ -73,7 +73,7 @@ public class JdbcRecordCursor
             log.debug("Executing: %s", statement.toString());
             resultSet = statement.executeQuery();
         }
-        catch (SQLException e) {
+        catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
         }
     }
@@ -116,7 +116,7 @@ public class JdbcRecordCursor
             }
             return result;
         }
-        catch (SQLException e) {
+        catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
         }
     }
@@ -128,7 +128,7 @@ public class JdbcRecordCursor
         try {
             return resultSet.getBoolean(field + 1);
         }
-        catch (SQLException e) {
+        catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
         }
     }
@@ -169,7 +169,7 @@ public class JdbcRecordCursor
             }
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type for long: " + type.getTypeSignature());
         }
-        catch (SQLException e) {
+        catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
         }
     }
@@ -181,7 +181,7 @@ public class JdbcRecordCursor
         try {
             return resultSet.getDouble(field + 1);
         }
-        catch (SQLException e) {
+        catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
         }
     }
@@ -200,7 +200,7 @@ public class JdbcRecordCursor
             }
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type for slice: " + type.getTypeSignature());
         }
-        catch (SQLException e) {
+        catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
         }
     }
@@ -225,7 +225,7 @@ public class JdbcRecordCursor
 
             return resultSet.wasNull();
         }
-        catch (SQLException e) {
+        catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
         }
     }
@@ -250,13 +250,16 @@ public class JdbcRecordCursor
         }
     }
 
-    private RuntimeException handleSqlException(SQLException e)
+    private RuntimeException handleSqlException(Exception e)
     {
         try {
             close();
         }
         catch (Exception closeException) {
-            e.addSuppressed(closeException);
+            // Self-suppression not permitted
+            if (e != closeException) {
+                e.addSuppressed(closeException);
+            }
         }
         return Throwables.propagate(e);
     }

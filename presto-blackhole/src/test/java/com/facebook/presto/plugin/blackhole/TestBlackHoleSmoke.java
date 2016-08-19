@@ -24,7 +24,10 @@ import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
+import java.sql.Date;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.List;
 
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.FIELD_LENGTH_PROPERTY;
@@ -185,6 +188,83 @@ public class TestBlackHoleSmoke
         assertEquals(row.getField(4), "***"); // this one is shorter due to column type being VARCHAR(3)
 
         assertThatQueryReturnsValue("DROP TABLE nation", true);
+    }
+
+    @Test
+    public void testInsertAllTypes()
+            throws Exception
+    {
+        createBlackholeAllTypesTable();
+        assertThatQueryReturnsValue(
+                "INSERT INTO blackhole_all_types VALUES (" +
+                        "'abc', " +
+                        "BIGINT '1', " +
+                        "INTEGER '2', " +
+                        "SMALLINT '3', " +
+                        "TINYINT '4', " +
+                        "REAL '5.1', " +
+                        "DOUBLE '5.2', " +
+                        "true, " +
+                        "DATE '2014-01-02', " +
+                        "TIMESTAMP '2014-01-02 12:12', " +
+                        "cast('bar' as varbinary), " +
+                        "DECIMAL '3.14', " +
+                        "DECIMAL '1234567890.123456789')", 1L);
+        dropBlackholeAllTypesTable();
+    }
+
+    @Test
+    public void testSelectAllTypes()
+            throws Exception
+    {
+        createBlackholeAllTypesTable();
+        MaterializedResult rows = queryRunner.execute("SELECT * FROM blackhole_all_types");
+        assertEquals(rows.getRowCount(), 1);
+        MaterializedRow row = Iterables.getOnlyElement(rows);
+        assertEquals(row.getFieldCount(), 13);
+        assertEquals(row.getField(0), "**********");
+        assertEquals(row.getField(1), 0L);
+        assertEquals(row.getField(2), 0);
+        assertEquals(row.getField(3), (short) 0);
+        assertEquals(row.getField(4), (byte) 0);
+        assertEquals(row.getField(5), 0.0f);
+        assertEquals(row.getField(6), 0.0);
+        assertEquals(row.getField(7), false);
+        assertEquals(row.getField(8), new Date(0));
+        assertEquals(row.getField(9), new Timestamp(0));
+        assertEquals(row.getField(10), "****************".getBytes());
+        assertEquals(row.getField(11), new BigDecimal("0.00"));
+        assertEquals(row.getField(12), new BigDecimal("00000000000000000000.0000000000"));
+        dropBlackholeAllTypesTable();
+    }
+
+    private void createBlackholeAllTypesTable()
+    {
+        assertThatQueryReturnsValue(
+                format("CREATE TABLE blackhole_all_types (" +
+                                "  _varchar VARCHAR(10)" +
+                                ", _bigint BIGINT" +
+                                ", _integer INTEGER" +
+                                ", _smallint SMALLINT" +
+                                ", _tinyint TINYINT" +
+                                ", _real REAL" +
+                                ", _double DOUBLE" +
+                                ", _boolean BOOLEAN" +
+                                ", _date DATE" +
+                                ", _timestamp TIMESTAMP" +
+                                ", _varbinary VARBINARY" +
+                                ", _decimal_short DECIMAL(3,2)" +
+                                ", _decimal_long DECIMAL(30,10)" +
+                                ") WITH ( %s = 1, %s = 1, %s = 1 ) ",
+                        ROWS_PER_PAGE_PROPERTY,
+                        PAGES_PER_SPLIT_PROPERTY,
+                        SPLIT_COUNT_PROPERTY),
+                true);
+    }
+
+    private void dropBlackholeAllTypesTable()
+    {
+        assertThatQueryReturnsValue("DROP TABLE IF EXISTS blackhole_all_types", true);
     }
 
     private void assertThatNoBlackHoleTableIsCreated()

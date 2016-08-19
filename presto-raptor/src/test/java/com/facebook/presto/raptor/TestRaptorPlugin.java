@@ -13,18 +13,16 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.PagesIndexPageSorter;
-import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.type.TypeRegistry;
+import com.facebook.presto.testing.TestingConnectorFactoryContext;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import io.airlift.testing.FileUtils;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
 
@@ -39,15 +37,7 @@ public class TestRaptorPlugin
     {
         RaptorPlugin plugin = loadPlugin(RaptorPlugin.class);
 
-        plugin.setNodeManager(new InMemoryNodeManager());
-
-        TypeRegistry typeRegistry = new TypeRegistry();
-        plugin.setTypeManager(typeRegistry);
-
-        plugin.setPageSorter(new PagesIndexPageSorter());
-
-        List<ConnectorFactory> factories = plugin.getServices(ConnectorFactory.class);
-        ConnectorFactory factory = getOnlyElement(factories);
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories(new TestingConnectorFactoryContext()));
         assertInstanceOf(factory, RaptorConnectorFactory.class);
 
         File tmpDir = Files.createTempDir();
@@ -58,7 +48,7 @@ public class TestRaptorPlugin
                     .put("storage.data-directory", tmpDir.getAbsolutePath())
                     .build();
 
-            factory.create("test", config);
+            factory.create("test", config, new ConnectorContext() {});
         }
         finally {
             FileUtils.deleteRecursively(tmpDir);

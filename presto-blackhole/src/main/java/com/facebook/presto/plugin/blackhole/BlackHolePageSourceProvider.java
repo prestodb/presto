@@ -41,10 +41,20 @@ import static com.facebook.presto.plugin.blackhole.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.Decimals.encodeScaledValue;
+import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
+import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.math.BigDecimal.ZERO;
+import static java.util.Objects.requireNonNull;
 
 public final class BlackHolePageSourceProvider
         implements ConnectorPageSourceProvider
@@ -87,19 +97,25 @@ public final class BlackHolePageSourceProvider
     private Block createZeroBlock(Type type, int rowsCount, Slice constantSlice)
     {
         checkArgument(isSupportedType(type), "Unsupported type [%s]", type);
-        BlockBuilder builder;
 
+        Slice slice;
+        // do not exceed varchar limit
+        if (isVarcharType(type)) {
+            slice = constantSlice.slice(0, Math.min(((VarcharType) type).getLength(), constantSlice.length()));
+        }
+        else if (isLongDecimal(type)) {
+            slice = encodeScaledValue(ZERO);
+        }
+        else {
+            slice = constantSlice;
+        }
+
+        BlockBuilder builder;
         if (type instanceof FixedWidthType) {
             builder = type.createBlockBuilder(new BlockBuilderStatus(), rowsCount);
         }
         else {
-            // do not exceed varchar limit
-            if (type instanceof VarcharType) {
-                if (constantSlice.length() > ((VarcharType) type).getLength()) {
-                    constantSlice = constantSlice.slice(0, ((VarcharType) type).getLength());
-                }
-            }
-            builder = type.createBlockBuilder(new BlockBuilderStatus(), rowsCount, constantSlice.length());
+            builder = type.createBlockBuilder(new BlockBuilderStatus(), rowsCount, slice.length());
         }
 
         for (int i = 0; i < rowsCount; i++) {
@@ -114,7 +130,8 @@ public final class BlackHolePageSourceProvider
                 type.writeDouble(builder, 0.0);
             }
             else if (javaType == Slice.class) {
-                type.writeSlice(builder, constantSlice, 0, constantSlice.length());
+                requireNonNull(slice, "slice is null");
+                type.writeSlice(builder, slice, 0, slice.length());
             }
             else {
                 throw new UnsupportedOperationException("Unknown javaType: " + javaType.getName());
@@ -125,7 +142,7 @@ public final class BlackHolePageSourceProvider
 
     private boolean isSupportedType(Type type)
     {
-        return ImmutableSet.of(BIGINT, DOUBLE, BOOLEAN, DATE, TIMESTAMP, VARBINARY).contains(type)
-                || type instanceof VarcharType;
+        return ImmutableSet.of(TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, BOOLEAN, DATE, TIMESTAMP, VARBINARY).contains(type)
+                || isVarcharType(type) || isLongDecimal(type) || isShortDecimal(type);
     }
 }

@@ -35,6 +35,7 @@ import com.facebook.presto.sql.planner.DistributedExecutionPlanner;
 import com.facebook.presto.sql.planner.InputExtractor;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
+import com.facebook.presto.sql.planner.OutputExtractor;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragmenter;
@@ -280,8 +281,12 @@ public final class SqlQueryExecution
         Plan plan = logicalPlanner.plan(analysis);
 
         // extract inputs
-        List<Input> inputs = new InputExtractor(metadata, stateMachine.getSession()).extract(plan.getRoot());
+        List<Input> inputs = new InputExtractor(metadata, stateMachine.getSession()).extractInputs(plan.getRoot());
         stateMachine.setInputs(inputs);
+
+        // extract output
+        Optional<Output> output = new OutputExtractor().extractOutput(plan.getRoot());
+        stateMachine.setOutput(output);
 
         // fragment the plan
         SubPlan subplan = new PlanFragmenter().createSubPlans(stateMachine.getSession(), metadata, plan);
@@ -424,7 +429,8 @@ public final class SqlQueryExecution
                 Optional.of(prunedOutputStage),
                 queryInfo.getFailureInfo(),
                 queryInfo.getErrorCode(),
-                queryInfo.getInputs()
+                queryInfo.getInputs(),
+                queryInfo.getOutput()
         );
         finalQueryInfo.compareAndSet(queryInfo, prunedQueryInfo);
     }

@@ -27,12 +27,13 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -43,8 +44,11 @@ import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
 
 public class RaptorPageSink
@@ -59,8 +63,11 @@ public class RaptorPageSink
     private final List<Type> columnTypes;
     private final List<Integer> sortFields;
     private final List<SortOrder> sortOrders;
+    private final OptionalInt bucketCount;
     private final int[] bucketFields;
     private final long maxBufferBytes;
+    private final OptionalInt temporalColumnIndex;
+    private final Optional<Type> temporalColumnType;
 
     private final PageWriter pageWriter;
 
@@ -76,6 +83,7 @@ public class RaptorPageSink
             List<SortOrder> sortOrders,
             OptionalInt bucketCount,
             List<Long> bucketColumnIds,
+            Optional<RaptorColumnHandle> temporalColumnHandle,
             DataSize maxBufferSize)
     {
         this.transactionId = transactionId;
@@ -92,15 +100,27 @@ public class RaptorPageSink
         this.sortFields = ImmutableList.copyOf(sortColumnIds.stream().map(columnIds::indexOf).collect(toList()));
         this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
 
+        this.bucketCount = bucketCount;
         this.bucketFields = bucketColumnIds.stream().mapToInt(columnIds::indexOf).toArray();
-
-        this.pageWriter = bucketCount.isPresent() ? new BucketedPageWriter(bucketCount.getAsInt()) : new SimplePageWriter();
 
         for (int field : bucketFields) {
             if (!columnTypes.get(field).equals(BIGINT)) {
                 throw new PrestoException(NOT_SUPPORTED, "Bucketing is only supported for BIGINT columns");
             }
         }
+
+        if (temporalColumnHandle.isPresent() && columnIds.contains(temporalColumnHandle.get().getColumnId())) {
+            temporalColumnIndex = OptionalInt.of(columnIds.indexOf(temporalColumnHandle.get().getColumnId()));
+            temporalColumnType = Optional.of(columnTypes.get(temporalColumnIndex.getAsInt()));
+            checkArgument(temporalColumnType.get() == DATE || temporalColumnType.get() == TIMESTAMP,
+                    "temporalColumnType can only be DATE or TIMESTAMP");
+        }
+        else {
+            temporalColumnIndex = OptionalInt.empty();
+            temporalColumnType = Optional.empty();
+        }
+
+        this.pageWriter = (bucketCount.isPresent() || temporalColumnIndex.isPresent()) ? new PartitionedPageWriter() : new SimplePageWriter();
     }
 
     @Override
@@ -143,7 +163,10 @@ public class RaptorPageSink
                 pageBuffer.getStoragePageSink().rollback();
             }
             catch (Throwable t) {
-                error.addSuppressed(t);
+                // Self-suppression not permitted
+                if (error != t) {
+                    error.addSuppressed(t);
+                }
             }
         }
         if (error.getSuppressed().length > 0) {
@@ -155,7 +178,7 @@ public class RaptorPageSink
     {
         return new PageBuffer(
                 maxBufferBytes,
-                storageManager.createStoragePageSink(transactionId, bucketNumber, columnIds, columnTypes),
+                storageManager.createStoragePageSink(transactionId, bucketNumber, columnIds, columnTypes, true),
                 columnTypes,
                 sortFields,
                 sortOrders,
@@ -208,40 +231,55 @@ public class RaptorPageSink
         }
     }
 
-    private class BucketedPageWriter
+    private class PartitionedPageWriter
             implements PageWriter
     {
-        private final BucketFunction bucketFunction;
-        private final Int2ObjectMap<PageStore> pageStores = new Int2ObjectOpenHashMap<>();
+        private final Optional<BucketFunction> bucketFunction;
+        private final Optional<TemporalFunction> temporalFunction;
+        private final Long2ObjectMap<PageStore> pageStores = new Long2ObjectOpenHashMap<>();
 
-        public BucketedPageWriter(int bucketCount)
+        public PartitionedPageWriter()
         {
-            this.bucketFunction = new RaptorBucketFunction(bucketCount);
+            checkArgument(temporalColumnIndex.isPresent() == temporalColumnType.isPresent(),
+                    "temporalColumnIndex and temporalColumnType must be both present or absent");
+
+            this.bucketFunction = bucketCount.isPresent() ? Optional.of(new RaptorBucketFunction(bucketCount.getAsInt())) : Optional.empty();
+            this.temporalFunction = temporalColumnType.map(type -> TemporalFunction.create(temporalColumnType.get()));
         }
 
         @Override
         public void appendPage(Page page)
         {
-            Block[] blocks = new Block[bucketFields.length];
-            for (int i = 0; i < bucketFields.length; i++) {
-                blocks[i] = page.getBlock(bucketFields[i]);
-            }
-            Page bucketArgs = new Page(page.getPositionCount(), blocks);
+            Block temporalBlock = temporalColumnIndex.isPresent() ? page.getBlock(temporalColumnIndex.getAsInt()) : null;
+
+            Page bucketArgs = bucketFunction.isPresent() ? getBucketArgsPage(page) : null;
 
             for (int position = 0; position < page.getPositionCount(); position++) {
-                int bucket = bucketFunction.getBucket(bucketArgs, position);
+                int bucket = bucketFunction.isPresent() ? bucketFunction.get().getBucket(bucketArgs, position) : 0;
+                int day = temporalFunction.isPresent() ? temporalFunction.get().getDay(temporalBlock, position) : 0;
 
-                PageStore store = pageStores.get(bucket);
+                long partition = (((long) bucket) << 32) | (day & 0xFFFF_FFFFL);
+                PageStore store = pageStores.get(partition);
                 if (store == null) {
-                    PageBuffer buffer = createPageBuffer(OptionalInt.of(bucket));
+                    OptionalInt bucketNumber = bucketFunction.isPresent() ? OptionalInt.of(bucket) : OptionalInt.empty();
+                    PageBuffer buffer = createPageBuffer(bucketNumber);
                     store = new PageStore(buffer, columnTypes);
-                    pageStores.put(bucket, store);
+                    pageStores.put(partition, store);
                 }
 
                 store.appendPosition(page, position);
             }
 
             flushIfNecessary();
+        }
+
+        private Page getBucketArgsPage(Page page)
+        {
+            Block[] blocks = new Block[bucketFields.length];
+            for (int i = 0; i < bucketFields.length; i++) {
+                blocks[i] = page.getBlock(bucketFields[i]);
+            }
+            return new Page(page.getPositionCount(), blocks);
         }
 
         @Override
@@ -319,6 +357,24 @@ public class RaptorPageSink
                 pageBuffer.add(pageBuilder.build());
                 pageBuilder.reset();
             }
+        }
+    }
+
+    private interface TemporalFunction
+    {
+        int getDay(Block temporalBlock, int position);
+
+        static TemporalFunction create(Type temporalColumnType)
+        {
+            if (temporalColumnType.equals(DATE)) {
+                return (temporalBlock, position) -> Ints.checkedCast(DATE.getLong(temporalBlock, position));
+            }
+
+            if (temporalColumnType.equals(TIMESTAMP)) {
+                return (temporalBlock, position) -> Ints.checkedCast(MILLISECONDS.toDays(temporalBlock.getLong(position, 0)));
+            }
+
+            throw new IllegalArgumentException("Wrong type for temporal column: " + temporalColumnType);
         }
     }
 }

@@ -291,5 +291,28 @@ public class WindowNode
         {
             return endValue;
         }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(type, startType, startValue, endType, endValue);
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            Frame other = (Frame) obj;
+            return Objects.equals(this.type, other.type) &&
+                    Objects.equals(this.startType, other.startType) &&
+                    Objects.equals(this.startValue, other.startValue) &&
+                    Objects.equals(this.endType, other.endType) &&
+                    Objects.equals(this.endValue, other.endValue);
+        }
     }
 }

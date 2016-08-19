@@ -13,7 +13,15 @@
  */
 package com.facebook.presto.spi;
 
-import java.util.List;
+import com.facebook.presto.spi.block.BlockEncodingFactory;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.connector.ConnectorFactoryContext;
+import com.facebook.presto.spi.eventlistener.EventListenerFactory;
+import com.facebook.presto.spi.security.SystemAccessControlFactory;
+import com.facebook.presto.spi.type.ParametricType;
+import com.facebook.presto.spi.type.Type;
+
 import java.util.Map;
 import java.util.Set;
 
@@ -24,12 +32,42 @@ public interface Plugin
 {
     default void setOptionalConfig(Map<String, String> optionalConfig) {}
 
+    default Iterable<com.facebook.presto.spi.ConnectorFactory> getLegacyConnectorFactories(ConnectorFactoryContext context)
+    {
+        return emptyList();
+    }
+
+    default Iterable<ConnectorFactory> getConnectorFactories(ConnectorFactoryContext context)
+    {
+        return emptyList();
+    }
+
+    default Iterable<BlockEncodingFactory<?>> getBlockEncodingFactories(BlockEncodingSerde serde)
+    {
+        return emptyList();
+    }
+
+    default Iterable<Type> getTypes()
+    {
+        return emptyList();
+    }
+
+    default Iterable<ParametricType> getParametricTypes()
+    {
+        return emptyList();
+    }
+
     default Set<Class<?>> getFunctions()
     {
         return emptySet();
     }
 
-    default <T> List<T> getServices(Class<T> type)
+    default Iterable<SystemAccessControlFactory> getSystemAccessControlFactories()
+    {
+        return emptyList();
+    }
+
+    default Iterable<EventListenerFactory> getEventListenerFactories()
     {
         return emptyList();
     }

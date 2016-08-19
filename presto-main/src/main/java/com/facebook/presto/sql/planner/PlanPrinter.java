@@ -38,6 +38,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
+import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode.Scope;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -769,6 +770,15 @@ public class PlanPrinter
         public Void visitIntersect(IntersectNode node, Integer indent)
         {
             print(indent, "- Intersect => [%s]", formatOutputs(node.getOutputSymbols()));
+            printStats(indent + 2, node.getId());
+
+            return processChildren(node, indent + 1);
+        }
+
+        @Override
+        public Void visitExcept(ExceptNode node, Integer indent)
+        {
+            print(indent, "- Except => [%s]", formatOutputs(node.getOutputSymbols()));
             printStats(indent + 2, node.getId());
 
             return processChildren(node, indent + 1);

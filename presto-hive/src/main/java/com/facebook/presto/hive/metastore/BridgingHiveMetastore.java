@@ -152,9 +152,9 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public Optional<Partition> getPartition(String databaseName, String tableName, String partitionName)
+    public Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues)
     {
-        return delegate.getPartition(databaseName, tableName, partitionName).map(MetastoreUtil::fromMetastoreApiPartition);
+        return delegate.getPartition(databaseName, tableName, partitionValues).map(MetastoreUtil::fromMetastoreApiPartition);
     }
 
     @Override
@@ -204,12 +204,6 @@ public class BridgingHiveMetastore
     public void dropPartition(String databaseName, String tableName, List<String> parts)
     {
         delegate.dropPartition(databaseName, tableName, parts);
-    }
-
-    @Override
-    public void dropPartitionByName(String databaseName, String tableName, String partitionName)
-    {
-        delegate.dropPartitionByName(databaseName, tableName, partitionName);
     }
 
     @Override

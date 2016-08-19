@@ -45,6 +45,6 @@ public class JdbcRecordSinkProvider
     @Override
     public RecordSink getRecordSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle tableHandle)
     {
-        throw new UnsupportedOperationException();
+        return new JdbcRecordSink(checkType(tableHandle, JdbcOutputTableHandle.class, "tableHandle"), jdbcClient);
     }
 }

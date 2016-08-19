@@ -23,6 +23,8 @@ public interface StorageService
     void start()
             throws IOException;
 
+    long getAvailableBytes();
+
     void createParents(File file);
 
     File getStorageFile(UUID shardUuid);

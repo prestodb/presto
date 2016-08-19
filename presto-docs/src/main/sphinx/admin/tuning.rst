@@ -26,8 +26,8 @@ These configuration options may require tuning in specific situations:
   require redistributing both tables using a hash of the join key. This can
   be slower (sometimes substantially) than broadcast joins, but allows much
   larger joins. Broadcast joins require that the tables on the right side of
-  the join fit in memory on each machine, whereas distributed joins only
-  need to fit in distributed memory across all machines. This can also be
+  the join fit in memory on each machine, whereas with distributed joins the
+  tables on the right side have to fit in distributed memory. This can also be
   specified on a per-query basis using the ``distributed_join`` session property.
 
 * ``node-scheduler.network-topology``:

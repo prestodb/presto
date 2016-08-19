@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>55</version>
+        <version>56</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -46,11 +46,11 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.5.1</dep.antlr.version>
-        <dep.airlift.version>0.131</dep.airlift.version>
+        <dep.airlift.version>0.134</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
-        <dep.slice.version>0.22</dep.slice.version>
+        <dep.slice.version>0.24</dep.slice.version>
         <dep.aws-sdk.version>1.9.40</dep.aws-sdk.version>
-        <dep.tempto.version>1.8</dep.tempto.version>
+        <dep.tempto.version>1.12</dep.tempto.version>
 
         <!--
         Versions newer than 6.9 appear to have an issue where the @BeforeClass method in
@@ -112,6 +112,7 @@
         <module>presto-docs</module>
         <module>presto-verifier</module>
         <module>presto-testing-server-launcher</module>
+        <module>presto-plugin-toolkit</module>
     </modules>
 
     <dependencyManagement>
@@ -125,6 +126,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-array</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-plugin-toolkit</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -623,7 +630,7 @@
             <dependency>
                 <groupId>io.airlift.discovery</groupId>
                 <artifactId>discovery-server</artifactId>
-                <version>1.25</version>
+                <version>1.26</version>
             </dependency>
 
             <dependency>
@@ -998,14 +1005,14 @@
             <plugin>
                 <groupId>io.takari.maven.plugins</groupId>
                 <artifactId>presto-maven-plugin</artifactId>
-                <version>0.1.8</version>
+                <version>0.1.10</version>
                 <extensions>true</extensions>
             </plugin>
 
             <plugin>
                 <groupId>io.takari.maven.plugins</groupId>
                 <artifactId>provisio-maven-plugin</artifactId>
-                <version>0.1.28</version>
+                <version>0.1.39</version>
                 <extensions>true</extensions>
             </plugin>
 

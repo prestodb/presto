@@ -13,15 +13,12 @@
  */
 package com.facebook.presto.connector.jmx;
 
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 import com.google.common.collect.ImmutableList;
 
-import javax.inject.Inject;
 import javax.management.MBeanServer;
-
-import java.util.List;
 
 import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
 import static java.util.Objects.requireNonNull;
@@ -30,7 +27,6 @@ public class JmxPlugin
         implements Plugin
 {
     private final MBeanServer mBeanServer;
-    private NodeManager nodeManager;
 
     public JmxPlugin()
     {
@@ -42,18 +38,9 @@ public class JmxPlugin
         this.mBeanServer = requireNonNull(mBeanServer, "mBeanServer is null");
     }
 
-    @Inject
-    public synchronized void setNodeManager(NodeManager nodeManager)
-    {
-        this.nodeManager = nodeManager;
-    }
-
     @Override
-    public synchronized <T> List<T> getServices(Class<T> type)
+    public Iterable<ConnectorFactory> getConnectorFactories(ConnectorFactoryContext context)
     {
-        if (type == ConnectorFactory.class) {
-            return ImmutableList.of(type.cast(new JmxConnectorFactory(mBeanServer, nodeManager)));
-        }
-        return ImmutableList.of();
+        return ImmutableList.of(new JmxConnectorFactory(mBeanServer, context.getNodeManager()));
     }
 }

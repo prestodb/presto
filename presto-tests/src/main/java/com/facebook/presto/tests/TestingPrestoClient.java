@@ -47,10 +47,12 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
@@ -187,7 +189,13 @@ public class TestingPrestoClient
         else if (DOUBLE.equals(type)) {
             return ((Number) value).doubleValue();
         }
+        else if (REAL.equals(type)) {
+            return ((Number) value).floatValue();
+        }
         else if (type instanceof VarcharType) {
+            return value;
+        }
+        else if (isCharType(type)) {
             return value;
         }
         else if (VARBINARY.equals(type)) {
