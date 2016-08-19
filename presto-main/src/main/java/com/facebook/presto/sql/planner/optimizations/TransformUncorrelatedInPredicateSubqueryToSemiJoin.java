@@ -249,20 +249,22 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
         @Override
         public PlanNode visitApply(ApplyNode node, RewriteContext<Void> context)
         {
-            Symbol value = Symbol.from(inPredicate.getValue());
-            Symbol valueList = Symbol.from(inPredicate.getValueList());
-            if (node.getCorrelation().isEmpty() && inPredicateMatchesApply(node, value, valueList)) {
-                checkState(!semiJoinSymbol.isPresent(), "Semi join symbol is already set");
-                semiJoinSymbol = Optional.of(symbolAllocator.newSymbol("semijoin_result", BOOLEAN));
-                return new SemiJoinNode(idAllocator.getNextId(),
-                        node.getInput(),
-                        node.getSubquery(),
-                        value,
-                        valueList,
-                        semiJoinSymbol.get(),
-                        Optional.empty(),
-                        Optional.empty()
-                );
+            if (node.getCorrelation().isEmpty()) {
+                Symbol value = Symbol.from(inPredicate.getValue());
+                Symbol valueList = Symbol.from(inPredicate.getValueList());
+                if (inPredicateMatchesApply(node, value, valueList)) {
+                    checkState(!semiJoinSymbol.isPresent(), "Semi join symbol is already set");
+                    semiJoinSymbol = Optional.of(symbolAllocator.newSymbol("semijoin_result", BOOLEAN));
+                    return new SemiJoinNode(idAllocator.getNextId(),
+                            node.getInput(),
+                            node.getSubquery(),
+                            value,
+                            valueList,
+                            semiJoinSymbol.get(),
+                            Optional.empty(),
+                            Optional.empty()
+                    );
+                }
             }
             return context.defaultRewrite(node, context.get());
         }
