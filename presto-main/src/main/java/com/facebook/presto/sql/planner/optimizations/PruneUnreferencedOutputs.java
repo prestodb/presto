@@ -694,13 +694,20 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitApply(ApplyNode node, RewriteContext<Set<Symbol>> context)
         {
-            ImmutableSet<Symbol> inputContext = ImmutableSet.<Symbol>builder()
+            PlanNode subquery = context.rewrite(node.getSubquery(), context.get());
+
+            // prune not used correlation symbols
+            Set<Symbol> subquerySymbols = DependencyExtractor.extractUnique(subquery);
+            List<Symbol> newCorrelation = node.getCorrelation().stream()
+                    .filter(subquerySymbols::contains)
+                    .collect(toImmutableList());
+
+            Set<Symbol> inputContext = ImmutableSet.<Symbol>builder()
                     .addAll(context.get())
-                    .addAll(node.getCorrelation())
+                    .addAll(newCorrelation)
                     .build();
             PlanNode input = context.rewrite(node.getInput(), inputContext);
-            PlanNode subquery = context.rewrite(node.getSubquery(), context.get());
-            return new ApplyNode(node.getId(), input, subquery, node.getCorrelation());
+            return new ApplyNode(node.getId(), input, subquery, newCorrelation);
         }
     }
 }
