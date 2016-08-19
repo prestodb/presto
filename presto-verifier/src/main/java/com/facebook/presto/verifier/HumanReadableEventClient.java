@@ -150,7 +150,13 @@ public class HumanReadableEventClient
         out.println("Schema (control): " + queryEvent.getControlSchema());
         out.println("Schema (test): " + queryEvent.getTestSchema());
         out.println("Valid: " + !queryEvent.isFailed());
+        for (int i = 0; i < queryEvent.getTestSetupQueries().size(); i++) {
+            out.println(format("Setup query (test) #%s: %s", i, queryEvent.getTestSetupQueries().get(i)));
+        }
         out.println("Query (test): " + queryEvent.getTestQuery());
+        for (int i = 0; i < queryEvent.getTestTeardownQueries().size(); i++) {
+            out.println(format("Teardown query (test) #%s: %s", i, queryEvent.getTestTeardownQueries().get(i)));
+        }
 
         if (queryEvent.isFailed()) {
             out.println("\nError message:\n" + queryEvent.getErrorMessage());
