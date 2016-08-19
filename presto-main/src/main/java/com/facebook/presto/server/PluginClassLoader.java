@@ -86,8 +86,8 @@ class PluginClassLoader
                 }
             }
 
-            // Check parent class loaders, unless this is a hidden class
-            if (!isHiddenClass(name)) {
+            // Check parent class loader for parent first or non-hidden classes
+            if (isParentFirstClass(name) || !isHiddenClass(name)) {
                 try {
                     Class<?> clazz = getParent().loadClass(name);
                     return resolveClass(clazz, resolve);

@@ -65,8 +65,7 @@ import static java.util.Objects.requireNonNull;
 public class PluginManager
 {
     private static final List<String> HIDDEN_CLASSES = ImmutableList.<String>builder()
-            .add("com.fasterxml.jackson.databind")
-            .add("com.fasterxml.jackson.core")
+            .add("com.fasterxml.jackson")
             .add("org.slf4j")
             .build();
 
