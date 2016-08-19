@@ -13,6 +13,7 @@ package com.facebook.presto.operator.scalar;
  * limitations under the License.
  */
 
+import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlOperator;
@@ -60,6 +61,7 @@ public class MapHashCodeOperator
         return new ScalarFunctionImplementation(false, ImmutableList.of(false), method, isDeterministic());
     }
 
+    @UsedByGeneratedCode
     public static long hash(MethodHandle keyHashCodeFunction, MethodHandle valueHashCodeFunction, Type keyType, Type valueType, Block block)
     {
         long result = 0;

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
@@ -87,6 +88,7 @@ public final class MapConstructor
         return new ScalarFunctionImplementation(false, ImmutableList.of(false, false), METHOD_HANDLE.bindTo(mapType), isDeterministic());
     }
 
+    @UsedByGeneratedCode
     public static Block createMap(MapType mapType, Block keyBlock, Block valueBlock)
     {
         BlockBuilder blockBuilder = new InterleavedBlockBuilder(mapType.getTypeParameters(), new BlockBuilderStatus(), keyBlock.getPositionCount() * 2);

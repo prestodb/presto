@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlOperator;
@@ -77,6 +78,7 @@ public class MapToJsonCast
         return new ScalarFunctionImplementation(false, ImmutableList.of(false), methodHandle, isDeterministic());
     }
 
+    @UsedByGeneratedCode
     public static Slice toJson(Type keyType, Type valueType, ConnectorSession session, Block block)
     {
         Map<Object, Object> map = new HashMap<>();
