@@ -30,6 +30,8 @@ import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.statistics.Estimate;
+import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
@@ -209,6 +211,41 @@ public class TpchMetadata
             }
         }
         return tableColumns.build();
+    }
+
+    @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
+    {
+        TpchTableHandle table = checkType(tableHandle, TpchTableHandle.class, "tableHandle");
+        return new TableStatistics(new Estimate(getRowCount(table)), ImmutableMap.of());
+    }
+
+    public long getRowCount(TpchTableHandle tpchTableHandle)
+    {
+        // todo expose row counts from airlift-tpch instead of hardcoding it here
+        // todo add stats for columns
+        String tableName = tpchTableHandle.getTableName();
+        double scaleFactor = tpchTableHandle.getScaleFactor();
+        switch (tableName) {
+            case "customer":
+                return (long) (150_000 * scaleFactor);
+            case "orders":
+                return (long) (1_500_000 * scaleFactor);
+            case "lineitem":
+                return (long) (6_000_000 * scaleFactor);
+            case "part":
+                return (long) (200_000 * scaleFactor);
+            case "partsupp":
+                return (long) (800_000 * scaleFactor);
+            case "supplier":
+                return (long) (10_000 * scaleFactor);
+            case "nation":
+                return 25;
+            case "region":
+                return 5;
+            default:
+                throw new IllegalArgumentException("unknown tpch table name '" + tableName + "'");
+        }
     }
 
     @Override
