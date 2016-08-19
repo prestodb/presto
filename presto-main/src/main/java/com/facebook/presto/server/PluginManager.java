@@ -73,7 +73,6 @@ public class PluginManager
             .add("com.facebook.presto")
             .add("com.fasterxml.jackson.annotation")
             .add("io.airlift.slice")
-            .add("javax.inject")
             .add("javax.annotation")
             .add("java.")
             .build();
