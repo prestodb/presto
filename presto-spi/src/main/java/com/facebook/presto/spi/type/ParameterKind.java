@@ -14,16 +14,11 @@
 
 package com.facebook.presto.spi.type;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
-import java.io.IOException;
 import java.util.Optional;
 
-@JsonDeserialize(using = ParameterKind.JsonDeserializer.class)
 public enum ParameterKind
 {
     TYPE(Optional.of("TYPE_SIGNATURE")),
@@ -47,25 +42,17 @@ public enum ParameterKind
         return oldName.orElse(name());
     }
 
-    public static class JsonDeserializer
-            extends com.fasterxml.jackson.databind.JsonDeserializer<ParameterKind>
+    @JsonCreator
+    public static ParameterKind fromJsonValue(String value)
     {
-        @Override
-        public ParameterKind deserialize(JsonParser jp, DeserializationContext ctxt)
-                throws IOException, JsonProcessingException
-        {
-            String textValue = jp.getText();
-            for (ParameterKind kind : values()) {
-                if (kind.oldName.isPresent()) {
-                    if (kind.oldName.get().equals(textValue)) {
-                        return kind;
-                    }
-                }
-                if (kind.name().equals(textValue)) {
-                    return kind;
-                }
+        for (ParameterKind kind : values()) {
+            if (kind.oldName.isPresent() && kind.oldName.get().equals(value)) {
+                return kind;
             }
-            throw new IllegalArgumentException("Can not deserialize ParameterKind for value '" + textValue + "'");
+            if (kind.name().equals(value)) {
+                return kind;
+            }
         }
+        throw new IllegalArgumentException("Invalid serialized ParameterKind value: " + value);
     }
 }
