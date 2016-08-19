@@ -206,12 +206,12 @@ public class Validator
 
         // query has too many rows. Consider blacklisting.
         if (controlResult.getState() == State.TOO_MANY_ROWS) {
-            testResult = new QueryResult(State.INVALID, null, null, null, ImmutableList.<List<Object>>of());
+            testResult = new QueryResult(State.INVALID, null, null, null, null, ImmutableList.<List<Object>>of());
             return false;
         }
         // query failed in the control
         if (controlResult.getState() != State.SUCCESS) {
-            testResult = new QueryResult(State.INVALID, null, null, null, ImmutableList.<List<Object>>of());
+            testResult = new QueryResult(State.INVALID, null, null, null, null, ImmutableList.<List<Object>>of());
             return true;
         }
 
@@ -239,11 +239,11 @@ public class Validator
             QueryResult queryResult = executor.apply(postqueryString);
             postQueryResults.add(queryResult);
             if (queryResult.getState() != State.SUCCESS) {
-                return new QueryResult(State.FAILED_TO_TEARDOWN, queryResult.getException(), queryResult.getWallTime(), queryResult.getCpuTime(), ImmutableList.<List<Object>>of());
+                return new QueryResult(State.FAILED_TO_TEARDOWN, queryResult.getException(), queryResult.getWallTime(), queryResult.getCpuTime(), queryResult.getQueryId(), ImmutableList.<List<Object>>of());
             }
         }
 
-        return new QueryResult(State.SUCCESS, null, null, null, ImmutableList.of());
+        return new QueryResult(State.SUCCESS, null, null, null, null, ImmutableList.of());
     }
 
     private static QueryResult setup(Query query, List<QueryResult> preQueryResults, Function<String, QueryResult> executor)
@@ -253,11 +253,11 @@ public class Validator
             QueryResult queryResult = executor.apply(prequeryString);
             preQueryResults.add(queryResult);
             if (queryResult.getState() != State.SUCCESS) {
-                return new QueryResult(State.FAILED_TO_SETUP, queryResult.getException(), queryResult.getWallTime(), queryResult.getCpuTime(), ImmutableList.<List<Object>>of());
+                return new QueryResult(State.FAILED_TO_SETUP, queryResult.getException(), queryResult.getWallTime(), queryResult.getCpuTime(), queryResult.getQueryId(), ImmutableList.<List<Object>>of());
             }
         }
 
-        return new QueryResult(State.SUCCESS, null, null, null, ImmutableList.of());
+        return new QueryResult(State.SUCCESS, null, null, null, null, ImmutableList.of());
     }
 
     private boolean checkForDeterministicAndRerunTestQueriesIfNeeded()
@@ -294,7 +294,7 @@ public class Validator
     private QueryResult executeQueryTest()
     {
         Query query = queryPair.getTest();
-        QueryResult queryResult = new QueryResult(State.INVALID, null, null, null, ImmutableList.<List<Object>>of());
+        QueryResult queryResult = new QueryResult(State.INVALID, null, null, null, null, ImmutableList.<List<Object>>of());
         try {
             // startup
             queryResult = setup(query, testPreQueryResults, testPrequery -> executeQuery(testGateway, testUsername, testPassword, queryPair.getTest(), testPrequery, testTimeout, sessionProperties));
@@ -331,7 +331,7 @@ public class Validator
     private QueryResult executeQueryControl()
     {
         Query query = queryPair.getControl();
-        QueryResult queryResult = new QueryResult(State.INVALID, null, null, null, ImmutableList.<List<Object>>of());
+        QueryResult queryResult = new QueryResult(State.INVALID, null, null, null, null, ImmutableList.<List<Object>>of());
         try {
             // startup
             queryResult = setup(query, controlPreQueryResults, controlPrequery -> executeQuery(controlGateway, controlUsername, controlPassword, queryPair.getControl(), controlPrequery, controlTimeout, sessionProperties));
@@ -402,6 +402,7 @@ public class Validator
 
     private QueryResult executeQuery(String url, String username, String password, Query query, String sql, Duration timeout, Map<String, String> sessionProperties)
     {
+        String queryId = null;
         try (Connection connection = DriverManager.getConnection(url, username, password)) {
             trySetConnectionProperties(query, connection);
             for (Map.Entry<String, String> entry : sessionProperties.entrySet()) {
@@ -437,11 +438,12 @@ public class Validator
                         throw new VerifierException("Cannot fetch query stats");
                     }
                     Duration queryCpuTime = new Duration(queryStats.getCpuTimeMillis(), TimeUnit.MILLISECONDS);
-                    return new QueryResult(State.SUCCESS, null, nanosSince(start), queryCpuTime, results);
+                    queryId = queryStats.getQueryId();
+                    return new QueryResult(State.SUCCESS, null, nanosSince(start), queryCpuTime, queryId, results);
                 }
                 catch (AssertionError e) {
                     if (e.getMessage().startsWith("unimplemented type:")) {
-                        return new QueryResult(State.INVALID, null, null, null, ImmutableList.<List<Object>>of());
+                        return new QueryResult(State.INVALID, null, null, null, queryId, ImmutableList.<List<Object>>of());
                     }
                     throw e;
                 }
@@ -449,7 +451,7 @@ public class Validator
                     throw e;
                 }
                 catch (UncheckedTimeoutException e) {
-                    return new QueryResult(State.TIMEOUT, null, null, null, ImmutableList.<List<Object>>of());
+                    return new QueryResult(State.TIMEOUT, null, null, null, queryId, ImmutableList.<List<Object>>of());
                 }
                 catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -467,10 +469,10 @@ public class Validator
                 exception = (Exception) e.getCause();
             }
             State state = isPrestoQueryInvalid(e) ? State.INVALID : State.FAILED;
-            return new QueryResult(state, exception, null, null, null);
+            return new QueryResult(state, exception, null, null, null, null);
         }
         catch (VerifierException e) {
-            return new QueryResult(State.TOO_MANY_ROWS, e, null, null, null);
+            return new QueryResult(State.TOO_MANY_ROWS, e, null, null, null, null);
         }
     }
 

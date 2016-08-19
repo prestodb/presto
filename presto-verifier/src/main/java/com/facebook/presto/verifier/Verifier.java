@@ -215,11 +215,13 @@ public class Verifier
                 queryPair.getTest().getCatalog(),
                 queryPair.getTest().getSchema(),
                 queryPair.getTest().getQuery(),
+                test.getQueryId(),
                 optionalDurationToSeconds(test.getCpuTime()),
                 optionalDurationToSeconds(test.getWallTime()),
                 queryPair.getControl().getCatalog(),
                 queryPair.getControl().getSchema(),
                 queryPair.getControl().getQuery(),
+                control.getQueryId(),
                 optionalDurationToSeconds(control.getCpuTime()),
                 optionalDurationToSeconds(control.getWallTime()),
                 errorMessage);
