@@ -13,6 +13,7 @@ package com.facebook.presto.operator.scalar;
  * limitations under the License.
  */
 
+import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlOperator;
@@ -61,6 +62,7 @@ public class ArrayLessThanOperator
         return new ScalarFunctionImplementation(false, ImmutableList.of(false, false), method, isDeterministic());
     }
 
+    @UsedByGeneratedCode
     public static boolean lessThan(MethodHandle lessThanFunction, Type type, Block leftArray, Block rightArray)
     {
         int len = Math.min(leftArray.getPositionCount(), rightArray.getPositionCount());
