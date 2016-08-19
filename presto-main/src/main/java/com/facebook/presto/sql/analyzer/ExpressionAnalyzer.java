@@ -698,7 +698,7 @@ public class ExpressionAnalyzer
         protected Type visitFunctionCall(FunctionCall node, StackableAstVisitorContext<Void> context)
         {
             if (node.getWindow().isPresent()) {
-                WindowSpecification windowSpecification = resolveWindowSpecification(node.getWindow().get(), context.getContext()::getWindowSpecification);
+                WindowSpecification windowSpecification = resolveWindowSpecification(node.getWindow().get(), scope::getWindowSpecification);
 
                 for (Expression expression : windowSpecification.getPartitionBy()) {
                     process(expression, context);

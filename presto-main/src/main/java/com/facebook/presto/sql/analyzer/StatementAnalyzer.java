@@ -139,6 +139,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_ANALYSIS_E
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_STALE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_PARSE_ERROR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
+import static com.facebook.presto.sql.analyzer.Windows.createWindowSpecificationMap;
 import static com.facebook.presto.sql.analyzer.Windows.resolveWindowSpecification;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.EQUAL;
@@ -646,14 +647,13 @@ class StatementAnalyzer
         // TODO: extract candidate names from SELECT, WHERE, HAVING, GROUP BY and ORDER BY expressions
         // to pass down to analyzeFrom
 
-        Scope sourceScope = analyzeFrom(node, scope);
+        Scope windowScope = createWindowScope(node, scope);
+        Scope sourceScope = analyzeFrom(node, windowScope);
 
         node.getWhere().ifPresent(where -> analyzeWhere(node, sourceScope, where));
 
         List<Expression> outputExpressions = analyzeSelect(node, sourceScope);
         List<List<Expression>> groupByExpressions = analyzeGroupBy(node, sourceScope, outputExpressions);
-
-        // createWindowSpecificationMap(node, node.getWindow(), scope::getWindowSpecification)
 
         Scope outputScope = computeOutputScope(node, sourceScope);
 
@@ -661,7 +661,7 @@ class StatementAnalyzer
         analyzeHaving(node, sourceScope);
 
         analyzeAggregations(node, sourceScope, groupByExpressions, outputExpressions, orderByExpressions, analysis.getColumnReferences());
-        analyzeWindowFunctions(node, outputScope, outputExpressions, orderByExpressions);
+        analyzeWindowFunctions(node, windowScope, outputExpressions, orderByExpressions);
 
         return outputScope;
     }
@@ -1248,6 +1248,20 @@ class StatementAnalyzer
             groupingColumnsBuilder.add(groupByExpression);
         }
         return groupingColumnsBuilder.build();
+    }
+
+    private Scope createWindowScope(QuerySpecification node, Scope scope)
+    {
+        if (!node.getWindow().isEmpty()) {
+            Scope.Builder scopeBuilder = Scope.builder()
+                    .withParent(scope);
+            Map<String, WindowSpecification> windowSpecifications = createWindowSpecificationMap(node, node.getWindow(), scope::getWindowSpecification);
+            windowSpecifications.entrySet().forEach(entry -> scopeBuilder.withWindowSpecification(entry.getKey(), entry.getValue()));
+            return scopeBuilder.build();
+        }
+        else {
+            return scope;
+        }
     }
 
     private Scope computeOutputScope(QuerySpecification node, Scope scope)
