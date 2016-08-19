@@ -24,7 +24,6 @@ public final class ArrayConcatUtils
 {
     private ArrayConcatUtils() {}
 
-    // Usage of appendElement: ArrayToElementConcatFunction
     @UsedByGeneratedCode
     public static Block appendElement(Type elementType, Block block, long value)
     {
