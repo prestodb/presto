@@ -29,16 +29,6 @@ services:
 before_install:
   # This is needed until Travis #4629 is fixed (https://github.com/travis-ci/travis-ci/issues/4629)
   - sed -i.bak -e 's|https://nexus.codehaus.org/snapshots/|https://oss.sonatype.org/content/repositories/codehaus-snapshots/|g' ~/.m2/settings.xml
-  # This section can be removed once travis get equipped with docker 1.10 and docker-compose 1.6
-  - |
-    if [ -v PRODUCT_TESTS ] || [ -v INTEGRATION_TESTS ]; then
-      sudo apt-get update
-      sudo apt-get -o "Dpkg::Options::=--force-confold" -y install docker-engine
-      sudo rm /usr/local/bin/docker-compose
-      curl -L https://github.com/docker/compose/releases/download/1.7.1/docker-compose-`uname -s`-`uname -m` > docker-compose
-      chmod +x docker-compose
-      sudo mv docker-compose /usr/local/bin
-    fi
 
 install: ./mvnw install -DskipTests $MAVEN_SKIP_CHECKS_AND_DOCS -B -q -T C1 -pl '!presto-docs,!presto-server-rpm'
 
