@@ -138,36 +138,44 @@ public class IndexJoinOptimizer
                     checkState(!trace.isEmpty() && rightJoinSymbols.containsAll(trace.keySet()));
                 }
 
-                if (!node.getFilter().isPresent()) {
-                    switch (node.getType()) {
-                        case INNER:
-                            // Prefer the right candidate over the left candidate
-                            if (rightIndexCandidate.isPresent()) {
-                                return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols), Optional.empty(), Optional.empty());
-                            }
-                            else if (leftIndexCandidate.isPresent()) {
-                                return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols), Optional.empty(), Optional.empty());
-                            }
-                            break;
+                switch (node.getType()) {
+                    case INNER:
+                        // Prefer the right candidate over the left candidate
+                        IndexJoinNode indexJoinNode = null;
+                        if (rightIndexCandidate.isPresent()) {
+                            indexJoinNode = new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols), Optional.empty(), Optional.empty());
+                        }
+                        else if (leftIndexCandidate.isPresent()) {
+                            indexJoinNode = new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols), Optional.empty(), Optional.empty());
+                        }
 
-                        case LEFT:
-                            if (rightIndexCandidate.isPresent()) {
-                                return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.SOURCE_OUTER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols), Optional.empty(), Optional.empty());
+                        if (indexJoinNode != null) {
+                            if (node.getFilter().isPresent()) {
+                                return new FilterNode(idAllocator.getNextId(), indexJoinNode, node.getFilter().get());
                             }
-                            break;
+                            return indexJoinNode;
+                        }
+                        break;
 
-                        case RIGHT:
-                            if (leftIndexCandidate.isPresent()) {
-                                return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.SOURCE_OUTER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols), Optional.empty(), Optional.empty());
-                            }
-                            break;
+                    case LEFT:
+                        // We cannot use indices for outer joins until index join supports in-line filtering
+                        if (!node.getFilter().isPresent() && rightIndexCandidate.isPresent()) {
+                            return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.SOURCE_OUTER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols), Optional.empty(), Optional.empty());
+                        }
+                        break;
 
-                        case FULL:
-                            break;
+                    case RIGHT:
+                        // We cannot use indices for outer joins until index join supports in-line filtering
+                        if (!node.getFilter().isPresent() && leftIndexCandidate.isPresent()) {
+                            return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.SOURCE_OUTER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols), Optional.empty(), Optional.empty());
+                        }
+                        break;
 
-                        default:
-                            throw new IllegalArgumentException("Unknown type: " + node.getType());
-                    }
+                    case FULL:
+                        break;
+
+                    default:
+                        throw new IllegalArgumentException("Unknown type: " + node.getType());
                 }
             }
 
