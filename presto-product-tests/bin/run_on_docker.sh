@@ -152,11 +152,9 @@ function getAvailableEnvironments() {
      | grep -v files | grep -v common | xargs -n1 basename
 }
 
+source ${BASH_SOURCE%/*}/locations.sh
+
 ENVIRONMENT=$1
-SCRIPT_DIR=${BASH_SOURCE%/*}
-PRODUCT_TESTS_ROOT="${SCRIPT_DIR}/.."
-PROJECT_ROOT="${PRODUCT_TESTS_ROOT}/.."
-DOCKER_CONF_LOCATION="${PRODUCT_TESTS_ROOT}/conf/docker"
 
 # Get the list of valid environments
 if [[ ! -f "$DOCKER_CONF_LOCATION/$ENVIRONMENT/compose.sh" ]]; then

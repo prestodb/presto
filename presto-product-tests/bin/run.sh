@@ -2,13 +2,7 @@
 
 set -e;
 
-# http://stackoverflow.com/questions/3572030/bash-script-absolute-path-with-osx
-function absolutepath() {
-    [[ $1 = /* ]] && echo "$1" || echo "$PWD/${1#./}"
-}
-
-SCRIPT_DIR=$(dirname $(absolutepath "$0"))
-PRODUCT_TESTS_ROOT="${SCRIPT_DIR}/.."
+source ${BASH_SOURCE%/*}/locations.sh
 REPORT_DIR="${PRODUCT_TESTS_ROOT}/target/test-reports"
 
 rm -rf "${REPORT_DIR}"
