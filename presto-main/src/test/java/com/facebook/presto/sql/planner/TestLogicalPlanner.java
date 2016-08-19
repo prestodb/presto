@@ -18,13 +18,10 @@ import com.facebook.presto.sql.planner.assertions.PlanAssert;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
-import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableList;
@@ -71,32 +68,20 @@ public class TestLogicalPlanner
     }
 
     @Test
-    public void testPlanDsl()
+    public void testJoin()
     {
-        assertPlan("SELECT orderkey FROM orders WHERE orderkey IN (1, 2, 3)",
-                node(OutputNode.class,
-                        node(FilterNode.class,
-                                tableScan("orders"))));
-
-        String simpleJoinQuery = "SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey";
-        assertPlan(simpleJoinQuery,
-                any(
-                        any(
-                                node(JoinNode.class,
-                                        any(
-                                                tableScan("orders")),
-                                        any(
-                                                any(
-                                                        tableScan("lineitem")))))));
-
-        assertPlan(simpleJoinQuery,
+        assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey",
                 anyTree(
-                        node(JoinNode.class,
-                                anyTree(),
-                                anyTree())));
+                        join(INNER, ImmutableList.of(aliasPair("O", "L")),
+                                any(
+                                        tableScan("orders").withSymbol("orderkey", "O")),
+                                anyTree(
+                                        tableScan("lineitem").withSymbol("orderkey", "L")))));
+    }
 
-        assertPlan(simpleJoinQuery, anyTree(node(TableScanNode.class)));
-
+    @Test
+    public void testUncorrelatedSubqueries()
+    {
         assertPlan("SELECT * FROM orders WHERE orderkey = (SELECT orderkey FROM lineitem ORDER BY orderkey LIMIT 1)",
                 anyTree(
                         join(INNER, ImmutableList.of(aliasPair("X", "Y")),
