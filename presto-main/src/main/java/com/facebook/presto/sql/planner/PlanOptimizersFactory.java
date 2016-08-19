@@ -69,8 +69,6 @@ public class PlanOptimizersFactory
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 
         builder.add(new DesugaringOptimizer(metadata, sqlParser), // Clean up all the sugar in expressions, e.g. AtTimeZone, must be run before all the other optimizers
-                new TransformUncorrelatedScalarToJoin(),
-                new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
                 new ImplementSampleAsFilter(),
                 new CanonicalizeExpressions(),
                 new SimplifyExpressions(metadata, sqlParser),
@@ -92,7 +90,10 @@ public class PlanOptimizersFactory
                 new MergeProjections(),
                 new PruneUnreferencedOutputs(), // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point
                 new PruneIdentityProjections(), // This MUST run after PruneUnreferencedOutputs as it may introduce new redundant projections
-                new MetadataQueryOptimizer(metadata));
+                new MetadataQueryOptimizer(metadata),
+                new TransformUncorrelatedScalarToJoin(),
+                new TransformUncorrelatedInPredicateSubqueryToSemiJoin());
+
         if (featuresConfig.isOptimizeSingleDistinct()) {
             builder.add(new SingleDistinctOptimizer());
             builder.add(new PruneUnreferencedOutputs());

@@ -5948,25 +5948,23 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testCorrelatedExistsSubqueries()
+    public void testCorrelatedExistsSubqueriesWithPrunedCorrelationSymbols()
             throws Exception
     {
-        String errorMsg = "Correlated subquery is not yet supported";
-
-        assertQueryFails("SELECT EXISTS(SELECT l.orderkey) FROM lineitem l", errorMsg);
-        assertQueryFails("SELECT * FROM lineitem l WHERE EXISTS(SELECT l.orderkey)", errorMsg);
-        assertQueryFails("SELECT * FROM lineitem l ORDER BY EXISTS(SELECT l.orderkey)", errorMsg);
+        assertQuery("SELECT EXISTS(SELECT l.orderkey) FROM lineitem l");
+        assertQuery("SELECT count(*) FROM lineitem l WHERE EXISTS(SELECT l.orderkey)");
+        assertQuery("SELECT * FROM lineitem l ORDER BY EXISTS(SELECT l.orderkey)");
 
         // group by
-        assertQueryFails("SELECT max(l.quantity), l.orderkey, EXISTS(SELECT l.orderkey) FROM lineitem l GROUP BY l.orderkey", errorMsg);
-        assertQueryFails("SELECT max(l.quantity), l.orderkey FROM lineitem l GROUP BY l.orderkey HAVING EXISTS (SELECT l.orderkey)", errorMsg);
-        assertQueryFails("SELECT max(l.quantity), l.orderkey FROM lineitem l GROUP BY l.orderkey, EXISTS (SELECT l.orderkey)", errorMsg);
+        assertQuery("SELECT max(l.quantity), l.orderkey, EXISTS(SELECT l.orderkey) FROM lineitem l GROUP BY l.orderkey");
+        assertQuery("SELECT max(l.quantity), l.orderkey FROM lineitem l GROUP BY l.orderkey HAVING EXISTS (SELECT l.orderkey)");
+        assertQuery("SELECT max(l.quantity), l.orderkey FROM lineitem l GROUP BY l.orderkey, EXISTS (SELECT l.orderkey)");
 
         // join
-        assertQueryFails("SELECT * FROM lineitem l1 JOIN lineitem l2 ON EXISTS(SELECT l1.orderkey = l2.orderkey)", errorMsg);
+        assertQuery("SELECT * FROM lineitem l1 JOIN (SELECT * FROM lineitem LIMIT 2) l2 ON NOT EXISTS(SELECT l1.orderkey = l2.orderkey)");
 
         // subrelation
-        assertQueryFails("SELECT * FROM lineitem l WHERE (SELECT * FROM (SELECT EXISTS( SELECT l.orderkey)))", errorMsg);
+        assertQuery("SELECT count(*) FROM lineitem l WHERE (SELECT * FROM (SELECT EXISTS(SELECT l.orderkey)))", "VALUES 60175");
     }
 
     @Test
