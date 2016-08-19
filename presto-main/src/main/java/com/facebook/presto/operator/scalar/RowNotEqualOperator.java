@@ -13,6 +13,7 @@ package com.facebook.presto.operator.scalar;
  * limitations under the License.
  */
 
+import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlOperator;
@@ -51,6 +52,7 @@ public class RowNotEqualOperator
         return new ScalarFunctionImplementation(false, ImmutableList.of(false, false), METHOD_HANDLE.bindTo(type), isDeterministic());
     }
 
+    @UsedByGeneratedCode
     public static boolean notEqual(Type rowType, Block leftRow, Block rightRow)
     {
         return !RowEqualOperator.equals(rowType, leftRow, rightRow);

@@ -13,6 +13,7 @@ package com.facebook.presto.operator.scalar;
  * limitations under the License.
  */
 
+import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlOperator;
@@ -53,6 +54,7 @@ public class RowHashCodeOperator
         return new ScalarFunctionImplementation(false, ImmutableList.of(false), METHOD_HANDLE.bindTo(type), isDeterministic());
     }
 
+    @UsedByGeneratedCode
     public static long hash(Type rowType, Block block)
     {
         BlockBuilder blockBuilder = rowType.createBlockBuilder(new BlockBuilderStatus(), 1);

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.CompilerUtils;
@@ -154,6 +155,7 @@ public final class ConcatFunction
         return invokeStatic(ConcatFunction.class, "checkedAdd", int.class, x, y);
     }
 
+    @UsedByGeneratedCode
     public static int checkedAdd(int x, int y)
     {
         try {

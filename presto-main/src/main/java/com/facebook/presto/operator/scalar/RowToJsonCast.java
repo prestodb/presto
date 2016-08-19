@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlOperator;
@@ -69,6 +70,7 @@ public class RowToJsonCast
         return new ScalarFunctionImplementation(false, ImmutableList.of(false), methodHandle, isDeterministic());
     }
 
+    @UsedByGeneratedCode
     public static Slice toJson(Type rowType, ConnectorSession session, Block row)
     {
         List<Object> objectValue = new ArrayList<>(row.getPositionCount());
