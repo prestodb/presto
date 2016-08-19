@@ -6812,6 +6812,39 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testEmptyApproxSet()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT cardinality(empty_approx_set())");
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+                .row(0L)
+                .build();
+        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testMergeEmptyApproxSet()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT cardinality(merge(empty_approx_set())) FROM orders");
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+                .row(0L)
+                .build();
+        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testMergeEmptyNonEmptyApproxSet()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT cardinality(merge(c)) FROM (SELECT create_hll(custkey) c FROM ORDERS UNION ALL SELECT empty_approx_set())");
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+                .row(1002L)
+                .build();
+        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
     public void testP4ApproxSetBigint()
             throws Exception
     {
