@@ -34,7 +34,7 @@ Plugin
 ------
 
 The ``Plugin`` interface is a good starting place for developers looking
-to understand the Presto SPI. The ``getServices()`` method is a top-level
+to understand the Presto SPI. The ``getConnectorFactories()`` method is a top-level
 function that Presto calls to retrieve a ``ConnectorFactory`` when Presto
 is ready to create an instance of a connector to back a catalog.
 
@@ -42,7 +42,7 @@ ConnectorFactory
 ----------------
 
 Instances of your connector are created by a ``ConnectorFactory``
-instance which is created when Presto calls ``getServices()`` on the
+instance which is created when Presto calls ``getConnectorFactories()`` on the
 plugin to request a service of type ``ConnectorFactory``.
 The connector factory is a simple interface responsible for creating an
 instance of a ``Connector`` object that returns instances of the
