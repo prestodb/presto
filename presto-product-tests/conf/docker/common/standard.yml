@@ -30,14 +30,14 @@ services:
     depends_on:
        - hadoop-master
     volumes:
-       - ../../../../presto-server/target/presto-server-${PRESTO_VERSION}:/docker/volumes/presto-server
+       - ${PRESTO_SERVER_DIR}:/docker/volumes/presto-server
 
   application-runner:
     extends:
       service: java-8-base
     hostname: application-runner
     volumes:
-      - ../../../../presto-cli/target/presto-cli-${PRESTO_VERSION}-executable.jar:/docker/volumes/presto-cli/presto-cli-executable.jar
-      - ../../../../presto-product-tests/target/presto-product-tests-${PRESTO_VERSION}-executable.jar:/docker/volumes/presto-product-tests/presto-product-tests-executable.jar
+      - ${PRESTO_CLI_JAR}:/docker/volumes/presto-cli/presto-cli-executable.jar
+      - ${PRODUCT_TESTS_JAR}:/docker/volumes/presto-product-tests/presto-product-tests-executable.jar
       - ../../../conf/tempto/tempto-configuration-for-docker-default.yaml:/docker/volumes/tempto/tempto-configuration-local.yaml
       - ../../../target/test-reports:/docker/volumes/test-reports
