@@ -146,8 +146,8 @@ public class HiveFileFormatBenchmark
                         BigintType.BIGINT.writeLong(noDateBlockBuilder, column.getIdentifier(lineItem));
                         break;
                     case INTEGER:
-                        IntegerType.INTEGER.writeLong(blockBuilder, column.getIdentifier(lineItem));
-                        IntegerType.INTEGER.writeLong(noDateBlockBuilder, column.getIdentifier(lineItem));
+                        IntegerType.INTEGER.writeLong(blockBuilder, column.getInteger(lineItem));
+                        IntegerType.INTEGER.writeLong(noDateBlockBuilder, column.getInteger(lineItem));
                         break;
                     case DATE:
                         DateType.DATE.writeLong(blockBuilder, column.getDate(lineItem));
