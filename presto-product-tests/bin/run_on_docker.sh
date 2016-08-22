@@ -89,6 +89,15 @@ function stop_docker_compose_containers() {
   echo "Docker compose containers stopped: [$ENVIRONMENT]"
 }
 
+function prefetch_images_silently() {
+  local IMAGES=`environment_compose config | grep 'image:' | awk '{ print $2 }' | sort | uniq`
+  for IMAGE in $IMAGES
+  do
+    echo "Pulling docker image [$IMAGE]"
+    docker pull $IMAGE > /dev/null
+  done
+}
+
 function environment_compose() {
   "${DOCKER_CONF_LOCATION}/${ENVIRONMENT}/compose.sh" "$@"
 }
@@ -158,6 +167,10 @@ docker-compose version
 docker version
 
 stop_all_containers
+
+if [[ "$CONTINUOUS_INTEGRATION" == 'true' ]]; then
+    prefetch_images_silently
+fi
 
 # catch terminate signals
 trap terminate INT TERM EXIT
