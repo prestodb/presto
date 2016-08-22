@@ -62,7 +62,7 @@ import static com.google.common.base.Preconditions.checkState;
  *             `--WindowNode(Specification: A, Functions: [avg(something)])
  *                `--...
  */
-public class MergeIdenticalWindows
+public class MergeWindows
         implements PlanOptimizer
 {
     public PlanNode optimize(PlanNode plan,
@@ -96,8 +96,8 @@ public class MergeIdenticalWindows
                 WindowNode node,
                 RewriteContext<Multimap<WindowNode.Specification, WindowNode>> context)
         {
-            checkState(!node.getHashSymbol().isPresent(), "MergeIdenticalWindows should be run before HashGenerationOptimizer");
-            checkState(node.getPrePartitionedInputs().isEmpty() && node.getPreSortedOrderPrefix() == 0, "MergeIdenticalWindows should be run before AddExchanges");
+            checkState(!node.getHashSymbol().isPresent(), "MergeWindows should be run before HashGenerationOptimizer");
+            checkState(node.getPrePartitionedInputs().isEmpty() && node.getPreSortedOrderPrefix() == 0, "MergeWindows should be run before AddExchanges");
             checkState(node.getWindowFunctions().values().stream().distinct().count() == 1, "Frames expected to be identical");
 
             return context.rewrite(
