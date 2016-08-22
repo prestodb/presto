@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.planner.assertions.PlanAssert;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -49,6 +50,7 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.fail;
 
 public class TestLogicalPlanner
 {
@@ -163,7 +165,13 @@ public class TestLogicalPlanner
 
     private Plan plan(String sql)
     {
-        return queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql));
+        try {
+            return queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql));
+        }
+        catch (RuntimeException ex) {
+            fail("Invalid SQL: " + sql, ex);
+            return null; // make compiler happy
+        }
     }
 
     private static final class PlanNodeExtractor
