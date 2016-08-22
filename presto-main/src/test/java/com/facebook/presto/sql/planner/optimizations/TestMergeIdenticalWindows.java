@@ -218,7 +218,7 @@ public class TestMergeIdenticalWindows
     }
 
     @Test
-    public void testNotMergeDifferentFrames()
+    public void testMergeDifferentFrames()
     {
         WindowFrame frameC = new WindowFrame(
                 WindowFrame.Type.ROWS,
@@ -249,15 +249,14 @@ public class TestMergeIdenticalWindows
         assertUnitPlan(sql,
                 anyTree(
                         window(ImmutableList.of(
-                                functionCall("avg", windowD, false, "quantity")),
-                                window(ImmutableList.of(
-                                        functionCall("sum", windowC, false, "discount"),
-                                        functionCall("sum", windowC, false, "quantity")),
-                                        any()))));
+                                functionCall("avg", windowD, false, "quantity"),
+                                functionCall("sum", windowC, false, "discount"),
+                                functionCall("sum", windowC, false, "quantity")),
+                                any())));
     }
 
     @Test
-    public void testNotMergeDifferentFramesWithDefault()
+    public void testMergeDifferentFramesWithDefault()
     {
         Window windowC = new Window(
                 ImmutableList.of(new SymbolReference("suppkey")),
@@ -283,11 +282,10 @@ public class TestMergeIdenticalWindows
         assertUnitPlan(sql,
                 anyTree(
                         window(ImmutableList.of(
-                                functionCall("avg", windowD, false, "quantity")),
-                                window(ImmutableList.of(
-                                        functionCall("sum", windowC, false, "discount"),
-                                        functionCall("sum", windowC, false, "quantity")),
-                                        any()))));
+                                functionCall("avg", windowD, false, "quantity"),
+                                functionCall("sum", windowC, false, "discount"),
+                                functionCall("sum", windowC, false, "quantity")),
+                                any())));
     }
 
     @Test
