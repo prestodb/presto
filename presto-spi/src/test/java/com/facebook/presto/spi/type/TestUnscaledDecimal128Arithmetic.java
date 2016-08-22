@@ -30,6 +30,7 @@ import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.negate;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.overflows;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.rescale;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.shiftRight;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.toStringDestructive;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUnscaledLong;
@@ -244,6 +245,19 @@ public class TestUnscaledDecimal128Arithmetic
     {
         assertEquals(hash(unscaledDecimal(0)), hash(negateConstructive(unscaledDecimal(0))));
         assertNotEquals(hash(unscaledDecimal(0)), unscaledDecimal(1));
+    }
+
+    @Test
+    public void testToString()
+    {
+        assertEquals(toStringDestructive(unscaledDecimal(0)), "0");
+        assertEquals(toStringDestructive(negateConstructive(unscaledDecimal(0))), "0");
+        assertEquals(toStringDestructive(unscaledDecimal(1)), "1");
+        assertEquals(toStringDestructive(unscaledDecimal(-1)), "-1");
+        assertEquals(toStringDestructive(MAX_DECIMAL), MAX_DECIMAL_UNSCALED_VALUE.toString());
+        assertEquals(toStringDestructive(MIN_DECIMAL), MIN_DECIMAL_UNSCALED_VALUE.toString());
+        assertEquals(toStringDestructive(unscaledDecimal("1000000000000000000000000000000000000")), "1000000000000000000000000000000000000");
+        assertEquals(toStringDestructive(unscaledDecimal("-1000000000002000000000000300000000000")), "-1000000000002000000000000300000000000");
     }
 
     private static void assertUnscaledBigIntegerToDecimalOverflows(BigInteger value)

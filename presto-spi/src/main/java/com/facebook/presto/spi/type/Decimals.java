@@ -24,6 +24,7 @@ import java.util.regex.Pattern;
 
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.toStringDestructive;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
 import static java.lang.Math.abs;
@@ -153,7 +154,7 @@ public class Decimals
 
     public static String toString(Slice unscaledValue, int scale)
     {
-        return toString(decodeUnscaledValue(unscaledValue), scale);
+        return toString(toStringDestructive(unscaledDecimal(unscaledValue)), scale);
     }
 
     public static String toString(BigInteger unscaledValue, int scale)

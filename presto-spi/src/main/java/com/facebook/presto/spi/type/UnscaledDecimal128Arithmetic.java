@@ -74,6 +74,19 @@ public final class UnscaledDecimal128Arithmetic
      */
     private static final int[] POWERS_OF_TEN_INT = new int[MAX_POWER_OF_TEN_INT + 1];
 
+    /**
+     * ZERO_STRINGS[i] is a string of i consecutive zeros.
+     */
+    private static final String[] ZERO_STRINGS = new String[64];
+
+    static {
+        ZERO_STRINGS[63] =
+                "000000000000000000000000000000000000000000000000000000000000000";
+        for (int i = 0; i < 63; i++) {
+            ZERO_STRINGS[i] = ZERO_STRINGS[63].substring(0, i);
+        }
+    }
+
     private static final Unsafe unsafe;
 
     static {
@@ -507,6 +520,11 @@ public final class UnscaledDecimal128Arithmetic
         return (rawHi & SIGN_LONG_MASK) != 0;
     }
 
+    public static boolean isZero(Slice decimal)
+    {
+        return getLong(decimal, 0) == 0 && getLong(decimal, 1) == 0;
+    }
+
     public static long hash(Slice decimal)
     {
         return hash(getRawLong(decimal, 0), getRawLong(decimal, 1));
@@ -515,6 +533,41 @@ public final class UnscaledDecimal128Arithmetic
     public static long hash(long rawLo, long rawHi)
     {
         return XxHash64.hash(rawLo) ^ XxHash64.hash(unpackUnsignedLong(rawHi));
+    }
+
+    public static String toStringDestructive(Slice decimal)
+    {
+        if (isZero(decimal)) {
+            return "0";
+        }
+
+        int divisor = POWERS_OF_TEN_INT[MAX_POWER_OF_TEN_INT];
+        String[] digitGroup = new String[MAX_PRECISION / MAX_POWER_OF_TEN_INT + 1];
+        int numGroups = 0;
+        boolean negative = isNegative(decimal);
+
+        // convert decimal to strings one digit group at a time
+        do {
+            int remainder = divide(decimal, divisor, decimal);
+            digitGroup[numGroups++] = Integer.toString(remainder, 10);
+        }
+        while (!isZero(decimal));
+
+        StringBuilder buf = new StringBuilder(MAX_PRECISION);
+        if (negative) {
+            buf.append('-');
+        }
+        buf.append(digitGroup[numGroups - 1]);
+
+        // append leading zeros for middle digit groups
+        for (int i = numGroups - 2; i >= 0; i--) {
+            int numLeadingZeros = MAX_POWER_OF_TEN_INT - digitGroup[i].length();
+            if (numLeadingZeros != 0) {
+                buf.append(ZERO_STRINGS[numLeadingZeros]);
+            }
+            buf.append(digitGroup[i]);
+        }
+        return buf.toString();
     }
 
     public static boolean overflows(Slice value, int precision)
