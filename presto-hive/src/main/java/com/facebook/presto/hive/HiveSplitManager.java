@@ -255,24 +255,27 @@ public class HiveSplitManager
                     }
                 }
 
-                Optional<HiveBucketProperty> partitionBucketProperty = partition.getStorage().getBucketProperty();
                 if (bucketProperty.isPresent()) {
-                    checkCondition(
-                            partitionBucketProperty.equals(bucketProperty),
-                            HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH,
-                            "Hive table (%s) bucketing property (%s) does not match partition (%s) bucketing property (%s)",
-                            hivePartition.getTableName(),
-                            bucketProperty.get(),
-                            hivePartition.getPartitionId(),
-                            partitionBucketProperty);
-                }
-                else {
-                    checkCondition(
-                            partitionBucketProperty.equals(bucketProperty),
-                            HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH,
-                            "Hive table (%s) is bucketed but partition (%s) is not bucketed",
-                            hivePartition.getTableName(),
-                            hivePartition.getPartitionId());
+                    final Optional<HiveBucketProperty> optionalPartitionBucketProperty = partition.getStorage().getBucketProperty();
+                    if (optionalPartitionBucketProperty.isPresent()) {
+                        final HiveBucketProperty tableBucketProperty = bucketProperty.get();
+                        final HiveBucketProperty partitionBucketProperty = optionalPartitionBucketProperty.get();
+                        checkCondition(
+                                partitionBucketProperty.equals(tableBucketProperty),
+                                HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH,
+                                "Hive table (%s) bucketing property (bucketed_by=[%s], bucket_count=%d) does not match partition (%d) bucketing property (bucketed_by=[%s], bucket_count=%d)",
+                                hivePartition.getTableName(),
+                                tableBucketProperty.getBucketedBy(),
+                                tableBucketProperty.getBucketCount(),
+                                hivePartition.getPartitionId(),
+                                partitionBucketProperty.getBucketedBy(),
+                                partitionBucketProperty.getBucketCount());
+                    }
+                    else {
+                        throw new PrestoException(
+                                HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH,
+                                format("Hive table (%s) is bucketed but partition (%s) is not bucketed", hivePartition.getTableName(), hivePartition.getPartitionId()));
+                    }
                 }
 
                 results.add(new HivePartitionMetadata(hivePartition, Optional.of(partition)));
