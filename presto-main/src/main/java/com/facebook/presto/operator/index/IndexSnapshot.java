@@ -25,6 +25,8 @@ import static java.util.Objects.requireNonNull;
 public class IndexSnapshot
         implements IndexedData
 {
+    private static final Page EMPTY_PAGE = new Page(0);
+
     private final LookupSource values;
     private final LookupSource missingKeys;
 
@@ -52,7 +54,7 @@ public class IndexSnapshot
     @Override
     public long getNextJoinPosition(long currentPosition)
     {
-        return values.getNextJoinPosition(currentPosition, -1, null);
+        return values.getNextJoinPosition(currentPosition, -1, EMPTY_PAGE);
     }
 
     @Override

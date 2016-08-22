@@ -28,7 +28,7 @@ import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.operator.InMemoryJoinHash;
-import com.facebook.presto.operator.JoinFilterFunction;
+import com.facebook.presto.operator.JoinFilterFunctionVerifier;
 import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.operator.PagesHashStrategy;
 import com.facebook.presto.spi.Page;
@@ -66,7 +66,6 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantLong;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantNull;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.notEqual;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static java.util.Objects.requireNonNull;
@@ -166,7 +165,6 @@ public class JoinCompiler
         generatePositionEqualsRowWithPageMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
         generatePositionEqualsPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, true);
         generatePositionEqualsPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, false);
-        generateGetFilterFunctionMethod(classDefinition);
         generateIsPositionNull(classDefinition, joinChannelFields);
 
         return defineClass(classDefinition, PagesHashStrategy.class, callSiteBinder.getBindings(), getClass().getClassLoader());
@@ -635,18 +633,6 @@ public class JoinCompiler
                 .retInt();
     }
 
-    private void generateGetFilterFunctionMethod(ClassDefinition classDefinition)
-    {
-        MethodDefinition getFilterFunctionMethod = classDefinition.declareMethod(
-                a(PUBLIC),
-                "getFilterFunction",
-                type(Optional.class, JoinFilterFunction.class));
-
-        getFilterFunctionMethod.getBody()
-                .append(invokeStatic(Optional.class, "empty", Optional.class))
-                .ret(Optional.class);
-    }
-
     private static BytecodeNode typeEquals(
             BytecodeExpression type,
             BytecodeExpression leftBlock,
@@ -689,18 +675,18 @@ public class JoinCompiler
         {
             this.pagesHashStrategyFactory = pagesHashStrategyFactory;
             try {
-                constructor = lookupSourceClass.getConstructor(LongArrayList.class, PagesHashStrategy.class);
+                constructor = lookupSourceClass.getConstructor(LongArrayList.class, PagesHashStrategy.class, Optional.class);
             }
             catch (NoSuchMethodException e) {
                 throw Throwables.propagate(e);
             }
         }
 
-        public LookupSource createLookupSource(LongArrayList addresses, List<List<Block>> channels, Optional<Integer> hashChannel)
+        public LookupSource createLookupSource(LongArrayList addresses, List<List<Block>> channels, Optional<Integer> hashChannel, Optional<JoinFilterFunctionVerifier> joinFilterFunctionVerifier)
         {
             PagesHashStrategy pagesHashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels, hashChannel);
             try {
-                return constructor.newInstance(addresses, pagesHashStrategy);
+                return constructor.newInstance(addresses, pagesHashStrategy, joinFilterFunctionVerifier);
             }
             catch (Exception e) {
                 throw Throwables.propagate(e);
