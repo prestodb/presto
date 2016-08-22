@@ -71,6 +71,7 @@ public final class UnscaledDecimal128Arithmetic
      * 10^9 fits in 2^31.
      */
     private static final int MAX_POWER_OF_TEN_INT = 9;
+    private static final int MAX_POWER_OF_TEN_INT_VALUE = (int) Math.pow(10, 9);
     /**
      * 10^18 fits in 2^63.
      */
@@ -616,6 +617,11 @@ public final class UnscaledDecimal128Arithmetic
         return (rawHigh & SIGN_LONG_MASK) != 0;
     }
 
+    public static boolean isZero(Slice decimal)
+    {
+        return getLong(decimal, 0) == 0 && getLong(decimal, 1) == 0;
+    }
+
     public static long hash(Slice decimal)
     {
         return hash(getRawLong(decimal, 0), getRawLong(decimal, 1));
@@ -624,6 +630,29 @@ public final class UnscaledDecimal128Arithmetic
     public static long hash(long rawLow, long rawHigh)
     {
         return XxHash64.hash(rawLow) ^ XxHash64.hash(unpackUnsignedLong(rawHigh));
+    }
+
+    public static String toUnscaledString(Slice decimal)
+    {
+        if (isZero(decimal)) {
+            return "0";
+        }
+
+        char[] buffer = new char[MAX_PRECISION + 1];
+        int index = buffer.length;
+        boolean negative = isNegative(decimal);
+        decimal = unscaledDecimal(decimal);
+        do {
+            int remainder = divide(decimal, 10, decimal);
+            buffer[--index] = (char) ('0' + remainder);
+        }
+        while (!isZero(decimal));
+
+        if (negative) {
+            buffer[--index] = '-';
+        }
+
+        return new String(buffer, index, buffer.length - index);
     }
 
     public static boolean overflows(Slice value, int precision)
