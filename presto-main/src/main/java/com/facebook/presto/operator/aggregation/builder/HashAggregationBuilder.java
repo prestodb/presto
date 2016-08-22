@@ -15,13 +15,18 @@ package com.facebook.presto.operator.aggregation.builder;
 
 import com.facebook.presto.spi.Page;
 
+import java.io.Closeable;
 import java.util.Iterator;
 
 public interface HashAggregationBuilder
+    extends Closeable
 {
     void processPage(Page page);
 
     Iterator<Page> buildResult();
 
     boolean checkFullAndUpdateMemory();
+
+    @Override
+    void close();
 }

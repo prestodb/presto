@@ -69,6 +69,11 @@ public class InMemoryHashAggregationBuilder
     }
 
     @Override
+    public void close()
+    {
+    }
+
+    @Override
     public void processPage(Page page)
     {
         if (aggregators.isEmpty()) {
@@ -103,7 +108,6 @@ public class InMemoryHashAggregationBuilder
         }
     }
 
-    @Override
     public Iterator<Page> buildResult()
     {
         List<Type> types = new ArrayList<>(groupByHash.getTypes());
