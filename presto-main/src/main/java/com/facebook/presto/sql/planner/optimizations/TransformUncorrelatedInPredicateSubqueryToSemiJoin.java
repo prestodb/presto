@@ -35,13 +35,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
@@ -134,7 +132,7 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
 
         private InPredicateRewriteResult rewriteInPredicates(PlanNode node, Collection<Expression> expressions)
         {
-            List<InPredicate> inPredicates = extractInPredicates(expressions);
+            List<InPredicate> inPredicates = extractApplyInPredicates(expressions);
             ImmutableMap.Builder<InPredicate, Expression> inPredicateMapping = ImmutableMap.builder();
             PlanNode rewrittenNode = node;
             for (InPredicate inPredicate : inPredicates) {
@@ -166,25 +164,25 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
             }
             return assignmentsBuilder.build();
         }
+    }
 
-        private List<InPredicate> extractInPredicates(Collection<Expression> expressions)
-        {
-            ImmutableList.Builder<InPredicate> inPredicates = ImmutableList.builder();
-            for (Expression expression : expressions) {
-                new DefaultTraversalVisitor<Void, Void>()
+    private static List<InPredicate> extractApplyInPredicates(Collection<Expression> expressions)
+    {
+        ImmutableList.Builder<InPredicate> inPredicates = ImmutableList.builder();
+        for (Expression expression : expressions) {
+            new DefaultTraversalVisitor<Void, Void>()
+            {
+                @Override
+                protected Void visitInPredicate(InPredicate node, Void context)
                 {
-                    @Override
-                    protected Void visitInPredicate(InPredicate node, Void context)
-                    {
-                        if (node.getValueList() instanceof SymbolReference) {
-                            inPredicates.add(node);
-                        }
-                        return null;
+                    if (node.getValueList() instanceof SymbolReference) {
+                        inPredicates.add(node);
                     }
-                }.process(expression, null);
-            }
-            return inPredicates.build();
+                    return null;
+                }
+            }.process(expression, null);
         }
+        return inPredicates.build();
     }
 
     /**
@@ -194,40 +192,38 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
      * have to be considered.
      */
     private static class InsertSemiJoinRewriter
-            extends SimplePlanRewriter<Void>
+            extends ApplyNodeRewriter
     {
         private final PlanNodeIdAllocator idAllocator;
         private final SymbolAllocator symbolAllocator;
-        private InPredicate originalInPredicate;
+        private final InPredicate originalInPredicate;
         private InPredicate inPredicate;
         private Optional<Symbol> semiJoinSymbol = Optional.empty();
 
         public InsertSemiJoinRewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, InPredicate inPredicate)
         {
+            super((SymbolReference) inPredicate.getValueList());
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
+            this.inPredicate = requireNonNull(inPredicate, "inPredicate is null");
             this.originalInPredicate = requireNonNull(inPredicate, "inPredicate is null");
-            this.inPredicate = originalInPredicate;
         }
 
         @Override
         public PlanNode visitProject(ProjectNode node, RewriteContext<Void> context)
         {
-            inPredicate = (InPredicate) replaceExpression(inPredicate, mapAssignmentSymbolsToExpression(node.getAssignments()));
+            inPredicate = (InPredicate) replaceExpression(
+                    inPredicate,
+                    mapAssignmentSymbolsToExpression(node.getAssignments()));
 
-            ProjectNode rewrittenNode = (ProjectNode) context.defaultRewrite(node, context.get());
+            // cannot use context.rewrite() as it ends with endless loop
+            ProjectNode rewrittenNode = (ProjectNode) context.defaultRewrite(node);
             if (semiJoinSymbol.isPresent()) {
                 return appendIdentityProjection(rewrittenNode, semiJoinSymbol.get());
             }
             else {
                 return rewrittenNode;
             }
-        }
-
-        private Map<Expression, Expression> mapAssignmentSymbolsToExpression(Map<Symbol, Expression> assignments)
-        {
-            return assignments.entrySet().stream()
-                    .collect(toImmutableMap(e -> e.getKey().toSymbolReference(), Entry::getValue));
         }
 
         private ProjectNode appendIdentityProjection(ProjectNode node, Symbol symbol)
@@ -247,31 +243,24 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
         }
 
         @Override
-        public PlanNode visitApply(ApplyNode node, RewriteContext<Void> context)
+        protected PlanNode rewriteApply(ApplyNode node)
         {
             if (node.getCorrelation().isEmpty()) {
                 Symbol value = Symbol.from(inPredicate.getValue());
                 Symbol valueList = Symbol.from(inPredicate.getValueList());
-                if (inPredicateMatchesApply(node, value, valueList)) {
-                    checkState(!semiJoinSymbol.isPresent(), "Semi join symbol is already set");
-                    semiJoinSymbol = Optional.of(symbolAllocator.newSymbol("semijoin_result", BOOLEAN));
-                    return new SemiJoinNode(idAllocator.getNextId(),
-                            node.getInput(),
-                            node.getSubquery(),
-                            value,
-                            valueList,
-                            semiJoinSymbol.get(),
-                            Optional.empty(),
-                            Optional.empty()
-                    );
-                }
+                checkState(!semiJoinSymbol.isPresent(), "Semi join symbol is already set");
+                semiJoinSymbol = Optional.of(symbolAllocator.newSymbol("semijoin_result", BOOLEAN));
+                return new SemiJoinNode(idAllocator.getNextId(),
+                        node.getInput(),
+                        node.getSubquery(),
+                        value,
+                        valueList,
+                        semiJoinSymbol.get(),
+                        Optional.empty(),
+                        Optional.empty()
+                );
             }
-            return context.defaultRewrite(node, context.get());
-        }
-
-        private boolean inPredicateMatchesApply(ApplyNode node, Symbol value, Symbol valueList)
-        {
-            return node.getInput().getOutputSymbols().contains(value) && node.getSubquery().getOutputSymbols().contains(valueList);
+            return node;
         }
 
         public Map<InPredicate, Expression> getInPredicateMapping()
