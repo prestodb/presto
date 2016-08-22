@@ -15,6 +15,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -48,7 +49,12 @@ public class JoinReorderingOptimizer
         requireNonNull(session, "session is null");
         requireNonNull(types, "types is null");
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(session), plan);
+        if (SystemSessionProperties.isJoinsReorderingEnabled(session)) {
+            return SimplePlanRewriter.rewriteWith(new Rewriter(session), plan);
+        }
+        else {
+            return plan;
+        }
     }
 
     private class Rewriter

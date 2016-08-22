@@ -61,6 +61,7 @@ public final class SystemSessionProperties
     public static final String SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL = "split_concurrency_adjustment_interval";
     public static final String OPTIMIZE_METADATA_QUERIES = "optimize_metadata_queries";
     public static final String QUERY_PRIORITY = "query_priority";
+    public static final String JOIN_REORDERING = "join_reordering";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -219,6 +220,11 @@ public final class SystemSessionProperties
                         COLOCATED_JOIN,
                         "Experimental: Use a colocated join when possible",
                         featuresConfig.isColocatedJoinsEnabled(),
+                        false),
+                booleanSessionProperty(
+                        JOIN_REORDERING,
+                        "Use statistics based join reordering",
+                        featuresConfig.isJoinsReorderingEnabled(),
                         false));
     }
 
@@ -320,6 +326,11 @@ public final class SystemSessionProperties
     public static boolean isColocatedJoinEnabled(Session session)
     {
         return session.getProperty(COLOCATED_JOIN, Boolean.class);
+    }
+
+    public static boolean isJoinsReorderingEnabled(Session session)
+    {
+        return session.getProperty(JOIN_REORDERING, Boolean.class);
     }
 
     public static int getInitialSplitsPerNode(Session session)
