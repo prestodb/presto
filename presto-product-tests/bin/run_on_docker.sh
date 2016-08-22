@@ -43,15 +43,30 @@ function run_in_application_runner_container() {
 
 function check_presto() {
   run_in_application_runner_container \
-    java -jar ${DOCKER_PRESTO_VOLUME}/presto-cli/target/presto-cli-${PRESTO_VERSION}-executable.jar \
+    java -jar "/docker/volumes/presto-cli/presto-cli-executable.jar" \
     --server presto-master:8080 \
     --execute "SHOW CATALOGS" | grep -i hive
 }
 
 function run_product_tests() {
+  local REPORT_DIR="${PRODUCT_TESTS_ROOT}/target/test-reports"
+  rm -rf "${REPORT_DIR}"
+  mkdir -p "${REPORT_DIR}"
   run_in_application_runner_container \
-    ${DOCKER_PRESTO_VOLUME}/presto-product-tests/bin/run.sh \
-    --config-local "${TEMPTO_CONFIGURATION}" "$@"
+    java "-Djava.util.logging.config.file=/docker/volumes/conf/tempto/logging.properties" \
+    -jar "/docker/volumes/presto-product-tests/presto-product-tests-executable.jar" \
+    --report-dir "/docker/volumes/test-reports" \
+    --config-local "/docker/volumes/tempto/tempto-configuration-local.yaml" \
+    "$@" \
+    &
+  PRODUCT_TESTS_PROCESS_ID=$!
+  wait ${PRODUCT_TESTS_PROCESS_ID}
+  local PRODUCT_TESTS_EXIT_CODE=$?
+
+  #make the files in $REPORT_DIR modifiable by everyone, as they were created by root (by docker)
+  run_in_application_runner_container chmod -R 777 "/docker/volumes/test-reports"
+
+  return ${PRODUCT_TESTS_EXIT_CODE}
 }
 
 # docker-compose down is not good enough because it's ignores services created with "run" command
@@ -151,16 +166,10 @@ fi
 
 shift 1
 
-DOCKER_PRESTO_VOLUME="/docker/volumes/presto"
-TEMPTO_CONFIGURATION="/docker/volumes/tempto/tempto-configuration-local.yaml"
-
 PRESTO_SERVICES="presto-master"
 if [[ "$ENVIRONMENT" == "multinode" ]]; then
    PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker"
 fi
-
-# set presto version environment variable
-source "${PRODUCT_TESTS_ROOT}/target/classes/presto.env"
 
 # check docker and docker compose installation
 docker-compose version
@@ -202,9 +211,7 @@ retry check_presto
 
 # run product tests
 set +e
-run_product_tests "$*" &
-PRODUCT_TESTS_PROCESS_ID=$!
-wait ${PRODUCT_TESTS_PROCESS_ID}
+run_product_tests "$*"
 EXIT_CODE=$?
 set -e
 

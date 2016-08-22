@@ -8,9 +8,9 @@ services:
 
   presto-master:
     image: 'teradatalabs/cdh5-hive-kerberized:4'
-    command: /docker/volumes/presto/presto-product-tests/conf/docker/files/presto-launcher-wrapper.sh singlenode-kerberized run
+    command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh singlenode-kerberized run
 
   application-runner:
     image: 'teradatalabs/cdh5-hive-kerberized:4'
     volumes:
-      - ../../../../presto-product-tests/conf/tempto/tempto-configuration-for-docker-kerberos.yaml:/docker/volumes/tempto/tempto-configuration-local.yaml
+      - ../../../conf/tempto/tempto-configuration-for-docker-kerberos.yaml:/docker/volumes/tempto/tempto-configuration-local.yaml

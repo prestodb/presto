@@ -1,13 +1,10 @@
-#overrides ./jdbc_db.yml
 version: '2'
 services:
 
   java-8-base:
     image: 'teradatalabs/centos6-java8-oracle:jdk1.8.0_92-80a011f'
-    env_file:
-      - ../../../target/classes/presto.env
     volumes:
-      - ../../../../:/docker/volumes/presto
+      - ../..:/docker/volumes/conf
 
   hadoop-master:
     extends:
@@ -27,17 +24,20 @@ services:
     extends:
       service: java-8-base
     hostname: presto-master
-    command: /docker/volumes/presto/presto-product-tests/conf/docker/files/presto-launcher-wrapper.sh singlenode run
+    command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh singlenode run
     ports:
       - '8080:8080'
     depends_on:
        - hadoop-master
+    volumes:
+       - ../../../../presto-server/target/presto-server-${PRESTO_VERSION}:/docker/volumes/presto-server
 
   application-runner:
     extends:
       service: java-8-base
     hostname: application-runner
     volumes:
-      - ../../../../presto-product-tests/conf/tempto/tempto-configuration-for-docker-default.yaml:/docker/volumes/tempto/tempto-configuration-local.yaml
-    volumes_from:
-      - presto-master
+      - ../../../../presto-cli/target/presto-cli-${PRESTO_VERSION}-executable.jar:/docker/volumes/presto-cli/presto-cli-executable.jar
+      - ../../../../presto-product-tests/target/presto-product-tests-${PRESTO_VERSION}-executable.jar:/docker/volumes/presto-product-tests/presto-product-tests-executable.jar
+      - ../../../conf/tempto/tempto-configuration-for-docker-default.yaml:/docker/volumes/tempto/tempto-configuration-local.yaml
+      - ../../../target/test-reports:/docker/volumes/test-reports
