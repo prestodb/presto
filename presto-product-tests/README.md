@@ -212,6 +212,20 @@ where <profile> can be any one of the available profiles
 For running Java based tests from IntelliJ see the section on
 [Debugging Java based tests](#debugging-java-based-tests).
 
+### Running with custom / downloaded artifacts
+
+To run with custom versions of presto / presto-cli / product tests, just set the appropriate
+environment variables:
+
+```
+export PRESTO_SERVER_DIR=/tmp/presto-server-dir      #unpacked presto-server.tar.gz
+export PRESTO_CLI_JAR=/tmp/artifacts/presto-cli-executable.jar
+export PRODUCT_TESTS_JAR=/tmp/artifacts/presto-product-tests-executable.jar
+presto-product-tests/bin/run_on_docker.sh multinode -x quarantine,big_query,profile_specific_tests
+```
+
+All of the variables are optional and fall back to local sources / build artifacts if unspecified.
+
 ### Interrupting a test run
 
 To interrupt a product test run, send a single `Ctrl-C` signal. The scripts
