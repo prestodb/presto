@@ -15,9 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
-
-import java.util.Optional;
 
 public interface PagesHashStrategy
 {
@@ -91,16 +88,6 @@ public interface PagesHashStrategy
      * This method does not perform any null checks.
      */
     boolean positionEqualsPositionIgnoreNulls(int leftBlockIndex, int leftPosition, int rightBlockIndex, int rightPosition);
-
-    /**
-     * Returns filter function assigned to this PagesHashStrategy.
-     */
-    Optional<JoinFilterFunction> getFilterFunction();
-
-    /**
-     * Checks result of filter function for given row.
-     */
-    boolean applyFilterFunction(int leftBlockIndex, int leftPosition, int rightPosition, Block[] allRightBlocks);
 
     /**
      * Checks if any of the hashed columns is null
