@@ -24,7 +24,9 @@ import javax.inject.Inject;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.OptionalInt;
 
+import static com.facebook.presto.raptor.util.DatabaseUtil.getOptionalInt;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -36,13 +38,19 @@ public class TableColumn
     private final String columnName;
     private final Type dataType;
     private final long columnId;
+    private final OptionalInt bucketOrdinal;
+    private final OptionalInt sortOrdinal;
+    private final boolean temporal;
 
-    public TableColumn(SchemaTableName table, String columnName, Type dataType, long columnId)
+    public TableColumn(SchemaTableName table, String columnName, Type dataType, long columnId, OptionalInt bucketOrdinal, OptionalInt sortOrdinal, boolean temporal)
     {
         this.table = requireNonNull(table, "table is null");
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.dataType = requireNonNull(dataType, "dataType is null");
         this.columnId = columnId;
+        this.bucketOrdinal = requireNonNull(bucketOrdinal, "bucketOrdinal is null");
+        this.sortOrdinal = requireNonNull(sortOrdinal, "sortOrdinal is null");
+        this.temporal = temporal;
     }
 
     public SchemaTableName getTable()
@@ -63,6 +71,21 @@ public class TableColumn
     public long getColumnId()
     {
         return columnId;
+    }
+
+    public OptionalInt getBucketOrdinal()
+    {
+        return bucketOrdinal;
+    }
+
+    public OptionalInt getSortOrdinal()
+    {
+        return sortOrdinal;
+    }
+
+    public boolean isTemporal()
+    {
+        return temporal;
     }
 
     @Override
@@ -113,7 +136,10 @@ public class TableColumn
                     table,
                     r.getString("column_name"),
                     type,
-                    r.getLong("column_id"));
+                    r.getLong("column_id"),
+                    getOptionalInt(r, "bucket_ordinal_position"),
+                    getOptionalInt(r, "sort_ordinal_position"),
+                    r.getBoolean("temporal"));
         }
     }
 }

@@ -18,6 +18,7 @@ import org.skife.jdbi.v2.tweak.ResultSetMapper;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 
@@ -30,13 +31,15 @@ public final class Table
 {
     private final long tableId;
     private final OptionalLong distributionId;
+    private final Optional<String> distributionName;
     private final OptionalInt bucketCount;
     private final OptionalLong temporalColumnId;
 
-    public Table(long tableId, OptionalLong distributionId, OptionalInt bucketCount, OptionalLong temporalColumnId)
+    public Table(long tableId, OptionalLong distributionId, Optional<String> distributionName, OptionalInt bucketCount, OptionalLong temporalColumnId)
     {
         this.tableId = tableId;
         this.distributionId = requireNonNull(distributionId, "distributionId is null");
+        this.distributionName = requireNonNull(distributionName, "distributionName is null");
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
         this.temporalColumnId = requireNonNull(temporalColumnId, "temporalColumnId is null");
     }
@@ -49,6 +52,11 @@ public final class Table
     public OptionalLong getDistributionId()
     {
         return distributionId;
+    }
+
+    public Optional<String> getDistributionName()
+    {
+        return distributionName;
     }
 
     public OptionalInt getBucketCount()
@@ -83,6 +91,7 @@ public final class Table
             return new Table(
                     r.getLong("table_id"),
                     getOptionalLong(r, "distribution_id"),
+                    Optional.ofNullable(r.getString("distribution_name")),
                     getOptionalInt(r, "bucket_count"),
                     getOptionalLong(r, "temporal_column_id"));
         }

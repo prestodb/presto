@@ -346,7 +346,15 @@ public class TestRaptorIntegrationSmokeTest
                         "   c2 double,\n" +
                         "   \"c 3\" varchar,\n" +
                         "   \"c'4\" array(bigint),\n" +
-                        "   c5 map(bigint, varchar)\n" +
+                        "   c5 map(bigint, varchar),\n" +
+                        "   c6 bigint,\n" +
+                        "   c7 timestamp\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   bucket_count = 32,\n" +
+                        "   bucketed_on = ARRAY['c1','c6'],\n" +
+                        "   ordering = ARRAY['c6','c1'],\n" +
+                        "   temporal_column = 'c7'\n" +
                         ")",
                 getSession().getCatalog().get(), getSession().getSchema().get(), "test_show_create_table");
         assertUpdate(createTableSql);

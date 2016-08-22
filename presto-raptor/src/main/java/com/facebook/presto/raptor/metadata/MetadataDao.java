@@ -27,7 +27,10 @@ import java.util.Set;
 public interface MetadataDao
 {
     String TABLE_COLUMN_SELECT = "" +
-            "SELECT t.schema_name, t.table_name, c.column_id, c.column_name, c.data_type\n" +
+            "SELECT t.schema_name, t.table_name,\n" +
+            "  c.column_id, c.column_name, c.data_type,\n" +
+            "  c.bucket_ordinal_position, c.sort_ordinal_position,\n" +
+            "  t.temporal_column_id = c.column_id AS temporal\n" +
             "FROM tables t\n" +
             "JOIN columns c ON (t.table_id = c.table_id)\n";
 
@@ -38,7 +41,7 @@ public interface MetadataDao
     @Mapper(TableMapper.class)
     Table getTableInformation(@Bind("tableId") long tableId);
 
-    @SqlQuery("SELECT t.table_id, t.distribution_id, d.bucket_count, t.temporal_column_id\n" +
+    @SqlQuery("SELECT t.table_id, t.distribution_id, d.distribution_name, d.bucket_count, t.temporal_column_id\n" +
             "FROM tables t\n" +
             "LEFT JOIN distributions d ON (t.distribution_id = d.distribution_id)\n" +
             "WHERE t.schema_name = :schemaName\n" +
