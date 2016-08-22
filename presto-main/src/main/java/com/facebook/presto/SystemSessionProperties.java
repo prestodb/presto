@@ -64,6 +64,7 @@ public final class SystemSessionProperties
     public static final String SPILL_ENABLED = "spill_enabled";
     public static final String OPERATOR_MEMORY_LIMIT_BEFORE_SPILL = "operator_memory_limit_before_spill";
     public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
+    public static final String JOIN_REORDERING = "join_reordering";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -253,6 +254,11 @@ public final class SystemSessionProperties
                         OPTIMIZE_DISTINCT_AGGREGATIONS,
                         "Optimize mixed non-distinct and distinct aggregations",
                         featuresConfig.isOptimizeMixedDistinctAggregations(),
+                        false),
+                booleanSessionProperty(
+                        JOIN_REORDERING,
+                        "Use statistics based join reordering",
+                        featuresConfig.isJoinReorderingEnabled(),
                         false));
     }
 
@@ -354,6 +360,11 @@ public final class SystemSessionProperties
     public static boolean isColocatedJoinEnabled(Session session)
     {
         return session.getSystemProperty(COLOCATED_JOIN, Boolean.class);
+    }
+
+    public static boolean isJoinReorderingEnabled(Session session)
+    {
+        return session.getSystemProperty(JOIN_REORDERING, Boolean.class);
     }
 
     public static int getInitialSplitsPerNode(Session session)

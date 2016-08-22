@@ -54,7 +54,8 @@ public class TestFeaturesConfig
                 .setOperatorMemoryLimitBeforeSpill(DataSize.valueOf("4MB"))
                 .setSpillerSpillPath(Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString())
                 .setSpillerThreads(4)
-                .setOptimizeMixedDistinctAggregations(false));
+                .setOptimizeMixedDistinctAggregations(false)
+                .setJoinReorderingEnabled(false));
     }
 
     @Test
@@ -81,6 +82,7 @@ public class TestFeaturesConfig
                 .put("experimental.operator-memory-limit-before-spill", "100MB")
                 .put("experimental.spiller-spill-path", "/tmp/custom/spill/path")
                 .put("experimental.spiller-threads", "42")
+                .put("join-reordering-enabled", "true")
                 .build();
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("experimental.resource-groups-enabled", "true")
@@ -103,6 +105,7 @@ public class TestFeaturesConfig
                 .put("experimental.operator-memory-limit-before-spill", "100MB")
                 .put("experimental.spiller-spill-path", "/tmp/custom/spill/path")
                 .put("experimental.spiller-threads", "42")
+                .put("join-reordering-enabled", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -125,7 +128,8 @@ public class TestFeaturesConfig
                 .setSpillEnabled(true)
                 .setOperatorMemoryLimitBeforeSpill(DataSize.valueOf("100MB"))
                 .setSpillerSpillPath("/tmp/custom/spill/path")
-                .setSpillerThreads(42);
+                .setSpillerThreads(42)
+                .setJoinReorderingEnabled(true);
 
         assertFullMapping(properties, expected);
         assertDeprecatedEquivalence(FeaturesConfig.class, properties, propertiesLegacy);
