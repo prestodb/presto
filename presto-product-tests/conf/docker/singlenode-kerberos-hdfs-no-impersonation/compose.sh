@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
-source ${BASH_SOURCE%/*}/../../../target/classes/presto.env
-export PRESTO_VERSION
+source ${BASH_SOURCE%/*}/../common/compose-commons.sh
 
 docker-compose \
 -f ${BASH_SOURCE%/*}/../common/standard.yml \
