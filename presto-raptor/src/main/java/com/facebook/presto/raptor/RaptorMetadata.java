@@ -241,19 +241,13 @@ public class RaptorMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        long tableId = checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getTableId();
         RaptorColumnHandle column = checkType(columnHandle, RaptorColumnHandle.class, "columnHandle");
 
         if (isHiddenColumn(column.getColumnId())) {
             return hiddenColumn(column.getColumnName(), column.getColumnType());
         }
 
-        long columnId = column.getColumnId();
-        TableColumn tableColumn = dao.getTableColumn(tableId, columnId);
-        if (tableColumn == null) {
-            throw new PrestoException(NOT_FOUND, format("Column ID %s does not exist for table ID %s", columnId, tableId));
-        }
-        return tableColumn.toColumnMetadata();
+        return new ColumnMetadata(column.getColumnName(), column.getColumnType());
     }
 
     @Override
