@@ -18,10 +18,14 @@ import com.facebook.presto.spi.Page;
 import java.util.Iterator;
 
 public interface HashAggregationBuilder
+        extends AutoCloseable
 {
     void processPage(Page page);
 
     Iterator<Page> buildResult();
 
     boolean isFull();
+
+    @Override
+    void close();
 }

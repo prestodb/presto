@@ -71,6 +71,11 @@ public class InMemoryHashAggregationBuilder
     }
 
     @Override
+    public void close()
+    {
+    }
+
+    @Override
     public void processPage(Page page)
     {
         if (aggregators.isEmpty()) {

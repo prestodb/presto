@@ -283,6 +283,16 @@ public class HashAggregationOperator
         return outputIterator.next();
     }
 
+    @Override
+    public void close()
+    {
+        outputIterator = null;
+        if (aggregationBuilder != null) {
+            aggregationBuilder.close();
+            aggregationBuilder = null;
+        }
+    }
+
     private Page getGlobalAggregationOutput()
     {
         List<Accumulator> accumulators = accumulatorFactories.stream()
