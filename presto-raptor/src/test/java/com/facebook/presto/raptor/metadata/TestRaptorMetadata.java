@@ -204,8 +204,8 @@ public class TestRaptorMetadata
         // verify sort columns
         List<TableColumn> sortColumns = metadataDao.listSortColumns(tableId);
         assertTableColumnsEqual(sortColumns, ImmutableList.of(
-                new TableColumn(DEFAULT_TEST_ORDERS, "orderdate", DATE, 4),
-                new TableColumn(DEFAULT_TEST_ORDERS, "custkey", BIGINT, 2)));
+                new TableColumn(DEFAULT_TEST_ORDERS, "orderdate", DATE, 4, OptionalInt.empty(), OptionalInt.of(0), true),
+                new TableColumn(DEFAULT_TEST_ORDERS, "custkey", BIGINT, 2, OptionalInt.empty(), OptionalInt.of(1), false)));
 
         // verify temporal column
         assertEquals(metadataDao.getTemporalColumnId(tableId), Long.valueOf(4));
@@ -231,8 +231,8 @@ public class TestRaptorMetadata
         MetadataDao metadataDao = dbi.onDemand(MetadataDao.class);
 
         assertTableColumnsEqual(metadataDao.listBucketColumns(tableId), ImmutableList.of(
-                new TableColumn(DEFAULT_TEST_ORDERS, "custkey", BIGINT, 2),
-                new TableColumn(DEFAULT_TEST_ORDERS, "orderkey", BIGINT, 1)));
+                new TableColumn(DEFAULT_TEST_ORDERS, "custkey", BIGINT, 2, OptionalInt.of(0), OptionalInt.empty(), false),
+                new TableColumn(DEFAULT_TEST_ORDERS, "orderkey", BIGINT, 1, OptionalInt.of(1), OptionalInt.empty(), false)));
 
         assertEquals(raptorTableHandle.getBucketCount(), OptionalInt.of(16));
 
@@ -274,8 +274,8 @@ public class TestRaptorMetadata
         MetadataDao metadataDao = dbi.onDemand(MetadataDao.class);
 
         assertTableColumnsEqual(metadataDao.listBucketColumns(tableId), ImmutableList.of(
-                new TableColumn(DEFAULT_TEST_ORDERS, "orderkey", BIGINT, 1),
-                new TableColumn(DEFAULT_TEST_ORDERS, "custkey", BIGINT, 2)));
+                new TableColumn(DEFAULT_TEST_ORDERS, "orderkey", BIGINT, 1, OptionalInt.of(0), OptionalInt.empty(), false),
+                new TableColumn(DEFAULT_TEST_ORDERS, "custkey", BIGINT, 2, OptionalInt.of(1), OptionalInt.empty(), false)));
 
         assertEquals(raptorTableHandle.getBucketCount(), OptionalInt.of(32));
 
@@ -306,7 +306,7 @@ public class TestRaptorMetadata
         assertEquals(raptorTableHandle.getTableId(), 1);
 
         assertTableColumnsEqual(metadataDao.listBucketColumns(tableId), ImmutableList.of(
-                new TableColumn(DEFAULT_TEST_ORDERS, "orderkey", BIGINT, 1)));
+                new TableColumn(DEFAULT_TEST_ORDERS, "orderkey", BIGINT, 1, OptionalInt.of(0), OptionalInt.empty(), false)));
 
         assertEquals(raptorTableHandle.getBucketCount(), OptionalInt.of(16));
 
@@ -329,7 +329,7 @@ public class TestRaptorMetadata
         assertEquals(tableId, 2);
 
         assertTableColumnsEqual(metadataDao.listBucketColumns(tableId), ImmutableList.of(
-                new TableColumn(DEFAULT_TEST_LINEITEMS, "orderkey", BIGINT, 1)));
+                new TableColumn(DEFAULT_TEST_LINEITEMS, "orderkey", BIGINT, 1, OptionalInt.of(0), OptionalInt.empty(), false)));
 
         assertEquals(raptorTableHandle.getBucketCount(), OptionalInt.of(16));
 
@@ -386,8 +386,8 @@ public class TestRaptorMetadata
         // verify sort columns
         List<TableColumn> sortColumns = metadataDao.listSortColumns(tableId);
         assertTableColumnsEqual(sortColumns, ImmutableList.of(
-                new TableColumn(DEFAULT_TEST_ORDERS, "orderdate", DATE, 4),
-                new TableColumn(DEFAULT_TEST_ORDERS, "custkey", BIGINT, 2)));
+                new TableColumn(DEFAULT_TEST_ORDERS, "orderdate", DATE, 4, OptionalInt.empty(), OptionalInt.of(0), false),
+                new TableColumn(DEFAULT_TEST_ORDERS, "custkey", BIGINT, 2, OptionalInt.empty(), OptionalInt.of(1), false)));
 
         // verify temporal column is not set
         assertEquals(metadataDao.getTemporalColumnId(tableId), null);
@@ -723,6 +723,9 @@ public class TestRaptorMetadata
         assertEquals(actual.getColumnId(), expected.getColumnId());
         assertEquals(actual.getColumnName(), expected.getColumnName());
         assertEquals(actual.getDataType(), expected.getDataType());
+        assertEquals(actual.getBucketOrdinal(), expected.getBucketOrdinal());
+        assertEquals(actual.getSortOrdinal(), expected.getSortOrdinal());
+        assertEquals(actual.isTemporal(), expected.isTemporal());
     }
 
     private static void assertTableColumnsEqual(List<TableColumn> actual, List<TableColumn> expected)

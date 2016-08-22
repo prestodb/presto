@@ -39,6 +39,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
@@ -65,6 +66,8 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
@@ -83,6 +86,8 @@ import static com.facebook.presto.raptor.RaptorSessionProperties.getOneSplitPerB
 import static com.facebook.presto.raptor.RaptorTableProperties.BUCKETED_ON_PROPERTY;
 import static com.facebook.presto.raptor.RaptorTableProperties.BUCKET_COUNT_PROPERTY;
 import static com.facebook.presto.raptor.RaptorTableProperties.DISTRIBUTION_NAME_PROPERTY;
+import static com.facebook.presto.raptor.RaptorTableProperties.ORDERING_PROPERTY;
+import static com.facebook.presto.raptor.RaptorTableProperties.TEMPORAL_COLUMN_PROPERTY;
 import static com.facebook.presto.raptor.RaptorTableProperties.getBucketColumns;
 import static com.facebook.presto.raptor.RaptorTableProperties.getBucketCount;
 import static com.facebook.presto.raptor.RaptorTableProperties.getDistributionName;
@@ -175,6 +180,7 @@ public class RaptorMetadata
                 tableName.getTableName(),
                 table.getTableId(),
                 table.getDistributionId(),
+                table.getDistributionName(),
                 table.getBucketCount(),
                 OptionalLong.empty(),
                 Optional.ofNullable(sampleWeightColumnHandle),
@@ -186,17 +192,41 @@ public class RaptorMetadata
     {
         RaptorTableHandle handle = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
         SchemaTableName tableName = new SchemaTableName(handle.getSchemaName(), handle.getTableName());
-        List<ColumnMetadata> columns = dao.listTableColumns(handle.getTableId()).stream()
+        List<TableColumn> tableColumns = dao.listTableColumns(handle.getTableId());
+        if (tableColumns.isEmpty()) {
+            throw new TableNotFoundException(tableName);
+        }
+
+        ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
+        SortedMap<Integer, String> bucketing = new TreeMap<>();
+        SortedMap<Integer, String> ordering = new TreeMap<>();
+
+        for (TableColumn column : tableColumns) {
+            if (column.isTemporal()) {
+                properties.put(TEMPORAL_COLUMN_PROPERTY, column.getColumnName());
+            }
+            column.getBucketOrdinal().ifPresent(bucketOrdinal -> bucketing.put(bucketOrdinal, column.getColumnName()));
+            column.getSortOrdinal().ifPresent(sortOrdinal -> ordering.put(sortOrdinal, column.getColumnName()));
+        }
+
+        if (!bucketing.isEmpty()) {
+            properties.put(BUCKETED_ON_PROPERTY, ImmutableList.copyOf(bucketing.values()));
+        }
+        if (!ordering.isEmpty()) {
+            properties.put(ORDERING_PROPERTY, ImmutableList.copyOf(ordering.values()));
+        }
+
+        handle.getBucketCount().ifPresent(bucketCount -> properties.put(BUCKET_COUNT_PROPERTY, bucketCount));
+        handle.getDistributionName().ifPresent(distributionName -> properties.put(DISTRIBUTION_NAME_PROPERTY, distributionName));
+
+        List<ColumnMetadata> columns = tableColumns.stream()
                 .map(TableColumn::toColumnMetadata)
                 .filter(isSampleWeightColumn().negate())
                 .collect(toCollection(ArrayList::new));
-        if (columns.isEmpty()) {
-            throw new PrestoException(RAPTOR_ERROR, "Table does not have any columns: " + tableName);
-        }
 
         columns.add(hiddenColumn(SHARD_UUID_COLUMN_NAME, SHARD_UUID_COLUMN_TYPE));
         columns.add(hiddenColumn(BUCKET_NUMBER_COLUMN_NAME, INTEGER));
-        return new ConnectorTableMetadata(tableName, columns);
+        return new ConnectorTableMetadata(tableName, columns, properties.build());
     }
 
     @Override
@@ -694,6 +724,7 @@ public class RaptorMetadata
                 handle.getTableName(),
                 handle.getTableId(),
                 handle.getDistributionId(),
+                handle.getDistributionName(),
                 handle.getBucketCount(),
                 OptionalLong.of(transactionId),
                 handle.getSampleWeightColumnHandle(),
