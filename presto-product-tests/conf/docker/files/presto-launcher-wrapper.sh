@@ -9,12 +9,11 @@ if [[ "$CONFIG" != "singlenode" && "$CONFIG" != "multinode-master" && "$CONFIG" 
    exit 1
 fi
 
-PRESTO_VOLUME="/docker/volumes/presto"
-PRESTO_CONFIG_DIRECTORY="${PRESTO_VOLUME}/presto-product-tests/conf/presto/etc"
+PRESTO_CONFIG_DIRECTORY="/docker/volumes/conf/presto/etc"
 
 shift 1
 
-${PRESTO_VOLUME}/presto-server/target/presto-server-${PRESTO_VERSION}/bin/launcher \
+/docker/volumes/presto-server/bin/launcher \
   -Dnode.id=${HOSTNAME} \
   -Dcatalog.config-dir=${PRESTO_CONFIG_DIRECTORY}/catalog \
   --config=${PRESTO_CONFIG_DIRECTORY}/${CONFIG}.properties \
