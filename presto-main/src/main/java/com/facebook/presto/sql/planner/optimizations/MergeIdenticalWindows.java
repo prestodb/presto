@@ -26,11 +26,9 @@ import com.google.common.collect.Multimap;
 
 import java.util.Collection;
 import java.util.Map;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
-import static java.util.Objects.requireNonNull;
 
 /**
  * Merge together the functions in WindowNodes that have identical WindowNode.Specifications.
@@ -78,13 +76,15 @@ public class MergeIdenticalWindows
     }
 
     private static class Rewriter
-            extends SimplePlanRewriter<Multimap<SpecificationAndFrame, WindowNode>>
+            extends SimplePlanRewriter<Multimap<WindowNode.Specification, WindowNode>>
     {
         @Override
-        protected PlanNode visitPlan(PlanNode node, RewriteContext<Multimap<SpecificationAndFrame, WindowNode>> context)
+        protected PlanNode visitPlan(
+                PlanNode node,
+                RewriteContext<Multimap<WindowNode.Specification, WindowNode>> context)
         {
             PlanNode newNode = context.defaultRewrite(node, ImmutableListMultimap.of());
-            for (SpecificationAndFrame specification : context.get().keySet()) {
+            for (WindowNode.Specification specification : context.get().keySet()) {
                 Collection<WindowNode> windows = context.get().get(specification);
                 newNode = collapseWindows(newNode, specification, windows);
             }
@@ -94,29 +94,27 @@ public class MergeIdenticalWindows
         @Override
         public PlanNode visitWindow(
                 WindowNode node,
-                RewriteContext<Multimap<SpecificationAndFrame, WindowNode>> context)
+                RewriteContext<Multimap<WindowNode.Specification, WindowNode>> context)
         {
             checkState(!node.getHashSymbol().isPresent(), "MergeIdenticalWindows should be run before HashGenerationOptimizer");
             checkState(node.getPrePartitionedInputs().isEmpty() && node.getPreSortedOrderPrefix() == 0, "MergeIdenticalWindows should be run before AddExchanges");
             checkState(node.getWindowFunctions().values().stream().distinct().count() == 1, "Frames expected to be identical");
 
-            SpecificationAndFrame specificationAndFrame = new SpecificationAndFrame(node.getSpecification(), node.getFrames().iterator().next());
-
             return context.rewrite(
                     node.getSource(),
-                    ImmutableListMultimap.<SpecificationAndFrame, WindowNode>builder()
-                            .put(specificationAndFrame, node) // Add the current window first so that it gets precedence in iteration order
+                    ImmutableListMultimap.<WindowNode.Specification, WindowNode>builder()
+                            .put(node.getSpecification(), node) // Add the current window first so that it gets precedence in iteration order
                             .putAll(context.get())
                             .build());
         }
 
-        private static WindowNode collapseWindows(PlanNode source, SpecificationAndFrame specification, Collection<WindowNode> windows)
+        private static WindowNode collapseWindows(PlanNode source, WindowNode.Specification specification, Collection<WindowNode> windows)
         {
             WindowNode canonical = windows.iterator().next();
             return new WindowNode(
                     canonical.getId(),
                     source,
-                    specification.getSpecification(),
+                    specification,
                     windows.stream()
                             .map(WindowNode::getWindowFunctions)
                             .flatMap(map -> map.entrySet().stream())
@@ -124,48 +122,6 @@ public class MergeIdenticalWindows
                     canonical.getHashSymbol(),
                     canonical.getPrePartitionedInputs(),
                     canonical.getPreSortedOrderPrefix());
-        }
-    }
-
-    private static final class SpecificationAndFrame
-    {
-        private final WindowNode.Specification specification;
-        private final WindowNode.Frame frame;
-
-        public SpecificationAndFrame(WindowNode.Specification specification, WindowNode.Frame frame)
-        {
-            this.specification = requireNonNull(specification, "specification is null");
-            this.frame = requireNonNull(frame, "frame is null");
-        }
-
-        public WindowNode.Specification getSpecification()
-        {
-            return specification;
-        }
-
-        public WindowNode.Frame getFrame()
-        {
-            return frame;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(specification, frame);
-        }
-
-        @Override
-        public boolean equals(Object obj)
-        {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null || getClass() != obj.getClass()) {
-                return false;
-            }
-            SpecificationAndFrame other = (SpecificationAndFrame) obj;
-            return Objects.equals(this.specification, other.specification) &&
-                    Objects.equals(this.frame, other.frame);
         }
     }
 }
