@@ -15,11 +15,8 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableLayoutResult;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.GroupingProperty;
@@ -70,9 +67,7 @@ import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.NullLiteral;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
@@ -82,7 +77,6 @@ import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Lists;
@@ -115,8 +109,6 @@ import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Glo
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.singleStreamPartition;
 import static com.facebook.presto.sql.planner.optimizations.LocalProperties.grouped;
 import static com.facebook.presto.sql.planner.optimizations.ScalarQueryUtil.isScalar;
-import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
-import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
@@ -263,12 +255,6 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitAggregation(AggregationNode node, Context context)
         {
-            FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
-            boolean decomposable = node.getFunctions()
-                    .values().stream()
-                    .map(functionRegistry::getAggregateFunctionImplementation)
-                    .allMatch(InternalAggregationFunction::isDecomposable);
-
             HashSet<Symbol> partitioningRequirement = new HashSet<>(node.getGroupingSets().get(0));
             for (int i = 1; i < node.getGroupingSets().size(); i++) {
                 partitioningRequirement.retainAll(node.getGroupingSets().get(i));
@@ -288,102 +274,16 @@ public class AddExchanges
             }
 
             if (node.getGroupBy().isEmpty()) {
-                if (decomposable) {
-                    return splitAggregation(node, child, partial -> gatheringExchange(idAllocator.getNextId(), REMOTE, partial));
-                }
-                else {
-                    child = withDerivedProperties(
-                            gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
-                            child.getProperties());
-
-                    return rebaseAndDeriveProperties(node, child);
-                }
+                child = withDerivedProperties(
+                        gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
+                        child.getProperties());
             }
-            else {
-                if (child.getProperties().isStreamPartitionedOn(partitioningRequirement)) {
-                    return rebaseAndDeriveProperties(node, child);
-                }
-                else {
-                    if (decomposable) {
-                        Function<PlanNode, PlanNode> exchanger = null;
-                        if (!child.getProperties().isNodePartitionedOn(partitioningRequirement)) {
-                            exchanger = partial -> partitionedExchange(
-                                    idAllocator.getNextId(),
-                                    REMOTE,
-                                    partial,
-                                    node.getGroupBy(),
-                                    node.getHashSymbol());
-                        }
-                        return splitAggregation(node, child, exchanger);
-                    }
-                    else {
-                        child = withDerivedProperties(
-                                partitionedExchange(idAllocator.getNextId(), REMOTE, child.getNode(), node.getGroupBy(), node.getHashSymbol()),
-                                child.getProperties());
-                        return rebaseAndDeriveProperties(node, child);
-                    }
-                }
+            else if (!child.getProperties().isStreamPartitionedOn(partitioningRequirement) && !child.getProperties().isNodePartitionedOn(partitioningRequirement)) {
+                child = withDerivedProperties(
+                        partitionedExchange(idAllocator.getNextId(), REMOTE, child.getNode(), node.getGroupBy(), node.getHashSymbol()),
+                        child.getProperties());
             }
-        }
-
-        private PlanWithProperties splitAggregation(AggregationNode node, PlanWithProperties newChild, Function<PlanNode, PlanNode> exchanger)
-        {
-            // otherwise, add a partial and final with an exchange in between
-            Map<Symbol, Symbol> masks = node.getMasks();
-
-            Map<Symbol, FunctionCall> finalCalls = new HashMap<>();
-            Map<Symbol, FunctionCall> intermediateCalls = new HashMap<>();
-            Map<Symbol, Signature> intermediateFunctions = new HashMap<>();
-            Map<Symbol, Symbol> intermediateMask = new HashMap<>();
-            for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
-                Signature signature = node.getFunctions().get(entry.getKey());
-                InternalAggregationFunction function = metadata.getFunctionRegistry().getAggregateFunctionImplementation(signature);
-
-                Symbol intermediateSymbol = allocator.newSymbol(signature.getName(), function.getIntermediateType());
-                intermediateCalls.put(intermediateSymbol, entry.getValue());
-                intermediateFunctions.put(intermediateSymbol, signature);
-                if (masks.containsKey(entry.getKey())) {
-                    intermediateMask.put(intermediateSymbol, masks.get(entry.getKey()));
-                }
-
-                // rewrite final aggregation in terms of intermediate function
-                finalCalls.put(entry.getKey(), new FunctionCall(QualifiedName.of(signature.getName()), ImmutableList.of(intermediateSymbol.toSymbolReference())));
-            }
-
-            PlanWithProperties partial = withDerivedProperties(
-                    new AggregationNode(
-                            idAllocator.getNextId(),
-                            newChild.getNode(),
-                            node.getGroupBy(),
-                            intermediateCalls,
-                            intermediateFunctions,
-                            intermediateMask,
-                            node.getGroupingSets(),
-                            PARTIAL,
-                            node.getSampleWeight(),
-                            node.getConfidence(),
-                            node.getHashSymbol()),
-                    newChild.getProperties());
-
-            PlanNode source = partial.getNode();
-            if (exchanger != null) {
-                source = exchanger.apply(source);
-            }
-
-            return withDerivedProperties(
-                    new AggregationNode(
-                            node.getId(),
-                            source,
-                            node.getGroupBy(),
-                            finalCalls,
-                            node.getFunctions(),
-                            ImmutableMap.of(),
-                            node.getGroupingSets(),
-                            FINAL,
-                            Optional.empty(),
-                            node.getConfidence(),
-                            node.getHashSymbol()),
-                    deriveProperties(source, partial.getProperties()));
+            return rebaseAndDeriveProperties(node, child);
         }
 
         @Override
