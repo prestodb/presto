@@ -143,8 +143,6 @@ public class TestHashAggregationOperator
                 100_000,
                 new DataSize(16, MEGABYTE));
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-
         MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT)
                 .row("0", 3L, 0L, 0.0, "300", 3L, 3L)
                 .row("1", 3L, 3L, 1.0, "301", 3L, 3L)
@@ -158,7 +156,7 @@ public class TestHashAggregationOperator
                 .row("9", 3L, 27L, 9.0, "309", 3L, 3L)
                 .build();
 
-        assertOperatorEqualsIgnoreOrder(operator, input, expected, hashEnabled, Optional.of(hashChannels.size()));
+        assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, expected, hashEnabled, Optional.of(hashChannels.size()));
     }
 
     @Test(dataProvider = "hashEnabledValues")
@@ -197,14 +195,12 @@ public class TestHashAggregationOperator
                 100_000,
                 new DataSize(16, MEGABYTE));
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-
         MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT)
                 .row(null, 42L, 0L, null, null, null, 0L, 0L)
                 .row(null, 49L, 0L, null, null, null, 0L, 0L)
                 .build();
 
-        assertOperatorEqualsIgnoreOrder(operator, input, expected, hashEnabled, Optional.of(groupByChannels.size()));
+        assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, expected, hashEnabled, Optional.of(groupByChannels.size()));
     }
 
     @Test(dataProvider = "hashEnabledValues", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of 10B")
@@ -242,9 +238,7 @@ public class TestHashAggregationOperator
                 100_000,
                 new DataSize(16, MEGABYTE));
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-
-        toPages(operator, input);
+        toPages(operatorFactory, driverContext, input);
     }
 
     @Test(dataProvider = "hashEnabledValues")
@@ -279,9 +273,7 @@ public class TestHashAggregationOperator
                 100_000,
                 new DataSize(16, MEGABYTE));
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-
-        toPages(operator, input);
+        toPages(operatorFactory, driverContext, input);
     }
 
     @Test(dataProvider = "hashEnabledValues", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of 3MB")
@@ -316,9 +308,7 @@ public class TestHashAggregationOperator
                 100_000,
                 new DataSize(16, MEGABYTE));
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-
-        toPages(operator, input);
+        toPages(operatorFactory, driverContext, input);
     }
 
     @Test(dataProvider = "hashEnabledValues")
@@ -349,9 +339,7 @@ public class TestHashAggregationOperator
                 100_000,
                 new DataSize(16, MEGABYTE));
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-
-        assertEquals(toPages(operator, input).size(), 2);
+        assertEquals(toPages(operatorFactory, driverContext, input).size(), 2);
     }
 
     @Test(dataProvider = "hashEnabledValues")
