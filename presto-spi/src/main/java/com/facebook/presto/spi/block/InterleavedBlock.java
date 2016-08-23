@@ -109,7 +109,7 @@ public class InterleavedBlock
         if (sizeInBytes < 0) {
             sizeInBytes = 0;
             for (int i = 0; i < getBlockCount(); i++) {
-                sizeInBytes += blocks[i].getSizeInBytes();
+                sizeInBytes += blocks[i].getRegion(start / blocks.length, positionCount / blocks.length).getSizeInBytes();
             }
             this.sizeInBytes.set(sizeInBytes);
         }
@@ -127,7 +127,7 @@ public class InterleavedBlock
     {
         StringBuilder sb = new StringBuilder("InterleavedBlock{");
         sb.append("columns=").append(getBlockCount());
-        sb.append(", positionCount=").append(getPositionCount() / getBlockCount());
+        sb.append(", positionCountPerBlock=").append(getPositionCount() / getBlockCount());
         sb.append('}');
         return sb.toString();
     }

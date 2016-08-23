@@ -17,6 +17,7 @@ General Changes
 * Display port on the task list in the web UI when multiple workers share the same host.
 * Add support for ``EXCEPT``.
 * Rename ``FLOAT`` type to ``REAL`` for better compatibility with the SQL standard.
+* Fix potential performance regression when transporting rows between nodes.
 
 JDBC Driver Changes
 -------------------

@@ -17,12 +17,18 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
+import java.util.concurrent.ThreadLocalRandom;
+
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static java.lang.String.format;
 import static java.util.Arrays.copyOfRange;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestVariableWidthBlock
         extends AbstractTestBlock
@@ -54,6 +60,38 @@ public class TestVariableWidthBlock
         Slice[] expectedValues = (Slice[]) alternatingNullValues(createExpectedValues(100));
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
         assertBlockFilteredPositions(expectedValues, blockBuilder.build(), Ints.asList(0, 2, 4, 6, 7, 9, 10, 16));
+    }
+
+    @Test
+    private void testGetSizeInBytes()
+    {
+        int numEntries = 1000;
+        VarcharType unboundedVarcharType = createUnboundedVarcharType();
+        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), numEntries, 20);
+        for (int i = 0; i < numEntries; i++) {
+            unboundedVarcharType.writeString(blockBuilder, String.valueOf(ThreadLocalRandom.current().nextLong()));
+        }
+        Block block = blockBuilder.build();
+
+        Block half1 = block.getRegion(0, numEntries / 2);
+        Block half2 = block.getRegion(numEntries / 2, numEntries / 2);
+        Block quarter1 = half1.getRegion(0, numEntries / 4);
+        Block quarter2 = half1.getRegion(numEntries / 4, numEntries / 4);
+        Block quarter3 = half2.getRegion(0, numEntries / 4);
+        Block quarter4 = half2.getRegion(numEntries / 4, numEntries / 4);
+
+        int sizeInBytes = block.getSizeInBytes();
+        int quarter1size = quarter1.getSizeInBytes();
+        int quarter2size = quarter2.getSizeInBytes();
+        int quarter3size = quarter3.getSizeInBytes();
+        int quarter4size = quarter4.getSizeInBytes();
+        double expectedQuarterSizeMin = sizeInBytes * 0.2;
+        double expectedQuarterSizeMax = sizeInBytes * 0.3;
+        assertTrue(quarter1size > expectedQuarterSizeMin && quarter1size < expectedQuarterSizeMax, format("quarter1size is %s, should be between %s and %s", quarter1size, expectedQuarterSizeMin, expectedQuarterSizeMax));
+        assertTrue(quarter2size > expectedQuarterSizeMin && quarter2size < expectedQuarterSizeMax, format("quarter2size is %s, should be between %s and %s", quarter2size, expectedQuarterSizeMin, expectedQuarterSizeMax));
+        assertTrue(quarter3size > expectedQuarterSizeMin && quarter3size < expectedQuarterSizeMax, format("quarter3size is %s, should be between %s and %s", quarter3size, expectedQuarterSizeMin, expectedQuarterSizeMax));
+        assertTrue(quarter4size > expectedQuarterSizeMin && quarter4size < expectedQuarterSizeMax, format("quarter4size is %s, should be between %s and %s", quarter4size, expectedQuarterSizeMin, expectedQuarterSizeMax));
+        assertEquals(quarter1size + quarter2size + quarter3size + quarter4size, sizeInBytes);
     }
 
     private void assertVariableWithValues(Slice[] expectedValues)
