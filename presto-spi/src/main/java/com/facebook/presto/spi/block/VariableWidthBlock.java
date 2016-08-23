@@ -71,7 +71,7 @@ public class VariableWidthBlock
         }
         this.valueIsNull = valueIsNull;
 
-        sizeInBytes = intSaturatedCast(slice.length() + ((Integer.BYTES + Byte.BYTES) * (long) positionCount));
+        sizeInBytes = intSaturatedCast(offsets[arrayOffset + positionCount] - offsets[arrayOffset] + ((Integer.BYTES + Byte.BYTES) * (long) positionCount));
         retainedSizeInBytes = intSaturatedCast(INSTANCE_SIZE + slice.getRetainedSize() + sizeOf(valueIsNull) + sizeOf(offsets));
     }
 
