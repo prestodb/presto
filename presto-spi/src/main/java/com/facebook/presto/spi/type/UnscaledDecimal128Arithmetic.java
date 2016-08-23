@@ -65,6 +65,7 @@ public final class UnscaledDecimal128Arithmetic
      * 10^9 fits in 2^31.
      */
     private static final int MAX_POWER_OF_TEN_INT = 9;
+    private static final int MAX_POWER_OF_TEN_INT_VALUE = (int) Math.pow(10, 9);
     /**
      * 10^18 fits in 2^63.
      */
@@ -541,19 +542,18 @@ public final class UnscaledDecimal128Arithmetic
             return "0";
         }
 
-        int divisor = POWERS_OF_TEN_INT[MAX_POWER_OF_TEN_INT];
         String[] digitGroup = new String[MAX_PRECISION / MAX_POWER_OF_TEN_INT + 1];
         int numGroups = 0;
         boolean negative = isNegative(decimal);
 
         // convert decimal to strings one digit group at a time
         do {
-            int remainder = divide(decimal, divisor, decimal);
+            int remainder = divide(decimal, MAX_POWER_OF_TEN_INT_VALUE, decimal);
             digitGroup[numGroups++] = Integer.toString(remainder, 10);
         }
         while (!isZero(decimal));
 
-        StringBuilder buf = new StringBuilder(MAX_PRECISION);
+        StringBuilder buf = new StringBuilder(MAX_PRECISION + 1);
         if (negative) {
             buf.append('-');
         }

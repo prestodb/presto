@@ -254,8 +254,8 @@ public class TestUnscaledDecimal128Arithmetic
         assertEquals(toStringDestructive(negateConstructive(unscaledDecimal(0))), "0");
         assertEquals(toStringDestructive(unscaledDecimal(1)), "1");
         assertEquals(toStringDestructive(unscaledDecimal(-1)), "-1");
-        assertEquals(toStringDestructive(MAX_DECIMAL), MAX_DECIMAL_UNSCALED_VALUE.toString());
-        assertEquals(toStringDestructive(MIN_DECIMAL), MIN_DECIMAL_UNSCALED_VALUE.toString());
+        assertEquals(toStringDestructive(unscaledDecimal(MAX_DECIMAL)), MAX_DECIMAL_UNSCALED_VALUE.toString());
+        assertEquals(toStringDestructive(unscaledDecimal(MIN_DECIMAL)), MIN_DECIMAL_UNSCALED_VALUE.toString());
         assertEquals(toStringDestructive(unscaledDecimal("1000000000000000000000000000000000000")), "1000000000000000000000000000000000000");
         assertEquals(toStringDestructive(unscaledDecimal("-1000000000002000000000000300000000000")), "-1000000000002000000000000300000000000");
     }
