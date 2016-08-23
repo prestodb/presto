@@ -178,13 +178,6 @@ public final class OperatorAssertion
         }
     }
 
-    public static void assertOperatorEquals(Operator operator, MaterializedResult expected)
-    {
-        List<Page> pages = toPages(operator);
-        MaterializedResult actual = toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), pages);
-        assertEquals(actual, expected);
-    }
-
     public static void assertOperatorEquals(Operator operator, List<Page> input, MaterializedResult expected)
     {
         assertOperatorEquals(operator, input, expected, false, ImmutableList.<Integer>of());
