@@ -90,8 +90,6 @@ public class TestHashPartitionMaskOperator
         int[] rowPartition = new int[ROW_COUNT];
         Arrays.fill(rowPartition, -1);
         for (int partition = 0; partition < PARTITION_COUNT; partition++) {
-            Operator operator = operatorFactory.createOperator(createDriverContext());
-
             MaterializedResult.Builder expected = resultBuilder(TEST_SESSION, BIGINT, BOOLEAN);
             for (int i = 0; i < ROW_COUNT; i++) {
                 long rawHash = BigintOperators.hashCode(i);
@@ -108,7 +106,7 @@ public class TestHashPartitionMaskOperator
                 }
             }
 
-            OperatorAssertion.assertOperatorEqualsIgnoreOrder(operator, input, expected.build(), hashEnabled, Optional.of(1));
+            OperatorAssertion.assertOperatorEqualsIgnoreOrder(operatorFactory, createDriverContext(), input, expected.build(), hashEnabled, Optional.of(1));
         }
         assertTrue(IntStream.of(rowPartition).noneMatch(partition -> partition == -1));
     }
@@ -134,8 +132,6 @@ public class TestHashPartitionMaskOperator
         int[] rowPartition = new int[ROW_COUNT];
         Arrays.fill(rowPartition, -1);
         for (int partition = 0; partition < PARTITION_COUNT; partition++) {
-            Operator operator = operatorFactory.createOperator(createDriverContext());
-
             MaterializedResult.Builder expected = resultBuilder(TEST_SESSION, BIGINT, BOOLEAN, BOOLEAN, BOOLEAN);
             for (int i = 0; i < ROW_COUNT; i++) {
                 long rawHash = BigintOperators.hashCode(i);
@@ -153,7 +149,7 @@ public class TestHashPartitionMaskOperator
                 }
             }
 
-            OperatorAssertion.assertOperatorEqualsIgnoreOrder(operator, input, expected.build(), hashEnabled, Optional.of(3));
+            OperatorAssertion.assertOperatorEqualsIgnoreOrder(operatorFactory, createDriverContext(), input, expected.build(), hashEnabled, Optional.of(3));
         }
         assertTrue(IntStream.of(rowPartition).noneMatch(partition -> partition == -1));
     }

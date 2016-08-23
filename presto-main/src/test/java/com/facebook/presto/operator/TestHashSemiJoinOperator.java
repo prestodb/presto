@@ -106,7 +106,6 @@ public class TestHashSemiJoinOperator
                 setBuilderOperatorFactory.getSetProvider(),
                 rowPagesBuilderProbe.getTypes(),
                 0);
-        Operator joinOperator = joinOperatorFactory.createOperator(driverContext);
 
         // expected
         MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
@@ -122,7 +121,7 @@ public class TestHashSemiJoinOperator
                 .row(39L, 9L, false)
                 .build();
 
-        OperatorAssertion.assertOperatorEquals(joinOperator, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
+        OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
     }
 
     @Test(dataProvider = "hashEnabledValues")
@@ -163,7 +162,6 @@ public class TestHashSemiJoinOperator
                 setBuilderOperatorFactory.getSetProvider(),
                 rowPagesBuilderProbe.getTypes(),
                 0);
-        Operator joinOperator = joinOperatorFactory.createOperator(driverContext);
 
         // expected
         MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
@@ -173,7 +171,7 @@ public class TestHashSemiJoinOperator
                 .row(4L, null)
                 .build();
 
-        OperatorAssertion.assertOperatorEquals(joinOperator, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
+        OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
     }
 
     @Test(dataProvider = "hashEnabledValues")
@@ -214,7 +212,6 @@ public class TestHashSemiJoinOperator
                 setBuilderOperatorFactory.getSetProvider(),
                 rowPagesBuilderProbe.getTypes(),
                 0);
-        Operator joinOperator = joinOperatorFactory.createOperator(driverContext);
 
         // expected
         MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
@@ -224,7 +221,7 @@ public class TestHashSemiJoinOperator
                 .row(2L, false)
                 .build();
 
-        OperatorAssertion.assertOperatorEquals(joinOperator, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
+        OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
     }
 
     @Test(dataProvider = "hashEnabledValues")
@@ -266,7 +263,6 @@ public class TestHashSemiJoinOperator
                 setBuilderOperatorFactory.getSetProvider(),
                 rowPagesBuilderProbe.getTypes(),
                 0);
-        Operator joinOperator = joinOperatorFactory.createOperator(driverContext);
 
         // expected
         MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
@@ -276,7 +272,7 @@ public class TestHashSemiJoinOperator
                 .row(2L, null)
                 .build();
 
-        OperatorAssertion.assertOperatorEquals(joinOperator, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
+        OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
     }
 
     @Test(dataProvider = "hashEnabledValues", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of.*")

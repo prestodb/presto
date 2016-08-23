@@ -63,14 +63,13 @@ public class TestLimitOperator
                 .build();
 
         OperatorFactory operatorFactory = new LimitOperatorFactory(0, new PlanNodeId("test"), ImmutableList.of(BIGINT), 5);
-        Operator operator = operatorFactory.createOperator(driverContext);
 
         List<Page> expected = rowPagesBuilder(BIGINT)
                 .addSequencePage(3, 1)
                 .addSequencePage(2, 4)
                 .build();
 
-        OperatorAssertion.assertOperatorEquals(operator, input, expected);
+        OperatorAssertion.assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
     @Test
@@ -84,7 +83,6 @@ public class TestLimitOperator
                 .build();
 
         OperatorFactory operatorFactory = new LimitOperatorFactory(0, new PlanNodeId("test"), ImmutableList.of(BIGINT), 6);
-        Operator operator = operatorFactory.createOperator(driverContext);
 
         List<Page> expected = rowPagesBuilder(BIGINT)
                 .addSequencePage(3, 1)
@@ -92,6 +90,6 @@ public class TestLimitOperator
                 .addSequencePage(1, 6)
                 .build();
 
-        OperatorAssertion.assertOperatorEquals(operator, input, expected);
+        OperatorAssertion.assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 }

@@ -106,12 +106,11 @@ public class TestAggregationOperator
                         REAL_SUM.bind(ImmutableList.of(4), Optional.empty(), Optional.empty(), 1.0),
                         DOUBLE_SUM.bind(ImmutableList.of(5), Optional.empty(), Optional.empty(), 1.0),
                         maxVarcharColumn.bind(ImmutableList.of(6), Optional.empty(), Optional.empty(), 1.0)));
-        Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT, DOUBLE, VARCHAR)
                 .row(100L, 4950L, 49.5, "399", 100L, 54950L, 44950.0f, 54950.0, "599")
                 .build();
 
-        assertOperatorEquals(operator, input, expected);
+        assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 }

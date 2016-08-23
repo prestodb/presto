@@ -99,8 +99,6 @@ public class TestFilterAndProjectOperator
                 () -> new GenericPageProcessor(filter, ImmutableList.of(singleColumn(VARCHAR, 0), new Add5Projection(1))),
                 ImmutableList.<Type>of(VARCHAR, BIGINT));
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-
         MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
                 .row("10", 15L)
                 .row("11", 16L)
@@ -114,7 +112,7 @@ public class TestFilterAndProjectOperator
                 .row("19", 24L)
                 .build();
 
-        assertOperatorEquals(operator, input, expected);
+        assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
     private static class Add5Projection

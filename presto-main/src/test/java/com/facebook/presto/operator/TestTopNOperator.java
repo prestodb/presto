@@ -79,7 +79,7 @@ public class TestTopNOperator
                 .pageBreak()
                 .build();
 
-        TopNOperatorFactory factory = new TopNOperatorFactory(
+        TopNOperatorFactory operatorFactory = new TopNOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 ImmutableList.of(BIGINT, DOUBLE),
@@ -88,14 +88,12 @@ public class TestTopNOperator
                 ImmutableList.of(DESC_NULLS_LAST),
                 false);
 
-        Operator operator = factory.createOperator(driverContext);
-
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, DOUBLE)
                 .row(6L, 0.6)
                 .row(5L, 0.5)
                 .build();
 
-        assertOperatorEquals(operator, input, expected);
+        assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
     @Test
@@ -123,15 +121,13 @@ public class TestTopNOperator
                 ImmutableList.of(DESC_NULLS_LAST, DESC_NULLS_LAST),
                 false);
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-
         MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
                 .row("f", 3L)
                 .row("e", 6L)
                 .row("d", 7L)
                 .build();
 
-        assertOperatorEquals(operator, input, expected);
+        assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
     @Test
@@ -160,14 +156,12 @@ public class TestTopNOperator
                 ImmutableList.of(ASC_NULLS_LAST),
                 false);
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, DOUBLE)
                 .row(-1L, -0.1)
                 .row(1L, 0.1)
                 .build();
 
-        assertOperatorEquals(operator, input, expected);
+        assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
     @Test
@@ -185,18 +179,18 @@ public class TestTopNOperator
                 ImmutableList.of(DESC_NULLS_LAST),
                 false);
 
-        Operator operator = factory.createOperator(driverContext);
+        try (Operator operator = factory.createOperator(driverContext)) {
+            MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT).build();
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT).build();
+            // assertOperatorEquals assumes operators do not start in finished state
+            assertEquals(operator.isFinished(), true);
+            assertEquals(operator.needsInput(), false);
+            assertEquals(operator.getOutput(), null);
 
-        // assertOperatorEquals assumes operators do not start in finished state
-        assertEquals(operator.isFinished(), true);
-        assertEquals(operator.needsInput(), false);
-        assertEquals(operator.getOutput(), null);
-
-        List<Page> pages = OperatorAssertion.toPages(operator, input.iterator());
-        MaterializedResult actual = OperatorAssertion.toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), pages);
-        assertEquals(actual, expected);
+            List<Page> pages = OperatorAssertion.toPages(operator, input.iterator());
+            MaterializedResult actual = OperatorAssertion.toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), pages);
+            assertEquals(actual, expected);
+        }
     }
 
     @Test
@@ -213,7 +207,7 @@ public class TestTopNOperator
                 .addPipelineContext(true, true)
                 .addDriverContext();
 
-        TopNOperatorFactory factory = new TopNOperatorFactory(
+        TopNOperatorFactory operatorFactory = new TopNOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 ImmutableList.of(BIGINT),
@@ -222,13 +216,11 @@ public class TestTopNOperator
                 ImmutableList.of(ASC_NULLS_LAST),
                 true);
 
-        Operator operator = factory.createOperator(smallDiverContext);
-
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
                 .row(1L)
                 .row(2L)
                 .build();
 
-        assertOperatorEquals(operator, input, expected);
+        assertOperatorEquals(operatorFactory, smallDiverContext, input, expected);
     }
 }
