@@ -242,6 +242,34 @@ public class BenchmarkDecimalOperators
         return execute(state);
     }
 
+    @State(Thread)
+    public static class DecimalToDoubleCastBenchmarkState
+            extends BaseState
+    {
+        @Param({"cast(l_38_30 as double)",
+                "cast(l_38_2 as double)",
+                "cast(s_17_9 as double)"})
+        private String expression;
+
+        @Setup
+        public void setup()
+        {
+            addSymbol("l_38_30", createDecimalType(38, 30));
+            addSymbol("l_38_2", createDecimalType(38, 2));
+            addSymbol("s_17_9", createDecimalType(17, 9));
+
+            generateInputPage(10000, 10000, 10000);
+            generateProcessor(expression);
+            generateResultPageBuilder(expression);
+        }
+    }
+
+    @Benchmark
+    public List<Page> decimalToDoubleCastBenchmark(DecimalToDoubleCastBenchmarkState state)
+    {
+        return execute(state);
+    }
+
     private List<Page> execute(BaseState state)
     {
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
