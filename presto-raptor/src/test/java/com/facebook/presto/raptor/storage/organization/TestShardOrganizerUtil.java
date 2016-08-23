@@ -116,7 +116,7 @@ public class TestShardOrganizerUtil
                 .property("temporal_column", "orderdate")
                 .build());
         Table tableInfo = metadataDao.getTableInformation(tableName.getSchemaName(), tableName.getTableName());
-        List<TableColumn> tableColumns = metadataDao.getTableColumns(tableInfo.getTableId());
+        List<TableColumn> tableColumns = metadataDao.listTableColumns(tableInfo.getTableId());
         Map<String, TableColumn> tableColumnMap = Maps.uniqueIndex(tableColumns, TableColumn::getColumnName);
 
         long orderDate = tableColumnMap.get("orderdate").getColumnId();

@@ -43,8 +43,7 @@ public interface MetadataDao
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName);
 
-    @SqlQuery("SELECT t.schema_name, t.table_name,\n" +
-            "  c.column_id, c.column_name, c.ordinal_position, c.data_type\n" +
+    @SqlQuery("SELECT t.schema_name, t.table_name, c.column_id, c.column_name, c.data_type\n" +
             "FROM tables t\n" +
             "JOIN columns c ON (t.table_id = c.table_id)\n" +
             "WHERE t.table_id = :tableId\n" +
@@ -53,14 +52,6 @@ public interface MetadataDao
     TableColumn getTableColumn(
             @Bind("tableId") long tableId,
             @Bind("columnId") long columnId);
-
-    @SqlQuery("SELECT t.schema_name, t.table_name,\n" +
-            "  c.column_id, c.column_name, c.ordinal_position, c.data_type\n" +
-            "FROM tables t\n" +
-            "JOIN columns c ON (t.table_id = c.table_id)\n" +
-            "WHERE t.table_id = :tableId\n" +
-            "ORDER BY c.ordinal_position")
-    List<TableColumn> getTableColumns(@Bind("tableId") long tableId);
 
     @SqlQuery("SELECT schema_name, table_name\n" +
             "FROM tables\n" +
@@ -89,8 +80,7 @@ public interface MetadataDao
             "ORDER BY c.ordinal_position")
     List<TableColumn> listTableColumns(@Bind("tableId") long tableId);
 
-    @SqlQuery("SELECT t.schema_name, t.table_name,\n" +
-            "  c.column_id, c.column_name, c.ordinal_position, c.data_type\n" +
+    @SqlQuery("SELECT t.schema_name, t.table_name, c.column_id, c.column_name, c.data_type\n" +
             "FROM tables t\n" +
             "JOIN columns c ON (t.table_id = c.table_id)\n" +
             "WHERE t.table_id = :tableId\n" +
