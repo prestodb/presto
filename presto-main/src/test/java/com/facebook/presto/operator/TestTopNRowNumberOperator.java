@@ -103,8 +103,6 @@ public class TestTopNRowNumberOperator
                 Optional.empty(),
                 10);
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-
         MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
                 .row(0.3, 1L, 1L)
                 .row(0.4, 1L, 2L)
@@ -116,7 +114,7 @@ public class TestTopNRowNumberOperator
                 .row(0.91, 3L, 2L)
                 .build();
 
-        assertOperatorEquals(operator, input, expected);
+        assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
     @Test
@@ -153,14 +151,12 @@ public class TestTopNRowNumberOperator
                 Optional.empty(),
                 10);
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-
         MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
                 .row(0.1, 3L, 1L)
                 .row(0.2, 2L, 2L)
                 .row(0.3, 1L, 3L)
                 .build();
 
-        assertOperatorEquals(operator, input, expected);
+        assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 }

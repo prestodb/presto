@@ -178,9 +178,35 @@ public final class OperatorAssertion
         }
     }
 
-    public static void assertOperatorEquals(Operator operator, List<Page> input, MaterializedResult expected)
+    public static void assertOperatorEquals(OperatorFactory operatorFactory, TaskContext taskContext, List<Page> input, MaterializedResult expected)
+            throws Exception
     {
-        assertOperatorEquals(operator, input, expected, false, ImmutableList.<Integer>of());
+        assertOperatorEquals(operatorFactory, taskContext.addPipelineContext(true, true).addDriverContext(), input, expected, false, ImmutableList.<Integer>of());
+    }
+
+    public static void assertOperatorEquals(OperatorFactory operatorFactory, DriverContext driverContext, List<Page> input, MaterializedResult expected)
+            throws Exception
+    {
+        assertOperatorEquals(operatorFactory, driverContext, input, expected, false, ImmutableList.<Integer>of());
+    }
+
+    public static void assertOperatorEquals(OperatorFactory operatorFactory, DriverContext driverContext, List<Page> input, MaterializedResult expected, boolean hashEnabled, List<Integer> hashChannels)
+            throws Exception
+    {
+        try (Operator operator = operatorFactory.createOperator(driverContext)) {
+            List<Page> pages = toPages(operator, input);
+            MaterializedResult actual;
+            if (hashEnabled && !hashChannels.isEmpty()) {
+                // Drop the hashChannel for all pages
+                List<Page> actualPages = dropChannel(pages, hashChannels);
+                List<Type> expectedTypes = without(operator.getTypes(), hashChannels);
+                actual = toMaterializedResult(operator.getOperatorContext().getSession(), expectedTypes, actualPages);
+            }
+            else {
+                actual = toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), pages);
+            }
+            assertEquals(actual, expected);
+        }
     }
 
     public static void assertOperatorEquals(Operator operator, List<Page> input, MaterializedResult expected, boolean hashEnabled, List<Integer> hashChannels)
