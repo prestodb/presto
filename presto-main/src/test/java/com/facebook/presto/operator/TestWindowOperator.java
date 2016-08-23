@@ -455,8 +455,6 @@ public class TestWindowOperator
                 ImmutableList.of(SortOrder.ASC_NULLS_LAST),
                 0);
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, VARCHAR, BIGINT, VARCHAR, BIGINT)
                 .row(1L, "a", 100L, "A", 1L)
                 .row(2L, "a", 101L, "B", 1L)
@@ -466,7 +464,7 @@ public class TestWindowOperator
                 .row(1L, "c", 105L, "F", 1L)
                 .build();
 
-        assertOperatorEqualsIgnoreOrder(operator, input, expected);
+        assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, expected);
     }
 
     @Test
@@ -497,8 +495,6 @@ public class TestWindowOperator
                 ImmutableList.of(SortOrder.ASC_NULLS_LAST),
                 0);
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, VARCHAR, BIGINT, VARCHAR, BIGINT)
                 .row(1L, "a", 100L, "A", 1L)
                 .row(2L, "a", 101L, "B", 1L)
@@ -509,7 +505,7 @@ public class TestWindowOperator
                 .row(3L, "c", 106L, "G", 1L)
                 .build();
 
-        assertOperatorEqualsIgnoreOrder(operator, input, expected);
+        assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, expected);
     }
 
     @Test
@@ -541,8 +537,6 @@ public class TestWindowOperator
                 ImmutableList.of(SortOrder.ASC_NULLS_LAST, SortOrder.ASC_NULLS_LAST),
                 1);
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, VARCHAR, BIGINT, VARCHAR, BIGINT)
                 .row(1L, "a", 100L, "A", 1L)
                 .row(2L, "a", 100L, "A", 1L)
@@ -554,7 +548,7 @@ public class TestWindowOperator
                 .row(3L, "c", 100L, "A", 1L)
                 .build();
 
-        assertOperatorEqualsIgnoreOrder(operator, input, expected);
+        assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, expected);
     }
 
     @Test

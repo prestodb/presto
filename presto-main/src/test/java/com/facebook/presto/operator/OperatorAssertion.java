@@ -215,28 +215,6 @@ public final class OperatorAssertion
         }
     }
 
-    public static void assertOperatorEqualsIgnoreOrder(Operator operator, List<Page> input, MaterializedResult expected)
-    {
-        assertOperatorEqualsIgnoreOrder(operator, input, expected, false, Optional.empty());
-    }
-
-    public static void assertOperatorEqualsIgnoreOrder(Operator operator, List<Page> input, MaterializedResult expected, boolean hashEnabled, Optional<Integer> hashChannel)
-    {
-        List<Page> pages = toPages(operator, input);
-        MaterializedResult actual;
-        if (hashEnabled && hashChannel.isPresent()) {
-            // Drop the hashChannel for all pages
-            List<Page> actualPages = dropChannel(pages, ImmutableList.of(hashChannel.get()));
-            List<Type> expectedTypes = without(operator.getTypes(), ImmutableList.of(hashChannel.get()));
-            actual = toMaterializedResult(operator.getOperatorContext().getSession(), expectedTypes, actualPages);
-        }
-        else {
-            actual = toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), pages);
-        }
-
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
-    }
-
     public static void assertOperatorEqualsIgnoreOrder(
             OperatorFactory operatorFactory,
             DriverContext driverContext,
