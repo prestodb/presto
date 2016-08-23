@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -91,14 +92,7 @@ public class InMemoryHashAggregationBuilder
     @Override
     public boolean checkFullAndUpdateMemory()
     {
-        long memorySize = groupByHash.getEstimatedSize();
-        for (Aggregator aggregator : aggregators) {
-            memorySize += aggregator.getEstimatedSize();
-        }
-        memorySize -= operatorContext.getOperatorPreAllocatedMemory().toBytes();
-        if (memorySize < 0) {
-            memorySize = 0;
-        }
+        long memorySize = getSizeInMemory();
         if (partial) {
             return !operatorContext.trySetMemoryReservation(memorySize);
         }
@@ -108,30 +102,48 @@ public class InMemoryHashAggregationBuilder
         }
     }
 
+    public long getSizeInMemory()
+    {
+        long sizeInMemory = groupByHash.getEstimatedSize();
+        for (Aggregator aggregator : aggregators) {
+            sizeInMemory += aggregator.getEstimatedSize();
+        }
+        sizeInMemory -= operatorContext.getOperatorPreAllocatedMemory().toBytes();
+        if (sizeInMemory < 0) {
+            sizeInMemory = 0;
+        }
+        return sizeInMemory;
+    }
+
+    public long getGroupCount()
+    {
+        return groupByHash.getGroupCount();
+    }
+
+    @Override
     public Iterator<Page> buildResult()
     {
-        List<Type> types = new ArrayList<>(groupByHash.getTypes());
-        for (Aggregator aggregator : aggregators) {
-            types.add(aggregator.getType());
-        }
+        return buildResult(consecutiveGroupIds());
+    }
 
-        final PageBuilder pageBuilder = new PageBuilder(types);
+    private Iterator<Page> buildResult(Iterator<Integer> groupIds)
+    {
+        final PageBuilder pageBuilder = new PageBuilder(buildTypes());
         return new AbstractIterator<Page>()
         {
-            private final int groupCount = groupByHash.getGroupCount();
-            private int groupId;
-
             @Override
             protected Page computeNext()
             {
-                if (groupId >= groupCount) {
+                if (!groupIds.hasNext()) {
                     return endOfData();
                 }
 
                 pageBuilder.reset();
 
                 List<Type> types = groupByHash.getTypes();
-                while (!pageBuilder.isFull() && groupId < groupCount) {
+                while (!pageBuilder.isFull() && groupIds.hasNext()) {
+                    int groupId = groupIds.next();
+
                     groupByHash.appendValuesTo(groupId, pageBuilder, 0);
 
                     pageBuilder.declarePosition();
@@ -140,13 +152,25 @@ public class InMemoryHashAggregationBuilder
                         BlockBuilder output = pageBuilder.getBlockBuilder(types.size() + i);
                         aggregator.evaluate(groupId, output);
                     }
-
-                    groupId++;
                 }
 
                 return pageBuilder.build();
             }
         };
+    }
+
+    private List<Type> buildTypes()
+    {
+        ArrayList<Type> types = new ArrayList<>(groupByHash.getTypes());
+        for (Aggregator aggregator : aggregators) {
+            types.add(aggregator.getType());
+        }
+        return types;
+    }
+
+    private Iterator<Integer> consecutiveGroupIds()
+    {
+        return IntStream.range(0, groupByHash.getGroupCount()).iterator();
     }
 
     private static class Aggregator
