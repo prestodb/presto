@@ -500,24 +500,12 @@ class QueryPlanner
             Window window = windowFunction.getWindow().get();
 
             // Extract frame
-            WindowFrame.Type frameType = WindowFrame.Type.RANGE;
-            FrameBound.Type frameStartType = FrameBound.Type.UNBOUNDED_PRECEDING;
-            FrameBound.Type frameEndType = FrameBound.Type.CURRENT_ROW;
-            Expression frameStart = null;
-            Expression frameEnd = null;
-
-            if (window.getFrame().isPresent()) {
-                WindowFrame frame = window.getFrame().get();
-                frameType = frame.getType();
-
-                frameStartType = frame.getStart().getType();
-                frameStart = frame.getStart().getValue().orElse(null);
-
-                if (frame.getEnd().isPresent()) {
-                    frameEndType = frame.getEnd().get().getType();
-                    frameEnd = frame.getEnd().get().getValue().orElse(null);
-                }
-            }
+            WindowFrame frame = window.getFrame();
+            WindowFrame.Type frameType = frame.getType();
+            FrameBound.Type frameStartType = frame.getStart().getType();
+            Expression frameStart = frame.getStart().getValue().orElse(null);
+            FrameBound.Type frameEndType = frame.getEnd().getType();
+            Expression frameEnd = frame.getEnd().getValue().orElse(null);
 
             // Pre-project inputs
             ImmutableList.Builder<Expression> inputs = ImmutableList.<Expression>builder()
@@ -557,7 +545,7 @@ class QueryPlanner
                 frameEndSymbol = Optional.of(subPlan.translate(frameEnd));
             }
 
-            WindowNode.Frame frame = new WindowNode.Frame(frameType,
+            WindowNode.Frame rewrittenFrame = new WindowNode.Frame(frameType,
                     frameStartType, frameStartSymbol,
                     frameEndType, frameEndSymbol);
 
@@ -593,7 +581,7 @@ class QueryPlanner
                                     partitionBySymbols.build(),
                                     orderBySymbols.build(),
                                     orderings,
-                                    frame),
+                                    rewrittenFrame),
                             assignments.build(),
                             signatures,
                             Optional.empty(),

@@ -29,24 +29,33 @@ public class WindowFrame
 
     private final Type type;
     private final FrameBound start;
-    private final Optional<FrameBound> end;
+    private final FrameBound end;
 
-    public WindowFrame(Type type, FrameBound start, Optional<FrameBound> end)
+    public WindowFrame(Type type, FrameBound start, FrameBound end)
     {
         this(Optional.empty(), type, start, end);
     }
 
-    public WindowFrame(NodeLocation location, Type type, FrameBound start, Optional<FrameBound> end)
+    public WindowFrame(NodeLocation location, Type type, FrameBound start, FrameBound end)
     {
         this(Optional.of(location), type, start, end);
     }
 
-    private WindowFrame(Optional<NodeLocation> location, Type type, FrameBound start, Optional<FrameBound> end)
+    private WindowFrame(Optional<NodeLocation> location, Type type, FrameBound start, FrameBound end)
     {
         super(location);
         this.type = requireNonNull(type, "type is null");
         this.start = requireNonNull(start, "start is null");
         this.end = requireNonNull(end, "end is null");
+    }
+
+    public static WindowFrame defaultFrame(NodeLocation nodeLocation)
+    {
+        return new WindowFrame(
+                nodeLocation,
+                Type.RANGE,
+                new FrameBound(nodeLocation, FrameBound.Type.UNBOUNDED_PRECEDING),
+                new FrameBound(nodeLocation, FrameBound.Type.CURRENT_ROW));
     }
 
     public Type getType()
@@ -59,7 +68,7 @@ public class WindowFrame
         return start;
     }
 
-    public Optional<FrameBound> getEnd()
+    public FrameBound getEnd()
     {
         return end;
     }

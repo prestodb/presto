@@ -320,9 +320,7 @@ class AggregationAnalyzer
                 }
             }
 
-            if (node.getFrame().isPresent()) {
-                process(node.getFrame().get(), context);
-            }
+            process(node.getFrame(), context);
 
             return true;
         }
@@ -336,8 +334,8 @@ class AggregationAnalyzer
                     throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, start.get(), "Window frame start must be an aggregate expression or appear in GROUP BY clause");
                 }
             }
-            if (node.getEnd().isPresent() && node.getEnd().get().getValue().isPresent()) {
-                Expression endValue = node.getEnd().get().getValue().get();
+            if (node.getEnd().getValue().isPresent()) {
+                Expression endValue = node.getEnd().getValue().get();
                 if (!process(endValue, context)) {
                     throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, endValue, "Window frame end must be an aggregate expression or appear in GROUP BY clause");
                 }

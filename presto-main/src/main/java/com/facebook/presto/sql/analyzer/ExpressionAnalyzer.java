@@ -710,21 +710,19 @@ public class ExpressionAnalyzer
                     }
                 }
 
-                if (node.getWindow().get().getFrame().isPresent()) {
-                    WindowFrame frame = node.getWindow().get().getFrame().get();
+                WindowFrame frame = node.getWindow().get().getFrame();
 
-                    if (frame.getStart().getValue().isPresent()) {
-                        Type type = process(frame.getStart().getValue().get(), context);
-                        if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
-                            throw new SemanticException(TYPE_MISMATCH, node, "Window frame start value type must be INTEGER or BIGINT(actual %s)", type);
-                        }
+                if (frame.getStart().getValue().isPresent()) {
+                    Type type = process(frame.getStart().getValue().get(), context);
+                    if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
+                        throw new SemanticException(TYPE_MISMATCH, node, "Window frame start value type must be INTEGER or BIGINT(actual %s)", type);
                     }
+                }
 
-                    if (frame.getEnd().isPresent() && frame.getEnd().get().getValue().isPresent()) {
-                        Type type = process(frame.getEnd().get().getValue().get(), context);
-                        if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
-                            throw new SemanticException(TYPE_MISMATCH, node, "Window frame end value type must be INTEGER or BIGINT (actual %s)", type);
-                        }
+                if (frame.getEnd().getValue().isPresent()) {
+                    Type type = process(frame.getEnd().getValue().get(), context);
+                    if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
+                        throw new SemanticException(TYPE_MISMATCH, node, "Window frame end value type must be INTEGER or BIGINT (actual %s)", type);
                     }
                 }
             }

@@ -25,19 +25,19 @@ public class Window
 {
     private final List<Expression> partitionBy;
     private final List<SortItem> orderBy;
-    private final Optional<WindowFrame> frame;
+    private final WindowFrame frame;
 
-    public Window(List<Expression> partitionBy, List<SortItem> orderBy, Optional<WindowFrame> frame)
+    public Window(List<Expression> partitionBy, List<SortItem> orderBy, WindowFrame frame)
     {
         this(Optional.empty(), partitionBy, orderBy, frame);
     }
 
-    public Window(NodeLocation location, List<Expression> partitionBy, List<SortItem> orderBy, Optional<WindowFrame> frame)
+    public Window(NodeLocation location, List<Expression> partitionBy, List<SortItem> orderBy, WindowFrame frame)
     {
         this(Optional.of(location), partitionBy, orderBy, frame);
     }
 
-    private Window(Optional<NodeLocation> location, List<Expression> partitionBy, List<SortItem> orderBy, Optional<WindowFrame> frame)
+    private Window(Optional<NodeLocation> location, List<Expression> partitionBy, List<SortItem> orderBy, WindowFrame frame)
     {
         super(location);
         this.partitionBy = requireNonNull(partitionBy, "partitionBy is null");
@@ -55,7 +55,7 @@ public class Window
         return orderBy;
     }
 
-    public Optional<WindowFrame> getFrame()
+    public WindowFrame getFrame()
     {
         return frame;
     }

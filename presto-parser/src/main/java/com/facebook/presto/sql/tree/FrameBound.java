@@ -17,6 +17,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class FrameBound
@@ -62,8 +63,14 @@ public class FrameBound
     private FrameBound(Optional<NodeLocation> location, Type type, Expression value)
     {
         super(location);
+        checkState(!(type == Type.CURRENT_ROW || type == Type.UNBOUNDED_PRECEDING || type == Type.UNBOUNDED_FOLLOWING) || value == null);
         this.type = requireNonNull(type, "type is null");
         this.value = Optional.ofNullable(value);
+    }
+
+    public static FrameBound defaultEnd(NodeLocation location)
+    {
+        return new FrameBound(Optional.of(location), Type.CURRENT_ROW);
     }
 
     public Type getType()

@@ -997,9 +997,7 @@ class StatementAnalyzer
                 nestedExtractor.process(sortItem.getSortKey(), null);
             }
 
-            if (window.getFrame().isPresent()) {
-                nestedExtractor.process(window.getFrame().get(), null);
-            }
+            nestedExtractor.process(window.getFrame(), null);
 
             if (!nestedExtractor.getWindowFunctions().isEmpty()) {
                 throw new SemanticException(NESTED_WINDOW, node, "Cannot nest window functions inside window function '%s': %s",
@@ -1011,9 +1009,7 @@ class StatementAnalyzer
                 throw new SemanticException(NOT_SUPPORTED, node, "DISTINCT in window function parameters not yet supported: %s", windowFunction);
             }
 
-            if (window.getFrame().isPresent()) {
-                analyzeWindowFrame(window.getFrame().get());
-            }
+            analyzeWindowFrame(window.getFrame());
 
             List<TypeSignature> argumentTypes = Lists.transform(windowFunction.getArguments(), expression -> analysis.getType(expression).getTypeSignature());
 
@@ -1029,7 +1025,7 @@ class StatementAnalyzer
     private static void analyzeWindowFrame(WindowFrame frame)
     {
         FrameBound.Type startType = frame.getStart().getType();
-        FrameBound.Type endType = frame.getEnd().orElse(new FrameBound(CURRENT_ROW)).getType();
+        FrameBound.Type endType = frame.getEnd().getType();
 
         if (startType == UNBOUNDED_FOLLOWING) {
             throw new SemanticException(INVALID_WINDOW_FRAME, frame, "Window frame start cannot be UNBOUNDED FOLLOWING");

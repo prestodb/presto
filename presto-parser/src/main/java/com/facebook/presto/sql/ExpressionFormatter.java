@@ -531,9 +531,7 @@ public final class ExpressionFormatter
             if (!node.getOrderBy().isEmpty()) {
                 parts.add("ORDER BY " + formatSortItems(node.getOrderBy(), unmangleNames));
             }
-            if (node.getFrame().isPresent()) {
-                parts.add(process(node.getFrame().get(), unmangleNames));
-            }
+            parts.add(process(node.getFrame(), unmangleNames));
 
             return '(' + Joiner.on(' ').join(parts) + ')';
         }
@@ -545,15 +543,10 @@ public final class ExpressionFormatter
 
             builder.append(node.getType().toString()).append(' ');
 
-            if (node.getEnd().isPresent()) {
-                builder.append("BETWEEN ")
-                        .append(process(node.getStart(), unmangleNames))
-                        .append(" AND ")
-                        .append(process(node.getEnd().get(), unmangleNames));
-            }
-            else {
-                builder.append(process(node.getStart(), unmangleNames));
-            }
+            builder.append("BETWEEN ")
+                    .append(process(node.getStart(), unmangleNames))
+                    .append(" AND ")
+                    .append(process(node.getEnd(), unmangleNames));
 
             return builder.toString();
         }
