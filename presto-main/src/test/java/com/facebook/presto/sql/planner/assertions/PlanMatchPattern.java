@@ -17,9 +17,13 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -71,17 +75,17 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern tableScan(String expectedTableName)
     {
-        return any().with(new TableScanMatcher(expectedTableName));
+        return node(TableScanNode.class).with(new TableScanMatcher(expectedTableName));
     }
 
     public static PlanMatchPattern tableScan(String expectedTableName, Map<String, Domain> constraint)
     {
-        return any().with(new TableScanMatcher(expectedTableName, constraint));
+        return node(TableScanNode.class).with(new TableScanMatcher(expectedTableName, constraint));
     }
 
     public static PlanMatchPattern window(List<FunctionCall> functionCalls, PlanMatchPattern... sources)
     {
-        return any(sources).with(new WindowMatcher(functionCalls));
+        return node(WindowNode.class, sources).with(new WindowMatcher(functionCalls));
     }
 
     public static PlanMatchPattern project(PlanMatchPattern... sources)
@@ -91,12 +95,12 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern semiJoin(String sourceSymbolAlias, String filteringSymbolAlias, String outputAlias, PlanMatchPattern... sources)
     {
-        return any(sources).with(new SemiJoinMatcher(sourceSymbolAlias, filteringSymbolAlias, outputAlias));
+        return node(SemiJoinNode.class, sources).with(new SemiJoinMatcher(sourceSymbolAlias, filteringSymbolAlias, outputAlias));
     }
 
     public static PlanMatchPattern join(JoinNode.Type joinType, List<AliasPair> expectedEquiCriteria, PlanMatchPattern... sources)
     {
-        return any(sources).with(new JoinMatcher(joinType, expectedEquiCriteria));
+        return node(JoinNode.class, sources).with(new JoinMatcher(joinType, expectedEquiCriteria));
     }
 
     public static AliasPair aliasPair(String left, String right)
@@ -107,7 +111,7 @@ public final class PlanMatchPattern
     public static PlanMatchPattern filter(String predicate, PlanMatchPattern... sources)
     {
         Expression expectedPredicate = new SqlParser().createExpression(predicate);
-        return any(sources).with(new FilterMatcher(expectedPredicate));
+        return node(FilterNode.class, sources).with(new FilterMatcher(expectedPredicate));
     }
 
     public PlanMatchPattern(List<PlanMatchPattern> sourcePatterns)
