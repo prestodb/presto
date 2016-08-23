@@ -70,6 +70,11 @@ import static java.util.Objects.requireNonNull;
 
 public class LogicalPlanner
 {
+    public enum Stage
+    {
+        CREATED, OPTIMIZED, OPTIMIZED_AND_VALIDATED
+    }
+
     private final PlanNodeIdAllocator idAllocator;
 
     private final Session session;
@@ -99,20 +104,29 @@ public class LogicalPlanner
 
     public Plan plan(Analysis analysis)
     {
+        return plan(analysis, Stage.OPTIMIZED_AND_VALIDATED);
+    }
+
+    public Plan plan(Analysis analysis, Stage stage)
+    {
         PlanNode root = planStatement(analysis, analysis.getStatement());
 
-        for (PlanOptimizer optimizer : planOptimizers) {
-            root = optimizer.optimize(root, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator);
-            requireNonNull(root, format("%s returned a null plan", optimizer.getClass().getName()));
+        if (stage.ordinal() >= Stage.OPTIMIZED.ordinal()) {
+            for (PlanOptimizer optimizer : planOptimizers) {
+                root = optimizer.optimize(root, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator);
+                requireNonNull(root, format("%s returned a null plan", optimizer.getClass().getName()));
+            }
         }
 
-        // make sure we produce a valid plan after optimizations run. This is mainly to catch programming errors
-        PlanSanityChecker.validate(root, session, metadata, sqlParser, symbolAllocator.getTypes());
+        if (stage.ordinal() >= Stage.OPTIMIZED_AND_VALIDATED.ordinal()) {
+            // make sure we produce a valid plan after optimizations run. This is mainly to catch programming errors
+            PlanSanityChecker.validate(root, session, metadata, sqlParser, symbolAllocator.getTypes());
+        }
 
         return new Plan(root, symbolAllocator);
     }
 
-    private PlanNode planStatement(Analysis analysis, Statement statement)
+    public PlanNode planStatement(Analysis analysis, Statement statement)
     {
         if (statement instanceof CreateTableAsSelect) {
             checkState(analysis.getCreateTableDestination().isPresent(), "Table destination is missing");
