@@ -143,8 +143,6 @@ public class TestHashAggregationOperator
                 100_000,
                 new DataSize(16, MEGABYTE));
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-
         MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT)
                 .row("0", 3L, 0L, 0.0, "300", 3L, 3L)
                 .row("1", 3L, 3L, 1.0, "301", 3L, 3L)
@@ -158,7 +156,7 @@ public class TestHashAggregationOperator
                 .row("9", 3L, 27L, 9.0, "309", 3L, 3L)
                 .build();
 
-        assertOperatorEqualsIgnoreOrder(operator, input, expected, hashEnabled, Optional.of(hashChannels.size()));
+        assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, expected, hashEnabled, Optional.of(hashChannels.size()));
     }
 
     @Test(dataProvider = "hashEnabledValues")
@@ -197,14 +195,12 @@ public class TestHashAggregationOperator
                 100_000,
                 new DataSize(16, MEGABYTE));
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-
         MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT)
                 .row(null, 42L, 0L, null, null, null, 0L, 0L)
                 .row(null, 49L, 0L, null, null, null, 0L, 0L)
                 .build();
 
-        assertOperatorEqualsIgnoreOrder(operator, input, expected, hashEnabled, Optional.of(groupByChannels.size()));
+        assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, expected, hashEnabled, Optional.of(groupByChannels.size()));
     }
 
     @Test(dataProvider = "hashEnabledValues", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of 10B")
@@ -242,9 +238,7 @@ public class TestHashAggregationOperator
                 100_000,
                 new DataSize(16, MEGABYTE));
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-
-        toPages(operator, input);
+        toPages(operatorFactory, driverContext, input);
     }
 
     @Test(dataProvider = "hashEnabledValues")
@@ -279,9 +273,7 @@ public class TestHashAggregationOperator
                 100_000,
                 new DataSize(16, MEGABYTE));
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-
-        toPages(operator, input);
+        toPages(operatorFactory, driverContext, input);
     }
 
     @Test(dataProvider = "hashEnabledValues", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of 3MB")
@@ -316,9 +308,7 @@ public class TestHashAggregationOperator
                 100_000,
                 new DataSize(16, MEGABYTE));
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-
-        toPages(operator, input);
+        toPages(operatorFactory, driverContext, input);
     }
 
     @Test(dataProvider = "hashEnabledValues")
@@ -349,9 +339,7 @@ public class TestHashAggregationOperator
                 100_000,
                 new DataSize(16, MEGABYTE));
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-
-        assertEquals(toPages(operator, input).size(), 2);
+        assertEquals(toPages(operatorFactory, driverContext, input).size(), 2);
     }
 
     @Test(dataProvider = "hashEnabledValues")
@@ -383,53 +371,53 @@ public class TestHashAggregationOperator
         DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(1, Unit.KILOBYTE))
                 .addPipelineContext(true, true)
                 .addDriverContext();
-        Operator operator = operatorFactory.createOperator(driverContext);
+        try (Operator operator = operatorFactory.createOperator(driverContext)) {
+            List<Page> expectedPages = rowPagesBuilder(BIGINT, BIGINT)
+                    .addSequencePage(2000, 0, 0)
+                    .build();
+            MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT)
+                    .pages(expectedPages)
+                    .build();
 
-        List<Page> expectedPages = rowPagesBuilder(BIGINT, BIGINT)
-                .addSequencePage(2000, 0, 0)
-                .build();
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT)
-                .pages(expectedPages)
-                .build();
+            Iterator<Page> inputIterator = input.iterator();
 
-        Iterator<Page> inputIterator = input.iterator();
-
-        // Fill up the aggregation
-        while (operator.needsInput() && inputIterator.hasNext()) {
-            operator.addInput(inputIterator.next());
-        }
-
-        // Drain the output (partial flush)
-        List<Page> outputPages = new ArrayList<>();
-        while (true) {
-            Page output = operator.getOutput();
-            if (output == null) {
-                break;
+            // Fill up the aggregation
+            while (operator.needsInput() && inputIterator.hasNext()) {
+                operator.addInput(inputIterator.next());
             }
-            outputPages.add(output);
+
+            // Drain the output (partial flush)
+            List<Page> outputPages = new ArrayList<>();
+            while (true) {
+                Page output = operator.getOutput();
+                if (output == null) {
+                    break;
+                }
+                outputPages.add(output);
+            }
+
+            // There should be some pages that were drained
+            assertTrue(!outputPages.isEmpty());
+
+            // The operator need input again since this was a partial flush
+            assertTrue(operator.needsInput());
+
+            // Now, drive the operator to completion
+            outputPages.addAll(toPages(operator, inputIterator));
+
+            MaterializedResult actual;
+            if (hashEnabled) {
+                // Drop the hashChannel for all pages
+                List<Page> actualPages = dropChannel(outputPages, hashChannels);
+                List<Type> expectedTypes = without(operator.getTypes(), hashChannels);
+                actual = toMaterializedResult(operator.getOperatorContext().getSession(), expectedTypes, actualPages);
+            }
+            else {
+                actual = toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), outputPages);
+            }
+
+            assertEquals(actual.getTypes(), expected.getTypes());
+            assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
         }
-
-        // There should be some pages that were drained
-        assertTrue(!outputPages.isEmpty());
-
-        // The operator need input again since this was a partial flush
-        assertTrue(operator.needsInput());
-
-        // Now, drive the operator to completion
-        outputPages.addAll(toPages(operator, inputIterator));
-
-        MaterializedResult actual;
-        if (hashEnabled) {
-            // Drop the hashChannel for all pages
-            List<Page> actualPages = dropChannel(outputPages, hashChannels);
-            List<Type> expectedTypes = without(operator.getTypes(), hashChannels);
-            actual = toMaterializedResult(operator.getOperatorContext().getSession(), expectedTypes, actualPages);
-        }
-        else {
-            actual = toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), outputPages);
-        }
-
-        assertEquals(actual.getTypes(), expected.getTypes());
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
 }

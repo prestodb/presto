@@ -111,8 +111,6 @@ public class TestRowNumberOperator
                 Optional.empty(),
                 10);
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-
         MaterializedResult expectedResult = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
                 .row(0.3, 1L)
                 .row(0.4, 1L)
@@ -126,12 +124,12 @@ public class TestRowNumberOperator
                 .row(0.19, 3L)
                 .build();
 
-        List<Page> pages = toPages(operator, input);
+        List<Page> pages = toPages(operatorFactory, driverContext, input);
         Block rowNumberColumn = getRowNumberColumn(pages);
         assertEquals(rowNumberColumn.getPositionCount(), 10);
 
         pages = stripRowNumberColumn(pages);
-        MaterializedResult actual = toMaterializedResult(operator.getOperatorContext().getSession(), ImmutableList.<Type>of(DOUBLE, BIGINT), pages);
+        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(DOUBLE, BIGINT), pages);
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expectedResult.getMaterializedRows());
     }
 
@@ -167,8 +165,6 @@ public class TestRowNumberOperator
                 rowPagesBuilder.getHashChannel(),
                 10);
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-
         MaterializedResult expectedPartition1 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
                 .row(0.3, 1L)
                 .row(0.4, 1L)
@@ -188,12 +184,12 @@ public class TestRowNumberOperator
                 .row(0.19, 3L)
                 .build();
 
-        List<Page> pages = toPages(operator, input);
+        List<Page> pages = toPages(operatorFactory, driverContext, input);
         Block rowNumberColumn = getRowNumberColumn(pages);
         assertEquals(rowNumberColumn.getPositionCount(), 10);
 
         pages = stripRowNumberColumn(pages);
-        MaterializedResult actual = toMaterializedResult(operator.getOperatorContext().getSession(), ImmutableList.<Type>of(DOUBLE, BIGINT), pages);
+        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(DOUBLE, BIGINT), pages);
         ImmutableSet<?> actualSet = ImmutableSet.copyOf(actual.getMaterializedRows());
         ImmutableSet<?> expectedPartition1Set = ImmutableSet.copyOf(expectedPartition1.getMaterializedRows());
         ImmutableSet<?> expectedPartition2Set = ImmutableSet.copyOf(expectedPartition2.getMaterializedRows());
@@ -235,8 +231,6 @@ public class TestRowNumberOperator
                 Optional.empty(),
                 10);
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-
         MaterializedResult expectedPartition1 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
                 .row(0.3, 1L)
                 .row(0.4, 1L)
@@ -256,7 +250,7 @@ public class TestRowNumberOperator
                 .row(0.19, 3L)
                 .build();
 
-        List<Page> pages = toPages(operator, input);
+        List<Page> pages = toPages(operatorFactory, driverContext, input);
         Block rowNumberColumn = getRowNumberColumn(pages);
         assertEquals(rowNumberColumn.getPositionCount(), 8);
         // Check that all row numbers generated are <= 3
@@ -265,7 +259,7 @@ public class TestRowNumberOperator
         }
 
         pages = stripRowNumberColumn(pages);
-        MaterializedResult actual = toMaterializedResult(operator.getOperatorContext().getSession(), ImmutableList.<Type>of(DOUBLE, BIGINT), pages);
+        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(DOUBLE, BIGINT), pages);
         ImmutableSet<?> actualSet = ImmutableSet.copyOf(actual.getMaterializedRows());
         ImmutableSet<?> expectedPartition1Set = ImmutableSet.copyOf(expectedPartition1.getMaterializedRows());
         ImmutableSet<?> expectedPartition2Set = ImmutableSet.copyOf(expectedPartition2.getMaterializedRows());
@@ -306,8 +300,6 @@ public class TestRowNumberOperator
                 Optional.empty(),
                 10);
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-
         MaterializedResult expectedRows = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
                 .row(0.3, 1L)
                 .row(0.2, 2L)
@@ -321,12 +313,12 @@ public class TestRowNumberOperator
                 .row(0.9, 2L)
                 .build();
 
-        List<Page> pages = toPages(operator, input);
+        List<Page> pages = toPages(operatorFactory, driverContext, input);
         Block rowNumberColumn = getRowNumberColumn(pages);
         assertEquals(rowNumberColumn.getPositionCount(), 3);
 
         pages = stripRowNumberColumn(pages);
-        MaterializedResult actual = toMaterializedResult(operator.getOperatorContext().getSession(), ImmutableList.<Type>of(DOUBLE, BIGINT), pages);
+        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(DOUBLE, BIGINT), pages);
         assertEquals(actual.getMaterializedRows().size(), 3);
         ImmutableSet<?> actualSet = ImmutableSet.copyOf(actual.getMaterializedRows());
         ImmutableSet<?> expectedRowsSet = ImmutableSet.copyOf(expectedRows.getMaterializedRows());

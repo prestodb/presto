@@ -76,7 +76,6 @@ public class TestMarkDistinctOperator
                 .build();
 
         OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, new PlanNodeId("test"), rowPagesBuilder.getTypes(), ImmutableList.of(0), rowPagesBuilder.getHashChannel());
-        Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult.Builder expected = resultBuilder(driverContext.getSession(), BIGINT, BOOLEAN);
         for (long i = 0; i < 100; i++) {
@@ -84,6 +83,6 @@ public class TestMarkDistinctOperator
             expected.row(i, false);
         }
 
-        OperatorAssertion.assertOperatorEqualsIgnoreOrder(operator, input, expected.build(), hashEnabled, Optional.of(1));
+        OperatorAssertion.assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, expected.build(), hashEnabled, Optional.of(1));
     }
 }
