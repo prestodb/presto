@@ -197,6 +197,12 @@ public class MockQueryExecution
         listeners.add(stateChangeListener);
     }
 
+    @Override
+    public void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     private void fireStateChange()
     {
         for (StateChangeListener<QueryState> listener : listeners) {
