@@ -159,7 +159,7 @@ public class RaptorMetadata
         if (table == null) {
             return null;
         }
-        List<TableColumn> tableColumns = dao.getTableColumns(table.getTableId());
+        List<TableColumn> tableColumns = dao.listTableColumns(table.getTableId());
         checkArgument(!tableColumns.isEmpty(), "Table %s does not have any columns", tableName);
 
         RaptorColumnHandle sampleWeightColumnHandle = null;
@@ -186,7 +186,7 @@ public class RaptorMetadata
     {
         RaptorTableHandle handle = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
         SchemaTableName tableName = new SchemaTableName(handle.getSchemaName(), handle.getTableName());
-        List<ColumnMetadata> columns = dao.getTableColumns(handle.getTableId()).stream()
+        List<ColumnMetadata> columns = dao.listTableColumns(handle.getTableId()).stream()
                 .map(TableColumn::toColumnMetadata)
                 .filter(isSampleWeightColumn().negate())
                 .collect(toCollection(ArrayList::new));
@@ -613,7 +613,7 @@ public class RaptorMetadata
 
         ImmutableList.Builder<RaptorColumnHandle> columnHandles = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
-        for (TableColumn column : dao.getTableColumns(tableId)) {
+        for (TableColumn column : dao.listTableColumns(tableId)) {
             columnHandles.add(new RaptorColumnHandle(connectorId, column.getColumnName(), column.getColumnId(), column.getDataType()));
             columnTypes.add(column.getDataType());
         }
