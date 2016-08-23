@@ -111,6 +111,12 @@ public class FailedQueryExecution
     }
 
     @Override
+    public void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener)
+    {
+        stateChangeListener.stateChanged(queryInfo);
+    }
+
+    @Override
     public void fail(Throwable cause)
     {
         // no-op
