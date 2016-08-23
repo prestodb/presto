@@ -26,6 +26,11 @@ import java.util.Set;
 
 public interface MetadataDao
 {
+    String TABLE_COLUMN_SELECT = "" +
+            "SELECT t.schema_name, t.table_name, c.column_id, c.column_name, c.data_type\n" +
+            "FROM tables t\n" +
+            "JOIN columns c ON (t.table_id = c.table_id)\n";
+
     @SqlQuery("SELECT t.table_id, t.distribution_id, d.bucket_count, t.temporal_column_id\n" +
             "FROM tables t\n" +
             "LEFT JOIN distributions d ON (t.distribution_id = d.distribution_id)\n" +
@@ -43,9 +48,7 @@ public interface MetadataDao
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName);
 
-    @SqlQuery("SELECT t.schema_name, t.table_name, c.column_id, c.column_name, c.data_type\n" +
-            "FROM tables t\n" +
-            "JOIN columns c ON (t.table_id = c.table_id)\n" +
+    @SqlQuery(TABLE_COLUMN_SELECT +
             "WHERE t.table_id = :tableId\n" +
             "  AND c.column_id = :columnId\n" +
             "ORDER BY c.ordinal_position\n")
@@ -63,9 +66,7 @@ public interface MetadataDao
     @SqlQuery("SELECT DISTINCT schema_name FROM tables")
     List<String> listSchemaNames();
 
-    @SqlQuery("SELECT t.schema_name, t.table_name, c.column_id, c.column_name, c.data_type\n" +
-            "FROM tables t\n" +
-            "JOIN columns c ON (t.table_id = c.table_id)\n" +
+    @SqlQuery(TABLE_COLUMN_SELECT +
             "WHERE (schema_name = :schemaName OR :schemaName IS NULL)\n" +
             "  AND (table_name = :tableName OR :tableName IS NULL)\n" +
             "ORDER BY schema_name, table_name, ordinal_position")
@@ -73,24 +74,18 @@ public interface MetadataDao
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName);
 
-    @SqlQuery("SELECT t.schema_name, t.table_name, c.column_id, c.column_name, c.data_type\n" +
-            "FROM tables t\n" +
-            "JOIN columns c ON (t.table_id = c.table_id)\n" +
+    @SqlQuery(TABLE_COLUMN_SELECT +
             "WHERE t.table_id = :tableId\n" +
             "ORDER BY c.ordinal_position")
     List<TableColumn> listTableColumns(@Bind("tableId") long tableId);
 
-    @SqlQuery("SELECT t.schema_name, t.table_name, c.column_id, c.column_name, c.data_type\n" +
-            "FROM tables t\n" +
-            "JOIN columns c ON (t.table_id = c.table_id)\n" +
+    @SqlQuery(TABLE_COLUMN_SELECT +
             "WHERE t.table_id = :tableId\n" +
             "  AND c.sort_ordinal_position IS NOT NULL\n" +
             "ORDER BY c.sort_ordinal_position")
     List<TableColumn> listSortColumns(@Bind("tableId") long tableId);
 
-    @SqlQuery("SELECT t.schema_name, t.table_name, c.column_id, c.column_name, c.data_type\n" +
-            "FROM tables t\n" +
-            "JOIN columns c ON (t.table_id = c.table_id)\n" +
+    @SqlQuery(TABLE_COLUMN_SELECT +
             "WHERE t.table_id = :tableId\n" +
             "  AND c.bucket_ordinal_position IS NOT NULL\n" +
             "ORDER BY c.bucket_ordinal_position")
