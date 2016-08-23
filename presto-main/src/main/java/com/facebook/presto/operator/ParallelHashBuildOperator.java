@@ -146,7 +146,7 @@ public class ParallelHashBuildOperator
         this.partitionIndex = partitionIndex;
         this.filterFunction = filterFunction;
 
-        this.index = new PagesIndex(lookupSourceSupplier.getTypes(), expectedPositions);
+        this.index = new PagesIndex(lookupSourceSupplier.getTypes(), expectedPositions, operatorContext.getBlockResourceContext());
         this.lookupSourceSupplier = lookupSourceSupplier;
 
         this.hashChannels = hashChannels;

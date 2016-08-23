@@ -17,6 +17,7 @@ import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.Session;
 import com.facebook.presto.memory.AbstractAggregatedMemoryContext;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.block.resource.BlockResourceContext;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -91,6 +92,8 @@ public class OperatorContext
     private final AtomicReference<Supplier<?>> infoSupplier = new AtomicReference<>();
     private final boolean collectTimings;
 
+    private final BlockResourceContext blockResourceContext;
+
     public OperatorContext(int operatorId, PlanNodeId planNodeId, String operatorType, DriverContext driverContext, Executor executor, long maxMemoryReservation)
     {
         checkArgument(operatorId >= 0, "operatorId is negative");
@@ -101,6 +104,7 @@ public class OperatorContext
         this.driverContext = requireNonNull(driverContext, "driverContext is null");
         this.systemMemoryContext = new OperatorSystemMemoryContext(this.driverContext);
         this.executor = requireNonNull(executor, "executor is null");
+        this.blockResourceContext = driverContext.getBlockResourceContext();
         SettableFuture<Object> future = SettableFuture.create();
         future.set(null);
         this.memoryFuture.set(future);
@@ -511,5 +515,10 @@ public class OperatorContext
                     .add("closed", closed)
                     .toString();
         }
+    }
+
+    public BlockResourceContext getBlockResourceContext()
+    {
+        return blockResourceContext;
     }
 }

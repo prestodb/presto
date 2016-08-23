@@ -34,7 +34,7 @@ public class PagesIndexPageSorter
         pages.forEach(pagesIndex::addPage);
         pagesIndex.sort(sortChannels, sortOrders);
 
-        return pagesIndex.getValueAddresses().toLongArray(null);
+        return pagesIndex.getValueAddresses().toLongArray();
     }
 
     @Override
