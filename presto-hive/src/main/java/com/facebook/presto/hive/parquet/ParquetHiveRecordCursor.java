@@ -32,6 +32,7 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -161,7 +162,7 @@ public class ParquetHiveRecordCursor
             TupleDomain<HiveColumnHandle> effectivePredicate)
     {
         requireNonNull(path, "path is null");
-        checkArgument(length >= 0, "totalBytes is negative");
+        checkArgument(length >= 0, "length is negative");
         requireNonNull(splitSchema, "splitSchema is null");
         requireNonNull(partitionKeys, "partitionKeys is null");
         requireNonNull(columns, "columns is null");
@@ -434,29 +435,25 @@ public class ParquetHiveRecordCursor
 
             MessageType requestedSchema = new MessageType(fileSchema.getName(), fields);
 
+            LongArrayList offsets = new LongArrayList(blocks.size());
             List<BlockMetaData> splitGroup = new ArrayList<>();
             for (BlockMetaData block : blocks) {
                 long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
                 if (firstDataPage >= start && firstDataPage < start + length) {
-                    splitGroup.add(block);
+                    if (predicatePushdownEnabled) {
+                        ParquetPredicate parquetPredicate = buildParquetPredicate(columns, effectivePredicate, fileMetaData.getSchema(), typeManager);
+                        if (predicateMatches(parquetPredicate, block, dataSource, requestedSchema, effectivePredicate)) {
+                            splitGroup.add(block);
+                        }
+                    }
+                    else {
+                        splitGroup.add(block);
+                        offsets.add(block.getStartingPos());
+                    }
                 }
             }
 
-            if (predicatePushdownEnabled) {
-                ParquetPredicate parquetPredicate = buildParquetPredicate(columns, effectivePredicate, fileMetaData.getSchema(), typeManager);
-                ParquetDataSource finalDataSource = dataSource;
-                splitGroup = splitGroup.stream()
-                        .filter(block -> predicateMatches(parquetPredicate, block, finalDataSource, requestedSchema, effectivePredicate))
-                        .collect(toList());
-            }
-
-            long[] offsets = new long[splitGroup.size()];
-            for (int i = 0; i < splitGroup.size(); i++) {
-                BlockMetaData block = splitGroup.get(i);
-                offsets[i] = block.getStartingPos();
-            }
-
-            ParquetInputSplit split = new ParquetInputSplit(path, start, start + length, length, null, offsets);
+            ParquetInputSplit split = new ParquetInputSplit(path, start, start + length, length, null, offsets.toLongArray());
 
             TaskAttemptContext taskContext = ContextUtil.newTaskAttemptContext(configuration, new TaskAttemptID());
 
@@ -467,9 +464,7 @@ public class ParquetHiveRecordCursor
             });
         }
         catch (Exception e) {
-            if (e instanceof PrestoException) {
-                throw (PrestoException) e;
-            }
+            Throwables.propagateIfInstanceOf(e, PrestoException.class);
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
                 throw Throwables.propagate(e);
