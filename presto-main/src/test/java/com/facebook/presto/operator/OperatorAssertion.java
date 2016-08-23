@@ -21,6 +21,7 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
@@ -93,6 +94,16 @@ public final class OperatorAssertion
         assertTrue(operator.isFinished());
 
         return outputPages.build();
+    }
+
+    public static List<Page> toPages(OperatorFactory operatorFactory, DriverContext driverContext, List<Page> input)
+    {
+        try (Operator operator = operatorFactory.createOperator(driverContext)) {
+            return toPages(operator, input);
+        }
+        catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
     }
 
     public static List<Page> toPages(Operator operator, List<Page> input)
@@ -221,6 +232,34 @@ public final class OperatorAssertion
         }
 
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    public static void assertOperatorEqualsIgnoreOrder(
+            OperatorFactory operatorFactory,
+            DriverContext driverContext,
+            List<Page> input,
+            MaterializedResult expected,
+            boolean hashEnabled,
+            Optional<Integer> hashChannel)
+    {
+        try (Operator operator = operatorFactory.createOperator(driverContext)) {
+            List<Page> pages = toPages(operator, input);
+            MaterializedResult actual;
+            if (hashEnabled && hashChannel.isPresent()) {
+                // Drop the hashChannel for all pages
+                List<Page> actualPages = dropChannel(pages, ImmutableList.of(hashChannel.get()));
+                List<Type> expectedTypes = without(operator.getTypes(), ImmutableList.of(hashChannel.get()));
+                actual = toMaterializedResult(operator.getOperatorContext().getSession(), expectedTypes, actualPages);
+            }
+            else {
+                actual = toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), pages);
+            }
+
+            assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        }
+        catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
     }
 
     static <T> List<T> without(List<T> types, List<Integer> channels)
