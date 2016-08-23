@@ -187,8 +187,6 @@ public class TestOrderByOperator
                 ImmutableList.of(0),
                 ImmutableList.of(ASC_NULLS_LAST));
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-
-        toPages(operator, input);
+        toPages(operatorFactory, driverContext, input);
     }
 }

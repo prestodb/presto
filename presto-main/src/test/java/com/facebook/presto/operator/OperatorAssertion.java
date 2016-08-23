@@ -106,7 +106,7 @@ public final class OperatorAssertion
         }
     }
 
-    public static List<Page> toPages(Operator operator, List<Page> input)
+    private static List<Page> toPages(Operator operator, List<Page> input)
     {
         // verify initial state
         assertEquals(operator.isFinished(), false);
@@ -116,7 +116,7 @@ public final class OperatorAssertion
         return toPages(operator, input.iterator());
     }
 
-    public static List<Page> toPages(Operator operator)
+    private static List<Page> toPages(Operator operator)
     {
         // operator does not have input so should never require input
         assertEquals(operator.needsInput(), false);
@@ -232,6 +232,15 @@ public final class OperatorAssertion
         }
 
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    public static void assertOperatorEqualsIgnoreOrder(
+            OperatorFactory operatorFactory,
+            DriverContext driverContext,
+            List<Page> input,
+            MaterializedResult expected)
+    {
+        assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, expected, false, Optional.empty());
     }
 
     public static void assertOperatorEqualsIgnoreOrder(

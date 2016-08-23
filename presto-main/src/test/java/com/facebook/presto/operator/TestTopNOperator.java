@@ -185,18 +185,18 @@ public class TestTopNOperator
                 ImmutableList.of(DESC_NULLS_LAST),
                 false);
 
-        Operator operator = factory.createOperator(driverContext);
+        try (Operator operator = factory.createOperator(driverContext)) {
+            MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT).build();
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT).build();
+            // assertOperatorEquals assumes operators do not start in finished state
+            assertEquals(operator.isFinished(), true);
+            assertEquals(operator.needsInput(), false);
+            assertEquals(operator.getOutput(), null);
 
-        // assertOperatorEquals assumes operators do not start in finished state
-        assertEquals(operator.isFinished(), true);
-        assertEquals(operator.needsInput(), false);
-        assertEquals(operator.getOutput(), null);
-
-        List<Page> pages = OperatorAssertion.toPages(operator, input.iterator());
-        MaterializedResult actual = OperatorAssertion.toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), pages);
-        assertEquals(actual, expected);
+            List<Page> pages = OperatorAssertion.toPages(operator, input.iterator());
+            MaterializedResult actual = OperatorAssertion.toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), pages);
+            assertEquals(actual, expected);
+        }
     }
 
     @Test

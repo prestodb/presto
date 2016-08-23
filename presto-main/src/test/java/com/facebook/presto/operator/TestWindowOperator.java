@@ -237,9 +237,7 @@ public class TestWindowOperator
                 Ints.asList(0),
                 ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}));
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-
-        toPages(operator, input);
+        toPages(operatorFactory, driverContext, input);
     }
 
     @Test
