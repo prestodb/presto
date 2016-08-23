@@ -117,7 +117,7 @@ public class QueryStateMachine
 
     private final AtomicReference<Set<Input>> inputs = new AtomicReference<>(ImmutableSet.of());
     private final AtomicReference<Optional<Output>> output = new AtomicReference<>(Optional.empty());
-    private final AtomicReference<QueryInfo> finalQueryInfo = new AtomicReference<>();
+    private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
 
     private QueryStateMachine(QueryId queryId, String query, Session session, URI self, boolean autoCommit, TransactionManager transactionManager, Executor executor)
     {
@@ -129,6 +129,7 @@ public class QueryStateMachine
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
 
         this.queryState = new StateMachine<>("query " + query, executor, QUEUED, TERMINAL_QUERY_STATES);
+        this.finalQueryInfo = new StateMachine<>("finalQueryInfo-" + queryId, executor, Optional.empty());
     }
 
     /**
@@ -588,6 +589,18 @@ public class QueryStateMachine
         queryState.addStateChangeListener(stateChangeListener);
     }
 
+    public void addQueryInfoStateChangeListener(StateChangeListener<QueryInfo> stateChangeListener)
+    {
+        AtomicBoolean done = new AtomicBoolean();
+        StateChangeListener<Optional<QueryInfo>> fireOnceStateChangeListener = finalQueryInfo -> {
+            if (finalQueryInfo.isPresent() && done.compareAndSet(false, true)) {
+                stateChangeListener.stateChanged(finalQueryInfo.get());
+            }
+        };
+        finalQueryInfo.addStateChangeListener(fireOnceStateChangeListener);
+        fireOnceStateChangeListener.stateChanged(finalQueryInfo.get());
+    }
+
     public Duration waitForStateChange(QueryState currentState, Duration maxWait)
             throws InterruptedException
     {
@@ -621,24 +634,26 @@ public class QueryStateMachine
 
     public Optional<QueryInfo> getFinalQueryInfo()
     {
-        return Optional.ofNullable(finalQueryInfo.get());
+        return finalQueryInfo.get();
     }
 
     public QueryInfo updateQueryInfo(Optional<StageInfo> stageInfo)
     {
         QueryInfo queryInfo = getQueryInfo(stageInfo);
         if (queryInfo.isFinalQueryInfo()) {
-            finalQueryInfo.compareAndSet(null, queryInfo);
+            finalQueryInfo.compareAndSet(Optional.empty(), Optional.of(queryInfo));
         }
         return queryInfo;
     }
 
     public void pruneQueryInfo()
     {
-        if (finalQueryInfo.get() == null || !finalQueryInfo.get().getOutputStage().isPresent()) {
+        Optional<QueryInfo> finalInfo = finalQueryInfo.get();
+        if (!finalInfo.isPresent() || !finalInfo.get().getOutputStage().isPresent()) {
             return;
         }
-        QueryInfo queryInfo = finalQueryInfo.get();
+
+        QueryInfo queryInfo = finalInfo.get();
         StageInfo outputStage = queryInfo.getOutputStage().get();
         StageInfo prunedOutputStage = new StageInfo(
                 outputStage.getStageId(),
@@ -676,6 +691,6 @@ public class QueryStateMachine
                 queryInfo.getOutput(),
                 queryInfo.isCompleteInfo()
         );
-        finalQueryInfo.compareAndSet(queryInfo, prunedQueryInfo);
+        finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
     }
 }

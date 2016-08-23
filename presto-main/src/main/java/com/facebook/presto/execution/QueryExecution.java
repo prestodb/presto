@@ -59,6 +59,8 @@ public interface QueryExecution
 
     void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener);
 
+    void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener);
+
     interface QueryExecutionFactory<T extends QueryExecution>
     {
         T createQueryExecution(QueryId queryId, String query, Session session, Statement statement, List<Expression> parameters);
