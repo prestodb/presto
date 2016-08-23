@@ -166,21 +166,15 @@ public final class OperatorAssertion
         return blockBuilder.build();
     }
 
-    public static void assertOperatorEquals(Operator operator, List<Page> expected)
+    public static void assertOperatorEquals(OperatorFactory operatorFactory, DriverContext driverContext, List<Page> input, List<Page> expected)
+            throws Exception
     {
-        List<Page> actual = toPages(operator);
-        assertEquals(actual.size(), expected.size());
-        for (int i = 0; i < actual.size(); i++) {
-            assertPageEquals(operator.getTypes(), actual.get(i), expected.get(i));
-        }
-    }
-
-    public static void assertOperatorEquals(Operator operator, List<Page> input, List<Page> expected)
-    {
-        List<Page> actual = toPages(operator, input);
-        assertEquals(actual.size(), expected.size());
-        for (int i = 0; i < actual.size(); i++) {
-            assertPageEquals(operator.getTypes(), actual.get(i), expected.get(i));
+        try (Operator operator = operatorFactory.createOperator(driverContext)) {
+            List<Page> actual = toPages(operator, input);
+            assertEquals(actual.size(), expected.size());
+            for (int i = 0; i < actual.size(); i++) {
+                assertPageEquals(operator.getTypes(), actual.get(i), expected.get(i));
+            }
         }
     }
 
