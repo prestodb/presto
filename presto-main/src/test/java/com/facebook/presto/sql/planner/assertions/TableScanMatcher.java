@@ -47,7 +47,7 @@ final class TableScanMatcher
     }
 
     @Override
-    public boolean matches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public boolean matches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
     {
         if (node instanceof TableScanNode) {
             TableScanNode tableScanNode = (TableScanNode) node;
