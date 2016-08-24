@@ -16,6 +16,8 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;

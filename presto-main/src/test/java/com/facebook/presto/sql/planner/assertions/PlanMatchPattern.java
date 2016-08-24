@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -112,6 +113,11 @@ public final class PlanMatchPattern
     {
         Expression expectedPredicate = new SqlParser().createExpression(predicate);
         return node(FilterNode.class, source).with(new FilterMatcher(expectedPredicate));
+    }
+
+    public static PlanMatchPattern apply(List<String> correlationSymbolAliases, PlanMatchPattern inputPattern, PlanMatchPattern subqueryPattern)
+    {
+        return node(ApplyNode.class, inputPattern, subqueryPattern).with(new CorrelationMatcher(correlationSymbolAliases));
     }
 
     public PlanMatchPattern(List<PlanMatchPattern> sourcePatterns)
