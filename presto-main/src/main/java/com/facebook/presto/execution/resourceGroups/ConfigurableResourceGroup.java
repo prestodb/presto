@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
-import com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy;
+import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.SubGroupSchedulingPolicy;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 

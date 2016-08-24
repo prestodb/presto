@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
-import com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy;
+import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.SubGroupSchedulingPolicy;
 import com.facebook.presto.memory.ClusterMemoryPoolManager;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
