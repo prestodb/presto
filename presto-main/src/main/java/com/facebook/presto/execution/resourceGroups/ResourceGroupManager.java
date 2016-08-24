@@ -83,7 +83,7 @@ public class ResourceGroupManager
     {
         ResourceGroupId group;
         try {
-            group = selectGroup(statement, queryExecution.getSession());
+            group = selectGroup(queryExecution.getSession());
         }
         catch (PrestoException e) {
             queryExecution.fail(e);
@@ -174,11 +174,11 @@ public class ResourceGroupManager
         }
     }
 
-    private ResourceGroupId selectGroup(Statement statement, Session session)
+    private ResourceGroupId selectGroup(Session session)
     {
         SelectionContext context = new SelectionContext(session.getIdentity().getPrincipal().isPresent(), session.getUser(), session.getSource(), getQueryPriority(session));
         for (ResourceGroupSelector selector : selectors) {
-            Optional<ResourceGroupId> group = selector.match(statement, context);
+            Optional<ResourceGroupId> group = selector.match(context);
             if (group.isPresent()) {
                 return group.get();
             }
