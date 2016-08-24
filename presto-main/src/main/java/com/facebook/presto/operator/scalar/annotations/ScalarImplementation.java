@@ -503,6 +503,9 @@ public class ScalarImplementation
             if (annotation instanceof TypeParameter) {
                 return new TypeImplementationDependency(((TypeParameter) annotation).value());
             }
+            if (annotation instanceof LiteralParameter) {
+                return new LiteralImplementationDependency(((LiteralParameter) annotation).value());
+            }
             if (annotation instanceof OperatorDependency) {
                 OperatorDependency operator = (OperatorDependency) annotation;
                 return new OperatorImplementationDependency(
@@ -512,22 +515,15 @@ public class ScalarImplementation
                                 .map(TypeSignature::parseTypeSignature)
                                 .collect(toImmutableList()));
             }
-            if (annotation instanceof LiteralParameter) {
-                return new LiteralImplementationDependency(((LiteralParameter) annotation).value());
-            }
             throw new IllegalArgumentException("Unsupported annotation " + annotation.getClass().getSimpleName());
         }
 
         private static boolean containsMetaParameter(Annotation[] annotations)
         {
             for (Annotation annotation : annotations) {
-                if (annotation instanceof TypeParameter) {
-                    return true;
-                }
-                if (annotation instanceof OperatorDependency) {
-                    return true;
-                }
-                if (annotation instanceof LiteralParameter) {
+                if (annotation instanceof TypeParameter ||
+                        annotation instanceof LiteralParameter ||
+                        annotation instanceof OperatorDependency) {
                     return true;
                 }
             }
