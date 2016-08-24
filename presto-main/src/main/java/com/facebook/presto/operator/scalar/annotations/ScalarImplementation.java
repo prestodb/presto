@@ -46,6 +46,7 @@ import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -507,7 +508,9 @@ public class ScalarImplementation
                 return new OperatorImplementationDependency(
                         operator.operator(),
                         parseTypeSignature(operator.returnType()),
-                        asList(operator.argumentTypes()).stream().map(TypeSignature::parseTypeSignature).collect(toImmutableList()));
+                        Arrays.stream(operator.argumentTypes())
+                                .map(TypeSignature::parseTypeSignature)
+                                .collect(toImmutableList()));
             }
             if (annotation instanceof LiteralParameter) {
                 return new LiteralImplementationDependency(((LiteralParameter) annotation).value());
