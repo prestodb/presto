@@ -39,6 +39,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
@@ -202,21 +204,42 @@ public final class PlanMatchPattern
 
     private void toString(StringBuilder builder, int indent)
     {
+        checkState(matchers.stream().filter(PlanNodeMatcher.class::isInstance).count() <= 1);
+
         builder.append(indentString(indent));
         if (anyTree) {
-            builder.append("anyTree ");
+            builder.append("anyTree");
         }
-        builder.append("PlanMatchPattern {\n");
+        else {
+            builder.append("node");
+        }
 
-        for (Matcher matcher : matchers) {
+        Optional<PlanNodeMatcher> planNodeMatcher = matchers.stream()
+                .filter(PlanNodeMatcher.class::isInstance)
+                .map(PlanNodeMatcher.class::cast)
+                .findFirst();
+
+        if (planNodeMatcher.isPresent()) {
+            builder.append("(").append(planNodeMatcher.get().getNodeClass().getSimpleName()).append(")");
+        }
+
+        List<Matcher> matchersToPrint = matchers.stream()
+                .filter(matcher -> !(matcher instanceof PlanNodeMatcher))
+                .collect(toImmutableList());
+
+        builder.append("\n");
+
+        if (matchersToPrint.size() + sourcePatterns.size() == 0) {
+            return;
+        }
+
+        for (Matcher matcher : matchersToPrint) {
             builder.append(indentString(indent + 1)).append(matcher.toString()).append("\n");
         }
 
         for (PlanMatchPattern pattern : sourcePatterns) {
             pattern.toString(builder, indent + 1);
         }
-
-        builder.append(indentString(indent)).append("}\n");
     }
 
     private String indentString(int indent)

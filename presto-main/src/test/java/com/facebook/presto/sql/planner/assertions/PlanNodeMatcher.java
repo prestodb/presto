@@ -43,4 +43,9 @@ final class PlanNodeMatcher
                 .add("nodeClass", nodeClass)
                 .toString();
     }
+
+    public Class<? extends PlanNode> getNodeClass()
+    {
+        return nodeClass;
+    }
 }
