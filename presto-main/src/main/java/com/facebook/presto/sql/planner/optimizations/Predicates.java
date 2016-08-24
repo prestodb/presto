@@ -11,13 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.assertions;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+package com.facebook.presto.sql.planner.optimizations;
 
-public interface Matcher
+import java.util.function.Predicate;
+
+public class Predicates
 {
-    boolean matches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases);
+    private Predicates() {}
+
+    public static <T> Predicate<T> isInstance(Class<? extends T> aClass)
+    {
+        return aClass::isInstance;
+    }
+
+    public static <T> Predicate<T> alwaysTrue()
+    {
+        return x -> true;
+    }
 }

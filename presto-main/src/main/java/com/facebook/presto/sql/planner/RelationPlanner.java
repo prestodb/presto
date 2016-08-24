@@ -25,7 +25,6 @@ import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
-import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -48,6 +47,7 @@ import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -69,6 +69,7 @@ import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.UnmodifiableIterator;
 
@@ -79,7 +80,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.analyzer.SemanticExceptions.throwNotSupportedException;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static com.facebook.presto.sql.tree.Join.Type.INNER;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
@@ -203,7 +204,7 @@ class RelationPlanner
                 unnest = (Unnest) node.getRight();
             }
             if (node.getType() != Join.Type.CROSS && node.getType() != Join.Type.IMPLICIT) {
-                throw new SemanticException(NOT_SUPPORTED, unnest, "UNNEST only supported on the right side of CROSS JOIN");
+                throwNotSupportedException(unnest, "UNNEST on other than the right side of CROSS JOIN");
             }
             return planCrossJoinUnnest(leftPlan, node, unnest);
         }
@@ -276,10 +277,10 @@ class RelationPlanner
             rightPlanBuilder = rightPlanBuilder.appendProjections(rightComparisonExpressions, symbolAllocator, idAllocator);
 
             for (int i = 0; i < leftComparisonExpressions.size(); i++) {
-                Symbol leftSymbol = leftPlanBuilder.translate(leftComparisonExpressions.get(i));
-                Symbol rightSymbol = rightPlanBuilder.translate(rightComparisonExpressions.get(i));
-
                 if (joinConditionComparisonTypes.get(i) == ComparisonExpression.Type.EQUAL) {
+                    Symbol leftSymbol = leftPlanBuilder.translate(leftComparisonExpressions.get(i));
+                    Symbol rightSymbol = rightPlanBuilder.translate(rightComparisonExpressions.get(i));
+
                     equiClauses.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
                 }
                 else {
@@ -298,6 +299,33 @@ class RelationPlanner
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
+
+        if (node.getType() != INNER) {
+            for (Expression complexExpression : complexJoinExpressions) {
+                Set<InPredicate> inPredicates = subqueryPlanner.collectInPredicateSubqueries(complexExpression, node);
+                if (!inPredicates.isEmpty()) {
+                    InPredicate inPredicate = Iterables.getLast(inPredicates);
+                    throwNotSupportedException(inPredicate, "IN with subquery predicate in join condition");
+                }
+
+                subqueryPlanner.collectExistsSubqueries(complexExpression, node).stream()
+                        .filter(existsPredicate -> subqueryPlanner.isCorrelated(existsPredicate.getSubquery()))
+                        .findFirst()
+                        .ifPresent(existsPredicate -> throwNotSupportedException(
+                                existsPredicate,
+                                "Correlated EXISTS predicate in join condition"));
+
+                subqueryPlanner.collectScalarSubqueries(complexExpression, node).stream()
+                        .filter(subquery-> subqueryPlanner.isCorrelated(subquery.getQuery()))
+                        .findFirst()
+                        .ifPresent(scalar -> throwNotSupportedException(
+                                scalar,
+                                "Correlated scalar subquery in join condition"));
+            }
+
+            // non inner join subqueries can be applied only to one side of join
+            leftPlanBuilder = subqueryPlanner.handleSubqueries(leftPlanBuilder, complexJoinExpressions, node);
+        }
 
         Optional<Symbol> sampleWeight = Optional.empty();
         RelationPlan intermediateRootRelationPlan = new RelationPlan(root, analysis.getScope(node), outputSymbols, sampleWeight);

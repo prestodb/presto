@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static java.util.Objects.requireNonNull;
@@ -60,21 +61,38 @@ public class MergeProjections
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            // only merge if the source is completely deterministic or if the current node does not have a TRY
-            // todo perform partial merge, pushing down expressions that have deterministic sources
-            if (source instanceof ProjectNode &&
-                    ((ProjectNode) source).getAssignments().values().stream().allMatch(DeterminismEvaluator::isDeterministic) &&
-                    node.getAssignments().values().stream().noneMatch(e -> e instanceof TryExpression)) {
-                ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
-                for (Map.Entry<Symbol, Expression> projection : node.getAssignments().entrySet()) {
-                    Expression inlined = ExpressionTreeRewriter.rewriteWith(new ExpressionSymbolInliner(((ProjectNode) source).getAssignments()), projection.getValue());
-                    projections.put(projection.getKey(), inlined);
+            if (source instanceof ProjectNode) {
+                Optional<PlanNode> mergedProjection = mergeProjections(node, (ProjectNode) source);
+                if (mergedProjection.isPresent()) {
+                    return mergedProjection.get();
                 }
-
-                return new ProjectNode(node.getId(), ((ProjectNode) source).getSource(), projections.build());
             }
-
             return replaceChildren(node, ImmutableList.of(source));
         }
+    }
+
+    private static Optional<PlanNode> mergeProjections(ProjectNode first, ProjectNode second)
+    {
+        if (isDeterministic(second) && doNotUseTryExpression(first)) {
+            ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
+            for (Map.Entry<Symbol, Expression> projection : first.getAssignments().entrySet()) {
+                Expression inlined = ExpressionTreeRewriter.rewriteWith(
+                        new ExpressionSymbolInliner(second.getAssignments()), projection.getValue());
+                projections.put(projection.getKey(), inlined);
+            }
+
+            return Optional.of(new ProjectNode(first.getId(), second.getSource(), projections.build()));
+        }
+        return Optional.empty();
+    }
+
+    private static boolean isDeterministic(ProjectNode second)
+    {
+        return second.getAssignments().values().stream().allMatch(DeterminismEvaluator::isDeterministic);
+    }
+
+    private static boolean doNotUseTryExpression(ProjectNode first)
+    {
+        return first.getAssignments().values().stream().noneMatch(e -> e instanceof TryExpression);
     }
 }
