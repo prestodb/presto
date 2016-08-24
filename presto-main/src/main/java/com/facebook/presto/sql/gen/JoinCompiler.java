@@ -28,9 +28,11 @@ import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.operator.InMemoryJoinHash;
+import com.facebook.presto.operator.JoinFilterFunction;
 import com.facebook.presto.operator.JoinFilterFunctionVerifier;
 import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.operator.PagesHashStrategy;
+import com.facebook.presto.operator.StandardJoinFilterFunctionVerifier;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
@@ -47,6 +49,7 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -84,12 +87,28 @@ public class JoinCompiler
             });
 
     private final LoadingCache<CacheKey, Class<? extends PagesHashStrategy>> hashStrategies = CacheBuilder.newBuilder().maximumSize(1000).build(
-            new CacheLoader<CacheKey, Class<? extends PagesHashStrategy>>() {
+            new CacheLoader<CacheKey, Class<? extends PagesHashStrategy>>()
+            {
                 @Override
                 public Class<? extends PagesHashStrategy> load(CacheKey key)
                         throws Exception
                 {
                     return internalCompileHashStrategy(key.getTypes(), key.getJoinChannels());
+                }
+            });
+
+    private final LoadingCache<Class<? extends JoinFilterFunction>, Class<? extends JoinFilterFunctionVerifier>> joinFilterFunctionVerifierClasses = CacheBuilder.newBuilder().maximumSize(1000).build(
+            new CacheLoader<Class<? extends JoinFilterFunction>, Class<? extends JoinFilterFunctionVerifier>>()
+            {
+                @Override
+                public Class<? extends JoinFilterFunctionVerifier> load(Class<? extends JoinFilterFunction> key)
+                        throws Exception
+                {
+                    return IsolatedClass.isolateClass(
+                            new DynamicClassLoader(getClass().getClassLoader()),
+                            JoinFilterFunctionVerifier.class,
+                            StandardJoinFilterFunctionVerifier.class
+                    );
                 }
             });
 
@@ -101,6 +120,21 @@ public class JoinCompiler
         catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
             throw Throwables.propagate(e.getCause());
         }
+    }
+
+    public JoinFilterFunctionVerifierFactory compileJoinFilterFunctionVerifierFactory(JoinFilterFunction joinFilterFunction)
+    {
+        return ((filterFunction, channels) -> {
+            try {
+                return joinFilterFunctionVerifierClasses
+                        .get(joinFilterFunction.getClass())
+                        .getConstructor(JoinFilterFunction.class, List.class)
+                        .newInstance(filterFunction, channels);
+            }
+            catch (ExecutionException | UncheckedExecutionException | ExecutionError | NoSuchMethodException | InstantiationException | IllegalAccessException | InvocationTargetException e) {
+                throw Throwables.propagate(e.getCause());
+            }
+        });
     }
 
     public PagesHashStrategyFactory compilePagesHashStrategyFactory(List<Type> types, List<Integer> joinChannels)
@@ -191,7 +225,7 @@ public class JoinCompiler
                 .invokeConstructor(Object.class);
 
         constructor.comment("this.size = 0")
-                    .append(thisVariable.setField(sizeField, constantLong(0L)));
+                .append(thisVariable.setField(sizeField, constantLong(0L)));
 
         constructor.comment("Set channel fields");
 
@@ -218,9 +252,9 @@ public class JoinCompiler
                     .getField(sizeField)
                     .append(
                             channel.invoke("get", Object.class, blockIndex)
-                            .cast(type(Block.class))
-                            .invoke("getRetainedSizeInBytes", int.class)
-                            .cast(long.class))
+                                    .cast(type(Block.class))
+                                    .invoke("getRetainedSizeInBytes", int.class)
+                                    .cast(long.class))
                     .longAdd()
                     .putField(sizeField);
         }
@@ -425,9 +459,9 @@ public class JoinCompiler
     private static BytecodeNode typeHashCode(BytecodeExpression type, BytecodeExpression blockRef, BytecodeExpression blockPosition)
     {
         return new IfStatement()
-            .condition(blockRef.invoke("isNull", boolean.class, blockPosition))
-            .ifTrue(constantLong(0L))
-            .ifFalse(type.invoke("hash", long.class, blockRef, blockPosition));
+                .condition(blockRef.invoke("isNull", boolean.class, blockPosition))
+                .ifTrue(constantLong(0L))
+                .ifFalse(type.invoke("hash", long.class, blockRef, blockPosition));
     }
 
     private static void generateRowEqualsRowMethod(
@@ -717,6 +751,11 @@ public class JoinCompiler
                 throw Throwables.propagate(e);
             }
         }
+    }
+
+    public interface JoinFilterFunctionVerifierFactory
+    {
+        JoinFilterFunctionVerifier createJoinFilterFunctionVerifier(JoinFilterFunction filterFunction, List<List<Block>> channels);
     }
 
     private static final class CacheKey
