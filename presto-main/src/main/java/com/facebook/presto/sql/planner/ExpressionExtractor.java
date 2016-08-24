@@ -28,7 +28,14 @@ public class ExpressionExtractor
     public static List<Expression> extractExpressions(PlanNode plan)
     {
         ImmutableList.Builder<Expression> expressionsBuilder = ImmutableList.builder();
-        plan.accept(new Visitor(), expressionsBuilder);
+        plan.accept(new Visitor(true), expressionsBuilder);
+        return expressionsBuilder.build();
+    }
+
+    public static List<Expression> extractExpressionsNonRecursive(PlanNode plan)
+    {
+        ImmutableList.Builder<Expression> expressionsBuilder = ImmutableList.builder();
+        plan.accept(new Visitor(false), expressionsBuilder);
         return expressionsBuilder.build();
     }
 
@@ -39,6 +46,22 @@ public class ExpressionExtractor
     private static class Visitor
             extends SimplePlanVisitor<ImmutableList.Builder<Expression>>
     {
+        private final boolean recursive;
+
+        public Visitor(boolean recursive)
+        {
+            this.recursive = recursive;
+        }
+
+        @Override
+        protected Void visitPlan(PlanNode node, ImmutableList.Builder<Expression> context)
+        {
+            if (recursive) {
+                return super.visitPlan(node, context);
+            }
+            return null;
+        }
+
         @Override
         public Void visitFilter(FilterNode node, ImmutableList.Builder<Expression> context)
         {
