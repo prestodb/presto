@@ -96,7 +96,7 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern join(JoinNode.Type joinType, List<AliasPair> expectedEquiCriteria, PlanMatchPattern... sources)
     {
-        return any(sources).with(new JoinMatcher(joinType,  expectedEquiCriteria));
+        return any(sources).with(new JoinMatcher(joinType, expectedEquiCriteria));
     }
 
     public static AliasPair aliasPair(String left, String right)
@@ -157,7 +157,7 @@ public final class PlanMatchPattern
         return sourcePatterns.isEmpty();
     }
 
-    private static List<Expression> toExpressionList(String ... args)
+    private static List<Expression> toExpressionList(String... args)
     {
         ImmutableList.Builder<Expression> builder = ImmutableList.builder();
         for (String arg : args) {
@@ -177,7 +177,7 @@ public final class PlanMatchPattern
         return new FunctionCall(QualifiedName.of(name), Optional.of(window), distinct, toExpressionList(args));
     }
 
-    public static FunctionCall functionCall(String name, String ... args)
+    public static FunctionCall functionCall(String name, String... args)
     {
         return new RelaxedEqualityFunctionCall(QualifiedName.of(name), toExpressionList(args));
     }
@@ -214,7 +214,8 @@ public final class PlanMatchPattern
         return Strings.repeat("    ", indent);
     }
 
-    private static class AnySymbolReference extends SymbolReference
+    private static class AnySymbolReference
+            extends SymbolReference
     {
         AnySymbolReference()
         {
@@ -242,7 +243,8 @@ public final class PlanMatchPattern
         }
     }
 
-    private static class RelaxedEqualityFunctionCall extends FunctionCall
+    private static class RelaxedEqualityFunctionCall
+            extends FunctionCall
     {
         RelaxedEqualityFunctionCall(QualifiedName name, List<Expression> arguments)
         {
