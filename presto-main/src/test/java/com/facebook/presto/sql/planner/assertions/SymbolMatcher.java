@@ -36,7 +36,7 @@ final class SymbolMatcher
     }
 
     @Override
-    public boolean matches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public boolean matches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
     {
         Symbol symbol = null;
         for (Symbol outputSymbol : node.getOutputSymbols()) {
@@ -46,7 +46,7 @@ final class SymbolMatcher
             }
         }
         if (symbol != null) {
-            symbolAliases.put(alias, symbol);
+            expressionAliases.put(alias, symbol.toSymbolReference());
             return true;
         }
         return false;
