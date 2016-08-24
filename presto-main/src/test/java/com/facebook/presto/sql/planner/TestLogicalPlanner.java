@@ -17,11 +17,8 @@ import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.sql.planner.assertions.PlanAssert;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
-import com.facebook.presto.sql.planner.plan.FilterNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableList;
@@ -37,6 +34,7 @@ import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aliasPair;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.apply;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
@@ -67,32 +65,20 @@ public class TestLogicalPlanner
     }
 
     @Test
-    public void testPlanDsl()
+    public void testJoin()
     {
-        assertPlan("SELECT orderkey FROM orders WHERE orderkey IN (1, 2, 3)",
-                node(OutputNode.class,
-                        node(FilterNode.class,
-                                tableScan("orders"))));
-
-        String simpleJoinQuery = "SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey";
-        assertPlan(simpleJoinQuery,
-                any(
-                        any(
-                                node(JoinNode.class,
-                                        any(
-                                                tableScan("orders")),
-                                        any(
-                                                any(
-                                                        tableScan("lineitem")))))));
-
-        assertPlan(simpleJoinQuery,
+        assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey",
                 anyTree(
-                        node(JoinNode.class,
-                                anyTree(),
-                                anyTree())));
+                        join(INNER, ImmutableList.of(aliasPair("O", "L")),
+                                any(
+                                        tableScan("orders").withSymbol("orderkey", "O")),
+                                anyTree(
+                                        tableScan("lineitem").withSymbol("orderkey", "L")))));
+    }
 
-        assertPlan(simpleJoinQuery, anyTree(node(TableScanNode.class)));
-
+    @Test
+    public void testUncorrelatedSubqueries()
+    {
         assertPlan("SELECT * FROM orders WHERE orderkey = (SELECT orderkey FROM lineitem ORDER BY orderkey LIMIT 1)",
                 anyTree(
                         join(INNER, ImmutableList.of(aliasPair("X", "Y")),
@@ -146,24 +132,65 @@ public class TestLogicalPlanner
     public void testSameScalarSubqueryIsAppliedOnlyOnce()
     {
         // three subqueries with two duplicates, only two scalar joins should be in plan
-        Plan plan = plan("SELECT * FROM orders WHERE orderkey = (SELECT 1) AND custkey = (SELECT 2) AND custkey != (SELECT 1)");
+        Plan plan = plan(
+                "SELECT * FROM orders WHERE orderkey = (SELECT 1) AND custkey = (SELECT 2) AND custkey != (SELECT 1)",
+                LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED);
         PlanNodeExtractor planNodeExtractor = new PlanNodeExtractor(planNode -> planNode instanceof EnforceSingleRowNode);
         plan.getRoot().accept(planNodeExtractor, null);
         assertEquals(planNodeExtractor.getNodes().size(), 2);
     }
 
+    @Test
+    public void testCorrelatedSubqueries()
+    {
+        assertPlan(
+                "SELECT orderkey FROM orders WHERE 3 = (SELECT orderkey)",
+                LogicalPlanner.Stage.OPTIMIZED,
+                anyTree(
+                        filter("3 = X",
+                                apply(ImmutableList.of("X"),
+                                        tableScan("orders").withSymbol("orderkey", "X"),
+                                        node(EnforceSingleRowNode.class,
+                                                project(
+                                                        node(ValuesNode.class)
+                                                ))))));
+
+        // double nesting
+        assertPlan(
+                "SELECT orderkey FROM orders o " +
+                        "WHERE 3 IN (SELECT o.custkey FROM lineitem l WHERE (SELECT l.orderkey = o.orderkey))",
+                LogicalPlanner.Stage.OPTIMIZED,
+                anyTree(
+                        filter("3 IN (C)",
+                                apply(ImmutableList.of("C", "O"),
+                                        project(
+                                                tableScan("orders").withSymbol("orderkey", "O").withSymbol("custkey", "C")),
+                                        anyTree(
+                                                apply(ImmutableList.of("L"),
+                                                        tableScan("lineitem").withSymbol("orderkey", "L"),
+                                                        node(EnforceSingleRowNode.class,
+                                                                project(
+                                                                        node(ValuesNode.class)
+                                                                ))))))));
+    }
+
     private void assertPlan(String sql, PlanMatchPattern pattern)
     {
-        Plan actualPlan = plan(sql);
+        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern);
+    }
+
+    private void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern)
+    {
+        Plan actualPlan = plan(sql, stage);
         queryRunner.inTransaction(transactionSession -> {
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), actualPlan, pattern);
             return null;
         });
     }
 
-    private Plan plan(String sql)
+    private Plan plan(String sql, LogicalPlanner.Stage stage)
     {
-        return queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql));
+        return queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql, stage));
     }
 
     private static final class PlanNodeExtractor
