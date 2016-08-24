@@ -18,7 +18,6 @@ import org.skife.jdbi.v2.tweak.ResultSetMapper;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Objects;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 
@@ -60,28 +59,6 @@ public final class Table
     public OptionalLong getTemporalColumnId()
     {
         return temporalColumnId;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        Table table = (Table) o;
-        return tableId == table.tableId &&
-                Objects.equals(distributionId, table.distributionId) &&
-                Objects.equals(bucketCount, table.bucketCount) &&
-                Objects.equals(temporalColumnId, table.temporalColumnId);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(tableId, distributionId, bucketCount, temporalColumnId);
     }
 
     @Override

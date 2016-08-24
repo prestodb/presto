@@ -24,7 +24,6 @@ import javax.inject.Inject;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Objects;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -67,31 +66,11 @@ public class TableColumn
     }
 
     @Override
-    public int hashCode()
-    {
-        return Objects.hash(table, columnName, dataType);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (obj == this) {
-            return true;
-        }
-        if ((obj == null) || (getClass() != obj.getClass())) {
-            return false;
-        }
-        TableColumn o = (TableColumn) obj;
-        return Objects.equals(table, o.table) &&
-                Objects.equals(columnName, o.columnName) &&
-                Objects.equals(dataType, o.dataType);
-    }
-
-    @Override
     public String toString()
     {
         return toStringHelper(this)
                 .add("table", table)
+                .add("columnId", columnId)
                 .add("columnName", columnName)
                 .add("dataType", dataType)
                 .toString();
